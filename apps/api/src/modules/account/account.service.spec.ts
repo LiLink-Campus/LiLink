@@ -21,4 +21,191 @@ describe('AccountService', () => {
       service.setParticipation('user-1', { optIn: true }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('filters stale questionnaire answers down to the current questionnaire keys', async () => {
+    const service = new AccountService(
+      {
+        questionnaireResponse: {
+          findUnique: jest.fn().mockResolvedValue({
+            answers: {
+              current_question: 'kept',
+              removed_question: 'dropped',
+            },
+          }),
+        },
+        questionnaireVersion: {
+          findFirst: jest.fn().mockResolvedValue({
+            questions: [{ key: 'current_question' }],
+          }),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.getQuestionnaire('user-1')).resolves.toEqual({
+      answers: {
+        current_question: 'kept',
+      },
+    });
+  });
+
+  it('hides the latest match when the counterpart is blocked', async () => {
+    const service = new AccountService(
+      {
+        userProfile: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+        questionnaireResponse: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+        matchCycle: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+        matchParticipant: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'participant-1',
+              contactRequestedAt: null,
+              match: {
+                id: 'match-1',
+                score: 82,
+                reasons: ['reason'],
+                introducedAt: '2026-04-01T00:00:00.000Z',
+                reports: [],
+                participants: [
+                  {
+                    userId: 'user-1',
+                    contactRequestedAt: null,
+                    user: {
+                      email: 'user-1@example.com',
+                      displayName: 'User 1',
+                      profile: { headline: 'hello' },
+                      school: { name: 'School A' },
+                    },
+                  },
+                  {
+                    userId: 'user-2',
+                    contactRequestedAt: null,
+                    user: {
+                      email: 'user-2@example.com',
+                      displayName: 'User 2',
+                      profile: { headline: 'world' },
+                      school: { name: 'School B' },
+                    },
+                  },
+                ],
+              },
+            },
+          ]),
+        },
+        block: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              blockerId: 'user-1',
+              blockedId: 'user-2',
+            },
+          ]),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.getDashboard('user-1')).resolves.toMatchObject({
+      latestMatch: null,
+    });
+  });
+
+  it('queues introduction emails instead of rolling back the match state', async () => {
+    const createMany = jest.fn().mockResolvedValue({ count: 2 });
+    const queuedEmails = [
+      {
+        dedupeKey: 'match-introduction:match-1:requester',
+        recipientEmail: 'user-1@example.com',
+        subject: 'subject-1',
+        html: '<p>requester</p>',
+      },
+      {
+        dedupeKey: 'match-introduction:match-1:recipient',
+        recipientEmail: 'user-2@example.com',
+        subject: 'subject-2',
+        html: '<p>recipient</p>',
+      },
+    ];
+    const mailService = {
+      buildIntroductionEmails: jest.fn().mockReturnValue(queuedEmails),
+      flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
+    };
+    const prisma = {
+      matchParticipant: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'participant-1',
+          userId: 'user-1',
+          match: {
+            id: 'match-1',
+            introducedAt: null,
+            reasons: ['reason'],
+            participants: [
+              {
+                userId: 'user-1',
+                user: {
+                  email: 'user-1@example.com',
+                  displayName: 'User 1',
+                  profile: { headline: 'hello' },
+                  school: { name: 'School A' },
+                },
+              },
+              {
+                userId: 'user-2',
+                user: {
+                  email: 'user-2@example.com',
+                  displayName: 'User 2',
+                  profile: { headline: 'world' },
+                  school: { name: 'School B' },
+                },
+              },
+            ],
+          },
+        }),
+      },
+      block: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback({
+          match: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          matchParticipant: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          outboundEmail: {
+            createMany,
+          },
+        }),
+      ),
+    };
+    const service = new AccountService(
+      prisma as never,
+      mailService as never,
+      {} as never,
+    );
+
+    await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
+      ok: true,
+    });
+    expect(createMany).toHaveBeenCalledWith({
+      data: queuedEmails,
+    });
+    expect(mailService.flushQueuedEmails).toHaveBeenCalledWith({
+      dedupeKeys: [
+        'match-introduction:match-1:requester',
+        'match-introduction:match-1:recipient',
+      ],
+    });
+  });
 });

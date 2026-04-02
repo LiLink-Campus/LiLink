@@ -20,45 +20,100 @@ export class AccountService {
   ) {}
 
   async getDashboard(userId: string) {
-    const [profile, questionnaire, cycle, latestMatch] = await Promise.all([
-      this.prisma.userProfile.findUnique({
-        where: { userId },
-      }),
-      this.prisma.questionnaireResponse.findUnique({
-        where: { userId },
-      }),
-      this.prisma.matchCycle.findFirst({
-        where: { status: { in: ['OPEN', 'REVEAL_READY'] } },
-        orderBy: { revealAt: 'asc' },
-      }),
-      this.prisma.matchParticipant.findFirst({
-        where: { userId },
-        include: {
-          match: {
-            include: {
-              reports: {
-                where: { reporterId: userId },
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-              },
-              participants: {
-                include: {
-                  user: {
-                    include: {
-                      profile: true,
-                      school: true,
+    const [profile, questionnaire, cycle, recentMatchParticipants] =
+      await Promise.all([
+        this.prisma.userProfile.findUnique({
+          where: { userId },
+        }),
+        this.prisma.questionnaireResponse.findUnique({
+          where: { userId },
+        }),
+        this.prisma.matchCycle.findFirst({
+          where: { status: { in: ['OPEN', 'REVEAL_READY'] } },
+          orderBy: { revealAt: 'asc' },
+        }),
+        this.prisma.matchParticipant.findMany({
+          where: { userId },
+          include: {
+            match: {
+              include: {
+                reports: {
+                  where: { reporterId: userId },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+                participants: {
+                  include: {
+                    user: {
+                      include: {
+                        profile: true,
+                        school: true,
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      }),
-    ]);
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 5,
+        }),
+      ]);
+
+    const counterpartUserIds = recentMatchParticipants
+      .map((participant) =>
+        participant.match.participants.find((item) => item.userId !== userId),
+      )
+      .filter((participant): participant is NonNullable<typeof participant> =>
+        Boolean(participant),
+      )
+      .map((participant) => participant.userId);
+
+    const blockedCounterpartIds = new Set(
+      counterpartUserIds.length === 0
+        ? []
+        : (
+            await this.prisma.block.findMany({
+              where: {
+                OR: [
+                  {
+                    blockerId: userId,
+                    blockedId: {
+                      in: counterpartUserIds,
+                    },
+                  },
+                  {
+                    blockedId: userId,
+                    blockerId: {
+                      in: counterpartUserIds,
+                    },
+                  },
+                ],
+              },
+            })
+          ).map((block) =>
+            block.blockerId === userId ? block.blockedId : block.blockerId,
+          ),
+    );
+
+    const latestMatch =
+      recentMatchParticipants.find((participant) => {
+        const counterpart = participant.match.participants.find(
+          (item) => item.userId !== userId,
+        );
+
+        if (!counterpart) {
+          return false;
+        }
+
+        if (participant.match.reports.length > 0) {
+          return false;
+        }
+
+        return !blockedCounterpartIds.has(counterpart.userId);
+      }) ?? null;
 
     const participation =
       cycle &&
@@ -154,9 +209,39 @@ export class AccountService {
   }
 
   async getQuestionnaire(userId: string) {
-    return this.prisma.questionnaireResponse.findUnique({
-      where: { userId },
-    });
+    const [response, currentQuestionnaire] = await Promise.all([
+      this.prisma.questionnaireResponse.findUnique({
+        where: { userId },
+      }),
+      this.prisma.questionnaireVersion.findFirst({
+        where: { isCurrent: true },
+        select: {
+          questions: {
+            select: {
+              key: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    if (!response || !currentQuestionnaire) {
+      return response;
+    }
+
+    const allowedQuestionKeys = new Set(
+      currentQuestionnaire.questions.map((question) => question.key),
+    );
+    const filteredAnswers = Object.fromEntries(
+      Object.entries(
+        (response.answers ?? {}) as Record<string, unknown>,
+      ).filter(([key]) => allowedQuestionKeys.has(key)),
+    );
+
+    return {
+      ...response,
+      answers: filteredAnswers,
+    };
   }
 
   async setParticipation(userId: string, input: ToggleParticipationDto) {
@@ -244,11 +329,49 @@ export class AccountService {
       );
     }
 
+    const existingBlock = await this.prisma.block.findFirst({
+      where: {
+        OR: [
+          {
+            blockerId: userId,
+            blockedId: counterpart.userId,
+          },
+          {
+            blockerId: counterpart.userId,
+            blockedId: userId,
+          },
+        ],
+      },
+    });
+
+    if (existingBlock) {
+      throw new BadRequestException(
+        'This match is no longer available for introductions.',
+      );
+    }
+
     const requester = participant.match.participants.find(
       (item) => item.userId === userId,
     );
 
     const claimedAt = new Date();
+
+    const queuedEmails = this.mailService.buildIntroductionEmails({
+      matchId: participant.match.id,
+      requester: {
+        email: requester!.user.email,
+        displayName: requester!.user.displayName,
+        schoolName: requester!.user.school?.name ?? null,
+        headline: requester!.user.profile?.headline ?? null,
+      },
+      recipient: {
+        email: counterpart.user.email,
+        displayName: counterpart.user.displayName,
+        schoolName: counterpart.user.school?.name ?? null,
+        headline: counterpart.user.profile?.headline ?? null,
+      },
+      reasons: participant.match.reasons as string[],
+    });
 
     await this.prisma.$transaction(async (tx) => {
       const claimedMatch = await tx.match.updateMany({
@@ -276,55 +399,24 @@ export class AccountService {
           contactRequestedAt: claimedAt,
         },
       });
+
+      await tx.outboundEmail.createMany({
+        data: queuedEmails,
+      });
     });
 
-    try {
-      await this.mailService.sendIntroductionEmails({
-        requester: {
-          email: requester!.user.email,
-          displayName: requester!.user.displayName,
-          schoolName: requester!.user.school?.name ?? null,
-          headline: requester!.user.profile?.headline ?? null,
-        },
-        recipient: {
-          email: counterpart.user.email,
-          displayName: counterpart.user.displayName,
-          schoolName: counterpart.user.school?.name ?? null,
-          headline: counterpart.user.profile?.headline ?? null,
-        },
-        reasons: participant.match.reasons as string[],
-      });
-    } catch (error) {
-      await this.prisma.$transaction([
-        this.prisma.match.updateMany({
-          where: {
-            id: participant.match.id,
-            introducedAt: claimedAt,
-          },
-          data: {
-            introducedAt: null,
-          },
-        }),
-        this.prisma.matchParticipant.updateMany({
-          where: {
-            id: participant.id,
-            contactRequestedAt: claimedAt,
-          },
-          data: {
-            contactRequestedAt: null,
-          },
-        }),
-      ]);
-
-      throw error;
-    }
+    void this.mailService.flushQueuedEmails({
+      dedupeKeys: queuedEmails.map((email) => email.dedupeKey),
+    });
 
     await this.createAuditLog(userId, 'match.contact_requested', {
       matchId: participant.match.id,
       counterpartUserId: counterpart.userId,
     });
 
-    return { ok: true };
+    return {
+      ok: true,
+    };
   }
 
   async reportMatch(userId: string, matchId: string, input: ReportMatchDto) {

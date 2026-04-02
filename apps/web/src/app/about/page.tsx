@@ -8,6 +8,9 @@ export default function AboutPage() {
           <p className="eyebrow">About LiLink</p>
           <h1>与其无数次擦肩，不如一次认真的匹配。</h1>
           <p>{"LiLink 是面向黎安国际教育创新区的匹配平台。基于心理学量表设计的深度问卷，结合算法，每周为用户匹配一个在核心价值观、生活方式与情感风格上真正契合的人。"}</p>
+          <p>
+            平台不向用户收费，以公益为导向服务园区社区；若你愿意支持可持续运营，也欢迎赞助。
+          </p>
         </div>
       </section>
 

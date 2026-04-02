@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
     root: currentDirectory,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   experimental: {
     cpus: 1,

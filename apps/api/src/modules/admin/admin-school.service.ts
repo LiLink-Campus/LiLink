@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateSchoolDto, ListSchoolsQueryDto, UpdateSchoolDto } from './dto';
 import { AdminAuditService } from './admin-audit.service';
@@ -69,9 +73,7 @@ export class AdminSchoolService {
   }
 
   async create(input: CreateSchoolDto, adminActorId: string) {
-    const normalizedDomains = input.domains
-      .map((domain) => domain.trim().toLowerCase())
-      .filter(Boolean);
+    const normalizedDomains = this.normalizeDomains(input.domains);
 
     const school = await this.prisma.school.create({
       data: {
@@ -104,24 +106,24 @@ export class AdminSchoolService {
       throw new NotFoundException('School not found.');
     }
 
-    await this.prisma.schoolDomain.deleteMany({
-      where: { schoolId },
-    });
+    const normalizedDomains = this.normalizeDomains(input.domains);
 
-    const normalizedDomains = input.domains
-      .map((domain) => domain.trim().toLowerCase())
-      .filter(Boolean);
+    const updatedSchool = await this.prisma.$transaction(async (tx) => {
+      await tx.schoolDomain.deleteMany({
+        where: { schoolId },
+      });
 
-    const updatedSchool = await this.prisma.school.update({
-      where: { id: schoolId },
-      data: {
-        name: input.name,
-        description: input.description,
-        domains: {
-          create: normalizedDomains.map((domain) => ({ domain })),
+      return tx.school.update({
+        where: { id: schoolId },
+        data: {
+          name: input.name,
+          description: input.description,
+          domains: {
+            create: normalizedDomains.map((domain) => ({ domain })),
+          },
         },
-      },
-      include: { domains: true },
+        include: { domains: true },
+      });
     });
 
     await this.adminAuditService.write(adminActorId, 'school.updated', {
@@ -152,6 +154,20 @@ export class AdminSchoolService {
 
   private hasListQuery(query: ListSchoolsQueryDto) {
     return Boolean(query.page || query.pageSize || query.search);
+  }
+
+  private normalizeDomains(rawDomains: string[]) {
+    const normalizedDomains = rawDomains
+      .map((domain) => domain.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (normalizedDomains.length === 0) {
+      throw new BadRequestException(
+        'At least one valid email domain is required.',
+      );
+    }
+
+    return [...new Set(normalizedDomains)];
   }
 
   private normalizePagination(query: { page?: number; pageSize?: number }) {

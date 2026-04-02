@@ -650,7 +650,9 @@ export default function AdminCyclesPage() {
             <div className="admin-inline-metrics">
               <div>
                 <span>候选组合</span>
-                <strong>{cyclePreview.candidates.length}</strong>
+                <strong>
+                  {cyclePreview.totalCandidateCount ?? cyclePreview.candidates.length}
+                </strong>
               </div>
               <div>
                 <span>建议匹配</span>

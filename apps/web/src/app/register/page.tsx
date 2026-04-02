@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
 
 type CodeResponse = {
@@ -33,6 +33,12 @@ export default function RegisterPage() {
   const [devCode, setDevCode] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [canRevealDevCode, setCanRevealDevCode] = useState(false);
+
+  useEffect(() => {
+    const localhostHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+    setCanRevealDevCode(localhostHosts.has(window.location.hostname));
+  }, []);
 
   async function resolveSchool(candidateEmail: string) {
     if (!candidateEmail.includes("@")) {
@@ -142,7 +148,7 @@ export default function RegisterPage() {
               <span>已发送到</span>
               <strong>{email}</strong>
             </div>
-            {devCode ? (
+            {canRevealDevCode && devCode ? (
               <p className="dev-note">开发环境验证码：{devCode}</p>
             ) : null}
             <label>

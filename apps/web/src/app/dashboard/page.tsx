@@ -66,6 +66,21 @@ type SavedQuestionnairePayload = {
   answers: Record<string, unknown>;
 } | null;
 
+function keepCurrentQuestionAnswers(
+  questions: Question[],
+  savedAnswers: Record<string, unknown> | undefined,
+) {
+  if (!savedAnswers) {
+    return {};
+  }
+
+  const allowedQuestionKeys = new Set(questions.map((question) => question.key));
+
+  return Object.fromEntries(
+    Object.entries(savedAnswers).filter(([key]) => allowedQuestionKeys.has(key)),
+  );
+}
+
 function splitCsv(value: string) {
   return value
     .split(",")
@@ -121,7 +136,9 @@ export default function DashboardPage() {
         setUser(me);
         setDashboard(dashboardData);
         setQuestions(questionnaire.questions);
-        setAnswers(savedQuestionnaire?.answers ?? {});
+        setAnswers(
+          keepCurrentQuestionAnswers(questionnaire.questions, savedQuestionnaire?.answers),
+        );
         setProfileForm({
           fullName: dashboardData.profile?.fullName ?? "",
           headline: dashboardData.profile?.headline ?? "",
@@ -300,7 +317,7 @@ export default function DashboardPage() {
         method: "POST",
         body: JSON.stringify({
           reason: reportReason,
-          details: reportDetails,
+          ...(reportDetails.trim() ? { details: reportDetails.trim() } : {}),
         }),
       });
       setDashboard((current) =>
@@ -315,6 +332,7 @@ export default function DashboardPage() {
           : current,
       );
       setReportOpen(false);
+      setReportDetails("");
       setSavedMessage("举报已提交，系统已将该对象从你后续轮次里隔离。");
     } catch (caughtError) {
       setError(
@@ -363,20 +381,11 @@ export default function DashboardPage() {
         {error ? <p className="form-error">{error}</p> : null}
       </section>
 
-      <section className="dashboard-grid">
+      <section className="dashboard-shell">
         <article className="content-panel">
           <p className="eyebrow">Current cycle</p>
           <h2>{dashboard?.currentCycle?.codename ?? "暂无开放轮次"}</h2>
-          <p>
-            揭晓时间：
-            {dashboard?.currentCycle
-              ? new Intl.DateTimeFormat("zh-CN", {
-                  dateStyle: "long",
-                  timeStyle: "short",
-                  timeZone: "Asia/Shanghai",
-                }).format(new Date(dashboard.currentCycle.revealAt))
-              : "待配置"}
-          </p>
+          <p>揭晓时间：{dashboard?.currentCycle ? new Intl.DateTimeFormat("zh-CN", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Shanghai" }).format(new Date(dashboard.currentCycle.revealAt)) : "待配置"}</p>
           {dashboard?.currentCycle ? (
             <div className="dashboard-inline">
               <span>
@@ -486,7 +495,7 @@ export default function DashboardPage() {
         </article>
       </section>
 
-      <section className="dashboard-grid">
+      <section className="dashboard-shell">
         <article className="content-panel">
           <p className="eyebrow">Profile</p>
           <h2>资料</h2>

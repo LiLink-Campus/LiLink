@@ -41,19 +41,5 @@ export type LandingPayload = {
 };
 
 export async function getLandingPayload() {
-  try {
-    return await fetchApi<LandingPayload>("/public/landing");
-  } catch {
-    return {
-      brand: "LiLink",
-      tagline: "在黎安，遇见真正同频的人。",
-      stats: {
-        registeredUsers: 0,
-        completedQuestionnaires: 0,
-        matchesDelivered: 0,
-      },
-      currentCycle: null,
-    } satisfies LandingPayload;
-  }
+  return fetchApi<LandingPayload>("/public/landing");
 }
-

@@ -14,7 +14,7 @@ function formatDateLabel(value: string | null) {
 }
 
 export default async function Home() {
-  const landing = await getLandingPayload();
+  const landing = await getLandingPayload().catch(() => null);
 
   return (
     <main>
@@ -47,30 +47,36 @@ export default async function Home() {
             </Link>
           </div>
           <div className="hero-meta">
-            <span>下次揭晓</span>
-            <strong>{formatDateLabel(landing.currentCycle?.revealAt ?? null)}</strong>
+            <span>{landing ? "下次揭晓" : "状态提醒"}</span>
+            <strong>
+              {landing
+                ? formatDateLabel(landing.currentCycle?.revealAt ?? null)
+                : "平台数据暂时不可用"}
+            </strong>
           </div>
         </div>
 
         <div className="hero-card">
           <small>LiLink weekly reveal</small>
-          <strong>{landing.tagline}</strong>
-          <p>{"园区限定、学校白名单、每周一个轮次。把相遇从高频刷屏，拉回到节制与期待。"}</p>
+          <strong>{landing?.tagline ?? "当前无法连接平台数据接口。"}</strong>
+          <p>{landing
+              ? "园区限定、学校白名单、每周一个轮次。把相遇从高频刷屏，拉回到节制与期待。"
+              : "请稍后重试。如果这是部署环境，请检查前端 API 地址、后端服务和跨域配置。"}</p>
         </div>
       </section>
 
       <section className="stats-strip">
         <div>
           <span>注册用户</span>
-          <strong>{landing.stats.registeredUsers}+</strong>
+          <strong>{landing ? `${landing.stats.registeredUsers}+` : "—"}</strong>
         </div>
         <div>
           <span>已完成问卷</span>
-          <strong>{landing.stats.completedQuestionnaires}</strong>
+          <strong>{landing?.stats.completedQuestionnaires ?? "—"}</strong>
         </div>
         <div>
           <span>已送出匹配</span>
-          <strong>{landing.stats.matchesDelivered}</strong>
+          <strong>{landing?.stats.matchesDelivered ?? "—"}</strong>
         </div>
       </section>
 
@@ -111,9 +117,7 @@ export default async function Home() {
             <br />
             我们选择后者
           </h2>
-          <p>
-{"提高配对率或许只需算法的让步，但我们更希望认真对待每一份期待。在黎安，同一园区的自然流动不需要噱头。无论同校还是跨校，重要的是让每一个「匹配成功」都真正具备心动的可能。"}
-          </p>
+          <p>提高配对率或许只需算法的让步，但我们更希望认真对待每一份期待。在黎安，同一园区的自然流动不需要噱头。无论同校还是跨校，重要的是让每一个「匹配成功」都真正具备心动的可能。</p>
         </div>
       </section>
     </main>

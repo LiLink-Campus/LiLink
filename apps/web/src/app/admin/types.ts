@@ -161,6 +161,7 @@ export type AdminCycleDetail = {
 export type AdminCyclePreview = {
   cycleId: string;
   message?: string;
+  totalCandidateCount?: number;
   candidates: Array<{
     leftUserId: string;
     rightUserId: string;

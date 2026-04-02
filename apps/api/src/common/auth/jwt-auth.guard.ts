@@ -28,16 +28,8 @@ export class JwtAuthGuard implements CanActivate {
 
     const cookies = request.cookies as Record<string, unknown> | undefined;
     const rawCookieToken = cookies?.[env.COOKIE_NAME];
-    const cookieToken =
+    const token =
       typeof rawCookieToken === 'string' ? rawCookieToken : undefined;
-    const authHeader =
-      typeof request.headers.authorization === 'string'
-        ? request.headers.authorization
-        : undefined;
-    const bearerToken = authHeader?.startsWith('Bearer ')
-      ? authHeader.slice(7)
-      : undefined;
-    const token = cookieToken ?? bearerToken;
 
     if (!token) {
       throw new UnauthorizedException('Authentication token is required.');

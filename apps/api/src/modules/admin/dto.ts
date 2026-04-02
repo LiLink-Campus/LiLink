@@ -75,6 +75,8 @@ export class CreateSchoolDto {
   description?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
   domains!: string[];
 }
 
@@ -87,6 +89,7 @@ export class UpdateSchoolDto {
   description?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @IsString({ each: true })
   domains!: string[];
 }

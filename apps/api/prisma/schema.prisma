@@ -43,6 +43,14 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum OutboundEmailStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  EXHAUSTED
+}
+
 model AdminOperator {
   id          String     @id @default(cuid())
   email       String     @unique
@@ -287,4 +295,23 @@ model AuditLog {
   @@index([action, createdAt])
   @@index([actorId, createdAt])
   @@index([adminActorId, createdAt])
+}
+
+model OutboundEmail {
+  id             String              @id @default(cuid())
+  dedupeKey      String              @unique
+  recipientEmail String
+  subject        String
+  html           String
+  status         OutboundEmailStatus @default(PENDING)
+  attempts       Int                 @default(0)
+  maxAttempts    Int                 @default(5)
+  lastAttemptAt  DateTime?
+  nextAttemptAt  DateTime?
+  sentAt         DateTime?
+  errorMessage   String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([status, nextAttemptAt, createdAt])
 }

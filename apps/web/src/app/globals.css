@@ -731,6 +731,8 @@ ul {
 .content-panel ul {
   color: var(--fg-secondary);
   line-height: 1.8;
+  list-style-type: disc;
+  padding-left: 1.5rem;
 }
 
 .content-panel ul li + li {
@@ -869,14 +871,8 @@ ul {
 .dashboard-shell {
   display: grid;
   gap: 1.25rem;
-  max-width: 72rem;
+  max-width: 56rem;
   margin: 0 auto;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.25rem;
 }
 
 .dashboard-inline {
@@ -1021,11 +1017,12 @@ ul {
 /* ── Match Display ───────────────────────────────── */
 
 .reason-list {
-  padding-left: 1.1rem;
+  padding-left: 1.5rem;
   margin: 0.75rem 0;
   color: var(--fg-secondary);
   line-height: 1.8;
   font-size: 0.95rem;
+  list-style-type: disc;
 }
 
 .report-form {
@@ -1586,7 +1583,6 @@ ul {
   }
 
   .story-grid,
-  .dashboard-grid,
   .form-grid,
   .user-meta-grid,
   .about-grid {
@@ -2157,13 +2153,16 @@ ul {
 .admin-answer-list > div,
 .admin-question-preview-card ul {
   margin: 0;
+  list-style-type: disc;
+  padding-left: 1.5rem;
 }
 
 .admin-reason-list {
   margin: 0.7rem 0 0;
-  padding-left: 1.1rem;
+  padding-left: 1.5rem;
   color: var(--fg-secondary);
   line-height: 1.7;
+  list-style-type: disc;
 }
 
 .admin-answer-list > div {

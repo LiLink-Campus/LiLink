@@ -234,6 +234,7 @@ export class CyclesService {
 
     return {
       cycleId,
+      totalCandidateCount: candidates.length,
       candidates: candidates.slice(0, 20).map((pair) => ({
         leftUserId: pair.left.id,
         rightUserId: pair.right.id,

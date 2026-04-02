@@ -9,7 +9,9 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -66,14 +68,17 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   languages?: string[];
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   interests?: string[];
 
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   interestedIn?: string[];
 }
 
@@ -92,6 +97,15 @@ export class ReportMatchDto {
   reason!: '骚扰' | '冒犯内容' | '身份异常' | '恶意行为' | '其他';
 
   @IsOptional()
+  @Transform(({ value }: { value: unknown }) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const trimmedValue = value.trim();
+    return trimmedValue.length > 0 ? trimmedValue : undefined;
+  })
+  @ValidateIf((_, value) => value !== undefined)
   @IsString()
   @MinLength(2)
   details?: string;

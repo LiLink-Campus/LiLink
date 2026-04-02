@@ -1,11 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import nodemailer from 'nodemailer';
 import { env } from '../../config/env';
+import { PrismaService } from '../prisma/prisma.service';
+
+type IntroductionEmailInput = {
+  matchId: string;
+  requester: {
+    email: string;
+    displayName: string | null;
+    schoolName?: string | null;
+    headline?: string | null;
+  };
+  recipient: {
+    email: string;
+    displayName: string | null;
+    schoolName?: string | null;
+    headline?: string | null;
+  };
+  reasons: string[];
+};
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
+  private isFlushing = false;
 
+  constructor(private readonly prisma: PrismaService) {}
   private readonly transporter = nodemailer.createTransport({
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
@@ -33,31 +54,17 @@ export class MailService {
     }
   }
 
-  async sendIntroductionEmails(input: {
-    requester: {
-      email: string;
-      displayName: string | null;
-      schoolName?: string | null;
-      headline?: string | null;
-    };
-    recipient: {
-      email: string;
-      displayName: string | null;
-      schoolName?: string | null;
-      headline?: string | null;
-    };
-    reasons: string[];
-  }) {
+  buildIntroductionEmails(input: IntroductionEmailInput) {
     const requesterName = input.requester.displayName ?? 'LiLink 用户';
     const recipientName = input.recipient.displayName ?? 'LiLink 用户';
     const reasons = input.reasons
       .map((reason) => `<li>${reason}</li>`)
       .join('');
 
-    await Promise.all([
-      this.transporter.sendMail({
-        from: env.SMTP_FROM,
-        to: input.requester.email,
+    return [
+      {
+        dedupeKey: `match-introduction:${input.matchId}:requester`,
+        recipientEmail: input.requester.email,
         subject: `LiLink 已为你引荐 ${recipientName}`,
         html: `
           <p>你已成功请求联系 <strong>${recipientName}</strong>。</p>
@@ -67,10 +74,10 @@ export class MailService {
           <p>本次匹配理由：</p>
           <ul>${reasons}</ul>
         `,
-      }),
-      this.transporter.sendMail({
-        from: env.SMTP_FROM,
-        to: input.recipient.email,
+      },
+      {
+        dedupeKey: `match-introduction:${input.matchId}:recipient`,
+        recipientEmail: input.recipient.email,
         subject: `LiLink 已为你引荐 ${requesterName}`,
         html: `
           <p><strong>${requesterName}</strong> 请求与你建立联系。</p>
@@ -80,7 +87,133 @@ export class MailService {
           <p>本次匹配理由：</p>
           <ul>${reasons}</ul>
         `,
-      }),
-    ]);
+      },
+    ];
+  }
+
+  @Cron(CronExpression.EVERY_30_SECONDS, {
+    name: 'outbound-email-flush',
+    waitForCompletion: true,
+  })
+  async handleEmailQueue() {
+    await this.flushQueuedEmails();
+  }
+
+  async flushQueuedEmails(
+    options: { dedupeKeys?: string[]; limit?: number } = {},
+  ) {
+    if (this.isFlushing) {
+      return;
+    }
+
+    this.isFlushing = true;
+
+    try {
+      const now = new Date();
+      const staleProcessingThreshold = new Date(now.getTime() - 10 * 60 * 1000);
+      const queuedEmails = await this.prisma.outboundEmail.findMany({
+        where: {
+          ...(options.dedupeKeys
+            ? {
+                dedupeKey: {
+                  in: options.dedupeKeys,
+                },
+              }
+            : {}),
+          OR: [
+            { status: 'PENDING' },
+            {
+              status: 'FAILED',
+              nextAttemptAt: { lte: now },
+            },
+            {
+              status: 'PROCESSING',
+              lastAttemptAt: { lt: staleProcessingThreshold },
+            },
+          ],
+        },
+        orderBy: { createdAt: 'asc' },
+        take: options.dedupeKeys?.length ?? options.limit ?? 10,
+      });
+
+      for (const queuedEmail of queuedEmails) {
+        await this.processOutboundEmail(queuedEmail);
+      }
+    } finally {
+      this.isFlushing = false;
+    }
+  }
+
+  private async processOutboundEmail(email: {
+    id: string;
+    dedupeKey: string;
+    recipientEmail: string;
+    subject: string;
+    html: string;
+    status: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'EXHAUSTED';
+    attempts: number;
+    maxAttempts: number;
+  }) {
+    const claimedAt = new Date();
+    const claimResult = await this.prisma.outboundEmail.updateMany({
+      where: {
+        id: email.id,
+        status: {
+          in: ['PENDING', 'FAILED', 'PROCESSING'],
+        },
+      },
+      data: {
+        status: 'PROCESSING',
+        attempts: { increment: 1 },
+        lastAttemptAt: claimedAt,
+        errorMessage: null,
+      },
+    });
+
+    if (claimResult.count === 0) {
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: env.SMTP_FROM,
+        to: email.recipientEmail,
+        subject: email.subject,
+        html: email.html,
+      });
+
+      await this.prisma.outboundEmail.update({
+        where: { id: email.id },
+        data: {
+          status: 'SENT',
+          sentAt: new Date(),
+          nextAttemptAt: null,
+          errorMessage: null,
+        },
+      });
+    } catch (error) {
+      const nextAttemptNumber = email.attempts + 1;
+      const exhausted = nextAttemptNumber >= email.maxAttempts;
+      const nextAttemptAt = exhausted
+        ? null
+        : new Date(Date.now() + nextAttemptNumber * 60 * 1000);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Unknown email delivery error.';
+
+      await this.prisma.outboundEmail.update({
+        where: { id: email.id },
+        data: {
+          status: exhausted ? 'EXHAUSTED' : 'FAILED',
+          nextAttemptAt,
+          errorMessage,
+        },
+      });
+
+      this.logger.warn(
+        `Email delivery failed for ${email.dedupeKey}: ${errorMessage}`,
+      );
+    }
   }
 }

@@ -128,11 +128,7 @@ export default function AdminOverviewPage() {
               <div key={report.id} className="admin-mini-list-item">
                 <div>
                   <strong>{report.reason}</strong>
-                  <p>
-                    {report.reporter.displayName ?? report.reporter.email}
-                    {" → "}
-                    {report.reportedUser.displayName ?? report.reportedUser.email}
-                  </p>
+                  <p>{report.reporter.displayName ?? report.reporter.email} {" → "} {report.reportedUser.displayName ?? report.reportedUser.email}</p>
                 </div>
                 <span className="domain-chip">{formatDateTime(report.createdAt)}</span>
               </div>

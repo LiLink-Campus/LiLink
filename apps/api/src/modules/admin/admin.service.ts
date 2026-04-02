@@ -116,6 +116,7 @@ export class AdminService {
       schools,
       recentCycles,
       openReports,
+      openReportCount,
       activeUsers,
       completedQuestionnaires,
     ] = await Promise.all([
@@ -149,6 +150,9 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
         take: 10,
       }),
+      this.prisma.report.count({
+        where: { status: 'OPEN' },
+      }),
       this.prisma.user.count({
         where: { status: 'ACTIVE' },
       }),
@@ -164,7 +168,7 @@ export class AdminService {
         schools,
         activeUsers,
         completedQuestionnaires,
-        openReports: openReports.length,
+        openReports: openReportCount,
       },
       recentCycles,
       openReports,
@@ -312,45 +316,61 @@ export class AdminService {
 
     const pagination = this.normalizePagination(query);
     const search = query.search?.trim();
-    const where = {
-      ...(query.status ? { status: query.status } : {}),
-      ...(query.questionnaire === 'submitted'
-        ? { questionnaireResponse: { is: { submittedAt: { not: null } } } }
-        : {}),
-      ...(query.questionnaire === 'missing'
-        ? { questionnaireResponse: { is: null } }
-        : {}),
-      ...(search
-        ? {
-            OR: [
-              { email: { contains: search, mode: 'insensitive' as const } },
-              {
-                displayName: { contains: search, mode: 'insensitive' as const },
-              },
-              {
-                profile: {
-                  is: {
-                    fullName: {
-                      contains: search,
-                      mode: 'insensitive' as const,
-                    },
-                  },
+    const whereClauses: Prisma.UserWhereInput[] = [];
+
+    if (query.status) {
+      whereClauses.push({ status: query.status });
+    }
+
+    if (query.questionnaire === 'submitted') {
+      whereClauses.push({
+        questionnaireResponse: {
+          is: { submittedAt: { not: null } },
+        },
+      });
+    }
+
+    if (query.questionnaire === 'missing') {
+      whereClauses.push({
+        OR: [
+          { questionnaireResponse: { is: null } },
+          { questionnaireResponse: { is: { submittedAt: null } } },
+        ],
+      });
+    }
+
+    if (search) {
+      whereClauses.push({
+        OR: [
+          { email: { contains: search, mode: 'insensitive' } },
+          {
+            displayName: { contains: search, mode: 'insensitive' },
+          },
+          {
+            profile: {
+              is: {
+                fullName: {
+                  contains: search,
+                  mode: 'insensitive',
                 },
               },
-              {
-                school: {
-                  is: {
-                    name: {
-                      contains: search,
-                      mode: 'insensitive' as const,
-                    },
-                  },
+            },
+          },
+          {
+            school: {
+              is: {
+                name: {
+                  contains: search,
+                  mode: 'insensitive',
                 },
               },
-            ],
-          }
-        : {}),
-    };
+            },
+          },
+        ],
+      });
+    }
+
+    const where = whereClauses.length > 0 ? { AND: whereClauses } : undefined;
 
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({

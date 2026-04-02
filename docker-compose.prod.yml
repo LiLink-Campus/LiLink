@@ -32,10 +32,12 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
       COOKIE_NAME: lilink_token
+      ADMIN_COOKIE_NAME: ${ADMIN_COOKIE_NAME}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN}
       ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
@@ -53,6 +55,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

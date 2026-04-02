@@ -278,11 +278,7 @@ export default function AdminReportsPage() {
                       <strong>{report.reason}</strong>
                       <span className="domain-chip">{report.status}</span>
                     </div>
-                    <p>
-                      {report.reporter.displayName ?? report.reporter.email}
-                      {" → "}
-                      {report.reportedUser.displayName ?? report.reportedUser.email}
-                    </p>
+                    <p>{report.reporter.displayName ?? report.reporter.email} {" → "} {report.reportedUser.displayName ?? report.reportedUser.email}</p>
                     <div className="admin-inline-meta">
                       <span>{formatDateTime(report.createdAt)}</span>
                       <span>{report.createdBlock ? "已自动互相拉黑" : "未自动拉黑"}</span>
@@ -362,19 +358,9 @@ export default function AdminReportsPage() {
                   <h3>关联 Match 视角</h3>
                   {reportContext.report.match ? (
                     <>
-                      <p>
-                        参与者：
-                        {reportContext.report.match.participants
-                          .map((participant) => participant.user.displayName ?? participant.user.email)
-                          .join(" × ")}
-                      </p>
+                      <p>参与者：{reportContext.report.match.participants.map((participant) => participant.user.displayName ?? participant.user.email).join(" × ")}</p>
                       <p>当前 match 举报数：{reportContext.report.match.reports.length}</p>
-                      <p>
-                        引荐状态：
-                        {reportContext.report.match.introducedAt
-                          ? formatDateTime(reportContext.report.match.introducedAt)
-                          : "未引荐"}
-                      </p>
+                      <p>引荐状态：{reportContext.report.match.introducedAt ? formatDateTime(reportContext.report.match.introducedAt) : "未引荐"}</p>
                     </>
                   ) : (
                     <p>该举报没有关联到具体 match。</p>

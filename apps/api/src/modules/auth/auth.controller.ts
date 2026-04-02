@@ -31,8 +31,8 @@ export class AuthController {
     @Body() body: RegisterDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const payload = await this.authService.register(body);
-    this.attachAuthCookie(response, payload.token);
+    const { token, ...payload } = await this.authService.register(body);
+    this.attachAuthCookie(response, token);
     return payload;
   }
 
@@ -42,8 +42,8 @@ export class AuthController {
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const payload = await this.authService.login(body);
-    this.attachAuthCookie(response, payload.token);
+    const { token, ...payload } = await this.authService.login(body);
+    this.attachAuthCookie(response, token);
     return payload;
   }
 

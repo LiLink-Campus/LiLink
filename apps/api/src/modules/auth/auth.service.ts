@@ -10,8 +10,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
 import { allowedEmailDomains, env } from '../../config/env';
-import { LoginDto, RegisterDto } from './dto';
-
+import { RegisterDto, LoginDto } from './dto';
 @Injectable()
 export class AuthService {
   constructor(
@@ -23,7 +22,7 @@ export class AuthService {
 
   async requestCode(email: string) {
     const normalizedEmail = email.trim().toLowerCase();
-    const domain = normalizedEmail.split('@')[1];
+    const domain = normalizedEmail.split('@')[1] ?? '';
 
     await this.assertEmailDomainAllowed(domain);
 
@@ -49,12 +48,16 @@ export class AuthService {
       email: normalizedEmail,
       expiresAt,
       school,
-      devCode: env.APP_ENV === 'production' ? undefined : code,
+      devCode: env.APP_ENV === 'development' ? code : undefined,
     };
   }
 
   async register(input: RegisterDto) {
     const normalizedEmail = input.email.trim().toLowerCase();
+    const domain = normalizedEmail.split('@')[1] ?? '';
+
+    await this.assertEmailDomainAllowed(domain);
+
     const school =
       await this.schoolResolverService.resolveByEmail(normalizedEmail);
 
@@ -128,8 +131,12 @@ export class AuthService {
       throw new UnauthorizedException('Email or password is incorrect.');
     }
 
-    if (user.status === 'SUSPENDED') {
-      throw new UnauthorizedException('Account has been suspended.');
+    if (user.status !== 'ACTIVE') {
+      if (user.status === 'SUSPENDED') {
+        throw new UnauthorizedException('Account has been suspended.');
+      }
+
+      throw new UnauthorizedException('Account is not active yet.');
     }
 
     const isValidPassword = await argon2.verify(
