@@ -16,7 +16,6 @@ const QUESTION_TYPE_LABELS: Record<AdminQuestion["type"], string> = {
   SINGLE_SELECT: "单选",
   MULTI_SELECT: "多选",
   SCALE: "量表",
-  SHORT_TEXT: "文本",
 };
 
 function createEmptyQuestion() {
@@ -38,8 +37,12 @@ export default function AdminQuestionnairePage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"ALL" | AdminQuestion["type"]>("ALL");
-  const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<"ALL" | AdminQuestion["type"]>(
+    "ALL",
+  );
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(
+    null,
+  );
   const [form, setForm] = useState(createEmptyQuestion);
 
   const loadQuestionnaire = useCallback(async () => {
@@ -52,7 +55,9 @@ export default function AdminQuestionnairePage() {
     setError(null);
 
     try {
-      const payload = await fetchApi<QuestionnairePayload>("/admin/questionnaire");
+      const payload = await fetchApi<QuestionnairePayload>(
+        "/admin/questionnaire",
+      );
       setQuestions(payload.questions ?? []);
     } catch (caughtError) {
       setError(
@@ -95,12 +100,17 @@ export default function AdminQuestionnairePage() {
       return;
     }
 
-    if (!selectedQuestionId || !sortedQuestions.some((question) => question.id === selectedQuestionId)) {
+    if (
+      !selectedQuestionId ||
+      !sortedQuestions.some((question) => question.id === selectedQuestionId)
+    ) {
       setSelectedQuestionId(sortedQuestions[0].id);
     }
   }, [sortedQuestions, selectedQuestionId]);
 
-  const selectedQuestion = sortedQuestions.find((question) => question.id === selectedQuestionId) ?? null;
+  const selectedQuestion =
+    sortedQuestions.find((question) => question.id === selectedQuestionId) ??
+    null;
 
   useEffect(() => {
     if (!selectedQuestion) {
@@ -112,7 +122,9 @@ export default function AdminQuestionnairePage() {
       key: selectedQuestion.key,
       prompt: selectedQuestion.prompt,
       type: selectedQuestion.type,
-      options: Array.isArray(selectedQuestion.options) ? [...selectedQuestion.options] : ["", ""],
+      options: Array.isArray(selectedQuestion.options)
+        ? [...selectedQuestion.options]
+        : ["", ""],
       order: selectedQuestion.order,
       weight: selectedQuestion.weight,
     });
@@ -133,7 +145,9 @@ export default function AdminQuestionnairePage() {
       key: `${question.key}_copy`,
       prompt: question.prompt,
       type: question.type,
-      options: Array.isArray(question.options) ? [...question.options] : ["", ""],
+      options: Array.isArray(question.options)
+        ? [...question.options]
+        : ["", ""],
       order: sortedQuestions.length + 1,
       weight: question.weight,
     });
@@ -165,9 +179,14 @@ export default function AdminQuestionnairePage() {
       .sort((left, right) => left.order - right.order)
       .map((question) => question.id);
     const currentIndex = orderedIds.indexOf(questionId);
-    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    const targetIndex =
+      direction === "up" ? currentIndex - 1 : currentIndex + 1;
 
-    if (currentIndex === -1 || targetIndex < 0 || targetIndex >= orderedIds.length) {
+    if (
+      currentIndex === -1 ||
+      targetIndex < 0 ||
+      targetIndex >= orderedIds.length
+    ) {
       return;
     }
 
@@ -196,10 +215,11 @@ export default function AdminQuestionnairePage() {
     setPending("save");
     setError(null);
 
-    const cleanOptions = form.options.map((option) => option.trim()).filter(Boolean);
-    const requiresOptions = form.type !== "SHORT_TEXT";
+    const cleanOptions = form.options
+      .map((option) => option.trim())
+      .filter(Boolean);
 
-    if (requiresOptions && cleanOptions.length < 2) {
+    if (cleanOptions.length < 2) {
       setError("可选题至少需要两个选项。");
       setPending(null);
       return;
@@ -213,7 +233,7 @@ export default function AdminQuestionnairePage() {
           key: form.key,
           prompt: form.prompt,
           type: form.type,
-          options: requiresOptions ? cleanOptions : undefined,
+          options: cleanOptions,
           order: form.order,
           weight: form.weight,
         }),
@@ -251,20 +271,42 @@ export default function AdminQuestionnairePage() {
   }
 
   return (
-    <div className="admin-page admin-page-stack">
-      <div className="admin-page-header">
+    <div
+      className="admin-page admin-page-stack"
+      style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}
+    >
+      <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
         <div>
-          <h1>问卷构建器</h1>
-          <p>把题目列表、编辑器和预览放在同一个工作区里，减少来回切换。</p>
+          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>
+            问卷构建器
+          </h1>
+          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>
+            把题目列表、编辑器和预览放在同一个工作区里，减少来回切换。
+          </p>
         </div>
         <div className="auth-actions">
-          <button className="button-secondary" onClick={resetForm} type="button">
+          <button
+            className="button-secondary"
+            onClick={resetForm}
+            type="button"
+            style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}
+          >
             新建题目
           </button>
-          <button className="button-secondary" onClick={() => void loadQuestionnaire()} type="button">
+          <button
+            className="button-secondary"
+            onClick={() => void loadQuestionnaire()}
+            type="button"
+            style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}
+          >
             刷新
           </button>
-          <button className="button-secondary" onClick={exportQuestions} type="button">
+          <button
+            className="button-secondary"
+            onClick={exportQuestions}
+            type="button"
+            style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}
+          >
             导出 JSON
           </button>
         </div>
@@ -276,7 +318,7 @@ export default function AdminQuestionnairePage() {
         <article className="content-panel admin-list-panel">
           <div className="admin-section-header">
             <div>
-              <p className="eyebrow">Questions</p>
+              <p className="eyebrow">题目</p>
               <h2>题目列表</h2>
             </div>
           </div>
@@ -287,17 +329,21 @@ export default function AdminQuestionnairePage() {
               placeholder="搜索题目 key、题干或题型"
             />
           </div>
-          <div className="admin-filter-row">
-            {(["ALL", "SINGLE_SELECT", "MULTI_SELECT", "SCALE", "SHORT_TEXT"] as const).map((type) => (
-              <button
-                key={type}
-                type="button"
-                className={typeFilter === type ? "button-primary" : "button-secondary"}
-                onClick={() => setTypeFilter(type)}
-              >
-                {type === "ALL" ? "全部" : QUESTION_TYPE_LABELS[type]}
-              </button>
-            ))}
+          <div className="admin-tabs">
+            {(["ALL", "SINGLE_SELECT", "MULTI_SELECT", "SCALE"] as const).map(
+              (type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className={
+                    typeFilter === type ? "admin-tab active" : "admin-tab"
+                  }
+                  onClick={() => setTypeFilter(type)}
+                >
+                  {type === "ALL" ? "全部" : QUESTION_TYPE_LABELS[type]}
+                </button>
+              ),
+            )}
           </div>
           <div className="admin-record-list">
             {sortedQuestions.map((question) => (
@@ -315,13 +361,17 @@ export default function AdminQuestionnairePage() {
                   <strong>
                     {question.order}. {question.prompt}
                   </strong>
-                  <span className="domain-chip">{QUESTION_TYPE_LABELS[question.type]}</span>
+                  <span className="domain-chip">
+                    {QUESTION_TYPE_LABELS[question.type]}
+                  </span>
                 </div>
                 <p>{question.key}</p>
                 <div className="admin-inline-meta">
                   <span>权重 {question.weight}</span>
                   <span>
-                    {Array.isArray(question.options) ? `${question.options.length} 个选项` : "文本题"}
+                    {Array.isArray(question.options)
+                      ? `${question.options.length} 个选项`
+                      : "未配置选项"}
                   </span>
                 </div>
               </button>
@@ -335,7 +385,7 @@ export default function AdminQuestionnairePage() {
         <article className="content-panel admin-detail-panel">
           <div className="admin-section-header">
             <div>
-              <p className="eyebrow">Editor</p>
+              <p className="eyebrow">编辑</p>
               <h2>{form.questionId ? "编辑题目" : "新增题目"}</h2>
             </div>
             {selectedQuestion ? (
@@ -344,7 +394,9 @@ export default function AdminQuestionnairePage() {
                   className="button-secondary"
                   onClick={() => void moveQuestion(selectedQuestion.id, "up")}
                   type="button"
-                  disabled={pending === "reorder" || selectedQuestion.order === 1}
+                  disabled={
+                    pending === "reorder" || selectedQuestion.order === 1
+                  }
                 >
                   上移
                 </button>
@@ -359,7 +411,11 @@ export default function AdminQuestionnairePage() {
                 >
                   下移
                 </button>
-                <button className="button-secondary" onClick={() => cloneQuestion(selectedQuestion)} type="button">
+                <button
+                  className="button-secondary"
+                  onClick={() => cloneQuestion(selectedQuestion)}
+                  type="button"
+                >
                   复制题目
                 </button>
                 <button
@@ -368,7 +424,9 @@ export default function AdminQuestionnairePage() {
                   type="button"
                   disabled={pending === `delete-${selectedQuestion.id}`}
                 >
-                  {pending === `delete-${selectedQuestion.id}` ? "删除中..." : "删除题目"}
+                  {pending === `delete-${selectedQuestion.id}`
+                    ? "删除中..."
+                    : "删除题目"}
                 </button>
               </div>
             ) : null}
@@ -382,7 +440,10 @@ export default function AdminQuestionnairePage() {
                   required
                   value={form.key}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, key: event.target.value }))
+                    setForm((current) => ({
+                      ...current,
+                      key: event.target.value,
+                    }))
                   }
                 />
               </label>
@@ -400,7 +461,6 @@ export default function AdminQuestionnairePage() {
                   <option value="SINGLE_SELECT">单选</option>
                   <option value="MULTI_SELECT">多选</option>
                   <option value="SCALE">量表</option>
-                  <option value="SHORT_TEXT">文本</option>
                 </select>
               </label>
             </div>
@@ -411,57 +471,64 @@ export default function AdminQuestionnairePage() {
                 rows={3}
                 value={form.prompt}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, prompt: event.target.value }))
+                  setForm((current) => ({
+                    ...current,
+                    prompt: event.target.value,
+                  }))
                 }
               />
             </label>
 
-            {form.type === "SHORT_TEXT" ? (
-              <div className="admin-empty-state">文本题不需要预设选项。</div>
-            ) : (
-              <div className="admin-page-stack">
-                <span className="admin-field-label">选项</span>
-                {form.options.map((option, index) => (
-                  <div key={`${form.questionId || "new"}-${index}`} className="admin-inline-form">
-                    <input
-                      value={option}
-                      onChange={(event) => {
-                        const nextOptions = [...form.options];
-                        nextOptions[index] = event.target.value;
-                        setForm((current) => ({ ...current, options: nextOptions }));
-                      }}
-                      placeholder={`选项 ${index + 1}`}
-                    />
-                    {form.options.length > 2 ? (
-                      <button
-                        className="button-ghost"
-                        type="button"
-                        onClick={() =>
-                          setForm((current) => ({
-                            ...current,
-                            options: current.options.filter((_, currentIndex) => currentIndex !== index),
-                          }))
-                        }
-                      >
-                        移除
-                      </button>
-                    ) : null}
-                  </div>
-                ))}
-                <button
-                  className="button-secondary"
-                  type="button"
-                  onClick={() =>
-                    setForm((current) => ({
-                      ...current,
-                      options: [...current.options, ""],
-                    }))
-                  }
+            <div className="admin-page-stack">
+              <span className="admin-field-label">选项</span>
+              {form.options.map((option, index) => (
+                <div
+                  key={`${form.questionId || "new"}-${index}`}
+                  className="admin-inline-form"
                 >
-                  添加选项
-                </button>
-              </div>
-            )}
+                  <input
+                    value={option}
+                    onChange={(event) => {
+                      const nextOptions = [...form.options];
+                      nextOptions[index] = event.target.value;
+                      setForm((current) => ({
+                        ...current,
+                        options: nextOptions,
+                      }));
+                    }}
+                    placeholder={`选项 ${index + 1}`}
+                  />
+                  {form.options.length > 2 ? (
+                    <button
+                      className="button-ghost"
+                      type="button"
+                      onClick={() =>
+                        setForm((current) => ({
+                          ...current,
+                          options: current.options.filter(
+                            (_, currentIndex) => currentIndex !== index,
+                          ),
+                        }))
+                      }
+                    >
+                      移除
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+              <button
+                className="button-secondary"
+                type="button"
+                onClick={() =>
+                  setForm((current) => ({
+                    ...current,
+                    options: [...current.options, ""],
+                  }))
+                }
+              >
+                添加选项
+              </button>
+            </div>
 
             <div className="form-grid">
               <label>
@@ -471,7 +538,10 @@ export default function AdminQuestionnairePage() {
                   min={1}
                   value={form.order}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, order: Number(event.target.value) }))
+                    setForm((current) => ({
+                      ...current,
+                      order: Number(event.target.value),
+                    }))
                   }
                 />
               </label>
@@ -482,14 +552,25 @@ export default function AdminQuestionnairePage() {
                   min={1}
                   value={form.weight}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, weight: Number(event.target.value) }))
+                    setForm((current) => ({
+                      ...current,
+                      weight: Number(event.target.value),
+                    }))
                   }
                 />
               </label>
             </div>
 
-            <button className="button-primary" type="submit" disabled={pending === "save"}>
-              {pending === "save" ? "保存中..." : form.questionId ? "保存题目" : "创建题目"}
+            <button
+              className="button-primary"
+              type="submit"
+              disabled={pending === "save"}
+            >
+              {pending === "save"
+                ? "保存中..."
+                : form.questionId
+                  ? "保存题目"
+                  : "创建题目"}
             </button>
           </form>
         </article>
@@ -498,7 +579,7 @@ export default function AdminQuestionnairePage() {
       <section className="content-panel">
         <div className="admin-section-header">
           <div>
-            <p className="eyebrow">Preview</p>
+            <p className="eyebrow">预览</p>
             <h2>问卷预览</h2>
           </div>
         </div>
@@ -509,16 +590,19 @@ export default function AdminQuestionnairePage() {
                 <strong>
                   {question.order}. {question.prompt}
                 </strong>
-                <span className="domain-chip">{QUESTION_TYPE_LABELS[question.type]}</span>
+                <span className="domain-chip">
+                  {QUESTION_TYPE_LABELS[question.type]}
+                </span>
               </div>
-              {Array.isArray(question.options) && question.options.length > 0 ? (
+              {Array.isArray(question.options) &&
+              question.options.length > 0 ? (
                 <ul>
                   {question.options.map((option) => (
                     <li key={option}>{option}</li>
                   ))}
                 </ul>
               ) : (
-                <p>自由文本回答</p>
+                <p>暂未配置选项</p>
               )}
             </article>
           ))}

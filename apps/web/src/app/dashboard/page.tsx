@@ -3,29 +3,30 @@
 import Link from "next/link";
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../lib/api";
+import {
+  AGE_OPTIONS,
+  BIRTH_YEAR_OPTIONS,
+  HARD_MATCH_GENDERS,
+  HARD_MATCH_LOOKS,
+  HARD_MATCH_RACES,
+  MONTH_OPTIONS,
+  buildDayOptions,
+  buildHardMatchAnswerRecord,
+  createEmptyHardMatchForm,
+  hardMatchFormFromAnswers,
+  toggleMultiSelectValue,
+  type HardMatchFormState,
+} from "../../lib/hard-match";
 
 type Question = {
   id: string;
   key: string;
   prompt: string;
-  type: "SCALE" | "SINGLE_SELECT" | "MULTI_SELECT" | "SHORT_TEXT";
+  type: "SCALE" | "SINGLE_SELECT" | "MULTI_SELECT";
   options?: string[];
 };
 
 type DashboardPayload = {
-  profile: {
-    fullName?: string | null;
-    headline?: string | null;
-    bio?: string | null;
-    schoolYear?: string | null;
-    programName?: string | null;
-    ageMin?: number | null;
-    ageMax?: number | null;
-    allowCrossSchool?: boolean;
-    preferCrossSchool?: boolean;
-    languages?: string[] | null;
-    interests?: string[] | null;
-  } | null;
   questionnaireSubmittedAt: string | null;
   currentCycle: {
     id: string;
@@ -74,18 +75,15 @@ function keepCurrentQuestionAnswers(
     return {};
   }
 
-  const allowedQuestionKeys = new Set(questions.map((question) => question.key));
+  const allowedQuestionKeys = new Set(
+    questions.map((question) => question.key),
+  );
 
   return Object.fromEntries(
-    Object.entries(savedAnswers).filter(([key]) => allowedQuestionKeys.has(key)),
+    Object.entries(savedAnswers).filter(([key]) =>
+      allowedQuestionKeys.has(key),
+    ),
   );
-}
-
-function splitCsv(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 export default function DashboardPage() {
@@ -93,19 +91,9 @@ export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
-  const [profileForm, setProfileForm] = useState({
-    fullName: "",
-    headline: "",
-    bio: "",
-    schoolYear: "",
-    programName: "",
-    ageMin: "18",
-    ageMax: "30",
-    allowCrossSchool: true,
-    preferCrossSchool: false,
-    languages: "",
-    interests: "",
-  });
+  const [hardMatchForm, setHardMatchForm] = useState<HardMatchFormState>(
+    createEmptyHardMatchForm,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
@@ -113,6 +101,24 @@ export default function DashboardPage() {
   const [reportReason, setReportReason] = useState("骚扰");
   const [reportDetails, setReportDetails] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
+
+  const birthDayOptions = useMemo(
+    () => buildDayOptions(hardMatchForm.birthYear, hardMatchForm.birthMonth),
+    [hardMatchForm.birthMonth, hardMatchForm.birthYear],
+  );
+
+  useEffect(() => {
+    if (!hardMatchForm.birthDay) {
+      return;
+    }
+
+    if (!birthDayOptions.includes(Number(hardMatchForm.birthDay))) {
+      setHardMatchForm((current) => ({
+        ...current,
+        birthDay: "",
+      }));
+    }
+  }, [birthDayOptions, hardMatchForm.birthDay]);
 
   useEffect(() => {
     let active = true;
@@ -122,12 +128,15 @@ export default function DashboardPage() {
       setError(null);
 
       try {
-        const [me, dashboardData, questionnaire, savedQuestionnaire] = await Promise.all([
-          fetchApi<AuthPayload>("/auth/me"),
-          fetchApi<DashboardPayload>("/me/dashboard"),
-          fetchApi<QuestionnairePayload>("/questionnaire/current"),
-          fetchApi<SavedQuestionnairePayload>("/me/questionnaire").catch(() => null),
-        ]);
+        const [me, dashboardData, questionnaire, savedQuestionnaire] =
+          await Promise.all([
+            fetchApi<AuthPayload>("/auth/me"),
+            fetchApi<DashboardPayload>("/me/dashboard"),
+            fetchApi<QuestionnairePayload>("/questionnaire/current"),
+            fetchApi<SavedQuestionnairePayload>("/me/questionnaire").catch(
+              () => null,
+            ),
+          ]);
 
         if (!active) {
           return;
@@ -137,30 +146,19 @@ export default function DashboardPage() {
         setDashboard(dashboardData);
         setQuestions(questionnaire.questions);
         setAnswers(
-          keepCurrentQuestionAnswers(questionnaire.questions, savedQuestionnaire?.answers),
+          keepCurrentQuestionAnswers(
+            questionnaire.questions,
+            savedQuestionnaire?.answers,
+          ),
         );
-        setProfileForm({
-          fullName: dashboardData.profile?.fullName ?? "",
-          headline: dashboardData.profile?.headline ?? "",
-          bio: dashboardData.profile?.bio ?? "",
-          schoolYear: dashboardData.profile?.schoolYear ?? "",
-          programName: dashboardData.profile?.programName ?? "",
-          ageMin: String(dashboardData.profile?.ageMin ?? 18),
-          ageMax: String(dashboardData.profile?.ageMax ?? 30),
-          allowCrossSchool: dashboardData.profile?.allowCrossSchool ?? true,
-          preferCrossSchool: dashboardData.profile?.preferCrossSchool ?? false,
-          languages: (dashboardData.profile?.languages ?? []).join(", "),
-          interests: (dashboardData.profile?.interests ?? []).join(", "),
-        });
+        setHardMatchForm(hardMatchFormFromAnswers(savedQuestionnaire?.answers));
       } catch (caughtError) {
         if (!active) {
           return;
         }
 
         setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Dashboard 加载失败。",
+          caughtError instanceof Error ? caughtError.message : "页面加载失败。",
         );
       } finally {
         if (active) {
@@ -188,46 +186,32 @@ export default function DashboardPage() {
     );
   }, [dashboard?.latestMatch, user]);
 
-  async function saveProfile() {
-    setSaving("profile");
-    setSavedMessage(null);
-    try {
-      await fetchApi("/me/profile", {
-        method: "PUT",
-        body: JSON.stringify({
-          fullName: profileForm.fullName,
-          headline: profileForm.headline,
-          bio: profileForm.bio,
-          schoolYear: profileForm.schoolYear,
-          programName: profileForm.programName,
-          ageMin: Number(profileForm.ageMin),
-          ageMax: Number(profileForm.ageMax),
-          allowCrossSchool: profileForm.allowCrossSchool,
-          preferCrossSchool: profileForm.preferCrossSchool,
-          languages: splitCsv(profileForm.languages),
-          interests: splitCsv(profileForm.interests),
-        }),
-      });
-
-      startTransition(() => {
-        setSavedMessage("资料已保存。");
-      });
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : "资料保存失败。",
-      );
-    } finally {
-      setSaving(null);
-    }
+  function toggleHardSelection(
+    field: "partnerGenders" | "partnerLooks" | "partnerRaces",
+    nextValue: string,
+  ) {
+    setHardMatchForm((current) => ({
+      ...current,
+      [field]: toggleMultiSelectValue(current[field], nextValue),
+    }));
   }
 
   async function saveQuestionnaire() {
     setSaving("questionnaire");
     setSavedMessage(null);
+    setError(null);
+
     try {
+      const hardMatchAnswers = buildHardMatchAnswerRecord(hardMatchForm);
+
       await fetchApi("/me/questionnaire", {
         method: "PUT",
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({
+          answers: {
+            ...hardMatchAnswers,
+            ...answers,
+          },
+        }),
       });
 
       startTransition(() => {
@@ -262,10 +246,14 @@ export default function DashboardPage() {
             }
           : current,
       );
-      setSavedMessage(nextValue ? "你已加入本周轮次。" : "你已退出本周轮次。");
+      setSavedMessage(
+        nextValue ? "你已参加本轮匹配。" : "你已跳过本轮，仍可随时改回。",
+      );
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error ? caughtError.message : "轮次状态更新失败。",
+        caughtError instanceof Error
+          ? caughtError.message
+          : "参与状态更新失败。",
       );
     } finally {
       setSaving(null);
@@ -343,12 +331,23 @@ export default function DashboardPage() {
     }
   }
 
+  const nextRevealLabel = dashboard?.currentCycle
+    ? new Intl.DateTimeFormat("zh-CN", {
+        dateStyle: "long",
+        timeStyle: "short",
+        timeZone: "Asia/Shanghai",
+      }).format(new Date(dashboard.currentCycle.revealAt))
+    : null;
+
   if (loading) {
     return (
       <main className="page-shell prose-shell">
-        <section className="content-panel" style={{ textAlign: "center", padding: "4rem 2rem" }}>
-          <p className="eyebrow">Dashboard</p>
-          <h1>正在加载你的轮次信息...</h1>
+        <section
+          className="content-panel dashboard-panel-wide"
+          style={{ textAlign: "center", padding: "4rem 2rem" }}
+        >
+          <p className="eyebrow">我的匹配</p>
+          <h1>正在加载…</h1>
         </section>
       </main>
     );
@@ -357,9 +356,12 @@ export default function DashboardPage() {
   if (error && !dashboard) {
     return (
       <main className="page-shell prose-shell">
-        <section className="content-panel" style={{ textAlign: "center", padding: "4rem 2rem" }}>
-          <p className="eyebrow">Dashboard</p>
-          <h1>现在还进不去。</h1>
+        <section
+          className="content-panel dashboard-panel-wide"
+          style={{ textAlign: "center", padding: "4rem 2rem" }}
+        >
+          <p className="eyebrow">我的匹配</p>
+          <h1>暂时无法进入该页面</h1>
           <p>{error}</p>
           <Link className="button-primary" href="/login">
             去登录
@@ -370,385 +372,492 @@ export default function DashboardPage() {
   }
 
   const isOptedIn = dashboard?.currentCycle?.participationStatus === "OPTED_IN";
+  const introduced = Boolean(dashboard?.latestMatch?.introducedAt);
 
   return (
-    <main className="page-shell dashboard-shell">
-      <section className="content-panel">
-        <p className="eyebrow">Dashboard</p>
-        <h1>欢迎回来，{user?.displayName ?? "你"}。</h1>
-        <p>本页负责三件事：更新资料、填写问卷、决定本周是否参与。</p>
+    <main className="page-shell dashboard-page">
+      <header className="content-panel dashboard-panel-wide dashboard-panel-tight">
+        <p className="eyebrow">我的匹配</p>
+        <h1>欢迎回来</h1>
+        <p className="dashboard-lede">
+          在这里填写硬性条件、完成价值观问卷，并决定是否参加当前轮次。
+        </p>
         {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
         {error ? <p className="form-error">{error}</p> : null}
-      </section>
+      </header>
 
-      <section className="dashboard-shell">
-        <article className="content-panel">
-          <p className="eyebrow">Current cycle</p>
-          <h2>{dashboard?.currentCycle?.codename ?? "暂无开放轮次"}</h2>
-          <p>揭晓时间：{dashboard?.currentCycle ? new Intl.DateTimeFormat("zh-CN", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Shanghai" }).format(new Date(dashboard.currentCycle.revealAt)) : "待配置"}</p>
+      <section className="dashboard-panel-wide">
+        <div className="dashboard-reveal-card">
+          <div className="dashboard-reveal-copy">
+            <p className="dashboard-reveal-label">下次揭晓时间</p>
+            <p className="dashboard-reveal-time">
+              {nextRevealLabel ?? "当前没有开放中的轮次"}
+            </p>
+          </div>
           {dashboard?.currentCycle ? (
-            <div className="dashboard-inline">
-              <span>
-                当前状态：
-                <strong
-                  style={{
-                    background: isOptedIn ? "var(--sage-soft)" : "var(--accent-soft)",
-                    color: isOptedIn ? "var(--sage)" : "var(--accent-text)",
-                  }}
-                >
-                  {isOptedIn ? "已加入" : "未加入"}
-                </strong>
+            <div className="dashboard-reveal-actions">
+              <span
+                className={
+                  isOptedIn
+                    ? "dashboard-participation-pill on"
+                    : "dashboard-participation-pill"
+                }
+              >
+                {isOptedIn ? "本轮参与中" : "本轮未参与"}
               </span>
               <button
                 className={isOptedIn ? "button-secondary" : "button-primary"}
                 disabled={saving === "participation"}
+                type="button"
                 onClick={() => toggleParticipation(!isOptedIn)}
               >
-                {isOptedIn ? "退出本周轮次" : "加入本周轮次"}
+                {saving === "participation"
+                  ? "更新中…"
+                  : isOptedIn
+                    ? "取消本轮"
+                    : "参加本轮"}
               </button>
             </div>
           ) : null}
-        </article>
-
-        <article className="content-panel">
-          <p className="eyebrow">Latest match</p>
-          {counterpart ? (
-            <>
-              <h2>{counterpart.displayName ?? "匿名对象"}</h2>
-              <p style={{ margin: "0.2rem 0 0" }}>
-                {counterpart.schoolName ?? "未识别学校"}
-                {counterpart.headline ? ` · ${counterpart.headline}` : ""}
-              </p>
-              {dashboard?.latestMatch?.introducedAt && counterpart.email ? (
-                <p className="form-success" style={{ marginTop: "0.75rem" }}>
-                  已引荐，对方邮箱：{counterpart.email}
-                </p>
-              ) : null}
-              <ul className="reason-list">
-                {dashboard?.latestMatch?.reasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
-              <div className="auth-actions">
-                {dashboard?.latestMatch?.introducedAt ? (
-                  <span className="domain-chip">已引荐</span>
-                ) : (
-                  <button
-                    className="button-primary"
-                    disabled={saving === "contact"}
-                    onClick={() => void requestContact()}
-                  >
-                    {saving === "contact" ? "发送中..." : "联系 TA"}
-                  </button>
-                )}
-                {dashboard?.latestMatch?.reportStatus ? (
-                  <span className="domain-chip">举报处理中</span>
-                ) : (
-                  <button
-                    className="button-secondary"
-                    disabled={saving === "report"}
-                    onClick={() => setReportOpen((current) => !current)}
-                  >
-                    举报 TA
-                  </button>
-                )}
-              </div>
-              {reportOpen ? (
-                <div className="report-form">
-                  <label>
-                    <span>举报原因</span>
-                    <select
-                      value={reportReason}
-                      onChange={(event) => setReportReason(event.target.value)}
-                    >
-                      <option value="骚扰">骚扰</option>
-                      <option value="冒犯内容">冒犯内容</option>
-                      <option value="身份异常">身份异常</option>
-                      <option value="恶意行为">恶意行为</option>
-                      <option value="其他">其他</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>补充说明</span>
-                    <textarea
-                      rows={3}
-                      value={reportDetails}
-                      onChange={(event) => setReportDetails(event.target.value)}
-                    />
-                  </label>
-                  <button
-                    className="button-primary"
-                    disabled={saving === "report"}
-                    onClick={() => void submitReport()}
-                  >
-                    {saving === "report" ? "提交中..." : "确认举报"}
-                  </button>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <h2>本周还没有揭晓。</h2>
-              <p>等轮次进入 reveal 后，你会在这里看到对象和匹配理由。</p>
-            </>
-          )}
-        </article>
+        </div>
       </section>
 
-      <section className="dashboard-shell">
-        <article className="content-panel">
-          <p className="eyebrow">Profile</p>
-          <h2>资料</h2>
-          <div className="form-grid">
-            <label>
-              <span>真实姓名</span>
-              <input
-                value={profileForm.fullName}
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    fullName: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label>
-              <span>一句话介绍</span>
-              <input
-                value={profileForm.headline}
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    headline: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label className="full-span">
-              <span>简介</span>
-              <textarea
-                rows={4}
-                value={profileForm.bio}
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    bio: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label>
-              <span>年级</span>
-              <input
-                value={profileForm.schoolYear}
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    schoolYear: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label>
-              <span>项目 / 专业</span>
-              <input
-                value={profileForm.programName}
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    programName: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label>
-              <span>偏好年龄下限</span>
-              <input
-                type="number"
-                value={profileForm.ageMin}
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    ageMin: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label>
-              <span>偏好年龄上限</span>
-              <input
-                type="number"
-                value={profileForm.ageMax}
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    ageMax: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label className="full-span">
-              <span>语言（逗号分隔）</span>
-              <input
-                value={profileForm.languages}
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    languages: event.target.value,
-                  }))
-                }
-              />
-            </label>
-            <label className="full-span">
-              <span>兴趣（逗号分隔）</span>
-              <input
-                value={profileForm.interests}
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    interests: event.target.value,
-                  }))
-                }
-              />
-            </label>
-          </div>
+      <section className="content-panel dashboard-panel-wide">
+        <p className="eyebrow">匹配</p>
+        {counterpart ? (
+          <>
+            <h2>{introduced ? "引荐与说明" : "本轮匹配"}</h2>
+            {!introduced ? (
+              <p className="dashboard-muted">
+                揭晓前不会展示对方学校、昵称等可识别信息；下方说明仅来自客观筛选条件与价值观问卷。
+              </p>
+            ) : null}
+            {introduced && counterpart.email ? (
+              <p className="form-success dashboard-match-email">
+                联络邮箱：{counterpart.email}
+              </p>
+            ) : null}
+            <ul className="reason-list">
+              {dashboard?.latestMatch?.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+            <div className="auth-actions">
+              {introduced ? (
+                <span className="domain-chip">已引荐</span>
+              ) : (
+                <button
+                  className="button-primary"
+                  disabled={saving === "contact"}
+                  type="button"
+                  onClick={() => void requestContact()}
+                >
+                  {saving === "contact" ? "发送中…" : "双方引荐联系"}
+                </button>
+              )}
+              {dashboard?.latestMatch?.reportStatus ? (
+                <span className="domain-chip">举报处理中</span>
+              ) : (
+                <button
+                  className="button-secondary"
+                  disabled={saving === "report"}
+                  type="button"
+                  onClick={() => setReportOpen((current) => !current)}
+                >
+                  举报
+                </button>
+              )}
+            </div>
+            {reportOpen ? (
+              <div className="report-form">
+                <label>
+                  <span>举报原因</span>
+                  <select
+                    value={reportReason}
+                    onChange={(event) => setReportReason(event.target.value)}
+                  >
+                    <option value="骚扰">骚扰</option>
+                    <option value="冒犯内容">冒犯内容</option>
+                    <option value="身份异常">身份异常</option>
+                    <option value="恶意行为">恶意行为</option>
+                    <option value="其他">其他</option>
+                  </select>
+                </label>
+                <label>
+                  <span>补充说明（可选）</span>
+                  <textarea
+                    rows={3}
+                    value={reportDetails}
+                    onChange={(event) => setReportDetails(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="button-primary"
+                  disabled={saving === "report"}
+                  type="button"
+                  onClick={() => void submitReport()}
+                >
+                  {saving === "report" ? "提交中…" : "确认举报"}
+                </button>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <h2>还没有匹配结果</h2>
+            <p className="dashboard-muted">
+              本轮揭晓后将在此显示匹配说明与后续操作。
+            </p>
+          </>
+        )}
+      </section>
 
-          <div className="toggle-row">
-            <label>
-              <input
-                checked={profileForm.allowCrossSchool}
-                type="checkbox"
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    allowCrossSchool: event.target.checked,
-                  }))
-                }
-              />
-              <span>允许跨校匹配</span>
-            </label>
-            <label>
-              <input
-                checked={profileForm.preferCrossSchool}
-                type="checkbox"
-                onChange={(event) =>
-                  setProfileForm((current) => ({
-                    ...current,
-                    preferCrossSchool: event.target.checked,
-                  }))
-                }
-              />
-              <span>偏好跨校</span>
-            </label>
-          </div>
+      <section className="content-panel dashboard-panel-wide">
+        <p className="eyebrow">问卷</p>
+        <h2>客观条件与价值观</h2>
+        <p className="dashboard-muted">
+          以下包含客观筛选条件与价值观问卷。客观条件中带“可多选”的项目支持多选；如果把该组选项全选，算法会视为不限。
+        </p>
 
-          <button
-            className="button-primary"
-            disabled={saving === "profile"}
-            onClick={() => void saveProfile()}
-          >
-            {saving === "profile" ? "保存中..." : "保存资料"}
-          </button>
-        </article>
+        <div className="question-list">
+          {/* ── 硬性条件部分 ── */}
+          <fieldset className="question-block">
+            <legend>出生年月日与希望对方年龄范围</legend>
+            <div className="form-grid">
+              <label>
+                <span>出生年份</span>
+                <select
+                  value={hardMatchForm.birthYear}
+                  onChange={(event) =>
+                    setHardMatchForm((current) => ({
+                      ...current,
+                      birthYear: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">请选择</option>
+                  {BIRTH_YEAR_OPTIONS.map((year) => (
+                    <option key={year} value={String(year)}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>出生月份</span>
+                <select
+                  value={hardMatchForm.birthMonth}
+                  onChange={(event) =>
+                    setHardMatchForm((current) => ({
+                      ...current,
+                      birthMonth: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">请选择</option>
+                  {MONTH_OPTIONS.map((month) => (
+                    <option key={month} value={String(month)}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>出生日期</span>
+                <select
+                  value={hardMatchForm.birthDay}
+                  onChange={(event) =>
+                    setHardMatchForm((current) => ({
+                      ...current,
+                      birthDay: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">请选择</option>
+                  {birthDayOptions.map((day) => (
+                    <option key={day} value={String(day)}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>希望对方年龄下限</span>
+                <select
+                  value={hardMatchForm.partnerAgeMin}
+                  onChange={(event) =>
+                    setHardMatchForm((current) => ({
+                      ...current,
+                      partnerAgeMin: event.target.value,
+                    }))
+                  }
+                >
+                  {AGE_OPTIONS.map((age) => (
+                    <option key={age} value={String(age)}>
+                      {age}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>希望对方年龄上限</span>
+                <select
+                  value={hardMatchForm.partnerAgeMax}
+                  onChange={(event) =>
+                    setHardMatchForm((current) => ({
+                      ...current,
+                      partnerAgeMax: event.target.value,
+                    }))
+                  }
+                >
+                  {AGE_OPTIONS.map((age) => (
+                    <option key={age} value={String(age)}>
+                      {age}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </fieldset>
 
-        <article className="content-panel">
-          <p className="eyebrow">Questionnaire</p>
-          <h2>问卷</h2>
-          <div className="question-list">
-            {questions.map((question) => {
-              const value = answers[question.key];
+          <fieldset className="question-block">
+            <legend>性别与希望对方的性别</legend>
+            <div className="form-grid">
+              <label>
+                <span>你的性别</span>
+                <select
+                  value={hardMatchForm.gender}
+                  onChange={(event) =>
+                    setHardMatchForm((current) => ({
+                      ...current,
+                      gender: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">请选择</option>
+                  {HARD_MATCH_GENDERS.map((gender) => (
+                    <option key={gender} value={gender}>
+                      {gender}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="full-span">
+                <span className="admin-field-label" style={{ display: "block", marginBottom: "0.5rem" }}>
+                  希望对方的性别（可多选）
+                </span>
+                <div className="chip-grid">
+                  {HARD_MATCH_GENDERS.map((gender) => {
+                    const active =
+                      hardMatchForm.partnerGenders.includes(gender);
 
-              if (question.type === "SHORT_TEXT") {
-                return (
-                  <label key={question.id} className="question-block">
-                    <span>{question.prompt}</span>
-                    <textarea
-                      rows={3}
-                      value={typeof value === "string" ? value : ""}
-                      onChange={(event) =>
-                        setAnswers((current) => ({
-                          ...current,
-                          [question.key]: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                );
-              }
+                    return (
+                      <label
+                        key={gender}
+                        className={active ? "chip active" : "chip"}
+                      >
+                        <input
+                          checked={active}
+                          type="checkbox"
+                          onChange={() =>
+                            toggleHardSelection("partnerGenders", gender)
+                          }
+                        />
+                        <span>{gender}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </fieldset>
 
-              if (question.type === "MULTI_SELECT") {
-                const selected = Array.isArray(value) ? value : [];
+          <fieldset className="question-block">
+            <legend>颜值自评与希望对方的颜值</legend>
+            <div className="form-grid">
+              <label>
+                <span>你的颜值自评</span>
+                <select
+                  value={hardMatchForm.looks}
+                  onChange={(event) =>
+                    setHardMatchForm((current) => ({
+                      ...current,
+                      looks: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">请选择</option>
+                  {HARD_MATCH_LOOKS.map((looks) => (
+                    <option key={looks} value={looks}>
+                      {looks}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="full-span">
+                <span className="admin-field-label" style={{ display: "block", marginBottom: "0.5rem" }}>
+                  希望对方的颜值（可多选）
+                </span>
+                <div className="chip-grid">
+                  {HARD_MATCH_LOOKS.map((looks) => {
+                    const active = hardMatchForm.partnerLooks.includes(looks);
 
-                return (
-                  <fieldset key={question.id} className="question-block">
-                    <legend>{question.prompt}</legend>
-                    <div className="chip-grid">
-                      {question.options?.map((option) => {
-                        const active = selected.includes(option);
+                    return (
+                      <label
+                        key={looks}
+                        className={active ? "chip active" : "chip"}
+                      >
+                        <input
+                          checked={active}
+                          type="checkbox"
+                          onChange={() =>
+                            toggleHardSelection("partnerLooks", looks)
+                          }
+                        />
+                        <span>{looks}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </fieldset>
 
-                        return (
-                          <label key={option} className={active ? "chip active" : "chip"}>
-                            <input
-                              checked={active}
-                              type="checkbox"
-                              onChange={() =>
-                                setAnswers((current) => {
-                                  const currentValues = Array.isArray(current[question.key])
-                                    ? (current[question.key] as string[])
-                                    : [];
+          <fieldset className="question-block">
+            <legend>人种与希望对方的人种</legend>
+            <div className="form-grid">
+              <label>
+                <span>你的人种</span>
+                <select
+                  value={hardMatchForm.race}
+                  onChange={(event) =>
+                    setHardMatchForm((current) => ({
+                      ...current,
+                      race: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">请选择</option>
+                  {HARD_MATCH_RACES.map((race) => (
+                    <option key={race} value={race}>
+                      {race}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="full-span">
+                <span className="admin-field-label" style={{ display: "block", marginBottom: "0.5rem" }}>
+                  希望对方的人种（可多选）
+                </span>
+                <div className="chip-grid">
+                  {HARD_MATCH_RACES.map((race) => {
+                    const active = hardMatchForm.partnerRaces.includes(race);
 
-                                  return {
-                                    ...current,
-                                    [question.key]: active
-                                      ? currentValues.filter((item) => item !== option)
-                                      : [...currentValues, option],
-                                  };
-                                })
-                              }
-                            />
-                            <span>{option}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </fieldset>
-                );
-              }
+                    return (
+                      <label
+                        key={race}
+                        className={active ? "chip active" : "chip"}
+                      >
+                        <input
+                          checked={active}
+                          type="checkbox"
+                          onChange={() =>
+                            toggleHardSelection("partnerRaces", race)
+                          }
+                        />
+                        <span>{race}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </fieldset>
+
+          {/* ── 动态价值观问卷部分 ── */}
+          {questions.map((question) => {
+            const value = answers[question.key];
+
+            if (question.type === "MULTI_SELECT") {
+              const selected = Array.isArray(value) ? value : [];
 
               return (
                 <fieldset key={question.id} className="question-block">
                   <legend>{question.prompt}</legend>
-                  <div className="option-list">
-                    {question.options?.map((option) => (
-                      <label key={option}>
-                        <input
-                          checked={value === option}
-                          type="radio"
-                          name={question.key}
-                          onChange={() =>
-                            setAnswers((current) => ({
-                              ...current,
-                              [question.key]: option,
-                            }))
-                          }
-                        />
-                        <span>{option}</span>
-                      </label>
-                    ))}
+                  <div className="chip-grid">
+                    {question.options?.map((option) => {
+                      const active = selected.includes(option);
+
+                      return (
+                        <label
+                          key={option}
+                          className={active ? "chip active" : "chip"}
+                        >
+                          <input
+                            checked={active}
+                            type="checkbox"
+                            onChange={() =>
+                              setAnswers((current) => {
+                                const currentValues = Array.isArray(
+                                  current[question.key],
+                                )
+                                  ? (current[question.key] as string[])
+                                  : [];
+
+                                return {
+                                  ...current,
+                                  [question.key]: active
+                                    ? currentValues.filter(
+                                        (item) => item !== option,
+                                      )
+                                    : [...currentValues, option],
+                                };
+                              })
+                            }
+                          />
+                          <span>{option}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </fieldset>
               );
-            })}
-          </div>
-          <button
-            className="button-primary"
-            disabled={saving === "questionnaire"}
-            onClick={() => void saveQuestionnaire()}
-            style={{ marginTop: "1rem" }}
-          >
-            {saving === "questionnaire" ? "保存中..." : "保存问卷"}
-          </button>
-        </article>
+            }
+
+            return (
+              <fieldset key={question.id} className="question-block">
+                <legend>{question.prompt}</legend>
+                <div className="option-list">
+                  {question.options?.map((option) => (
+                    <label key={option}>
+                      <input
+                        checked={value === option}
+                        type="radio"
+                        name={question.key}
+                        onChange={() =>
+                          setAnswers((current) => ({
+                            ...current,
+                            [question.key]: option,
+                          }))
+                        }
+                      />
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            );
+          })}
+        </div>
+        <button
+          className="button-primary"
+          disabled={saving === "questionnaire"}
+          type="button"
+          onClick={() => void saveQuestionnaire()}
+          style={{ marginTop: "1.5rem" }}
+        >
+          {saving === "questionnaire" ? "保存中…" : "保存全部问卷"}
+        </button>
       </section>
     </main>
   );

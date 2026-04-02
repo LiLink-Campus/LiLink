@@ -6,19 +6,16 @@ import {
 import { QuestionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import {
+  HardMatchAnswers,
+  areHardMatchAnswersCompatible,
+  tryReadHardMatchAnswers,
+} from '../questionnaire/hard-match';
 
 type EligibleParticipant = {
   id: string;
-  schoolId: string | null;
   displayName: string | null;
-  profile: {
-    allowCrossSchool: boolean;
-    preferCrossSchool: boolean;
-    schoolYear: string | null;
-    programName: string | null;
-    languages: Prisma.JsonValue | null;
-    interests: Prisma.JsonValue | null;
-  };
+  hardMatchAnswers: HardMatchAnswers;
   answers: Record<string, unknown>;
 };
 
@@ -109,6 +106,7 @@ export class CyclesService {
     const { selectedPairs } = await this.calculatePairs(
       participants,
       questionnaire.questions,
+      cycle.revealAt,
     );
 
     if (selectedPairs.length === 0) {
@@ -191,7 +189,6 @@ export class CyclesService {
             include: {
               user: {
                 include: {
-                  profile: true,
                   questionnaireResponse: true,
                 },
               },
@@ -227,6 +224,7 @@ export class CyclesService {
     const { candidates, selectedPairs } = await this.calculatePairs(
       participants,
       questionnaire.questions,
+      cycle.revealAt,
     );
     const matchedUserIds = new Set(
       selectedPairs.flatMap((pair) => [pair.left.id, pair.right.id]),
@@ -270,7 +268,6 @@ export class CyclesService {
         include: {
           user: {
             include: {
-              profile: true,
               questionnaireResponse: true,
             },
           },
@@ -298,14 +295,6 @@ export class CyclesService {
         id: string;
         schoolId: string | null;
         displayName: string | null;
-        profile: {
-          allowCrossSchool: boolean;
-          preferCrossSchool: boolean;
-          schoolYear: string | null;
-          programName: string | null;
-          languages: Prisma.JsonValue | null;
-          interests: Prisma.JsonValue | null;
-        } | null;
         questionnaireResponse: {
           answers: Prisma.JsonValue;
         } | null;
@@ -314,29 +303,38 @@ export class CyclesService {
   ) {
     return participations
       .map((entry) => entry.user)
-      .filter((user) => user.profile && user.questionnaireResponse)
-      .map<EligibleParticipant>((user) => ({
-        id: user.id,
-        schoolId: user.schoolId,
-        displayName: user.displayName,
-        profile: {
-          allowCrossSchool: user.profile!.allowCrossSchool,
-          preferCrossSchool: user.profile!.preferCrossSchool,
-          schoolYear: user.profile!.schoolYear,
-          programName: user.profile!.programName,
-          languages: user.profile!.languages,
-          interests: user.profile!.interests,
-        },
-        answers: (user.questionnaireResponse!.answers ?? {}) as Record<
+      .map((user) => {
+        if (!user.questionnaireResponse) {
+          return null;
+        }
+
+        const answers = (user.questionnaireResponse.answers ?? {}) as Record<
           string,
           unknown
-        >,
-      }));
+        >;
+        const hardMatchAnswers = tryReadHardMatchAnswers(answers);
+
+        if (!hardMatchAnswers) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          displayName: user.displayName,
+          hardMatchAnswers,
+          answers,
+        } satisfies EligibleParticipant;
+      })
+      .filter(
+        (participant): participant is EligibleParticipant =>
+          participant !== null,
+      );
   }
 
   private async calculatePairs(
     participants: EligibleParticipant[],
     questions: QuestionnaireQuestion[],
+    revealAt: Date,
   ) {
     const participantIds = participants.map((participant) => participant.id);
 
@@ -395,7 +393,7 @@ export class CyclesService {
           continue;
         }
 
-        const scored = this.scorePair(left, right, questions);
+        const scored = this.scorePair(left, right, questions, revealAt);
         if (!scored) {
           continue;
         }
@@ -440,13 +438,14 @@ export class CyclesService {
       weight: number;
       options: Prisma.JsonValue | null;
     }>,
+    revealAt: Date,
   ) {
-    const sameSchool =
-      left.schoolId && right.schoolId && left.schoolId === right.schoolId;
-
     if (
-      !sameSchool &&
-      (!left.profile.allowCrossSchool || !right.profile.allowCrossSchool)
+      !areHardMatchAnswersCompatible(
+        left.hardMatchAnswers,
+        right.hardMatchAnswers,
+        revealAt,
+      )
     ) {
       return null;
     }
@@ -481,6 +480,12 @@ export class CyclesService {
         if (question.key === 'communication') {
           reasons.push('你们处理分歧时更容易对齐彼此的沟通方式。');
         }
+
+        if (question.key === 'outing_spend_style') {
+          reasons.push(
+            '你们对出去玩时谁来买单或 AA 的期待比较一致，相处时更省心。',
+          );
+        }
       }
 
       if (question.type === QuestionType.MULTI_SELECT) {
@@ -500,61 +505,6 @@ export class CyclesService {
           }
         }
       }
-
-      if (
-        question.type === QuestionType.SHORT_TEXT &&
-        typeof leftAnswer === 'string' &&
-        typeof rightAnswer === 'string' &&
-        leftAnswer.trim() &&
-        rightAnswer.trim()
-      ) {
-        score += weight * 2;
-      }
-    }
-
-    if (
-      left.profile.schoolYear &&
-      right.profile.schoolYear &&
-      left.profile.schoolYear === right.profile.schoolYear
-    ) {
-      score += 4;
-      reasons.push('你们处在接近的学习阶段，时间节奏更容易协调。');
-    }
-
-    if (
-      left.profile.programName &&
-      right.profile.programName &&
-      left.profile.programName === right.profile.programName
-    ) {
-      score += 3;
-    }
-
-    const sharedInterests = this.findOverlap(
-      this.normalizeStringArray(left.profile.interests),
-      this.normalizeStringArray(right.profile.interests),
-    );
-    if (sharedInterests.length > 0) {
-      score += Math.min(sharedInterests.length, 3) * 2;
-      reasons.push(
-        `你们在兴趣上有交集，比如 ${sharedInterests.slice(0, 2).join('、')}。`,
-      );
-    }
-
-    const sharedLanguages = this.findOverlap(
-      this.normalizeStringArray(left.profile.languages),
-      this.normalizeStringArray(right.profile.languages),
-    );
-    if (sharedLanguages.length > 0) {
-      score += sharedLanguages.length;
-    }
-
-    if (
-      !sameSchool &&
-      left.profile.preferCrossSchool &&
-      right.profile.preferCrossSchool
-    ) {
-      score += 3;
-      reasons.push('你们都对跨校连接持开放甚至偏好的态度。');
     }
 
     const uniqueReasons = [...new Set(reasons)].slice(0, 3);
@@ -574,10 +524,6 @@ export class CyclesService {
     }
 
     return value.filter((item): item is string => typeof item === 'string');
-  }
-
-  private findOverlap(left: string[], right: string[]) {
-    return left.filter((value) => right.includes(value));
   }
 
   private async resetCycleToOpen(cycleId: string) {

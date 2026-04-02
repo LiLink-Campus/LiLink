@@ -37,13 +37,13 @@ export default function AdminAuditPage() {
   }
 
   return (
-    <div className="admin-page admin-page-stack">
-      <div className="admin-page-header">
+    <div className="admin-page admin-page-stack" style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
+      <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
         <div>
-          <h1>审计日志</h1>
-          <p>把轮次执行、学校维护、问卷改动和风险处理动作留痕，便于追责和回溯。</p>
+          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>审计日志</h1>
+          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>把轮次执行、学校维护、问卷改动和风险处理动作留痕，便于追责和回溯。</p>
         </div>
-        <button className="button-secondary" onClick={() => void refresh()} type="button">
+        <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
           刷新
         </button>
       </div>
@@ -60,10 +60,10 @@ export default function AdminAuditPage() {
           placeholder="搜索 action、操作者邮箱或 metadata"
         />
       </div>
-      <div className="admin-filter-row">
+      <div className="admin-tabs">
         <button
           type="button"
-          className={actionFilter === "" ? "button-primary" : "button-secondary"}
+          className={actionFilter === "" ? "admin-tab active" : "admin-tab"}
           onClick={() => {
             setActionFilter("");
             setPage(1);
@@ -75,7 +75,7 @@ export default function AdminAuditPage() {
           <button
             key={action}
             type="button"
-            className={actionFilter === action ? "button-primary" : "button-secondary"}
+            className={actionFilter === action ? "admin-tab active" : "admin-tab"}
             onClick={() => {
               setActionFilter(action);
               setPage(1);
@@ -94,7 +94,7 @@ export default function AdminAuditPage() {
               <th>动作</th>
               <th>操作者</th>
               <th>学校</th>
-              <th>Metadata</th>
+              <th>元数据</th>
             </tr>
           </thead>
           <tbody>

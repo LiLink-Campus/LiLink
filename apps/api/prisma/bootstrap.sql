@@ -1,5 +1,5 @@
 CREATE TYPE "UserStatus" AS ENUM ('PENDING', 'ACTIVE', 'SUSPENDED');
-CREATE TYPE "QuestionType" AS ENUM ('SCALE', 'SINGLE_SELECT', 'MULTI_SELECT', 'SHORT_TEXT');
+CREATE TYPE "QuestionType" AS ENUM ('SCALE', 'SINGLE_SELECT', 'MULTI_SELECT');
 CREATE TYPE "MatchCycleStatus" AS ENUM ('DRAFT', 'OPEN', 'REVEAL_READY', 'REVEALED');
 CREATE TYPE "ParticipationStatus" AS ENUM ('OPTED_OUT', 'OPTED_IN');
 CREATE TYPE "ReportStatus" AS ENUM ('OPEN', 'RESOLVED', 'DISMISSED');
@@ -59,8 +59,6 @@ CREATE TABLE "UserProfile" (
     "genderIdentity" TEXT,
     "ageMin" INTEGER,
     "ageMax" INTEGER,
-    "allowCrossSchool" BOOLEAN NOT NULL DEFAULT true,
-    "preferCrossSchool" BOOLEAN NOT NULL DEFAULT false,
     "languages" JSONB,
     "interests" JSONB,
     "interestedIn" JSONB,

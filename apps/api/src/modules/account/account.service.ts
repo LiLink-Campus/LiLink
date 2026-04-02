@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
+import { hardMatchQuestionKeys } from '../questionnaire/hard-match';
 import {
   ReportMatchDto,
   SaveQuestionnaireDto,
@@ -229,9 +230,10 @@ export class AccountService {
       return response;
     }
 
-    const allowedQuestionKeys = new Set(
-      currentQuestionnaire.questions.map((question) => question.key),
-    );
+    const allowedQuestionKeys = new Set([
+      ...currentQuestionnaire.questions.map((question) => question.key),
+      ...hardMatchQuestionKeys(),
+    ]);
     const filteredAnswers = Object.fromEntries(
       Object.entries(
         (response.answers ?? {}) as Record<string, unknown>,

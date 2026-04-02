@@ -31,7 +31,7 @@ export type AdminQuestion = {
   id: string;
   key: string;
   prompt: string;
-  type: "SINGLE_SELECT" | "MULTI_SELECT" | "SCALE" | "SHORT_TEXT";
+  type: "SINGLE_SELECT" | "MULTI_SELECT" | "SCALE";
   options: string[] | null;
   order: number;
   weight: number;
@@ -138,7 +138,10 @@ export type CycleMatchDetail = {
     userId: string;
     position: number;
     contactRequestedAt: string | null;
-    user: Pick<AdminUser, "id" | "email" | "displayName" | "school" | "profile" | "status">;
+    user: Pick<
+      AdminUser,
+      "id" | "email" | "displayName" | "school" | "profile" | "status"
+    >;
   }>;
   reports: AdminReport[];
 };
@@ -183,8 +186,14 @@ export type AdminCyclePreview = {
 
 export type AdminReportContext = {
   report: AdminReport & {
-    reporter: Pick<AdminUser, "id" | "email" | "displayName" | "school" | "profile" | "status">;
-    reportedUser: Pick<AdminUser, "id" | "email" | "displayName" | "school" | "profile" | "status"> & {
+    reporter: Pick<
+      AdminUser,
+      "id" | "email" | "displayName" | "school" | "profile" | "status"
+    >;
+    reportedUser: Pick<
+      AdminUser,
+      "id" | "email" | "displayName" | "school" | "profile" | "status"
+    > & {
       reportsReceived: AdminReport[];
       reportsFiled: AdminReport[];
     };
@@ -196,7 +205,10 @@ export type AdminReportContext = {
         userId: string;
         position: number;
         contactRequestedAt: string | null;
-        user: Pick<AdminUser, "id" | "email" | "displayName" | "school" | "profile" | "status">;
+        user: Pick<
+          AdminUser,
+          "id" | "email" | "displayName" | "school" | "profile" | "status"
+        >;
       }>;
       reports: AdminReport[];
     } | null;

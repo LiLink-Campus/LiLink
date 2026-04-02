@@ -22,7 +22,6 @@ enum QuestionType {
   SCALE
   SINGLE_SELECT
   MULTI_SELECT
-  SHORT_TEXT
 }
 
 enum MatchCycleStatus {
@@ -52,15 +51,15 @@ enum OutboundEmailStatus {
 }
 
 model AdminOperator {
-  id          String     @id @default(cuid())
-  email       String     @unique
+  id           String     @id @default(cuid())
+  email        String     @unique
   passwordHash String
-  displayName String?
-  isActive    Boolean    @default(true)
-  lastLoginAt DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  auditLogs   AuditLog[] @relation("AdminActor")
+  displayName  String?
+  isActive     Boolean    @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[] @relation("AdminActor")
 
   @@index([isActive])
 }
@@ -110,38 +109,36 @@ model User {
 }
 
 model EmailCode {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   email      String
   codeHash   String
   purpose    String
   expiresAt  DateTime
   consumedAt DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([email, purpose, consumedAt, expiresAt])
 }
 
 model UserProfile {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fullName          String?
-  headline          String?
-  bio               String?
-  schoolYear        String?
-  programName       String?
-  pronouns          String?
-  hometown          String?
-  genderIdentity    String?
-  ageMin            Int?
-  ageMax            Int?
-  allowCrossSchool  Boolean  @default(true)
-  preferCrossSchool Boolean  @default(false)
-  languages         Json?
-  interests         Json?
-  interestedIn      Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName       String?
+  headline       String?
+  bio            String?
+  schoolYear     String?
+  programName    String?
+  pronouns       String?
+  hometown       String?
+  genderIdentity String?
+  ageMin         Int?
+  ageMax         Int?
+  languages      Json?
+  interests      Json?
+  interestedIn   Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model QuestionnaireVersion {
@@ -234,15 +231,15 @@ model Match {
 }
 
 model MatchParticipant {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   matchId            String
-  match              Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  match              Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
   cycleId            String
   userId             String
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   position           Int
   contactRequestedAt DateTime?
-  createdAt          DateTime @default(now())
+  createdAt          DateTime  @default(now())
 
   @@unique([matchId, userId])
   @@unique([cycleId, userId])
@@ -250,20 +247,20 @@ model MatchParticipant {
 }
 
 model Report {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   reporterId     String
-  reporter       User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reporter       User         @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
   reportedUserId String
-  reportedUser   User     @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  reportedUser   User         @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
   matchId        String?
-  match          Match?   @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  match          Match?       @relation(fields: [matchId], references: [id], onDelete: SetNull)
   reason         String
   details        String?
   status         ReportStatus @default(OPEN)
   adminNotes     String?
   handledAt      DateTime?
-  createdBlock   Boolean @default(false)
-  createdAt      DateTime @default(now())
+  createdBlock   Boolean      @default(false)
+  createdAt      DateTime     @default(now())
 
   @@index([status, createdAt])
   @@index([reportedUserId, status])

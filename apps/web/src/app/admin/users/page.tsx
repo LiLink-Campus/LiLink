@@ -2,8 +2,28 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
+import { HARD_MATCH_KEYS } from "../../../lib/hard-match";
 import { useAdminCollection } from "../use-admin-collection";
 import type { AdminUser } from "../types";
+
+const ANSWER_LABELS: Record<string, string> = {
+  [HARD_MATCH_KEYS.birthDate]: "出生年月日",
+  [HARD_MATCH_KEYS.partnerAgeMin]: "希望对方年龄下限",
+  [HARD_MATCH_KEYS.partnerAgeMax]: "希望对方年龄上限",
+  [HARD_MATCH_KEYS.gender]: "你的性别",
+  [HARD_MATCH_KEYS.partnerGenders]: "希望对方的性别",
+  [HARD_MATCH_KEYS.looks]: "颜值自评",
+  [HARD_MATCH_KEYS.partnerLooks]: "希望对方的颜值",
+  [HARD_MATCH_KEYS.race]: "你的人种",
+  [HARD_MATCH_KEYS.partnerRaces]: "希望对方的人种",
+};
+
+const USER_STATUS_LABELS: Record<"ALL" | AdminUser["status"], string> = {
+  ALL: "全部",
+  ACTIVE: "正常",
+  PENDING: "待激活",
+  SUSPENDED: "已停用",
+};
 
 function formatAnswer(value: unknown) {
   if (Array.isArray(value)) {
@@ -23,8 +43,12 @@ function formatAnswer(value: unknown) {
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | AdminUser["status"]>("ALL");
-  const [questionnaireFilter, setQuestionnaireFilter] = useState<"all" | "submitted" | "missing">("all");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | AdminUser["status"]>(
+    "ALL",
+  );
+  const [questionnaireFilter, setQuestionnaireFilter] = useState<
+    "all" | "submitted" | "missing"
+  >("all");
   const [page, setPage] = useState(1);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
@@ -71,7 +95,9 @@ export default function AdminUsersPage() {
       await refresh();
     } catch (caughtError) {
       setActionError(
-        caughtError instanceof Error ? caughtError.message : "用户状态更新失败。",
+        caughtError instanceof Error
+          ? caughtError.message
+          : "用户状态更新失败。",
       );
     } finally {
       setPending(null);
@@ -83,13 +109,23 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="admin-page admin-page-stack">
-      <div className="admin-page-header">
+    <div
+      className="admin-page admin-page-stack"
+      style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}
+    >
+      <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
         <div>
-          <h1>用户中心</h1>
-          <p>先定位用户，再查看资料、问卷与轮次参与状态，必要时直接处理账号状态。</p>
+          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>用户中心</h1>
+          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>
+            先定位用户，再查看资料、问卷与轮次参与状态，必要时直接处理账号状态。
+          </p>
         </div>
-        <button className="button-secondary" onClick={() => void refresh()} type="button">
+        <button
+          className="button-secondary"
+          onClick={() => void refresh()}
+          type="button"
+          style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}
+        >
           刷新
         </button>
       </div>
@@ -99,6 +135,12 @@ export default function AdminUsersPage() {
 
       <section className="admin-workspace-grid">
         <article className="content-panel admin-list-panel">
+          <div className="admin-section-header">
+            <div>
+              <p className="eyebrow">用户列表</p>
+              <h2>全部用户</h2>
+            </div>
+          </div>
           <div className="admin-search-bar">
             <input
               value={search}
@@ -109,27 +151,37 @@ export default function AdminUsersPage() {
               placeholder="搜索邮箱、昵称、姓名、学校或状态"
             />
           </div>
-          <div className="admin-filter-row">
-            {(["ALL", "ACTIVE", "PENDING", "SUSPENDED"] as const).map((status) => (
-              <button
-                key={status}
-                type="button"
-                className={statusFilter === status ? "button-primary" : "button-secondary"}
-                onClick={() => {
-                  setStatusFilter(status);
-                  setPage(1);
-                }}
-              >
-                {status}
-              </button>
-            ))}
+          <div className="admin-tabs">
+            {(["ALL", "ACTIVE", "PENDING", "SUSPENDED"] as const).map(
+              (status) => (
+                <button
+                  key={status}
+                  type="button"
+                  className={
+                    statusFilter === status
+                      ? "admin-tab active"
+                      : "admin-tab"
+                  }
+                  onClick={() => {
+                    setStatusFilter(status);
+                    setPage(1);
+                  }}
+                >
+                  {USER_STATUS_LABELS[status]}
+                </button>
+              ),
+            )}
           </div>
-          <div className="admin-filter-row">
+          <div className="admin-tabs">
             {(["all", "submitted", "missing"] as const).map((status) => (
               <button
                 key={status}
                 type="button"
-                className={questionnaireFilter === status ? "button-primary" : "button-secondary"}
+                className={
+                  questionnaireFilter === status
+                    ? "admin-tab active"
+                    : "admin-tab"
+                }
                 onClick={() => {
                   setQuestionnaireFilter(status);
                   setPage(1);
@@ -157,13 +209,17 @@ export default function AdminUsersPage() {
               >
                 <div className="admin-record-topline">
                   <strong>{user.displayName ?? user.email}</strong>
-                  <span className="domain-chip">{user.status}</span>
+                  <span className="domain-chip">
+                    {USER_STATUS_LABELS[user.status]}
+                  </span>
                 </div>
                 <p>{user.email}</p>
                 <div className="admin-inline-meta">
                   <span>{user.school?.name ?? "未识别学校"}</span>
                   <span>
-                    {user.questionnaireResponse?.submittedAt ? "已填问卷" : "未填问卷"}
+                    {user.questionnaireResponse?.submittedAt
+                      ? "已填问卷"
+                      : "未填问卷"}
                   </span>
                 </div>
               </button>
@@ -174,7 +230,11 @@ export default function AdminUsersPage() {
           </div>
           {data ? (
             <div className="admin-pagination">
-              <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">
+              <button
+                disabled={data.page <= 1}
+                onClick={() => setPage(data.page - 1)}
+                type="button"
+              >
                 上一页
               </button>
               <span>
@@ -196,24 +256,28 @@ export default function AdminUsersPage() {
             <div className="admin-page-stack">
               <div className="admin-section-header">
                 <div>
-                  <p className="eyebrow">User Detail</p>
+                  <p className="eyebrow">用户详情</p>
                   <h2>{selectedUser.displayName ?? "未设置昵称"}</h2>
                   <p>{selectedUser.email}</p>
                 </div>
                 <div className="auth-actions">
-                  {(["ACTIVE", "SUSPENDED", "PENDING"] as const).map((status) => (
-                    <button
-                      key={status}
-                      className={
-                        selectedUser.status === status ? "button-primary" : "button-secondary"
-                      }
-                      type="button"
-                      disabled={pending === status}
-                      onClick={() => void updateUserStatus(status)}
-                    >
-                      {pending === status ? "提交中..." : status}
-                    </button>
-                  ))}
+                  {(["ACTIVE", "SUSPENDED", "PENDING"] as const).map(
+                    (status) => (
+                      <button
+                        key={status}
+                        className={
+                          selectedUser.status === status
+                            ? "button-primary"
+                            : "button-secondary"
+                        }
+                        type="button"
+                        disabled={pending === status}
+                        onClick={() => void updateUserStatus(status)}
+                      >
+                        {pending === status ? "提交中..." : USER_STATUS_LABELS[status]}
+                      </button>
+                    ),
+                  )}
                 </div>
               </div>
 
@@ -225,15 +289,17 @@ export default function AdminUsersPage() {
                 <div>
                   <span>注册时间</span>
                   <strong>
-                    {new Intl.DateTimeFormat("zh-CN", { dateStyle: "short" }).format(
-                      new Date(selectedUser.createdAt),
-                    )}
+                    {new Intl.DateTimeFormat("zh-CN", {
+                      dateStyle: "short",
+                    }).format(new Date(selectedUser.createdAt))}
                   </strong>
                 </div>
                 <div>
                   <span>问卷</span>
                   <strong>
-                    {selectedUser.questionnaireResponse?.submittedAt ? "已提交" : "未提交"}
+                    {selectedUser.questionnaireResponse?.submittedAt
+                      ? "已提交"
+                      : "未提交"}
                   </strong>
                 </div>
               </div>
@@ -265,15 +331,19 @@ export default function AdminUsersPage() {
                 <h3>问卷回答</h3>
                 {selectedUser.questionnaireResponse?.answers ? (
                   <div className="admin-answer-list">
-                    {Object.entries(selectedUser.questionnaireResponse.answers).map(([key, value]) => (
+                    {Object.entries(
+                      selectedUser.questionnaireResponse.answers,
+                    ).map(([key, value]) => (
                       <div key={key}>
-                        <span>{key}</span>
+                        <span>{ANSWER_LABELS[key] ?? key}</span>
                         <strong>{formatAnswer(value)}</strong>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="admin-empty-state">该用户还没有提交问卷。</div>
+                  <div className="admin-empty-state">
+                    该用户还没有提交问卷。
+                  </div>
                 )}
               </div>
             </div>

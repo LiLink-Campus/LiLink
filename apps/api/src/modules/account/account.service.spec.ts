@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { AccountService } from './account.service';
+import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
 describe('AccountService', () => {
   it('rejects participation changes after the deadline', async () => {
@@ -30,6 +31,7 @@ describe('AccountService', () => {
             answers: {
               current_question: 'kept',
               removed_question: 'dropped',
+              [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
             },
           }),
         },
@@ -46,6 +48,7 @@ describe('AccountService', () => {
     await expect(service.getQuestionnaire('user-1')).resolves.toEqual({
       answers: {
         current_question: 'kept',
+        [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
       },
     });
   });

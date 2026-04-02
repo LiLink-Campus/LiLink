@@ -9,7 +9,6 @@ import {
   Max,
   Min,
   MinLength,
-  ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -59,14 +58,6 @@ export class UpdateProfileDto {
   ageMax?: number;
 
   @IsOptional()
-  @IsBoolean()
-  allowCrossSchool?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  preferCrossSchool?: boolean;
-
-  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   languages?: string[];
@@ -105,7 +96,7 @@ export class ReportMatchDto {
     const trimmedValue = value.trim();
     return trimmedValue.length > 0 ? trimmedValue : undefined;
   })
-  @ValidateIf((_, value) => value !== undefined)
+  @IsOptional()
   @IsString()
   @MinLength(2)
   details?: string;

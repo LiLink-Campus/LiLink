@@ -6,6 +6,7 @@ import {
 import { QuestionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { hardMatchQuestionKeys, normalizeHardMatchAnswers } from './hard-match';
 
 type QuestionnaireQuestion = {
   key: string;
@@ -42,18 +43,25 @@ export class QuestionnaireService {
     questions: QuestionnaireQuestion[],
     rawAnswers: Record<string, unknown>,
   ) {
-    const normalizedAnswers: Record<string, Prisma.InputJsonValue> = {};
     const questionsByKey = new Map(
       questions.map((question) => [question.key, question]),
     );
+    const allowedQuestionKeys = new Set([
+      ...questionsByKey.keys(),
+      ...hardMatchQuestionKeys(),
+    ]);
 
     for (const answerKey of Object.keys(rawAnswers)) {
-      if (!questionsByKey.has(answerKey)) {
+      if (!allowedQuestionKeys.has(answerKey)) {
         throw new BadRequestException(
           `Unexpected questionnaire field: ${answerKey}.`,
         );
       }
     }
+
+    const normalizedAnswers: Record<string, Prisma.InputJsonValue> = {
+      ...normalizeHardMatchAnswers(rawAnswers),
+    };
 
     for (const question of questions) {
       const rawAnswer = rawAnswers[question.key];
@@ -151,14 +159,9 @@ export class QuestionnaireService {
       return normalizedValues;
     }
 
-    if (typeof rawAnswer !== 'string') {
-      throw new BadRequestException(
-        `Question "${question.prompt}" must be answered with text.`,
-      );
-    }
-
-    const normalizedText = rawAnswer.trim();
-    return normalizedText || null;
+    throw new BadRequestException(
+      `Question "${question.prompt}" has an unsupported type.`,
+    );
   }
 
   private normalizeOptions(options: Prisma.JsonValue | null) {

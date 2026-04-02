@@ -1,7 +1,55 @@
 import 'dotenv/config';
-import { PrismaClient, QuestionType } from "@prisma/client";
+import { PrismaClient, QuestionType } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+const OUTING_SPEND_OPTIONS = [
+  '无所谓，看当时和心情',
+  '更希望 AA',
+  '更能接受对方多出或主动请客',
+  '更愿意自己多出或主动请客',
+  '不太希望总是只有我出钱（不强求对方全包）',
+] as const;
+
+async function ensureOutingSpendQuestion() {
+  const currentVersion = await prisma.questionnaireVersion.findFirst({
+    where: { isCurrent: true },
+  });
+
+  if (!currentVersion) {
+    return;
+  }
+
+  await prisma.question.upsert({
+    where: { key: 'outing_spend_style' },
+    update: {
+      prompt: '一起出去玩时，花钱方式你更倾向哪一种？',
+      order: 6,
+      weight: 2,
+      options: [...OUTING_SPEND_OPTIONS],
+    },
+    create: {
+      versionId: currentVersion.id,
+      key: 'outing_spend_style',
+      prompt: '一起出去玩时，花钱方式你更倾向哪一种？',
+      type: QuestionType.SINGLE_SELECT,
+      order: 6,
+      weight: 2,
+      required: true,
+      options: [...OUTING_SPEND_OPTIONS],
+    },
+  });
+}
+
+async function removeLegacyQuestion() {
+  await prisma.question.deleteMany({
+    where: {
+      key: {
+        in: ['cross_school'],
+      },
+    },
+  });
+}
 
 const schools = [
   {
@@ -96,78 +144,78 @@ async function main() {
   if (!existingVersion) {
     await prisma.questionnaireVersion.create({
       data: {
-        title: "LiLink Core Compatibility Survey",
-        description: "A compact first-pass questionnaire for the initial launch.",
+        title: 'LiLink Core Compatibility Survey',
+        description:
+          'A compact first-pass questionnaire for the initial launch.',
         isCurrent: true,
         questions: {
           create: [
             {
-              key: "relationship_intent",
-              prompt: "你更想进入一段怎样的关系？",
+              key: 'relationship_intent',
+              prompt: '你更想进入一段怎样的关系？',
               type: QuestionType.SINGLE_SELECT,
               order: 1,
               weight: 3,
               options: [
-                "认真稳定的关系",
-                "先认识、慢慢发展",
-                "保持开放，顺其自然",
+                '认真稳定的关系',
+                '先认识、慢慢发展',
+                '保持开放，顺其自然',
               ],
             },
             {
-              key: "pace",
-              prompt: "你更偏好的相处节奏是？",
+              key: 'pace',
+              prompt: '你更偏好的相处节奏是？',
               type: QuestionType.SINGLE_SELECT,
               order: 2,
               weight: 2,
-              options: ["慢热", "平衡", "主动推进"],
+              options: ['慢热', '平衡', '主动推进'],
             },
             {
-              key: "values",
-              prompt: "从下面选出你最看重的四项价值。",
+              key: 'values',
+              prompt: '从下面选出你最看重的四项价值。',
               type: QuestionType.MULTI_SELECT,
               order: 3,
               weight: 4,
               options: [
-                "真诚",
-                "独立",
-                "稳定",
-                "好奇心",
-                "责任感",
-                "幽默感",
-                "野心",
-                "温柔",
+                '真诚',
+                '独立',
+                '稳定',
+                '好奇心',
+                '责任感',
+                '幽默感',
+                '野心',
+                '温柔',
               ],
             },
             {
-              key: "weekend",
-              prompt: "理想周末更接近哪一种？",
+              key: 'weekend',
+              prompt: '理想周末更接近哪一种？',
               type: QuestionType.SINGLE_SELECT,
               order: 4,
               weight: 2,
-              options: ["出门探索", "轻社交", "安静恢复"],
+              options: ['出门探索', '轻社交', '安静恢复'],
             },
             {
-              key: "communication",
-              prompt: "发生分歧时，你更希望对方怎么做？",
+              key: 'communication',
+              prompt: '发生分歧时，你更希望对方怎么做？',
               type: QuestionType.SINGLE_SELECT,
               order: 5,
               weight: 3,
-              options: ["当场说清楚", "先冷静再沟通", "给彼此缓冲时间"],
+              options: ['当场说清楚', '先冷静再沟通', '给彼此缓冲时间'],
             },
             {
-              key: "cross_school",
-              prompt: "跨校认识对你来说是加分项吗？",
+              key: 'outing_spend_style',
+              prompt: '一起出去玩时，花钱方式你更倾向哪一种？',
               type: QuestionType.SINGLE_SELECT,
               order: 6,
-              weight: 1,
-              options: ["是", "无所谓", "更希望校内优先"],
-            },
-            {
-              key: "boundaries",
-              prompt: "你最在意的一条边界是什么？",
-              type: QuestionType.SHORT_TEXT,
-              order: 7,
               weight: 2,
+              options: [
+                '无所谓，看当时和心情',
+                '更希望 AA',
+                '更能接受对方多出或主动请客',
+                '更愿意自己多出或主动请客',
+                '不太希望总是只有我出钱（不强求对方全包）',
+              ],
             },
           ],
         },
@@ -175,8 +223,11 @@ async function main() {
     });
   }
 
+  await removeLegacyQuestion();
+  await ensureOutingSpendQuestion();
+
   const existingCycle = await prisma.matchCycle.findFirst({
-    where: { status: { in: ["OPEN", "DRAFT"] } },
+    where: { status: { in: ['OPEN', 'DRAFT'] } },
   });
 
   if (!existingCycle) {
@@ -193,8 +244,8 @@ async function main() {
         codename: `launch-${now.getUTCFullYear()}-${now.getUTCMonth() + 1}`,
         participationDeadline,
         revealAt,
-        status: "OPEN",
-        notes: "Initial launch cycle",
+        status: 'OPEN',
+        notes: 'Initial launch cycle',
       },
     });
   }

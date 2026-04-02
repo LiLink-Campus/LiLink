@@ -12,6 +12,19 @@ const STATUS_STYLES: Record<AdminCycle["status"], { bg: string; color: string }>
   REVEALED: { bg: "var(--coral-soft)", color: "var(--coral)" },
 };
 
+const CYCLE_STATUS_LABELS: Record<"ALL" | AdminCycle["status"], string> = {
+  ALL: "全部",
+  DRAFT: "草稿",
+  OPEN: "开放报名",
+  REVEAL_READY: "待揭晓",
+  REVEALED: "已揭晓",
+};
+
+const PARTICIPATION_STATUS_LABELS: Record<"OPTED_IN" | "OPTED_OUT", string> = {
+  OPTED_IN: "已参加",
+  OPTED_OUT: "未参加",
+};
+
 function createEmptyCycleForm() {
   return {
     cycleId: "",
@@ -268,11 +281,11 @@ export default function AdminCyclesPage() {
   }
 
   return (
-    <div className="admin-page admin-page-stack">
-      <div className="admin-page-header">
+    <div className="admin-page admin-page-stack" style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
+      <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
         <div>
-          <h1>轮次中心</h1>
-          <p>在同一页面管理轮次列表、编辑详情、执行轮次和查看阶段状态。</p>
+          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>轮次中心</h1>
+          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>在同一页面管理轮次列表、编辑详情、执行轮次和查看阶段状态。</p>
         </div>
         <div className="auth-actions">
           <button
@@ -284,10 +297,11 @@ export default function AdminCyclesPage() {
               setActionError(null);
             }}
             type="button"
+            style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}
           >
             新建轮次
           </button>
-          <button className="button-secondary" onClick={() => void refresh()} type="button">
+          <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
             刷新
           </button>
         </div>
@@ -301,7 +315,7 @@ export default function AdminCyclesPage() {
         <article className="content-panel admin-list-panel">
           <div className="admin-section-header">
             <div>
-              <p className="eyebrow">Cycle List</p>
+              <p className="eyebrow">轮次列表</p>
               <h2>全部轮次</h2>
             </div>
           </div>
@@ -315,18 +329,18 @@ export default function AdminCyclesPage() {
               placeholder="搜索 codename、状态或备注"
             />
           </div>
-          <div className="admin-filter-row">
+          <div className="admin-tabs">
             {(["ALL", "DRAFT", "OPEN", "REVEAL_READY", "REVEALED"] as const).map((status) => (
               <button
                 key={status}
                 type="button"
-                className={statusFilter === status ? "button-primary" : "button-secondary"}
+                className={statusFilter === status ? "admin-tab active" : "admin-tab"}
                 onClick={() => {
                   setStatusFilter(status);
                   setPage(1);
                 }}
               >
-                {status}
+                {CYCLE_STATUS_LABELS[status]}
               </button>
             ))}
           </div>
@@ -345,7 +359,7 @@ export default function AdminCyclesPage() {
                 <div className="admin-record-topline">
                   <strong>{cycle.codename}</strong>
                   <span className="domain-chip" style={STATUS_STYLES[cycle.status]}>
-                    {cycle.status}
+                    {CYCLE_STATUS_LABELS[cycle.status]}
                   </span>
                 </div>
                 <p>揭晓：{formatDateTime(cycle.revealAt)}</p>
@@ -381,7 +395,7 @@ export default function AdminCyclesPage() {
         <article className="content-panel admin-detail-panel">
           <div className="admin-section-header">
             <div>
-              <p className="eyebrow">Cycle Editor</p>
+              <p className="eyebrow">轮次编辑</p>
               <h2>{cycleForm.cycleId ? "编辑轮次" : "新建轮次"}</h2>
             </div>
             <div className="auth-actions">
@@ -430,10 +444,10 @@ export default function AdminCyclesPage() {
 
           {selectedCycle ? (
             <div className="admin-inline-metrics">
-              <div>
-                <span>状态</span>
-                <strong>{selectedCycle.status}</strong>
-              </div>
+                <div>
+                  <span>状态</span>
+                  <strong>{CYCLE_STATUS_LABELS[selectedCycle.status]}</strong>
+                </div>
               <div>
                 <span>参与记录</span>
                 <strong>{selectedCycle._count.participations}</strong>
@@ -447,7 +461,7 @@ export default function AdminCyclesPage() {
 
           <form className="auth-form" onSubmit={saveCycle}>
             <label>
-              <span>Codename</span>
+              <span>轮次代号</span>
               <input
                 required
                 value={cycleForm.codename}
@@ -494,10 +508,10 @@ export default function AdminCyclesPage() {
                   }))
                 }
               >
-                <option value="DRAFT">DRAFT</option>
-                <option value="OPEN">OPEN</option>
-                <option value="REVEAL_READY">REVEAL_READY</option>
-                <option value="REVEALED">REVEALED</option>
+                <option value="DRAFT">草稿</option>
+                <option value="OPEN">开放报名</option>
+                <option value="REVEAL_READY">待揭晓</option>
+                <option value="REVEALED">已揭晓</option>
               </select>
             </label>
             <label>
@@ -521,7 +535,7 @@ export default function AdminCyclesPage() {
         <article className="content-panel">
           <div className="admin-section-header">
             <div>
-              <p className="eyebrow">Participants</p>
+              <p className="eyebrow">参与者</p>
               <h2>参与者与完成度</h2>
             </div>
           </div>
@@ -534,7 +548,9 @@ export default function AdminCyclesPage() {
                 <div key={participation.id} className="admin-record-item">
                   <div className="admin-record-topline">
                     <strong>{participation.user.displayName ?? participation.user.email}</strong>
-                    <span className="domain-chip">{participation.status}</span>
+                    <span className="domain-chip">
+                      {PARTICIPATION_STATUS_LABELS[participation.status]}
+                    </span>
                   </div>
                   <p>{participation.user.school?.name ?? "未识别学校"}</p>
                   <div className="admin-inline-meta">
@@ -560,7 +576,7 @@ export default function AdminCyclesPage() {
         <article className="content-panel">
           <div className="admin-section-header">
             <div>
-              <p className="eyebrow">Matches</p>
+              <p className="eyebrow">匹配结果</p>
               <h2>匹配结果与执行记录</h2>
             </div>
           </div>
@@ -639,8 +655,8 @@ export default function AdminCyclesPage() {
 
       <section className="content-panel">
         <div className="admin-section-header">
-          <div>
-            <p className="eyebrow">Preview</p>
+            <div>
+            <p className="eyebrow">预演</p>
             <h2>预演匹配</h2>
           </div>
         </div>

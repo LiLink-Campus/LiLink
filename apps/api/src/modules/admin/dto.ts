@@ -136,8 +136,8 @@ export class UpsertQuestionDto {
   @IsString()
   prompt!: string;
 
-  @IsIn(['SINGLE_SELECT', 'MULTI_SELECT', 'SCALE', 'SHORT_TEXT'])
-  type!: 'SINGLE_SELECT' | 'MULTI_SELECT' | 'SCALE' | 'SHORT_TEXT';
+  @IsIn(['SINGLE_SELECT', 'MULTI_SELECT', 'SCALE'])
+  type!: 'SINGLE_SELECT' | 'MULTI_SELECT' | 'SCALE';
 
   @IsOptional()
   @IsArray()

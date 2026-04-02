@@ -15,6 +15,7 @@ describe('AdminService', () => {
       prisma as never,
       cyclesService as never,
       adminAuditService as never,
+      {} as never,
     );
 
     await service.runCycle(

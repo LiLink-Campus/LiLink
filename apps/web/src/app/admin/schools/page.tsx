@@ -153,13 +153,13 @@ export default function AdminSchoolsPage() {
   }
 
   return (
-    <div className="admin-page admin-page-stack">
-      <div className="admin-page-header">
+    <div className="admin-page admin-page-stack" style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
+      <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
         <div>
-          <h1>学校中心</h1>
-          <p>把学校档案与邮箱域名映射作为长期配置来维护，不和轮次搅在一起。</p>
+          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>学校中心</h1>
+          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>把学校档案与邮箱域名映射作为长期配置来维护，不和轮次搅在一起。</p>
         </div>
-        <button className="button-secondary" onClick={() => void refresh()} type="button">
+        <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
           刷新
         </button>
       </div>
@@ -171,7 +171,7 @@ export default function AdminSchoolsPage() {
         <article className="content-panel admin-list-panel">
           <div className="admin-section-header">
             <div>
-              <p className="eyebrow">Schools</p>
+              <p className="eyebrow">学校</p>
               <h2>学校列表</h2>
             </div>
           </div>
@@ -234,7 +234,7 @@ export default function AdminSchoolsPage() {
         <article className="content-panel admin-detail-panel">
           <div className="admin-section-header">
             <div>
-              <p className="eyebrow">Selected School</p>
+              <p className="eyebrow">当前学校</p>
               <h2>{selectedSchool?.name ?? "选择一所学校"}</h2>
             </div>
             {selectedSchool ? (
@@ -273,7 +273,7 @@ export default function AdminSchoolsPage() {
                   />
                 </label>
                 <label>
-                  <span>Slug</span>
+                  <span>标识（Slug）</span>
                   <input value={editForm.slug} disabled />
                 </label>
                 <label>
@@ -310,7 +310,7 @@ export default function AdminSchoolsPage() {
       <section className="content-panel">
         <div className="admin-section-header">
           <div>
-            <p className="eyebrow">Create</p>
+            <p className="eyebrow">新建</p>
             <h2>新增学校</h2>
           </div>
         </div>
@@ -327,7 +327,7 @@ export default function AdminSchoolsPage() {
               />
             </label>
             <label>
-              <span>Slug</span>
+              <span>标识（Slug）</span>
               <input
                 required
                 value={createForm.slug}
@@ -355,7 +355,7 @@ export default function AdminSchoolsPage() {
               onChange={(event) =>
                 setCreateForm((current) => ({ ...current, domains: event.target.value }))
               }
-              placeholder="school.edu, students.school.edu"
+              placeholder="例如 school.edu, students.school.edu"
             />
           </label>
           <button className="button-primary" type="submit" disabled={pending === "create"}>

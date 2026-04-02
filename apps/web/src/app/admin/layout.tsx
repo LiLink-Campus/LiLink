@@ -42,17 +42,17 @@ function AdminGate({ children }: { children: React.ReactNode }) {
             }}
           >
             <label>
-              <span>Admin Email</span>
+              <span>管理员邮箱</span>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@your-domain.com"
+                placeholder="请输入管理员邮箱"
                 autoFocus
               />
             </label>
             <label>
-              <span>Password</span>
+              <span>密码</span>
               <input
                 type="password"
                 value={password}
@@ -86,8 +86,8 @@ function AdminSidebar() {
       <div className="admin-sidebar-brand">
         <span className="brand-badge" style={{ width: "2rem", height: "2rem", fontSize: "0.75rem" }}>Li</span>
         <div>
-          <strong>LiLink Admin</strong>
-          <p>{admin?.displayName ?? admin?.email ?? "Admin"}</p>
+          <strong>LiLink 后台</strong>
+          <p>{admin?.displayName ?? admin?.email ?? "管理员"}</p>
         </div>
       </div>
       <nav className="admin-sidebar-nav">

@@ -7,6 +7,13 @@ import type { AdminReport, AdminReportContext } from "../types";
 
 type ReportFilter = "ALL" | AdminReport["status"];
 
+const REPORT_STATUS_LABELS: Record<ReportFilter, string> = {
+  ALL: "全部",
+  OPEN: "待处理",
+  RESOLVED: "已结案",
+  DISMISSED: "已驳回",
+};
+
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
     dateStyle: "short",
@@ -164,13 +171,13 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <div className="admin-page admin-page-stack">
-      <div className="admin-page-header">
+    <div className="admin-page admin-page-stack" style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
+      <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
         <div>
-          <h1>举报中心</h1>
-          <p>把举报当作审核工单处理，而不是简单列表。先过滤队列，再进入详情判断。</p>
+          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>举报中心</h1>
+          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>把举报当作审核工单处理，而不是简单列表。先过滤队列，再进入详情判断。</p>
         </div>
-        <button className="button-secondary" onClick={() => void refresh()} type="button">
+        <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
           刷新
         </button>
       </div>
@@ -178,75 +185,81 @@ export default function AdminReportsPage() {
       {error ? <p className="form-error">{error}</p> : null}
       {actionError ? <p className="form-error">{actionError}</p> : null}
 
-      <div className="admin-search-bar">
-        <input
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(1);
-          }}
-          placeholder="搜索原因、详情、举报人或被举报人邮箱"
-        />
-      </div>
-
-      <div className="admin-filter-row">
-        {(["ALL", "OPEN", "RESOLVED", "DISMISSED"] as const).map((status) => (
-          <button
-            key={status}
-            type="button"
-            className={filter === status ? "button-primary" : "button-secondary"}
-            onClick={() => {
-              setFilter(status);
-              setPage(1);
-            }}
-          >
-            {status === "ALL" ? "全部" : status}
-          </button>
-        ))}
-      </div>
-
-      <div className="admin-filter-row">
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() =>
-            setSelectedReportIds((current) =>
-              current.length === reports.length ? [] : reports.map((report) => report.id),
-            )
-          }
-        >
-          {selectedReportIds.length === reports.length && reports.length > 0
-            ? "取消全选"
-            : "全选当前列表"}
-        </button>
-        <button
-          type="button"
-          className="button-primary"
-          disabled={selectedReportIds.length === 0 || pending === "batch-RESOLVED"}
-          onClick={() => void batchReviewReports("RESOLVED", false)}
-        >
-          批量结案
-        </button>
-        <button
-          type="button"
-          className="button-secondary"
-          disabled={selectedReportIds.length === 0 || pending === "batch-DISMISSED"}
-          onClick={() => void batchReviewReports("DISMISSED", false)}
-        >
-          批量驳回
-        </button>
-        <button
-          type="button"
-          className="button-ghost"
-          disabled={selectedReportIds.length === 0 || pending === "batch-RESOLVED"}
-          onClick={() => void batchReviewReports("RESOLVED", true)}
-        >
-          批量封禁并结案
-        </button>
-      </div>
-
       <section className="admin-workspace-grid">
         <article className="content-panel admin-list-panel">
+          <div className="admin-section-header">
+            <div>
+              <p className="eyebrow">举报</p>
+              <h2>举报列表</h2>
+            </div>
+          </div>
+          <div className="admin-search-bar">
+            <input
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="搜索原因、详情、举报人或被举报人邮箱"
+            />
+          </div>
+
+          <div className="admin-tabs">
+            {(["ALL", "OPEN", "RESOLVED", "DISMISSED"] as const).map((status) => (
+              <button
+                key={status}
+                type="button"
+                className={filter === status ? "admin-tab active" : "admin-tab"}
+                onClick={() => {
+                  setFilter(status);
+                  setPage(1);
+                }}
+              >
+                {REPORT_STATUS_LABELS[status]}
+              </button>
+            ))}
+          </div>
+
+          <div className="admin-batch-actions">
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() =>
+                setSelectedReportIds((current) =>
+                  current.length === reports.length ? [] : reports.map((report) => report.id),
+                )
+              }
+            >
+              {selectedReportIds.length === reports.length && reports.length > 0
+                ? "取消全选"
+                : "全选当前列表"}
+            </button>
+            <button
+              type="button"
+              className="button-primary"
+              disabled={selectedReportIds.length === 0 || pending === "batch-RESOLVED"}
+              onClick={() => void batchReviewReports("RESOLVED", false)}
+            >
+              批量结案
+            </button>
+            <button
+              type="button"
+              className="button-secondary"
+              disabled={selectedReportIds.length === 0 || pending === "batch-DISMISSED"}
+              onClick={() => void batchReviewReports("DISMISSED", false)}
+            >
+              批量驳回
+            </button>
+            <button
+              type="button"
+              className="button-ghost"
+              disabled={selectedReportIds.length === 0 || pending === "batch-RESOLVED"}
+              onClick={() => void batchReviewReports("RESOLVED", true)}
+            >
+              批量封禁并结案
+            </button>
+          </div>
+
           <div className="admin-record-list">
             {reports.map((report) => (
               <div
@@ -276,7 +289,9 @@ export default function AdminReportsPage() {
                   >
                     <div className="admin-record-topline">
                       <strong>{report.reason}</strong>
-                      <span className="domain-chip">{report.status}</span>
+                      <span className="domain-chip">
+                        {REPORT_STATUS_LABELS[report.status]}
+                      </span>
                     </div>
                     <p>{report.reporter.displayName ?? report.reporter.email} {" → "} {report.reportedUser.displayName ?? report.reportedUser.email}</p>
                     <div className="admin-inline-meta">
@@ -315,11 +330,13 @@ export default function AdminReportsPage() {
             <div className="admin-page-stack">
               <div className="admin-section-header">
                 <div>
-                  <p className="eyebrow">Review Detail</p>
+                  <p className="eyebrow">处理详情</p>
                   <h2>{selectedReport.reason}</h2>
                   <p>创建于 {formatDateTime(selectedReport.createdAt)}</p>
                 </div>
-                <span className="domain-chip">{selectedReport.status}</span>
+                <span className="domain-chip">
+                  {REPORT_STATUS_LABELS[selectedReport.status]}
+                </span>
               </div>
 
               <div className="admin-detail-grid">
@@ -422,7 +439,9 @@ export default function AdminReportsPage() {
                       <div key={report.id} className="admin-record-item">
                         <div className="admin-record-topline">
                           <strong>{report.reason}</strong>
-                          <span className="domain-chip">{report.status}</span>
+                          <span className="domain-chip">
+                            {REPORT_STATUS_LABELS[report.status]}
+                          </span>
                         </div>
                         <p>{formatDateTime(report.createdAt)}</p>
                       </div>

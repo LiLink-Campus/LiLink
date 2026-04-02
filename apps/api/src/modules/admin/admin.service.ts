@@ -955,10 +955,6 @@ export class AdminService {
     questionType: UpsertQuestionDto['type'],
     options?: string[],
   ) {
-    if (questionType === 'SHORT_TEXT') {
-      return Prisma.JsonNull;
-    }
-
     const normalizedOptions =
       options?.map((option) => option.trim()).filter(Boolean) ?? [];
 
