@@ -1,0 +1,26 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ReportStatus') THEN
+    CREATE TYPE "ReportStatus" AS ENUM ('OPEN', 'RESOLVED', 'DISMISSED');
+  END IF;
+END $$;
+
+ALTER TABLE "Report" ADD COLUMN IF NOT EXISTS "matchId" TEXT;
+ALTER TABLE "Report" ADD COLUMN IF NOT EXISTS "status" "ReportStatus" NOT NULL DEFAULT 'OPEN';
+ALTER TABLE "Report" ADD COLUMN IF NOT EXISTS "adminNotes" TEXT;
+ALTER TABLE "Report" ADD COLUMN IF NOT EXISTS "handledAt" TIMESTAMP(3);
+ALTER TABLE "Report" ADD COLUMN IF NOT EXISTS "createdBlock" BOOLEAN NOT NULL DEFAULT false;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'Report_matchId_fkey'
+  ) THEN
+    ALTER TABLE "Report"
+    ADD CONSTRAINT "Report_matchId_fkey"
+    FOREIGN KEY ("matchId") REFERENCES "Match"("id")
+    ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;

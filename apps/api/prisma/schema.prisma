@@ -1,0 +1,290 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum QuestionType {
+  SCALE
+  SINGLE_SELECT
+  MULTI_SELECT
+  SHORT_TEXT
+}
+
+enum MatchCycleStatus {
+  DRAFT
+  OPEN
+  REVEAL_READY
+  REVEALED
+}
+
+enum ParticipationStatus {
+  OPTED_OUT
+  OPTED_IN
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+model AdminOperator {
+  id          String     @id @default(cuid())
+  email       String     @unique
+  passwordHash String
+  displayName String?
+  isActive    Boolean    @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  auditLogs   AuditLog[] @relation("AdminActor")
+
+  @@index([isActive])
+}
+
+model School {
+  id          String         @id @default(cuid())
+  name        String
+  slug        String         @unique
+  description String?
+  domains     SchoolDomain[]
+  users       User[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model SchoolDomain {
+  id        String   @id @default(cuid())
+  domain    String   @unique
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id                    String                 @id @default(cuid())
+  email                 String                 @unique
+  passwordHash          String
+  status                UserStatus             @default(PENDING)
+  schoolId              String?
+  school                School?                @relation(fields: [schoolId], references: [id])
+  displayName           String?
+  acceptedTermsAt       DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  profile               UserProfile?
+  questionnaireResponse QuestionnaireResponse?
+  participations        CycleParticipation[]
+  reportsFiled          Report[]               @relation("Reporter")
+  reportsReceived       Report[]               @relation("ReportedUser")
+  blocksInitiated       Block[]                @relation("Blocker")
+  blocksReceived        Block[]                @relation("BlockedUser")
+  matchParticipants     MatchParticipant[]
+  auditLogs             AuditLog[]             @relation("Actor")
+
+  @@index([status, createdAt])
+  @@index([schoolId])
+}
+
+model EmailCode {
+  id         String   @id @default(cuid())
+  email      String
+  codeHash   String
+  purpose    String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([email, purpose, consumedAt, expiresAt])
+}
+
+model UserProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName          String?
+  headline          String?
+  bio               String?
+  schoolYear        String?
+  programName       String?
+  pronouns          String?
+  hometown          String?
+  genderIdentity    String?
+  ageMin            Int?
+  ageMax            Int?
+  allowCrossSchool  Boolean  @default(true)
+  preferCrossSchool Boolean  @default(false)
+  languages         Json?
+  interests         Json?
+  interestedIn      Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model QuestionnaireVersion {
+  id          String                  @id @default(cuid())
+  title       String
+  description String?
+  isCurrent   Boolean                 @default(false)
+  questions   Question[]
+  responses   QuestionnaireResponse[]
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([isCurrent])
+}
+
+model Question {
+  id          String               @id @default(cuid())
+  versionId   String
+  version     QuestionnaireVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  key         String               @unique
+  prompt      String
+  description String?
+  type        QuestionType
+  weight      Int                  @default(1)
+  order       Int
+  required    Boolean              @default(true)
+  options     Json?
+
+  @@index([versionId, order])
+}
+
+model QuestionnaireResponse {
+  id          String               @id @default(cuid())
+  userId      String               @unique
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versionId   String
+  version     QuestionnaireVersion @relation(fields: [versionId], references: [id])
+  answers     Json
+  submittedAt DateTime?
+  updatedAt   DateTime             @updatedAt
+
+  @@index([versionId])
+  @@index([submittedAt])
+}
+
+model MatchCycle {
+  id                    String               @id @default(cuid())
+  codename              String               @unique
+  participationDeadline DateTime
+  revealAt              DateTime
+  status                MatchCycleStatus     @default(DRAFT)
+  notes                 String?
+  participations        CycleParticipation[]
+  matches               Match[]
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  @@index([status, revealAt])
+}
+
+model CycleParticipation {
+  id        String              @id @default(cuid())
+  cycleId   String
+  cycle     MatchCycle          @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    ParticipationStatus @default(OPTED_OUT)
+  optedInAt DateTime?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@unique([cycleId, userId])
+  @@index([userId, status])
+}
+
+model Match {
+  id           String             @id @default(cuid())
+  cycleId      String
+  cycle        MatchCycle         @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  score        Float
+  reasons      Json
+  revealedAt   DateTime?
+  introducedAt DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  participants MatchParticipant[]
+  reports      Report[]
+
+  @@index([cycleId, createdAt])
+}
+
+model MatchParticipant {
+  id                 String   @id @default(cuid())
+  matchId            String
+  match              Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  cycleId            String
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position           Int
+  contactRequestedAt DateTime?
+  createdAt          DateTime @default(now())
+
+  @@unique([matchId, userId])
+  @@unique([cycleId, userId])
+  @@index([userId, createdAt])
+}
+
+model Report {
+  id             String   @id @default(cuid())
+  reporterId     String
+  reporter       User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUserId String
+  reportedUser   User     @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  matchId        String?
+  match          Match?   @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  reason         String
+  details        String?
+  status         ReportStatus @default(OPEN)
+  adminNotes     String?
+  handledAt      DateTime?
+  createdBlock   Boolean @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([reportedUserId, status])
+  @@index([reporterId, status])
+  @@index([matchId])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("BlockedUser", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+}
+
+model AuditLog {
+  id           String         @id @default(cuid())
+  actorId      String?
+  actor        User?          @relation("Actor", fields: [actorId], references: [id])
+  adminActorId String?
+  adminActor   AdminOperator? @relation("AdminActor", fields: [adminActorId], references: [id])
+  action       String
+  metadata     Json?
+  createdAt    DateTime       @default(now())
+
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+  @@index([adminActorId, createdAt])
+}

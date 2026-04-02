@@ -1,0 +1,200 @@
+import {
+  IsArray,
+  ArrayMinSize,
+  IsBoolean,
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Min,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class ListQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  pageSize?: number;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
+export class ListSchoolsQueryDto extends ListQueryDto {}
+
+export class ListCyclesQueryDto extends ListQueryDto {
+  @IsOptional()
+  @IsIn(['DRAFT', 'OPEN', 'REVEAL_READY', 'REVEALED'])
+  status?: 'DRAFT' | 'OPEN' | 'REVEAL_READY' | 'REVEALED';
+}
+
+export class ListUsersQueryDto extends ListQueryDto {
+  @IsOptional()
+  @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])
+  status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+
+  @IsOptional()
+  @IsIn(['all', 'submitted', 'missing'])
+  questionnaire?: 'all' | 'submitted' | 'missing';
+}
+
+export class ListReportsQueryDto extends ListQueryDto {
+  @IsOptional()
+  @IsIn(['OPEN', 'RESOLVED', 'DISMISSED'])
+  status?: 'OPEN' | 'RESOLVED' | 'DISMISSED';
+}
+
+export class ListAuditLogsQueryDto extends ListQueryDto {
+  @IsOptional()
+  @IsString()
+  action?: string;
+}
+
+export class CreateSchoolDto {
+  @IsString()
+  name!: string;
+
+  @IsString()
+  @Matches(/^[a-z0-9-]+$/, {
+    message: 'Slug must contain only lowercase letters, numbers, and hyphens.',
+  })
+  slug!: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsArray()
+  domains!: string[];
+}
+
+export class UpdateSchoolDto {
+  @IsString()
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  domains!: string[];
+}
+
+export class UpsertCycleDto {
+  @IsOptional()
+  @IsString()
+  cycleId?: string;
+
+  @IsString()
+  codename!: string;
+
+  @IsDateString()
+  participationDeadline!: string;
+
+  @IsDateString()
+  revealAt!: string;
+
+  @IsIn(['DRAFT', 'OPEN', 'REVEAL_READY', 'REVEALED'])
+  status!: 'DRAFT' | 'OPEN' | 'REVEAL_READY' | 'REVEALED';
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class RunCycleDto {
+  @IsString()
+  cycleId!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
+}
+
+export class UpsertQuestionDto {
+  @IsOptional()
+  @IsString()
+  questionId?: string;
+
+  @IsString()
+  key!: string;
+
+  @IsString()
+  prompt!: string;
+
+  @IsIn(['SINGLE_SELECT', 'MULTI_SELECT', 'SCALE', 'SHORT_TEXT'])
+  type!: 'SINGLE_SELECT' | 'MULTI_SELECT' | 'SCALE' | 'SHORT_TEXT';
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  options?: string[];
+
+  @IsInt()
+  @Min(1)
+  order!: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  weight?: number;
+}
+
+export class ReorderQuestionsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  questionIds!: string[];
+}
+
+export class DeleteQuestionDto {
+  @IsString()
+  questionId!: string;
+}
+
+export class ReviewReportDto {
+  @IsIn(['OPEN', 'RESOLVED', 'DISMISSED'])
+  status!: 'OPEN' | 'RESOLVED' | 'DISMISSED';
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  suspendUser?: boolean;
+}
+
+export class BatchReviewReportsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  reportIds!: string[];
+
+  @IsIn(['OPEN', 'RESOLVED', 'DISMISSED'])
+  status!: 'OPEN' | 'RESOLVED' | 'DISMISSED';
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  suspendUsers?: boolean;
+}
+
+export class UpdateUserStatusDto {
+  @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])
+  status!: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+}

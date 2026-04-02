@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+apps/*/node_modules/
+
+# Build outputs
+.next/
+apps/*/.next/
+dist/
+apps/*/dist/
+coverage/
+apps/*/coverage/
+out/
+build/
+
+# Runtime
+logs/
+*.log
+*.pid
+
+# Environment
+.env
+.env.*
+!.env.example
+apps/*/.env
+apps/*/.env.*
+!apps/*/.env.example
+
+# Database
+*.db
+*.db-journal
+prisma/dev.db
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Docker
+postgres-data/
+mailpit-data/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc
+.vercel/
+.turbo/
+tmp/
+

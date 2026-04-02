@@ -1,0 +1,67 @@
+import { UnauthorizedException } from '@nestjs/common';
+import * as argon2 from 'argon2';
+import { AdminSessionService } from './admin-session.service';
+
+jest.mock('argon2', () => ({
+  verify: jest.fn(),
+}));
+
+describe('AdminSessionService', () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it('rejects invalid credentials', async () => {
+    const prisma = {
+      adminOperator: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+    };
+    const jwtService = {
+      signAsync: jest.fn(),
+    };
+    const service = new AdminSessionService(
+      jwtService as never,
+      prisma as never,
+    );
+
+    await expect(
+      service.login('admin@example.com', 'bad-password'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('returns a token and admin profile for valid credentials', async () => {
+    const prisma = {
+      adminOperator: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          displayName: 'Ops',
+          passwordHash: 'hash',
+          isActive: true,
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    const jwtService = {
+      signAsync: jest.fn().mockResolvedValue('admin-token'),
+    };
+    const service = new AdminSessionService(
+      jwtService as never,
+      prisma as never,
+    );
+
+    jest.mocked(argon2.verify).mockResolvedValue(true as never);
+
+    await expect(
+      service.login('admin@example.com', 'correct-password'),
+    ).resolves.toEqual({
+      token: 'admin-token',
+      admin: {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        displayName: 'Ops',
+      },
+    });
+  });
+});

@@ -1,0 +1,26 @@
+{
+  "name": "lilink",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k -n web,api \"npm --prefix apps/web run dev\" \"npm --prefix apps/api run start:dev\"",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:api": "npm --prefix apps/api run start:dev",
+    "build": "npm run typecheck:web && npm run build:web && npm run build:api",
+    "build:web": "npm --prefix apps/web run build",
+    "build:api": "npm --prefix apps/api run build",
+    "typecheck:web": "npm --prefix apps/web run typecheck",
+    "lint": "npm run lint:web && npm run lint:api",
+    "lint:web": "npm --prefix apps/web run lint",
+    "lint:api": "npm --prefix apps/api run lint",
+    "db:bootstrap": "npm --prefix apps/api run db:bootstrap",
+    "db:generate": "npm --prefix apps/api run prisma:generate",
+    "db:migrate": "npm --prefix apps/api run prisma:migrate",
+    "db:seed": "npm --prefix apps/api run prisma:seed",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
