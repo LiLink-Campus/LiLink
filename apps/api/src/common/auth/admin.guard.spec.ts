@@ -74,4 +74,33 @@ describe('AdminGuard', () => {
       message: 'Admin session is invalid.',
     } satisfies Partial<UnauthorizedException>);
   });
+
+  it('lets database failures propagate instead of disguising them as auth failures', async () => {
+    const jwtService = {
+      verifyAsync: jest.fn().mockResolvedValue({
+        sub: 'admin-1',
+        email: 'admin@example.com',
+      }),
+    };
+    const databaseError = new Error('database down');
+    const prisma = {
+      adminOperator: {
+        findUnique: jest.fn().mockRejectedValue(databaseError),
+      },
+    };
+    const guard = new AdminGuard(jwtService as never, prisma as never);
+    const request = {
+      cookies: { lilink_admin_token: 'admin-token' },
+      headers: {},
+    };
+    const context = {
+      switchToHttp: () => ({
+        getRequest: () => request,
+      }),
+    };
+
+    await expect(guard.canActivate(context as never)).rejects.toThrow(
+      databaseError,
+    );
+  });
 });

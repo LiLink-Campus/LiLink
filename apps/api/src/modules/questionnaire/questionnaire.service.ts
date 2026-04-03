@@ -7,13 +7,20 @@ import { QuestionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { hardMatchQuestionKeys, normalizeHardMatchAnswers } from './hard-match';
+import {
+  normalizeQuestionAnswer,
+  normalizeQuestionOptions,
+  normalizeQuestionReasonRules,
+} from './questionnaire-config';
 
 type QuestionnaireQuestion = {
+  id?: string;
   key: string;
   prompt: string;
   type: QuestionType;
   required: boolean;
   options: Prisma.JsonValue | null;
+  reasonRules?: Prisma.JsonValue | null;
 };
 
 @Injectable()
@@ -36,7 +43,14 @@ export class QuestionnaireService {
       );
     }
 
-    return questionnaire;
+    return {
+      ...questionnaire,
+      questions: questionnaire.questions.map((question) => ({
+        ...question,
+        options: normalizeQuestionOptions(question.options),
+        reasonRules: normalizeQuestionReasonRules(question.reasonRules),
+      })),
+    };
   }
 
   validateAnswers(
@@ -76,7 +90,7 @@ export class QuestionnaireService {
         continue;
       }
 
-      const normalizedAnswer = this.normalizeAnswer(question, rawAnswer);
+      const normalizedAnswer = normalizeQuestionAnswer(question, rawAnswer);
 
       if (normalizedAnswer == null) {
         if (question.required) {
@@ -94,83 +108,28 @@ export class QuestionnaireService {
     return normalizedAnswers;
   }
 
-  private normalizeAnswer(
-    question: QuestionnaireQuestion,
-    rawAnswer: unknown,
-  ): Prisma.InputJsonValue | null {
-    const availableOptions = this.normalizeOptions(question.options);
+  sanitizeStoredAnswers(
+    questions: QuestionnaireQuestion[],
+    rawAnswers: Record<string, unknown>,
+  ) {
+    const sanitizedAnswers: Record<string, Prisma.InputJsonValue> = {};
 
-    if (
-      question.type === QuestionType.SINGLE_SELECT ||
-      question.type === QuestionType.SCALE
-    ) {
-      if (typeof rawAnswer !== 'string') {
-        throw new BadRequestException(
-          `Question "${question.prompt}" must be answered with a single option.`,
-        );
+    for (const question of questions) {
+      if (!(question.key in rawAnswers)) {
+        continue;
       }
 
-      const normalizedValue = rawAnswer.trim();
-      if (!normalizedValue) {
-        return null;
-      }
+      const normalizedAnswer = normalizeQuestionAnswer(
+        question,
+        rawAnswers[question.key],
+        { invalidAsNull: true },
+      );
 
-      if (
-        availableOptions.length > 0 &&
-        !availableOptions.includes(normalizedValue)
-      ) {
-        throw new BadRequestException(
-          `Question "${question.prompt}" contains an invalid option.`,
-        );
+      if (normalizedAnswer != null) {
+        sanitizedAnswers[question.key] = normalizedAnswer;
       }
-
-      return normalizedValue;
     }
 
-    if (question.type === QuestionType.MULTI_SELECT) {
-      if (!Array.isArray(rawAnswer)) {
-        throw new BadRequestException(
-          `Question "${question.prompt}" must be answered with a list of options.`,
-        );
-      }
-
-      const normalizedValues = [
-        ...new Set(
-          rawAnswer
-            .filter((value): value is string => typeof value === 'string')
-            .map((value) => value.trim())
-            .filter(Boolean),
-        ),
-      ];
-
-      if (normalizedValues.length === 0) {
-        return null;
-      }
-
-      if (
-        availableOptions.length > 0 &&
-        normalizedValues.some((value) => !availableOptions.includes(value))
-      ) {
-        throw new BadRequestException(
-          `Question "${question.prompt}" contains an invalid option.`,
-        );
-      }
-
-      return normalizedValues;
-    }
-
-    throw new BadRequestException(
-      `Question "${question.prompt}" has an unsupported type.`,
-    );
-  }
-
-  private normalizeOptions(options: Prisma.JsonValue | null) {
-    if (!Array.isArray(options)) {
-      return [];
-    }
-
-    return options.filter(
-      (option): option is string => typeof option === 'string',
-    );
+    return sanitizedAnswers;
   }
 }

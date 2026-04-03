@@ -3,7 +3,11 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { useAdmin } from "../admin-context";
-import type { AdminQuestion } from "../types";
+import type {
+  AdminQuestion,
+  AdminQuestionOption,
+  AdminQuestionReasonRule,
+} from "../types";
 
 type QuestionnairePayload = {
   id: string;
@@ -12,19 +16,63 @@ type QuestionnairePayload = {
   questions: AdminQuestion[];
 };
 
+type QuestionEditorState = {
+  questionId: string;
+  key: string;
+  prompt: string;
+  type: AdminQuestion["type"];
+  options: AdminQuestionOption[];
+  reasonRules: AdminQuestionReasonRule[];
+  order: number;
+  weight: number;
+};
+
 const QUESTION_TYPE_LABELS: Record<AdminQuestion["type"], string> = {
   SINGLE_SELECT: "单选",
   MULTI_SELECT: "多选",
   SCALE: "量表",
 };
 
-function createEmptyQuestion() {
+const REASON_RULE_LABELS: Record<AdminQuestionReasonRule["type"], string> = {
+  EXACT_MATCH: "完全一致",
+  MULTI_OVERLAP: "重叠项命中",
+};
+
+function createEmptyOption(): AdminQuestionOption {
+  return {
+    value: "",
+    label: "",
+  };
+}
+
+function createEmptyReasonRule(
+  questionType: AdminQuestion["type"],
+): AdminQuestionReasonRule {
+  if (questionType === "MULTI_SELECT") {
+    return {
+      type: "MULTI_OVERLAP",
+      template: "",
+      priority: 1,
+      minOverlap: 1,
+      maxLabels: 2,
+    };
+  }
+
+  return {
+    type: "EXACT_MATCH",
+    template: "",
+    priority: 1,
+  };
+}
+
+function createEmptyQuestion(): QuestionEditorState {
   return {
     questionId: "",
     key: "",
     prompt: "",
     type: "SINGLE_SELECT" as AdminQuestion["type"],
-    options: ["", ""],
+    options: [createEmptyOption(), createEmptyOption()],
+    reasonRules: [],
     order: 1,
     weight: 1,
   };
@@ -43,7 +91,7 @@ export default function AdminQuestionnairePage() {
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(
     null,
   );
-  const [form, setForm] = useState(createEmptyQuestion);
+  const [form, setForm] = useState<QuestionEditorState>(createEmptyQuestion);
 
   const loadQuestionnaire = useCallback(async () => {
     if (!authenticated) {
@@ -123,8 +171,11 @@ export default function AdminQuestionnairePage() {
       prompt: selectedQuestion.prompt,
       type: selectedQuestion.type,
       options: Array.isArray(selectedQuestion.options)
-        ? [...selectedQuestion.options]
-        : ["", ""],
+        ? selectedQuestion.options.map((option) => ({ ...option }))
+        : [createEmptyOption(), createEmptyOption()],
+      reasonRules: Array.isArray(selectedQuestion.reasonRules)
+        ? selectedQuestion.reasonRules.map((rule) => ({ ...rule }))
+        : [],
       order: selectedQuestion.order,
       weight: selectedQuestion.weight,
     });
@@ -146,8 +197,11 @@ export default function AdminQuestionnairePage() {
       prompt: question.prompt,
       type: question.type,
       options: Array.isArray(question.options)
-        ? [...question.options]
-        : ["", ""],
+        ? question.options.map((option) => ({ ...option }))
+        : [createEmptyOption(), createEmptyOption()],
+      reasonRules: Array.isArray(question.reasonRules)
+        ? question.reasonRules.map((rule) => ({ ...rule }))
+        : [],
       order: sortedQuestions.length + 1,
       weight: question.weight,
     });
@@ -216,8 +270,25 @@ export default function AdminQuestionnairePage() {
     setError(null);
 
     const cleanOptions = form.options
-      .map((option) => option.trim())
-      .filter(Boolean);
+      .map((option) => ({
+        value: option.value.trim() || option.label.trim(),
+        label: option.label.trim(),
+      }))
+      .filter((option) => option.label);
+
+    const cleanReasonRules = form.reasonRules
+      .map((rule) => ({
+        type: rule.type,
+        template: rule.template.trim(),
+        priority: rule.priority,
+        ...(rule.type === "MULTI_OVERLAP"
+          ? {
+              minOverlap: rule.minOverlap,
+              maxLabels: rule.maxLabels,
+            }
+          : {}),
+      }))
+      .filter((rule) => rule.template);
 
     if (cleanOptions.length < 2) {
       setError("可选题至少需要两个选项。");
@@ -234,6 +305,7 @@ export default function AdminQuestionnairePage() {
           prompt: form.prompt,
           type: form.type,
           options: cleanOptions,
+          reasonRules: cleanReasonRules,
           order: form.order,
           weight: form.weight,
         }),
@@ -373,6 +445,11 @@ export default function AdminQuestionnairePage() {
                       ? `${question.options.length} 个选项`
                       : "未配置选项"}
                   </span>
+                  <span>
+                    {Array.isArray(question.reasonRules)
+                      ? `${question.reasonRules.length} 条理由规则`
+                      : "无理由规则"}
+                  </span>
                 </div>
               </button>
             ))}
@@ -439,6 +516,7 @@ export default function AdminQuestionnairePage() {
                 <input
                   required
                   value={form.key}
+                  disabled={Boolean(form.questionId)}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
@@ -484,20 +562,61 @@ export default function AdminQuestionnairePage() {
               {form.options.map((option, index) => (
                 <div
                   key={`${form.questionId || "new"}-${index}`}
-                  className="admin-inline-form"
+                  className="admin-page-stack"
+                  style={{
+                    padding: "1rem",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "1rem",
+                  }}
                 >
-                  <input
-                    value={option}
-                    onChange={(event) => {
-                      const nextOptions = [...form.options];
-                      nextOptions[index] = event.target.value;
-                      setForm((current) => ({
-                        ...current,
-                        options: nextOptions,
-                      }));
-                    }}
-                    placeholder={`选项 ${index + 1}`}
-                  />
+                  <div className="form-grid">
+                    <label>
+                      <span>显示文案</span>
+                      <input
+                        value={option.label}
+                        onChange={(event) => {
+                          const nextLabel = event.target.value;
+                          setForm((current) => {
+                            const nextOptions = [...current.options];
+                            const previousOption = nextOptions[index];
+                            nextOptions[index] = {
+                              ...previousOption,
+                              label: nextLabel,
+                              value:
+                                previousOption.value.trim().length === 0
+                                  ? nextLabel
+                                  : previousOption.value,
+                            };
+                            return {
+                              ...current,
+                              options: nextOptions,
+                            };
+                          });
+                        }}
+                        placeholder={`选项 ${index + 1} 的显示文案`}
+                      />
+                    </label>
+                    <label>
+                      <span>稳定值</span>
+                      <input
+                        value={option.value}
+                        onChange={(event) =>
+                          setForm((current) => {
+                            const nextOptions = [...current.options];
+                            nextOptions[index] = {
+                              ...nextOptions[index],
+                              value: event.target.value,
+                            };
+                            return {
+                              ...current,
+                              options: nextOptions,
+                            };
+                          })
+                        }
+                        placeholder={`option_${index + 1}`}
+                      />
+                    </label>
+                  </div>
                   {form.options.length > 2 ? (
                     <button
                       className="button-ghost"
@@ -522,12 +641,202 @@ export default function AdminQuestionnairePage() {
                 onClick={() =>
                   setForm((current) => ({
                     ...current,
-                    options: [...current.options, ""],
+                    options: [...current.options, createEmptyOption()],
                   }))
                 }
               >
                 添加选项
               </button>
+            </div>
+
+            <div className="admin-page-stack">
+              <div className="admin-record-topline">
+                <span className="admin-field-label">理由规则</span>
+                <button
+                  className="button-secondary"
+                  type="button"
+                  onClick={() =>
+                    setForm((current) => ({
+                      ...current,
+                      reasonRules: [
+                        ...current.reasonRules,
+                        createEmptyReasonRule(current.type),
+                      ],
+                    }))
+                  }
+                >
+                  添加理由规则
+                </button>
+              </div>
+              {form.reasonRules.length === 0 ? (
+                <p style={{ color: "var(--fg-secondary)" }}>
+                  这道题目前不会生成匹配理由，只参与打分。
+                </p>
+              ) : null}
+              {form.reasonRules.map((rule, index) => (
+                <div
+                  key={`${form.questionId || "new"}-rule-${index}`}
+                  className="admin-page-stack"
+                  style={{
+                    padding: "1rem",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "1rem",
+                  }}
+                >
+                  <div className="form-grid">
+                    <label>
+                      <span>规则类型</span>
+                      <select
+                        value={rule.type}
+                        onChange={(event) =>
+                          setForm((current) => {
+                            const nextRules = [...current.reasonRules];
+                            const nextType =
+                              event.target.value as AdminQuestionReasonRule["type"];
+                            nextRules[index] =
+                              nextType === "MULTI_OVERLAP"
+                                ? {
+                                    type: nextType,
+                                    template: nextRules[index].template,
+                                    priority: nextRules[index].priority,
+                                    minOverlap:
+                                      "minOverlap" in nextRules[index]
+                                        ? nextRules[index].minOverlap
+                                        : 1,
+                                    maxLabels:
+                                      "maxLabels" in nextRules[index]
+                                        ? nextRules[index].maxLabels
+                                        : 2,
+                                  }
+                                : {
+                                    type: nextType,
+                                    template: nextRules[index].template,
+                                    priority: nextRules[index].priority,
+                                  };
+                            return {
+                              ...current,
+                              reasonRules: nextRules,
+                            };
+                          })
+                        }
+                      >
+                        <option value="EXACT_MATCH">
+                          {REASON_RULE_LABELS.EXACT_MATCH}
+                        </option>
+                        <option value="MULTI_OVERLAP">
+                          {REASON_RULE_LABELS.MULTI_OVERLAP}
+                        </option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>优先级</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={rule.priority ?? 0}
+                        onChange={(event) =>
+                          setForm((current) => {
+                            const nextRules = [...current.reasonRules];
+                            nextRules[index] = {
+                              ...nextRules[index],
+                              priority: Number(event.target.value),
+                            };
+                            return {
+                              ...current,
+                              reasonRules: nextRules,
+                            };
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    <span>模板</span>
+                    <textarea
+                      rows={3}
+                      value={rule.template}
+                      onChange={(event) =>
+                        setForm((current) => {
+                          const nextRules = [...current.reasonRules];
+                          nextRules[index] = {
+                            ...nextRules[index],
+                            template: event.target.value,
+                          };
+                          return {
+                            ...current,
+                            reasonRules: nextRules,
+                          };
+                        })
+                      }
+                      placeholder={
+                        rule.type === "MULTI_OVERLAP"
+                          ? "例如：你们都把 {{labels_2}} 放在重要位置。"
+                          : "例如：你们对关系推进节奏的期待很接近。"
+                      }
+                    />
+                  </label>
+                  {rule.type === "MULTI_OVERLAP" ? (
+                    <div className="form-grid">
+                      <label>
+                        <span>最少命中数</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={rule.minOverlap ?? 1}
+                          onChange={(event) =>
+                            setForm((current) => {
+                              const nextRules = [...current.reasonRules];
+                              nextRules[index] = {
+                                ...nextRules[index],
+                                minOverlap: Number(event.target.value),
+                              };
+                              return {
+                                ...current,
+                                reasonRules: nextRules,
+                              };
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        <span>最多展示标签数</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={rule.maxLabels ?? 2}
+                          onChange={(event) =>
+                            setForm((current) => {
+                              const nextRules = [...current.reasonRules];
+                              nextRules[index] = {
+                                ...nextRules[index],
+                                maxLabels: Number(event.target.value),
+                              };
+                              return {
+                                ...current,
+                                reasonRules: nextRules,
+                              };
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  ) : null}
+                  <button
+                    className="button-ghost"
+                    type="button"
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        reasonRules: current.reasonRules.filter(
+                          (_, ruleIndex) => ruleIndex !== index,
+                        ),
+                      }))
+                    }
+                  >
+                    移除规则
+                  </button>
+                </div>
+              ))}
             </div>
 
             <div className="form-grid">
@@ -598,11 +907,29 @@ export default function AdminQuestionnairePage() {
               question.options.length > 0 ? (
                 <ul>
                   {question.options.map((option) => (
-                    <li key={option}>{option}</li>
+                    <li key={option.value}>
+                      {option.label}
+                      <span style={{ color: "var(--fg-secondary)" }}>
+                        {" "}
+                        ({option.value})
+                      </span>
+                    </li>
                   ))}
                 </ul>
               ) : (
                 <p>暂未配置选项</p>
+              )}
+              {Array.isArray(question.reasonRules) &&
+              question.reasonRules.length > 0 ? (
+                <ul>
+                  {question.reasonRules.map((rule, index) => (
+                    <li key={`${question.id}-rule-${index}`}>
+                      {REASON_RULE_LABELS[rule.type]}：{rule.template}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>当前没有理由规则。</p>
               )}
             </article>
           ))}

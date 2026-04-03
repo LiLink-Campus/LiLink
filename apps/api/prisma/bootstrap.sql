@@ -3,6 +3,19 @@ CREATE TYPE "QuestionType" AS ENUM ('SCALE', 'SINGLE_SELECT', 'MULTI_SELECT');
 CREATE TYPE "MatchCycleStatus" AS ENUM ('DRAFT', 'OPEN', 'REVEAL_READY', 'REVEALED');
 CREATE TYPE "ParticipationStatus" AS ENUM ('OPTED_OUT', 'OPTED_IN');
 CREATE TYPE "ReportStatus" AS ENUM ('OPEN', 'RESOLVED', 'DISMISSED');
+CREATE TYPE "OutboundEmailStatus" AS ENUM ('PENDING', 'PROCESSING', 'SENT', 'FAILED', 'EXHAUSTED');
+
+CREATE TABLE "AdminOperator" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
+    "displayName" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "lastLoginAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "AdminOperator_pkey" PRIMARY KEY ("id")
+);
 
 CREATE TABLE "School" (
     "id" TEXT NOT NULL,
@@ -88,6 +101,7 @@ CREATE TABLE "Question" (
     "order" INTEGER NOT NULL,
     "required" BOOLEAN NOT NULL DEFAULT true,
     "options" JSONB,
+    "reasonRules" JSONB,
     CONSTRAINT "Question_pkey" PRIMARY KEY ("id")
 );
 
@@ -173,12 +187,33 @@ CREATE TABLE "Block" (
 CREATE TABLE "AuditLog" (
     "id" TEXT NOT NULL,
     "actorId" TEXT,
+    "adminActorId" TEXT,
     "action" TEXT NOT NULL,
     "metadata" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
 );
 
+CREATE TABLE "OutboundEmail" (
+    "id" TEXT NOT NULL,
+    "dedupeKey" TEXT NOT NULL,
+    "recipientEmail" TEXT NOT NULL,
+    "subject" TEXT NOT NULL,
+    "html" TEXT NOT NULL,
+    "status" "OutboundEmailStatus" NOT NULL DEFAULT 'PENDING',
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "maxAttempts" INTEGER NOT NULL DEFAULT 5,
+    "lastAttemptAt" TIMESTAMP(3),
+    "nextAttemptAt" TIMESTAMP(3),
+    "sentAt" TIMESTAMP(3),
+    "errorMessage" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "OutboundEmail_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "AdminOperator_email_key" ON "AdminOperator"("email");
+CREATE INDEX "AdminOperator_isActive_idx" ON "AdminOperator"("isActive");
 CREATE UNIQUE INDEX "School_slug_key" ON "School"("slug");
 CREATE UNIQUE INDEX "SchoolDomain_domain_key" ON "SchoolDomain"("domain");
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
@@ -190,8 +225,13 @@ CREATE UNIQUE INDEX "CycleParticipation_cycleId_userId_key" ON "CycleParticipati
 CREATE UNIQUE INDEX "MatchParticipant_matchId_userId_key" ON "MatchParticipant"("matchId", "userId");
 CREATE UNIQUE INDEX "MatchParticipant_cycleId_userId_key" ON "MatchParticipant"("cycleId", "userId");
 CREATE UNIQUE INDEX "Block_blockerId_blockedId_key" ON "Block"("blockerId", "blockedId");
+CREATE UNIQUE INDEX "OutboundEmail_dedupeKey_key" ON "OutboundEmail"("dedupeKey");
+CREATE INDEX "OutboundEmail_status_nextAttemptAt_createdAt_idx" ON "OutboundEmail"("status", "nextAttemptAt", "createdAt");
+CREATE INDEX "AuditLog_actorId_createdAt_idx" ON "AuditLog"("actorId", "createdAt");
+CREATE INDEX "AuditLog_adminActorId_createdAt_idx" ON "AuditLog"("adminActorId", "createdAt");
 
 ALTER TABLE "SchoolDomain" ADD CONSTRAINT "SchoolDomain_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "School"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_adminActorId_fkey" FOREIGN KEY ("adminActorId") REFERENCES "AdminOperator"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "User" ADD CONSTRAINT "User_schoolId_fkey" FOREIGN KEY ("schoolId") REFERENCES "School"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "UserProfile" ADD CONSTRAINT "UserProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "Question" ADD CONSTRAINT "Question_versionId_fkey" FOREIGN KEY ("versionId") REFERENCES "QuestionnaireVersion"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  root-quality:
+    name: Root lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:4000/v1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
+            apps/api/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install web dependencies
+        run: npm ci --prefix apps/web
+
+      - name: Install API dependencies
+        run: npm ci --prefix apps/api
+
+      - name: Run root lint
+        run: npm run lint
+
+      - name: Verify lint does not rewrite files
+        run: git diff --exit-code
+
+      - name: Run root build
+        run: npm run build
+
+  api-tests:
+    name: API unit and e2e tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: "postgresql://lilink:lilink@127.0.0.1:5432/lilink?schema=public"
+      JWT_SECRET: 1234567890abcdef
+      ADMIN_JWT_SECRET: abcdef1234567890
+      ADMIN_COOKIE_NAME: lilink_admin_token
+      SMTP_FROM: "LiLink <hello@lilink.zone>"
+      CRON_SECRET: abcdef1234567890
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: lilink
+          POSTGRES_USER: lilink
+          POSTGRES_PASSWORD: lilink
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lilink -d lilink"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+
+      - name: Install API dependencies
+        run: npm ci --prefix apps/api
+
+      - name: Apply API migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+
+      - name: Run API unit tests
+        run: npm --prefix apps/api run test
+
+      - name: Run API e2e tests
+        run: npm --prefix apps/api run test:e2e

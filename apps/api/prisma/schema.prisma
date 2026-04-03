@@ -166,6 +166,7 @@ model Question {
   order       Int
   required    Boolean              @default(true)
   options     Json?
+  reasonRules Json?
 
   @@index([versionId, order])
 }

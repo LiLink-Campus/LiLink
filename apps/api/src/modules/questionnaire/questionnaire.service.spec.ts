@@ -20,7 +20,10 @@ describe('QuestionnaireService', () => {
             prompt: 'Pace',
             type: QuestionType.SINGLE_SELECT,
             required: true,
-            options: ['Slow', 'Fast'],
+            options: [
+              { value: 'slow', label: 'Slow' },
+              { value: 'fast', label: 'Fast' },
+            ],
           },
         ],
         { unknown_key: 'value' },
@@ -37,14 +40,21 @@ describe('QuestionnaireService', () => {
             prompt: 'Pace',
             type: QuestionType.SINGLE_SELECT,
             required: true,
-            options: ['Slow', 'Fast'],
+            options: [
+              { value: 'slow', label: 'Slow' },
+              { value: 'fast', label: 'Fast' },
+            ],
           },
           {
             key: 'values',
             prompt: 'Values',
             type: QuestionType.MULTI_SELECT,
             required: true,
-            options: ['Curiosity', 'Stability', 'Humor'],
+            options: [
+              { value: 'curiosity', label: 'Curiosity' },
+              { value: 'stability', label: 'Stability' },
+              { value: 'humor', label: 'Humor' },
+            ],
           },
         ],
         {
@@ -58,7 +68,7 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.race]: '黄种人',
           [HARD_MATCH_KEYS.partnerRaces]: [...HARD_MATCH_RACES],
           pace: 'Fast',
-          values: ['Humor', 'Humor', 'Curiosity'],
+          values: ['Humor', 'humor', 'Curiosity'],
         },
       ),
     ).toEqual({
@@ -71,8 +81,8 @@ describe('QuestionnaireService', () => {
       [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美', '顶帅/美'],
       [HARD_MATCH_KEYS.race]: '黄种人',
       [HARD_MATCH_KEYS.partnerRaces]: ['黄种人', '黑种人', '白种人'],
-      pace: 'Fast',
-      values: ['Humor', 'Curiosity'],
+      pace: 'fast',
+      values: ['humor', 'curiosity'],
     });
   });
 
@@ -85,7 +95,10 @@ describe('QuestionnaireService', () => {
             prompt: 'Pace',
             type: QuestionType.SINGLE_SELECT,
             required: true,
-            options: ['Slow', 'Fast'],
+            options: [
+              { value: 'slow', label: 'Slow' },
+              { value: 'fast', label: 'Fast' },
+            ],
           },
         ],
         {
@@ -93,5 +106,40 @@ describe('QuestionnaireService', () => {
         },
       ),
     ).toThrow(BadRequestException);
+  });
+
+  it('drops stale saved answers whose options no longer exist', () => {
+    expect(
+      service.sanitizeStoredAnswers(
+        [
+          {
+            key: 'pace',
+            prompt: 'Pace',
+            type: QuestionType.SINGLE_SELECT,
+            required: true,
+            options: [
+              { value: 'slow', label: 'Slow' },
+              { value: 'balanced', label: 'Balanced' },
+            ],
+          },
+          {
+            key: 'values',
+            prompt: 'Values',
+            type: QuestionType.MULTI_SELECT,
+            required: true,
+            options: [
+              { value: 'curiosity', label: 'Curiosity' },
+              { value: 'stability', label: 'Stability' },
+            ],
+          },
+        ],
+        {
+          pace: 'Fast',
+          values: ['Curiosity', 'missing-option'],
+        },
+      ),
+    ).toEqual({
+      values: ['curiosity'],
+    });
   });
 });

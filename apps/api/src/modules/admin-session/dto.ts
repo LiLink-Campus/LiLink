@@ -1,4 +1,6 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+
+const ADMIN_PASSWORD_MAX_LENGTH = 128;
 
 export class AdminLoginDto {
   @IsEmail()
@@ -6,5 +8,6 @@ export class AdminLoginDto {
 
   @IsString()
   @MinLength(8)
+  @MaxLength(ADMIN_PASSWORD_MAX_LENGTH)
   password!: string;
 }

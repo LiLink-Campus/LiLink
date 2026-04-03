@@ -1,7 +1,22 @@
 const DEFAULT_API_BASE_URL = "http://localhost:4000/v1";
 
-export const apiBaseUrl =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+function resolveApiBaseUrl() {
+  const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+
+  if (configuredApiBaseUrl) {
+    return configuredApiBaseUrl;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "NEXT_PUBLIC_API_BASE_URL is required in production runtime.",
+    );
+  }
+
+  return DEFAULT_API_BASE_URL;
+}
+
+export const apiBaseUrl = resolveApiBaseUrl();
 
 const API_ERROR_EN_TO_ZH: Record<string, string> = {
   "This email domain is not currently accepted.":
@@ -62,7 +77,7 @@ export async function fetchApi<T>(
       ...(init?.headers ?? {}),
     },
     credentials: "include",
-    cache: "no-store",
+    cache: init?.cache ?? "no-store",
   });
 
   if (!response.ok) {
@@ -89,5 +104,7 @@ export type LandingPayload = {
 };
 
 export async function getLandingPayload() {
-  return fetchApi<LandingPayload>("/public/landing");
+  return fetchApi<LandingPayload>("/public/landing", {
+    cache: "force-cache",
+  });
 }

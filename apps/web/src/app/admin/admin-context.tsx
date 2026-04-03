@@ -14,7 +14,7 @@ type AdminContextValue = {
   authenticated: boolean;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
   setError: (error: string | null) => void;
@@ -65,8 +65,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
       await refreshAuth();
+      return true;
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "认证失败");
+      return false;
     } finally {
       setLoading(false);
     }

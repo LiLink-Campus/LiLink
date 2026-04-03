@@ -4,6 +4,15 @@ import nodemailer from 'nodemailer';
 import { env } from '../../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 
+function escapeHtml(value: string | null | undefined) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 type IntroductionEmailInput = {
   matchId: string;
   requester: {
@@ -57,8 +66,10 @@ export class MailService {
   buildIntroductionEmails(input: IntroductionEmailInput) {
     const requesterName = input.requester.displayName ?? 'LiLink 用户';
     const recipientName = input.recipient.displayName ?? 'LiLink 用户';
+    const escapedRequesterName = escapeHtml(requesterName);
+    const escapedRecipientName = escapeHtml(recipientName);
     const reasons = input.reasons
-      .map((reason) => `<li>${reason}</li>`)
+      .map((reason) => `<li>${escapeHtml(reason)}</li>`)
       .join('');
 
     return [
@@ -67,10 +78,10 @@ export class MailService {
         recipientEmail: input.requester.email,
         subject: `LiLink 已为你引荐 ${recipientName}`,
         html: `
-          <p>你已成功请求联系 <strong>${recipientName}</strong>。</p>
-          <p>对方邮箱：<strong>${input.recipient.email}</strong></p>
-          <p>对方学校：${input.recipient.schoolName ?? '未填写'}</p>
-          <p>对方简介：${input.recipient.headline ?? '暂无一句话介绍'}</p>
+          <p>你已成功请求联系 <strong>${escapedRecipientName}</strong>。</p>
+          <p>对方邮箱：<strong>${escapeHtml(input.recipient.email)}</strong></p>
+          <p>对方学校：${escapeHtml(input.recipient.schoolName ?? '未填写')}</p>
+          <p>对方简介：${escapeHtml(input.recipient.headline ?? '暂无一句话介绍')}</p>
           <p>本次匹配理由：</p>
           <ul>${reasons}</ul>
         `,
@@ -80,10 +91,10 @@ export class MailService {
         recipientEmail: input.recipient.email,
         subject: `LiLink 已为你引荐 ${requesterName}`,
         html: `
-          <p><strong>${requesterName}</strong> 请求与你建立联系。</p>
-          <p>对方邮箱：<strong>${input.requester.email}</strong></p>
-          <p>对方学校：${input.requester.schoolName ?? '未填写'}</p>
-          <p>对方简介：${input.requester.headline ?? '暂无一句话介绍'}</p>
+          <p><strong>${escapedRequesterName}</strong> 请求与你建立联系。</p>
+          <p>对方邮箱：<strong>${escapeHtml(input.requester.email)}</strong></p>
+          <p>对方学校：${escapeHtml(input.requester.schoolName ?? '未填写')}</p>
+          <p>对方简介：${escapeHtml(input.requester.headline ?? '暂无一句话介绍')}</p>
           <p>本次匹配理由：</p>
           <ul>${reasons}</ul>
         `,

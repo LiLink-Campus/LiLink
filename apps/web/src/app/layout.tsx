@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SiteNav } from "./site-nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" data-scroll-behavior="smooth">
+    <html
+      lang="zh-CN"
+      data-scroll-behavior="smooth"
+    >
       <body>
         <div className="site-frame">
           <header className="site-header">
@@ -25,15 +29,7 @@ export default function RootLayout({
                 <small>黎安国际教育创新区</small>
               </span>
             </Link>
-            <nav className="site-nav">
-              <Link href="/about">关于</Link>
-              <Link href="/faq">FAQ</Link>
-              <Link href="/terms">协议</Link>
-              <Link href="/login">登录</Link>
-              <Link className="button-ghost" href="/register">
-                立即加入
-              </Link>
-            </nav>
+            <SiteNav />
           </header>
           {children}
           <footer className="site-footer">

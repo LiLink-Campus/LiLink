@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
 
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MAX_LENGTH = 128;
+const DISPLAY_NAME_MAX_LENGTH = 30;
+const VERIFICATION_CODE_LENGTH = 6;
+
 type CodeResponse = {
   email: string;
   expiresAt: string;
@@ -15,11 +20,6 @@ type CodeResponse = {
   devCode?: string;
 };
 
-type SchoolResolution = {
-  schoolName: string;
-  matchedDomain: string;
-} | null;
-
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
@@ -27,9 +27,12 @@ export default function RegisterPage() {
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [fullName, setFullName] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [resolvedSchool, setResolvedSchool] = useState<SchoolResolution>(null);
+  const [resolvedSchool, setResolvedSchool] = useState<CodeResponse["school"]>(
+    null,
+  );
   const [devCode, setDevCode] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -39,22 +42,6 @@ export default function RegisterPage() {
     const localhostHosts = new Set(["localhost", "127.0.0.1", "::1"]);
     setCanRevealDevCode(localhostHosts.has(window.location.hostname));
   }, []);
-
-  async function resolveSchool(candidateEmail: string) {
-    if (!candidateEmail.includes("@")) {
-      setResolvedSchool(null);
-      return;
-    }
-
-    try {
-      const school = await fetchApi<SchoolResolution>(
-        `/public/resolve-school?email=${encodeURIComponent(candidateEmail)}`,
-      );
-      setResolvedSchool(school);
-    } catch {
-      setResolvedSchool(null);
-    }
-  }
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,6 +72,12 @@ export default function RegisterPage() {
     event.preventDefault();
     setPending(true);
     setError(null);
+
+    if (password !== passwordConfirm) {
+      setError("两次输入的密码不一致，请重新确认。");
+      setPending(false);
+      return;
+    }
 
     try {
       await fetchApi("/auth/register", {
@@ -127,7 +120,6 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                onBlur={() => void resolveSchool(email)}
                 placeholder="your.name@school.edu"
               />
             </label>
@@ -156,6 +148,8 @@ export default function RegisterPage() {
               <input
                 required
                 value={code}
+                maxLength={VERIFICATION_CODE_LENGTH}
+                inputMode="numeric"
                 onChange={(event) => setCode(event.target.value)}
                 placeholder="6 位验证码"
               />
@@ -165,6 +159,7 @@ export default function RegisterPage() {
               <input
                 required
                 value={displayName}
+                maxLength={DISPLAY_NAME_MAX_LENGTH}
                 onChange={(event) => setDisplayName(event.target.value)}
                 placeholder="别人会先看到这个昵称"
               />
@@ -183,8 +178,22 @@ export default function RegisterPage() {
                 required
                 type="password"
                 value={password}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="至少 8 位，含字母和数字"
+                placeholder={`至少 ${PASSWORD_MIN_LENGTH} 位，含字母和数字`}
+              />
+            </label>
+            <label>
+              <span>确认密码</span>
+              <input
+                required
+                type="password"
+                value={passwordConfirm}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
+                onChange={(event) => setPasswordConfirm(event.target.value)}
+                placeholder="再次输入密码"
               />
             </label>
             <label style={{ display: "flex", alignItems: "flex-start", gap: "0.65rem" }}>
@@ -217,7 +226,12 @@ export default function RegisterPage() {
               </button>
               <button
                 className="button-primary"
-                disabled={pending || !acceptedTerms}
+                disabled={
+                  pending ||
+                  !acceptedTerms ||
+                  password !== passwordConfirm ||
+                  password.length < PASSWORD_MIN_LENGTH
+                }
                 type="submit"
               >
                 {pending ? "创建中..." : "创建账号"}

@@ -23,7 +23,10 @@ type Question = {
   key: string;
   prompt: string;
   type: "SCALE" | "SINGLE_SELECT" | "MULTI_SELECT";
-  options?: string[];
+  options?: Array<{
+    value: string;
+    label: string;
+  }>;
 };
 
 type DashboardPayload = {
@@ -84,6 +87,10 @@ function keepCurrentQuestionAnswers(
       allowedQuestionKeys.has(key),
     ),
   );
+}
+
+function buildDashboardFieldId(...parts: Array<string | number>) {
+  return `dashboard-${parts.join("-")}`;
 }
 
 export default function DashboardPage() {
@@ -473,6 +480,8 @@ export default function DashboardPage() {
                 <label>
                   <span>举报原因</span>
                   <select
+                    id={buildDashboardFieldId("report-reason")}
+                    name="reportReason"
                     value={reportReason}
                     onChange={(event) => setReportReason(event.target.value)}
                   >
@@ -486,6 +495,8 @@ export default function DashboardPage() {
                 <label>
                   <span>补充说明（可选）</span>
                   <textarea
+                    id={buildDashboardFieldId("report-details")}
+                    name="reportDetails"
                     rows={3}
                     value={reportDetails}
                     onChange={(event) => setReportDetails(event.target.value)}
@@ -527,6 +538,8 @@ export default function DashboardPage() {
               <label>
                 <span>出生年份</span>
                 <select
+                  id={buildDashboardFieldId("birth-year")}
+                  name="birthYear"
                   value={hardMatchForm.birthYear}
                   onChange={(event) =>
                     setHardMatchForm((current) => ({
@@ -546,6 +559,8 @@ export default function DashboardPage() {
               <label>
                 <span>出生月份</span>
                 <select
+                  id={buildDashboardFieldId("birth-month")}
+                  name="birthMonth"
                   value={hardMatchForm.birthMonth}
                   onChange={(event) =>
                     setHardMatchForm((current) => ({
@@ -565,6 +580,8 @@ export default function DashboardPage() {
               <label>
                 <span>出生日期</span>
                 <select
+                  id={buildDashboardFieldId("birth-day")}
+                  name="birthDay"
                   value={hardMatchForm.birthDay}
                   onChange={(event) =>
                     setHardMatchForm((current) => ({
@@ -584,6 +601,8 @@ export default function DashboardPage() {
               <label>
                 <span>希望对方年龄下限</span>
                 <select
+                  id={buildDashboardFieldId("partner-age-min")}
+                  name="partnerAgeMin"
                   value={hardMatchForm.partnerAgeMin}
                   onChange={(event) =>
                     setHardMatchForm((current) => ({
@@ -602,6 +621,8 @@ export default function DashboardPage() {
               <label>
                 <span>希望对方年龄上限</span>
                 <select
+                  id={buildDashboardFieldId("partner-age-max")}
+                  name="partnerAgeMax"
                   value={hardMatchForm.partnerAgeMax}
                   onChange={(event) =>
                     setHardMatchForm((current) => ({
@@ -626,6 +647,8 @@ export default function DashboardPage() {
               <label>
                 <span>你的性别</span>
                 <select
+                  id={buildDashboardFieldId("gender")}
+                  name="gender"
                   value={hardMatchForm.gender}
                   onChange={(event) =>
                     setHardMatchForm((current) => ({
@@ -647,7 +670,7 @@ export default function DashboardPage() {
                   希望对方的性别（可多选）
                 </span>
                 <div className="chip-grid">
-                  {HARD_MATCH_GENDERS.map((gender) => {
+                  {HARD_MATCH_GENDERS.map((gender, index) => {
                     const active =
                       hardMatchForm.partnerGenders.includes(gender);
 
@@ -658,6 +681,11 @@ export default function DashboardPage() {
                       >
                         <input
                           checked={active}
+                          id={buildDashboardFieldId(
+                            "partner-genders",
+                            index,
+                          )}
+                          name="partnerGenders"
                           type="checkbox"
                           onChange={() =>
                             toggleHardSelection("partnerGenders", gender)
@@ -678,6 +706,8 @@ export default function DashboardPage() {
               <label>
                 <span>你的颜值自评</span>
                 <select
+                  id={buildDashboardFieldId("looks")}
+                  name="looks"
                   value={hardMatchForm.looks}
                   onChange={(event) =>
                     setHardMatchForm((current) => ({
@@ -699,7 +729,7 @@ export default function DashboardPage() {
                   希望对方的颜值（可多选）
                 </span>
                 <div className="chip-grid">
-                  {HARD_MATCH_LOOKS.map((looks) => {
+                  {HARD_MATCH_LOOKS.map((looks, index) => {
                     const active = hardMatchForm.partnerLooks.includes(looks);
 
                     return (
@@ -709,6 +739,8 @@ export default function DashboardPage() {
                       >
                         <input
                           checked={active}
+                          id={buildDashboardFieldId("partner-looks", index)}
+                          name="partnerLooks"
                           type="checkbox"
                           onChange={() =>
                             toggleHardSelection("partnerLooks", looks)
@@ -729,6 +761,8 @@ export default function DashboardPage() {
               <label>
                 <span>你的人种</span>
                 <select
+                  id={buildDashboardFieldId("race")}
+                  name="race"
                   value={hardMatchForm.race}
                   onChange={(event) =>
                     setHardMatchForm((current) => ({
@@ -750,7 +784,7 @@ export default function DashboardPage() {
                   希望对方的人种（可多选）
                 </span>
                 <div className="chip-grid">
-                  {HARD_MATCH_RACES.map((race) => {
+                  {HARD_MATCH_RACES.map((race, index) => {
                     const active = hardMatchForm.partnerRaces.includes(race);
 
                     return (
@@ -760,6 +794,8 @@ export default function DashboardPage() {
                       >
                         <input
                           checked={active}
+                          id={buildDashboardFieldId("partner-races", index)}
+                          name="partnerRaces"
                           type="checkbox"
                           onChange={() =>
                             toggleHardSelection("partnerRaces", race)
@@ -785,16 +821,22 @@ export default function DashboardPage() {
                 <fieldset key={question.id} className="question-block">
                   <legend>{question.prompt}</legend>
                   <div className="chip-grid">
-                    {question.options?.map((option) => {
-                      const active = selected.includes(option);
+                    {question.options?.map((option, optionIndex) => {
+                      const active = selected.includes(option.value);
 
                       return (
                         <label
-                          key={option}
+                          key={option.value}
                           className={active ? "chip active" : "chip"}
                         >
                           <input
                             checked={active}
+                            id={buildDashboardFieldId(
+                              "question",
+                              question.id,
+                              optionIndex,
+                            )}
+                            name={question.key}
                             type="checkbox"
                             onChange={() =>
                               setAnswers((current) => {
@@ -808,14 +850,14 @@ export default function DashboardPage() {
                                   ...current,
                                   [question.key]: active
                                     ? currentValues.filter(
-                                        (item) => item !== option,
+                                        (item) => item !== option.value,
                                       )
-                                    : [...currentValues, option],
+                                    : [...currentValues, option.value],
                                 };
                               })
                             }
                           />
-                          <span>{option}</span>
+                          <span>{option.label}</span>
                         </label>
                       );
                     })}
@@ -828,20 +870,25 @@ export default function DashboardPage() {
               <fieldset key={question.id} className="question-block">
                 <legend>{question.prompt}</legend>
                 <div className="option-list">
-                  {question.options?.map((option) => (
-                    <label key={option}>
+                  {question.options?.map((option, optionIndex) => (
+                    <label key={option.value}>
                       <input
-                        checked={value === option}
+                        checked={value === option.value}
+                        id={buildDashboardFieldId(
+                          "question",
+                          question.id,
+                          optionIndex,
+                        )}
                         type="radio"
                         name={question.key}
                         onChange={() =>
                           setAnswers((current) => ({
                             ...current,
-                            [question.key]: option,
+                            [question.key]: option.value,
                           }))
                         }
                       />
-                      <span>{option}</span>
+                      <span>{option.label}</span>
                     </label>
                   ))}
                 </div>

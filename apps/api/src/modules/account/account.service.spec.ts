@@ -35,14 +35,24 @@ describe('AccountService', () => {
             },
           }),
         },
-        questionnaireVersion: {
-          findFirst: jest.fn().mockResolvedValue({
-            questions: [{ key: 'current_question' }],
-          }),
-        },
       } as never,
       {} as never,
-      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              type: 'SINGLE_SELECT',
+              required: true,
+              options: null,
+            },
+          ],
+        }),
+        sanitizeStoredAnswers: jest.fn().mockReturnValue({
+          current_question: 'kept',
+        }),
+      } as never,
     );
 
     await expect(service.getQuestionnaire('user-1')).resolves.toEqual({
@@ -209,6 +219,113 @@ describe('AccountService', () => {
         'match-introduction:match-1:requester',
         'match-introduction:match-1:recipient',
       ],
+    });
+  });
+
+  it('creates only a one-way block when a match is reported', async () => {
+    const reportCreate = jest.fn().mockResolvedValue(undefined);
+    const blockUpsert = jest.fn().mockResolvedValue(undefined);
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      matchParticipant: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'participant-1',
+            userId: 'user-1',
+            match: {
+              id: 'match-1',
+              reasons: ['reason'],
+              participants: [
+                {
+                  userId: 'user-1',
+                  user: {
+                    email: 'user-1@example.com',
+                    displayName: 'User 1',
+                    profile: { headline: 'hello' },
+                    school: { name: 'School A' },
+                  },
+                },
+                {
+                  userId: 'user-2',
+                  user: {
+                    email: 'user-2@example.com',
+                    displayName: 'User 2',
+                    profile: { headline: 'world' },
+                    school: { name: 'School B' },
+                  },
+                },
+              ],
+            },
+          })
+          .mockResolvedValueOnce({
+            id: 'participant-2',
+            userId: 'user-2',
+            match: {
+              id: 'match-1',
+              reasons: ['reason'],
+            },
+          }),
+      },
+      report: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: reportCreate,
+      },
+      block: {
+        upsert: blockUpsert,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+      $transaction: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new AccountService(
+      prisma as never,
+      {
+        buildIntroductionEmails: jest.fn(),
+        flushQueuedEmails: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.reportMatch('user-1', 'match-1', { reason: '骚扰' }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(reportCreate).toHaveBeenCalledWith({
+      data: {
+        reporterId: 'user-1',
+        reportedUserId: 'user-2',
+        matchId: 'match-1',
+        reason: '骚扰',
+        details: undefined,
+        createdBlock: true,
+      },
+    });
+    expect(blockUpsert).toHaveBeenCalledTimes(1);
+    expect(blockUpsert).toHaveBeenCalledWith({
+      where: {
+        blockerId_blockedId: {
+          blockerId: 'user-1',
+          blockedId: 'user-2',
+        },
+      },
+      update: {},
+      create: {
+        blockerId: 'user-1',
+        blockedId: 'user-2',
+      },
+    });
+    expect(auditLogCreate).toHaveBeenCalledWith({
+      data: {
+        actorId: 'user-1',
+        action: 'match.reported',
+        metadata: {
+          matchId: 'match-1',
+          reportedUserId: 'user-2',
+          reason: '骚扰',
+        },
+      },
     });
   });
 });

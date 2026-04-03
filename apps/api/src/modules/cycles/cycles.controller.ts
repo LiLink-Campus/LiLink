@@ -4,6 +4,7 @@ import {
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
+import { timingSafeEqual } from 'crypto';
 import { env } from '../../config/env';
 import { CyclesService } from './cycles.service';
 
@@ -16,12 +17,35 @@ export class CyclesController {
     @Headers('x-cron-secret') secret?: string,
     @Headers('x-force-run') forceRun?: string,
   ) {
-    if (secret !== env.CRON_SECRET) {
+    if (!this.hasValidCronSecret(secret)) {
       throw new UnauthorizedException('Cron secret is invalid.');
     }
 
     return this.cyclesService.runRevealCycle({
       force: forceRun === '1' || forceRun === 'true',
     });
+  }
+
+  private hasValidCronSecret(secret?: string) {
+    if (typeof secret !== 'string') {
+      return false;
+    }
+
+    const expectedSecret = Buffer.from(env.CRON_SECRET);
+    const receivedSecret = Buffer.from(secret);
+    const compareLength = Math.max(
+      expectedSecret.length,
+      receivedSecret.length,
+    );
+
+    const paddedExpectedSecret = Buffer.alloc(compareLength);
+    const paddedReceivedSecret = Buffer.alloc(compareLength);
+    expectedSecret.copy(paddedExpectedSecret);
+    receivedSecret.copy(paddedReceivedSecret);
+
+    return (
+      timingSafeEqual(paddedExpectedSecret, paddedReceivedSecret) &&
+      expectedSecret.length === receivedSecret.length
+    );
   }
 }

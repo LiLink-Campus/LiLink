@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { fetchApi } from "../../lib/api";
 
+const PASSWORD_MAX_LENGTH = 128;
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -22,7 +24,10 @@ export default function LoginPage() {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      router.push("/dashboard");
+      const nextPath = new URLSearchParams(window.location.search).get("next");
+      const redirectPath =
+        nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard";
+      router.push(redirectPath);
       router.refresh();
     } catch (caughtError) {
       setError(
@@ -56,6 +61,7 @@ export default function LoginPage() {
               required
               type="password"
               value={password}
+              maxLength={PASSWORD_MAX_LENGTH}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="至少 8 位，含字母和数字"
             />

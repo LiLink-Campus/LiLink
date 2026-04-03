@@ -4,6 +4,13 @@ import type { NextConfig } from "next";
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirectory = path.dirname(currentFilePath);
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+
+if (process.env.NODE_ENV === "production" && !apiBaseUrl) {
+  throw new Error(
+    "NEXT_PUBLIC_API_BASE_URL is required for production builds.",
+  );
+}
 
 const nextConfig: NextConfig = {
   output: "standalone",

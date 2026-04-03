@@ -3,6 +3,40 @@ import { PrismaClient, QuestionType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+function createOptions(labels: readonly string[]) {
+  return labels.map((label) => ({
+    value: label,
+    label,
+  }));
+}
+
+function exactMatchRule(template: string, priority: number) {
+  return [
+    {
+      type: 'EXACT_MATCH',
+      template,
+      priority,
+    },
+  ];
+}
+
+function multiOverlapRule(
+  template: string,
+  priority: number,
+  maxLabels = 2,
+  minOverlap = 1,
+) {
+  return [
+    {
+      type: 'MULTI_OVERLAP',
+      template,
+      priority,
+      maxLabels,
+      minOverlap,
+    },
+  ];
+}
+
 const OUTING_SPEND_OPTIONS = [
   '无所谓，看当时和心情',
   '更希望 AA',
@@ -26,7 +60,11 @@ async function ensureOutingSpendQuestion() {
       prompt: '一起出去玩时，花钱方式你更倾向哪一种？',
       order: 6,
       weight: 2,
-      options: [...OUTING_SPEND_OPTIONS],
+      options: createOptions(OUTING_SPEND_OPTIONS),
+      reasonRules: exactMatchRule(
+        '你们对出去玩时谁来买单或 AA 的期待比较一致，相处时更省心。',
+        2,
+      ),
     },
     create: {
       versionId: currentVersion.id,
@@ -36,7 +74,11 @@ async function ensureOutingSpendQuestion() {
       order: 6,
       weight: 2,
       required: true,
-      options: [...OUTING_SPEND_OPTIONS],
+      options: createOptions(OUTING_SPEND_OPTIONS),
+      reasonRules: exactMatchRule(
+        '你们对出去玩时谁来买单或 AA 的期待比较一致，相处时更省心。',
+        2,
+      ),
     },
   });
 }
@@ -156,11 +198,15 @@ async function main() {
               type: QuestionType.SINGLE_SELECT,
               order: 1,
               weight: 3,
-              options: [
+              options: createOptions([
                 '认真稳定的关系',
                 '先认识、慢慢发展',
                 '保持开放，顺其自然',
-              ],
+              ]),
+              reasonRules: exactMatchRule(
+                '你们对进入关系的期待很一致。',
+                3,
+              ),
             },
             {
               key: 'pace',
@@ -168,7 +214,11 @@ async function main() {
               type: QuestionType.SINGLE_SELECT,
               order: 2,
               weight: 2,
-              options: ['慢热', '平衡', '主动推进'],
+              options: createOptions(['慢热', '平衡', '主动推进']),
+              reasonRules: exactMatchRule(
+                '你们对关系推进节奏的期待很接近。',
+                2,
+              ),
             },
             {
               key: 'values',
@@ -176,7 +226,7 @@ async function main() {
               type: QuestionType.MULTI_SELECT,
               order: 3,
               weight: 4,
-              options: [
+              options: createOptions([
                 '真诚',
                 '独立',
                 '稳定',
@@ -185,7 +235,11 @@ async function main() {
                 '幽默感',
                 '野心',
                 '温柔',
-              ],
+              ]),
+              reasonRules: multiOverlapRule(
+                '你们都把 {{labels_2}} 放在重要位置。',
+                4,
+              ),
             },
             {
               key: 'weekend',
@@ -193,7 +247,11 @@ async function main() {
               type: QuestionType.SINGLE_SELECT,
               order: 4,
               weight: 2,
-              options: ['出门探索', '轻社交', '安静恢复'],
+              options: createOptions(['出门探索', '轻社交', '安静恢复']),
+              reasonRules: exactMatchRule(
+                '你们对周末相处方式的偏好相近。',
+                2,
+              ),
             },
             {
               key: 'communication',
@@ -201,7 +259,15 @@ async function main() {
               type: QuestionType.SINGLE_SELECT,
               order: 5,
               weight: 3,
-              options: ['当场说清楚', '先冷静再沟通', '给彼此缓冲时间'],
+              options: createOptions([
+                '当场说清楚',
+                '先冷静再沟通',
+                '给彼此缓冲时间',
+              ]),
+              reasonRules: exactMatchRule(
+                '你们处理分歧时更容易对齐彼此的沟通方式。',
+                3,
+              ),
             },
             {
               key: 'outing_spend_style',
@@ -209,13 +275,11 @@ async function main() {
               type: QuestionType.SINGLE_SELECT,
               order: 6,
               weight: 2,
-              options: [
-                '无所谓，看当时和心情',
-                '更希望 AA',
-                '更能接受对方多出或主动请客',
-                '更愿意自己多出或主动请客',
-                '不太希望总是只有我出钱（不强求对方全包）',
-              ],
+              options: createOptions(OUTING_SPEND_OPTIONS),
+              reasonRules: exactMatchRule(
+                '你们对出去玩时谁来买单或 AA 的期待比较一致，相处时更省心。',
+                2,
+              ),
             },
           ],
         },

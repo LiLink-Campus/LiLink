@@ -38,36 +38,41 @@ export class AdminGuard implements CanActivate {
       throw new UnauthorizedException('Admin authentication is required.');
     }
 
+    let payload: {
+      sub: string;
+      email: string;
+    };
+
     try {
-      const payload = await this.jwtService.verifyAsync<{
+      payload = await this.jwtService.verifyAsync<{
         sub: string;
         email: string;
       }>(token, {
         secret: env.ADMIN_JWT_SECRET,
       });
-
-      const adminOperator = await this.prisma.adminOperator.findUnique({
-        where: { id: payload.sub },
-        select: {
-          id: true,
-          email: true,
-          displayName: true,
-          isActive: true,
-        },
-      });
-
-      if (!adminOperator || !adminOperator.isActive) {
-        throw new UnauthorizedException('Admin session is invalid.');
-      }
-
-      request.admin = {
-        id: adminOperator.id,
-        email: adminOperator.email,
-        displayName: adminOperator.displayName,
-      };
     } catch {
       throw new UnauthorizedException('Admin session is invalid.');
     }
+
+    const adminOperator = await this.prisma.adminOperator.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        isActive: true,
+      },
+    });
+
+    if (!adminOperator || !adminOperator.isActive) {
+      throw new UnauthorizedException('Admin session is invalid.');
+    }
+
+    request.admin = {
+      id: adminOperator.id,
+      email: adminOperator.email,
+      displayName: adminOperator.displayName,
+    };
 
     return true;
   }

@@ -1,13 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { SchoolResolverService } from '../../common/schools/school-resolver.service';
 
 @Injectable()
 export class PublicService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly schoolResolverService: SchoolResolverService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getLandingPayload() {
     const [userCount, completedProfiles, matchCount, currentCycle] =
@@ -39,9 +35,5 @@ export class PublicService {
           }
         : null,
     };
-  }
-
-  resolveSchoolByEmail(email: string) {
-    return this.schoolResolverService.resolveByEmail(email);
   }
 }

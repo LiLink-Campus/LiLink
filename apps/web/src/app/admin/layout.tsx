@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminProvider, useAdmin } from "./admin-context";
 
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
 
 function AdminGate({ children }: { children: React.ReactNode }) {
   const { authenticated, loading, error, login } = useAdmin();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -36,9 +37,21 @@ function AdminGate({ children }: { children: React.ReactNode }) {
           <p>使用管理员账号登录。</p>
           <form
             className="auth-form"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              void login(email, password);
+              const loginSucceeded = await login(email, password);
+              if (!loginSucceeded) {
+                return;
+              }
+
+              const nextPath = new URLSearchParams(window.location.search).get(
+                "next",
+              );
+              const redirectPath =
+                nextPath && nextPath.startsWith("/admin/")
+                  ? nextPath
+                  : "/admin";
+              router.replace(redirectPath);
             }}
           >
             <label>

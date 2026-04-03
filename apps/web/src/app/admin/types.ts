@@ -27,12 +27,26 @@ export type AdminQuestionSummary = {
   prompt: string;
 };
 
+export type AdminQuestionOption = {
+  value: string;
+  label: string;
+};
+
+export type AdminQuestionReasonRule = {
+  type: "EXACT_MATCH" | "MULTI_OVERLAP";
+  template: string;
+  priority?: number;
+  minOverlap?: number;
+  maxLabels?: number;
+};
+
 export type AdminQuestion = {
   id: string;
   key: string;
   prompt: string;
   type: "SINGLE_SELECT" | "MULTI_SELECT" | "SCALE";
-  options: string[] | null;
+  options: AdminQuestionOption[] | null;
+  reasonRules: AdminQuestionReasonRule[] | null;
   order: number;
   weight: number;
 };

@@ -6,6 +6,10 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CyclesService } from '../cycles/cycles.service';
+import {
+  normalizeQuestionOptions,
+  normalizeQuestionReasonRules,
+} from '../questionnaire/questionnaire-config';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminSchoolService } from './admin-school.service';
 import {
@@ -22,6 +26,8 @@ import {
   UpsertCycleDto,
   UpsertQuestionDto,
 } from './dto';
+
+const OVERVIEW_USERS_LIMIT = 20;
 
 @Injectable()
 export class AdminService {
@@ -72,6 +78,7 @@ export class AdminService {
             },
           },
           orderBy: { createdAt: 'desc' },
+          take: OVERVIEW_USERS_LIMIT,
         }),
         this.prisma.questionnaireVersion.findFirst({
           where: { isCurrent: true },
@@ -592,10 +599,24 @@ export class AdminService {
         },
         include: { questions: true },
       });
-      return created;
+      return {
+        ...created,
+        questions: created.questions.map((question) => ({
+          ...question,
+          options: normalizeQuestionOptions(question.options),
+          reasonRules: normalizeQuestionReasonRules(question.reasonRules),
+        })),
+      };
     }
 
-    return version;
+    return {
+      ...version,
+      questions: version.questions.map((question) => ({
+        ...question,
+        options: normalizeQuestionOptions(question.options),
+        reasonRules: normalizeQuestionReasonRules(question.reasonRules),
+      })),
+    };
   }
 
   async upsertQuestion(input: UpsertQuestionDto, adminActorId: string) {
@@ -607,19 +628,33 @@ export class AdminService {
       throw new NotFoundException('No active questionnaire version found.');
     }
 
-    const normalizedOptions = this.normalizeQuestionOptions(
-      input.type,
-      input.options,
+    const normalizedOptions = this.normalizeQuestionOptions(input.options);
+    const normalizedReasonRules = this.normalizeQuestionReasonRules(
+      input.reasonRules,
     );
 
     if (input.questionId) {
+      const existingQuestion = await this.prisma.question.findUnique({
+        where: { id: input.questionId },
+      });
+
+      if (!existingQuestion) {
+        throw new NotFoundException('Question not found.');
+      }
+
+      if (existingQuestion.key !== input.key) {
+        throw new BadRequestException(
+          'Question key cannot be changed after creation.',
+        );
+      }
+
       const question = await this.prisma.question.update({
         where: { id: input.questionId },
         data: {
-          key: input.key,
           prompt: input.prompt,
           type: input.type,
           options: normalizedOptions,
+          reasonRules: normalizedReasonRules,
           order: input.order,
           weight: input.weight ?? 1,
         },
@@ -641,6 +676,7 @@ export class AdminService {
         prompt: input.prompt,
         type: input.type,
         options: normalizedOptions,
+        reasonRules: normalizedReasonRules,
         order: input.order,
         weight: input.weight ?? 1,
       },
@@ -952,11 +988,9 @@ export class AdminService {
   }
 
   private normalizeQuestionOptions(
-    questionType: UpsertQuestionDto['type'],
-    options?: string[],
+    inputOptions?: UpsertQuestionDto['options'],
   ) {
-    const normalizedOptions =
-      options?.map((option) => option.trim()).filter(Boolean) ?? [];
+    const normalizedOptions = normalizeQuestionOptions(inputOptions ?? []);
 
     if (normalizedOptions.length < 2) {
       throw new BadRequestException(
@@ -965,6 +999,12 @@ export class AdminService {
     }
 
     return normalizedOptions;
+  }
+
+  private normalizeQuestionReasonRules(
+    inputRules?: UpsertQuestionDto['reasonRules'],
+  ) {
+    return normalizeQuestionReasonRules(inputRules ?? []);
   }
 
   private hasListQuery(query: {

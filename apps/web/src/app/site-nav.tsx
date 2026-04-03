@@ -1,0 +1,115 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { fetchApi } from "../lib/api";
+
+type AuthIdentity = {
+  id: string;
+  email: string;
+  displayName: string | null;
+};
+
+const PUBLIC_NAV_ITEMS = [
+  { href: "/about", label: "关于" },
+  { href: "/faq", label: "FAQ" },
+  { href: "/terms", label: "协议" },
+];
+
+export function SiteNav() {
+  const router = useRouter();
+  const [authenticatedUser, setAuthenticatedUser] = useState<AuthIdentity | null>(
+    null,
+  );
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    void fetchApi<AuthIdentity>("/auth/me")
+      .then((user) => {
+        if (!active) {
+          return;
+        }
+
+        setAuthenticatedUser(user);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setAuthenticatedUser(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleLogout() {
+    await fetchApi("/auth/logout", {
+      method: "POST",
+    });
+
+    setAuthenticatedUser(null);
+    setMenuOpen(false);
+    router.push("/");
+    router.refresh();
+  }
+
+  return (
+    <div className={menuOpen ? "site-nav-shell open" : "site-nav-shell"}>
+      <button
+        type="button"
+        className="site-nav-toggle"
+        aria-expanded={menuOpen}
+        aria-label={menuOpen ? "关闭导航菜单" : "打开导航菜单"}
+        onClick={() => setMenuOpen((current) => !current)}
+      >
+        <span />
+        <span />
+        <span />
+      </button>
+      <nav className="site-nav">
+        {PUBLIC_NAV_ITEMS.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={() => setMenuOpen(false)}
+          >
+            {item.label}
+          </Link>
+        ))}
+        {authenticatedUser ? (
+          <>
+            <Link href="/dashboard" onClick={() => setMenuOpen(false)}>
+              我的匹配
+            </Link>
+            <button
+              type="button"
+              className="site-nav-action"
+              onClick={() => void handleLogout()}
+            >
+              退出
+            </button>
+          </>
+        ) : (
+          <>
+            <Link href="/login" onClick={() => setMenuOpen(false)}>
+              登录
+            </Link>
+            <Link
+              className="button-ghost"
+              href="/register"
+              onClick={() => setMenuOpen(false)}
+            >
+              立即加入
+            </Link>
+          </>
+        )}
+      </nav>
+    </div>
+  );
+}

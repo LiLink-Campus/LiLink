@@ -11,6 +11,19 @@ import {
   areHardMatchAnswersCompatible,
   tryReadHardMatchAnswers,
 } from '../questionnaire/hard-match';
+import {
+  labelForQuestionValue,
+  normalizeQuestionAnswer,
+  normalizeQuestionOptions,
+  normalizeQuestionReasonRules,
+  renderReasonTemplate,
+} from '../questionnaire/questionnaire-config';
+
+const BASE_MATCH_SCORE = 48;
+const SINGLE_SELECT_MATCH_BONUS = 6;
+const MULTI_SELECT_OVERLAP_BONUS = 3;
+const MAX_MATCH_REASONS = 3;
+const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 
 type EligibleParticipant = {
   id: string;
@@ -28,9 +41,11 @@ type CandidatePair = {
 
 type QuestionnaireQuestion = {
   key: string;
+  prompt: string;
   type: QuestionType;
   weight: number;
   options: Prisma.JsonValue | null;
+  reasonRules: Prisma.JsonValue | null;
 };
 
 type RunRevealCycleOptions = {
@@ -44,7 +59,7 @@ export class CyclesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
-    const [cycle, questionnaire] = await Promise.all([
+    const [cycleCandidate, questionnaire] = await Promise.all([
       this.loadRunnableCycle(options.cycleId),
       this.prisma.questionnaireVersion.findFirst({
         where: { isCurrent: true },
@@ -56,12 +71,29 @@ export class CyclesService {
       }),
     ]);
 
+    let cycle = cycleCandidate;
+
     if (!cycle) {
       if (options.cycleId) {
         throw new NotFoundException('Cycle not found.');
       }
 
       return { ok: true, message: 'No open cycle was found.' };
+    }
+
+    if (cycle.status === 'REVEAL_READY') {
+      if (!this.isStaleRevealProcessing(cycle.updatedAt)) {
+        return {
+          ok: true,
+          message: 'Cycle is already being processed.',
+        };
+      }
+
+      await this.resetCycleToOpen(cycle.id);
+      cycle = {
+        ...cycle,
+        status: 'OPEN',
+      };
     }
 
     if (cycle.status !== 'OPEN') {
@@ -283,7 +315,11 @@ export class CyclesService {
     }
 
     return this.prisma.matchCycle.findFirst({
-      where: { status: 'OPEN' },
+      where: {
+        status: {
+          in: ['OPEN', 'REVEAL_READY'],
+        },
+      },
       orderBy: { revealAt: 'asc' },
       include,
     });
@@ -434,9 +470,11 @@ export class CyclesService {
     right: EligibleParticipant,
     questions: Array<{
       key: string;
+      prompt: string;
       type: QuestionType;
       weight: number;
       options: Prisma.JsonValue | null;
+      reasonRules: Prisma.JsonValue | null;
     }>,
     revealAt: Date,
   ) {
@@ -450,12 +488,21 @@ export class CyclesService {
       return null;
     }
 
-    let score = 48;
-    const reasons: string[] = [];
+    let score = BASE_MATCH_SCORE;
+    const reasons: Array<{ text: string; priority: number; order: number }> =
+      [];
 
-    for (const question of questions) {
-      const leftAnswer = left.answers[question.key];
-      const rightAnswer = right.answers[question.key];
+    for (const [order, question] of questions.entries()) {
+      const leftAnswer = normalizeQuestionAnswer(
+        question,
+        left.answers[question.key],
+        { invalidAsNull: true },
+      );
+      const rightAnswer = normalizeQuestionAnswer(
+        question,
+        right.answers[question.key],
+        { invalidAsNull: true },
+      );
       const weight = question.weight;
 
       if (leftAnswer == null || rightAnswer == null) {
@@ -467,47 +514,58 @@ export class CyclesService {
           question.type === QuestionType.SCALE) &&
         leftAnswer === rightAnswer
       ) {
-        score += weight * 6;
-
-        if (question.key === 'pace') {
-          reasons.push('你们对关系推进节奏的期待很接近。');
-        }
-
-        if (question.key === 'weekend') {
-          reasons.push('你们对周末相处方式的偏好相近。');
-        }
-
-        if (question.key === 'communication') {
-          reasons.push('你们处理分歧时更容易对齐彼此的沟通方式。');
-        }
-
-        if (question.key === 'outing_spend_style') {
-          reasons.push(
-            '你们对出去玩时谁来买单或 AA 的期待比较一致，相处时更省心。',
-          );
-        }
+        score += weight * SINGLE_SELECT_MATCH_BONUS;
+        reasons.push(
+          ...this.buildReasonMessages(question, leftAnswer, rightAnswer, order),
+        );
       }
 
       if (question.type === QuestionType.MULTI_SELECT) {
-        const leftOptions = this.normalizeStringArray(leftAnswer);
-        const rightOptions = this.normalizeStringArray(rightAnswer);
+        const leftOptions = Array.isArray(leftAnswer) ? leftAnswer : [];
+        const rightOptions = Array.isArray(rightAnswer) ? rightAnswer : [];
         const overlap = leftOptions.filter((value) =>
           rightOptions.includes(value),
         );
 
         if (overlap.length > 0) {
-          score += overlap.length * weight * 3;
-
-          if (question.key === 'values') {
-            reasons.push(
-              `你们都把 ${overlap.slice(0, 2).join('、')} 放在重要位置。`,
-            );
-          }
+          score += overlap.length * weight * MULTI_SELECT_OVERLAP_BONUS;
+          reasons.push(
+            ...this.buildReasonMessages(
+              question,
+              leftAnswer,
+              rightAnswer,
+              order,
+            ),
+          );
         }
       }
     }
 
-    const uniqueReasons = [...new Set(reasons)].slice(0, 3);
+    const uniqueReasonMap = new Map<
+      string,
+      { text: string; priority: number; order: number }
+    >();
+
+    for (const reason of reasons) {
+      const existingReason = uniqueReasonMap.get(reason.text);
+      if (
+        !existingReason ||
+        reason.priority > existingReason.priority ||
+        (reason.priority === existingReason.priority &&
+          reason.order < existingReason.order)
+      ) {
+        uniqueReasonMap.set(reason.text, reason);
+      }
+    }
+
+    const uniqueReasons = [...uniqueReasonMap.values()]
+      .sort(
+        (leftReason, rightReason) =>
+          rightReason.priority - leftReason.priority ||
+          leftReason.order - rightReason.order,
+      )
+      .slice(0, MAX_MATCH_REASONS)
+      .map((reason) => reason.text);
 
     return {
       score,
@@ -518,12 +576,83 @@ export class CyclesService {
     };
   }
 
-  private normalizeStringArray(value: unknown) {
-    if (!Array.isArray(value)) {
-      return [];
-    }
+  private buildReasonMessages(
+    question: QuestionnaireQuestion,
+    leftAnswer: string | string[],
+    rightAnswer: string | string[],
+    order: number,
+  ) {
+    const optionList = normalizeQuestionOptions(question.options);
+    const rules = normalizeQuestionReasonRules(question.reasonRules);
 
-    return value.filter((item): item is string => typeof item === 'string');
+    return rules
+      .map((rule) => {
+        if (rule.type === 'EXACT_MATCH') {
+          if (
+            typeof leftAnswer !== 'string' ||
+            typeof rightAnswer !== 'string' ||
+            leftAnswer !== rightAnswer
+          ) {
+            return null;
+          }
+
+          const text = renderReasonTemplate(rule.template, {
+            answer_label: labelForQuestionValue(leftAnswer, optionList),
+            question_prompt: question.prompt,
+            question_key: question.key,
+            count: 1,
+          }).trim();
+
+          if (!text) {
+            return null;
+          }
+
+          return {
+            text,
+            priority: rule.priority ?? question.weight,
+            order,
+          };
+        }
+
+        if (!Array.isArray(leftAnswer) || !Array.isArray(rightAnswer)) {
+          return null;
+        }
+
+        const overlap = leftAnswer.filter((value) =>
+          rightAnswer.includes(value),
+        );
+        if (overlap.length < (rule.minOverlap ?? 1)) {
+          return null;
+        }
+
+        const overlapLabels = overlap.map((value) =>
+          labelForQuestionValue(value, optionList),
+        );
+        const maxLabels = rule.maxLabels ?? overlapLabels.length;
+        const visibleLabels = overlapLabels.slice(0, maxLabels);
+        const text = renderReasonTemplate(rule.template, {
+          labels: visibleLabels.join('、'),
+          labels_2: overlapLabels.slice(0, 2).join('、'),
+          labels_3: overlapLabels.slice(0, 3).join('、'),
+          question_prompt: question.prompt,
+          question_key: question.key,
+          count: overlap.length,
+        }).trim();
+
+        if (!text) {
+          return null;
+        }
+
+        return {
+          text,
+          priority: rule.priority ?? question.weight,
+          order,
+        };
+      })
+      .filter(
+        (reason): reason is { text: string; priority: number; order: number } =>
+          reason !== null,
+      );
   }
 
   private async resetCycleToOpen(cycleId: string) {
@@ -533,5 +662,9 @@ export class CyclesService {
         status: 'OPEN',
       },
     });
+  }
+
+  private isStaleRevealProcessing(updatedAt: Date) {
+    return Date.now() - updatedAt.getTime() >= REVEAL_RECOVERY_THRESHOLD_MS;
   }
 }

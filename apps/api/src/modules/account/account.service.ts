@@ -214,31 +214,26 @@ export class AccountService {
       this.prisma.questionnaireResponse.findUnique({
         where: { userId },
       }),
-      this.prisma.questionnaireVersion.findFirst({
-        where: { isCurrent: true },
-        select: {
-          questions: {
-            select: {
-              key: true,
-            },
-          },
-        },
-      }),
+      this.questionnaireService.getCurrentVersion().catch(() => null),
     ]);
 
     if (!response || !currentQuestionnaire) {
       return response;
     }
 
-    const allowedQuestionKeys = new Set([
-      ...currentQuestionnaire.questions.map((question) => question.key),
-      ...hardMatchQuestionKeys(),
-    ]);
-    const filteredAnswers = Object.fromEntries(
-      Object.entries(
-        (response.answers ?? {}) as Record<string, unknown>,
-      ).filter(([key]) => allowedQuestionKeys.has(key)),
+    const filteredAnswers = this.questionnaireService.sanitizeStoredAnswers(
+      currentQuestionnaire.questions,
+      (response.answers ?? {}) as Record<string, unknown>,
     );
+    const rawAnswers = (response.answers ?? {}) as Record<string, unknown>;
+
+    for (const hardMatchKey of hardMatchQuestionKeys()) {
+      if (rawAnswers[hardMatchKey] != null) {
+        filteredAnswers[hardMatchKey] = rawAnswers[
+          hardMatchKey
+        ] as Prisma.InputJsonValue;
+      }
+    }
 
     return {
       ...response,
@@ -485,19 +480,6 @@ export class AccountService {
         create: {
           blockerId: userId,
           blockedId: counterpart.userId,
-        },
-      }),
-      this.prisma.block.upsert({
-        where: {
-          blockerId_blockedId: {
-            blockerId: counterpart.userId,
-            blockedId: userId,
-          },
-        },
-        update: {},
-        create: {
-          blockerId: counterpart.userId,
-          blockedId: userId,
         },
       }),
       this.prisma.auditLog.create({

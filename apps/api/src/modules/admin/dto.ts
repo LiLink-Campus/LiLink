@@ -5,12 +5,14 @@ import {
   IsDateString,
   IsIn,
   IsInt,
+  ValidateNested,
   IsOptional,
   IsString,
   Matches,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { QUESTION_REASON_RULE_TYPES } from '../questionnaire/questionnaire-config';
 
 export class ListQueryDto {
   @IsOptional()
@@ -125,6 +127,41 @@ export class RunCycleDto {
   force?: boolean;
 }
 
+export class QuestionOptionDto {
+  @IsOptional()
+  @IsString()
+  value?: string;
+
+  @IsString()
+  label!: string;
+}
+
+export class QuestionReasonRuleDto {
+  @IsIn(QUESTION_REASON_RULE_TYPES)
+  type!: (typeof QUESTION_REASON_RULE_TYPES)[number];
+
+  @IsString()
+  template!: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  priority?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  minOverlap?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  maxLabels?: number;
+}
+
 export class UpsertQuestionDto {
   @IsOptional()
   @IsString()
@@ -141,8 +178,15 @@ export class UpsertQuestionDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  options?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => QuestionOptionDto)
+  options?: QuestionOptionDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuestionReasonRuleDto)
+  reasonRules?: QuestionReasonRuleDto[];
 
   @IsInt()
   @Min(1)

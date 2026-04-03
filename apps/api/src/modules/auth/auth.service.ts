@@ -61,60 +61,67 @@ export class AuthService {
     const school =
       await this.schoolResolverService.resolveByEmail(normalizedEmail);
 
-    const latestCode = await this.prisma.emailCode.findFirst({
-      where: {
-        email: normalizedEmail,
-        purpose: 'register',
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (!latestCode) {
-      throw new BadRequestException('No valid verification code was found.');
-    }
-
-    const isValidCode = await argon2.verify(latestCode.codeHash, input.code);
-    if (!isValidCode) {
-      await this.prisma.emailCode.update({
-        where: { id: latestCode.id },
-        data: { consumedAt: new Date() },
-      });
-      throw new BadRequestException(
-        'Verification code is invalid. Please request a new one.',
-      );
-    }
-
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (existingUser) {
-      throw new BadRequestException('This email is already registered.');
-    }
-
-    const passwordHash = await argon2.hash(input.password);
-
-    const user = await this.prisma.user.create({
-      data: {
-        email: normalizedEmail,
-        passwordHash,
-        status: 'ACTIVE',
-        displayName: input.displayName,
-        schoolId: school?.schoolId,
-        acceptedTermsAt: input.acceptedTerms ? new Date() : null,
-        profile: {
-          create: {
-            fullName: input.fullName,
-          },
+    const user = await this.prisma.$transaction(async (tx) => {
+      const latestCode = await tx.emailCode.findFirst({
+        where: {
+          email: normalizedEmail,
+          purpose: 'register',
+          consumedAt: null,
+          expiresAt: { gt: new Date() },
         },
-      },
-    });
+        orderBy: { createdAt: 'desc' },
+      });
 
-    await this.prisma.emailCode.update({
-      where: { id: latestCode.id },
-      data: { consumedAt: new Date() },
+      if (!latestCode) {
+        throw new BadRequestException('No valid verification code was found.');
+      }
+
+      const isValidCode = await argon2.verify(latestCode.codeHash, input.code);
+      if (!isValidCode) {
+        throw new BadRequestException(
+          'Verification code is invalid. Please request a new one.',
+        );
+      }
+
+      const consumedCode = await tx.emailCode.updateMany({
+        where: {
+          id: latestCode.id,
+          consumedAt: null,
+        },
+        data: {
+          consumedAt: new Date(),
+        },
+      });
+
+      if (consumedCode.count === 0) {
+        throw new BadRequestException(
+          'Verification code is invalid. Please request a new one.',
+        );
+      }
+
+      try {
+        return await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            passwordHash: await argon2.hash(input.password),
+            status: 'ACTIVE',
+            displayName: input.displayName,
+            schoolId: school?.schoolId,
+            acceptedTermsAt: input.acceptedTerms ? new Date() : null,
+            profile: {
+              create: {
+                fullName: input.fullName,
+              },
+            },
+          },
+        });
+      } catch (error) {
+        if (this.isUniqueConstraintError(error)) {
+          throw new BadRequestException('This email is already registered.');
+        }
+
+        throw error;
+      }
     });
 
     return this.issueAuthPayload(user.id, user.email, user.displayName);
@@ -209,5 +216,14 @@ export class AuthService {
         displayName,
       },
     };
+  }
+
+  private isUniqueConstraintError(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === 'P2002'
+    );
   }
 }

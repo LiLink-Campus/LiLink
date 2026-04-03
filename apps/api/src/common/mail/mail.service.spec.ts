@@ -50,6 +50,45 @@ describe('MailService', () => {
     ]);
   });
 
+  it('escapes user-controlled fields in introduction email HTML', () => {
+    const service = new MailService({
+      outboundEmail: {
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+        update: jest.fn(),
+      },
+    } as never);
+
+    const [requesterEmail, recipientEmail] = service.buildIntroductionEmails({
+      matchId: 'match-1',
+      requester: {
+        email: 'requester@example.com',
+        displayName: '<script>alert(1)</script>',
+        schoolName: 'A&B School',
+        headline: 'Hello <b>world</b>',
+      },
+      recipient: {
+        email: 'recipient@example.com',
+        displayName: '<img src=x onerror=alert(2)>',
+        schoolName: 'R&D School',
+        headline: 'Intro <i>text</i>',
+      },
+      reasons: ['Reason <strong>1</strong>'],
+    });
+
+    expect(requesterEmail.html).toContain('&lt;img src=x onerror=alert(2)&gt;');
+    expect(requesterEmail.html).toContain('&lt;i&gt;text&lt;/i&gt;');
+    expect(requesterEmail.html).not.toContain('<img src=x onerror=alert(2)>');
+    expect(requesterEmail.html).not.toContain('<i>text</i>');
+    expect(requesterEmail.html).toContain('&lt;strong&gt;1&lt;/strong&gt;');
+
+    expect(recipientEmail.html).toContain(
+      '&lt;script&gt;alert(1)&lt;/script&gt;',
+    );
+    expect(recipientEmail.html).toContain('Hello &lt;b&gt;world&lt;/b&gt;');
+    expect(recipientEmail.html).toContain('A&amp;B School');
+  });
+
   it('flushes pending emails and marks them as sent', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {

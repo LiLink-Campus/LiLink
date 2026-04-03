@@ -6,8 +6,11 @@ import {
   IsString,
   Length,
   Matches,
+  MaxLength,
   MinLength,
 } from 'class-validator';
+
+const PASSWORD_MAX_LENGTH = 128;
 
 export class RequestCodeDto {
   @IsEmail()
@@ -24,6 +27,7 @@ export class RegisterDto {
 
   @IsString()
   @MinLength(8)
+  @MaxLength(PASSWORD_MAX_LENGTH)
   @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
     message: 'Password must include at least one letter and one number.',
   })
@@ -47,5 +51,6 @@ export class LoginDto {
   email!: string;
 
   @IsString()
+  @MaxLength(PASSWORD_MAX_LENGTH)
   password!: string;
 }

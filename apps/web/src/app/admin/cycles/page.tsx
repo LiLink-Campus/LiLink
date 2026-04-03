@@ -176,6 +176,16 @@ export default function AdminCyclesPage() {
       return;
     }
 
+    const confirmed = window.confirm(
+      force
+        ? "强制执行会跳过揭晓时间检查，并立即写入匹配结果。确认继续吗？"
+        : "执行轮次会开始生成正式匹配结果。确认继续吗？",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setPending(force ? "force-run" : "run");
     setActionError(null);
     setActionMessage(null);
