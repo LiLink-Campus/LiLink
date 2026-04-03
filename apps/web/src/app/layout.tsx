@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteNav } from "./site-nav";
 import "./globals.css";
-import { Analytics } from "@vercel/analytics/next"
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "LiLink | 黎安国际教育创新区交友平台",
@@ -44,6 +44,8 @@ export default function RootLayout({
             </div>
           </footer>
         </div>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
