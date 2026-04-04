@@ -19,13 +19,13 @@ type IntroductionEmailInput = {
     email: string;
     displayName: string | null;
     schoolName?: string | null;
-    headline?: string | null;
+    introLine?: string | null;
   };
   recipient: {
     email: string;
     displayName: string | null;
     schoolName?: string | null;
-    headline?: string | null;
+    introLine?: string | null;
   };
   reasons: string[];
 };
@@ -81,7 +81,7 @@ export class MailService {
           <p>你已成功请求联系 <strong>${escapedRecipientName}</strong>。</p>
           <p>对方邮箱：<strong>${escapeHtml(input.recipient.email)}</strong></p>
           <p>对方学校：${escapeHtml(input.recipient.schoolName ?? '未填写')}</p>
-          <p>对方简介：${escapeHtml(input.recipient.headline ?? '暂无一句话介绍')}</p>
+          <p>对方一句话介绍：${escapeHtml(input.recipient.introLine ?? '暂无')}</p>
           <p>本次匹配理由：</p>
           <ul>${reasons}</ul>
         `,
@@ -94,7 +94,7 @@ export class MailService {
           <p><strong>${escapedRequesterName}</strong> 请求与你建立联系。</p>
           <p>对方邮箱：<strong>${escapeHtml(input.requester.email)}</strong></p>
           <p>对方学校：${escapeHtml(input.requester.schoolName ?? '未填写')}</p>
-          <p>对方简介：${escapeHtml(input.requester.headline ?? '暂无一句话介绍')}</p>
+          <p>对方一句话介绍：${escapeHtml(input.requester.introLine ?? '暂无')}</p>
           <p>本次匹配理由：</p>
           <ul>${reasons}</ul>
         `,

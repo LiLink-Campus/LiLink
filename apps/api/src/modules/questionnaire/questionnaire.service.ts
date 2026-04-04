@@ -19,6 +19,7 @@ type QuestionnaireQuestion = {
   prompt: string;
   type: QuestionType;
   required: boolean;
+  selectionLimit?: number | null;
   options: Prisma.JsonValue | null;
   reasonRules?: Prisma.JsonValue | null;
 };

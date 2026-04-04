@@ -39,6 +39,7 @@
     "class-validator": "^0.14.2",
     "cookie-parser": "^1.4.7",
     "helmet": "^8.1.0",
+    "lilink": "file:../..",
     "nodemailer": "^8.0.4",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
@@ -75,7 +76,14 @@
   },
   "overrides": {
     "effect": "3.21.0",
-    "path-to-regexp": "8.4.1"
+    "path-to-regexp": "8.4.1",
+    "lodash": "4.18.1",
+    "@angular-devkit/core": {
+      "picomatch": "4.0.4"
+    },
+    "fdir": {
+      "picomatch": "4.0.4"
+    }
   },
   "jest": {
     "moduleFileExtensions": [

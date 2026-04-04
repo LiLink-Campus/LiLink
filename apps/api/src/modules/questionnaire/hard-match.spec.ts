@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import {
   HARD_MATCH_GENDERS,
   HARD_MATCH_KEYS,
@@ -19,6 +20,7 @@ describe('hard-match helpers', () => {
     [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
     [HARD_MATCH_KEYS.race]: '黄种人',
     [HARD_MATCH_KEYS.partnerRaces]: [...HARD_MATCH_RACES],
+    [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
   } as const;
 
   it('normalizes a complete hard-match answer set', () => {
@@ -32,6 +34,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美', '顶帅/美'],
       [HARD_MATCH_KEYS.race]: '黄种人',
       [HARD_MATCH_KEYS.partnerRaces]: ['黄种人', '黑种人', '白种人'],
+      [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
     });
   });
 
@@ -41,6 +44,15 @@ describe('hard-match helpers', () => {
         [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
       }),
     ).toBeNull();
+  });
+
+  it('rejects questionnaire saves without a one-line intro', () => {
+    expect(() =>
+      normalizeHardMatchAnswers({
+        ...validAnswers,
+        [HARD_MATCH_KEYS.oneLinerIntro]: '   ',
+      }),
+    ).toThrow(BadRequestException);
   });
 
   it('applies age and mutual preference hard filters', () => {
@@ -55,6 +67,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美'],
       [HARD_MATCH_KEYS.race]: '白种人',
       [HARD_MATCH_KEYS.partnerRaces]: ['黄种人', '白种人'],
+      [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢画画，常在图书馆自习。',
     } as const;
     const right = tryReadHardMatchAnswers(rightAnswers)!;
 

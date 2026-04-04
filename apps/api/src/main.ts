@@ -9,7 +9,20 @@ import { env } from './config/env';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     cors: {
-      origin: env.CLIENT_ORIGIN,
+      origin: (
+        requestOrigin: string | undefined,
+        callback: (err: Error | null, allow?: boolean | string) => void,
+      ) => {
+        if (!requestOrigin) {
+          callback(null, true);
+          return;
+        }
+        if (env.CLIENT_ORIGIN.includes(requestOrigin)) {
+          callback(null, requestOrigin);
+          return;
+        }
+        callback(null, false);
+      },
       credentials: true,
     },
   });

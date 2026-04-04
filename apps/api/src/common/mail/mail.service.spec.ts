@@ -65,13 +65,13 @@ describe('MailService', () => {
         email: 'requester@example.com',
         displayName: '<script>alert(1)</script>',
         schoolName: 'A&B School',
-        headline: 'Hello <b>world</b>',
+        introLine: 'Hello <b>world</b>',
       },
       recipient: {
         email: 'recipient@example.com',
         displayName: '<img src=x onerror=alert(2)>',
         schoolName: 'R&D School',
-        headline: 'Intro <i>text</i>',
+        introLine: 'Intro <i>text</i>',
       },
       reasons: ['Reason <strong>1</strong>'],
     });

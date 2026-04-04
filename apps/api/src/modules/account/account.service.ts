@@ -4,7 +4,10 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
-import { hardMatchQuestionKeys } from '../questionnaire/hard-match';
+import {
+  hardMatchQuestionKeys,
+  readQuestionnaireOneLiner,
+} from '../questionnaire/hard-match';
 import {
   ReportMatchDto,
   SaveQuestionnaireDto,
@@ -21,7 +24,7 @@ export class AccountService {
   ) {}
 
   async getDashboard(userId: string) {
-    const [profile, questionnaire, cycle, recentMatchParticipants] =
+    const [profile, questionnaire, cycle, recentMatchParticipants, lastRevealedParticipation] =
       await Promise.all([
         this.prisma.userProfile.findUnique({
           where: { userId },
@@ -49,6 +52,9 @@ export class AccountService {
                       include: {
                         profile: true,
                         school: true,
+                        questionnaireResponse: {
+                          select: { answers: true },
+                        },
                       },
                     },
                   },
@@ -60,6 +66,24 @@ export class AccountService {
             createdAt: 'desc',
           },
           take: 5,
+        }),
+        this.prisma.cycleParticipation.findFirst({
+          where: {
+            userId,
+            cycle: { status: 'REVEALED' },
+          },
+          orderBy: {
+            cycle: { revealAt: 'desc' },
+          },
+          include: {
+            cycle: {
+              select: {
+                id: true,
+                codename: true,
+                revealAt: true,
+              },
+            },
+          },
         }),
       ]);
 
@@ -127,6 +151,32 @@ export class AccountService {
         },
       }));
 
+    let lastRevealedRound: {
+      cycleId: string;
+      codename: string;
+      revealAt: string;
+      participationStatus: 'OPTED_IN' | 'OPTED_OUT';
+      matched: boolean;
+    } | null = null;
+
+    if (lastRevealedParticipation) {
+      const matchedInCycle = await this.prisma.matchParticipant.findFirst({
+        where: {
+          userId,
+          cycleId: lastRevealedParticipation.cycleId,
+        },
+        select: { id: true },
+      });
+
+      lastRevealedRound = {
+        cycleId: lastRevealedParticipation.cycle.id,
+        codename: lastRevealedParticipation.cycle.codename,
+        revealAt: lastRevealedParticipation.cycle.revealAt.toISOString(),
+        participationStatus: lastRevealedParticipation.status,
+        matched: Boolean(matchedInCycle),
+      };
+    }
+
     return {
       profile,
       questionnaireSubmittedAt: questionnaire?.submittedAt ?? null,
@@ -151,7 +201,10 @@ export class AccountService {
             participants: latestMatch.match.participants.map((participant) => ({
               userId: participant.userId,
               displayName: participant.user.displayName,
-              headline: participant.user.profile?.headline,
+              introLine: this.displayIntroLine(
+                participant.user.questionnaireResponse?.answers,
+                participant.user.profile?.headline,
+              ),
               email: latestMatch.match.introducedAt
                 ? participant.user.email
                 : null,
@@ -160,6 +213,7 @@ export class AccountService {
             })),
           }
         : null,
+      lastRevealedRound,
     };
   }
 
@@ -299,6 +353,9 @@ export class AccountService {
                   include: {
                     profile: true,
                     school: true,
+                    questionnaireResponse: {
+                      select: { answers: true },
+                    },
                   },
                 },
               },
@@ -359,13 +416,19 @@ export class AccountService {
         email: requester!.user.email,
         displayName: requester!.user.displayName,
         schoolName: requester!.user.school?.name ?? null,
-        headline: requester!.user.profile?.headline ?? null,
+        introLine: this.displayIntroLine(
+          requester!.user.questionnaireResponse?.answers,
+          requester!.user.profile?.headline,
+        ),
       },
       recipient: {
         email: counterpart.user.email,
         displayName: counterpart.user.displayName,
         schoolName: counterpart.user.school?.name ?? null,
-        headline: counterpart.user.profile?.headline ?? null,
+        introLine: this.displayIntroLine(
+          counterpart.user.questionnaireResponse?.answers,
+          counterpart.user.profile?.headline,
+        ),
       },
       reasons: participant.match.reasons as string[],
     });
@@ -496,6 +559,19 @@ export class AccountService {
     ]);
 
     return { ok: true };
+  }
+
+  private displayIntroLine(
+    answers: Prisma.JsonValue | null | undefined,
+    profileHeadline: string | null | undefined,
+  ): string | null {
+    const fromQuestionnaire = readQuestionnaireOneLiner(answers);
+    if (fromQuestionnaire) {
+      return fromQuestionnaire;
+    }
+
+    const trimmedHeadline = profileHeadline?.trim();
+    return trimmedHeadline ? trimmedHeadline : null;
   }
 
   private async createAuditLog(

@@ -23,6 +23,7 @@ type Question = {
   key: string;
   prompt: string;
   type: "SCALE" | "SINGLE_SELECT" | "MULTI_SELECT";
+  selectionLimit?: number | null;
   options?: Array<{
     value: string;
     label: string;
@@ -36,7 +37,15 @@ type DashboardPayload = {
     codename: string;
     revealAt: string;
     participationDeadline: string;
+    status: "DRAFT" | "OPEN" | "REVEAL_READY" | "REVEALED";
     participationStatus: "OPTED_IN" | "OPTED_OUT";
+  } | null;
+  lastRevealedRound: {
+    cycleId: string;
+    codename: string;
+    revealAt: string;
+    participationStatus: "OPTED_IN" | "OPTED_OUT";
+    matched: boolean;
   } | null;
   latestMatch: {
     id: string;
@@ -48,7 +57,7 @@ type DashboardPayload = {
     participants: Array<{
       userId: string;
       displayName: string | null;
-      headline: string | null;
+      introLine: string | null;
       email: string | null;
       schoolName: string | null;
       contactRequestedAt: string | null;
@@ -115,15 +124,9 @@ export default function DashboardPage() {
   );
 
   useEffect(() => {
-    if (!hardMatchForm.birthDay) {
-      return;
-    }
-
+    if (!hardMatchForm.birthDay) return;
     if (!birthDayOptions.includes(Number(hardMatchForm.birthDay))) {
-      setHardMatchForm((current) => ({
-        ...current,
-        birthDay: "",
-      }));
+      setHardMatchForm((current) => ({ ...current, birthDay: "" }));
     }
   }, [birthDayOptions, hardMatchForm.birthDay]);
 
@@ -140,57 +143,31 @@ export default function DashboardPage() {
             fetchApi<AuthPayload>("/auth/me"),
             fetchApi<DashboardPayload>("/me/dashboard"),
             fetchApi<QuestionnairePayload>("/questionnaire/current"),
-            fetchApi<SavedQuestionnairePayload>("/me/questionnaire").catch(
-              () => null,
-            ),
+            fetchApi<SavedQuestionnairePayload>("/me/questionnaire").catch(() => null),
           ]);
 
-        if (!active) {
-          return;
-        }
+        if (!active) return;
 
         setUser(me);
         setDashboard(dashboardData);
         setQuestions(questionnaire.questions);
-        setAnswers(
-          keepCurrentQuestionAnswers(
-            questionnaire.questions,
-            savedQuestionnaire?.answers,
-          ),
-        );
+        setAnswers(keepCurrentQuestionAnswers(questionnaire.questions, savedQuestionnaire?.answers));
         setHardMatchForm(hardMatchFormFromAnswers(savedQuestionnaire?.answers));
       } catch (caughtError) {
-        if (!active) {
-          return;
-        }
-
-        setError(
-          caughtError instanceof Error ? caughtError.message : "页面加载失败。",
-        );
+        if (!active) return;
+        setError(caughtError instanceof Error ? caughtError.message : "页面加载失败。");
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
     void boot();
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   const counterpart = useMemo(() => {
-    if (!dashboard?.latestMatch || !user) {
-      return null;
-    }
-
-    return (
-      dashboard.latestMatch.participants.find(
-        (participant) => participant.userId !== user.id,
-      ) ?? null
-    );
+    if (!dashboard?.latestMatch || !user) return null;
+    return dashboard.latestMatch.participants.find((p) => p.userId !== user.id) ?? null;
   }, [dashboard?.latestMatch, user]);
 
   function toggleHardSelection(
@@ -210,24 +187,13 @@ export default function DashboardPage() {
 
     try {
       const hardMatchAnswers = buildHardMatchAnswerRecord(hardMatchForm);
-
       await fetchApi("/me/questionnaire", {
         method: "PUT",
-        body: JSON.stringify({
-          answers: {
-            ...hardMatchAnswers,
-            ...answers,
-          },
-        }),
+        body: JSON.stringify({ answers: { ...hardMatchAnswers, ...answers } }),
       });
-
-      startTransition(() => {
-        setSavedMessage("问卷已保存。");
-      });
+      startTransition(() => { setSavedMessage("问卷已保存。"); });
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : "问卷保存失败。",
-      );
+      setError(caughtError instanceof Error ? caughtError.message : "问卷保存失败。");
     } finally {
       setSaving(null);
     }
@@ -237,122 +203,69 @@ export default function DashboardPage() {
     setSaving("participation");
     setSavedMessage(null);
     try {
-      await fetchApi("/me/participation", {
-        method: "PUT",
-        body: JSON.stringify({ optIn: nextValue }),
-      });
-
+      await fetchApi("/me/participation", { method: "PUT", body: JSON.stringify({ optIn: nextValue }) });
       setDashboard((current) =>
         current?.currentCycle
-          ? {
-              ...current,
-              currentCycle: {
-                ...current.currentCycle,
-                participationStatus: nextValue ? "OPTED_IN" : "OPTED_OUT",
-              },
-            }
+          ? { ...current, currentCycle: { ...current.currentCycle, participationStatus: nextValue ? "OPTED_IN" : "OPTED_OUT" } }
           : current,
       );
-      setSavedMessage(
-        nextValue ? "你已参加本轮匹配。" : "你已跳过本轮，仍可随时改回。",
-      );
+      setSavedMessage(nextValue ? "你已参加本轮匹配。" : "你已跳过本轮，仍可随时改回。");
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "参与状态更新失败。",
-      );
+      setError(caughtError instanceof Error ? caughtError.message : "参与状态更新失败。");
     } finally {
       setSaving(null);
     }
   }
 
   async function requestContact() {
-    if (!dashboard?.latestMatch) {
-      return;
-    }
-
+    if (!dashboard?.latestMatch) return;
     setSaving("contact");
     setSavedMessage(null);
     try {
-      await fetchApi(`/me/matches/${dashboard.latestMatch.id}/contact`, {
-        method: "POST",
-      });
+      await fetchApi(`/me/matches/${dashboard.latestMatch.id}/contact`, { method: "POST" });
       setDashboard((current) =>
         current?.latestMatch
-          ? {
-              ...current,
-              latestMatch: {
-                ...current.latestMatch,
-                introducedAt: new Date().toISOString(),
-                currentUserRequestedAt: new Date().toISOString(),
-              },
-            }
+          ? { ...current, latestMatch: { ...current.latestMatch, introducedAt: new Date().toISOString(), currentUserRequestedAt: new Date().toISOString() } }
           : current,
       );
       setSavedMessage("已向双方发送引荐邮件。");
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : "引荐发送失败。",
-      );
+      setError(caughtError instanceof Error ? caughtError.message : "引荐发送失败。");
     } finally {
       setSaving(null);
     }
   }
 
   async function submitReport() {
-    if (!dashboard?.latestMatch) {
-      return;
-    }
-
+    if (!dashboard?.latestMatch) return;
     setSaving("report");
     setSavedMessage(null);
     try {
       await fetchApi(`/me/matches/${dashboard.latestMatch.id}/report`, {
         method: "POST",
-        body: JSON.stringify({
-          reason: reportReason,
-          ...(reportDetails.trim() ? { details: reportDetails.trim() } : {}),
-        }),
+        body: JSON.stringify({ reason: reportReason, ...(reportDetails.trim() ? { details: reportDetails.trim() } : {}) }),
       });
       setDashboard((current) =>
-        current?.latestMatch
-          ? {
-              ...current,
-              latestMatch: {
-                ...current.latestMatch,
-                reportStatus: "OPEN",
-              },
-            }
-          : current,
+        current?.latestMatch ? { ...current, latestMatch: { ...current.latestMatch, reportStatus: "OPEN" } } : current,
       );
       setReportOpen(false);
       setReportDetails("");
       setSavedMessage("举报已提交，系统已将该对象从你后续轮次里隔离。");
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : "举报提交失败。",
-      );
+      setError(caughtError instanceof Error ? caughtError.message : "举报提交失败。");
     } finally {
       setSaving(null);
     }
   }
 
   const nextRevealLabel = dashboard?.currentCycle
-    ? new Intl.DateTimeFormat("zh-CN", {
-        dateStyle: "long",
-        timeStyle: "short",
-        timeZone: "Asia/Shanghai",
-      }).format(new Date(dashboard.currentCycle.revealAt))
+    ? new Intl.DateTimeFormat("zh-CN", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Shanghai" }).format(new Date(dashboard.currentCycle.revealAt))
     : null;
 
   if (loading) {
     return (
       <main className="page-shell prose-shell">
-        <section
-          className="content-panel dashboard-panel-wide"
-          style={{ textAlign: "center", padding: "4rem 2rem" }}
-        >
+        <section className="content-panel dashboard-panel-wide" style={{ textAlign: "center", padding: "4rem 2rem" }}>
           <p className="eyebrow">我的匹配</p>
           <h1>正在加载…</h1>
         </section>
@@ -363,16 +276,11 @@ export default function DashboardPage() {
   if (error && !dashboard) {
     return (
       <main className="page-shell prose-shell">
-        <section
-          className="content-panel dashboard-panel-wide"
-          style={{ textAlign: "center", padding: "4rem 2rem" }}
-        >
+        <section className="content-panel dashboard-panel-wide" style={{ textAlign: "center", padding: "4rem 2rem" }}>
           <p className="eyebrow">我的匹配</p>
           <h1>暂时无法进入该页面</h1>
           <p>{error}</p>
-          <Link className="button-primary" href="/login">
-            去登录
-          </Link>
+          <Link className="button-primary" href="/login">去登录</Link>
         </section>
       </main>
     );
@@ -387,7 +295,7 @@ export default function DashboardPage() {
         <p className="eyebrow">我的匹配</p>
         <h1>欢迎回来</h1>
         <p className="dashboard-lede">
-          在这里填写硬性条件、完成价值观问卷，并决定是否参加当前轮次。
+          在这里填写个人信息、完成价值观问卷，并决定是否参加当前轮次。
         </p>
         {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
         {error ? <p className="form-error">{error}</p> : null}
@@ -397,32 +305,15 @@ export default function DashboardPage() {
         <div className="dashboard-reveal-card">
           <div className="dashboard-reveal-copy">
             <p className="dashboard-reveal-label">下次揭晓时间</p>
-            <p className="dashboard-reveal-time">
-              {nextRevealLabel ?? "当前没有开放中的轮次"}
-            </p>
+            <p className="dashboard-reveal-time">{nextRevealLabel ?? "当前没有开放中的轮次"}</p>
           </div>
           {dashboard?.currentCycle ? (
             <div className="dashboard-reveal-actions">
-              <span
-                className={
-                  isOptedIn
-                    ? "dashboard-participation-pill on"
-                    : "dashboard-participation-pill"
-                }
-              >
+              <span className={isOptedIn ? "dashboard-participation-pill on" : "dashboard-participation-pill"}>
                 {isOptedIn ? "本轮参与中" : "本轮未参与"}
               </span>
-              <button
-                className={isOptedIn ? "button-secondary" : "button-primary"}
-                disabled={saving === "participation"}
-                type="button"
-                onClick={() => toggleParticipation(!isOptedIn)}
-              >
-                {saving === "participation"
-                  ? "更新中…"
-                  : isOptedIn
-                    ? "取消本轮"
-                    : "参加本轮"}
+              <button className={isOptedIn ? "button-secondary" : "button-primary"} disabled={saving === "participation"} type="button" onClick={() => toggleParticipation(!isOptedIn)}>
+                {saving === "participation" ? "更新中…" : isOptedIn ? "取消本轮" : "参加本轮"}
               </button>
             </div>
           ) : null}
@@ -434,57 +325,33 @@ export default function DashboardPage() {
         {counterpart ? (
           <>
             <h2>{introduced ? "引荐与说明" : "本轮匹配"}</h2>
-            {!introduced ? (
-              <p className="dashboard-muted">
-                揭晓前不会展示对方学校、昵称等可识别信息；下方说明仅来自客观筛选条件与价值观问卷。
-              </p>
-            ) : null}
-            {introduced && counterpart.email ? (
-              <p className="form-success dashboard-match-email">
-                联络邮箱：{counterpart.email}
-              </p>
+            {!introduced ? <p className="dashboard-muted">揭晓前不会展示对方学校、昵称等可识别信息；下方说明仅来自客观筛选条件与价值观问卷。</p> : null}
+            {introduced && counterpart.email ? <p className="form-success dashboard-match-email">联络邮箱：{counterpart.email}</p> : null}
+            {introduced && counterpart.introLine ? (
+              <p className="dashboard-muted dashboard-match-intro">对方一句话介绍：{counterpart.introLine}</p>
             ) : null}
             <ul className="reason-list">
-              {dashboard?.latestMatch?.reasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
+              {dashboard?.latestMatch?.reasons.map((reason) => (<li key={reason}>{reason}</li>))}
             </ul>
             <div className="auth-actions">
               {introduced ? (
                 <span className="domain-chip">已引荐</span>
               ) : (
-                <button
-                  className="button-primary"
-                  disabled={saving === "contact"}
-                  type="button"
-                  onClick={() => void requestContact()}
-                >
+                <button className="button-primary" disabled={saving === "contact"} type="button" onClick={() => void requestContact()}>
                   {saving === "contact" ? "发送中…" : "双方引荐联系"}
                 </button>
               )}
               {dashboard?.latestMatch?.reportStatus ? (
                 <span className="domain-chip">举报处理中</span>
               ) : (
-                <button
-                  className="button-secondary"
-                  disabled={saving === "report"}
-                  type="button"
-                  onClick={() => setReportOpen((current) => !current)}
-                >
-                  举报
-                </button>
+                <button className="button-secondary" disabled={saving === "report"} type="button" onClick={() => setReportOpen((c) => !c)}>举报</button>
               )}
             </div>
             {reportOpen ? (
               <div className="report-form">
                 <label>
                   <span>举报原因</span>
-                  <select
-                    id={buildDashboardFieldId("report-reason")}
-                    name="reportReason"
-                    value={reportReason}
-                    onChange={(event) => setReportReason(event.target.value)}
-                  >
+                  <select id={buildDashboardFieldId("report-reason")} name="reportReason" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
                     <option value="骚扰">骚扰</option>
                     <option value="冒犯内容">冒犯内容</option>
                     <option value="身份异常">身份异常</option>
@@ -494,20 +361,9 @@ export default function DashboardPage() {
                 </label>
                 <label>
                   <span>补充说明（可选）</span>
-                  <textarea
-                    id={buildDashboardFieldId("report-details")}
-                    name="reportDetails"
-                    rows={3}
-                    value={reportDetails}
-                    onChange={(event) => setReportDetails(event.target.value)}
-                  />
+                  <textarea id={buildDashboardFieldId("report-details")} name="reportDetails" rows={3} value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} />
                 </label>
-                <button
-                  className="button-primary"
-                  disabled={saving === "report"}
-                  type="button"
-                  onClick={() => void submitReport()}
-                >
+                <button className="button-primary" disabled={saving === "report"} type="button" onClick={() => void submitReport()}>
                   {saving === "report" ? "提交中…" : "确认举报"}
                 </button>
               </div>
@@ -515,387 +371,305 @@ export default function DashboardPage() {
           </>
         ) : (
           <>
-            <h2>还没有匹配结果</h2>
-            <p className="dashboard-muted">
-              本轮揭晓后将在此显示匹配说明与后续操作。
-            </p>
+            {dashboard?.currentCycle?.participationStatus === "OPTED_IN" &&
+            (dashboard.currentCycle.status === "OPEN" || dashboard.currentCycle.status === "REVEAL_READY") ? (
+              <>
+                <h2>还没有匹配结果</h2>
+                <p className="dashboard-muted">本轮揭晓后将在此显示匹配说明与后续操作。</p>
+              </>
+            ) : dashboard?.lastRevealedRound?.participationStatus === "OPTED_IN" && !dashboard.lastRevealedRound.matched ? (
+              <>
+                <h2>本轮未匹配到对象</h2>
+                <p className="dashboard-muted">
+                  你已参加「{dashboard.lastRevealedRound.codename}」这轮匹配；本轮可配对人数不足或没有与你相容的组合，因此没有为你生成匹配对象。
+                </p>
+                <p className="dashboard-muted">下一轮开放报名时，在页面上方点击「参加本轮」即可再次参与；你也可以更新问卷，提高下次匹配成功率。</p>
+              </>
+            ) : (
+              <>
+                <h2>还没有匹配结果</h2>
+                <p className="dashboard-muted">报名参加当前轮次并在揭晓后返回此处查看结果。</p>
+              </>
+            )}
           </>
         )}
       </section>
 
+      {/* ── Questionnaire ─────────────────────────────────── */}
       <section className="content-panel dashboard-panel-wide">
         <p className="eyebrow">问卷</p>
         <h2>客观条件与价值观</h2>
         <p className="dashboard-muted">
-          以下包含客观筛选条件与价值观问卷。客观条件中带“可多选”的项目支持多选；如果把该组选项全选，算法会视为不限。
+          填写你的基本信息和对另一半的期望，再完成价值观问卷。带「可多选」的项目全选等同于不限。
         </p>
 
-        <div className="question-list">
-          {/* ── 硬性条件部分 ── */}
-          <fieldset className="question-block">
-            <legend>出生年月日与希望对方年龄范围</legend>
-            <div className="form-grid">
-              <label>
-                <span>出生年份</span>
-                <select
-                  id={buildDashboardFieldId("birth-year")}
-                  name="birthYear"
-                  value={hardMatchForm.birthYear}
-                  onChange={(event) =>
-                    setHardMatchForm((current) => ({
-                      ...current,
-                      birthYear: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">请选择</option>
-                  {BIRTH_YEAR_OPTIONS.map((year) => (
-                    <option key={year} value={String(year)}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>出生月份</span>
-                <select
-                  id={buildDashboardFieldId("birth-month")}
-                  name="birthMonth"
-                  value={hardMatchForm.birthMonth}
-                  onChange={(event) =>
-                    setHardMatchForm((current) => ({
-                      ...current,
-                      birthMonth: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">请选择</option>
-                  {MONTH_OPTIONS.map((month) => (
-                    <option key={month} value={String(month)}>
-                      {month}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>出生日期</span>
-                <select
-                  id={buildDashboardFieldId("birth-day")}
-                  name="birthDay"
-                  value={hardMatchForm.birthDay}
-                  onChange={(event) =>
-                    setHardMatchForm((current) => ({
-                      ...current,
-                      birthDay: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">请选择</option>
-                  {birthDayOptions.map((day) => (
-                    <option key={day} value={String(day)}>
-                      {day}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>希望对方年龄下限</span>
-                <select
-                  id={buildDashboardFieldId("partner-age-min")}
-                  name="partnerAgeMin"
-                  value={hardMatchForm.partnerAgeMin}
-                  onChange={(event) =>
-                    setHardMatchForm((current) => ({
-                      ...current,
-                      partnerAgeMin: event.target.value,
-                    }))
-                  }
-                >
-                  {AGE_OPTIONS.map((age) => (
-                    <option key={age} value={String(age)}>
-                      {age}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>希望对方年龄上限</span>
-                <select
-                  id={buildDashboardFieldId("partner-age-max")}
-                  name="partnerAgeMax"
-                  value={hardMatchForm.partnerAgeMax}
-                  onChange={(event) =>
-                    setHardMatchForm((current) => ({
-                      ...current,
-                      partnerAgeMax: event.target.value,
-                    }))
-                  }
-                >
-                  {AGE_OPTIONS.map((age) => (
-                    <option key={age} value={String(age)}>
-                      {age}
-                    </option>
-                  ))}
-                </select>
-              </label>
+        {/* ── 关于你 ── */}
+        <div className="dash-q-group">
+          <div className="dash-q-group-header">
+            <span className="dash-q-group-icon dash-q-group-icon-self">我</span>
+            <div>
+              <h3>关于你</h3>
+              <p>你的基本客观信息</p>
             </div>
-          </fieldset>
+          </div>
+          <div className="question-list">
+            <fieldset className="question-block">
+              <legend>出生日期</legend>
+              <div className="form-grid birth-date-grid">
+                <label>
+                  <span>年份</span>
+                  <select id={buildDashboardFieldId("birth-year")} name="birthYear" value={hardMatchForm.birthYear} onChange={(e) => setHardMatchForm((f) => ({ ...f, birthYear: e.target.value }))}>
+                    <option value="">请选择</option>
+                    {BIRTH_YEAR_OPTIONS.map((y) => <option key={y} value={String(y)}>{y}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>月份</span>
+                  <select id={buildDashboardFieldId("birth-month")} name="birthMonth" value={hardMatchForm.birthMonth} onChange={(e) => setHardMatchForm((f) => ({ ...f, birthMonth: e.target.value }))}>
+                    <option value="">请选择</option>
+                    {MONTH_OPTIONS.map((m) => <option key={m} value={String(m)}>{m}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>日期</span>
+                  <select id={buildDashboardFieldId("birth-day")} name="birthDay" value={hardMatchForm.birthDay} onChange={(e) => setHardMatchForm((f) => ({ ...f, birthDay: e.target.value }))}>
+                    <option value="">请选择</option>
+                    {birthDayOptions.map((d) => <option key={d} value={String(d)}>{d}</option>)}
+                  </select>
+                </label>
+              </div>
+            </fieldset>
 
-          <fieldset className="question-block">
-            <legend>性别与希望对方的性别</legend>
-            <div className="form-grid">
-              <label>
-                <span>你的性别</span>
-                <select
-                  id={buildDashboardFieldId("gender")}
-                  name="gender"
-                  value={hardMatchForm.gender}
-                  onChange={(event) =>
-                    setHardMatchForm((current) => ({
-                      ...current,
-                      gender: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">请选择</option>
-                  {HARD_MATCH_GENDERS.map((gender) => (
-                    <option key={gender} value={gender}>
-                      {gender}
-                    </option>
-                  ))}
-                </select>
+            <fieldset className="question-block">
+              <legend>性别</legend>
+              <div className="option-list">
+                {HARD_MATCH_GENDERS.map((g, i) => (
+                  <label key={g}>
+                    <input checked={hardMatchForm.gender === g} id={buildDashboardFieldId("gender", i)} type="radio" name="gender" onChange={() => setHardMatchForm((f) => ({ ...f, gender: g }))} />
+                    <span>{g}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="question-block">
+              <legend>颜值自评</legend>
+              <div className="option-list">
+                {HARD_MATCH_LOOKS.map((l, i) => (
+                  <label key={l}>
+                    <input checked={hardMatchForm.looks === l} id={buildDashboardFieldId("looks", i)} type="radio" name="looks" onChange={() => setHardMatchForm((f) => ({ ...f, looks: l }))} />
+                    <span>{l}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="question-block">
+              <legend>人种</legend>
+              <div className="option-list">
+                {HARD_MATCH_RACES.map((r, i) => (
+                  <label key={r}>
+                    <input checked={hardMatchForm.race === r} id={buildDashboardFieldId("race", i)} type="radio" name="race" onChange={() => setHardMatchForm((f) => ({ ...f, race: r }))} />
+                    <span>{r}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="question-block">
+              <legend>一句话介绍</legend>
+              <label className="dash-one-liner-label">
+                <span className="dashboard-muted">用一两句话介绍你自己；双方成功引荐后，对方会在邮件中看到这段文字。</span>
+                <textarea
+                  id={buildDashboardFieldId("one-liner-intro")}
+                  name="oneLinerIntro"
+                  rows={3}
+                  maxLength={200}
+                  value={hardMatchForm.oneLinerIntro}
+                  onChange={(e) => setHardMatchForm((f) => ({ ...f, oneLinerIntro: e.target.value }))}
+                  placeholder="例如：计算机系研究生，喜欢徒步和志愿者活动，希望遇到聊得来的朋友。"
+                />
               </label>
-              <div className="full-span">
-                <span className="admin-field-label" style={{ display: "block", marginBottom: "0.5rem" }}>
-                  希望对方的性别（可多选）
-                </span>
-                <div className="chip-grid">
-                  {HARD_MATCH_GENDERS.map((gender, index) => {
-                    const active =
-                      hardMatchForm.partnerGenders.includes(gender);
+            </fieldset>
+          </div>
+        </div>
 
-                    return (
-                      <label
-                        key={gender}
-                        className={active ? "chip active" : "chip"}
-                      >
-                        <input
-                          checked={active}
-                          id={buildDashboardFieldId(
-                            "partner-genders",
-                            index,
-                          )}
-                          name="partnerGenders"
-                          type="checkbox"
-                          onChange={() =>
-                            toggleHardSelection("partnerGenders", gender)
-                          }
-                        />
-                        <span>{gender}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+        {/* ── 对方条件 ── */}
+        <div className="dash-q-group">
+          <div className="dash-q-group-header">
+            <span className="dash-q-group-icon dash-q-group-icon-partner">TA</span>
+            <div>
+              <h3>对方条件</h3>
+              <p>你希望匹配对象满足的条件</p>
+            </div>
+          </div>
+          <div className="question-list">
+            <fieldset className="question-block">
+              <legend>希望对方的年龄范围</legend>
+              <div className="form-grid">
+                <label>
+                  <span>年龄下限</span>
+                  <select id={buildDashboardFieldId("partner-age-min")} name="partnerAgeMin" value={hardMatchForm.partnerAgeMin} onChange={(e) => setHardMatchForm((f) => ({ ...f, partnerAgeMin: e.target.value }))}>
+                    {AGE_OPTIONS.map((a) => <option key={a} value={String(a)}>{a}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>年龄上限</span>
+                  <select id={buildDashboardFieldId("partner-age-max")} name="partnerAgeMax" value={hardMatchForm.partnerAgeMax} onChange={(e) => setHardMatchForm((f) => ({ ...f, partnerAgeMax: e.target.value }))}>
+                    {AGE_OPTIONS.map((a) => <option key={a} value={String(a)}>{a}</option>)}
+                  </select>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset className="question-block">
+              <legend>希望对方的性别（可多选）</legend>
+              <div className="chip-grid">
+                {HARD_MATCH_GENDERS.map((g, i) => {
+                  const active = hardMatchForm.partnerGenders.includes(g);
+                  return (
+                    <label key={g} className={active ? "chip active" : "chip"}>
+                      <input checked={active} id={buildDashboardFieldId("partner-genders", i)} name="partnerGenders" type="checkbox" onChange={() => toggleHardSelection("partnerGenders", g)} />
+                      <span>{g}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <fieldset className="question-block">
+              <legend>希望对方的颜值（可多选）</legend>
+              <div className="chip-grid">
+                {HARD_MATCH_LOOKS.map((l, i) => {
+                  const active = hardMatchForm.partnerLooks.includes(l);
+                  return (
+                    <label key={l} className={active ? "chip active" : "chip"}>
+                      <input checked={active} id={buildDashboardFieldId("partner-looks", i)} name="partnerLooks" type="checkbox" onChange={() => toggleHardSelection("partnerLooks", l)} />
+                      <span>{l}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <fieldset className="question-block">
+              <legend>希望对方的人种（可多选）</legend>
+              <div className="chip-grid">
+                {HARD_MATCH_RACES.map((r, i) => {
+                  const active = hardMatchForm.partnerRaces.includes(r);
+                  return (
+                    <label key={r} className={active ? "chip active" : "chip"}>
+                      <input checked={active} id={buildDashboardFieldId("partner-races", i)} name="partnerRaces" type="checkbox" onChange={() => toggleHardSelection("partnerRaces", r)} />
+                      <span>{r}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          </div>
+        </div>
+
+        {/* ── 价值观问卷 ── */}
+        {questions.length > 0 && (
+          <div className="dash-q-group">
+            <div className="dash-q-group-header">
+              <span className="dash-q-group-icon dash-q-group-icon-values">Q</span>
+              <div>
+                <h3>价值观问卷</h3>
+                <p>共 {questions.length} 题，作为匹配算法的核心输入</p>
               </div>
             </div>
-          </fieldset>
+            <div className="question-list">
+              {questions.map((question, questionIndex) => {
+                const value = answers[question.key];
+                const questionTitle = (
+                  <div aria-hidden="true" className="question-block-title">
+                    <span className="dash-q-num">{questionIndex + 1}</span>
+                    <span>{question.prompt}</span>
+                  </div>
+                );
 
-          <fieldset className="question-block">
-            <legend>颜值自评与希望对方的颜值</legend>
-            <div className="form-grid">
-              <label>
-                <span>你的颜值自评</span>
-                <select
-                  id={buildDashboardFieldId("looks")}
-                  name="looks"
-                  value={hardMatchForm.looks}
-                  onChange={(event) =>
-                    setHardMatchForm((current) => ({
-                      ...current,
-                      looks: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">请选择</option>
-                  {HARD_MATCH_LOOKS.map((looks) => (
-                    <option key={looks} value={looks}>
-                      {looks}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="full-span">
-                <span className="admin-field-label" style={{ display: "block", marginBottom: "0.5rem" }}>
-                  希望对方的颜值（可多选）
-                </span>
-                <div className="chip-grid">
-                  {HARD_MATCH_LOOKS.map((looks, index) => {
-                    const active = hardMatchForm.partnerLooks.includes(looks);
+                if (question.type === "MULTI_SELECT") {
+                  const selected = Array.isArray(value) ? value : [];
+                  const selectionLimit = question.selectionLimit ?? null;
+                  const reachedSelectionLimit =
+                    selectionLimit != null && selected.length >= selectionLimit;
+                  return (
+                    <fieldset key={question.id} className="question-block">
+                      <legend className="question-block-legend">{question.prompt}</legend>
+                      {questionTitle}
+                      {selectionLimit != null ? (
+                        <p className="dashboard-muted">本题最多选择 {selectionLimit} 项。</p>
+                      ) : null}
+                      <div className="chip-grid">
+                        {question.options?.map((option, optionIndex) => {
+                          const active = selected.includes(option.value);
+                          return (
+                            <label key={option.value} className={active ? "chip active" : "chip"}>
+                              <input
+                                checked={active}
+                                disabled={!active && reachedSelectionLimit}
+                                id={buildDashboardFieldId("question", question.id, optionIndex)}
+                                name={question.key}
+                                type="checkbox"
+                                onChange={() =>
+                                  setAnswers((current) => {
+                                    const cur = Array.isArray(current[question.key]) ? (current[question.key] as string[]) : [];
+                                    if (active) {
+                                      return {
+                                        ...current,
+                                        [question.key]: cur.filter((v) => v !== option.value),
+                                      };
+                                    }
 
-                    return (
-                      <label
-                        key={looks}
-                        className={active ? "chip active" : "chip"}
-                      >
-                        <input
-                          checked={active}
-                          id={buildDashboardFieldId("partner-looks", index)}
-                          name="partnerLooks"
-                          type="checkbox"
-                          onChange={() =>
-                            toggleHardSelection("partnerLooks", looks)
-                          }
-                        />
-                        <span>{looks}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </fieldset>
+                                    if (
+                                      selectionLimit != null &&
+                                      cur.length >= selectionLimit
+                                    ) {
+                                      return current;
+                                    }
 
-          <fieldset className="question-block">
-            <legend>人种与希望对方的人种</legend>
-            <div className="form-grid">
-              <label>
-                <span>你的人种</span>
-                <select
-                  id={buildDashboardFieldId("race")}
-                  name="race"
-                  value={hardMatchForm.race}
-                  onChange={(event) =>
-                    setHardMatchForm((current) => ({
-                      ...current,
-                      race: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">请选择</option>
-                  {HARD_MATCH_RACES.map((race) => (
-                    <option key={race} value={race}>
-                      {race}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="full-span">
-                <span className="admin-field-label" style={{ display: "block", marginBottom: "0.5rem" }}>
-                  希望对方的人种（可多选）
-                </span>
-                <div className="chip-grid">
-                  {HARD_MATCH_RACES.map((race, index) => {
-                    const active = hardMatchForm.partnerRaces.includes(race);
+                                    return {
+                                      ...current,
+                                      [question.key]: [...cur, option.value],
+                                    };
+                                  })
+                                }
+                              />
+                              <span>{option.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  );
+                }
 
-                    return (
-                      <label
-                        key={race}
-                        className={active ? "chip active" : "chip"}
-                      >
-                        <input
-                          checked={active}
-                          id={buildDashboardFieldId("partner-races", index)}
-                          name="partnerRaces"
-                          type="checkbox"
-                          onChange={() =>
-                            toggleHardSelection("partnerRaces", race)
-                          }
-                        />
-                        <span>{race}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </fieldset>
-
-          {/* ── 动态价值观问卷部分 ── */}
-          {questions.map((question) => {
-            const value = answers[question.key];
-
-            if (question.type === "MULTI_SELECT") {
-              const selected = Array.isArray(value) ? value : [];
-
-              return (
-                <fieldset key={question.id} className="question-block">
-                  <legend>{question.prompt}</legend>
-                  <div className="chip-grid">
-                    {question.options?.map((option, optionIndex) => {
-                      const active = selected.includes(option.value);
-
-                      return (
-                        <label
-                          key={option.value}
-                          className={active ? "chip active" : "chip"}
-                        >
+                return (
+                  <fieldset key={question.id} className="question-block">
+                    <legend className="question-block-legend">{question.prompt}</legend>
+                    {questionTitle}
+                    <div className="option-list">
+                      {question.options?.map((option, optionIndex) => (
+                        <label key={option.value}>
                           <input
-                            checked={active}
-                            id={buildDashboardFieldId(
-                              "question",
-                              question.id,
-                              optionIndex,
-                            )}
+                            checked={value === option.value}
+                            id={buildDashboardFieldId("question", question.id, optionIndex)}
+                            type="radio"
                             name={question.key}
-                            type="checkbox"
-                            onChange={() =>
-                              setAnswers((current) => {
-                                const currentValues = Array.isArray(
-                                  current[question.key],
-                                )
-                                  ? (current[question.key] as string[])
-                                  : [];
-
-                                return {
-                                  ...current,
-                                  [question.key]: active
-                                    ? currentValues.filter(
-                                        (item) => item !== option.value,
-                                      )
-                                    : [...currentValues, option.value],
-                                };
-                              })
-                            }
+                            onChange={() => setAnswers((current) => ({ ...current, [question.key]: option.value }))}
                           />
                           <span>{option.label}</span>
                         </label>
-                      );
-                    })}
-                  </div>
-                </fieldset>
-              );
-            }
+                      ))}
+                    </div>
+                  </fieldset>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-            return (
-              <fieldset key={question.id} className="question-block">
-                <legend>{question.prompt}</legend>
-                <div className="option-list">
-                  {question.options?.map((option, optionIndex) => (
-                    <label key={option.value}>
-                      <input
-                        checked={value === option.value}
-                        id={buildDashboardFieldId(
-                          "question",
-                          question.id,
-                          optionIndex,
-                        )}
-                        type="radio"
-                        name={question.key}
-                        onChange={() =>
-                          setAnswers((current) => ({
-                            ...current,
-                            [question.key]: option.value,
-                          }))
-                        }
-                      />
-                      <span>{option.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            );
-          })}
-        </div>
         <button
           className="button-primary"
           disabled={saving === "questionnaire"}

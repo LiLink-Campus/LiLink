@@ -1,4 +1,5 @@
 import { AdminService } from './admin.service';
+import { BadRequestException } from '@nestjs/common';
 
 describe('AdminService', () => {
   it('forwards cycle id and admin actor id when manually running a cycle', async () => {
@@ -199,5 +200,69 @@ describe('AdminService', () => {
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
+  });
+
+  it('rejects a multi-select limit that is larger than the option count', async () => {
+    const service = new AdminService(
+      {
+        questionnaireVersion: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
+        },
+      } as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.upsertQuestion(
+        {
+          key: 'values',
+          prompt: 'Values',
+          type: 'MULTI_SELECT',
+          selectionLimit: 4,
+          options: [{ label: '真诚' }, { label: '稳定' }, { label: '幽默感' }],
+          order: 1,
+          weight: 1,
+        },
+        'admin-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects setting a selection limit on a non-multi-select question', async () => {
+    const service = new AdminService(
+      {
+        questionnaireVersion: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
+        },
+      } as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.upsertQuestion(
+        {
+          key: 'pace',
+          prompt: 'Pace',
+          type: 'SINGLE_SELECT',
+          selectionLimit: 2,
+          options: [{ label: '慢热' }, { label: '平衡' }, { label: '主动推进' }],
+          order: 1,
+          weight: 1,
+        },
+        'admin-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

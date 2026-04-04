@@ -632,6 +632,11 @@ export class AdminService {
     const normalizedReasonRules = this.normalizeQuestionReasonRules(
       input.reasonRules,
     );
+    const selectionLimit = this.normalizeSelectionLimit(
+      input.type,
+      normalizedOptions.length,
+      input.selectionLimit,
+    );
 
     if (input.questionId) {
       const existingQuestion = await this.prisma.question.findUnique({
@@ -653,6 +658,7 @@ export class AdminService {
         data: {
           prompt: input.prompt,
           type: input.type,
+          selectionLimit,
           options: normalizedOptions,
           reasonRules: normalizedReasonRules,
           order: input.order,
@@ -675,6 +681,7 @@ export class AdminService {
         key: input.key,
         prompt: input.prompt,
         type: input.type,
+        selectionLimit,
         options: normalizedOptions,
         reasonRules: normalizedReasonRules,
         order: input.order,
@@ -1005,6 +1012,34 @@ export class AdminService {
     inputRules?: UpsertQuestionDto['reasonRules'],
   ) {
     return normalizeQuestionReasonRules(inputRules ?? []);
+  }
+
+  private normalizeSelectionLimit(
+    questionType: UpsertQuestionDto['type'],
+    optionCount: number,
+    selectionLimit?: number,
+  ) {
+    if (questionType !== 'MULTI_SELECT') {
+      if (selectionLimit != null) {
+        throw new BadRequestException(
+          'Selection limit is only supported for multi-select questions.',
+        );
+      }
+
+      return null;
+    }
+
+    if (selectionLimit == null) {
+      return null;
+    }
+
+    if (selectionLimit > optionCount) {
+      throw new BadRequestException(
+        'Selection limit cannot be greater than the number of options.',
+      );
+    }
+
+    return selectionLimit;
   }
 
   private hasListQuery(query: {

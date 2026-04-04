@@ -56,4 +56,59 @@ describe('questionnaire-config', () => {
       }),
     ).toBe('你们都把 真诚、稳定 放在重要位置。');
   });
+
+  it('rejects multi-select answers that exceed the question limit', () => {
+    expect(() =>
+      normalizeQuestionAnswer(
+        {
+          prompt: 'Values',
+          type: QuestionType.MULTI_SELECT,
+          selectionLimit: 2,
+          options: [
+            { value: 'honesty', label: '真诚' },
+            { value: 'stability', label: '稳定' },
+            { value: 'humor', label: '幽默感' },
+          ],
+        },
+        ['真诚', '稳定', '幽默感'],
+      ),
+    ).toThrow('allows at most 2 selections');
+  });
+
+  it('accepts multi-select answers that hit the limit exactly after deduping', () => {
+    expect(
+      normalizeQuestionAnswer(
+        {
+          prompt: 'Values',
+          type: QuestionType.MULTI_SELECT,
+          selectionLimit: 2,
+          options: [
+            { value: 'honesty', label: '真诚' },
+            { value: 'stability', label: '稳定' },
+            { value: 'humor', label: '幽默感' },
+          ],
+        },
+        ['真诚', '真诚', '稳定'],
+      ),
+    ).toEqual(['honesty', 'stability']);
+  });
+
+  it('returns null for stale over-limit multi-select answers when invalidAsNull is enabled', () => {
+    expect(
+      normalizeQuestionAnswer(
+        {
+          prompt: 'Values',
+          type: QuestionType.MULTI_SELECT,
+          selectionLimit: 2,
+          options: [
+            { value: 'honesty', label: '真诚' },
+            { value: 'stability', label: '稳定' },
+            { value: 'humor', label: '幽默感' },
+          ],
+        },
+        ['真诚', '稳定', '幽默感'],
+        { invalidAsNull: true },
+      ),
+    ).toBeNull();
+  });
 });
