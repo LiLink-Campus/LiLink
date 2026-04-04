@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getLandingPayload } from "../lib/api";
 
+export const dynamic = "force-dynamic";
+
 function formatDateLabel(value: string | null) {
   if (!value) {
     return "轮次时间待配置";
@@ -39,7 +41,7 @@ export default async function Home() {
             不做无限滑动，不做社交广场，只做一次值得期待的匹配
           </p>
           <div className="hero-actions">
-            <Link className="button-primary" href="/register">
+            <Link className="button-primary" href="/dashboard">
               开始匹配
             </Link>
             <Link className="button-secondary" href="/about">

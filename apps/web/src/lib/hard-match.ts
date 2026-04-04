@@ -1,3 +1,5 @@
+export const HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH = 200;
+
 export const HARD_MATCH_KEYS = {
   birthDate: "hard_birth_date",
   partnerAgeMin: "hard_partner_age_min",
@@ -8,6 +10,7 @@ export const HARD_MATCH_KEYS = {
   partnerLooks: "hard_partner_looks",
   race: "hard_race",
   partnerRaces: "hard_partner_races",
+  oneLinerIntro: "hard_one_liner_intro",
 } as const;
 
 export const HARD_MATCH_GENDERS = ["男", "女", "非二元"] as const;
@@ -39,6 +42,7 @@ export type HardMatchFormState = {
   partnerLooks: string[];
   race: string;
   partnerRaces: string[];
+  oneLinerIntro: string;
 };
 
 export function createEmptyHardMatchForm(): HardMatchFormState {
@@ -54,6 +58,7 @@ export function createEmptyHardMatchForm(): HardMatchFormState {
     partnerLooks: [...HARD_MATCH_LOOKS],
     race: "",
     partnerRaces: [...HARD_MATCH_RACES],
+    oneLinerIntro: "",
   };
 }
 
@@ -115,6 +120,14 @@ function readSingleChoice(
   return allowedValues.includes(normalizedValue) ? normalizedValue : "";
 }
 
+function readOneLinerIntro(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim().replace(/\s+/g, " ");
+}
+
 export function hardMatchFormFromAnswers(
   savedAnswers: Record<string, unknown> | undefined,
 ): HardMatchFormState {
@@ -154,6 +167,7 @@ export function hardMatchFormFromAnswers(
       savedAnswers?.[HARD_MATCH_KEYS.partnerRaces],
       HARD_MATCH_RACES,
     ),
+    oneLinerIntro: readOneLinerIntro(savedAnswers?.[HARD_MATCH_KEYS.oneLinerIntro]),
   };
 }
 
@@ -186,6 +200,15 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     throw new Error("希望对方的条件为多选题，至少要选一项。");
   }
 
+  const oneLinerIntro = formState.oneLinerIntro.trim().replace(/\s+/g, " ");
+  if (!oneLinerIntro) {
+    throw new Error("请填写一句话介绍。");
+  }
+
+  if (oneLinerIntro.length > HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH) {
+    throw new Error(`一句话介绍请不要超过 ${HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH} 字。`);
+  }
+
   const partnerAgeMin = Number(formState.partnerAgeMin);
   const partnerAgeMax = Number(formState.partnerAgeMax);
 
@@ -205,5 +228,6 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     [HARD_MATCH_KEYS.partnerLooks]: formState.partnerLooks,
     [HARD_MATCH_KEYS.race]: formState.race,
     [HARD_MATCH_KEYS.partnerRaces]: formState.partnerRaces,
+    [HARD_MATCH_KEYS.oneLinerIntro]: oneLinerIntro,
   };
 }

@@ -1,151 +1,208 @@
 "use client";
 
-import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { fetchApi } from "../../../lib/api";
 import { useAdminCollection } from "../use-admin-collection";
 import type { AdminSchool } from "../types";
 
 function emptySchoolForm() {
-  return {
-    name: "",
-    slug: "",
-    description: "",
-    domains: "",
-  };
+  return { name: "", slug: "", description: "", domains: "" };
+}
+
+function normalizeDomains(value: string) {
+  return value
+    .split(",")
+    .map((d) => d.trim())
+    .filter(Boolean);
 }
 
 export default function AdminSchoolsPage() {
-  const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [createForm, setCreateForm] = useState(emptySchoolForm);
-  const [editForm, setEditForm] = useState(emptySchoolForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptySchoolForm);
   const [pending, setPending] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   const deferredSearch = useDeferredValue(search);
-  const { data, loading, error, refresh } = useAdminCollection<AdminSchool>(
-    "/admin/schools",
-    {
-      page,
-      pageSize: 10,
-      search: deferredSearch.trim(),
-    },
-  );
+  const {
+    data,
+    loading,
+    error: loadError,
+    refresh,
+  } = useAdminCollection<AdminSchool>("/admin/schools", {
+    page,
+    pageSize: 20,
+    search: deferredSearch.trim(),
+  });
+
   const schools = useMemo(() => data?.items ?? [], [data]);
 
   useEffect(() => {
-    if (!schools.length) {
-      setSelectedSchoolId(null);
-      return;
+    if (editingId === "new") {
+      nameInputRef.current?.focus();
     }
+  }, [editingId]);
 
-    if (!selectedSchoolId || !schools.some((school) => school.id === selectedSchoolId)) {
-      setSelectedSchoolId(schools[0].id);
-    }
-  }, [schools, selectedSchoolId]);
-
-  const selectedSchool = schools.find((school) => school.id === selectedSchoolId) ?? null;
-
-  useEffect(() => {
-    if (!selectedSchool) {
-      return;
-    }
-
-    setEditForm({
-      name: selectedSchool.name,
-      slug: selectedSchool.slug,
-      description: selectedSchool.description ?? "",
-      domains: selectedSchool.domains.map((domain) => domain.domain).join(", "),
+  function startEditing(school: AdminSchool) {
+    setEditingId(school.id);
+    setForm({
+      name: school.name,
+      slug: school.slug,
+      description: school.description ?? "",
+      domains: school.domains.map((d) => d.domain).join(", "),
     });
-  }, [selectedSchool]);
-
-  function normalizeDomains(value: string) {
-    return value
-      .split(",")
-      .map((domain) => domain.trim())
-      .filter(Boolean);
+    setError(null);
   }
 
-  async function createSchool(event: FormEvent<HTMLFormElement>) {
+  function startCreating() {
+    setEditingId("new");
+    setForm(emptySchoolForm());
+    setError(null);
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setError(null);
+  }
+
+  async function saveSchool(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending("create");
-    setActionError(null);
+    setPending("save");
+    setError(null);
 
     try {
-      const createdSchool = await fetchApi<AdminSchool>("/admin/schools", {
-        method: "POST",
-        body: JSON.stringify({
-          ...createForm,
-          domains: normalizeDomains(createForm.domains),
-        }),
-      });
-      setCreateForm(emptySchoolForm());
+      if (editingId === "new") {
+        await fetchApi("/admin/schools", {
+          method: "POST",
+          body: JSON.stringify({
+            ...form,
+            domains: normalizeDomains(form.domains),
+          }),
+        });
+      } else {
+        await fetchApi(`/admin/schools/${editingId}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: form.name,
+            description: form.description,
+            domains: normalizeDomains(form.domains),
+          }),
+        });
+      }
+      setEditingId(null);
       await refresh();
-      setPage(1);
-      setSelectedSchoolId(createdSchool.id);
     } catch (caughtError) {
-      setActionError(
-        caughtError instanceof Error ? caughtError.message : "学校创建失败。",
+      setError(
+        caughtError instanceof Error ? caughtError.message : "保存失败。",
       );
     } finally {
       setPending(null);
     }
   }
 
-  async function updateSchool(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedSchool) {
-      return;
-    }
-
-    setPending("update");
-    setActionError(null);
+  async function deleteSchool(school: AdminSchool) {
+    if (!confirm(`确定删除学校「${school.name}」吗？此操作不可撤回。`)) return;
+    setPending(`delete-${school.id}`);
+    setError(null);
 
     try {
-      await fetchApi(`/admin/schools/${selectedSchool.id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          name: editForm.name,
-          description: editForm.description,
-          domains: normalizeDomains(editForm.domains),
-        }),
-      });
+      await fetchApi(`/admin/schools/${school.id}`, { method: "DELETE" });
+      if (editingId === school.id) setEditingId(null);
       await refresh();
     } catch (caughtError) {
-      setActionError(
-        caughtError instanceof Error ? caughtError.message : "学校更新失败。",
+      setError(
+        caughtError instanceof Error ? caughtError.message : "删除失败。",
       );
     } finally {
       setPending(null);
     }
   }
 
-  async function deleteSchool() {
-    if (!selectedSchool) {
-      return;
-    }
+  function renderEditor() {
+    return (
+      <form className="qb-card-body" onSubmit={saveSchool}>
+        <div className="qb-editor-grid">
+          <label className="qb-field">
+            <span>学校名称</span>
+            <input
+              ref={editingId === "new" ? nameInputRef : undefined}
+              required
+              value={form.name}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, name: e.target.value }))
+              }
+              placeholder="例如 上海交通大学"
+            />
+          </label>
+          <label className="qb-field">
+            <span>标识 (Slug)</span>
+            <input
+              required={editingId === "new"}
+              value={form.slug}
+              disabled={editingId !== "new"}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, slug: e.target.value }))
+              }
+              placeholder="例如 sjtu"
+            />
+          </label>
+        </div>
 
-    const confirmed = window.confirm(`确定删除学校「${selectedSchool.name}」吗？`);
-    if (!confirmed) {
-      return;
-    }
+        <label className="qb-field qb-field-full">
+          <span>描述</span>
+          <textarea
+            rows={2}
+            value={form.description}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, description: e.target.value }))
+            }
+            placeholder="可选的学校简介"
+          />
+        </label>
 
-    setPending("delete");
-    setActionError(null);
+        <label className="qb-field qb-field-full">
+          <span>邮箱域名（逗号分隔）</span>
+          <input
+            required={editingId === "new"}
+            value={form.domains}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, domains: e.target.value }))
+            }
+            placeholder="school.edu, students.school.edu"
+          />
+        </label>
 
-    try {
-      await fetchApi(`/admin/schools/${selectedSchool.id}`, {
-        method: "DELETE",
-      });
-      setSelectedSchoolId(null);
-      await refresh();
-    } catch (caughtError) {
-      setActionError(
-        caughtError instanceof Error ? caughtError.message : "学校删除失败。",
-      );
-    } finally {
-      setPending(null);
-    }
+        <div className="qb-editor-actions">
+          <button
+            className="button-primary"
+            type="submit"
+            disabled={pending === "save"}
+          >
+            {pending === "save"
+              ? "保存中…"
+              : editingId === "new"
+                ? "创建学校"
+                : "保存修改"}
+          </button>
+          <button
+            className="button-secondary"
+            type="button"
+            onClick={cancelEditing}
+          >
+            取消
+          </button>
+        </div>
+      </form>
+    );
   }
 
   if (loading) {
@@ -153,216 +210,209 @@ export default function AdminSchoolsPage() {
   }
 
   return (
-    <div className="admin-page admin-page-stack" style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
-      <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
+    <div className="qb-container">
+      <div className="qb-header">
         <div>
-          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>学校中心</h1>
-          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>把学校档案与邮箱域名映射作为长期配置来维护，不和轮次搅在一起。</p>
+          <h1>学校中心</h1>
+          <p className="qb-header-desc">
+            点击学校卡片展开编辑，管理学校档案与邮箱域名映射。
+          </p>
         </div>
-        <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
-          刷新
-        </button>
+        <div className="auth-actions">
+          <button
+            className="button-secondary"
+            onClick={() => void refresh()}
+            type="button"
+            style={{ minHeight: "2.4rem", padding: "0 1rem" }}
+          >
+            刷新
+          </button>
+        </div>
       </div>
 
-      {error ? <p className="form-error">{error}</p> : null}
-      {actionError ? <p className="form-error">{actionError}</p> : null}
+      {/* Stats */}
+      <div className="qb-stats-row">
+        <span className="qb-stat-pill active">
+          学校总数
+          <span className="qb-stat-count">{data?.total ?? 0}</span>
+        </span>
+      </div>
 
-      <section className="admin-workspace-grid">
-        <article className="content-panel admin-list-panel">
-          <div className="admin-section-header">
-            <div>
-              <p className="eyebrow">学校</p>
-              <h2>学校列表</h2>
-            </div>
+      {/* Search */}
+      <div className="qb-search">
+        <input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          placeholder="搜索学校名称、slug 或邮箱域名…"
+        />
+        {search && (
+          <button
+            type="button"
+            className="qb-search-clear"
+            onClick={() => setSearch("")}
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {loadError && (
+        <p className="form-error" style={{ marginBottom: "1rem" }}>
+          {loadError}
+        </p>
+      )}
+      {error && (
+        <p className="form-error" style={{ marginBottom: "1rem" }}>
+          {error}
+        </p>
+      )}
+
+      {/* School list */}
+      <div className="qb-list">
+        {schools.length === 0 && editingId !== "new" && (
+          <div className="admin-empty-state">
+            {search.trim()
+              ? "没有找到匹配的学校。"
+              : "还没有学校，点击下方按钮添加第一所。"}
           </div>
-          <div className="admin-search-bar">
-            <input
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
-              placeholder="搜索学校、slug 或域名"
-            />
-          </div>
-          <div className="admin-record-list">
-            {schools.map((school) => (
-              <button
-                key={school.id}
-                type="button"
-                className={
-                  school.id === selectedSchoolId
-                    ? "admin-record-item admin-record-item-active"
-                    : "admin-record-item"
-                }
-                onClick={() => setSelectedSchoolId(school.id)}
-              >
-                <strong>{school.name}</strong>
-                <p>{school.slug}</p>
-                <div className="domain-chip-list">
-                  {school.domains.slice(0, 3).map((domain) => (
-                    <span key={domain.id} className="domain-chip">
-                      @{domain.domain}
+        )}
+
+        {schools.map((school) => {
+          const isEditing = editingId === school.id;
+
+          return (
+            <div
+              key={school.id}
+              className={`qb-card${isEditing ? " qb-card-editing" : ""}`}
+            >
+              <div className="qb-card-header">
+                <span className="qb-order-num" style={{ fontSize: "0.7rem" }}>
+                  {school._count.users}
+                </span>
+
+                <div
+                  className="qb-card-title"
+                  onClick={() => !isEditing && startEditing(school)}
+                >
+                  <strong>{school.name}</strong>
+                  <span className="qb-card-meta">
+                    {school.slug}
+                    {" · "}
+                    {school.domains.length > 0
+                      ? school.domains.map((d) => `@${d.domain}`).join(", ")
+                      : "未配置域名"}
+                    {" · "}
+                    {school._count.users} 用户
+                  </span>
+                </div>
+
+                <div className="domain-chip-list" style={{ flexShrink: 0 }}>
+                  {school.domains.slice(0, 2).map((d) => (
+                    <span key={d.id} className="domain-chip">
+                      @{d.domain}
                     </span>
                   ))}
+                  {school.domains.length > 2 && (
+                    <span className="domain-chip">
+                      +{school.domains.length - 2}
+                    </span>
+                  )}
                 </div>
-              </button>
-            ))}
-            {schools.length === 0 ? (
-              <div className="admin-empty-state">没有找到匹配的学校。</div>
-            ) : null}
-          </div>
-          {data ? (
-            <div className="admin-pagination">
-              <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">
-                上一页
-              </button>
-              <span>
-                {data.page} / {data.totalPages} · 共 {data.total} 所学校
-              </span>
-              <button
-                disabled={data.page >= data.totalPages}
-                onClick={() => setPage(data.page + 1)}
-                type="button"
-              >
-                下一页
-              </button>
-            </div>
-          ) : null}
-        </article>
 
-        <article className="content-panel admin-detail-panel">
-          <div className="admin-section-header">
-            <div>
-              <p className="eyebrow">当前学校</p>
-              <h2>{selectedSchool?.name ?? "选择一所学校"}</h2>
-            </div>
-            {selectedSchool ? (
-              <button
-                className="button-ghost"
-                onClick={() => void deleteSchool()}
-                type="button"
-                disabled={pending === "delete"}
-              >
-                {pending === "delete" ? "删除中..." : "删除学校"}
-              </button>
-            ) : null}
-          </div>
+                {!isEditing && (
+                  <div className="qb-card-actions">
+                    <button
+                      type="button"
+                      title="编辑"
+                      onClick={() => startEditing(school)}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      title="删除"
+                      onClick={() => void deleteSchool(school)}
+                      disabled={pending === `delete-${school.id}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
 
-          {selectedSchool ? (
-            <div className="admin-page-stack">
-              <div className="admin-inline-metrics">
-                <div>
-                  <span>用户数</span>
-                  <strong>{selectedSchool._count.users}</strong>
-                </div>
-                <div>
-                  <span>域名数</span>
-                  <strong>{selectedSchool.domains.length}</strong>
-                </div>
+                {isEditing && (
+                  <button
+                    type="button"
+                    className="qb-collapse-btn"
+                    onClick={cancelEditing}
+                  >
+                    收起
+                  </button>
+                )}
               </div>
 
-              <form className="auth-form" onSubmit={updateSchool}>
-                <label>
-                  <span>学校名称</span>
-                  <input
-                    value={editForm.name}
-                    onChange={(event) =>
-                      setEditForm((current) => ({ ...current, name: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>标识（Slug）</span>
-                  <input value={editForm.slug} disabled />
-                </label>
-                <label>
-                  <span>描述</span>
-                  <textarea
-                    rows={4}
-                    value={editForm.description}
-                    onChange={(event) =>
-                      setEditForm((current) => ({ ...current, description: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>邮箱域名</span>
-                  <input
-                    value={editForm.domains}
-                    onChange={(event) =>
-                      setEditForm((current) => ({ ...current, domains: event.target.value }))
-                    }
-                    placeholder="school.edu, students.school.edu"
-                  />
-                </label>
-                <button className="button-primary" type="submit" disabled={pending === "update"}>
-                  {pending === "update" ? "保存中..." : "保存学校"}
-                </button>
-              </form>
+              {isEditing && renderEditor()}
             </div>
-          ) : (
-            <div className="admin-empty-state">左侧选择学校后可查看和编辑详情。</div>
-          )}
-        </article>
-      </section>
+          );
+        })}
 
-      <section className="content-panel">
-        <div className="admin-section-header">
-          <div>
-            <p className="eyebrow">新建</p>
-            <h2>新增学校</h2>
+        {/* New school card */}
+        {editingId === "new" && (
+          <div className="qb-card qb-card-editing">
+            <div className="qb-card-header">
+              <span className="qb-order-num">+</span>
+              <div className="qb-card-title">
+                <strong>新增学校</strong>
+              </div>
+              <button
+                type="button"
+                className="qb-collapse-btn"
+                onClick={cancelEditing}
+              >
+                取消
+              </button>
+            </div>
+            {renderEditor()}
           </div>
-        </div>
-        <form className="auth-form" onSubmit={createSchool}>
-          <div className="form-grid">
-            <label>
-              <span>学校名称</span>
-              <input
-                required
-                value={createForm.name}
-                onChange={(event) =>
-                  setCreateForm((current) => ({ ...current, name: event.target.value }))
-                }
-              />
-            </label>
-            <label>
-              <span>标识（Slug）</span>
-              <input
-                required
-                value={createForm.slug}
-                onChange={(event) =>
-                  setCreateForm((current) => ({ ...current, slug: event.target.value }))
-                }
-              />
-            </label>
-          </div>
-          <label>
-            <span>描述</span>
-            <textarea
-              rows={3}
-              value={createForm.description}
-              onChange={(event) =>
-                setCreateForm((current) => ({ ...current, description: event.target.value }))
-              }
-            />
-          </label>
-          <label>
-            <span>邮箱域名</span>
-            <input
-              required
-              value={createForm.domains}
-              onChange={(event) =>
-                setCreateForm((current) => ({ ...current, domains: event.target.value }))
-              }
-              placeholder="例如 school.edu, students.school.edu"
-            />
-          </label>
-          <button className="button-primary" type="submit" disabled={pending === "create"}>
-            {pending === "create" ? "创建中..." : "创建学校"}
+        )}
+
+        {/* Add button */}
+        {editingId !== "new" && (
+          <button
+            type="button"
+            className="qb-add-btn"
+            onClick={startCreating}
+          >
+            <span>+</span>
+            添加学校
           </button>
-        </form>
-      </section>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {data && data.totalPages > 1 && (
+        <div className="admin-pagination">
+          <button
+            disabled={data.page <= 1}
+            onClick={() => setPage(data.page - 1)}
+            type="button"
+          >
+            上一页
+          </button>
+          <span>
+            {data.page} / {data.totalPages} · 共 {data.total} 所学校
+          </span>
+          <button
+            disabled={data.page >= data.totalPages}
+            onClick={() => setPage(data.page + 1)}
+            type="button"
+          >
+            下一页
+          </button>
+        </div>
+      )}
     </div>
   );
 }

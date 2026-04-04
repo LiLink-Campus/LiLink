@@ -54,6 +54,20 @@ type RunRevealCycleOptions = {
   adminActorId?: string;
 };
 
+function buildInsufficientParticipantsMessage(
+  optedInCount: number,
+  eligibleCount: number,
+): string {
+  const prefix = 'Not enough complete participants to generate matches.';
+  if (optedInCount === 0) {
+    return `${prefix} No users are opted in (OPTED_IN) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers are required.`;
+  }
+  if (eligibleCount === 0) {
+    return `${prefix} ${optedInCount} user(s) opted in, but none have valid hard-matching questionnaire answers (birth date, partner age range, gender / partner genders, looks / partner looks, race / partner races).`;
+  }
+  return `${prefix} Only ${eligibleCount} of ${optedInCount} opted-in user(s) are eligible; at least 2 are required.`;
+}
+
 @Injectable()
 export class CyclesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -125,13 +139,17 @@ export class CyclesService {
       };
     }
 
+    const optedInCount = cycle.participations.length;
     const participants = this.toEligibleParticipants(cycle.participations);
 
     if (participants.length < 2) {
       await this.resetCycleToOpen(cycle.id);
       return {
         ok: true,
-        message: 'Not enough complete participants to generate matches.',
+        message: buildInsufficientParticipantsMessage(
+          optedInCount,
+          participants.length,
+        ),
       };
     }
 
@@ -152,9 +170,17 @@ export class CyclesService {
     const unmatchedCount = participants.length - selectedPairs.length * 2;
 
     try {
-      await this.prisma.$transaction([
-        ...selectedPairs.map((pair) =>
-          this.prisma.match.create({
+      await this.prisma.$transaction(async (tx) => {
+        let clearedMatches = 0;
+        if (options?.force) {
+          const deleted = await tx.match.deleteMany({
+            where: { cycleId: cycle.id },
+          });
+          clearedMatches = deleted.count;
+        }
+
+        for (const pair of selectedPairs) {
+          await tx.match.create({
             data: {
               cycleId: cycle.id,
               score: pair.score,
@@ -175,15 +201,17 @@ export class CyclesService {
                 ],
               },
             },
-          }),
-        ),
-        this.prisma.matchCycle.update({
+          });
+        }
+
+        await tx.matchCycle.update({
           where: { id: cycle.id },
           data: {
             status: 'REVEALED',
           },
-        }),
-        this.prisma.auditLog.create({
+        });
+
+        await tx.auditLog.create({
           data: {
             adminActorId: options.adminActorId,
             action: 'cycle.revealed',
@@ -192,10 +220,11 @@ export class CyclesService {
               createdMatches: selectedPairs.length,
               unmatchedCount,
               forced: options?.force ?? false,
+              ...(clearedMatches > 0 ? { clearedMatches } : {}),
             },
           },
-        }),
-      ]);
+        });
+      });
     } catch (error) {
       await this.resetCycleToOpen(cycle.id);
       throw error;

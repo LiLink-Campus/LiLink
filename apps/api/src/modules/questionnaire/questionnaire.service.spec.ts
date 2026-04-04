@@ -50,6 +50,7 @@ describe('QuestionnaireService', () => {
             prompt: 'Values',
             type: QuestionType.MULTI_SELECT,
             required: true,
+            selectionLimit: 3,
             options: [
               { value: 'curiosity', label: 'Curiosity' },
               { value: 'stability', label: 'Stability' },
@@ -67,6 +68,7 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
           [HARD_MATCH_KEYS.race]: '黄种人',
           [HARD_MATCH_KEYS.partnerRaces]: [...HARD_MATCH_RACES],
+          [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
           pace: 'Fast',
           values: ['Humor', 'humor', 'Curiosity'],
         },
@@ -81,6 +83,7 @@ describe('QuestionnaireService', () => {
       [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美', '顶帅/美'],
       [HARD_MATCH_KEYS.race]: '黄种人',
       [HARD_MATCH_KEYS.partnerRaces]: ['黄种人', '黑种人', '白种人'],
+      [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
       pace: 'fast',
       values: ['humor', 'curiosity'],
     });
@@ -127,6 +130,7 @@ describe('QuestionnaireService', () => {
             prompt: 'Values',
             type: QuestionType.MULTI_SELECT,
             required: true,
+            selectionLimit: 2,
             options: [
               { value: 'curiosity', label: 'Curiosity' },
               { value: 'stability', label: 'Stability' },
@@ -141,5 +145,99 @@ describe('QuestionnaireService', () => {
     ).toEqual({
       values: ['curiosity'],
     });
+  });
+
+  it('rejects multi-select answers that exceed the configured limit', () => {
+    expect(() =>
+      service.validateAnswers(
+        [
+          {
+            key: 'values',
+            prompt: 'Values',
+            type: QuestionType.MULTI_SELECT,
+            required: true,
+            selectionLimit: 2,
+            options: [
+              { value: 'curiosity', label: 'Curiosity' },
+              { value: 'stability', label: 'Stability' },
+              { value: 'humor', label: 'Humor' },
+            ],
+          },
+        ],
+        {
+          [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
+          [HARD_MATCH_KEYS.partnerAgeMin]: 18,
+          [HARD_MATCH_KEYS.partnerAgeMax]: 30,
+          [HARD_MATCH_KEYS.gender]: '男',
+          [HARD_MATCH_KEYS.partnerGenders]: [...HARD_MATCH_GENDERS],
+          [HARD_MATCH_KEYS.looks]: '普通人',
+          [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
+          [HARD_MATCH_KEYS.race]: '黄种人',
+          [HARD_MATCH_KEYS.partnerRaces]: [...HARD_MATCH_RACES],
+          [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
+          values: ['Curiosity', 'Stability', 'Humor'],
+        },
+      ),
+    ).toThrow(BadRequestException);
+  });
+
+  it('accepts a multi-select answer that lands exactly on the configured limit', () => {
+    expect(
+      service.validateAnswers(
+        [
+          {
+            key: 'values',
+            prompt: 'Values',
+            type: QuestionType.MULTI_SELECT,
+            required: true,
+            selectionLimit: 2,
+            options: [
+              { value: 'curiosity', label: 'Curiosity' },
+              { value: 'stability', label: 'Stability' },
+              { value: 'humor', label: 'Humor' },
+            ],
+          },
+        ],
+        {
+          [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
+          [HARD_MATCH_KEYS.partnerAgeMin]: 18,
+          [HARD_MATCH_KEYS.partnerAgeMax]: 30,
+          [HARD_MATCH_KEYS.gender]: '男',
+          [HARD_MATCH_KEYS.partnerGenders]: [...HARD_MATCH_GENDERS],
+          [HARD_MATCH_KEYS.looks]: '普通人',
+          [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
+          [HARD_MATCH_KEYS.race]: '黄种人',
+          [HARD_MATCH_KEYS.partnerRaces]: [...HARD_MATCH_RACES],
+          [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
+          values: ['Curiosity', 'Stability'],
+        },
+      ),
+    ).toMatchObject({
+      values: ['curiosity', 'stability'],
+    });
+  });
+
+  it('drops stale saved multi-select answers when a new limit makes them invalid', () => {
+    expect(
+      service.sanitizeStoredAnswers(
+        [
+          {
+            key: 'values',
+            prompt: 'Values',
+            type: QuestionType.MULTI_SELECT,
+            required: true,
+            selectionLimit: 2,
+            options: [
+              { value: 'curiosity', label: 'Curiosity' },
+              { value: 'stability', label: 'Stability' },
+              { value: 'humor', label: 'Humor' },
+            ],
+          },
+        ],
+        {
+          values: ['Curiosity', 'Stability', 'Humor'],
+        },
+      ),
+    ).toEqual({});
   });
 });

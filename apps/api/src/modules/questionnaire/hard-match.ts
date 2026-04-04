@@ -4,6 +4,8 @@ export const HARD_MATCH_GENDERS = ['男', '女', '非二元'] as const;
 export const HARD_MATCH_LOOKS = ['普通人', '小帅/美', '顶帅/美'] as const;
 export const HARD_MATCH_RACES = ['黄种人', '黑种人', '白种人'] as const;
 
+export const HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH = 200;
+
 export const HARD_MATCH_KEYS = {
   birthDate: 'hard_birth_date',
   partnerAgeMin: 'hard_partner_age_min',
@@ -14,6 +16,7 @@ export const HARD_MATCH_KEYS = {
   partnerLooks: 'hard_partner_looks',
   race: 'hard_race',
   partnerRaces: 'hard_partner_races',
+  oneLinerIntro: 'hard_one_liner_intro',
 } as const;
 
 const HARD_MATCH_FIELD_LABELS = {
@@ -26,6 +29,7 @@ const HARD_MATCH_FIELD_LABELS = {
   [HARD_MATCH_KEYS.partnerLooks]: '希望对方的颜值',
   [HARD_MATCH_KEYS.race]: '你的人种',
   [HARD_MATCH_KEYS.partnerRaces]: '希望对方的人种',
+  [HARD_MATCH_KEYS.oneLinerIntro]: '一句话介绍',
 } as const;
 
 export type HardMatchGender = (typeof HARD_MATCH_GENDERS)[number];
@@ -44,6 +48,7 @@ export type HardMatchAnswers = {
   partnerLooks: HardMatchLooks[];
   race: HardMatchRace;
   partnerRaces: HardMatchRace[];
+  oneLinerIntro: string;
 };
 
 export type HardMatchAnswerRecord = {
@@ -56,6 +61,7 @@ export type HardMatchAnswerRecord = {
   [HARD_MATCH_KEYS.partnerLooks]: HardMatchLooks[];
   [HARD_MATCH_KEYS.race]: HardMatchRace;
   [HARD_MATCH_KEYS.partnerRaces]: HardMatchRace[];
+  [HARD_MATCH_KEYS.oneLinerIntro]: string;
 };
 
 const HARD_MATCH_KEY_SET = new Set<string>(Object.values(HARD_MATCH_KEYS));
@@ -170,6 +176,57 @@ function normalizeBirthDate(value: unknown): string {
   return trimmedValue;
 }
 
+function normalizeOneLinerIntroValue(
+  value: unknown,
+  options: { allowEmpty: boolean },
+): string {
+  if (value == null || value === '') {
+    if (!options.allowEmpty) {
+      throw requiredFieldError(HARD_MATCH_KEYS.oneLinerIntro);
+    }
+
+    return '';
+  }
+
+  if (typeof value !== 'string') {
+    if (options.allowEmpty) {
+      return '';
+    }
+
+    throw invalidFieldError(HARD_MATCH_KEYS.oneLinerIntro);
+  }
+
+  const collapsed = value.trim().replace(/\s+/g, ' ');
+  if (!collapsed) {
+    if (!options.allowEmpty) {
+      throw requiredFieldError(HARD_MATCH_KEYS.oneLinerIntro);
+    }
+
+    return '';
+  }
+
+  if (collapsed.length > HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH) {
+    throw invalidFieldError(
+      HARD_MATCH_KEYS.oneLinerIntro,
+      `must be at most ${HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH} characters.`,
+    );
+  }
+
+  return collapsed;
+}
+
+export function readQuestionnaireOneLiner(rawAnswers: unknown): string | null {
+  if (!rawAnswers || typeof rawAnswers !== 'object') {
+    return null;
+  }
+
+  const value = (rawAnswers as Record<string, unknown>)[
+    HARD_MATCH_KEYS.oneLinerIntro
+  ];
+  const normalized = normalizeOneLinerIntroValue(value, { allowEmpty: true });
+  return normalized.length > 0 ? normalized : null;
+}
+
 function allOptionsSelected<T extends string>(
   selectedValues: readonly T[],
   universe: readonly T[],
@@ -270,6 +327,10 @@ function normalizeHardMatchValues(
       HARD_MATCH_KEYS.partnerRaces,
       HARD_MATCH_RACES,
     ),
+    oneLinerIntro: normalizeOneLinerIntroValue(
+      rawAnswers[HARD_MATCH_KEYS.oneLinerIntro],
+      { allowEmpty: true },
+    ),
   };
 }
 
@@ -277,6 +338,10 @@ export function normalizeHardMatchAnswers(
   rawAnswers: Record<string, unknown>,
 ): HardMatchAnswerRecord {
   const normalizedValues = normalizeHardMatchValues(rawAnswers);
+
+  if (!normalizedValues.oneLinerIntro) {
+    throw requiredFieldError(HARD_MATCH_KEYS.oneLinerIntro);
+  }
 
   return {
     [HARD_MATCH_KEYS.birthDate]: normalizedValues.birthDate,
@@ -288,6 +353,7 @@ export function normalizeHardMatchAnswers(
     [HARD_MATCH_KEYS.partnerLooks]: normalizedValues.partnerLooks,
     [HARD_MATCH_KEYS.race]: normalizedValues.race,
     [HARD_MATCH_KEYS.partnerRaces]: normalizedValues.partnerRaces,
+    [HARD_MATCH_KEYS.oneLinerIntro]: normalizedValues.oneLinerIntro,
   };
 }
 

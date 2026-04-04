@@ -85,7 +85,7 @@ export default function AboutPage() {
       <section className="about-cta">
         <h2>准备好了？</h2>
         <p>填写问卷，加入下一轮匹配。</p>
-        <Link className="button-primary" href="/register">
+        <Link className="button-primary" href="/dashboard">
           开始匹配
         </Link>
       </section>

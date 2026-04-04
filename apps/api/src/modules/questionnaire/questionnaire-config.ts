@@ -236,6 +236,7 @@ export function renderReasonTemplate(
 type NormalizableQuestion = {
   prompt: string;
   type: QuestionType;
+  selectionLimit?: number | null;
   options: unknown;
 };
 
@@ -327,6 +328,19 @@ export function normalizeQuestionAnswer(
 
     if (normalizedValues.length === 0) {
       return null;
+    }
+
+    if (
+      question.selectionLimit != null &&
+      normalizedValues.length > question.selectionLimit
+    ) {
+      if (options.invalidAsNull) {
+        return null;
+      }
+
+      throw new BadRequestException(
+        `Question "${question.prompt}" allows at most ${question.selectionLimit} selections.`,
+      );
     }
 
     return normalizedValues;

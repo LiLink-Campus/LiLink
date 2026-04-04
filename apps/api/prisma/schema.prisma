@@ -165,6 +165,7 @@ model Question {
   weight      Int                  @default(1)
   order       Int
   required    Boolean              @default(true)
+  selectionLimit Int?
   options     Json?
   reasonRules Json?
 

@@ -188,6 +188,12 @@ export class UpsertQuestionDto {
   @Type(() => QuestionReasonRuleDto)
   reasonRules?: QuestionReasonRuleDto[];
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  selectionLimit?: number;
+
   @IsInt()
   @Min(1)
   order!: number;

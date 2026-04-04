@@ -25,6 +25,9 @@ const PARTICIPATION_STATUS_LABELS: Record<"OPTED_IN" | "OPTED_OUT", string> = {
   OPTED_OUT: "未参加",
 };
 
+/** Sentinel: list selection while creating a cycle (must not match a real id). */
+const ADMIN_NEW_CYCLE_SELECTION = "__admin_new_cycle__";
+
 function createEmptyCycleForm() {
   return {
     cycleId: "",
@@ -34,6 +37,10 @@ function createEmptyCycleForm() {
     status: "DRAFT" as AdminCycle["status"],
     notes: "",
   };
+}
+
+function isExistingCycleSelection(id: string | null): id is string {
+  return Boolean(id) && id !== ADMIN_NEW_CYCLE_SELECTION;
 }
 
 function toDateTimeInput(value: string) {
@@ -63,6 +70,11 @@ export default function AdminCyclesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
+  const [participantFilter, setParticipantFilter] = useState<"ALL" | "OPTED_IN" | "OPTED_OUT">("ALL");
+  const [participantPage, setParticipantPage] = useState(1);
+  const [matchPage, setMatchPage] = useState(1);
+  const [pairPage, setPairPage] = useState(1);
+
   const deferredSearch = useDeferredValue(search);
   const { data, loading, error, refresh } = useAdminCollection<AdminCycle>(
     "/admin/cycles",
@@ -78,6 +90,10 @@ export default function AdminCyclesPage() {
   useEffect(() => {
     if (!cycles.length) {
       setSelectedCycleId(null);
+      return;
+    }
+
+    if (selectedCycleId === ADMIN_NEW_CYCLE_SELECTION) {
       return;
     }
 
@@ -104,10 +120,14 @@ export default function AdminCyclesPage() {
       status: selectedCycle.status,
       notes: selectedCycle.notes ?? "",
     });
+    setParticipantPage(1);
+    setMatchPage(1);
+    setPairPage(1);
+    setParticipantFilter("ALL");
   }, [selectedCycle]);
 
   useEffect(() => {
-    if (!selectedCycleId) {
+    if (!isExistingCycleSelection(selectedCycleId)) {
       setCycleDetail(null);
       return;
     }
@@ -117,29 +137,21 @@ export default function AdminCyclesPage() {
 
     fetchApi<AdminCycleDetail>(`/admin/cycles/${selectedCycleId}`)
       .then((detail) => {
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setCycleDetail(detail);
         setCyclePreview(null);
       })
       .catch((caughtError) => {
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setActionError(
           caughtError instanceof Error ? caughtError.message : "轮次详情加载失败。",
         );
       })
       .finally(() => {
-        if (active) {
-          setDetailLoading(false);
-        }
+        if (active) setDetailLoading(false);
       });
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [selectedCycleId]);
 
   async function saveCycle(event: FormEvent<HTMLFormElement>) {
@@ -149,7 +161,7 @@ export default function AdminCyclesPage() {
     setActionMessage(null);
 
     try {
-      await fetchApi("/admin/cycles", {
+      const saved = await fetchApi<AdminCycle>("/admin/cycles", {
         method: "PUT",
         body: JSON.stringify({
           ...cycleForm,
@@ -158,33 +170,25 @@ export default function AdminCyclesPage() {
       });
       setActionMessage(cycleForm.cycleId ? "轮次已更新。" : "轮次已创建。");
       await refresh();
-      if (cycleForm.cycleId) {
-        const detail = await fetchApi<AdminCycleDetail>(`/admin/cycles/${cycleForm.cycleId}`);
-        setCycleDetail(detail);
-      }
+      setSelectedCycleId(saved.id);
+      const detail = await fetchApi<AdminCycleDetail>(`/admin/cycles/${saved.id}`);
+      setCycleDetail(detail);
     } catch (caughtError) {
-      setActionError(
-        caughtError instanceof Error ? caughtError.message : "轮次保存失败。",
-      );
+      setActionError(caughtError instanceof Error ? caughtError.message : "轮次保存失败。");
     } finally {
       setPending(null);
     }
   }
 
   async function runCycle(force: boolean) {
-    if (!selectedCycleId) {
-      return;
-    }
+    if (!isExistingCycleSelection(selectedCycleId)) return;
 
     const confirmed = window.confirm(
       force
-        ? "强制执行会跳过揭晓时间检查，并立即写入匹配结果。确认继续吗？"
+        ? "强制执行会跳过揭晓时间检查；若本周期已有匹配记录，将先全部删除再重新生成。此操作不可撤销。确认继续吗？"
         : "执行轮次会开始生成正式匹配结果。确认继续吗？",
     );
-
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setPending(force ? "force-run" : "run");
     setActionError(null);
@@ -193,15 +197,8 @@ export default function AdminCyclesPage() {
     try {
       const result = await fetchApi<{ ok: boolean; message?: string; createdMatches?: number }>(
         "/admin/cycles/run",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            cycleId: selectedCycleId,
-            force,
-          }),
-        },
+        { method: "POST", body: JSON.stringify({ cycleId: selectedCycleId, force }) },
       );
-
       setActionMessage(
         result.message ??
           (typeof result.createdMatches === "number"
@@ -214,45 +211,33 @@ export default function AdminCyclesPage() {
         setCycleDetail(detail);
       }
     } catch (caughtError) {
-      setActionError(
-        caughtError instanceof Error ? caughtError.message : "轮次执行失败。",
-      );
+      setActionError(caughtError instanceof Error ? caughtError.message : "轮次执行失败。");
     } finally {
       setPending(null);
     }
   }
 
   async function duplicateCycle() {
-    if (!selectedCycleId) {
-      return;
-    }
-
+    if (!isExistingCycleSelection(selectedCycleId)) return;
     setPending("duplicate");
     setActionError(null);
     setActionMessage(null);
 
     try {
-      const duplicate = await fetchApi<AdminCycle>(`/admin/cycles/${selectedCycleId}/duplicate`, {
-        method: "POST",
-      });
+      const duplicate = await fetchApi<AdminCycle>(`/admin/cycles/${selectedCycleId}/duplicate`, { method: "POST" });
       setActionMessage(`已复制轮次 ${duplicate.codename}，状态为 DRAFT。`);
       setPage(1);
       await refresh();
       setSelectedCycleId(duplicate.id);
     } catch (caughtError) {
-      setActionError(
-        caughtError instanceof Error ? caughtError.message : "轮次复制失败。",
-      );
+      setActionError(caughtError instanceof Error ? caughtError.message : "轮次复制失败。");
     } finally {
       setPending(null);
     }
   }
 
   async function previewCycle() {
-    if (!selectedCycleId) {
-      return;
-    }
-
+    if (!isExistingCycleSelection(selectedCycleId)) return;
     setPending("preview");
     setActionError(null);
     setActionMessage(null);
@@ -262,22 +247,15 @@ export default function AdminCyclesPage() {
       setCyclePreview(preview);
       setActionMessage(preview.message ?? "预演结果已生成。");
     } catch (caughtError) {
-      setActionError(
-        caughtError instanceof Error ? caughtError.message : "轮次预演失败。",
-      );
+      setActionError(caughtError instanceof Error ? caughtError.message : "轮次预演失败。");
     } finally {
       setPending(null);
     }
   }
 
   function exportCycleDetail() {
-    if (!cycleDetail) {
-      return;
-    }
-
-    const blob = new Blob([JSON.stringify(cycleDetail, null, 2)], {
-      type: "application/json;charset=utf-8",
-    });
+    if (!cycleDetail) return;
+    const blob = new Blob([JSON.stringify(cycleDetail, null, 2)], { type: "application/json;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -290,38 +268,45 @@ export default function AdminCyclesPage() {
     return <div className="admin-empty-state">正在加载轮次中心...</div>;
   }
 
+  const PAGE_SIZE_PARTICIPANTS = 10;
+  const PAGE_SIZE_MATCHES = 6;
+  const PAGE_SIZE_PAIRS = 6;
+
   return (
-    <div className="admin-page admin-page-stack" style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
-      <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
+    <div className="qb-container" style={{ maxWidth: "72rem" }}>
+      <div className="qb-header">
         <div>
-          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>轮次中心</h1>
-          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>在同一页面管理轮次列表、编辑详情、执行轮次和查看阶段状态。</p>
+          <h1>轮次中心</h1>
+          <p className="qb-header-desc">管理轮次列表、编辑详情、执行匹配和查看阶段状态。</p>
         </div>
         <div className="auth-actions">
           <button
             className="button-secondary"
             onClick={() => {
-              setSelectedCycleId(null);
+              setSelectedCycleId(ADMIN_NEW_CYCLE_SELECTION);
               setCycleForm(createEmptyCycleForm());
+              setCycleDetail(null);
+              setCyclePreview(null);
               setActionMessage(null);
               setActionError(null);
             }}
             type="button"
-            style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}
+            style={{ minHeight: "2.4rem", padding: "0 1rem" }}
           >
             新建轮次
           </button>
-          <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
+          <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.4rem", padding: "0 1rem" }}>
             刷新
           </button>
         </div>
       </div>
 
-      {error ? <p className="form-error">{error}</p> : null}
-      {actionError ? <p className="form-error">{actionError}</p> : null}
-      {actionMessage ? <p className="form-success">{actionMessage}</p> : null}
+      {error ? <p className="form-error" style={{ marginBottom: "0.75rem" }}>{error}</p> : null}
+      {actionError ? <p className="form-error" style={{ marginBottom: "0.75rem" }}>{actionError}</p> : null}
+      {actionMessage ? <p className="form-success" style={{ marginBottom: "0.75rem" }}>{actionMessage}</p> : null}
 
       <section className="admin-workspace-grid">
+        {/* ── Cycle list ─── */}
         <article className="content-panel admin-list-panel">
           <div className="admin-section-header">
             <div>
@@ -332,25 +317,19 @@ export default function AdminCyclesPage() {
           <div className="admin-search-bar">
             <input
               value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="搜索 codename、状态或备注"
             />
           </div>
           <div className="admin-tabs">
-            {(["ALL", "DRAFT", "OPEN", "REVEAL_READY", "REVEALED"] as const).map((status) => (
+            {(["ALL", "DRAFT", "OPEN", "REVEAL_READY", "REVEALED"] as const).map((s) => (
               <button
-                key={status}
+                key={s}
                 type="button"
-                className={statusFilter === status ? "admin-tab active" : "admin-tab"}
-                onClick={() => {
-                  setStatusFilter(status);
-                  setPage(1);
-                }}
+                className={statusFilter === s ? "admin-tab active" : "admin-tab"}
+                onClick={() => { setStatusFilter(s); setPage(1); }}
               >
-                {CYCLE_STATUS_LABELS[status]}
+                {CYCLE_STATUS_LABELS[s]}
               </button>
             ))}
           </div>
@@ -359,18 +338,12 @@ export default function AdminCyclesPage() {
               <button
                 key={cycle.id}
                 type="button"
-                className={
-                  cycle.id === selectedCycleId
-                    ? "admin-record-item admin-record-item-active"
-                    : "admin-record-item"
-                }
+                className={cycle.id === selectedCycleId ? "admin-record-item admin-record-item-active" : "admin-record-item"}
                 onClick={() => setSelectedCycleId(cycle.id)}
               >
                 <div className="admin-record-topline">
                   <strong>{cycle.codename}</strong>
-                  <span className="domain-chip" style={STATUS_STYLES[cycle.status]}>
-                    {CYCLE_STATUS_LABELS[cycle.status]}
-                  </span>
+                  <span className="domain-chip" style={STATUS_STYLES[cycle.status]}>{CYCLE_STATUS_LABELS[cycle.status]}</span>
                 </div>
                 <p>揭晓：{formatDateTime(cycle.revealAt)}</p>
                 <div className="admin-inline-meta">
@@ -379,145 +352,82 @@ export default function AdminCyclesPage() {
                 </div>
               </button>
             ))}
-            {cycles.length === 0 ? (
-              <div className="admin-empty-state">没有找到匹配的轮次。</div>
-            ) : null}
+            {cycles.length === 0 && <div className="admin-empty-state">没有找到匹配的轮次。</div>}
           </div>
-          {data ? (
+          {data && (
             <div className="admin-pagination">
-              <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">
-                上一页
-              </button>
-              <span>
-                {data.page} / {data.totalPages} · 共 {data.total} 个轮次
-              </span>
-              <button
-                disabled={data.page >= data.totalPages}
-                onClick={() => setPage(data.page + 1)}
-                type="button"
-              >
-                下一页
-              </button>
+              <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">上一页</button>
+              <span>{data.page} / {data.totalPages} · 共 {data.total} 个轮次</span>
+              <button disabled={data.page >= data.totalPages} onClick={() => setPage(data.page + 1)} type="button">下一页</button>
             </div>
-          ) : null}
+          )}
         </article>
 
+        {/* ── Cycle editor ─── */}
         <article className="content-panel admin-detail-panel">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">轮次编辑</p>
               <h2>{cycleForm.cycleId ? "编辑轮次" : "新建轮次"}</h2>
             </div>
-            <div className="auth-actions">
-              <button
-                className="button-secondary"
-                type="button"
-                disabled={!selectedCycleId || pending === "duplicate"}
-                onClick={() => void duplicateCycle()}
-              >
-                {pending === "duplicate" ? "复制中..." : "复制为草稿"}
-              </button>
-              <button
-                className="button-secondary"
-                type="button"
-                disabled={!selectedCycleId || pending === "preview"}
-                onClick={() => void previewCycle()}
-              >
-                {pending === "preview" ? "预演中..." : "预演匹配"}
-              </button>
-              <button
-                className="button-secondary"
-                type="button"
-                disabled={!selectedCycleId || pending === "run"}
-                onClick={() => void runCycle(false)}
-              >
-                {pending === "run" ? "执行中..." : "正常执行"}
-              </button>
-              <button
-                className="button-ghost"
-                type="button"
-                disabled={!selectedCycleId || pending === "force-run"}
-                onClick={() => void runCycle(true)}
-              >
-                {pending === "force-run" ? "强制执行中..." : "强制执行"}
-              </button>
-              <button
-                className="button-ghost"
-                type="button"
-                disabled={!cycleDetail}
-                onClick={exportCycleDetail}
-              >
-                导出详情
-              </button>
-            </div>
           </div>
 
-          {selectedCycle ? (
-            <div className="admin-inline-metrics">
-                <div>
-                  <span>状态</span>
-                  <strong>{CYCLE_STATUS_LABELS[selectedCycle.status]}</strong>
-                </div>
-              <div>
-                <span>参与记录</span>
-                <strong>{selectedCycle._count.participations}</strong>
+          {selectedCycle && (
+            <div className="adm-action-toolbar">
+              <div className="adm-action-group">
+                <span className="adm-action-label">管理</span>
+                <button className="button-secondary" type="button" disabled={pending === "duplicate"} onClick={() => void duplicateCycle()}>
+                  {pending === "duplicate" ? "复制中…" : "复制为草稿"}
+                </button>
+                <button className="button-secondary" type="button" disabled={!cycleDetail} onClick={exportCycleDetail}>导出详情</button>
               </div>
-              <div>
-                <span>匹配数</span>
-                <strong>{selectedCycle._count.matches}</strong>
+              <div className="adm-action-group">
+                <span className="adm-action-label">执行</span>
+                <button className="button-secondary" type="button" disabled={pending === "preview"} onClick={() => void previewCycle()}>
+                  {pending === "preview" ? "预演中…" : "预演匹配"}
+                </button>
+                <button className="button-primary" type="button" disabled={pending === "run"} onClick={() => void runCycle(false)}>
+                  {pending === "run" ? "执行中…" : "正常执行"}
+                </button>
+                <button className="button-ghost" type="button" disabled={pending === "force-run"} onClick={() => void runCycle(true)}>
+                  {pending === "force-run" ? "强制中…" : "强制执行"}
+                </button>
               </div>
+              <p
+                className="qb-header-desc"
+                style={{ marginTop: "0.5rem", maxWidth: "42rem", color: "var(--admin-warn-text, #9a3412)" }}
+              >
+                提示：强制执行会先删除本周期已有匹配再重新生成；请仅在未到揭晓时间或需纠正数据时使用。
+              </p>
             </div>
-          ) : null}
+          )}
+
+          {selectedCycle && (
+            <div className="admin-inline-metrics">
+              <div><span>状态</span><strong>{CYCLE_STATUS_LABELS[selectedCycle.status]}</strong></div>
+              <div><span>参与记录</span><strong>{selectedCycle._count.participations}</strong></div>
+              <div><span>匹配数</span><strong>{selectedCycle._count.matches}</strong></div>
+            </div>
+          )}
 
           <form className="auth-form" onSubmit={saveCycle}>
             <label>
               <span>轮次代号</span>
-              <input
-                required
-                value={cycleForm.codename}
-                onChange={(event) =>
-                  setCycleForm((current) => ({ ...current, codename: event.target.value }))
-                }
-              />
+              <input required value={cycleForm.codename} onChange={(e) => setCycleForm((f) => ({ ...f, codename: e.target.value }))} />
             </label>
             <div className="form-grid">
               <label>
                 <span>参与截止</span>
-                <input
-                  required
-                  type="datetime-local"
-                  value={cycleForm.participationDeadline}
-                  onChange={(event) =>
-                    setCycleForm((current) => ({
-                      ...current,
-                      participationDeadline: event.target.value,
-                    }))
-                  }
-                />
+                <input required type="datetime-local" value={cycleForm.participationDeadline} onChange={(e) => setCycleForm((f) => ({ ...f, participationDeadline: e.target.value }))} />
               </label>
               <label>
                 <span>揭晓时间</span>
-                <input
-                  required
-                  type="datetime-local"
-                  value={cycleForm.revealAt}
-                  onChange={(event) =>
-                    setCycleForm((current) => ({ ...current, revealAt: event.target.value }))
-                  }
-                />
+                <input required type="datetime-local" value={cycleForm.revealAt} onChange={(e) => setCycleForm((f) => ({ ...f, revealAt: e.target.value }))} />
               </label>
             </div>
             <label>
               <span>状态</span>
-              <select
-                value={cycleForm.status}
-                onChange={(event) =>
-                  setCycleForm((current) => ({
-                    ...current,
-                    status: event.target.value as AdminCycle["status"],
-                  }))
-                }
-              >
+              <select value={cycleForm.status} onChange={(e) => setCycleForm((f) => ({ ...f, status: e.target.value as AdminCycle["status"] }))}>
                 <option value="DRAFT">草稿</option>
                 <option value="OPEN">开放报名</option>
                 <option value="REVEAL_READY">待揭晓</option>
@@ -526,13 +436,7 @@ export default function AdminCyclesPage() {
             </label>
             <label>
               <span>备注</span>
-              <textarea
-                rows={4}
-                value={cycleForm.notes}
-                onChange={(event) =>
-                  setCycleForm((current) => ({ ...current, notes: event.target.value }))
-                }
-              />
+              <textarea rows={4} value={cycleForm.notes} onChange={(e) => setCycleForm((f) => ({ ...f, notes: e.target.value }))} />
             </label>
             <button className="button-primary" type="submit" disabled={pending === "save"}>
               {pending === "save" ? "保存中..." : cycleForm.cycleId ? "保存轮次" : "创建轮次"}
@@ -541,86 +445,128 @@ export default function AdminCyclesPage() {
         </article>
       </section>
 
-      <section className="admin-dashboard-grid">
-        <article className="content-panel">
-          <div className="admin-section-header">
-            <div>
-              <p className="eyebrow">参与者</p>
-              <h2>参与者与完成度</h2>
-            </div>
+      {/* ── Participants (compact table) ─────────────────── */}
+      <section className="content-panel" style={{ marginTop: "1.25rem" }}>
+        <div className="admin-section-header">
+          <div>
+            <p className="eyebrow">参与者</p>
+            <h2>参与者与完成度</h2>
           </div>
+        </div>
 
-          {detailLoading ? (
-            <div className="admin-empty-state">正在加载轮次详情...</div>
-          ) : cycleDetail ? (
-            <div className="admin-record-list">
-              {cycleDetail.cycle.participations.map((participation) => (
-                <div key={participation.id} className="admin-record-item">
-                  <div className="admin-record-topline">
-                    <strong>{participation.user.displayName ?? participation.user.email}</strong>
-                    <span className="domain-chip">
-                      {PARTICIPATION_STATUS_LABELS[participation.status]}
-                    </span>
-                  </div>
-                  <p>{participation.user.school?.name ?? "未识别学校"}</p>
-                  <div className="admin-inline-meta">
-                    <span>
-                      问卷：{participation.user.questionnaireResponse?.submittedAt ? "已提交" : "未提交"}
-                    </span>
-                    <span>
-                      加入时间：
-                      {participation.optedInAt ? formatDateTime(participation.optedInAt) : "—"}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {cycleDetail.cycle.participations.length === 0 ? (
-                <div className="admin-empty-state">当前轮次还没有参与者。</div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="admin-empty-state">选择轮次后查看参与者列表。</div>
-          )}
-        </article>
+        {detailLoading ? (
+          <div className="admin-empty-state">正在加载轮次详情...</div>
+        ) : cycleDetail ? (() => {
+          const all = cycleDetail.cycle.participations;
+          const optedIn = all.filter((p) => p.status === "OPTED_IN").length;
+          const withQ = all.filter((p) => p.user.questionnaireResponse?.submittedAt).length;
+          const filtered = participantFilter === "ALL" ? all : all.filter((p) => p.status === participantFilter);
+          const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE_PARTICIPANTS));
+          const safePage = Math.min(participantPage, totalPages);
+          const sliceStart = (safePage - 1) * PAGE_SIZE_PARTICIPANTS;
+          const visible = filtered.slice(sliceStart, sliceStart + PAGE_SIZE_PARTICIPANTS);
 
-        <article className="content-panel">
-          <div className="admin-section-header">
-            <div>
-              <p className="eyebrow">匹配结果</p>
-              <h2>匹配结果与执行记录</h2>
-            </div>
-          </div>
-
-          {detailLoading ? (
-            <div className="admin-empty-state">正在加载匹配结果...</div>
-          ) : cycleDetail ? (
+          return (
             <div className="admin-page-stack">
               <div className="admin-inline-metrics">
-                <div>
-                  <span>参与人数</span>
-                  <strong>{cycleDetail.summary.participationCount}</strong>
+                <div><span>总参与</span><strong>{all.length}</strong></div>
+                <div><span>已 Opt-in</span><strong>{optedIn}</strong></div>
+                <div><span>已提交问卷</span><strong>{withQ}</strong></div>
+                <div><span>未提交问卷</span><strong>{all.length - withQ}</strong></div>
+              </div>
+
+              <div className="admin-tabs">
+                {(["ALL", "OPTED_IN", "OPTED_OUT"] as const).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={participantFilter === f ? "admin-tab active" : "admin-tab"}
+                    onClick={() => { setParticipantFilter(f); setParticipantPage(1); }}
+                  >
+                    {f === "ALL" ? `全部 (${all.length})` : `${PARTICIPATION_STATUS_LABELS[f]} (${all.filter((p) => p.status === f).length})`}
+                  </button>
+                ))}
+              </div>
+
+              {filtered.length > 0 ? (
+                <div className="admin-table-wrap">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>用户</th>
+                        <th>学校</th>
+                        <th>状态</th>
+                        <th>问卷</th>
+                        <th>加入时间</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visible.map((p) => (
+                        <tr key={p.id}>
+                          <td><strong style={{ fontSize: "0.88rem" }}>{p.user.displayName ?? p.user.email}</strong></td>
+                          <td>{p.user.school?.name ?? "—"}</td>
+                          <td><span className="domain-chip">{PARTICIPATION_STATUS_LABELS[p.status]}</span></td>
+                          <td>
+                            {p.user.questionnaireResponse?.submittedAt
+                              ? <span style={{ color: "var(--sage)" }}>已提交</span>
+                              : <span style={{ color: "var(--coral)" }}>未提交</span>}
+                          </td>
+                          <td>{p.optedInAt ? formatDateTime(p.optedInAt) : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div>
-                  <span>已 opt-in</span>
-                  <strong>{cycleDetail.summary.optedInCount}</strong>
+              ) : (
+                <div className="admin-empty-state">当前筛选条件下没有参与者。</div>
+              )}
+
+              {totalPages > 1 && (
+                <div className="admin-pagination">
+                  <button disabled={safePage <= 1} onClick={() => setParticipantPage(safePage - 1)} type="button">上一页</button>
+                  <span>{safePage} / {totalPages} · 共 {filtered.length} 人</span>
+                  <button disabled={safePage >= totalPages} onClick={() => setParticipantPage(safePage + 1)} type="button">下一页</button>
                 </div>
-                <div>
-                  <span>匹配对数</span>
-                  <strong>{cycleDetail.summary.matchedPairCount}</strong>
-                </div>
-                <div>
-                  <span>待联系</span>
-                  <strong>{cycleDetail.summary.pendingContactCount}</strong>
-                </div>
+              )}
+            </div>
+          );
+        })() : (
+          <div className="admin-empty-state">选择轮次后查看参与者列表。</div>
+        )}
+      </section>
+
+      {/* ── Matches & logs ───────────────────────────────── */}
+      <section className="content-panel" style={{ marginTop: "1.25rem" }}>
+        <div className="admin-section-header">
+          <div>
+            <p className="eyebrow">匹配结果</p>
+            <h2>匹配结果与执行记录</h2>
+          </div>
+        </div>
+
+        {detailLoading ? (
+          <div className="admin-empty-state">正在加载匹配结果...</div>
+        ) : cycleDetail ? (() => {
+          const allM = cycleDetail.cycle.matches;
+          const mTotalPages = Math.max(1, Math.ceil(allM.length / PAGE_SIZE_MATCHES));
+          const mSafePage = Math.min(matchPage, mTotalPages);
+          const mStart = (mSafePage - 1) * PAGE_SIZE_MATCHES;
+          const visibleM = allM.slice(mStart, mStart + PAGE_SIZE_MATCHES);
+
+          return (
+            <div className="admin-page-stack">
+              <div className="admin-inline-metrics">
+                <div><span>参与人数</span><strong>{cycleDetail.summary.participationCount}</strong></div>
+                <div><span>已 opt-in</span><strong>{cycleDetail.summary.optedInCount}</strong></div>
+                <div><span>匹配对数</span><strong>{cycleDetail.summary.matchedPairCount}</strong></div>
+                <div><span>待联系</span><strong>{cycleDetail.summary.pendingContactCount}</strong></div>
               </div>
 
               <div className="admin-record-list">
-                {cycleDetail.cycle.matches.map((match) => (
+                {visibleM.map((match) => (
                   <div key={match.id} className="admin-record-item">
                     <div className="admin-record-topline">
-                      <strong>
-                        {match.participants.map((participant) => participant.user.displayName ?? participant.user.email).join(" × ")}
-                      </strong>
+                      <strong>{match.participants.map((p) => p.user.displayName ?? p.user.email).join(" × ")}</strong>
                       <span className="domain-chip">分数 {match.score.toFixed(1)}</span>
                     </div>
                     <div className="admin-inline-meta">
@@ -628,16 +574,20 @@ export default function AdminCyclesPage() {
                       <span>举报数：{match.reports.length}</span>
                     </div>
                     <ul className="admin-reason-list">
-                      {match.reasons.map((reason) => (
-                        <li key={reason}>{reason}</li>
-                      ))}
+                      {match.reasons.map((r) => <li key={r}>{r}</li>)}
                     </ul>
                   </div>
                 ))}
-                {cycleDetail.cycle.matches.length === 0 ? (
-                  <div className="admin-empty-state">当前轮次还没有生成匹配。</div>
-                ) : null}
+                {allM.length === 0 && <div className="admin-empty-state">当前轮次还没有生成匹配。</div>}
               </div>
+
+              {mTotalPages > 1 && (
+                <div className="admin-pagination">
+                  <button disabled={mSafePage <= 1} onClick={() => setMatchPage(mSafePage - 1)} type="button">上一页</button>
+                  <span>{mSafePage} / {mTotalPages} · 共 {allM.length} 组</span>
+                  <button disabled={mSafePage >= mTotalPages} onClick={() => setMatchPage(mSafePage + 1)} type="button">下一页</button>
+                </div>
+              )}
 
               <div>
                 <h3>运行记录</h3>
@@ -651,70 +601,66 @@ export default function AdminCyclesPage() {
                       <p>{JSON.stringify(log.metadata ?? {})}</p>
                     </div>
                   ))}
-                  {cycleDetail.logs.length === 0 ? (
-                    <div className="admin-empty-state">当前轮次还没有运行日志。</div>
-                  ) : null}
+                  {cycleDetail.logs.length === 0 && <div className="admin-empty-state">当前轮次还没有运行日志。</div>}
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="admin-empty-state">选择轮次后查看匹配结果。</div>
-          )}
-        </article>
+          );
+        })() : (
+          <div className="admin-empty-state">选择轮次后查看匹配结果。</div>
+        )}
       </section>
 
-      <section className="content-panel">
+      {/* ── Preview ──────────────────────────────────────── */}
+      <section className="content-panel" style={{ marginTop: "1.25rem" }}>
         <div className="admin-section-header">
-            <div>
+          <div>
             <p className="eyebrow">预演</p>
             <h2>预演匹配</h2>
           </div>
         </div>
 
-        {cyclePreview ? (
-          <div className="admin-page-stack">
-            <div className="admin-inline-metrics">
-              <div>
-                <span>候选组合</span>
-                <strong>
-                  {cyclePreview.totalCandidateCount ?? cyclePreview.candidates.length}
-                </strong>
-              </div>
-              <div>
-                <span>建议匹配</span>
-                <strong>{cyclePreview.suggestedPairs.length}</strong>
-              </div>
-              <div>
-                <span>未匹配用户</span>
-                <strong>{cyclePreview.unmatchedUserIds.length}</strong>
-              </div>
-            </div>
+        {cyclePreview ? (() => {
+          const allP = cyclePreview.suggestedPairs;
+          const pTotalPages = Math.max(1, Math.ceil(allP.length / PAGE_SIZE_PAIRS));
+          const pSafePage = Math.min(pairPage, pTotalPages);
+          const pStart = (pSafePage - 1) * PAGE_SIZE_PAIRS;
+          const visibleP = allP.slice(pStart, pStart + PAGE_SIZE_PAIRS);
 
-            <div className="admin-record-list">
-              {cyclePreview.suggestedPairs.map((pair) => (
-                <div key={`${pair.leftUserId}-${pair.rightUserId}`} className="admin-record-item">
-                  <div className="admin-record-topline">
-                    <strong>
-                      {pair.leftDisplayName ?? pair.leftUserId}
-                      {" × "}
-                      {pair.rightDisplayName ?? pair.rightUserId}
-                    </strong>
-                    <span className="domain-chip">分数 {pair.score.toFixed(1)}</span>
+          return (
+            <div className="admin-page-stack">
+              <div className="admin-inline-metrics">
+                <div><span>候选组合</span><strong>{cyclePreview.totalCandidateCount ?? cyclePreview.candidates.length}</strong></div>
+                <div><span>建议匹配</span><strong>{allP.length}</strong></div>
+                <div><span>未匹配用户</span><strong>{cyclePreview.unmatchedUserIds.length}</strong></div>
+              </div>
+
+              <div className="admin-record-list">
+                {visibleP.map((pair) => (
+                  <div key={`${pair.leftUserId}-${pair.rightUserId}`} className="admin-record-item">
+                    <div className="admin-record-topline">
+                      <strong>{pair.leftDisplayName ?? pair.leftUserId} × {pair.rightDisplayName ?? pair.rightUserId}</strong>
+                      <span className="domain-chip">分数 {pair.score.toFixed(1)}</span>
+                    </div>
+                    <ul className="admin-reason-list">
+                      {pair.reasons.map((r) => <li key={r}>{r}</li>)}
+                    </ul>
                   </div>
-                  <ul className="admin-reason-list">
-                    {pair.reasons.map((reason) => (
-                      <li key={reason}>{reason}</li>
-                    ))}
-                  </ul>
+                ))}
+                {allP.length === 0 && <div className="admin-empty-state">当前没有建议匹配。</div>}
+              </div>
+
+              {pTotalPages > 1 && (
+                <div className="admin-pagination">
+                  <button disabled={pSafePage <= 1} onClick={() => setPairPage(pSafePage - 1)} type="button">上一页</button>
+                  <span>{pSafePage} / {pTotalPages} · 共 {allP.length} 组</span>
+                  <button disabled={pSafePage >= pTotalPages} onClick={() => setPairPage(pSafePage + 1)} type="button">下一页</button>
                 </div>
-              ))}
-              {cyclePreview.suggestedPairs.length === 0 ? (
-                <div className="admin-empty-state">当前没有建议匹配。</div>
-              ) : null}
+              )}
             </div>
-          </div>
-        ) : (
-          <div className="admin-empty-state">先选择轮次，再点击“预演匹配”。</div>
+          );
+        })() : (
+          <div className="admin-empty-state">先选择轮次，再点击"预演匹配"。</div>
         )}
       </section>
     </div>

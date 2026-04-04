@@ -45,6 +45,7 @@ export type AdminQuestion = {
   key: string;
   prompt: string;
   type: "SINGLE_SELECT" | "MULTI_SELECT" | "SCALE";
+  selectionLimit: number | null;
   options: AdminQuestionOption[] | null;
   reasonRules: AdminQuestionReasonRule[] | null;
   order: number;

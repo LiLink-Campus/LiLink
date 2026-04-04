@@ -100,6 +100,7 @@ CREATE TABLE "Question" (
     "weight" INTEGER NOT NULL DEFAULT 1,
     "order" INTEGER NOT NULL,
     "required" BOOLEAN NOT NULL DEFAULT true,
+    "selectionLimit" INTEGER,
     "options" JSONB,
     "reasonRules" JSONB,
     CONSTRAINT "Question_pkey" PRIMARY KEY ("id")

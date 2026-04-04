@@ -43,6 +43,21 @@ export default function RegisterPage() {
     setCanRevealDevCode(localhostHosts.has(window.location.hostname));
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    void fetchApi("/auth/me")
+      .then(() => {
+        if (!active) {
+          return;
+        }
+        router.replace("/dashboard");
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);

@@ -104,7 +104,5 @@ export type LandingPayload = {
 };
 
 export async function getLandingPayload() {
-  return fetchApi<LandingPayload>("/public/landing", {
-    cache: "force-cache",
-  });
+  return fetchApi<LandingPayload>("/public/landing");
 }
