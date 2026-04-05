@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteNav } from "./site-nav";
-import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { resolveApiOriginForPreconnect } from "../lib/api";
+import { SiteNav } from "./site-nav";
+import "./globals.css";
+
+const apiPreconnectOrigin = resolveApiOriginForPreconnect();
 
 export const metadata: Metadata = {
   title: "LiLink | 黎安国际教育创新区交友平台",
@@ -21,6 +24,15 @@ export default function RootLayout({
       lang="zh-CN"
       data-scroll-behavior="smooth"
     >
+      <head>
+        {apiPreconnectOrigin ? (
+          <link
+            rel="preconnect"
+            href={apiPreconnectOrigin}
+            crossOrigin="anonymous"
+          />
+        ) : null}
+      </head>
       <body>
         <div className="site-frame">
           <header className="site-header">

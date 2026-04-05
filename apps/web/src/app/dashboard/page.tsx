@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
-import { fetchApi } from "../../lib/api";
+import { fetchApi, fetchAuthMeDeduped, type AuthMePayload } from "../../lib/api";
 import {
   AGE_OPTIONS,
   BIRTH_YEAR_OPTIONS,
@@ -65,12 +65,6 @@ type DashboardPayload = {
       contactRequestedAt: string | null;
     }>;
   } | null;
-};
-
-type AuthPayload = {
-  id: string;
-  email: string;
-  displayName: string | null;
 };
 
 type QuestionnairePayload = {
@@ -184,7 +178,7 @@ function getQuestionnaireIncompleteMessage(
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<AuthPayload | null>(null);
+  const [user, setUser] = useState<AuthMePayload | null>(null);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
@@ -243,13 +237,19 @@ export default function DashboardPage() {
       try {
         const [me, dashboardData, questionnaire, savedQuestionnaire] =
           await Promise.all([
-            fetchApi<AuthPayload>("/auth/me"),
+            fetchAuthMeDeduped(),
             fetchApi<DashboardPayload>("/me/dashboard"),
             fetchApi<QuestionnairePayload>("/questionnaire/current"),
             fetchApi<SavedQuestionnairePayload>("/me/questionnaire").catch(() => null),
           ]);
 
         if (!active) return;
+
+        if (!me) {
+          setUser(null);
+          setError("登录状态已失效，请重新登录。");
+          return;
+        }
 
         setUser(me);
         setDisplayName(me.displayName ?? "");
