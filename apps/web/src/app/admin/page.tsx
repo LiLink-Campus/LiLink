@@ -156,18 +156,22 @@ export default function AdminOverviewPage() {
               <h2>容量限制</h2>
             </div>
           </div>
-          <div style={{ maxWidth: "20rem" }}>
-            <label>
-              <span>最大注册人数</span>
-              <input
-                type="number"
-                min="0"
-                value={settingsForm.maxReg}
-                onChange={(e) => setSettingsForm((f) => ({ ...f, maxReg: e.target.value }))}
-                placeholder="0 = 不限"
-              />
-              <span style={{ fontSize: "0.82rem", color: "var(--fg-secondary)" }}>0 表示不限制，注册满后新用户会看到提示</span>
+          <div className="admin-capacity-field">
+            <label className="admin-field-label" htmlFor="admin-max-registrations">
+              最大注册人数
             </label>
+            <input
+              id="admin-max-registrations"
+              type="number"
+              min="0"
+              step="1"
+              value={settingsForm.maxReg}
+              onChange={(e) => setSettingsForm((f) => ({ ...f, maxReg: e.target.value }))}
+              placeholder="0 = 不限制"
+            />
+            <p className="admin-capacity-hint">
+              0 表示不限制。填写正整数时，以数据库中<strong>用户总数</strong>（含停用等所有账号）为准；达到上限后，新用户<strong>完成注册提交</strong>时会收到「名额已满」类提示，无法再创建账号。
+            </p>
           </div>
           <div className="auth-actions" style={{ marginTop: "1rem" }}>
             <button className="button-primary" type="button" disabled={settingsPending} onClick={() => void saveSettings()} style={{ minHeight: "2.2rem", padding: "0 1rem" }}>
