@@ -821,10 +821,10 @@ ul {
 
 .auth-panel {
   width: 100%;
-  max-width: 36rem !important;
+  max-width: 36rem;
   margin: 3rem auto;
   text-align: center;
-  min-width: 24rem; /* 增加最小宽度限制 */
+  min-width: 0;
 }
 
 .auth-panel h1 {
