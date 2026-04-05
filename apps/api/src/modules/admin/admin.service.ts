@@ -1132,4 +1132,55 @@ export class AdminService {
       totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
     };
   }
+
+  async getSettings() {
+    const rows = await this.prisma.systemSetting.findMany();
+    const settings: Record<string, string> = {};
+    for (const row of rows) {
+      settings[row.key] = row.value;
+    }
+    return settings;
+  }
+
+  async updateSettings(
+    input: Record<string, string>,
+    adminActorId: string,
+  ) {
+    const allowedKeys = new Set([
+      'max_registrations',
+    ]);
+
+    const entries = Object.entries(input).filter(([key]) =>
+      allowedKeys.has(key),
+    );
+
+    if (entries.length === 0) {
+      throw new BadRequestException('No valid settings to update.');
+    }
+
+    for (const [key, value] of entries) {
+      const numericValue = Number(value);
+      if (!Number.isInteger(numericValue) || numericValue < 0) {
+        throw new BadRequestException(
+          `Setting "${key}" must be a non-negative integer.`,
+        );
+      }
+    }
+
+    await this.prisma.$transaction(
+      entries.map(([key, value]) =>
+        this.prisma.systemSetting.upsert({
+          where: { key },
+          create: { key, value: String(value) },
+          update: { value: String(value) },
+        }),
+      ),
+    );
+
+    await this.adminAuditService.write(adminActorId, 'settings.updated', {
+      changes: Object.fromEntries(entries),
+    });
+
+    return this.getSettings();
+  }
 }

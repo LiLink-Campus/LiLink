@@ -199,4 +199,17 @@ export class AdminController {
   getUsers(@Query() query: ListUsersQueryDto) {
     return this.adminService.getUsers(query);
   }
+
+  @Get('settings')
+  getSettings() {
+    return this.adminService.getSettings();
+  }
+
+  @Patch('settings')
+  updateSettings(
+    @Req() request: AdminAuthenticatedRequest,
+    @Body() body: Record<string, string>,
+  ) {
+    return this.adminService.updateSettings(body, request.admin!.id);
+  }
 }

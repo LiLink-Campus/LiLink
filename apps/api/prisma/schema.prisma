@@ -299,6 +299,12 @@ model AuditLog {
   @@index([adminActorId, createdAt])
 }
 
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model OutboundEmail {
   id             String              @id @default(cuid())
   dedupeKey      String              @unique

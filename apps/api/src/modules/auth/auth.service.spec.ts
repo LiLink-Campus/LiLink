@@ -249,6 +249,10 @@ describe('AuthService', () => {
       },
       user: {
         create: userCreate,
+        count: jest.fn().mockResolvedValue(0),
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue(null),
       },
       $transaction: jest.fn(
         async (
@@ -304,6 +308,10 @@ describe('AuthService', () => {
       },
       user: {
         create: userCreate,
+        count: jest.fn().mockResolvedValue(0),
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue(null),
       },
       $transaction: jest.fn(
         async (
