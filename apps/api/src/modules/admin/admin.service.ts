@@ -347,6 +347,12 @@ export class AdminService {
       });
     }
 
+    if (query.userType === 'test') {
+      whereClauses.push({ isTest: true });
+    } else if (query.userType === 'real') {
+      whereClauses.push({ isTest: false });
+    }
+
     if (search) {
       whereClauses.push({
         OR: [
@@ -1143,6 +1149,54 @@ export class AdminService {
       pageSize: pagination.pageSize,
       totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
     };
+  }
+
+  async setTestFlag(userId: string, isTest: boolean, adminActorId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found.');
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isTest },
+    });
+
+    await this.adminAuditService.write(adminActorId, 'user.test_flag', {
+      userId,
+      isTest,
+    });
+
+    return { ok: true, isTest };
+  }
+
+  async deleteAllTestUsers(adminActorId: string) {
+    const testUsers = await this.prisma.user.findMany({
+      where: { isTest: true },
+      select: { id: true, email: true },
+    });
+
+    if (testUsers.length === 0) {
+      throw new BadRequestException('No test users to delete.');
+    }
+
+    const userIds = testUsers.map((u) => u.id);
+
+    await this.prisma.$transaction([
+      this.prisma.matchParticipant.deleteMany({ where: { userId: { in: userIds } } }),
+      this.prisma.cycleParticipation.deleteMany({ where: { userId: { in: userIds } } }),
+      this.prisma.report.deleteMany({ where: { OR: [{ reporterId: { in: userIds } }, { reportedUserId: { in: userIds } }] } }),
+      this.prisma.block.deleteMany({ where: { OR: [{ blockerId: { in: userIds } }, { blockedId: { in: userIds } }] } }),
+      this.prisma.questionnaireResponse.deleteMany({ where: { userId: { in: userIds } } }),
+      this.prisma.userProfile.deleteMany({ where: { userId: { in: userIds } } }),
+      this.prisma.auditLog.deleteMany({ where: { actorId: { in: userIds } } }),
+      this.prisma.user.deleteMany({ where: { id: { in: userIds } } }),
+    ]);
+
+    await this.adminAuditService.write(adminActorId, 'users.test_deleted', {
+      count: testUsers.length,
+      emails: testUsers.map((u) => u.email),
+    });
+
+    return { ok: true, deletedCount: testUsers.length };
   }
 
   async getSettings() {

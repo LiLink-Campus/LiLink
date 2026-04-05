@@ -57,6 +57,7 @@ export type AdminUser = {
   email: string;
   status: "PENDING" | "ACTIVE" | "SUSPENDED";
   displayName: string | null;
+  isTest: boolean;
   createdAt: string;
   school: { name: string } | null;
   profile: {

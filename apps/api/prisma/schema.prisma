@@ -91,6 +91,7 @@ model User {
   schoolId              String?
   school                School?                @relation(fields: [schoolId], references: [id])
   displayName           String?
+  isTest                Boolean                @default(false)
   acceptedTermsAt       DateTime?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt

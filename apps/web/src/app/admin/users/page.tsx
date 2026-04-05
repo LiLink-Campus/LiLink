@@ -64,6 +64,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminUser["status"]>("ALL");
   const [questionnaireFilter, setQuestionnaireFilter] = useState<"all" | "submitted" | "missing">("all");
+  const [userTypeFilter, setUserTypeFilter] = useState<"all" | "test" | "real">("all");
   const [page, setPage] = useState(1);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
@@ -81,6 +82,7 @@ export default function AdminUsersPage() {
       search: deferredSearch.trim(),
       status: statusFilter === "ALL" ? undefined : statusFilter,
       questionnaire: questionnaireFilter,
+      userType: userTypeFilter,
     },
   );
   const users = useMemo(() => data?.items ?? [], [data]);
@@ -151,6 +153,41 @@ export default function AdminUsersPage() {
       await refresh();
     } catch (caughtError) {
       setActionError(caughtError instanceof Error ? caughtError.message : "用户信息更新失败。");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function toggleTestFlag() {
+    if (!selectedUser) return;
+    const nextValue = !selectedUser.isTest;
+    setPending("test-flag");
+    setActionError(null);
+    try {
+      await fetchApi(`/admin/users/${selectedUser.id}/test-flag`, {
+        method: "PUT",
+        body: JSON.stringify({ isTest: nextValue }),
+      });
+      await refresh();
+    } catch (caughtError) {
+      setActionError(caughtError instanceof Error ? caughtError.message : "操作失败。");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function deleteAllTestUsers() {
+    if (!confirm("确定删除所有标记为「测试用户」的账号？\n此操作会删除这些用户的所有数据（问卷、匹配记录、举报等），且不可撤回。")) return;
+    setPending("delete-test");
+    setActionError(null);
+    try {
+      const result = await fetchApi<{ deletedCount: number }>("/admin/users/test-users", { method: "DELETE" });
+      setActionError(null);
+      setSelectedUserId(null);
+      await refresh();
+      alert(`已删除 ${result.deletedCount} 个测试用户。`);
+    } catch (caughtError) {
+      setActionError(caughtError instanceof Error ? caughtError.message : "删除失败。");
     } finally {
       setPending(null);
     }
@@ -237,6 +274,29 @@ export default function AdminUsersPage() {
               </button>
             ))}
           </div>
+          <div className="admin-tabs" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            {(["all", "real", "test"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={userTypeFilter === t ? "admin-tab active" : "admin-tab"}
+                onClick={() => { setUserTypeFilter(t); setPage(1); }}
+              >
+                {t === "all" ? "全部用户" : t === "real" ? "真实用户" : "测试用户"}
+              </button>
+            ))}
+            {userTypeFilter === "test" && (
+              <button
+                className="button-secondary"
+                type="button"
+                disabled={pending === "delete-test"}
+                onClick={() => void deleteAllTestUsers()}
+                style={{ marginLeft: "auto", minHeight: "1.8rem", padding: "0 0.75rem", fontSize: "0.82rem", color: "var(--error, #c0392b)" }}
+              >
+                {pending === "delete-test" ? "删除中…" : "删除全部测试用户"}
+              </button>
+            )}
+          </div>
           <div className="admin-record-list">
             {users.map((user) => (
               <button
@@ -247,6 +307,7 @@ export default function AdminUsersPage() {
               >
                 <div className="admin-record-topline">
                   <strong>{user.displayName ?? user.email}</strong>
+                  {user.isTest && <span className="domain-chip" style={{ background: "var(--warning, #f39c12)", color: "#fff" }}>测试</span>}
                   <span className="domain-chip">{USER_STATUS_LABELS[user.status]}</span>
                 </div>
                 <p>{user.email}</p>
@@ -274,7 +335,7 @@ export default function AdminUsersPage() {
               {/* Header + status buttons */}
               <div className="admin-section-header">
                 <div>
-                  <p className="eyebrow">用户详情</p>
+                  <p className="eyebrow">用户详情{selectedUser.isTest ? " · 测试用户" : ""}</p>
                   <h2>{selectedUser.displayName ?? "未设置昵称"}</h2>
                   <p>{selectedUser.email}</p>
                 </div>
@@ -291,6 +352,15 @@ export default function AdminUsersPage() {
                       {pending === s ? "提交中…" : USER_STATUS_LABELS[s]}
                     </button>
                   ))}
+                  <button
+                    className={selectedUser.isTest ? "button-primary" : "button-secondary"}
+                    type="button"
+                    disabled={pending === "test-flag"}
+                    onClick={() => void toggleTestFlag()}
+                    style={{ minHeight: "2rem", padding: "0 0.75rem", fontSize: "0.82rem" }}
+                  >
+                    {pending === "test-flag" ? "更新中…" : selectedUser.isTest ? "取消测试标记" : "标记为测试"}
+                  </button>
                 </div>
               </div>
 

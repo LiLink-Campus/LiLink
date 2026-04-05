@@ -51,6 +51,10 @@ export class ListUsersQueryDto extends ListQueryDto {
   @IsOptional()
   @IsIn(['all', 'submitted', 'missing'])
   questionnaire?: 'all' | 'submitted' | 'missing';
+
+  @IsOptional()
+  @IsIn(['all', 'test', 'real'])
+  userType?: 'all' | 'test' | 'real';
 }
 
 export class ListReportsQueryDto extends ListQueryDto {
