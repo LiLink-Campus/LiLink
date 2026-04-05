@@ -228,6 +228,11 @@ export class AdminController {
     return this.adminService.getUsers(query);
   }
 
+  @Get('users/:userId')
+  getUserById(@Param('userId') userId: string) {
+    return this.adminService.getUserById(userId);
+  }
+
   @Get('settings')
   getSettings() {
     return this.adminService.getSettings();

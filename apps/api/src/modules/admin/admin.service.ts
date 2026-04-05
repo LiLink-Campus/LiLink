@@ -31,6 +31,29 @@ import {
 
 const OVERVIEW_USERS_LIMIT = 20;
 
+const adminUserListInclude = {
+  school: true,
+  profile: true,
+  questionnaireResponse: {
+    select: {
+      submittedAt: true,
+    },
+  },
+  participations: {
+    orderBy: { createdAt: 'desc' as const },
+    take: 3,
+  },
+} satisfies Prisma.UserInclude;
+
+const adminUserDetailInclude = {
+  school: true,
+  profile: true,
+  questionnaireResponse: true,
+  participations: {
+    orderBy: { createdAt: 'desc' as const },
+  },
+} satisfies Prisma.UserInclude;
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -70,15 +93,7 @@ export class AdminService {
         }),
         this.prisma.user.findMany({
           omit: { passwordHash: true },
-          include: {
-            school: true,
-            profile: true,
-            questionnaireResponse: true,
-            participations: {
-              orderBy: { createdAt: 'desc' },
-              take: 3,
-            },
-          },
+          include: adminUserListInclude,
           orderBy: { createdAt: 'desc' },
           take: OVERVIEW_USERS_LIMIT,
         }),
@@ -306,19 +321,25 @@ export class AdminService {
     return this.buildPageResult(items, total, pagination);
   }
 
+  async getUserById(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      omit: { passwordHash: true },
+      include: adminUserDetailInclude,
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return user;
+  }
+
   async getUsers(query: ListUsersQueryDto = {}) {
     if (!this.hasListQuery(query)) {
       return this.prisma.user.findMany({
         omit: { passwordHash: true },
-        include: {
-          school: true,
-          profile: true,
-          questionnaireResponse: true,
-          participations: {
-            orderBy: { createdAt: 'desc' },
-            take: 3,
-          },
-        },
+        include: adminUserListInclude,
         orderBy: { createdAt: 'desc' },
       });
     }
@@ -391,15 +412,7 @@ export class AdminService {
       this.prisma.user.findMany({
         where,
         omit: { passwordHash: true },
-        include: {
-          school: true,
-          profile: true,
-          questionnaireResponse: true,
-          participations: {
-            orderBy: { createdAt: 'desc' },
-            take: 3,
-          },
-        },
+        include: adminUserListInclude,
         orderBy: { createdAt: 'desc' },
         skip: pagination.skip,
         take: pagination.pageSize,

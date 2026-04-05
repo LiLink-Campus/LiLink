@@ -69,7 +69,8 @@ export type AdminUser = {
   } | null;
   questionnaireResponse: {
     submittedAt: string | null;
-    answers: Record<string, unknown>;
+    /** Omitted on paginated list; present on `GET /admin/users/:userId`. */
+    answers?: Record<string, unknown>;
   } | null;
   participations: Array<{ status: string; cycleId: string }>;
 };
