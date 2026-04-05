@@ -625,6 +625,8 @@ ul {
   text-align: center;
   max-width: 42rem;
   margin: 0 auto 2.5rem;
+  min-width: 0;
+  padding-inline: 0.25rem;
 }
 
 .section-heading h2 {
@@ -634,6 +636,8 @@ ul {
   line-height: 1.12;
   letter-spacing: -0.02em;
   margin: 0.5rem 0 0;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ── Story / Steps ───────────────────────────────── */
@@ -724,12 +728,17 @@ ul {
 /* ── Content Pages (About, Privacy) ──────────────── */
 
 .page-shell {
-  padding: 2rem clamp(1.5rem, 4vw, 3.5rem) 4rem;
+  padding: 2rem clamp(1.25rem, 5vw, 3.5rem) 4rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .prose-shell {
   max-width: 56rem;
   margin: 0 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .prose-shell h1,
@@ -757,6 +766,10 @@ ul {
   border-radius: var(--radius-lg);
   padding: 2rem 2.2rem;
   box-shadow: var(--shadow-xs);
+  min-width: 0;
+  max-width: 100%;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .content-panel p {
@@ -1492,17 +1505,20 @@ ul {
 .page-hero-content {
   max-width: 44rem;
   margin: 0 auto;
+  min-width: 0;
+  padding-inline: 0.25rem;
 }
 
 .page-hero-content h1 {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4vw, 2.8rem);
   font-weight: 600;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: -0.02em;
   margin: 0.5rem 0 0;
   color: var(--fg);
-  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .page-hero-content > p {
@@ -1513,6 +1529,8 @@ ul {
   max-width: 36rem;
   margin-left: auto;
   margin-right: auto;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ── About Page ──────────────────────────────────── */
@@ -1526,11 +1544,15 @@ ul {
 .about-quote {
   max-width: 38rem;
   margin: 0;
-  padding: 2.2rem 2.5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 2.2rem clamp(1.25rem, 4vw, 2.5rem);
   border-left: 3px solid var(--accent);
   background: var(--bg-elevated);
   border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   box-shadow: var(--shadow-sm);
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .about-quote p {
@@ -1831,7 +1853,11 @@ ul {
   }
 
   .content-panel {
-    padding: 1.5rem 1.25rem;
+    padding: 1.5rem clamp(1.1rem, 4.5vw, 1.5rem);
+  }
+
+  .page-hero-content h1 {
+    font-size: clamp(1.45rem, 7vw, 2.8rem);
   }
 
   .auth-panel {
