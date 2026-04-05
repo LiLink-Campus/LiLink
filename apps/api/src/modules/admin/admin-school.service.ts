@@ -113,6 +113,10 @@ export class AdminSchoolService {
         where: { schoolId },
       });
 
+      await tx.schoolDomain.deleteMany({
+        where: { domain: { in: normalizedDomains } },
+      });
+
       return tx.school.update({
         where: { id: schoolId },
         data: {
@@ -132,6 +136,54 @@ export class AdminSchoolService {
     });
 
     return updatedSchool;
+  }
+
+  async merge(
+    sourceSchoolId: string,
+    targetSchoolId: string,
+    adminActorId: string,
+  ) {
+    if (sourceSchoolId === targetSchoolId) {
+      throw new BadRequestException('Cannot merge a school into itself.');
+    }
+
+    const [source, target] = await Promise.all([
+      this.prisma.school.findUnique({
+        where: { id: sourceSchoolId },
+        include: { domains: true, _count: { select: { users: true } } },
+      }),
+      this.prisma.school.findUnique({
+        where: { id: targetSchoolId },
+      }),
+    ]);
+
+    if (!source) throw new NotFoundException('Source school not found.');
+    if (!target) throw new NotFoundException('Target school not found.');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.updateMany({
+        where: { schoolId: sourceSchoolId },
+        data: { schoolId: targetSchoolId },
+      });
+
+      await tx.schoolDomain.updateMany({
+        where: { schoolId: sourceSchoolId },
+        data: { schoolId: targetSchoolId },
+      });
+
+      await tx.school.delete({ where: { id: sourceSchoolId } });
+    });
+
+    await this.adminAuditService.write(adminActorId, 'school.merged', {
+      sourceSchoolId,
+      sourceSchoolName: source.name,
+      targetSchoolId,
+      targetSchoolName: target.name,
+      movedUserCount: source._count.users,
+      movedDomainCount: source.domains.length,
+    });
+
+    return { ok: true, movedUsers: source._count.users };
   }
 
   async delete(schoolId: string, adminActorId: string) {
