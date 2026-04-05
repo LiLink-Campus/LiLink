@@ -213,6 +213,11 @@ export class AdminController {
     return this.adminService.setTestFlag(userId, body.isTest, request.admin!.id);
   }
 
+  @Post('seed-test-users')
+  seedTestUsers(@Req() request: AdminAuthenticatedRequest) {
+    return this.adminService.seedTestUsers(request.admin!.id);
+  }
+
   @Delete('users/test-users')
   deleteTestUsers(@Req() request: AdminAuthenticatedRequest) {
     return this.adminService.deleteAllTestUsers(request.admin!.id);
