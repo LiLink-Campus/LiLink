@@ -1114,6 +1114,7 @@ export class AdminService {
     search?: string;
     status?: string;
     questionnaire?: string;
+    userType?: string;
     action?: string;
   }) {
     return Boolean(
@@ -1122,6 +1123,7 @@ export class AdminService {
       query.search ||
       query.status ||
       query.questionnaire ||
+      query.userType ||
       query.action,
     );
   }
@@ -1180,8 +1182,18 @@ export class AdminService {
 
     const userIds = testUsers.map((u) => u.id);
 
+    const affectedMatchIds = (
+      await this.prisma.matchParticipant.findMany({
+        where: { userId: { in: userIds } },
+        select: { matchId: true },
+        distinct: ['matchId'],
+      })
+    ).map((p) => p.matchId);
+
     await this.prisma.$transaction([
-      this.prisma.matchParticipant.deleteMany({ where: { userId: { in: userIds } } }),
+      this.prisma.report.deleteMany({ where: { matchId: { in: affectedMatchIds } } }),
+      this.prisma.matchParticipant.deleteMany({ where: { matchId: { in: affectedMatchIds } } }),
+      this.prisma.match.deleteMany({ where: { id: { in: affectedMatchIds } } }),
       this.prisma.cycleParticipation.deleteMany({ where: { userId: { in: userIds } } }),
       this.prisma.report.deleteMany({ where: { OR: [{ reporterId: { in: userIds } }, { reportedUserId: { in: userIds } }] } }),
       this.prisma.block.deleteMany({ where: { OR: [{ blockerId: { in: userIds } }, { blockedId: { in: userIds } }] } }),
