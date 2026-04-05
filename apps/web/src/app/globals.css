@@ -1632,6 +1632,8 @@ ul {
   padding: 2rem clamp(1.5rem, 5vw, 4rem) 4rem;
   max-width: 48rem;
   margin: 0 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .about-steps {
@@ -1642,9 +1644,17 @@ ul {
 
 .about-step {
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   padding: 1.5rem 0;
   border-bottom: 1px solid var(--border);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.about-step > :not(.about-step-num) {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .about-step:last-child {
@@ -1670,6 +1680,8 @@ ul {
   font-size: 1.05rem;
   font-weight: 600;
   margin: 0 0 0.35rem;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .about-step p {
@@ -1677,6 +1689,8 @@ ul {
   line-height: 1.7;
   font-size: 0.92rem;
   margin: 0;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 .about-cta {
