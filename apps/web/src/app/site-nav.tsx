@@ -82,33 +82,35 @@ export function SiteNav() {
             {item.label}
           </Link>
         ))}
-        {authenticatedUser ? (
-          <>
-            <Link href="/dashboard" onClick={() => setMenuOpen(false)}>
-              我的匹配
-            </Link>
-            <button
-              type="button"
-              className="site-nav-action"
-              onClick={() => void handleLogout()}
-            >
-              退出
-            </button>
-          </>
-        ) : (
-          <>
-            <Link href="/login" onClick={() => setMenuOpen(false)}>
-              登录
-            </Link>
-            <Link
-              className="button-ghost"
-              href="/register"
-              onClick={() => setMenuOpen(false)}
-            >
-              立即加入
-            </Link>
-          </>
-        )}
+        <div className="site-nav-auth-cluster">
+          {authenticatedUser ? (
+            <>
+              <Link href="/dashboard" onClick={() => setMenuOpen(false)}>
+                我的匹配
+              </Link>
+              <button
+                type="button"
+                className="site-nav-action"
+                onClick={() => void handleLogout()}
+              >
+                退出
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" onClick={() => setMenuOpen(false)}>
+                登录
+              </Link>
+              <Link
+                className="button-ghost"
+                href="/register"
+                onClick={() => setMenuOpen(false)}
+              >
+                立即加入
+              </Link>
+            </>
+          )}
+        </div>
       </nav>
     </div>
   );
