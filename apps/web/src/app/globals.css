@@ -868,7 +868,8 @@ ul {
 .question-block input,
 .question-block textarea,
 .question-block select,
-.admin-search input {
+.admin-search input,
+.admin-capacity-field input {
   width: 100%;
   padding: 0.8rem 1rem;
   border: 1.5px solid var(--border-strong);
@@ -886,7 +887,8 @@ ul {
 .question-block input:focus,
 .question-block textarea:focus,
 .question-block select:focus,
-.admin-search input:focus {
+.admin-search input:focus,
+.admin-capacity-field input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
@@ -2575,6 +2577,26 @@ padding: 0.85rem 1rem;
 .admin-field-label {
   font-size: 0.88rem;
   font-weight: 500;
+}
+
+.admin-capacity-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  max-width: 22rem;
+}
+
+.admin-capacity-field > label.admin-field-label {
+  margin: 0;
+}
+
+.admin-capacity-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--fg-secondary);
+  line-height: 1.45;
 }
 
 .admin-inline-form {
