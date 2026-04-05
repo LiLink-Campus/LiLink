@@ -82,6 +82,15 @@ export class AdminController {
     return this.adminService.deleteSchool(schoolId, request.admin!.id);
   }
 
+  @Post('schools/:sourceId/merge-into/:targetId')
+  mergeSchools(
+    @Req() request: AdminAuthenticatedRequest,
+    @Param('sourceId') sourceId: string,
+    @Param('targetId') targetId: string,
+  ) {
+    return this.adminService.mergeSchools(sourceId, targetId, request.admin!.id);
+  }
+
   @Put('cycles')
   upsertCycle(
     @Req() request: AdminAuthenticatedRequest,

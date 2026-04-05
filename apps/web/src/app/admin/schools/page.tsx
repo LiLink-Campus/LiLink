@@ -30,6 +30,7 @@ export default function AdminSchoolsPage() {
   const [form, setForm] = useState(emptySchoolForm);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mergeSource, setMergeSource] = useState<AdminSchool | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const deferredSearch = useDeferredValue(search);
@@ -103,6 +104,33 @@ export default function AdminSchoolsPage() {
     } catch (caughtError) {
       setError(
         caughtError instanceof Error ? caughtError.message : "保存失败。",
+      );
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function mergeInto(target: AdminSchool) {
+    if (!mergeSource || mergeSource.id === target.id) return;
+    if (
+      !confirm(
+        `确定将「${mergeSource.name}」的所有用户和域名合并到「${target.name}」？\n合并后「${mergeSource.name}」将被删除，此操作不可撤回。`,
+      )
+    )
+      return;
+
+    setPending("merge");
+    setError(null);
+    try {
+      await fetchApi(
+        `/admin/schools/${mergeSource.id}/merge-into/${target.id}`,
+        { method: "POST" },
+      );
+      setMergeSource(null);
+      await refresh();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : "合并失败。",
       );
     } finally {
       setPending(null);
@@ -259,6 +287,13 @@ export default function AdminSchoolsPage() {
         )}
       </div>
 
+      {mergeSource && (
+        <div className="form-success" style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>已选择「{mergeSource.name}」为合并来源，点击目标学校卡片上的「合并到此」完成合并。</span>
+          <button type="button" className="button-secondary" onClick={() => setMergeSource(null)} style={{ minHeight: "1.8rem", padding: "0 0.75rem", fontSize: "0.82rem" }}>取消合并</button>
+        </div>
+      )}
+
       {loadError && (
         <p className="form-error" style={{ marginBottom: "1rem" }}>
           {loadError}
@@ -324,6 +359,26 @@ export default function AdminSchoolsPage() {
 
                 {!isEditing && (
                   <div className="qb-card-actions">
+                    {mergeSource && mergeSource.id !== school.id ? (
+                      <button
+                        type="button"
+                        title={`合并「${mergeSource.name}」到此学校`}
+                        disabled={pending === "merge"}
+                        onClick={() => void mergeInto(school)}
+                        style={{ fontSize: "0.82rem", padding: "0.15rem 0.5rem" }}
+                      >
+                        {pending === "merge" ? "合并中…" : "合并到此"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        title="选为合并来源"
+                        onClick={() => setMergeSource(mergeSource?.id === school.id ? null : school)}
+                        style={mergeSource?.id === school.id ? { color: "var(--accent)" } : undefined}
+                      >
+                        ⇄
+                      </button>
+                    )}
                     <button
                       type="button"
                       title="编辑"

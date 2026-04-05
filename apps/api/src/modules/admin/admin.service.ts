@@ -426,6 +426,18 @@ export class AdminService {
     return this.adminSchoolService.delete(schoolId, adminActorId);
   }
 
+  async mergeSchools(
+    sourceSchoolId: string,
+    targetSchoolId: string,
+    adminActorId: string,
+  ) {
+    return this.adminSchoolService.merge(
+      sourceSchoolId,
+      targetSchoolId,
+      adminActorId,
+    );
+  }
+
   async upsertCycle(input: UpsertCycleDto, adminActorId: string) {
     if (input.cycleId) {
       const cycle = await this.prisma.matchCycle.update({
