@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getLandingPayload } from "../lib/api";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 /** Homepage hero strip: public-facing counts differ from admin/API totals. */
 const HOMEPAGE_REGISTERED_COUNT_PAD = 10;
