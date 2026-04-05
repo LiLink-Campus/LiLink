@@ -31,6 +31,11 @@ export default function AdminOverviewPage() {
   const [settingsPending, setSettingsPending] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
 
+  const [seedPending, setSeedPending] = useState(false);
+  const [seedMsg, setSeedMsg] = useState<string | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
+
   useEffect(() => {
     fetchApi<SystemSettings>("/admin/settings")
       .then((s) => {
@@ -277,6 +282,68 @@ export default function AdminOverviewPage() {
             )}
           </div>
         </article>
+      </section>
+
+      {/* Test tools */}
+      <section className="content-panel" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
+        <div className="admin-section-header" style={{ marginBottom: "1rem" }}>
+          <div>
+            <p className="eyebrow">测试工具</p>
+            <h2>测试数据管理</h2>
+          </div>
+        </div>
+        <p style={{ fontSize: "0.9rem", color: "var(--fg-secondary)", marginBottom: "1rem" }}>
+          一键生成 30 个测试用户（含问卷与轮次参与），用于验证匹配流程。所有测试用户密码统一为 <code>TestDemo_LiLink_42!</code>
+        </p>
+        <div className="auth-actions" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
+          <button
+            className="button-primary"
+            type="button"
+            disabled={seedPending}
+            onClick={async () => {
+              setSeedPending(true);
+              setSeedMsg(null);
+              setDeleteMsg(null);
+              try {
+                const result = await fetchApi<{ createdCount: number; cycleName: string }>("/admin/seed-test-users", { method: "POST" });
+                setSeedMsg(`已创建 ${result.createdCount} 个测试用户，已加入轮次「${result.cycleName}」。`);
+                void refresh();
+              } catch (e) {
+                setSeedMsg(e instanceof Error ? e.message : "生成失败");
+              } finally {
+                setSeedPending(false);
+              }
+            }}
+            style={{ minHeight: "2.2rem", padding: "0 1rem" }}
+          >
+            {seedPending ? "生成中…" : "生成测试用户"}
+          </button>
+          <button
+            className="button-secondary"
+            type="button"
+            disabled={deletePending}
+            onClick={async () => {
+              if (!confirm("确定删除所有标记为「测试用户」的账号？\n此操作不可撤回。")) return;
+              setDeletePending(true);
+              setDeleteMsg(null);
+              setSeedMsg(null);
+              try {
+                const result = await fetchApi<{ deletedCount: number }>("/admin/users/test-users", { method: "DELETE" });
+                setDeleteMsg(`已删除 ${result.deletedCount} 个测试用户。`);
+                void refresh();
+              } catch (e) {
+                setDeleteMsg(e instanceof Error ? e.message : "删除失败");
+              } finally {
+                setDeletePending(false);
+              }
+            }}
+            style={{ minHeight: "2.2rem", padding: "0 1rem", color: "var(--error, #c0392b)" }}
+          >
+            {deletePending ? "删除中…" : "删除全部测试用户"}
+          </button>
+        </div>
+        {seedMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: seedMsg.startsWith("已创建") ? "var(--accent)" : "var(--error)" }}>{seedMsg}</p>}
+        {deleteMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: deleteMsg.startsWith("已删除") ? "var(--accent)" : "var(--error)" }}>{deleteMsg}</p>}
       </section>
 
       {/* Module shortcuts */}

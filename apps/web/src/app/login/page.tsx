@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { fetchApi } from "../../lib/api";
 
 const PASSWORD_MAX_LENGTH = 128;
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +25,7 @@ export default function LoginPage() {
       const nextPath = new URLSearchParams(window.location.search).get("next");
       const redirectPath =
         nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard";
-      router.push(redirectPath);
-      router.refresh();
+      window.location.href = redirectPath;
     } catch (caughtError) {
       setError(
         caughtError instanceof Error ? caughtError.message : "登录失败，请重试。",
