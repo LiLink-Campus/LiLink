@@ -204,6 +204,20 @@ export class AdminController {
     return this.adminService.updateUser(userId, body, request.admin!.id);
   }
 
+  @Put('users/:userId/test-flag')
+  toggleTestFlag(
+    @Req() request: AdminAuthenticatedRequest,
+    @Param('userId') userId: string,
+    @Body() body: { isTest: boolean },
+  ) {
+    return this.adminService.setTestFlag(userId, body.isTest, request.admin!.id);
+  }
+
+  @Delete('users/test-users')
+  deleteTestUsers(@Req() request: AdminAuthenticatedRequest) {
+    return this.adminService.deleteAllTestUsers(request.admin!.id);
+  }
+
   @Get('users')
   getUsers(@Query() query: ListUsersQueryDto) {
     return this.adminService.getUsers(query);

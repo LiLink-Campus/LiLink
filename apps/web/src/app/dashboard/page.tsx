@@ -358,7 +358,15 @@ export default function DashboardPage() {
 
       <section className="content-panel dashboard-panel-wide">
         <p className="eyebrow">匹配</p>
-        {counterpart ? (
+        {dashboard?.lastRevealedRound?.participationStatus === "OPTED_IN" && !dashboard.lastRevealedRound.matched ? (
+          <>
+            <h2>本轮未匹配到对象</h2>
+            <p className="dashboard-muted">
+              你已参加「{dashboard.lastRevealedRound.codename}」这轮匹配；本轮可配对人数不足或没有与你相容的组合，因此没有为你生成匹配对象。
+            </p>
+            <p className="dashboard-muted">下一轮开放报名时，在页面上方点击「参加本轮」即可再次参与；你也可以更新问卷，提高下次匹配成功率。</p>
+          </>
+        ) : counterpart ? (
           <>
             <h2>{introduced ? "引荐与说明" : "本轮匹配"}</h2>
             {!introduced ? <p className="dashboard-muted">揭晓前不会展示对方学校、昵称等可识别信息；下方说明仅来自客观筛选条件与价值观问卷。</p> : null}
@@ -412,14 +420,6 @@ export default function DashboardPage() {
               <>
                 <h2>还没有匹配结果</h2>
                 <p className="dashboard-muted">本轮揭晓后将在此显示匹配说明与后续操作。</p>
-              </>
-            ) : dashboard?.lastRevealedRound?.participationStatus === "OPTED_IN" && !dashboard.lastRevealedRound.matched ? (
-              <>
-                <h2>本轮未匹配到对象</h2>
-                <p className="dashboard-muted">
-                  你已参加「{dashboard.lastRevealedRound.codename}」这轮匹配；本轮可配对人数不足或没有与你相容的组合，因此没有为你生成匹配对象。
-                </p>
-                <p className="dashboard-muted">下一轮开放报名时，在页面上方点击「参加本轮」即可再次参与；你也可以更新问卷，提高下次匹配成功率。</p>
               </>
             ) : (
               <>
