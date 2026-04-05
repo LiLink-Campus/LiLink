@@ -130,7 +130,11 @@ describe('AdminService', () => {
       include: {
         school: true,
         profile: true,
-        questionnaireResponse: true,
+        questionnaireResponse: {
+          select: {
+            submittedAt: true,
+          },
+        },
         participations: {
           orderBy: { createdAt: 'desc' },
           take: 3,
@@ -191,7 +195,11 @@ describe('AdminService', () => {
       include: {
         school: true,
         profile: true,
-        questionnaireResponse: true,
+        questionnaireResponse: {
+          select: {
+            submittedAt: true,
+          },
+        },
         participations: {
           orderBy: { createdAt: 'desc' },
           take: 3,

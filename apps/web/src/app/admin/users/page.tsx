@@ -29,6 +29,9 @@ const USER_STATUS_LABELS: Record<"ALL" | AdminUser["status"], string> = {
   SUSPENDED: "已停用",
 };
 
+/** Matches slim list API: six rows per page, full questionnaire loaded per user via detail endpoint. */
+const ADMIN_USERS_PAGE_SIZE = 6;
+
 type DetailTab = "profile" | "questionnaire" | "cycles";
 
 function formatAnswer(value: unknown): string {
@@ -72,13 +75,16 @@ export default function AdminUsersPage() {
   const [detailTab, setDetailTab] = useState<DetailTab>("profile");
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [userDetail, setUserDetail] = useState<AdminUser | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const deferredSearch = useDeferredValue(search);
   const { data, loading, error, refresh } = useAdminCollection<AdminUser>(
     "/admin/users",
     {
       page,
-      pageSize: 12,
+      pageSize: ADMIN_USERS_PAGE_SIZE,
       search: deferredSearch.trim(),
       status: statusFilter === "ALL" ? undefined : statusFilter,
       questionnaire: questionnaireFilter,
@@ -96,21 +102,86 @@ export default function AdminUsersPage() {
 
   const selectedUser = users.find((u) => u.id === selectedUserId) ?? null;
 
+  const displayUser =
+    selectedUser && userDetail && userDetail.id === selectedUser.id
+      ? userDetail
+      : selectedUser;
+
+  useEffect(() => {
+    if (!selectedUserId) {
+      setUserDetail(null);
+      setDetailError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError(null);
+
+    void fetchApi<AdminUser>(`/admin/users/${selectedUserId}`)
+      .then((user) => {
+        if (!cancelled) setUserDetail(user);
+      })
+      .catch((caughtError) => {
+        if (!cancelled) {
+          setUserDetail(null);
+          setDetailError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "加载用户详情失败。",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedUserId]);
+
+  async function reloadUserDetail() {
+    if (!selectedUserId) return;
+    setDetailLoading(true);
+    setDetailError(null);
+    try {
+      const user = await fetchApi<AdminUser>(`/admin/users/${selectedUserId}`);
+      setUserDetail(user);
+    } catch (caughtError) {
+      setUserDetail(null);
+      setDetailError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "加载用户详情失败。",
+      );
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
   useEffect(() => {
     setDetailTab("profile");
     setEditing(false);
     setEditForm(null);
   }, [selectedUserId]);
 
+  const questionnaireAnswerCount = useMemo(() => {
+    const answers = displayUser?.questionnaireResponse?.answers;
+    if (!answers || typeof answers !== "object") return null;
+    return Object.keys(answers as Record<string, unknown>).length;
+  }, [displayUser]);
+
   const answerGroups = useMemo(() => {
-    const answers = selectedUser?.questionnaireResponse?.answers;
+    if (detailTab !== "questionnaire") return null;
+    const answers = displayUser?.questionnaireResponse?.answers;
     if (!answers || typeof answers !== "object") return null;
 
     const entries = Object.entries(answers as Record<string, unknown>);
     const hardMatch = entries.filter(([k]) => HARD_MATCH_KEY_SET.has(k));
     const questionnaire = entries.filter(([k]) => !HARD_MATCH_KEY_SET.has(k));
     return { hardMatch, questionnaire, total: entries.length };
-  }, [selectedUser]);
+  }, [displayUser, detailTab]);
 
   function startEditing() {
     if (!selectedUser) return;
@@ -151,6 +222,7 @@ export default function AdminUsersPage() {
       setEditing(false);
       setEditForm(null);
       await refresh();
+      await reloadUserDetail();
     } catch (caughtError) {
       setActionError(caughtError instanceof Error ? caughtError.message : "用户信息更新失败。");
     } finally {
@@ -169,6 +241,7 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ isTest: nextValue }),
       });
       await refresh();
+      await reloadUserDetail();
     } catch (caughtError) {
       setActionError(caughtError instanceof Error ? caughtError.message : "操作失败。");
     } finally {
@@ -203,6 +276,7 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ status }),
       });
       await refresh();
+      await reloadUserDetail();
     } catch (caughtError) {
       setActionError(caughtError instanceof Error ? caughtError.message : "用户状态更新失败。");
     } finally {
@@ -330,20 +404,25 @@ export default function AdminUsersPage() {
 
         {/* ── User detail ─── */}
         <article className="content-panel admin-detail-panel">
-          {selectedUser ? (
+          {displayUser ? (
             <div className="admin-page-stack">
+              {detailError ? (
+                <p className="form-error" role="alert">
+                  {detailError}
+                </p>
+              ) : null}
               {/* Header + status buttons */}
               <div className="admin-section-header">
                 <div>
-                  <p className="eyebrow">用户详情{selectedUser.isTest ? " · 测试用户" : ""}</p>
-                  <h2>{selectedUser.displayName ?? "未设置昵称"}</h2>
-                  <p>{selectedUser.email}</p>
+                  <p className="eyebrow">用户详情{displayUser.isTest ? " · 测试用户" : ""}</p>
+                  <h2>{displayUser.displayName ?? "未设置昵称"}</h2>
+                  <p>{displayUser.email}</p>
                 </div>
                 <div className="auth-actions">
                   {(["ACTIVE", "SUSPENDED", "PENDING"] as const).map((s) => (
                     <button
                       key={s}
-                      className={selectedUser.status === s ? "button-primary" : "button-secondary"}
+                      className={displayUser.status === s ? "button-primary" : "button-secondary"}
                       type="button"
                       disabled={pending === s}
                       onClick={() => void updateUserStatus(s)}
@@ -353,31 +432,31 @@ export default function AdminUsersPage() {
                     </button>
                   ))}
                   <button
-                    className={selectedUser.isTest ? "button-primary" : "button-secondary"}
+                    className={displayUser.isTest ? "button-primary" : "button-secondary"}
                     type="button"
                     disabled={pending === "test-flag"}
                     onClick={() => void toggleTestFlag()}
                     style={{ minHeight: "2rem", padding: "0 0.75rem", fontSize: "0.82rem" }}
                   >
-                    {pending === "test-flag" ? "更新中…" : selectedUser.isTest ? "取消测试标记" : "标记为测试"}
+                    {pending === "test-flag" ? "更新中…" : displayUser.isTest ? "取消测试标记" : "标记为测试"}
                   </button>
                 </div>
               </div>
 
               {/* Summary metrics */}
               <div className="admin-inline-metrics">
-                <div><span>学校</span><strong>{selectedUser.school?.name ?? "未识别"}</strong></div>
+                <div><span>学校</span><strong>{displayUser.school?.name ?? "未识别"}</strong></div>
                 <div>
                   <span>注册时间</span>
-                  <strong>{new Intl.DateTimeFormat("zh-CN", { dateStyle: "short" }).format(new Date(selectedUser.createdAt))}</strong>
+                  <strong>{new Intl.DateTimeFormat("zh-CN", { dateStyle: "short" }).format(new Date(displayUser.createdAt))}</strong>
                 </div>
                 <div>
                   <span>问卷</span>
-                  <strong>{selectedUser.questionnaireResponse?.submittedAt ? "已提交" : "未提交"}</strong>
+                  <strong>{displayUser.questionnaireResponse?.submittedAt ? "已提交" : "未提交"}</strong>
                 </div>
                 <div>
                   <span>轮次参与</span>
-                  <strong>{selectedUser.participations.length}</strong>
+                  <strong>{detailLoading ? "…" : displayUser.participations.length}</strong>
                 </div>
               </div>
 
@@ -385,8 +464,11 @@ export default function AdminUsersPage() {
               <div className="admin-tabs">
                 {([
                   { key: "profile" as const, label: "基本资料" },
-                  { key: "questionnaire" as const, label: `问卷回答${answerGroups ? ` (${answerGroups.total})` : ""}` },
-                  { key: "cycles" as const, label: `轮次参与 (${selectedUser.participations.length})` },
+                  {
+                    key: "questionnaire" as const,
+                    label: `问卷回答${questionnaireAnswerCount != null ? ` (${questionnaireAnswerCount})` : ""}`,
+                  },
+                  { key: "cycles" as const, label: `轮次参与 (${displayUser.participations.length})` },
                 ]).map((tab) => (
                   <button
                     key={tab.key}
@@ -450,12 +532,12 @@ export default function AdminUsersPage() {
                       <div className="admin-table-wrap">
                         <table className="admin-table">
                           <tbody>
-                            <tr><td style={{ fontWeight: 600, width: "8rem" }}>昵称</td><td>{selectedUser.displayName ?? "—"}</td></tr>
-                            <tr><td style={{ fontWeight: 600 }}>真实姓名</td><td>{selectedUser.profile?.fullName ?? "—"}</td></tr>
-                            <tr><td style={{ fontWeight: 600 }}>一句话介绍</td><td>{selectedUser.profile?.headline ?? "—"}</td></tr>
-                            <tr><td style={{ fontWeight: 600 }}>年级</td><td>{selectedUser.profile?.schoolYear ?? "—"}</td></tr>
-                            <tr><td style={{ fontWeight: 600 }}>项目 / 专业</td><td>{selectedUser.profile?.programName ?? "—"}</td></tr>
-                            <tr><td style={{ fontWeight: 600 }}>简介</td><td>{selectedUser.profile?.bio ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600, width: "8rem" }}>昵称</td><td>{displayUser.displayName ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>真实姓名</td><td>{displayUser.profile?.fullName ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>一句话介绍</td><td>{displayUser.profile?.headline ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>年级</td><td>{displayUser.profile?.schoolYear ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>项目 / 专业</td><td>{displayUser.profile?.programName ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>简介</td><td>{displayUser.profile?.bio ?? "—"}</td></tr>
                           </tbody>
                         </table>
                       </div>
@@ -518,8 +600,12 @@ export default function AdminUsersPage() {
                         </>
                       )}
                     </div>
-                  ) : (
+                  ) : detailLoading ? (
+                    <div className="admin-empty-state">正在加载问卷详情…</div>
+                  ) : !displayUser.questionnaireResponse?.submittedAt ? (
                     <div className="admin-empty-state">该用户还没有提交问卷。</div>
+                  ) : (
+                    <div className="admin-empty-state">问卷答案暂时无法显示，请稍后重试。</div>
                   )}
                 </div>
               )}
@@ -527,14 +613,16 @@ export default function AdminUsersPage() {
               {/* ── Tab: Cycles ─── */}
               {detailTab === "cycles" && (
                 <div style={{ animation: "fadeIn 0.2s ease" }}>
-                  {selectedUser.participations.length > 0 ? (
+                  {detailLoading ? (
+                    <div className="admin-empty-state">正在加载轮次参与记录…</div>
+                  ) : displayUser.participations.length > 0 ? (
                     <div className="admin-table-wrap">
                       <table className="admin-table">
                         <thead>
                           <tr><th>轮次 ID</th><th>状态</th></tr>
                         </thead>
                         <tbody>
-                          {selectedUser.participations.map((p) => (
+                          {displayUser.participations.map((p) => (
                             <tr key={p.cycleId}>
                               <td style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>{p.cycleId}</td>
                               <td><span className="domain-chip">{p.status === "OPTED_IN" ? "已参加" : "未参加"}</span></td>
