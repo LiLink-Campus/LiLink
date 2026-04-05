@@ -1,5 +1,8 @@
 import argon2 from 'argon2';
 import { PrismaClient } from '@prisma/client';
+import { loadMonorepoEnv } from './load-env.mjs';
+
+loadMonorepoEnv();
 
 const prisma = new PrismaClient();
 

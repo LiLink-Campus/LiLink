@@ -109,15 +109,18 @@ model User {
 }
 
 model EmailCode {
-  id         String    @id @default(cuid())
-  email      String
-  codeHash   String
-  purpose    String
-  expiresAt  DateTime
-  consumedAt DateTime?
-  createdAt  DateTime  @default(now())
+  id                String              @id @default(cuid())
+  email             String
+  codeHash          String
+  purpose           String
+  deliveryDedupeKey String              @unique
+  deliveryStatus    OutboundEmailStatus @default(PENDING)
+  sentAt            DateTime?
+  expiresAt         DateTime
+  consumedAt        DateTime?
+  createdAt         DateTime            @default(now())
 
-  @@index([email, purpose, consumedAt, expiresAt])
+  @@index([email, purpose, deliveryStatus, consumedAt, expiresAt])
 }
 
 model UserProfile {

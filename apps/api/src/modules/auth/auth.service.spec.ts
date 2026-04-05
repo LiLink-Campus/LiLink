@@ -3,7 +3,11 @@ jest.mock('argon2', () => ({
   verify: jest.fn(),
 }));
 
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { validateSync } from 'class-validator';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
@@ -77,6 +81,134 @@ describe('AuthService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it('queues and flushes a verification email before returning success', async () => {
+    mockedArgon2.hash.mockResolvedValue('hashed-code');
+
+    const create = jest.fn().mockResolvedValue({
+      id: 'code-1',
+      email: 'user@example.com',
+      deliveryStatus: 'PENDING',
+    });
+    const outboundCreate = jest.fn().mockResolvedValue(undefined);
+    const findUnique = jest.fn().mockResolvedValue({
+      id: 'code-1',
+      deliveryStatus: 'SENT',
+    });
+    const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      emailCode: {
+        findUnique,
+      },
+      $transaction: jest.fn(
+        async (
+          callback: (transaction: {
+            emailCode: { create: typeof create };
+            outboundEmail: { create: typeof outboundCreate };
+          }) => Promise<unknown>,
+        ) =>
+          callback({
+            emailCode: { create },
+            outboundEmail: { create: outboundCreate },
+          }),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {
+        buildVerificationCodeEmail: jest.fn((input) => ({
+          dedupeKey: input.dedupeKey,
+          recipientEmail: input.recipientEmail,
+          subject: 'LiLink verification code',
+          html: '<p>Code</p>',
+          maxAttempts: 1,
+        })),
+        flushQueuedEmails,
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+      } as never,
+      {} as never,
+    );
+
+    const result = await authService.requestCode('user@example.com');
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          email: 'user@example.com',
+          deliveryDedupeKey: expect.stringMatching(/^verification-code:/),
+        }),
+      }),
+    );
+    expect(outboundCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dedupeKey: expect.stringMatching(/^verification-code:/),
+          recipientEmail: 'user@example.com',
+          maxAttempts: 1,
+        }),
+      }),
+    );
+    expect(flushQueuedEmails).toHaveBeenCalledWith({
+      dedupeKeys: [expect.stringMatching(/^verification-code:/)],
+    });
+    expect(result).toMatchObject({
+      email: 'user@example.com',
+      school: { schoolId: 'school-1' },
+    });
+  });
+
+  it('rejects requestCode when the verification email could not be delivered', async () => {
+    mockedArgon2.hash.mockResolvedValue('hashed-code');
+
+    const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      emailCode: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'code-1',
+          deliveryStatus: 'FAILED',
+        }),
+      },
+      $transaction: jest.fn(
+        async (
+          callback: (transaction: {
+            emailCode: { create: jest.Mock };
+            outboundEmail: { create: jest.Mock };
+          }) => Promise<unknown>,
+        ) =>
+          callback({
+            emailCode: {
+              create: jest.fn().mockResolvedValue({ id: 'code-1' }),
+            },
+            outboundEmail: {
+              create: jest.fn().mockResolvedValue(undefined),
+            },
+          }),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {
+        buildVerificationCodeEmail: jest.fn((input) => ({
+          dedupeKey: input.dedupeKey,
+          recipientEmail: input.recipientEmail,
+          subject: 'LiLink verification code',
+          html: '<p>Code</p>',
+          maxAttempts: 1,
+        })),
+        flushQueuedEmails,
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      authService.requestCode('user@example.com'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('rejects passwords that exceed the configured maximum length', () => {

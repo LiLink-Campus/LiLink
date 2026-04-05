@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -26,23 +27,51 @@ export class AuthService {
 
     await this.assertEmailDomainAllowed(domain);
 
+    const school =
+      await this.schoolResolverService.resolveByEmail(normalizedEmail);
     const code = String(randomInt(100000, 999999));
     const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const deliveryDedupeKey = `verification-code:${randomUUID()}`;
+    const queuedEmail = this.mailService.buildVerificationCodeEmail({
+      dedupeKey: deliveryDedupeKey,
+      recipientEmail: normalizedEmail,
+      code,
+    });
 
-    await this.prisma.emailCode.create({
-      data: {
-        email: normalizedEmail,
-        codeHash,
-        purpose: 'register',
-        expiresAt,
+    const createdCode = await this.prisma.$transaction(async (tx) => {
+      const emailCode = await tx.emailCode.create({
+        data: {
+          email: normalizedEmail,
+          codeHash,
+          purpose: 'register',
+          deliveryDedupeKey,
+          expiresAt,
+        },
+      });
+
+      await tx.outboundEmail.create({
+        data: queuedEmail,
+      });
+
+      return emailCode;
+    });
+
+    await this.mailService.flushQueuedEmails({
+      dedupeKeys: [deliveryDedupeKey],
+    });
+
+    const deliveredCode = await this.prisma.emailCode.findUnique({
+      where: {
+        id: createdCode.id,
       },
     });
 
-    await this.mailService.sendVerificationCode(normalizedEmail, code);
-
-    const school =
-      await this.schoolResolverService.resolveByEmail(normalizedEmail);
+    if (deliveredCode?.deliveryStatus !== 'SENT') {
+      throw new ServiceUnavailableException(
+        'Verification email could not be delivered. Please try again later.',
+      );
+    }
 
     return {
       email: normalizedEmail,
@@ -66,6 +95,7 @@ export class AuthService {
         where: {
           email: normalizedEmail,
           purpose: 'register',
+          deliveryStatus: 'SENT',
           consumedAt: null,
           expiresAt: { gt: new Date() },
         },

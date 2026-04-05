@@ -1,25 +1,30 @@
 import { BadRequestException } from '@nestjs/common';
 
-export const HARD_MATCH_GENDERS = ['男', '女', '非二元'] as const;
-export const HARD_MATCH_LOOKS = ['普通人', '小帅/美', '顶帅/美'] as const;
-export const HARD_MATCH_RACES = ['黄种人', '黑种人', '白种人'] as const;
+import {
+  HARD_MATCH_GENDERS,
+  HARD_MATCH_HEIGHT_MAX_CM,
+  HARD_MATCH_HEIGHT_MIN_CM,
+  HARD_MATCH_KEYS,
+  HARD_MATCH_LOOKS,
+  HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
+  type HardMatchGender,
+  type HardMatchKey,
+  type HardMatchLooks,
+} from './hard-match.constants';
 
-export const HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH = 200;
+export {
+  HARD_MATCH_GENDERS,
+  HARD_MATCH_HEIGHT_MAX_CM,
+  HARD_MATCH_HEIGHT_MIN_CM,
+  HARD_MATCH_KEYS,
+  HARD_MATCH_LOOKS,
+  HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
+  type HardMatchGender,
+  type HardMatchKey,
+  type HardMatchLooks,
+} from './hard-match.constants';
 
-export const HARD_MATCH_KEYS = {
-  birthDate: 'hard_birth_date',
-  partnerAgeMin: 'hard_partner_age_min',
-  partnerAgeMax: 'hard_partner_age_max',
-  gender: 'hard_gender',
-  partnerGenders: 'hard_partner_genders',
-  looks: 'hard_looks',
-  partnerLooks: 'hard_partner_looks',
-  race: 'hard_race',
-  partnerRaces: 'hard_partner_races',
-  oneLinerIntro: 'hard_one_liner_intro',
-} as const;
-
-const HARD_MATCH_FIELD_LABELS = {
+const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
   [HARD_MATCH_KEYS.birthDate]: '出生年月日',
   [HARD_MATCH_KEYS.partnerAgeMin]: '希望对方年龄下限',
   [HARD_MATCH_KEYS.partnerAgeMax]: '希望对方年龄上限',
@@ -27,16 +32,11 @@ const HARD_MATCH_FIELD_LABELS = {
   [HARD_MATCH_KEYS.partnerGenders]: '希望对方的性别',
   [HARD_MATCH_KEYS.looks]: '颜值自评',
   [HARD_MATCH_KEYS.partnerLooks]: '希望对方的颜值',
-  [HARD_MATCH_KEYS.race]: '你的人种',
-  [HARD_MATCH_KEYS.partnerRaces]: '希望对方的人种',
+  [HARD_MATCH_KEYS.heightCm]: '身高（厘米）',
+  [HARD_MATCH_KEYS.partnerHeightMin]: '希望对方身高下限（厘米）',
+  [HARD_MATCH_KEYS.partnerHeightMax]: '希望对方身高上限（厘米）',
   [HARD_MATCH_KEYS.oneLinerIntro]: '一句话介绍',
-} as const;
-
-export type HardMatchGender = (typeof HARD_MATCH_GENDERS)[number];
-export type HardMatchLooks = (typeof HARD_MATCH_LOOKS)[number];
-export type HardMatchRace = (typeof HARD_MATCH_RACES)[number];
-export type HardMatchKey =
-  (typeof HARD_MATCH_KEYS)[keyof typeof HARD_MATCH_KEYS];
+};
 
 export type HardMatchAnswers = {
   birthDate: string;
@@ -46,8 +46,9 @@ export type HardMatchAnswers = {
   partnerGenders: HardMatchGender[];
   looks: HardMatchLooks;
   partnerLooks: HardMatchLooks[];
-  race: HardMatchRace;
-  partnerRaces: HardMatchRace[];
+  heightCm: number;
+  partnerHeightMin: number;
+  partnerHeightMax: number;
   oneLinerIntro: string;
 };
 
@@ -59,8 +60,9 @@ export type HardMatchAnswerRecord = {
   [HARD_MATCH_KEYS.partnerGenders]: HardMatchGender[];
   [HARD_MATCH_KEYS.looks]: HardMatchLooks;
   [HARD_MATCH_KEYS.partnerLooks]: HardMatchLooks[];
-  [HARD_MATCH_KEYS.race]: HardMatchRace;
-  [HARD_MATCH_KEYS.partnerRaces]: HardMatchRace[];
+  [HARD_MATCH_KEYS.heightCm]: number;
+  [HARD_MATCH_KEYS.partnerHeightMin]: number;
+  [HARD_MATCH_KEYS.partnerHeightMax]: number;
   [HARD_MATCH_KEYS.oneLinerIntro]: string;
 };
 
@@ -138,6 +140,21 @@ function normalizeAge(value: unknown, key: HardMatchKey): number {
 
   if (value < 1 || value > 100) {
     throw invalidFieldError(key, 'must be between 1 and 100.');
+  }
+
+  return value;
+}
+
+function normalizeHeight(value: unknown, key: HardMatchKey): number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw requiredFieldError(key);
+  }
+
+  if (value < HARD_MATCH_HEIGHT_MIN_CM || value > HARD_MATCH_HEIGHT_MAX_CM) {
+    throw invalidFieldError(
+      key,
+      `must be between ${HARD_MATCH_HEIGHT_MIN_CM} and ${HARD_MATCH_HEIGHT_MAX_CM}.`,
+    );
   }
 
   return value;
@@ -293,6 +310,26 @@ function normalizeHardMatchValues(
     );
   }
 
+  const heightCm = normalizeHeight(
+    rawAnswers[HARD_MATCH_KEYS.heightCm],
+    HARD_MATCH_KEYS.heightCm,
+  );
+
+  const partnerHeightMin = normalizeHeight(
+    rawAnswers[HARD_MATCH_KEYS.partnerHeightMin],
+    HARD_MATCH_KEYS.partnerHeightMin,
+  );
+  const partnerHeightMax = normalizeHeight(
+    rawAnswers[HARD_MATCH_KEYS.partnerHeightMax],
+    HARD_MATCH_KEYS.partnerHeightMax,
+  );
+
+  if (partnerHeightMin > partnerHeightMax) {
+    throw new BadRequestException(
+      `Question "${labelFor(HARD_MATCH_KEYS.partnerHeightMin)}" must be less than or equal to "${labelFor(HARD_MATCH_KEYS.partnerHeightMax)}".`,
+    );
+  }
+
   return {
     birthDate: normalizeBirthDate(rawAnswers[HARD_MATCH_KEYS.birthDate]),
     partnerAgeMin,
@@ -317,16 +354,9 @@ function normalizeHardMatchValues(
       HARD_MATCH_KEYS.partnerLooks,
       HARD_MATCH_LOOKS,
     ),
-    race: normalizeSingleChoice(
-      rawAnswers[HARD_MATCH_KEYS.race],
-      HARD_MATCH_KEYS.race,
-      HARD_MATCH_RACES,
-    ),
-    partnerRaces: normalizeMultiChoice(
-      rawAnswers[HARD_MATCH_KEYS.partnerRaces],
-      HARD_MATCH_KEYS.partnerRaces,
-      HARD_MATCH_RACES,
-    ),
+    heightCm,
+    partnerHeightMin,
+    partnerHeightMax,
     oneLinerIntro: normalizeOneLinerIntroValue(
       rawAnswers[HARD_MATCH_KEYS.oneLinerIntro],
       { allowEmpty: true },
@@ -351,8 +381,9 @@ export function normalizeHardMatchAnswers(
     [HARD_MATCH_KEYS.partnerGenders]: normalizedValues.partnerGenders,
     [HARD_MATCH_KEYS.looks]: normalizedValues.looks,
     [HARD_MATCH_KEYS.partnerLooks]: normalizedValues.partnerLooks,
-    [HARD_MATCH_KEYS.race]: normalizedValues.race,
-    [HARD_MATCH_KEYS.partnerRaces]: normalizedValues.partnerRaces,
+    [HARD_MATCH_KEYS.heightCm]: normalizedValues.heightCm,
+    [HARD_MATCH_KEYS.partnerHeightMin]: normalizedValues.partnerHeightMin,
+    [HARD_MATCH_KEYS.partnerHeightMax]: normalizedValues.partnerHeightMax,
     [HARD_MATCH_KEYS.oneLinerIntro]: normalizedValues.oneLinerIntro,
   };
 }
@@ -407,8 +438,10 @@ export function areHardMatchAnswersCompatible(
   }
 
   if (
-    !multiPreferenceMatches(left.partnerRaces, right.race, HARD_MATCH_RACES) ||
-    !multiPreferenceMatches(right.partnerRaces, left.race, HARD_MATCH_RACES)
+    left.heightCm < right.partnerHeightMin ||
+    left.heightCm > right.partnerHeightMax ||
+    right.heightCm < left.partnerHeightMin ||
+    right.heightCm > left.partnerHeightMax
   ) {
     return false;
   }

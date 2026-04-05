@@ -17,6 +17,8 @@
     "db:generate": "npm --prefix apps/api run prisma:generate",
     "db:migrate": "npm --prefix apps/api run prisma:migrate",
     "db:seed": "npm --prefix apps/api run prisma:seed",
+    "db:seed-defaults": "npm --prefix apps/api run prisma:seed-defaults",
+    "db:seed:default": "npm --prefix apps/api run prisma:seed:default",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down"
   },

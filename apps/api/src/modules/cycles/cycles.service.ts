@@ -63,7 +63,7 @@ function buildInsufficientParticipantsMessage(
     return `${prefix} No users are opted in (OPTED_IN) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers are required.`;
   }
   if (eligibleCount === 0) {
-    return `${prefix} ${optedInCount} user(s) opted in, but none have valid hard-matching questionnaire answers (birth date, partner age range, gender / partner genders, looks / partner looks, race / partner races).`;
+    return `${prefix} ${optedInCount} user(s) opted in, but none have valid hard-matching questionnaire answers (birth date, partner age range, gender / partner genders, looks / partner looks, height / partner height range).`;
   }
   return `${prefix} Only ${eligibleCount} of ${optedInCount} opted-in user(s) are eligible; at least 2 are required.`;
 }

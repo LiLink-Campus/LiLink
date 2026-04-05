@@ -1,13 +1,20 @@
-import 'dotenv/config';
+import { config as loadEnv } from 'dotenv';
+import path from 'path';
 import * as argon2 from 'argon2';
 import type { Prisma } from '@prisma/client';
 import { PrismaClient, QuestionType, UserStatus } from '@prisma/client';
 import {
   HARD_MATCH_GENDERS,
+  HARD_MATCH_HEIGHT_MAX_CM,
+  HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
-  HARD_MATCH_RACES,
-} from '../src/modules/questionnaire/hard-match';
+} from '../src/modules/questionnaire/hard-match.constants';
+
+const apiRoot = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(apiRoot, '..', '..');
+loadEnv({ path: path.join(repoRoot, '.env') });
+loadEnv({ path: path.join(apiRoot, '.env'), override: true });
 
 const prisma = new PrismaClient();
 
@@ -645,7 +652,7 @@ const schools = [
   },
 ];
 
-async function main() {
+async function seedSchoolsAndDomains() {
   for (const school of schools) {
     const createdSchool = await prisma.school.upsert({
       where: { slug: school.slug },
@@ -673,8 +680,32 @@ async function main() {
       });
     }
   }
+}
 
+/** Schools + current questionnaire version only (no users, cycles, or responses). */
+async function seedDefaultRepositoryData() {
+    await seedSchoolsAndDomains();
   await ensureCurrentQuestionnaireVersion();
+}
+
+function seedScope(): 'full' | 'default' {
+    const raw = process.env.SEED_SCOPE?.trim().toLowerCase();
+    if (raw === 'default' || raw === 'repo') {
+        return 'default';
+    }
+    return 'full';
+}
+
+async function main() {
+    const scope = seedScope();
+
+    await seedDefaultRepositoryData();
+    if (scope === 'default') {
+        console.log(
+            '[seed] SEED_SCOPE=default: schools + questionnaire only; skipped match cycle and users.',
+        );
+        return;
+    }
 
   const now = new Date();
   const revealAt = new Date(now);
@@ -719,7 +750,6 @@ const TARGET_SEED_PARTICIPANTS = 30;
 const BULK_SEED_USER_COUNT = Math.max(0, TARGET_SEED_PARTICIPANTS - 3);
 
 const ALL_HARD_LOOKS = [...HARD_MATCH_LOOKS];
-const ALL_HARD_RACES = [...HARD_MATCH_RACES];
 
 /** Rotating one-liner intros for seed users (keeps mail / admin previews realistic). */
 const SEED_ONE_LINER_ROTATION = [
@@ -867,8 +897,18 @@ function bulkHardAnswers(index: number): Record<string, unknown> {
     [HARD_MATCH_KEYS.partnerGenders]: partnerGenders,
     [HARD_MATCH_KEYS.looks]: HARD_MATCH_LOOKS[index % HARD_MATCH_LOOKS.length],
     [HARD_MATCH_KEYS.partnerLooks]: ALL_HARD_LOOKS,
-    [HARD_MATCH_KEYS.race]: HARD_MATCH_RACES[index % HARD_MATCH_RACES.length],
-    [HARD_MATCH_KEYS.partnerRaces]: ALL_HARD_RACES,
+    [HARD_MATCH_KEYS.heightCm]: Math.min(
+      HARD_MATCH_HEIGHT_MAX_CM,
+      Math.max(HARD_MATCH_HEIGHT_MIN_CM, 155 + (index % 30)),
+    ),
+    [HARD_MATCH_KEYS.partnerHeightMin]: Math.min(
+      HARD_MATCH_HEIGHT_MAX_CM,
+      Math.max(HARD_MATCH_HEIGHT_MIN_CM, 140 + (index % 10)),
+    ),
+    [HARD_MATCH_KEYS.partnerHeightMax]: Math.min(
+      HARD_MATCH_HEIGHT_MAX_CM,
+      Math.max(HARD_MATCH_HEIGHT_MIN_CM, 200 - (index % 10)),
+    ),
     [HARD_MATCH_KEYS.oneLinerIntro]: seedOneLinerIntroForBulkIndex(index),
   };
 }
@@ -1140,7 +1180,6 @@ async function seedMatchDemoAccounts(prisma: PrismaClient) {
   const passwordHash = await argon2.hash(DEMO_MATCH_PASSWORD);
   const soft = demoSoftAnswers();
   const allLooks = [...HARD_MATCH_LOOKS];
-  const allRaces = [...HARD_MATCH_RACES];
 
   const aliceAnswers: Record<string, unknown> = {
     ...soft,
@@ -1151,8 +1190,9 @@ async function seedMatchDemoAccounts(prisma: PrismaClient) {
     [HARD_MATCH_KEYS.partnerGenders]: ['女'],
     [HARD_MATCH_KEYS.looks]: '普通人',
     [HARD_MATCH_KEYS.partnerLooks]: allLooks,
-    [HARD_MATCH_KEYS.race]: '黄种人',
-    [HARD_MATCH_KEYS.partnerRaces]: allRaces,
+    [HARD_MATCH_KEYS.heightCm]: 178,
+    [HARD_MATCH_KEYS.partnerHeightMin]: 150,
+    [HARD_MATCH_KEYS.partnerHeightMax]: 185,
     [HARD_MATCH_KEYS.oneLinerIntro]:
       '工科背景，喜欢徒步与摄影，情绪稳定。（演示账号 Alice）',
   };
@@ -1166,8 +1206,9 @@ async function seedMatchDemoAccounts(prisma: PrismaClient) {
     [HARD_MATCH_KEYS.partnerGenders]: ['男'],
     [HARD_MATCH_KEYS.looks]: '小帅/美',
     [HARD_MATCH_KEYS.partnerLooks]: allLooks,
-    [HARD_MATCH_KEYS.race]: '黄种人',
-    [HARD_MATCH_KEYS.partnerRaces]: allRaces,
+    [HARD_MATCH_KEYS.heightCm]: 165,
+    [HARD_MATCH_KEYS.partnerHeightMin]: 168,
+    [HARD_MATCH_KEYS.partnerHeightMax]: 195,
     [HARD_MATCH_KEYS.oneLinerIntro]:
       '文创方向，读书看电影，希望遇到温柔耐心、能接住情绪的人。（演示 Bob）',
   };
@@ -1182,8 +1223,9 @@ async function seedMatchDemoAccounts(prisma: PrismaClient) {
     [HARD_MATCH_KEYS.partnerGenders]: ['女'],
     [HARD_MATCH_KEYS.looks]: '普通人',
     [HARD_MATCH_KEYS.partnerLooks]: allLooks,
-    [HARD_MATCH_KEYS.race]: '黄种人',
-    [HARD_MATCH_KEYS.partnerRaces]: allRaces,
+    [HARD_MATCH_KEYS.heightCm]: 162,
+    [HARD_MATCH_KEYS.partnerHeightMin]: 155,
+    [HARD_MATCH_KEYS.partnerHeightMax]: 180,
     [HARD_MATCH_KEYS.oneLinerIntro]:
       '常驻图书馆自习，想认识可以一起跑步或打球的朋友。（演示 Carol，未匹配示例）',
   };

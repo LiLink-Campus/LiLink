@@ -3,7 +3,6 @@ import {
   HARD_MATCH_GENDERS,
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
-  HARD_MATCH_RACES,
   areHardMatchAnswersCompatible,
   normalizeHardMatchAnswers,
   tryReadHardMatchAnswers,
@@ -18,8 +17,9 @@ describe('hard-match helpers', () => {
     [HARD_MATCH_KEYS.partnerGenders]: [...HARD_MATCH_GENDERS],
     [HARD_MATCH_KEYS.looks]: '普通人',
     [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
-    [HARD_MATCH_KEYS.race]: '黄种人',
-    [HARD_MATCH_KEYS.partnerRaces]: [...HARD_MATCH_RACES],
+    [HARD_MATCH_KEYS.heightCm]: 175,
+    [HARD_MATCH_KEYS.partnerHeightMin]: 150,
+    [HARD_MATCH_KEYS.partnerHeightMax]: 190,
     [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
   } as const;
 
@@ -32,8 +32,9 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.partnerGenders]: ['男', '女', '非二元'],
       [HARD_MATCH_KEYS.looks]: '普通人',
       [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美', '顶帅/美'],
-      [HARD_MATCH_KEYS.race]: '黄种人',
-      [HARD_MATCH_KEYS.partnerRaces]: ['黄种人', '黑种人', '白种人'],
+      [HARD_MATCH_KEYS.heightCm]: 175,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 150,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 190,
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
     });
   });
@@ -55,7 +56,7 @@ describe('hard-match helpers', () => {
     ).toThrow(BadRequestException);
   });
 
-  it('applies age and mutual preference hard filters', () => {
+  it('applies age, height, and mutual preference hard filters', () => {
     const left = tryReadHardMatchAnswers(validAnswers)!;
     const rightAnswers = {
       [HARD_MATCH_KEYS.birthDate]: '2001-07-12',
@@ -65,8 +66,9 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.partnerGenders]: ['男'],
       [HARD_MATCH_KEYS.looks]: '小帅/美',
       [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美'],
-      [HARD_MATCH_KEYS.race]: '白种人',
-      [HARD_MATCH_KEYS.partnerRaces]: ['黄种人', '白种人'],
+      [HARD_MATCH_KEYS.heightCm]: 165,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 170,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 195,
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢画画，常在图书馆自习。',
     } as const;
     const right = tryReadHardMatchAnswers(rightAnswers)!;
@@ -88,6 +90,26 @@ describe('hard-match helpers', () => {
       areHardMatchAnswersCompatible(
         left,
         mismatchedRight,
+        new Date('2026-05-20T00:00:00.000Z'),
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects when height is out of partner range', () => {
+    const left = tryReadHardMatchAnswers(validAnswers)!;
+    const tooTallRight = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.gender]: '女',
+      [HARD_MATCH_KEYS.partnerGenders]: ['男'],
+      [HARD_MATCH_KEYS.heightCm]: 200,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 180,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 210,
+    })!;
+
+    expect(
+      areHardMatchAnswersCompatible(
+        left,
+        tooTallRight,
         new Date('2026-05-20T00:00:00.000Z'),
       ),
     ).toBe(false);

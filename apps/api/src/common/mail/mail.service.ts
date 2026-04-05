@@ -30,6 +30,12 @@ type IntroductionEmailInput = {
   reasons: string[];
 };
 
+type VerificationCodeEmailInput = {
+  dedupeKey: string;
+  recipientEmail: string;
+  code: string;
+};
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -49,18 +55,14 @@ export class MailService {
         : undefined,
   });
 
-  async sendVerificationCode(email: string, code: string) {
-    await this.transporter.sendMail({
-      from: env.SMTP_FROM,
-      to: email,
+  buildVerificationCodeEmail(input: VerificationCodeEmailInput) {
+    return {
+      dedupeKey: input.dedupeKey,
+      recipientEmail: input.recipientEmail,
       subject: 'LiLink verification code',
-      text: `Your LiLink verification code is ${code}. It expires in 10 minutes.`,
-      html: `<p>Your LiLink verification code is <strong>${code}</strong>. It expires in 10 minutes.</p>`,
-    });
-
-    if (env.APP_ENV !== 'production') {
-      this.logger.log(`Verification code for ${email}: ${code}`);
-    }
+      html: `<p>Your LiLink verification code is <strong>${input.code}</strong>. It expires in 10 minutes.</p>`,
+      maxAttempts: 1,
+    };
   }
 
   buildIntroductionEmails(input: IntroductionEmailInput) {
@@ -186,6 +188,7 @@ export class MailService {
     }
 
     try {
+      const sentAt = new Date();
       await this.transporter.sendMail({
         from: env.SMTP_FROM,
         to: email.recipientEmail,
@@ -197,10 +200,15 @@ export class MailService {
         where: { id: email.id },
         data: {
           status: 'SENT',
-          sentAt: new Date(),
+          sentAt,
           nextAttemptAt: null,
           errorMessage: null,
         },
+      });
+
+      await this.syncVerificationCodeStatus(email.dedupeKey, {
+        deliveryStatus: 'SENT',
+        sentAt,
       });
     } catch (error) {
       const nextAttemptNumber = email.attempts + 1;
@@ -222,9 +230,32 @@ export class MailService {
         },
       });
 
+      await this.syncVerificationCodeStatus(email.dedupeKey, {
+        deliveryStatus: exhausted ? 'EXHAUSTED' : 'FAILED',
+      });
+
       this.logger.warn(
         `Email delivery failed for ${email.dedupeKey}: ${errorMessage}`,
       );
     }
+  }
+
+  private async syncVerificationCodeStatus(
+    dedupeKey: string,
+    data: {
+      deliveryStatus: 'SENT' | 'FAILED' | 'EXHAUSTED';
+      sentAt?: Date | null;
+    },
+  ) {
+    if (!dedupeKey.startsWith('verification-code:')) {
+      return;
+    }
+
+    await this.prisma.emailCode.updateMany({
+      where: {
+        deliveryDedupeKey: dedupeKey,
+      },
+      data,
+    });
   }
 }

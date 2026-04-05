@@ -13,6 +13,7 @@ import {
 import { AdminAuditService } from './admin-audit.service';
 import { AdminSchoolService } from './admin-school.service';
 import {
+    AdminUpdateUserDto,
   BatchReviewReportsDto,
   ListAuditLogsQueryDto,
   ListCyclesQueryDto,
@@ -989,6 +990,53 @@ export class AdminService {
     await this.adminAuditService.write(adminActorId, 'user.status_updated', {
       userId,
       status: input.status,
+    });
+
+    return updatedUser;
+  }
+
+  async updateUser(
+    userId: string,
+    input: AdminUpdateUserDto,
+    adminActorId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (input.displayName !== undefined) updateData.displayName = input.displayName;
+    if (input.status !== undefined) updateData.status = input.status;
+    if (input.schoolId !== undefined) updateData.schoolId = input.schoolId || null;
+
+    if (input.email !== undefined) {
+      const normalizedEmail = input.email.trim().toLowerCase();
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+      if (existingUser && existingUser.id !== userId) {
+        throw new BadRequestException('This email is already in use by another user.');
+      }
+      updateData.email = normalizedEmail;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException('No fields to update.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      omit: { passwordHash: true },
+    });
+
+    await this.adminAuditService.write(adminActorId, 'user.updated', {
+      userId,
+      fields: Object.keys(updateData),
     });
 
     return updatedUser;
