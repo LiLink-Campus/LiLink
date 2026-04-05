@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { fetchApi } from "../../lib/api";
 import {
   AGE_OPTIONS,
@@ -119,10 +119,26 @@ export default function DashboardPage() {
   const [reportDetails, setReportDetails] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
   const [editingDisplayName, setEditingDisplayName] = useState("");
+  const [questionnaireBodyVisible, setQuestionnaireBodyVisible] = useState(true);
+  const initialQuestionnaireVisibilitySet = useRef(false);
 
   useEffect(() => {
     setEditingDisplayName(user?.displayName ?? "");
   }, [user?.displayName]);
+
+  useEffect(() => {
+    if (
+      loading ||
+      !dashboard ||
+      initialQuestionnaireVisibilitySet.current
+    ) {
+      return;
+    }
+    initialQuestionnaireVisibilitySet.current = true;
+    if (dashboard.questionnaireSubmittedAt) {
+      setQuestionnaireBodyVisible(false);
+    }
+  }, [loading, dashboard]);
 
   const birthDayOptions = useMemo(
     () => buildDayOptions(hardMatchForm.birthYear, hardMatchForm.birthMonth),
@@ -227,6 +243,8 @@ export default function DashboardPage() {
             })
           : Promise.resolve(),
       ]);
+      const nextDashboard = await fetchApi<DashboardPayload>("/me/dashboard");
+      setDashboard(nextDashboard);
       startTransition(() => { setSavedMessage("问卷已保存。"); });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "问卷保存失败。");
@@ -324,6 +342,7 @@ export default function DashboardPage() {
 
   const isOptedIn = dashboard?.currentCycle?.participationStatus === "OPTED_IN";
   const introduced = Boolean(dashboard?.latestMatch?.introducedAt);
+  const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
 
   return (
     <main className="page-shell dashboard-page">
@@ -331,7 +350,9 @@ export default function DashboardPage() {
         <p className="eyebrow">我的匹配</p>
         <h1>欢迎回来</h1>
         <p className="dashboard-lede">
-          在这里填写个人信息、完成价值观问卷，并决定是否参加当前轮次。
+          {hasSavedQuestionnaire
+            ? "你已保存问卷资料，可随时在下方修改并重新保存；并在此决定是否参加当前轮次。"
+            : "在这里填写个人信息、完成价值观问卷，并决定是否参加当前轮次。"}
         </p>
         {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
         {error ? <p className="form-error">{error}</p> : null}
@@ -418,13 +439,25 @@ export default function DashboardPage() {
             {dashboard?.currentCycle?.participationStatus === "OPTED_IN" &&
             (dashboard.currentCycle.status === "OPEN" || dashboard.currentCycle.status === "REVEAL_READY") ? (
               <>
-                <h2>还没有匹配结果</h2>
-                <p className="dashboard-muted">本轮揭晓后将在此显示匹配说明与后续操作。</p>
+                <h2>
+                  {hasSavedQuestionnaire ? "等待本轮揭晓" : "还没有匹配结果"}
+                </h2>
+                <p className="dashboard-muted">
+                  {hasSavedQuestionnaire
+                    ? "你已填写问卷并已参加本轮。揭晓后将在此显示匹配说明与后续操作；在此前可随时展开下方问卷卡片修改资料。"
+                    : "本轮揭晓后将在此显示匹配说明与后续操作。"}
+                </p>
               </>
             ) : (
               <>
-                <h2>还没有匹配结果</h2>
-                <p className="dashboard-muted">报名参加当前轮次并在揭晓后返回此处查看结果。</p>
+                <h2>
+                  {hasSavedQuestionnaire ? "等待匹配" : "还没有匹配结果"}
+                </h2>
+                <p className="dashboard-muted">
+                  {hasSavedQuestionnaire
+                    ? "你已保存问卷。若尚未参加本轮，可在页面上方点击「参加本轮」；揭晓后返回此处查看结果。需要更新资料时，随时展开下方问卷修改即可。"
+                    : "报名参加当前轮次并在揭晓后返回此处查看结果。"}
+                </p>
               </>
             )}
           </>
@@ -435,9 +468,37 @@ export default function DashboardPage() {
       <section className="content-panel dashboard-panel-wide">
         <p className="eyebrow">问卷</p>
         <h2>客观条件与价值观</h2>
-        <p className="dashboard-muted">
-          填写你的基本信息和对另一半的期望，再完成价值观问卷。带「可多选」的项目全选等同于不限。
-        </p>
+        {hasSavedQuestionnaire && !questionnaireBodyVisible ? (
+          <>
+            <p className="dashboard-muted">
+              问卷已保存。匹配会按你<strong>最近一次保存</strong>的内容计算；需要改答案或客观条件时，展开后即可编辑并再次保存。
+            </p>
+            <button
+              className="button-secondary"
+              type="button"
+              onClick={() => setQuestionnaireBodyVisible(true)}
+            >
+              展开修改问卷
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="dashboard-muted">
+              {hasSavedQuestionnaire
+                ? "可随时修改下列内容；保存后会在后续匹配与揭晓中使用最新版本。带「可多选」的项目全选等同于不限。"
+                : "填写你的基本信息和对另一半的期望，再完成价值观问卷。带「可多选」的项目全选等同于不限。"}
+            </p>
+            {hasSavedQuestionnaire ? (
+              <div className="dashboard-questionnaire-toolbar">
+                <button
+                  className="button-ghost"
+                  type="button"
+                  onClick={() => setQuestionnaireBodyVisible(false)}
+                >
+                  收起问卷
+                </button>
+              </div>
+            ) : null}
 
         {/* ── 关于你 ── */}
         <div className="dash-q-group">
@@ -735,6 +796,8 @@ export default function DashboardPage() {
         >
           {saving === "questionnaire" ? "保存中…" : "保存全部问卷"}
         </button>
+          </>
+        )}
       </section>
     </main>
   );

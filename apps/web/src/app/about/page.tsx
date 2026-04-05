@@ -69,7 +69,7 @@ export default function AboutPage() {
             <div className="about-step-num">3</div>
             <div>
               <h3>每周选择参与</h3>
-              <p>每个轮次独立运行，你可以在 Dashboard 自由开关参与状态。不需要永远在线，也不需要删号才能暂停。</p>
+              <p>每个轮次独立运行，你可以在我的匹配界面自由开关参与状态。不需要永远在线，也不需要删号才能暂停。</p>
             </div>
           </div>
           <div className="about-step">

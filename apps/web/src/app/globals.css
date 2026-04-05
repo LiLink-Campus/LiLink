@@ -611,6 +611,16 @@ ul {
   letter-spacing: -0.02em;
 }
 
+.stats-strip strong.stats-strip-note {
+  font-family: var(--font-body);
+  font-size: clamp(0.95rem, 3.2vw, 1.2rem);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0;
+  margin-inline: auto;
+  max-width: 12rem;
+}
+
 /* ── Section Headings ────────────────────────────── */
 
 .eyebrow {
@@ -687,6 +697,7 @@ ul {
   font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 600;
+  word-break: normal;
 }
 
 .story-grid p {
@@ -694,6 +705,9 @@ ul {
   line-height: 1.7;
   font-size: 0.95rem;
   margin: 0;
+  /* body uses keep-all, which blocks breaks inside long CJK runs and causes premature wraps */
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 /* ── Statement ───────────────────────────────────── */
@@ -959,6 +973,10 @@ ul {
     color: var(--fg-secondary);
     font-size: 0.92rem;
     line-height: 1.5;
+}
+
+.dashboard-questionnaire-toolbar {
+    margin: -0.15rem 0 1rem;
 }
 
 .dashboard-reveal-card {
@@ -1619,6 +1637,8 @@ ul {
   font-size: 1.15rem;
   font-weight: 600;
   margin: 0 0 0.5rem;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .about-card p {
@@ -1626,6 +1646,8 @@ ul {
   line-height: 1.7;
   font-size: 0.95rem;
   margin: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .about-mechanism {

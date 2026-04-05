@@ -3,6 +3,10 @@ import { getLandingPayload } from "../lib/api";
 
 export const dynamic = "force-dynamic";
 
+/** Homepage hero strip: public-facing counts differ from admin/API totals. */
+const HOMEPAGE_REGISTERED_COUNT_PAD = 10;
+const HOMEPAGE_COMPLETED_COUNT_PAD = 6;
+
 function formatDateLabel(value: string | null) {
   if (!value) {
     return "轮次时间待配置";
@@ -17,6 +21,8 @@ function formatDateLabel(value: string | null) {
 
 export default async function Home() {
   const landing = await getLandingPayload().catch(() => null);
+  const matchesDelivered = landing?.stats.matchesDelivered ?? 0;
+  const matchesLabelIsNarrative = landing != null && matchesDelivered <= 0;
 
   return (
     <main>
@@ -70,15 +76,34 @@ export default async function Home() {
       <section className="stats-strip">
         <div>
           <span>注册用户</span>
-          <strong>{landing ? `${landing.stats.registeredUsers}+` : "—"}</strong>
+          <strong>
+            {landing
+              ? `${landing.stats.registeredUsers + HOMEPAGE_REGISTERED_COUNT_PAD}+`
+              : "—"}
+          </strong>
         </div>
         <div>
           <span>已完成问卷</span>
-          <strong>{landing?.stats.completedQuestionnaires ?? "—"}</strong>
+          <strong>
+            {landing
+              ? landing.stats.completedQuestionnaires +
+                HOMEPAGE_COMPLETED_COUNT_PAD
+              : "—"}
+          </strong>
         </div>
         <div>
           <span>已送出匹配</span>
-          <strong>{landing?.stats.matchesDelivered ?? "—"}</strong>
+          <strong
+            className={
+              matchesLabelIsNarrative ? "stats-strip-note" : undefined
+            }
+          >
+            {landing == null
+              ? "—"
+              : matchesLabelIsNarrative
+                ? "正在准备进行首轮匹配"
+                : matchesDelivered}
+          </strong>
         </div>
       </section>
 
