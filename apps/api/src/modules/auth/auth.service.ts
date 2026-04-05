@@ -86,6 +86,7 @@ export class AuthService {
     const domain = normalizedEmail.split('@')[1] ?? '';
 
     await this.assertEmailDomainAllowed(domain);
+    await this.assertRegistrationCapacity();
 
     const school =
       await this.schoolResolverService.resolveByEmail(normalizedEmail);
@@ -246,6 +247,22 @@ export class AuthService {
         displayName,
       },
     };
+  }
+
+  private async assertRegistrationCapacity() {
+    const setting = await this.prisma.systemSetting.findUnique({
+      where: { key: 'max_registrations' },
+    });
+
+    const limit = Number(setting?.value ?? '0');
+    if (limit <= 0) return;
+
+    const currentCount = await this.prisma.user.count();
+    if (currentCount >= limit) {
+      throw new BadRequestException(
+        `本轮内测名额仅限 ${limit} 人，目前已满。请等待下一轮开放。`,
+      );
+    }
   }
 
   private isUniqueConstraintError(error: unknown) {

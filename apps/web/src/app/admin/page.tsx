@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { fetchApi } from "../../lib/api";
 import { useAdminResource } from "./use-admin-resource";
 import type { AdminDashboardData } from "./types";
 
@@ -19,9 +20,47 @@ const METRIC_TONES: Record<string, string> = {
   coral: "admin-tone-coral",
 };
 
+type SystemSettings = Record<string, string>;
+
 export default function AdminOverviewPage() {
   const { data, loading, error, refresh } =
     useAdminResource<AdminDashboardData>("/admin/dashboard");
+
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
+  const [settingsForm, setSettingsForm] = useState({ maxReg: "" });
+  const [settingsPending, setSettingsPending] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchApi<SystemSettings>("/admin/settings")
+      .then((s) => {
+        setSettings(s);
+        setSettingsForm({
+          maxReg: s.max_registrations ?? "0",
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  async function saveSettings() {
+    setSettingsPending(true);
+    setSettingsMsg(null);
+    try {
+      const updated = await fetchApi<SystemSettings>("/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          max_registrations: settingsForm.maxReg,
+        }),
+      });
+      setSettings(updated);
+      setSettingsMsg("已保存");
+      setTimeout(() => setSettingsMsg(null), 2000);
+    } catch (e) {
+      setSettingsMsg(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSettingsPending(false);
+    }
+  }
 
   const summary = useMemo(() => {
     if (!data) return null;
@@ -102,6 +141,37 @@ export default function AdminOverviewPage() {
           </article>
         ))}
       </section>
+
+      {/* Capacity settings */}
+      {settings && (
+        <section className="content-panel" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
+          <div className="admin-section-header" style={{ marginBottom: "1rem" }}>
+            <div>
+              <p className="eyebrow">灰度控制</p>
+              <h2>容量限制</h2>
+            </div>
+          </div>
+          <div style={{ maxWidth: "20rem" }}>
+            <label>
+              <span>最大注册人数</span>
+              <input
+                type="number"
+                min="0"
+                value={settingsForm.maxReg}
+                onChange={(e) => setSettingsForm((f) => ({ ...f, maxReg: e.target.value }))}
+                placeholder="0 = 不限"
+              />
+              <span style={{ fontSize: "0.82rem", color: "var(--fg-secondary)" }}>0 表示不限制，注册满后新用户会看到提示</span>
+            </label>
+          </div>
+          <div className="auth-actions" style={{ marginTop: "1rem" }}>
+            <button className="button-primary" type="button" disabled={settingsPending} onClick={() => void saveSettings()} style={{ minHeight: "2.2rem", padding: "0 1rem" }}>
+              {settingsPending ? "保存中…" : "保存限制"}
+            </button>
+            {settingsMsg && <span style={{ fontSize: "0.9rem", color: settingsMsg === "已保存" ? "var(--accent)" : "var(--error)" }}>{settingsMsg}</span>}
+          </div>
+        </section>
+      )}
 
       {/* Cycle + Reports */}
       <section
