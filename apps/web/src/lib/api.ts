@@ -103,6 +103,20 @@ export type LandingPayload = {
   } | null;
 };
 
+/**
+ * Server-only: caches public landing JSON to cut TTFB vs. no-store fetchApi.
+ * Tune `revalidate` on the home page route if stats must refresh faster.
+ */
 export async function getLandingPayload() {
-  return fetchApi<LandingPayload>("/public/landing");
+  const response = await fetch(`${apiBaseUrl}/public/landing`, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 60 },
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(parseFailedResponseBody(body, response.status));
+  }
+
+  return response.json() as Promise<LandingPayload>;
 }
