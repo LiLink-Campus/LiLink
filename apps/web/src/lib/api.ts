@@ -88,6 +88,38 @@ export async function fetchApi<T>(
   return response.json() as Promise<T>;
 }
 
+export type AuthMePayload = {
+  id: string;
+  email: string;
+  displayName: string | null;
+};
+
+let authMeInflight: Promise<AuthMePayload | null> | null = null;
+
+/**
+ * Coalesces overlapping GET /auth/me calls (e.g. SiteNav + Dashboard on first paint).
+ * Clears after settle so a later navigation still refetches fresh session state.
+ */
+export function fetchAuthMeDeduped(): Promise<AuthMePayload | null> {
+  if (!authMeInflight) {
+    authMeInflight = fetchApi<AuthMePayload>("/auth/me")
+      .catch(() => null)
+      .finally(() => {
+        authMeInflight = null;
+      });
+  }
+  return authMeInflight;
+}
+
+/** Origin of `apiBaseUrl` for `<link rel="preconnect">` (HTTPS/API host). */
+export function resolveApiOriginForPreconnect(): string | null {
+  try {
+    return new URL(apiBaseUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
 export type LandingPayload = {
   brand: string;
   tagline: string;

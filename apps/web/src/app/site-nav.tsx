@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { fetchApi } from "../lib/api";
-
-type AuthIdentity = {
-  id: string;
-  email: string;
-  displayName: string | null;
-};
+import { fetchApi, fetchAuthMeDeduped, type AuthMePayload } from "../lib/api";
 
 const PUBLIC_NAV_ITEMS = [
   { href: "/about", label: "关于" },
@@ -19,7 +13,7 @@ const PUBLIC_NAV_ITEMS = [
 
 export function SiteNav() {
   const router = useRouter();
-  const [authenticatedUser, setAuthenticatedUser] = useState<AuthIdentity | null>(
+  const [authenticatedUser, setAuthenticatedUser] = useState<AuthMePayload | null>(
     null,
   );
   const [menuOpen, setMenuOpen] = useState(false);
@@ -27,7 +21,7 @@ export function SiteNav() {
   useEffect(() => {
     let active = true;
 
-    void fetchApi<AuthIdentity>("/auth/me")
+    void fetchAuthMeDeduped()
       .then((user) => {
         if (!active) {
           return;
