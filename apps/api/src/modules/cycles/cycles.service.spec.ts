@@ -13,8 +13,9 @@ type EligibleParticipantStub = {
     partnerGenders: string[];
     looks: string;
     partnerLooks: string[];
-    race: string;
-    partnerRaces: string[];
+    heightCm: number;
+    partnerHeightMin: number;
+    partnerHeightMax: number;
     oneLinerIntro: string;
   };
   answers: Record<string, unknown>;
@@ -73,8 +74,9 @@ function createBroadParticipant(
       partnerGenders: ['男', '女', '非二元'],
       looks: '普通人',
       partnerLooks: ['普通人', '小帅/美', '顶帅/美'],
-      race: '黄种人',
-      partnerRaces: ['黄种人', '黑种人', '白种人'],
+      heightCm: 170,
+      partnerHeightMin: 120,
+      partnerHeightMax: 220,
       oneLinerIntro: '喜欢社交与电影。',
     },
     answers,
@@ -194,8 +196,9 @@ describe('CyclesService', () => {
           partnerGenders: ['男'],
           looks: '普通人',
           partnerLooks: ['普通人'],
-          race: '黄种人',
-          partnerRaces: ['黄种人'],
+          heightCm: 170,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
           oneLinerIntro: '喜欢徒步。',
         },
         answers: {
@@ -213,8 +216,9 @@ describe('CyclesService', () => {
           partnerGenders: ['女'],
           looks: '普通人',
           partnerLooks: ['普通人'],
-          race: '黄种人',
-          partnerRaces: ['黄种人'],
+          heightCm: 165,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
           oneLinerIntro: '喜欢阅读。',
         },
         answers: {
@@ -315,8 +319,9 @@ describe('CyclesService', () => {
             partnerGenders: ['男'],
             looks: '普通人',
             partnerLooks: ['普通人'],
-            race: '黄种人',
-            partnerRaces: ['黄种人'],
+            heightCm: 165,
+            partnerHeightMin: 120,
+            partnerHeightMax: 220,
             oneLinerIntro: '喜欢徒步。',
           },
           answers: {},
@@ -332,8 +337,9 @@ describe('CyclesService', () => {
             partnerGenders: ['女'],
             looks: '普通人',
             partnerLooks: ['普通人'],
-            race: '黄种人',
-            partnerRaces: ['黄种人'],
+            heightCm: 178,
+            partnerHeightMin: 120,
+            partnerHeightMax: 220,
             oneLinerIntro: '喜欢阅读。',
           },
           answers: {},
@@ -455,8 +461,9 @@ describe('CyclesService', () => {
           partnerGenders: ['男'],
           looks: '普通人',
           partnerLooks: ['普通人'],
-          race: '黄种人',
-          partnerRaces: ['黄种人'],
+          heightCm: 170,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
           oneLinerIntro: '喜欢徒步。',
         },
         answers: {},
@@ -472,8 +479,9 @@ describe('CyclesService', () => {
           partnerGenders: ['女'],
           looks: '普通人',
           partnerLooks: ['普通人'],
-          race: '黄种人',
-          partnerRaces: ['黄种人'],
+          heightCm: 165,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
           oneLinerIntro: '喜欢阅读。',
         },
         answers: {},

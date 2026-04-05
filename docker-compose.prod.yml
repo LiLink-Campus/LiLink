@@ -24,6 +24,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    ports:
+      - "127.0.0.1:4000:4000"
     environment:
       APP_ENV: production
       PORT: 4000
@@ -46,43 +48,5 @@ services:
       ADMIN_BOOTSTRAP_NAME: ${ADMIN_BOOTSTRAP_NAME}
       CRON_SECRET: ${CRON_SECRET}
 
-  web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_BASE_URL: https://${API_DOMAIN}
-    container_name: lilink-web
-    restart: always
-    depends_on:
-      - api
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-      HOSTNAME: 0.0.0.0
-      NEXT_PUBLIC_API_BASE_URL: https://${API_DOMAIN}
-      COOKIE_NAME: ${COOKIE_NAME}
-      ADMIN_COOKIE_NAME: ${ADMIN_COOKIE_NAME}
-
-  caddy:
-    image: caddy:2-alpine
-    container_name: lilink-caddy
-    restart: always
-    depends_on:
-      - api
-      - web
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      WEB_DOMAIN: ${WEB_DOMAIN}
-      API_DOMAIN: ${API_DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-
 volumes:
   postgres-data:
-  caddy-data:
-  caddy-config:

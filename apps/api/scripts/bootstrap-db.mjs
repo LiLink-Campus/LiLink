@@ -1,6 +1,9 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { loadMonorepoEnv } from "./load-env.mjs";
+
+loadMonorepoEnv();
 
 const databaseUrl = process.env.DATABASE_URL;
 const require = createRequire(import.meta.url);

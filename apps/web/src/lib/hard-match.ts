@@ -8,14 +8,21 @@ export const HARD_MATCH_KEYS = {
   partnerGenders: "hard_partner_genders",
   looks: "hard_looks",
   partnerLooks: "hard_partner_looks",
-  race: "hard_race",
-  partnerRaces: "hard_partner_races",
+  heightCm: "hard_height_cm",
+  partnerHeightMin: "hard_partner_height_min",
+  partnerHeightMax: "hard_partner_height_max",
   oneLinerIntro: "hard_one_liner_intro",
 } as const;
 
 export const HARD_MATCH_GENDERS = ["男", "女", "非二元"] as const;
 export const HARD_MATCH_LOOKS = ["普通人", "小帅/美", "顶帅/美"] as const;
-export const HARD_MATCH_RACES = ["黄种人", "黑种人", "白种人"] as const;
+
+export const HEIGHT_CM_MIN = 120;
+export const HEIGHT_CM_MAX = 220;
+export const HEIGHT_OPTIONS = Array.from(
+  { length: HEIGHT_CM_MAX - HEIGHT_CM_MIN + 1 },
+  (_, i) => i + HEIGHT_CM_MIN,
+);
 
 export const AGE_OPTIONS = Array.from({ length: 100 }, (_, index) => index + 1);
 export const MONTH_OPTIONS = Array.from(
@@ -40,8 +47,9 @@ export type HardMatchFormState = {
   partnerGenders: string[];
   looks: string;
   partnerLooks: string[];
-  race: string;
-  partnerRaces: string[];
+  heightCm: string;
+  partnerHeightMin: string;
+  partnerHeightMax: string;
   oneLinerIntro: string;
 };
 
@@ -56,8 +64,9 @@ export function createEmptyHardMatchForm(): HardMatchFormState {
     partnerGenders: [...HARD_MATCH_GENDERS],
     looks: "",
     partnerLooks: [...HARD_MATCH_LOOKS],
-    race: "",
-    partnerRaces: [...HARD_MATCH_RACES],
+    heightCm: "",
+    partnerHeightMin: String(HEIGHT_CM_MIN),
+    partnerHeightMax: String(HEIGHT_CM_MAX),
     oneLinerIntro: "",
   };
 }
@@ -120,6 +129,13 @@ function readSingleChoice(
   return allowedValues.includes(normalizedValue) ? normalizedValue : "";
 }
 
+function readHeightValue(value: unknown, fallback = ""): string {
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return String(value);
+  }
+  return fallback;
+}
+
 function readOneLinerIntro(value: unknown): string {
   if (typeof value !== "string") {
     return "";
@@ -162,10 +178,14 @@ export function hardMatchFormFromAnswers(
       savedAnswers?.[HARD_MATCH_KEYS.partnerLooks],
       HARD_MATCH_LOOKS,
     ),
-    race: readSingleChoice(savedAnswers?.[HARD_MATCH_KEYS.race], HARD_MATCH_RACES),
-    partnerRaces: readStringArray(
-      savedAnswers?.[HARD_MATCH_KEYS.partnerRaces],
-      HARD_MATCH_RACES,
+    heightCm: readHeightValue(savedAnswers?.[HARD_MATCH_KEYS.heightCm]),
+    partnerHeightMin: readHeightValue(
+      savedAnswers?.[HARD_MATCH_KEYS.partnerHeightMin],
+      String(HEIGHT_CM_MIN),
+    ),
+    partnerHeightMax: readHeightValue(
+      savedAnswers?.[HARD_MATCH_KEYS.partnerHeightMax],
+      String(HEIGHT_CM_MAX),
     ),
     oneLinerIntro: readOneLinerIntro(savedAnswers?.[HARD_MATCH_KEYS.oneLinerIntro]),
   };
@@ -187,15 +207,14 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     !formState.birthDay ||
     !formState.gender ||
     !formState.looks ||
-    !formState.race
+    !formState.heightCm
   ) {
     throw new Error("请先完成所有硬性条件题目。");
   }
 
   if (
     formState.partnerGenders.length === 0 ||
-    formState.partnerLooks.length === 0 ||
-    formState.partnerRaces.length === 0
+    formState.partnerLooks.length === 0
   ) {
     throw new Error("希望对方的条件为多选题，至少要选一项。");
   }
@@ -216,6 +235,14 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     throw new Error("希望对方年龄下限不能大于上限。");
   }
 
+  const heightCm = Number(formState.heightCm);
+  const partnerHeightMin = Number(formState.partnerHeightMin);
+  const partnerHeightMax = Number(formState.partnerHeightMax);
+
+  if (partnerHeightMin > partnerHeightMax) {
+    throw new Error("希望对方身高下限不能大于上限。");
+  }
+
   const birthDate = `${formState.birthYear}-${formState.birthMonth.padStart(2, "0")}-${formState.birthDay.padStart(2, "0")}`;
 
   return {
@@ -226,8 +253,9 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     [HARD_MATCH_KEYS.partnerGenders]: formState.partnerGenders,
     [HARD_MATCH_KEYS.looks]: formState.looks,
     [HARD_MATCH_KEYS.partnerLooks]: formState.partnerLooks,
-    [HARD_MATCH_KEYS.race]: formState.race,
-    [HARD_MATCH_KEYS.partnerRaces]: formState.partnerRaces,
+    [HARD_MATCH_KEYS.heightCm]: heightCm,
+    [HARD_MATCH_KEYS.partnerHeightMin]: partnerHeightMin,
+    [HARD_MATCH_KEYS.partnerHeightMax]: partnerHeightMax,
     [HARD_MATCH_KEYS.oneLinerIntro]: oneLinerIntro,
   };
 }

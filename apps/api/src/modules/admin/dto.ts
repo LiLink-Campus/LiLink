@@ -3,8 +3,11 @@ import {
   ArrayMinSize,
   IsBoolean,
   IsDateString,
+  IsEmail,
   IsIn,
   IsInt,
+  IsObject,
+  Length,
   ValidateNested,
   IsOptional,
   IsString,
@@ -250,4 +253,23 @@ export class BatchReviewReportsDto {
 export class UpdateUserStatusDto {
   @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])
   status!: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+}
+
+export class AdminUpdateUserDto {
+  @IsOptional()
+  @IsString()
+  @Length(2, 30)
+  displayName?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  schoolId?: string | null;
+
+  @IsOptional()
+  @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])
+  status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 }

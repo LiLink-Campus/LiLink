@@ -218,14 +218,26 @@ export class AccountService {
   }
 
   async updateProfile(userId: string, input: UpdateProfileDto) {
-    return this.prisma.userProfile.upsert({
-      where: { userId },
-      create: {
-        userId,
-        ...input,
-      },
-      update: input,
-    });
+    const { displayName, ...profileFields } = input;
+
+    if (displayName !== undefined) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { displayName },
+      });
+    }
+
+    const hasProfileFields = Object.keys(profileFields).length > 0;
+
+    const profile = hasProfileFields
+      ? await this.prisma.userProfile.upsert({
+          where: { userId },
+          create: { userId, ...profileFields },
+          update: profileFields,
+        })
+      : await this.prisma.userProfile.findUnique({ where: { userId } });
+
+    return profile;
   }
 
   async getProfile(userId: string) {

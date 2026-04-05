@@ -8,7 +8,7 @@ import {
   BIRTH_YEAR_OPTIONS,
   HARD_MATCH_GENDERS,
   HARD_MATCH_LOOKS,
-  HARD_MATCH_RACES,
+  HEIGHT_OPTIONS,
   MONTH_OPTIONS,
   buildDayOptions,
   buildHardMatchAnswerRecord,
@@ -114,9 +114,15 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("");
   const [reportReason, setReportReason] = useState("骚扰");
   const [reportDetails, setReportDetails] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
+  const [editingDisplayName, setEditingDisplayName] = useState("");
+
+  useEffect(() => {
+    setEditingDisplayName(user?.displayName ?? "");
+  }, [user?.displayName]);
 
   const birthDayOptions = useMemo(
     () => buildDayOptions(hardMatchForm.birthYear, hardMatchForm.birthMonth),
@@ -149,6 +155,7 @@ export default function DashboardPage() {
         if (!active) return;
 
         setUser(me);
+        setDisplayName(me.displayName ?? "");
         setDashboard(dashboardData);
         setQuestions(questionnaire.questions);
         setAnswers(keepCurrentQuestionAnswers(questionnaire.questions, savedQuestionnaire?.answers));
@@ -171,13 +178,33 @@ export default function DashboardPage() {
   }, [dashboard?.latestMatch, user]);
 
   function toggleHardSelection(
-    field: "partnerGenders" | "partnerLooks" | "partnerRaces",
+    field: "partnerGenders" | "partnerLooks",
     nextValue: string,
   ) {
     setHardMatchForm((current) => ({
       ...current,
       [field]: toggleMultiSelectValue(current[field], nextValue),
     }));
+  }
+
+  async function saveDisplayName() {
+    const trimmed = editingDisplayName.trim();
+    if (trimmed.length < 2) return;
+    setSaving("displayName");
+    setSavedMessage(null);
+    setError(null);
+    try {
+      const result = await fetchApi<{ displayName: string | null }>("/me/profile", {
+        method: "PUT",
+        body: JSON.stringify({ displayName: trimmed }),
+      });
+      setUser((current) => current ? { ...current, displayName: result.displayName } : current);
+      startTransition(() => { setSavedMessage("昵称已更新。"); });
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "昵称保存失败。");
+    } finally {
+      setSaving(null);
+    }
   }
 
   async function saveQuestionnaire() {
@@ -187,10 +214,19 @@ export default function DashboardPage() {
 
     try {
       const hardMatchAnswers = buildHardMatchAnswerRecord(hardMatchForm);
-      await fetchApi("/me/questionnaire", {
-        method: "PUT",
-        body: JSON.stringify({ answers: { ...hardMatchAnswers, ...answers } }),
-      });
+      const trimmedName = displayName.trim();
+      await Promise.all([
+        fetchApi("/me/questionnaire", {
+          method: "PUT",
+          body: JSON.stringify({ answers: { ...hardMatchAnswers, ...answers } }),
+        }),
+        trimmedName
+          ? fetchApi("/me/profile", {
+              method: "PUT",
+              body: JSON.stringify({ displayName: trimmedName }),
+            })
+          : Promise.resolve(),
+      ]);
       startTransition(() => { setSavedMessage("问卷已保存。"); });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "问卷保存失败。");
@@ -465,15 +501,32 @@ export default function DashboardPage() {
             </fieldset>
 
             <fieldset className="question-block">
-              <legend>人种</legend>
-              <div className="option-list">
-                {HARD_MATCH_RACES.map((r, i) => (
-                  <label key={r}>
-                    <input checked={hardMatchForm.race === r} id={buildDashboardFieldId("race", i)} type="radio" name="race" onChange={() => setHardMatchForm((f) => ({ ...f, race: r }))} />
-                    <span>{r}</span>
-                  </label>
-                ))}
-              </div>
+              <legend>身高（厘米）</legend>
+              <select
+                id={buildDashboardFieldId("height-cm")}
+                name="heightCm"
+                value={hardMatchForm.heightCm}
+                onChange={(e) => setHardMatchForm((f) => ({ ...f, heightCm: e.target.value }))}
+              >
+                <option value="">请选择</option>
+                {HEIGHT_OPTIONS.map((h) => <option key={h} value={String(h)}>{h} cm</option>)}
+              </select>
+            </fieldset>
+
+            <fieldset className="question-block">
+              <legend>显示昵称</legend>
+              <label className="dash-one-liner-label">
+                <span className="dashboard-muted">其他用户会看到你的昵称。</span>
+                <input
+                  id={buildDashboardFieldId("display-name")}
+                  name="displayName"
+                  type="text"
+                  maxLength={30}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="输入你的昵称"
+                />
+              </label>
             </fieldset>
 
             <fieldset className="question-block">
@@ -553,17 +606,20 @@ export default function DashboardPage() {
             </fieldset>
 
             <fieldset className="question-block">
-              <legend>希望对方的人种（可多选）</legend>
-              <div className="chip-grid">
-                {HARD_MATCH_RACES.map((r, i) => {
-                  const active = hardMatchForm.partnerRaces.includes(r);
-                  return (
-                    <label key={r} className={active ? "chip active" : "chip"}>
-                      <input checked={active} id={buildDashboardFieldId("partner-races", i)} name="partnerRaces" type="checkbox" onChange={() => toggleHardSelection("partnerRaces", r)} />
-                      <span>{r}</span>
-                    </label>
-                  );
-                })}
+              <legend>希望对方的身高范围（厘米）</legend>
+              <div className="form-grid">
+                <label>
+                  <span>身高下限</span>
+                  <select id={buildDashboardFieldId("partner-height-min")} name="partnerHeightMin" value={hardMatchForm.partnerHeightMin} onChange={(e) => setHardMatchForm((f) => ({ ...f, partnerHeightMin: e.target.value }))}>
+                    {HEIGHT_OPTIONS.map((h) => <option key={h} value={String(h)}>{h} cm</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>身高上限</span>
+                  <select id={buildDashboardFieldId("partner-height-max")} name="partnerHeightMax" value={hardMatchForm.partnerHeightMax} onChange={(e) => setHardMatchForm((f) => ({ ...f, partnerHeightMax: e.target.value }))}>
+                    {HEIGHT_OPTIONS.map((h) => <option key={h} value={String(h)}>{h} cm</option>)}
+                  </select>
+                </label>
               </div>
             </fieldset>
           </div>

@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -13,6 +14,7 @@ import {
 import { AdminGuard } from '../../common/auth/admin.guard';
 import type { AdminAuthenticatedRequest } from '../../common/auth/admin.guard';
 import {
+  AdminUpdateUserDto,
   BatchReviewReportsDto,
   CreateSchoolDto,
   ListAuditLogsQueryDto,
@@ -182,6 +184,15 @@ export class AdminController {
     @Body() body: UpdateUserStatusDto,
   ) {
     return this.adminService.updateUserStatus(userId, body, request.admin!.id);
+  }
+
+  @Patch('users/:userId')
+  updateUser(
+    @Req() request: AdminAuthenticatedRequest,
+    @Param('userId') userId: string,
+    @Body() body: AdminUpdateUserDto,
+  ) {
+    return this.adminService.updateUser(userId, body, request.admin!.id);
   }
 
   @Get('users')

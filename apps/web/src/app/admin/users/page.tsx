@@ -14,8 +14,9 @@ const HARD_MATCH_LABELS: Record<string, string> = {
   [HARD_MATCH_KEYS.partnerGenders]: "希望对方的性别",
   [HARD_MATCH_KEYS.looks]: "颜值自评",
   [HARD_MATCH_KEYS.partnerLooks]: "希望对方的颜值",
-  [HARD_MATCH_KEYS.race]: "你的人种",
-  [HARD_MATCH_KEYS.partnerRaces]: "希望对方的人种",
+  [HARD_MATCH_KEYS.heightCm]: "身高（厘米）",
+  [HARD_MATCH_KEYS.partnerHeightMin]: "希望对方身高下限",
+  [HARD_MATCH_KEYS.partnerHeightMax]: "希望对方身高上限",
   [HARD_MATCH_KEYS.oneLinerIntro]: "一句话介绍",
 };
 
@@ -37,6 +38,28 @@ function formatAnswer(value: unknown): string {
   return JSON.stringify(value);
 }
 
+type EditForm = {
+  displayName: string;
+  email: string;
+  fullName: string;
+  headline: string;
+  schoolYear: string;
+  programName: string;
+  bio: string;
+};
+
+function buildEditForm(user: AdminUser): EditForm {
+  return {
+    displayName: user.displayName ?? "",
+    email: user.email,
+    fullName: user.profile?.fullName ?? "",
+    headline: user.profile?.headline ?? "",
+    schoolYear: user.profile?.schoolYear ?? "",
+    programName: user.profile?.programName ?? "",
+    bio: user.profile?.bio ?? "",
+  };
+}
+
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminUser["status"]>("ALL");
@@ -46,6 +69,8 @@ export default function AdminUsersPage() {
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("profile");
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
 
   const deferredSearch = useDeferredValue(search);
   const { data, loading, error, refresh } = useAdminCollection<AdminUser>(
@@ -71,6 +96,8 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     setDetailTab("profile");
+    setEditing(false);
+    setEditForm(null);
   }, [selectedUserId]);
 
   const answerGroups = useMemo(() => {
@@ -82,6 +109,52 @@ export default function AdminUsersPage() {
     const questionnaire = entries.filter(([k]) => !HARD_MATCH_KEY_SET.has(k));
     return { hardMatch, questionnaire, total: entries.length };
   }, [selectedUser]);
+
+  function startEditing() {
+    if (!selectedUser) return;
+    setEditForm(buildEditForm(selectedUser));
+    setEditing(true);
+    setActionError(null);
+  }
+
+  function cancelEditing() {
+    setEditing(false);
+    setEditForm(null);
+    setActionError(null);
+  }
+
+  async function saveEdit() {
+    if (!selectedUser || !editForm) return;
+    setPending("edit");
+    setActionError(null);
+    try {
+      const payload: Record<string, unknown> = {};
+      if (editForm.displayName !== (selectedUser.displayName ?? "")) payload.displayName = editForm.displayName || null;
+      if (editForm.email !== selectedUser.email) payload.email = editForm.email;
+      if (editForm.fullName !== (selectedUser.profile?.fullName ?? "")) payload.fullName = editForm.fullName || null;
+      if (editForm.headline !== (selectedUser.profile?.headline ?? "")) payload.headline = editForm.headline || null;
+      if (editForm.schoolYear !== (selectedUser.profile?.schoolYear ?? "")) payload.schoolYear = editForm.schoolYear || null;
+      if (editForm.programName !== (selectedUser.profile?.programName ?? "")) payload.programName = editForm.programName || null;
+      if (editForm.bio !== (selectedUser.profile?.bio ?? "")) payload.bio = editForm.bio || null;
+
+      if (Object.keys(payload).length === 0) {
+        setEditing(false);
+        return;
+      }
+
+      await fetchApi(`/admin/users/${selectedUser.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      setEditing(false);
+      setEditForm(null);
+      await refresh();
+    } catch (caughtError) {
+      setActionError(caughtError instanceof Error ? caughtError.message : "用户信息更新失败。");
+    } finally {
+      setPending(null);
+    }
+  }
 
   async function updateUserStatus(status: AdminUser["status"]) {
     if (!selectedUser) return;
@@ -258,16 +331,71 @@ export default function AdminUsersPage() {
 
               {/* ── Tab: Profile ─── */}
               {detailTab === "profile" && (
-                <div className="admin-table-wrap" style={{ animation: "fadeIn 0.2s ease" }}>
-                  <table className="admin-table">
-                    <tbody>
-                      <tr><td style={{ fontWeight: 600, width: "8rem" }}>真实姓名</td><td>{selectedUser.profile?.fullName ?? "—"}</td></tr>
-                      <tr><td style={{ fontWeight: 600 }}>一句话介绍</td><td>{selectedUser.profile?.headline ?? "—"}</td></tr>
-                      <tr><td style={{ fontWeight: 600 }}>年级</td><td>{selectedUser.profile?.schoolYear ?? "—"}</td></tr>
-                      <tr><td style={{ fontWeight: 600 }}>项目 / 专业</td><td>{selectedUser.profile?.programName ?? "—"}</td></tr>
-                      <tr><td style={{ fontWeight: 600 }}>简介</td><td>{selectedUser.profile?.bio ?? "—"}</td></tr>
-                    </tbody>
-                  </table>
+                <div style={{ animation: "fadeIn 0.2s ease" }}>
+                  {editing && editForm ? (
+                    <div className="admin-page-stack">
+                      <div className="admin-table-wrap">
+                        <table className="admin-table">
+                          <tbody>
+                            <tr>
+                              <td style={{ fontWeight: 600, width: "8rem" }}>昵称</td>
+                              <td><input value={editForm.displayName} onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })} style={{ width: "100%" }} /></td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600 }}>邮箱</td>
+                              <td><input value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} style={{ width: "100%" }} /></td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600 }}>真实姓名</td>
+                              <td><input value={editForm.fullName} onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })} style={{ width: "100%" }} /></td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600 }}>一句话介绍</td>
+                              <td><input value={editForm.headline} onChange={(e) => setEditForm({ ...editForm, headline: e.target.value })} style={{ width: "100%" }} /></td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600 }}>年级</td>
+                              <td><input value={editForm.schoolYear} onChange={(e) => setEditForm({ ...editForm, schoolYear: e.target.value })} style={{ width: "100%" }} /></td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600 }}>项目 / 专业</td>
+                              <td><input value={editForm.programName} onChange={(e) => setEditForm({ ...editForm, programName: e.target.value })} style={{ width: "100%" }} /></td>
+                            </tr>
+                            <tr>
+                              <td style={{ fontWeight: 600 }}>简介</td>
+                              <td><textarea value={editForm.bio} rows={3} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} style={{ width: "100%" }} /></td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="auth-actions">
+                        <button className="button-primary" type="button" disabled={pending === "edit"} onClick={() => void saveEdit()}>
+                          {pending === "edit" ? "保存中…" : "保存修改"}
+                        </button>
+                        <button className="button-secondary" type="button" onClick={cancelEditing}>取消</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="admin-page-stack">
+                      <div className="admin-table-wrap">
+                        <table className="admin-table">
+                          <tbody>
+                            <tr><td style={{ fontWeight: 600, width: "8rem" }}>昵称</td><td>{selectedUser.displayName ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>真实姓名</td><td>{selectedUser.profile?.fullName ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>一句话介绍</td><td>{selectedUser.profile?.headline ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>年级</td><td>{selectedUser.profile?.schoolYear ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>项目 / 专业</td><td>{selectedUser.profile?.programName ?? "—"}</td></tr>
+                            <tr><td style={{ fontWeight: 600 }}>简介</td><td>{selectedUser.profile?.bio ?? "—"}</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="auth-actions">
+                        <button className="button-secondary" type="button" onClick={startEditing} style={{ minHeight: "2rem", padding: "0 0.75rem", fontSize: "0.82rem" }}>
+                          编辑资料
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
