@@ -1811,9 +1811,9 @@ ul {
 /* ── Responsive ──────────────────────────────────── */
 
 @media (min-width: 901px) {
+  /* Reserve width to limit CLS when auth state swaps; keep items at start so no hollow gap before Login. */
   .site-nav-auth-cluster {
-    min-width: 12.5rem;
-    justify-content: flex-end;
+    min-width: 10.5rem;
   }
 }
 
