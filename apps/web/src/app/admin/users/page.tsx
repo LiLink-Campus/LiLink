@@ -143,7 +143,7 @@ export default function AdminUsersPage() {
       }
 
       await fetchApi(`/admin/users/${selectedUser.id}`, {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify(payload),
       });
       setEditing(false);

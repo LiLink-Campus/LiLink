@@ -61,9 +61,9 @@ export function createEmptyHardMatchForm(): HardMatchFormState {
     partnerAgeMin: "1",
     partnerAgeMax: "100",
     gender: "",
-    partnerGenders: [...HARD_MATCH_GENDERS],
+    partnerGenders: [],
     looks: "",
-    partnerLooks: [...HARD_MATCH_LOOKS],
+    partnerLooks: [],
     heightCm: "",
     partnerHeightMin: String(HEIGHT_CM_MIN),
     partnerHeightMax: String(HEIGHT_CM_MAX),
@@ -102,10 +102,10 @@ function splitBirthDate(value: unknown) {
 
 function readStringArray(value: unknown, allowedValues: readonly string[]) {
   if (!Array.isArray(value)) {
-    return [...allowedValues];
+    return [];
   }
 
-  const normalizedValues = [
+  return [
     ...new Set(
       value
         .filter((item): item is string => typeof item === "string")
@@ -113,8 +113,6 @@ function readStringArray(value: unknown, allowedValues: readonly string[]) {
         .filter((item) => allowedValues.includes(item)),
     ),
   ];
-
-  return normalizedValues.length > 0 ? normalizedValues : [...allowedValues];
 }
 
 function readSingleChoice(
