@@ -13,6 +13,7 @@ import {
   buildDayOptions,
   buildHardMatchAnswerRecord,
   createEmptyHardMatchForm,
+  getHardMatchFormSaveErrorMessage,
   hardMatchFormFromAnswers,
   toggleMultiSelectValue,
   type HardMatchFormState,
@@ -23,6 +24,7 @@ type Question = {
   key: string;
   prompt: string;
   type: "SCALE" | "SINGLE_SELECT" | "MULTI_SELECT";
+  required?: boolean;
   selectionLimit?: number | null;
   options?: Array<{
     value: string;
@@ -100,6 +102,85 @@ function keepCurrentQuestionAnswers(
 
 function buildDashboardFieldId(...parts: Array<string | number>) {
   return `dashboard-${parts.join("-")}`;
+}
+
+function softQuestionSingleValueIsValid(
+  raw: string,
+  options: NonNullable<Question["options"]>,
+) {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  if (options.some((option) => option.value === trimmed)) {
+    return true;
+  }
+
+  return options.filter((option) => option.label === trimmed).length === 1;
+}
+
+function softQuestionAnswerIsComplete(question: Question, raw: unknown) {
+  if (question.required === false) {
+    return true;
+  }
+
+  const options = question.options ?? [];
+
+  if (question.type === "MULTI_SELECT") {
+    if (!Array.isArray(raw) || raw.length === 0) {
+      return false;
+    }
+
+    const limit = question.selectionLimit;
+    if (limit != null && raw.length > limit) {
+      return false;
+    }
+
+    return raw.every(
+      (item) =>
+        typeof item === "string" && softQuestionSingleValueIsValid(item, options),
+    );
+  }
+
+  if (question.type === "SINGLE_SELECT" || question.type === "SCALE") {
+    if (typeof raw !== "string") {
+      return false;
+    }
+
+    return softQuestionSingleValueIsValid(raw, options);
+  }
+
+  return false;
+}
+
+function getQuestionnaireIncompleteMessage(
+  questions: Question[],
+  answers: Record<string, unknown>,
+  hardMatchForm: HardMatchFormState,
+  displayNameForIntro: string,
+) {
+  const hardMessage = getHardMatchFormSaveErrorMessage(
+    hardMatchForm,
+    displayNameForIntro,
+  );
+  if (hardMessage) {
+    return hardMessage;
+  }
+
+  const incompleteSoft = questions.filter(
+    (question) => !softQuestionAnswerIsComplete(question, answers[question.key]),
+  );
+
+  if (incompleteSoft.length === 0) {
+    return null;
+  }
+
+  if (incompleteSoft.length === 1) {
+    return `价值观问卷「${incompleteSoft[0].prompt}」尚未填写。`;
+  }
+
+  return `价值观问卷还有 ${incompleteSoft.length} 道必答题未完成。`;
 }
 
 export default function DashboardPage() {
@@ -229,8 +310,11 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const hardMatchAnswers = buildHardMatchAnswerRecord(hardMatchForm);
       const trimmedName = displayName.trim();
+      const hardMatchAnswers = buildHardMatchAnswerRecord(
+        hardMatchForm,
+        trimmedName,
+      );
       await Promise.all([
         fetchApi("/me/questionnaire", {
           method: "PUT",
@@ -316,6 +400,17 @@ export default function DashboardPage() {
     ? new Intl.DateTimeFormat("zh-CN", { dateStyle: "long", timeStyle: "short", timeZone: "Asia/Shanghai" }).format(new Date(dashboard.currentCycle.revealAt))
     : null;
 
+  const questionnaireIncompleteMessage = useMemo(
+    () =>
+      getQuestionnaireIncompleteMessage(
+        questions,
+        answers,
+        hardMatchForm,
+        displayName,
+      ),
+    [questions, answers, hardMatchForm, displayName],
+  );
+
   if (loading) {
     return (
       <main className="page-shell prose-shell">
@@ -393,7 +488,7 @@ export default function DashboardPage() {
             {!introduced ? <p className="dashboard-muted">揭晓前不会展示对方学校、昵称等可识别信息；下方说明仅来自客观筛选条件与价值观问卷。</p> : null}
             {introduced && counterpart.email ? <p className="form-success dashboard-match-email">联络邮箱：{counterpart.email}</p> : null}
             {introduced && counterpart.introLine ? (
-              <p className="dashboard-muted dashboard-match-intro">对方一句话介绍：{counterpart.introLine}</p>
+              <p className="dashboard-muted dashboard-match-intro">对方介绍：{counterpart.introLine}</p>
             ) : null}
             <ul className="reason-list">
               {dashboard?.latestMatch?.reasons.map((reason) => (<li key={reason}>{reason}</li>))}
@@ -473,6 +568,13 @@ export default function DashboardPage() {
             <p className="dashboard-muted">
               问卷已保存。匹配会按你<strong>最近一次保存</strong>的内容计算；需要改答案或客观条件时，展开后即可编辑并再次保存。
             </p>
+            {questionnaireIncompleteMessage ? (
+              <p className="form-error" role="alert">
+                {questionnaireIncompleteMessage}
+                {" "}
+                请展开问卷，补全后点击「保存全部问卷」。
+              </p>
+            ) : null}
             <button
               className="button-secondary"
               type="button"
@@ -488,6 +590,11 @@ export default function DashboardPage() {
                 ? "可随时修改下列内容；保存后会在后续匹配与揭晓中使用最新版本。带「可多选」的项目全选等同于不限。"
                 : "填写你的基本信息和对另一半的期望，再完成价值观问卷。带「可多选」的项目全选等同于不限。"}
             </p>
+            {questionnaireIncompleteMessage ? (
+              <p className="form-error" role="alert">
+                {questionnaireIncompleteMessage}
+              </p>
+            ) : null}
             {hasSavedQuestionnaire ? (
               <div className="dashboard-questionnaire-toolbar">
                 <button
@@ -575,9 +682,11 @@ export default function DashboardPage() {
             </fieldset>
 
             <fieldset className="question-block">
-              <legend>显示昵称</legend>
+              <legend>昵称</legend>
               <label className="dash-one-liner-label">
-                <span className="dashboard-muted">其他用户会看到你的昵称。</span>
+                <span className="dashboard-muted">
+                  昵称，引荐后会发给对方邮件，可以是真名也可以不是。
+                </span>
                 <input
                   id={buildDashboardFieldId("display-name")}
                   name="displayName"
@@ -586,22 +695,6 @@ export default function DashboardPage() {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="输入你的昵称"
-                />
-              </label>
-            </fieldset>
-
-            <fieldset className="question-block">
-              <legend>一句话介绍</legend>
-              <label className="dash-one-liner-label">
-                <span className="dashboard-muted">用一两句话介绍你自己；双方成功引荐后，对方会在邮件中看到这段文字。</span>
-                <textarea
-                  id={buildDashboardFieldId("one-liner-intro")}
-                  name="oneLinerIntro"
-                  rows={3}
-                  maxLength={200}
-                  value={hardMatchForm.oneLinerIntro}
-                  onChange={(e) => setHardMatchForm((f) => ({ ...f, oneLinerIntro: e.target.value }))}
-                  placeholder="例如：计算机系研究生，喜欢徒步和志愿者活动，希望遇到聊得来的朋友。"
                 />
               </label>
             </fieldset>
