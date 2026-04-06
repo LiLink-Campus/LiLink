@@ -198,14 +198,7 @@ export function toggleMultiSelectValue(
     : [...currentValues, nextValue];
 }
 
-/**
- * @param oneLinerIntroSource Questionnaire still stores `hard_one_liner_intro`; the dashboard
- * collects a single nickname field and passes it here so backend validation stays unchanged.
- */
-export function buildHardMatchAnswerRecord(
-  formState: HardMatchFormState,
-  oneLinerIntroSource: string,
-) {
+export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
   if (
     !formState.birthYear ||
     !formState.birthMonth ||
@@ -224,13 +217,15 @@ export function buildHardMatchAnswerRecord(
     throw new Error("希望对方的条件为多选题，至少要选一项。");
   }
 
-  const oneLinerIntro = oneLinerIntroSource.trim().replace(/\s+/g, " ");
+  const oneLinerIntro = formState.oneLinerIntro.trim().replace(/\s+/g, " ");
   if (!oneLinerIntro) {
-    throw new Error("请填写昵称。");
+    throw new Error("请填写一句话介绍。");
   }
 
   if (oneLinerIntro.length > HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH) {
-    throw new Error(`昵称请不要超过 ${HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH} 字。`);
+    throw new Error(
+      `一句话介绍请不要超过 ${HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH} 字。`,
+    );
   }
 
   const partnerAgeMin = Number(formState.partnerAgeMin);
@@ -268,10 +263,9 @@ export function buildHardMatchAnswerRecord(
 /** Returns a user-facing message when hard-match fields fail save validation; otherwise null. */
 export function getHardMatchFormSaveErrorMessage(
   formState: HardMatchFormState,
-  oneLinerIntroSource: string,
 ): string | null {
   try {
-    buildHardMatchAnswerRecord(formState, oneLinerIntroSource);
+    buildHardMatchAnswerRecord(formState);
     return null;
   } catch (error) {
     return error instanceof Error

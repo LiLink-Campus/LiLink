@@ -8,6 +8,7 @@ import {
   BIRTH_YEAR_OPTIONS,
   HARD_MATCH_GENDERS,
   HARD_MATCH_LOOKS,
+  HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
   HEIGHT_OPTIONS,
   MONTH_OPTIONS,
   buildDayOptions,
@@ -151,12 +152,14 @@ function getQuestionnaireIncompleteMessage(
   questions: Question[],
   answers: Record<string, unknown>,
   hardMatchForm: HardMatchFormState,
-  displayNameForIntro: string,
+  displayNameForNickname: string,
 ) {
-  const hardMessage = getHardMatchFormSaveErrorMessage(
-    hardMatchForm,
-    displayNameForIntro,
-  );
+  const trimmedNickname = displayNameForNickname.trim();
+  if (trimmedNickname.length < 2) {
+    return "昵称至少填写 2 个字。";
+  }
+
+  const hardMessage = getHardMatchFormSaveErrorMessage(hardMatchForm);
   if (hardMessage) {
     return hardMessage;
   }
@@ -277,10 +280,10 @@ export default function DashboardPage({
 
     try {
       const trimmedName = displayName.trim();
-      const hardMatchAnswers = buildHardMatchAnswerRecord(
-        hardMatchForm,
-        trimmedName,
-      );
+      if (trimmedName.length < 2) {
+        throw new Error("昵称至少填写 2 个字。");
+      }
+      const hardMatchAnswers = buildHardMatchAnswerRecord(hardMatchForm);
       await Promise.all([
         fetchApi("/me/questionnaire", {
           method: "PUT",
@@ -650,6 +653,29 @@ export default function DashboardPage({
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="输入你的昵称"
+                />
+              </label>
+            </fieldset>
+
+            <fieldset className="question-block">
+              <legend>一句话介绍</legend>
+              <label className="dash-one-liner-label">
+                <span className="dashboard-muted">
+                  用一两句话介绍你的兴趣或期待；引荐邮件中会展示给对方。请勿填写隐私敏感信息。
+                </span>
+                <textarea
+                  id={buildDashboardFieldId("one-liner-intro")}
+                  name="oneLinerIntro"
+                  rows={3}
+                  maxLength={HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}
+                  value={hardMatchForm.oneLinerIntro}
+                  onChange={(e) =>
+                    setHardMatchForm((f) => ({
+                      ...f,
+                      oneLinerIntro: e.target.value,
+                    }))
+                  }
+                  placeholder="例如：喜欢徒步和电影，希望认识聊得来的朋友。"
                 />
               </label>
             </fieldset>
