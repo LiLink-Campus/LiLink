@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
 
-type AdminIdentity = {
+export type AdminIdentity = {
   id: string;
   email: string;
   displayName: string | null;
@@ -32,13 +32,22 @@ export function useAdmin() {
   return context;
 }
 
-export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const [admin, setAdmin] = useState<AdminIdentity | null>(null);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+export function AdminProvider({
+  children,
+  initialAdmin = null,
+  skipInitialRefresh = false,
+}: {
+  children: React.ReactNode;
+  initialAdmin?: AdminIdentity | null;
+  skipInitialRefresh?: boolean;
+}) {
+  const [admin, setAdmin] = useState<AdminIdentity | null>(initialAdmin);
+  const [authenticated, setAuthenticated] = useState(Boolean(initialAdmin));
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function refreshAuth() {
+    setLoading(true);
     setError(null);
 
     try {
@@ -48,12 +57,18 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setAdmin(null);
       setAuthenticated(false);
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    refreshAuth().finally(() => setLoading(false));
-  }, []);
+    if (initialAdmin || skipInitialRefresh) {
+      return;
+    }
+
+    void refreshAuth();
+  }, [initialAdmin, skipInitialRefresh]);
 
   async function login(email: string, password: string) {
     setLoading(true);

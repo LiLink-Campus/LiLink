@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchApi, fetchAuthMeDeduped, type AuthMePayload } from "../lib/api";
 
@@ -12,6 +12,7 @@ const PUBLIC_NAV_ITEMS = [
 ];
 
 export function SiteNav() {
+  const pathname = usePathname();
   const router = useRouter();
   const [authenticatedUser, setAuthenticatedUser] = useState<AuthMePayload | null>(
     null,
@@ -19,6 +20,11 @@ export function SiteNav() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
+    if (pathname.startsWith("/admin")) {
+      setAuthenticatedUser(null);
+      return;
+    }
+
     let active = true;
 
     void fetchAuthMeDeduped()
@@ -40,7 +46,11 @@ export function SiteNav() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [pathname]);
+
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
 
   async function handleLogout() {
     await fetchApi("/auth/logout", {
