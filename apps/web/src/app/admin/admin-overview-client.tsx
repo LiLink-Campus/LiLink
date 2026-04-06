@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../lib/api";
+import { useAdmin } from "./admin-context";
 import type { AdminDashboardData } from "./types";
 
 function formatDateTime(value: string) {
@@ -28,8 +29,9 @@ export default function AdminOverviewPage({
   initialDashboard: AdminDashboardData | null;
   initialSettings: SystemSettings | null;
 }) {
+  const { authenticated } = useAdmin();
   const [data, setData] = useState<AdminDashboardData | null>(initialDashboard);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => !initialDashboard);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<SystemSettings | null>(initialSettings);
   const [settingsForm, setSettingsForm] = useState({
@@ -65,6 +67,13 @@ export default function AdminOverviewPage({
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!authenticated || initialDashboard) {
+      return;
+    }
+    void refresh();
+  }, [authenticated, initialDashboard, refresh]);
 
   async function saveSettings() {
     setSettingsPending(true);
