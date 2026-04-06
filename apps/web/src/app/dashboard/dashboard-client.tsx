@@ -380,6 +380,17 @@ export default function DashboardPage({
     [questions, answers, hardMatchForm, displayName],
   );
 
+  const latestMatchReasons = useMemo(() => {
+    const raw = dashboard?.latestMatch?.reasons;
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw.filter(
+      (item): item is string =>
+        typeof item === "string" && item.trim().length > 0,
+    );
+  }, [dashboard?.latestMatch?.reasons]);
+
   if (error && !dashboard) {
     return (
       <main className="page-shell prose-shell">
@@ -448,9 +459,31 @@ export default function DashboardPage({
             {introduced && counterpart.introLine ? (
               <p className="dashboard-muted dashboard-match-intro">对方介绍：{counterpart.introLine}</p>
             ) : null}
-            <ul className="reason-list">
-              {dashboard?.latestMatch?.reasons.map((reason) => (<li key={reason}>{reason}</li>))}
-            </ul>
+            <div className="dashboard-match-reasons">
+              <p className="eyebrow" style={{ marginTop: "1.15rem", marginBottom: "0.35rem" }}>
+                匹配理由
+              </p>
+              {introduced ? (
+                <p className="dashboard-muted" style={{ margin: "0 0 0.65rem" }}>
+                  以下内容与发至你邮箱的引荐邮件中的一致。
+                </p>
+              ) : (
+                <p className="dashboard-muted" style={{ margin: "0 0 0.65rem" }}>
+                  系统根据问卷与客观条件生成；点击「双方引荐联系」后，相同说明也会出现在通知邮件里。
+                </p>
+              )}
+              {latestMatchReasons.length > 0 ? (
+                <ul className="reason-list" style={{ marginTop: 0 }}>
+                  {latestMatchReasons.map((reason, index) => (
+                    <li key={`${index}-${reason.slice(0, 48)}`}>{reason}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="dashboard-muted" style={{ margin: "0 0 0.75rem" }}>
+                  暂无匹配理由条目。
+                </p>
+              )}
+            </div>
             <div className="auth-actions">
               {introduced ? (
                 <span className="domain-chip">已引荐</span>
