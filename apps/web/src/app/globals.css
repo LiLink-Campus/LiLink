@@ -1786,6 +1786,10 @@ ul {
   margin: 0 0 0.4rem;
 }
 
+.optical-punct {
+  position: absolute;
+}
+
 .about-cta p {
   color: var(--fg-secondary);
   margin: 0 0 1.5rem;
