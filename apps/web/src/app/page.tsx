@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getLandingPayload } from "../lib/api";
+import { HeroRevealCountdown } from "./hero-reveal-countdown";
 
 export const revalidate = 60;
 
@@ -56,11 +57,15 @@ export default async function Home() {
           </div>
           <div className="hero-meta">
             <span>{landing ? "下次揭晓" : "状态提醒"}</span>
-            <strong>
-              {landing
-                ? formatDateLabel(landing.currentCycle?.revealAt ?? null)
-                : "平台数据暂时不可用"}
-            </strong>
+            <HeroRevealCountdown
+              offline={landing == null}
+              revealAt={landing?.currentCycle?.revealAt ?? null}
+              serverFallbackLabel={
+                landing
+                  ? formatDateLabel(landing.currentCycle?.revealAt ?? null)
+                  : "平台数据暂时不可用"
+              }
+            />
           </div>
         </div>
 
