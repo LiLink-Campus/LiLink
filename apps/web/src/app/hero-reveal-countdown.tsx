@@ -15,20 +15,14 @@ function pad2(n: number) {
   return n.toString().padStart(2, "0");
 }
 
-function formatRemaining(ms: number) {
-  if (ms <= 0) {
-    return null;
-  }
+function formatRemainingParts(ms: number) {
+  if (ms <= 0) return null;
   const totalSec = Math.floor(ms / 1000);
   const days = Math.floor(totalSec / 86400);
   const hours = Math.floor((totalSec % 86400) / 3600);
   const minutes = Math.floor((totalSec % 3600) / 60);
   const seconds = totalSec % 60;
-
-  if (days > 0) {
-    return `${days}天 ${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
-  }
-  return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
+  return { days, hours, minutes, seconds };
 }
 
 export function HeroRevealCountdown({
@@ -64,18 +58,26 @@ export function HeroRevealCountdown({
   const targetValid = !Number.isNaN(target);
   const remaining =
     nowMs != null && targetValid ? target - nowMs : null;
-  const line =
+  const parts =
     remaining != null && !Number.isNaN(remaining)
-      ? formatRemaining(remaining)
+      ? formatRemainingParts(remaining)
       : null;
 
-  const display = !targetValid
-    ? serverFallbackLabel
-    : line != null
-      ? line
-      : nowMs == null
-        ? serverFallbackLabel
-        : "本期已揭晓";
+  if (!targetValid || nowMs == null) {
+    return (
+      <div className="hero-reveal-countdown hero-reveal-countdown--static">
+        {serverFallbackLabel}
+      </div>
+    );
+  }
+
+  if (parts == null) {
+    return (
+      <div className="hero-reveal-countdown hero-reveal-countdown--static">
+        本期已揭晓
+      </div>
+    );
+  }
 
   return (
     <div
@@ -83,7 +85,18 @@ export function HeroRevealCountdown({
       aria-live="polite"
       aria-label="距离下次揭晓的剩余时间"
     >
-      <span className="hero-reveal-countdown__value">{display}</span>
+      {parts.days > 0 && (
+        <>
+          <span className="countdown-num">{parts.days}</span>
+          <span className="countdown-unit">天</span>
+        </>
+      )}
+      <span className="countdown-num">{pad2(parts.hours)}</span>
+      <span className="countdown-unit">时</span>
+      <span className="countdown-num">{pad2(parts.minutes)}</span>
+      <span className="countdown-unit">分</span>
+      <span className="countdown-num">{pad2(parts.seconds)}</span>
+      <span className="countdown-unit">秒</span>
     </div>
   );
 }
