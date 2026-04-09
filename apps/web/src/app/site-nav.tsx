@@ -14,14 +14,13 @@ const PUBLIC_NAV_ITEMS = [
 export function SiteNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [authenticatedUser, setAuthenticatedUser] = useState<AuthMePayload | null>(
-    null,
-  );
+  const [authMe, setAuthMe] = useState<AuthMePayload | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const onAdminPath = pathname.startsWith("/admin");
+  const authenticatedUser = onAdminPath ? null : authMe;
 
   useEffect(() => {
     if (pathname.startsWith("/admin")) {
-      setAuthenticatedUser(null);
       return;
     }
 
@@ -33,14 +32,14 @@ export function SiteNav() {
           return;
         }
 
-        setAuthenticatedUser(user);
+        setAuthMe(user);
       })
       .catch(() => {
         if (!active) {
           return;
         }
 
-        setAuthenticatedUser(null);
+        setAuthMe(null);
       });
 
     return () => {
@@ -57,7 +56,7 @@ export function SiteNav() {
       method: "POST",
     });
 
-    setAuthenticatedUser(null);
+    setAuthMe(null);
     setMenuOpen(false);
     router.push("/");
     router.refresh();

@@ -190,11 +190,11 @@ export default function DashboardPage({
   initialQuestions: Question[];
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
-  const [user, setUser] = useState<AuthMePayload | null>(initialUser);
+  const [user] = useState<AuthMePayload | null>(initialUser);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(
     initialDashboard,
   );
-  const [questions, setQuestions] = useState<Question[]>(initialQuestions);
+  const [questions] = useState<Question[]>(initialQuestions);
   const [answers, setAnswers] = useState<Record<string, unknown>>(
     keepCurrentQuestionAnswers(initialQuestions, initialSavedQuestionnaire?.answers),
   );
@@ -208,13 +208,8 @@ export default function DashboardPage({
   const [reportReason, setReportReason] = useState("骚扰");
   const [reportDetails, setReportDetails] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
-  const [editingDisplayName, setEditingDisplayName] = useState("");
   const [questionnaireBodyVisible, setQuestionnaireBodyVisible] = useState(true);
   const initialQuestionnaireVisibilitySet = useRef(false);
-
-  useEffect(() => {
-    setEditingDisplayName(user?.displayName ?? "");
-  }, [user?.displayName]);
 
   useEffect(() => {
     if (!dashboard || initialQuestionnaireVisibilitySet.current) {
@@ -251,26 +246,6 @@ export default function DashboardPage({
       ...current,
       [field]: toggleMultiSelectValue(current[field], nextValue),
     }));
-  }
-
-  async function saveDisplayName() {
-    const trimmed = editingDisplayName.trim();
-    if (trimmed.length < 2) return;
-    setSaving("displayName");
-    setSavedMessage(null);
-    setError(null);
-    try {
-      const result = await fetchApi<{ displayName: string | null }>("/me/profile", {
-        method: "PUT",
-        body: JSON.stringify({ displayName: trimmed }),
-      });
-      setUser((current) => current ? { ...current, displayName: result.displayName } : current);
-      startTransition(() => { setSavedMessage("昵称已更新。"); });
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "昵称保存失败。");
-    } finally {
-      setSaving(null);
-    }
   }
 
   async function saveQuestionnaire() {
