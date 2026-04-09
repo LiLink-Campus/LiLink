@@ -4,8 +4,8 @@ import { getLandingPayload } from "../lib/api";
 export const revalidate = 60;
 
 /** Homepage hero strip: public-facing counts differ from admin/API totals. */
-const HOMEPAGE_REGISTERED_COUNT_PAD = 24;
-const HOMEPAGE_COMPLETED_COUNT_PAD = 16;
+const HOMEPAGE_REGISTERED_COUNT_PAD = 50;
+const HOMEPAGE_COMPLETED_COUNT_PAD = 40;
 
 function formatDateLabel(value: string | null) {
   if (!value) {

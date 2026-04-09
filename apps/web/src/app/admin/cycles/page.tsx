@@ -73,6 +73,7 @@ export default function AdminCyclesPage() {
   const [participantFilter, setParticipantFilter] = useState<"ALL" | "OPTED_IN" | "OPTED_OUT">("ALL");
   const [participantPage, setParticipantPage] = useState(1);
   const [matchPage, setMatchPage] = useState(1);
+  const [logPage, setLogPage] = useState(1);
   const [pairPage, setPairPage] = useState(1);
 
   const deferredSearch = useDeferredValue(search);
@@ -122,6 +123,7 @@ export default function AdminCyclesPage() {
     });
     setParticipantPage(1);
     setMatchPage(1);
+    setLogPage(1);
     setPairPage(1);
     setParticipantFilter("ALL");
   }, [selectedCycle]);
@@ -270,6 +272,7 @@ export default function AdminCyclesPage() {
 
   const PAGE_SIZE_PARTICIPANTS = 10;
   const PAGE_SIZE_MATCHES = 6;
+  const PAGE_SIZE_LOGS = 10;
   const PAGE_SIZE_PAIRS = 6;
 
   return (
@@ -553,6 +556,12 @@ export default function AdminCyclesPage() {
           const mStart = (mSafePage - 1) * PAGE_SIZE_MATCHES;
           const visibleM = allM.slice(mStart, mStart + PAGE_SIZE_MATCHES);
 
+          const allLogs = cycleDetail.logs;
+          const logTotalPages = Math.max(1, Math.ceil(allLogs.length / PAGE_SIZE_LOGS));
+          const logSafePage = Math.min(logPage, logTotalPages);
+          const logStart = (logSafePage - 1) * PAGE_SIZE_LOGS;
+          const visibleLogs = allLogs.slice(logStart, logStart + PAGE_SIZE_LOGS);
+
           return (
             <div className="admin-page-stack">
               <div className="admin-inline-metrics">
@@ -592,7 +601,7 @@ export default function AdminCyclesPage() {
               <div>
                 <h3>运行记录</h3>
                 <div className="admin-record-list">
-                  {cycleDetail.logs.map((log) => (
+                  {visibleLogs.map((log) => (
                     <div key={log.id} className="admin-record-item">
                       <div className="admin-record-topline">
                         <strong>{log.action}</strong>
@@ -601,8 +610,15 @@ export default function AdminCyclesPage() {
                       <p>{JSON.stringify(log.metadata ?? {})}</p>
                     </div>
                   ))}
-                  {cycleDetail.logs.length === 0 && <div className="admin-empty-state">当前轮次还没有运行日志。</div>}
+                  {allLogs.length === 0 && <div className="admin-empty-state">当前轮次还没有运行日志。</div>}
                 </div>
+                {logTotalPages > 1 && (
+                  <div className="admin-pagination">
+                    <button disabled={logSafePage <= 1} onClick={() => setLogPage(logSafePage - 1)} type="button">上一页</button>
+                    <span>{logSafePage} / {logTotalPages} · 共 {allLogs.length} 条</span>
+                    <button disabled={logSafePage >= logTotalPages} onClick={() => setLogPage(logSafePage + 1)} type="button">下一页</button>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -660,7 +676,7 @@ export default function AdminCyclesPage() {
             </div>
           );
         })() : (
-          <div className="admin-empty-state">先选择轮次，再点击"预演匹配"。</div>
+          <div className="admin-empty-state">先选择轮次，再点击「预演匹配」。</div>
         )}
       </section>
     </div>
