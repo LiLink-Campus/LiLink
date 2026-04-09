@@ -85,12 +85,8 @@ export function HeroRevealCountdown({
       aria-live="polite"
       aria-label="距离下次揭晓的剩余时间"
     >
-      {parts.days > 0 && (
-        <>
-          <span className="countdown-num">{parts.days}</span>
-          <span className="countdown-unit">天</span>
-        </>
-      )}
+      <span className="countdown-num">{parts.days}</span>
+      <span className="countdown-unit">天</span>
       <span className="countdown-num">{pad2(parts.hours)}</span>
       <span className="countdown-unit">时</span>
       <span className="countdown-num">{pad2(parts.minutes)}</span>
