@@ -29,7 +29,7 @@ apps/*/.env.*
 # Database
 *.db
 *.db-journal
-prisma/dev.db
+apps/api/prisma/*.db
 
 # OS / IDE
 .DS_Store
@@ -37,10 +37,14 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+.eslintcache
 
 # Docker
 postgres-data/
 mailpit-data/
+
+# Postgres dumps (pg_dump / scripts/backup-postgres.sh)
+backups/
 
 # TypeScript
 *.tsbuildinfo
@@ -50,3 +54,5 @@ next-env.d.ts
 .vercel/
 .turbo/
 tmp/
+*.pem
+

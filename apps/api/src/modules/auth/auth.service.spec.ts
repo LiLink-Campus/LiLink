@@ -118,7 +118,11 @@ describe('AuthService', () => {
       prisma as never,
       {
         buildVerificationCodeEmail: jest.fn(
-          (input: { dedupeKey: string; recipientEmail: string }) => ({
+          (input: {
+            dedupeKey: string;
+            recipientEmail: string;
+            code: string;
+          }) => ({
             dedupeKey: input.dedupeKey,
             recipientEmail: input.recipientEmail,
             subject: 'LiLink verification code',
@@ -136,21 +140,18 @@ describe('AuthService', () => {
 
     const result = await authService.requestCode('user@example.com');
 
-    const createCalls = create.mock.calls as Array<
-      [
-        {
-          data: {
-            email: string;
-            deliveryDedupeKey: string;
-          };
-        },
-      ]
+    expect(create).toHaveBeenCalledTimes(1);
+    const createCalls = create.mock.calls as unknown as Array<
+      [{ data: { email: string; deliveryDedupeKey: string } }]
     >;
     const createPayload = createCalls[0]?.[0];
-    expect(createPayload.data.email).toBe('user@example.com');
-    expect(createPayload.data.deliveryDedupeKey).toMatch(/^verification-code:/);
+    expect(createPayload?.data.email).toBe('user@example.com');
+    expect(createPayload?.data.deliveryDedupeKey).toMatch(
+      /^verification-code:/,
+    );
 
-    const outboundCreateCalls = outboundCreate.mock.calls as Array<
+    expect(outboundCreate).toHaveBeenCalledTimes(1);
+    const outboundCalls = outboundCreate.mock.calls as unknown as Array<
       [
         {
           data: {
@@ -161,13 +162,18 @@ describe('AuthService', () => {
         },
       ]
     >;
-    const outboundCreatePayload = outboundCreateCalls[0]?.[0];
-    expect(outboundCreatePayload.data.dedupeKey).toMatch(/^verification-code:/);
-    expect(outboundCreatePayload.data.recipientEmail).toBe('user@example.com');
-    expect(outboundCreatePayload.data.maxAttempts).toBe(1);
-    expect(flushQueuedEmails).toHaveBeenCalledWith({
-      dedupeKeys: [expect.stringMatching(/^verification-code:/)],
-    });
+    const outboundPayload = outboundCalls[0]?.[0];
+    expect(outboundPayload?.data.dedupeKey).toMatch(/^verification-code:/);
+    expect(outboundPayload?.data.recipientEmail).toBe('user@example.com');
+    expect(outboundPayload?.data.maxAttempts).toBe(1);
+
+    expect(flushQueuedEmails).toHaveBeenCalledTimes(1);
+    const flushCalls = flushQueuedEmails.mock.calls as unknown as Array<
+      [{ dedupeKeys: string[] }]
+    >;
+    const flushPayload = flushCalls[0]?.[0];
+    expect(flushPayload?.dedupeKeys).toHaveLength(1);
+    expect(flushPayload?.dedupeKeys[0]).toMatch(/^verification-code:/);
     expect(result).toMatchObject({
       email: 'user@example.com',
       school: { schoolId: 'school-1' },
@@ -206,7 +212,11 @@ describe('AuthService', () => {
       prisma as never,
       {
         buildVerificationCodeEmail: jest.fn(
-          (input: { dedupeKey: string; recipientEmail: string }) => ({
+          (input: {
+            dedupeKey: string;
+            recipientEmail: string;
+            code: string;
+          }) => ({
             dedupeKey: input.dedupeKey,
             recipientEmail: input.recipientEmail,
             subject: 'LiLink verification code',
