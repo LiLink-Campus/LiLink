@@ -15,6 +15,7 @@ if (process.env.NODE_ENV === "production" && !apiBaseUrl) {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  transpilePackages: ["@lilink/shared"],
   turbopack: {
     root: workspaceRoot,
   },
