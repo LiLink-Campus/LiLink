@@ -32,7 +32,8 @@ describe('AccountService', () => {
               current_question: 'kept',
               removed_question: 'dropped',
               [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
-              [HARD_MATCH_KEYS.oneLinerIntro]: '测试用一句话介绍，用于回归问卷过滤。',
+              [HARD_MATCH_KEYS.oneLinerIntro]:
+                '测试用一句话介绍，用于回归问卷过滤。',
             },
           }),
         },
@@ -60,8 +61,7 @@ describe('AccountService', () => {
       answers: {
         current_question: 'kept',
         [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
-        [HARD_MATCH_KEYS.oneLinerIntro]:
-          '测试用一句话介绍，用于回归问卷过滤。',
+        [HARD_MATCH_KEYS.oneLinerIntro]: '测试用一句话介绍，用于回归问卷过滤。',
       },
     });
   });

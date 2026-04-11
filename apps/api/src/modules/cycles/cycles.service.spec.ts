@@ -285,19 +285,20 @@ describe('CyclesService', () => {
       auditLog: {
         create: auditLogCreate,
       },
-      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
-        callback({
-          match: {
-            deleteMany: matchDeleteMany,
-            create: matchCreate,
-          },
-          matchCycle: {
-            update: matchCycleUpdate,
-          },
-          auditLog: {
-            create: auditLogCreate,
-          },
-        }),
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            match: {
+              deleteMany: matchDeleteMany,
+              create: matchCreate,
+            },
+            matchCycle: {
+              update: matchCycleUpdate,
+            },
+            auditLog: {
+              create: auditLogCreate,
+            },
+          }),
       ),
     };
     const service = new CyclesService(prisma as never);
@@ -429,19 +430,20 @@ describe('CyclesService', () => {
       auditLog: {
         create: auditLogCreate,
       },
-      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
-        callback({
-          match: {
-            deleteMany: matchDeleteMany,
-            create: matchCreate,
-          },
-          matchCycle: {
-            update: matchCycleUpdate,
-          },
-          auditLog: {
-            create: auditLogCreate,
-          },
-        }),
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            match: {
+              deleteMany: matchDeleteMany,
+              create: matchCreate,
+            },
+            matchCycle: {
+              update: matchCycleUpdate,
+            },
+            auditLog: {
+              create: auditLogCreate,
+            },
+          }),
       ),
     };
     const service = new CyclesService(prisma as never);
@@ -588,9 +590,9 @@ describe('CyclesService', () => {
   it('excludes blocked and previously matched pairs before choosing the final result set', async () => {
     const prisma = {
       block: {
-        findMany: jest.fn().mockResolvedValue([
-          { blockerId: 'user-a', blockedId: 'user-b' },
-        ]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ blockerId: 'user-a', blockedId: 'user-b' }]),
       },
       match: {
         findMany: jest.fn().mockResolvedValue([
