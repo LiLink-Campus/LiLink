@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import blossom from 'edmonds-blossom-fixed';
 import { QuestionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -23,6 +24,7 @@ const BASE_MATCH_SCORE = 48;
 const SINGLE_SELECT_MATCH_BONUS = 6;
 const MULTI_SELECT_OVERLAP_BONUS = 3;
 const MAX_MATCH_REASONS = 3;
+const NORMALIZED_SCORE_MAX = 100;
 const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 
 type EligibleParticipant = {
@@ -35,6 +37,7 @@ type EligibleParticipant = {
 type CandidatePair = {
   left: EligibleParticipant;
   right: EligibleParticipant;
+  rawScore: number;
   score: number;
   reasons: string[];
 };
@@ -52,6 +55,11 @@ type RunRevealCycleOptions = {
   force?: boolean;
   cycleId?: string;
   adminActorId?: string;
+};
+
+type MatchScoreBounds = {
+  min: number;
+  max: number;
 };
 
 function buildInsufficientParticipantsMessage(
@@ -402,6 +410,7 @@ export class CyclesService {
     questions: QuestionnaireQuestion[],
     revealAt: Date,
   ) {
+    const scoreBounds = this.calculateMatchScoreBounds(questions);
     const participantIds = participants.map((participant) => participant.id);
 
     const [blocks, priorMatches] = await Promise.all([
@@ -465,7 +474,13 @@ export class CyclesService {
           continue;
         }
 
-        const scored = this.scorePair(left, right, questions, revealAt);
+        const scored = this.scorePair(
+          left,
+          right,
+          questions,
+          revealAt,
+          scoreBounds,
+        );
         if (!scored) {
           continue;
         }
@@ -473,27 +488,26 @@ export class CyclesService {
         candidates.push({
           left,
           right,
+          rawScore: scored.rawScore,
           score: scored.score,
           reasons: scored.reasons,
         });
       }
     }
 
-    candidates.sort((first, second) => second.score - first.score);
-
-    const usedUserIds = new Set<string>();
-    const selectedPairs = candidates.filter((candidate) => {
-      if (
-        usedUserIds.has(candidate.left.id) ||
-        usedUserIds.has(candidate.right.id)
-      ) {
-        return false;
+    candidates.sort((first, second) => {
+      if (second.score !== first.score) {
+        return second.score - first.score;
       }
 
-      usedUserIds.add(candidate.left.id);
-      usedUserIds.add(candidate.right.id);
-      return true;
+      return this.createPairKey(first.left.id, first.right.id).localeCompare(
+        this.createPairKey(second.left.id, second.right.id),
+      );
     });
+    const selectedPairs = this.selectOptimalDisjointPairs(
+      candidates,
+      participants,
+    );
 
     return {
       candidates,
@@ -513,6 +527,7 @@ export class CyclesService {
       reasonRules: Prisma.JsonValue | null;
     }>,
     revealAt: Date,
+    scoreBounds = this.calculateMatchScoreBounds(questions),
   ) {
     if (
       !areHardMatchAnswersCompatible(
@@ -524,7 +539,7 @@ export class CyclesService {
       return null;
     }
 
-    let score = BASE_MATCH_SCORE;
+    let rawScore = BASE_MATCH_SCORE;
     const reasons: Array<{ text: string; priority: number; order: number }> =
       [];
 
@@ -550,7 +565,7 @@ export class CyclesService {
           question.type === QuestionType.SCALE) &&
         leftAnswer === rightAnswer
       ) {
-        score += weight * SINGLE_SELECT_MATCH_BONUS;
+        rawScore += weight * SINGLE_SELECT_MATCH_BONUS;
         reasons.push(
           ...this.buildReasonMessages(question, leftAnswer, rightAnswer, order),
         );
@@ -564,7 +579,7 @@ export class CyclesService {
         );
 
         if (overlap.length > 0) {
-          score += overlap.length * weight * MULTI_SELECT_OVERLAP_BONUS;
+          rawScore += overlap.length * weight * MULTI_SELECT_OVERLAP_BONUS;
           reasons.push(
             ...this.buildReasonMessages(
               question,
@@ -604,7 +619,8 @@ export class CyclesService {
       .map((reason) => reason.text);
 
     return {
-      score,
+      rawScore,
+      score: this.normalizeMatchScore(rawScore, scoreBounds),
       reasons:
         uniqueReasons.length > 0
           ? uniqueReasons
@@ -689,6 +705,161 @@ export class CyclesService {
         (reason): reason is { text: string; priority: number; order: number } =>
           reason !== null,
       );
+  }
+
+  private selectOptimalDisjointPairs(
+    candidates: CandidatePair[],
+    participants: EligibleParticipant[],
+  ) {
+    if (candidates.length === 0) {
+      return [];
+    }
+
+    const participantIndexById = new Map(
+      participants.map((participant, index) => [participant.id, index]),
+    );
+    const candidateByPairKey = new Map(
+      candidates.map((candidate) => [
+        this.createPairKey(candidate.left.id, candidate.right.id),
+        candidate,
+      ]),
+    );
+    const edges: Array<[number, number, number]> = candidates.map(
+      (candidate) => {
+        const leftIndex = participantIndexById.get(candidate.left.id);
+        const rightIndex = participantIndexById.get(candidate.right.id);
+
+        if (leftIndex == null || rightIndex == null) {
+          throw new BadRequestException(
+            'Candidate pair contains a participant outside the current cycle.',
+          );
+        }
+
+        return [leftIndex, rightIndex, candidate.rawScore];
+      },
+    );
+    const mateByIndex = blossom(edges, true);
+
+    const selectedPairs: CandidatePair[] = [];
+
+    for (let leftIndex = 0; leftIndex < mateByIndex.length; leftIndex += 1) {
+      const rightIndex = mateByIndex[leftIndex];
+      if (
+        !Number.isInteger(rightIndex) ||
+        rightIndex < 0 ||
+        rightIndex <= leftIndex
+      ) {
+        continue;
+      }
+
+      const left = participants[leftIndex];
+      const right = participants[rightIndex];
+      if (!left || !right) {
+        continue;
+      }
+
+      const candidate = candidateByPairKey.get(
+        this.createPairKey(left.id, right.id),
+      );
+      if (candidate) {
+        selectedPairs.push(candidate);
+      }
+    }
+
+    selectedPairs.sort((first, second) => {
+      if (second.score !== first.score) {
+        return second.score - first.score;
+      }
+
+      return this.createPairKey(first.left.id, first.right.id).localeCompare(
+        this.createPairKey(second.left.id, second.right.id),
+      );
+    });
+
+    return selectedPairs;
+  }
+
+  private calculateMatchScoreBounds(
+    questions: Array<{
+      type: QuestionType;
+      weight: number;
+      selectionLimit?: number | null;
+      options: Prisma.JsonValue | null;
+      prompt: string;
+    }>,
+  ): MatchScoreBounds {
+    let max = BASE_MATCH_SCORE;
+
+    for (const question of questions) {
+      if (
+        question.type === QuestionType.SINGLE_SELECT ||
+        question.type === QuestionType.SCALE
+      ) {
+        max += question.weight * SINGLE_SELECT_MATCH_BONUS;
+        continue;
+      }
+
+      if (question.type === QuestionType.MULTI_SELECT) {
+        max +=
+          this.getMaxMultiSelectOverlap(question) *
+          question.weight *
+          MULTI_SELECT_OVERLAP_BONUS;
+      }
+    }
+
+    return {
+      min: BASE_MATCH_SCORE,
+      max,
+    };
+  }
+
+  private getMaxMultiSelectOverlap(question: {
+    prompt: string;
+    selectionLimit?: number | null;
+    options: Prisma.JsonValue | null;
+  }) {
+    const optionCount = normalizeQuestionOptions(question.options).length;
+    const selectionLimit = question.selectionLimit ?? null;
+
+    if (selectionLimit != null) {
+      if (!Number.isInteger(selectionLimit) || selectionLimit < 0) {
+        throw new BadRequestException(
+          `Question "${question.prompt}" has an invalid selection limit.`,
+        );
+      }
+
+      if (optionCount === 0) {
+        return selectionLimit;
+      }
+
+      return Math.min(selectionLimit, optionCount);
+    }
+
+    if (optionCount === 0) {
+      throw new BadRequestException(
+        `Question "${question.prompt}" must define options or a selection limit before match scores can be normalized.`,
+      );
+    }
+
+    return optionCount;
+  }
+
+  private normalizeMatchScore(rawScore: number, scoreBounds: MatchScoreBounds) {
+    if (scoreBounds.max < scoreBounds.min) {
+      throw new BadRequestException(
+        'Match score bounds are invalid for the current questionnaire.',
+      );
+    }
+
+    if (scoreBounds.max === scoreBounds.min) {
+      return NORMALIZED_SCORE_MAX;
+    }
+
+    const normalizedScore =
+      ((rawScore - scoreBounds.min) / (scoreBounds.max - scoreBounds.min)) *
+      NORMALIZED_SCORE_MAX;
+
+    return Math.round(normalizedScore * 10) / 10;
   }
 
   private async resetCycleToOpen(cycleId: string) {
