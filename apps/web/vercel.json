@@ -1,4 +1,5 @@
 {
   "framework": "nextjs",
-  "regions": ["hkg1"]
+  "regions": ["hkg1"],
+  "buildCommand": "cd ../.. && npm run build:shared && cd apps/web && next build"
 }
