@@ -429,6 +429,11 @@ export default function DashboardPage({
         ) : counterpart ? (
           <>
             <h2>{introduced ? "引荐与说明" : "本轮匹配"}</h2>
+            {dashboard?.latestMatch ? (
+              <p className="dashboard-match-score">
+                匹配度：<strong>{dashboard.latestMatch.score.toFixed(1)}</strong> / 100
+              </p>
+            ) : null}
             {!introduced ? <p className="dashboard-muted">揭晓前不会展示对方学校、昵称等可识别信息；下方说明仅来自客观筛选条件与价值观问卷。</p> : null}
             {introduced && counterpart.email ? <p className="form-success dashboard-match-email">联络邮箱：{counterpart.email}</p> : null}
             {introduced && counterpart.introLine ? (

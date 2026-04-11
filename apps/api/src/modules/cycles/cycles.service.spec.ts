@@ -570,7 +570,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-a' },
       right: { id: 'user-b' },
-      score: 71.4,
+      score: 91.4,
       reasons: [
         '你们对进入关系的期待很一致。',
         '你们都把 真诚、稳定 放在重要位置。',
@@ -579,7 +579,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[1]).toMatchObject({
       left: { id: 'user-c' },
       right: { id: 'user-d' },
-      score: 71.4,
+      score: 91.4,
       reasons: [
         '你们对进入关系的期待很一致。',
         '你们都把 幽默感、上进 放在重要位置。',
@@ -716,7 +716,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-b' },
       right: { id: 'user-c' },
-      score: 57.1,
+      score: 87.1,
       reasons: ['你们对进入关系的期待很一致。', '你们都把 真诚 放在重要位置。'],
     });
   });

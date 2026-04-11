@@ -1084,6 +1084,15 @@ ul {
     color: var(--sage);
 }
 
+.dashboard-match-score {
+    font-size: 1.05rem;
+    color: var(--fg-secondary);
+    margin: 0.25rem 0 0.75rem;
+}
+.dashboard-match-score strong {
+    font-size: 1.35rem;
+    color: var(--accent);
+}
 .dashboard-match-email {
     margin-top: 0.5rem;
 }

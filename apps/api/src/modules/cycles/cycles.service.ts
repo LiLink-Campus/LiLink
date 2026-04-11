@@ -24,6 +24,7 @@ const BASE_MATCH_SCORE = 48;
 const SINGLE_SELECT_MATCH_BONUS = 6;
 const MULTI_SELECT_OVERLAP_BONUS = 3;
 const MAX_MATCH_REASONS = 3;
+const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 
@@ -855,9 +856,11 @@ export class CyclesService {
       return NORMALIZED_SCORE_MAX;
     }
 
+    const ratio =
+      (rawScore - scoreBounds.min) / (scoreBounds.max - scoreBounds.min);
     const normalizedScore =
-      ((rawScore - scoreBounds.min) / (scoreBounds.max - scoreBounds.min)) *
-      NORMALIZED_SCORE_MAX;
+      NORMALIZED_SCORE_MIN +
+      ratio * (NORMALIZED_SCORE_MAX - NORMALIZED_SCORE_MIN);
 
     return Math.round(normalizedScore * 10) / 10;
   }
