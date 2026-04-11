@@ -13,10 +13,10 @@ import {
 import { Transform } from 'class-transformer';
 
 export class UpdateProfileDto {
-    @IsOptional()
-    @IsString()
-    @MinLength(2)
-    displayName?: string;
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  displayName?: string;
 
   @IsOptional()
   @IsString()

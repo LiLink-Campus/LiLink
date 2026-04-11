@@ -88,7 +88,11 @@ export class AdminController {
     @Param('sourceId') sourceId: string,
     @Param('targetId') targetId: string,
   ) {
-    return this.adminService.mergeSchools(sourceId, targetId, request.admin!.id);
+    return this.adminService.mergeSchools(
+      sourceId,
+      targetId,
+      request.admin!.id,
+    );
   }
 
   @Put('cycles')
@@ -210,7 +214,11 @@ export class AdminController {
     @Param('userId') userId: string,
     @Body() body: { isTest: boolean },
   ) {
-    return this.adminService.setTestFlag(userId, body.isTest, request.admin!.id);
+    return this.adminService.setTestFlag(
+      userId,
+      body.isTest,
+      request.admin!.id,
+    );
   }
 
   @Post('seed-test-users')

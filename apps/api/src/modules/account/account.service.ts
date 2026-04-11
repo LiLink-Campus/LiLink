@@ -24,37 +24,41 @@ export class AccountService {
   ) {}
 
   async getDashboard(userId: string) {
-    const [profile, questionnaire, cycle, recentMatchParticipants, lastRevealedParticipation] =
-      await Promise.all([
-        this.prisma.userProfile.findUnique({
-          where: { userId },
-        }),
-        this.prisma.questionnaireResponse.findUnique({
-          where: { userId },
-        }),
-        this.prisma.matchCycle.findFirst({
-          where: { status: { in: ['OPEN', 'REVEAL_READY'] } },
-          orderBy: { revealAt: 'asc' },
-        }),
-        this.prisma.matchParticipant.findMany({
-          where: { userId },
-          include: {
-            match: {
-              include: {
-                reports: {
-                  where: { reporterId: userId },
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                },
-                participants: {
-                  include: {
-                    user: {
-                      include: {
-                        profile: true,
-                        school: true,
-                        questionnaireResponse: {
-                          select: { answers: true },
-                        },
+    const [
+      profile,
+      questionnaire,
+      cycle,
+      recentMatchParticipants,
+      lastRevealedParticipation,
+    ] = await Promise.all([
+      this.prisma.userProfile.findUnique({
+        where: { userId },
+      }),
+      this.prisma.questionnaireResponse.findUnique({
+        where: { userId },
+      }),
+      this.prisma.matchCycle.findFirst({
+        where: { status: { in: ['OPEN', 'REVEAL_READY'] } },
+        orderBy: { revealAt: 'asc' },
+      }),
+      this.prisma.matchParticipant.findMany({
+        where: { userId },
+        include: {
+          match: {
+            include: {
+              reports: {
+                where: { reporterId: userId },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+              participants: {
+                include: {
+                  user: {
+                    include: {
+                      profile: true,
+                      school: true,
+                      questionnaireResponse: {
+                        select: { answers: true },
                       },
                     },
                   },
@@ -62,30 +66,31 @@ export class AccountService {
               },
             },
           },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: 5,
-        }),
-        this.prisma.cycleParticipation.findFirst({
-          where: {
-            userId,
-            cycle: { status: 'REVEALED' },
-          },
-          orderBy: {
-            cycle: { revealAt: 'desc' },
-          },
-          include: {
-            cycle: {
-              select: {
-                id: true,
-                codename: true,
-                revealAt: true,
-              },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 5,
+      }),
+      this.prisma.cycleParticipation.findFirst({
+        where: {
+          userId,
+          cycle: { status: 'REVEALED' },
+        },
+        orderBy: {
+          cycle: { revealAt: 'desc' },
+        },
+        include: {
+          cycle: {
+            select: {
+              id: true,
+              codename: true,
+              revealAt: true,
             },
           },
-        }),
-      ]);
+        },
+      }),
+    ]);
 
     const counterpartUserIds = recentMatchParticipants
       .map((participant) =>

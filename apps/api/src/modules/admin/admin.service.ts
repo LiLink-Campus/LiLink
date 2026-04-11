@@ -14,7 +14,7 @@ import {
 import { AdminAuditService } from './admin-audit.service';
 import { AdminSchoolService } from './admin-school.service';
 import {
-    AdminUpdateUserDto,
+  AdminUpdateUserDto,
   BatchReviewReportsDto,
   ListAuditLogsQueryDto,
   ListCyclesQueryDto,
@@ -1041,9 +1041,11 @@ export class AdminService {
     }
 
     const updateData: Record<string, unknown> = {};
-    if (input.displayName !== undefined) updateData.displayName = input.displayName;
+    if (input.displayName !== undefined)
+      updateData.displayName = input.displayName;
     if (input.status !== undefined) updateData.status = input.status;
-    if (input.schoolId !== undefined) updateData.schoolId = input.schoolId || null;
+    if (input.schoolId !== undefined)
+      updateData.schoolId = input.schoolId || null;
 
     if (input.email !== undefined) {
       const normalizedEmail = input.email.trim().toLowerCase();
@@ -1051,7 +1053,9 @@ export class AdminService {
         where: { email: normalizedEmail },
       });
       if (existingUser && existingUser.id !== userId) {
-        throw new BadRequestException('This email is already in use by another user.');
+        throw new BadRequestException(
+          'This email is already in use by another user.',
+        );
       }
       updateData.email = normalizedEmail;
     }
@@ -1205,14 +1209,35 @@ export class AdminService {
     ).map((p) => p.matchId);
 
     await this.prisma.$transaction([
-      this.prisma.report.deleteMany({ where: { matchId: { in: affectedMatchIds } } }),
-      this.prisma.matchParticipant.deleteMany({ where: { matchId: { in: affectedMatchIds } } }),
+      this.prisma.report.deleteMany({
+        where: { matchId: { in: affectedMatchIds } },
+      }),
+      this.prisma.matchParticipant.deleteMany({
+        where: { matchId: { in: affectedMatchIds } },
+      }),
       this.prisma.match.deleteMany({ where: { id: { in: affectedMatchIds } } }),
-      this.prisma.cycleParticipation.deleteMany({ where: { userId: { in: userIds } } }),
-      this.prisma.report.deleteMany({ where: { OR: [{ reporterId: { in: userIds } }, { reportedUserId: { in: userIds } }] } }),
-      this.prisma.block.deleteMany({ where: { OR: [{ blockerId: { in: userIds } }, { blockedId: { in: userIds } }] } }),
-      this.prisma.questionnaireResponse.deleteMany({ where: { userId: { in: userIds } } }),
-      this.prisma.userProfile.deleteMany({ where: { userId: { in: userIds } } }),
+      this.prisma.cycleParticipation.deleteMany({
+        where: { userId: { in: userIds } },
+      }),
+      this.prisma.report.deleteMany({
+        where: {
+          OR: [
+            { reporterId: { in: userIds } },
+            { reportedUserId: { in: userIds } },
+          ],
+        },
+      }),
+      this.prisma.block.deleteMany({
+        where: {
+          OR: [{ blockerId: { in: userIds } }, { blockedId: { in: userIds } }],
+        },
+      }),
+      this.prisma.questionnaireResponse.deleteMany({
+        where: { userId: { in: userIds } },
+      }),
+      this.prisma.userProfile.deleteMany({
+        where: { userId: { in: userIds } },
+      }),
       this.prisma.auditLog.deleteMany({ where: { actorId: { in: userIds } } }),
       this.prisma.user.deleteMany({ where: { id: { in: userIds } } }),
     ]);
@@ -1351,38 +1376,154 @@ export class AdminService {
 
     const BULK_COUNT = 27;
     const SOFT_SINGLE_POOLS = {
-      relationship_intent: ['认真稳定的关系', '先认真了解再决定', '轻松认识，顺其自然'],
+      relationship_intent: [
+        '认真稳定的关系',
+        '先认真了解再决定',
+        '轻松认识，顺其自然',
+      ],
       pace: ['慢热', '平衡', '主动推进'],
-      define_relationship_timing: ['熟悉后尽快明确', '相处一段时间再确认', '不急着定义关系'],
+      define_relationship_timing: [
+        '熟悉后尽快明确',
+        '相处一段时间再确认',
+        '不急着定义关系',
+      ],
       contact_frequency: ['高互动', '适中', '保持留白'],
       weekend: ['出门探索', '轻社交', '安静恢复'],
       communication: ['当场说清楚', '先冷静再沟通', '给彼此缓冲时间'],
       repair_style: ['先讲清楚逻辑', '先安抚情绪', '先给空间再回来聊'],
       apology_expectation: ['及时道歉', '解释清楚', '后续行动'],
-      outing_spend_style: ['无所谓，看当时和心情', '更希望 AA', '更能接受对方多出或主动请客'],
+      outing_spend_style: [
+        '无所谓，看当时和心情',
+        '更希望 AA',
+        '更能接受对方多出或主动请客',
+      ],
       career_relationship_balance: ['感情优先', '尽量平衡', '更看重学业或事业'],
-      social_energy: ['非常不像我', '比较不像我', '看情况', '比较像我', '非常像我'],
-      emotional_openness: ['非常不像我', '比较不像我', '看情况', '比较像我', '非常像我'],
-      space_need: ['非常不像我', '比较不像我', '看情况', '比较像我', '非常像我'],
-      novelty_need: ['非常不像我', '比较不像我', '看情况', '比较像我', '非常像我'],
+      social_energy: [
+        '非常不像我',
+        '比较不像我',
+        '看情况',
+        '比较像我',
+        '非常像我',
+      ],
+      emotional_openness: [
+        '非常不像我',
+        '比较不像我',
+        '看情况',
+        '比较像我',
+        '非常像我',
+      ],
+      space_need: [
+        '非常不像我',
+        '比较不像我',
+        '看情况',
+        '比较像我',
+        '非常像我',
+      ],
+      novelty_need: [
+        '非常不像我',
+        '比较不像我',
+        '看情况',
+        '比较像我',
+        '非常像我',
+      ],
     };
     const SOFT_MULTI_POOLS = {
-      values: ['真诚', '稳定', '责任感', '尊重边界', '好奇心', '上进', '温柔', '幽默感'],
-      green_flags: ['说到做到', '情绪稳定', '边界清楚', '愿意表达', '有上进心', '会照顾人', '松弛幽默'],
-      red_flag_sensitivity: ['冷处理', '阴阳怪气', '控制欲', '失联', '迟到失约', '情绪爆炸', '不尊重边界'],
-      support_need: ['陪我聊天', '给出建议', '直接帮我做事', '带我放松', '给我空间', '明确表达在乎'],
-      feeling_cared_for: ['及时回复', '主动约我', '记住细节', '明确表达喜欢', '实际照顾', '稳定陪伴', '尊重我的节奏'],
-      ideal_date_style: ['散步聊天', '探店吃饭', '运动户外', '看展看电影', '宅家陪伴', '短途出行', '一起做正事'],
-      shared_growth_topics: ['学业事业', '健身作息', '情绪成熟', '旅行体验', '审美兴趣', '社交拓展', '财务规划'],
-      future_picture: ['稳定陪伴', '个人成长', '经济安全', '自由感', '家庭连接', '新鲜体验', '共同目标'],
-      admired_partner_traits: ['温柔耐心', '有主见', '自律可靠', '直接坦诚', '有趣松弛', '有边界感', '有行动力'],
-      small_happiness: ['一起吃饭', '深夜长聊', '散步吹风', '一起学习', '肢体靠近', '分享日常', '临时起意的小冒险'],
+      values: [
+        '真诚',
+        '稳定',
+        '责任感',
+        '尊重边界',
+        '好奇心',
+        '上进',
+        '温柔',
+        '幽默感',
+      ],
+      green_flags: [
+        '说到做到',
+        '情绪稳定',
+        '边界清楚',
+        '愿意表达',
+        '有上进心',
+        '会照顾人',
+        '松弛幽默',
+      ],
+      red_flag_sensitivity: [
+        '冷处理',
+        '阴阳怪气',
+        '控制欲',
+        '失联',
+        '迟到失约',
+        '情绪爆炸',
+        '不尊重边界',
+      ],
+      support_need: [
+        '陪我聊天',
+        '给出建议',
+        '直接帮我做事',
+        '带我放松',
+        '给我空间',
+        '明确表达在乎',
+      ],
+      feeling_cared_for: [
+        '及时回复',
+        '主动约我',
+        '记住细节',
+        '明确表达喜欢',
+        '实际照顾',
+        '稳定陪伴',
+        '尊重我的节奏',
+      ],
+      ideal_date_style: [
+        '散步聊天',
+        '探店吃饭',
+        '运动户外',
+        '看展看电影',
+        '宅家陪伴',
+        '短途出行',
+        '一起做正事',
+      ],
+      shared_growth_topics: [
+        '学业事业',
+        '健身作息',
+        '情绪成熟',
+        '旅行体验',
+        '审美兴趣',
+        '社交拓展',
+        '财务规划',
+      ],
+      future_picture: [
+        '稳定陪伴',
+        '个人成长',
+        '经济安全',
+        '自由感',
+        '家庭连接',
+        '新鲜体验',
+        '共同目标',
+      ],
+      admired_partner_traits: [
+        '温柔耐心',
+        '有主见',
+        '自律可靠',
+        '直接坦诚',
+        '有趣松弛',
+        '有边界感',
+        '有行动力',
+      ],
+      small_happiness: [
+        '一起吃饭',
+        '深夜长聊',
+        '散步吹风',
+        '一起学习',
+        '肢体靠近',
+        '分享日常',
+        '临时起意的小冒险',
+      ],
     };
 
     const pick = <T>(arr: readonly T[], idx: number): T =>
-      arr[idx % arr.length]!;
+      arr[idx % arr.length];
     const pickN = <T>(arr: readonly T[], start: number, n: number): T[] =>
-      Array.from({ length: n }, (_, off) => arr[(start + off) % arr.length]!);
+      Array.from({ length: n }, (_, off) => arr[(start + off) % arr.length]);
 
     function buildBulkAnswers(i: number): Record<string, unknown> {
       const soft: Record<string, unknown> = {};
@@ -1404,11 +1545,17 @@ export class AdminService {
       soft.hard_height_cm = Math.min(230, Math.max(120, 155 + (i % 30)));
       soft.hard_partner_height_min = 120;
       soft.hard_partner_height_max = 230;
-      soft.hard_one_liner_intro = pick([
-        '理工背景，喜欢夜跑和科幻。', '人文方向，常去咖啡馆。',
-        '爱好摄影与徒步。', '实验课较多也偶尔撸猫。',
-        '喜欢爵士乐与独立游戏。', '健身和阅读穿插进行。',
-      ], i);
+      soft.hard_one_liner_intro = pick(
+        [
+          '理工背景，喜欢夜跑和科幻。',
+          '人文方向，常去咖啡馆。',
+          '爱好摄影与徒步。',
+          '实验课较多也偶尔撸猫。',
+          '喜欢爵士乐与独立游戏。',
+          '健身和阅读穿插进行。',
+        ],
+        i,
+      );
       return soft;
     }
 
@@ -1491,7 +1638,7 @@ export class AdminService {
     }
 
     for (let i = 0; i < BULK_COUNT; i++) {
-      const school = schoolList[i % schoolList.length]!;
+      const school = schoolList[i % schoolList.length];
       const domains = await this.prisma.schoolDomain.findFirst({
         where: { schoolId: school.id },
       });
@@ -1529,13 +1676,8 @@ export class AdminService {
     return settings;
   }
 
-  async updateSettings(
-    input: Record<string, string>,
-    adminActorId: string,
-  ) {
-    const allowedKeys = new Set([
-      'max_registrations',
-    ]);
+  async updateSettings(input: Record<string, string>, adminActorId: string) {
+    const allowedKeys = new Set(['max_registrations']);
 
     const entries = Object.entries(input).filter(([key]) =>
       allowedKeys.has(key),

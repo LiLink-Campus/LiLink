@@ -265,7 +265,11 @@ describe('AdminService', () => {
           prompt: 'Pace',
           type: 'SINGLE_SELECT',
           selectionLimit: 2,
-          options: [{ label: '慢热' }, { label: '平衡' }, { label: '主动推进' }],
+          options: [
+            { label: '慢热' },
+            { label: '平衡' },
+            { label: '主动推进' },
+          ],
           order: 1,
           weight: 1,
         },
