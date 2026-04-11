@@ -30,7 +30,7 @@
     "db:seed": "npm run prisma:seed --workspace api",
     "db:seed-defaults": "npm run prisma:seed-defaults --workspace api",
     "db:seed:default": "npm run prisma:seed:default --workspace api",
-    "infra:up": "docker compose up -d",
+    "infra:up": "docker compose --profile dev-mail up -d",
     "infra:down": "docker compose down"
   },
   "devDependencies": {

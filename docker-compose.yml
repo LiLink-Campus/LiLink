@@ -1,24 +1,71 @@
+# Local: `docker compose up -d` → Postgres only.
+# Local + Mailpit: `docker compose --profile dev-mail up -d` (or `npm run infra:up`).
+# Production API: `docker compose --profile prod up -d` → Postgres + api (no Mailpit).
+# Compose reads variables from a project-root `.env`. If secrets live in `apps/api/.env`, run once:
+#   ln -sfn apps/api/.env .env
 services:
   postgres:
-    image: public.ecr.aws/docker/library/postgres:16-alpine
+    image: postgres:16-alpine
     container_name: lilink-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: lilink
       POSTGRES_USER: lilink
-      POSTGRES_PASSWORD: lilink
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-lilink}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lilink"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "127.0.0.1:5432:5432"
 
   mailpit:
+    profiles:
+      - dev-mail
     image: ghcr.io/axllent/mailpit:v1.20
     container_name: lilink-mailpit
     restart: unless-stopped
     ports:
       - "1025:1025"
       - "8025:8025"
+
+  api:
+    profiles:
+      - prod
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: lilink-api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      APP_ENV: production
+      PORT: 4000
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN}
+      DATABASE_URL: postgresql://lilink:${DB_PASSWORD}@postgres:5432/lilink?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      COOKIE_NAME: lilink_token
+      ADMIN_COOKIE_NAME: ${ADMIN_COOKIE_NAME}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      ALLOWED_EMAIL_DOMAINS: ${ALLOWED_EMAIL_DOMAINS}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD}
+      ADMIN_BOOTSTRAP_NAME: ${ADMIN_BOOTSTRAP_NAME}
+      CRON_SECRET: ${CRON_SECRET}
 
 volumes:
   postgres-data:
