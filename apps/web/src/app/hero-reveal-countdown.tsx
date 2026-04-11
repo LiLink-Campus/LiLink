@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 type HeroRevealCountdownProps = {
   /** ISO timestamp for the next reveal; null means not configured */
@@ -25,18 +25,29 @@ function formatRemainingParts(ms: number) {
   return { days, hours, minutes, seconds };
 }
 
+function subscribeToClock(onStoreChange: () => void) {
+  const id = window.setInterval(onStoreChange, 1000);
+  return () => window.clearInterval(id);
+}
+
+function getClientNowMs() {
+  return Date.now();
+}
+
+function getServerNowMs() {
+  return null;
+}
+
 export function HeroRevealCountdown({
   revealAt,
   offline,
   serverFallbackLabel,
 }: HeroRevealCountdownProps) {
-  const [nowMs, setNowMs] = useState<number | null>(null);
-
-  useEffect(() => {
-    setNowMs(Date.now());
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
+  const nowMs = useSyncExternalStore(
+    subscribeToClock,
+    getClientNowMs,
+    getServerNowMs,
+  );
 
   if (offline) {
     return (

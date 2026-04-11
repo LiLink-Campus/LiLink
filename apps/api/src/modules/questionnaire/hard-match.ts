@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-
 import {
   HARD_MATCH_GENDERS,
   HARD_MATCH_HEIGHT_MAX_CM,
@@ -7,10 +6,21 @@ import {
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
+  areHardMatchAnswersCompatible,
+  hardMatchQuestionKeys,
+  isHardMatchKey,
+  normalizeBirthDate,
+  normalizeOneLinerIntro,
+  parseHardMatchAnswers,
+  readIntegerInRange,
+  readQuestionnaireOneLiner,
+  readSingleChoice,
+  readStringArray,
+  type HardMatchAnswers,
   type HardMatchGender,
   type HardMatchKey,
   type HardMatchLooks,
-} from './hard-match.constants';
+} from '@lilink/shared';
 
 export {
   HARD_MATCH_GENDERS,
@@ -19,10 +29,15 @@ export {
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
+  areHardMatchAnswersCompatible,
+  hardMatchQuestionKeys,
+  isHardMatchKey,
+  readQuestionnaireOneLiner,
+  type HardMatchAnswers,
   type HardMatchGender,
   type HardMatchKey,
   type HardMatchLooks,
-} from './hard-match.constants';
+};
 
 const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
   [HARD_MATCH_KEYS.birthDate]: '出生年月日',
@@ -38,20 +53,6 @@ const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
   [HARD_MATCH_KEYS.oneLinerIntro]: '一句话介绍',
 };
 
-export type HardMatchAnswers = {
-  birthDate: string;
-  partnerAgeMin: number;
-  partnerAgeMax: number;
-  gender: HardMatchGender;
-  partnerGenders: HardMatchGender[];
-  looks: HardMatchLooks;
-  partnerLooks: HardMatchLooks[];
-  heightCm: number;
-  partnerHeightMin: number;
-  partnerHeightMax: number;
-  oneLinerIntro: string;
-};
-
 export type HardMatchAnswerRecord = {
   [HARD_MATCH_KEYS.birthDate]: string;
   [HARD_MATCH_KEYS.partnerAgeMin]: number;
@@ -65,8 +66,6 @@ export type HardMatchAnswerRecord = {
   [HARD_MATCH_KEYS.partnerHeightMax]: number;
   [HARD_MATCH_KEYS.oneLinerIntro]: string;
 };
-
-const HARD_MATCH_KEY_SET = new Set<string>(Object.values(HARD_MATCH_KEYS));
 
 function labelFor(key: HardMatchKey) {
   return HARD_MATCH_FIELD_LABELS[key];
@@ -88,16 +87,11 @@ function normalizeSingleChoice<T extends string>(
   key: HardMatchKey,
   allowedValues: readonly T[],
 ): T {
-  if (typeof value !== 'string') {
-    throw requiredFieldError(key);
-  }
-
-  const normalizedValue = value.trim() as T;
-  if (!normalizedValue) {
-    throw requiredFieldError(key);
-  }
-
-  if (!allowedValues.includes(normalizedValue)) {
+  const normalizedValue = readSingleChoice(value, allowedValues);
+  if (normalizedValue == null) {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw requiredFieldError(key);
+    }
     throw invalidFieldError(key);
   }
 
@@ -113,20 +107,17 @@ function normalizeMultiChoice<T extends string>(
     throw requiredFieldError(key);
   }
 
-  const normalizedValues = [
-    ...new Set(
-      value
-        .filter((item): item is string => typeof item === 'string')
-        .map((item) => item.trim())
-        .filter(Boolean),
-    ),
-  ] as T[];
+  const normalizedValues = readStringArray(value, allowedValues);
 
   if (normalizedValues.length === 0) {
     throw requiredFieldError(key);
   }
 
-  if (normalizedValues.some((item) => !allowedValues.includes(item))) {
+  const containsInvalidValue = value.some(
+    (item) =>
+      typeof item !== 'string' || !allowedValues.includes(item.trim() as T),
+  );
+  if (containsInvalidValue) {
     throw invalidFieldError(key);
   }
 
@@ -134,92 +125,72 @@ function normalizeMultiChoice<T extends string>(
 }
 
 function normalizeAge(value: unknown, key: HardMatchKey): number {
-  if (typeof value !== 'number' || !Number.isInteger(value)) {
-    throw requiredFieldError(key);
-  }
-
-  if (value < 1 || value > 100) {
+  const normalizedValue = readIntegerInRange(value, 1, 100);
+  if (normalizedValue == null) {
+    if (typeof value !== 'number' || !Number.isInteger(value)) {
+      throw requiredFieldError(key);
+    }
     throw invalidFieldError(key, 'must be between 1 and 100.');
   }
 
-  return value;
+  return normalizedValue;
 }
 
 function normalizeHeight(value: unknown, key: HardMatchKey): number {
-  if (typeof value !== 'number' || !Number.isInteger(value)) {
-    throw requiredFieldError(key);
-  }
-
-  if (value < HARD_MATCH_HEIGHT_MIN_CM || value > HARD_MATCH_HEIGHT_MAX_CM) {
+  const normalizedValue = readIntegerInRange(
+    value,
+    HARD_MATCH_HEIGHT_MIN_CM,
+    HARD_MATCH_HEIGHT_MAX_CM,
+  );
+  if (normalizedValue == null) {
+    if (typeof value !== 'number' || !Number.isInteger(value)) {
+      throw requiredFieldError(key);
+    }
     throw invalidFieldError(
       key,
       `must be between ${HARD_MATCH_HEIGHT_MIN_CM} and ${HARD_MATCH_HEIGHT_MAX_CM}.`,
     );
   }
 
-  return value;
+  return normalizedValue;
 }
 
-function normalizeBirthDate(value: unknown): string {
-  if (typeof value !== 'string') {
-    throw requiredFieldError(HARD_MATCH_KEYS.birthDate);
-  }
+function normalizeBirthDateValue(value: unknown): string {
+  const normalizedValue = normalizeBirthDate(value);
+  if (normalizedValue == null) {
+    if (typeof value !== 'string') {
+      throw requiredFieldError(HARD_MATCH_KEYS.birthDate);
+    }
 
-  const trimmedValue = value.trim();
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmedValue);
-  if (!match) {
-    throw invalidFieldError(
-      HARD_MATCH_KEYS.birthDate,
-      'must use the YYYY-MM-DD format.',
-    );
-  }
+    const trimmedValue = value.trim();
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmedValue);
+    if (!match) {
+      throw invalidFieldError(
+        HARD_MATCH_KEYS.birthDate,
+        'must use the YYYY-MM-DD format.',
+      );
+    }
 
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const candidateDate = new Date(Date.UTC(year, month - 1, day));
-
-  if (
-    candidateDate.getUTCFullYear() !== year ||
-    candidateDate.getUTCMonth() + 1 !== month ||
-    candidateDate.getUTCDate() !== day
-  ) {
     throw invalidFieldError(
       HARD_MATCH_KEYS.birthDate,
       'must be a real calendar date.',
     );
   }
 
-  return trimmedValue;
+  return normalizedValue;
 }
 
 function normalizeOneLinerIntroValue(
   value: unknown,
   options: { allowEmpty: boolean },
 ): string {
-  if (value == null || value === '') {
-    if (!options.allowEmpty) {
-      throw requiredFieldError(HARD_MATCH_KEYS.oneLinerIntro);
-    }
+  const collapsed = normalizeOneLinerIntro(value);
 
-    return '';
-  }
-
-  if (typeof value !== 'string') {
+  if (collapsed.length === 0) {
     if (options.allowEmpty) {
       return '';
     }
-
-    throw invalidFieldError(HARD_MATCH_KEYS.oneLinerIntro);
-  }
-
-  const collapsed = value.trim().replace(/\s+/g, ' ');
-  if (!collapsed) {
-    if (!options.allowEmpty) {
-      throw requiredFieldError(HARD_MATCH_KEYS.oneLinerIntro);
-    }
-
-    return '';
+    throw requiredFieldError(HARD_MATCH_KEYS.oneLinerIntro);
   }
 
   if (collapsed.length > HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH) {
@@ -230,66 +201,6 @@ function normalizeOneLinerIntroValue(
   }
 
   return collapsed;
-}
-
-export function readQuestionnaireOneLiner(rawAnswers: unknown): string | null {
-  if (!rawAnswers || typeof rawAnswers !== 'object') {
-    return null;
-  }
-
-  const value = (rawAnswers as Record<string, unknown>)[
-    HARD_MATCH_KEYS.oneLinerIntro
-  ];
-  const normalized = normalizeOneLinerIntroValue(value, { allowEmpty: true });
-  return normalized.length > 0 ? normalized : null;
-}
-
-function allOptionsSelected<T extends string>(
-  selectedValues: readonly T[],
-  universe: readonly T[],
-) {
-  return (
-    selectedValues.length === universe.length &&
-    universe.every((value) => selectedValues.includes(value))
-  );
-}
-
-function multiPreferenceMatches<T extends string>(
-  selectedValues: readonly T[],
-  candidateValue: T,
-  universe: readonly T[],
-) {
-  return (
-    allOptionsSelected(selectedValues, universe) ||
-    selectedValues.includes(candidateValue)
-  );
-}
-
-function calculateAgeOnDate(birthDate: string, referenceDate: Date) {
-  const [yearText, monthText, dayText] = birthDate.split('-');
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-
-  let age = referenceDate.getUTCFullYear() - year;
-  const hasHadBirthdayThisYear =
-    referenceDate.getUTCMonth() + 1 > month ||
-    (referenceDate.getUTCMonth() + 1 === month &&
-      referenceDate.getUTCDate() >= day);
-
-  if (!hasHadBirthdayThisYear) {
-    age -= 1;
-  }
-
-  return age;
-}
-
-export function isHardMatchKey(key: string): key is HardMatchKey {
-  return HARD_MATCH_KEY_SET.has(key);
-}
-
-export function hardMatchQuestionKeys() {
-  return [...HARD_MATCH_KEY_SET];
 }
 
 function normalizeHardMatchValues(
@@ -331,7 +242,7 @@ function normalizeHardMatchValues(
   }
 
   return {
-    birthDate: normalizeBirthDate(rawAnswers[HARD_MATCH_KEYS.birthDate]),
+    birthDate: normalizeBirthDateValue(rawAnswers[HARD_MATCH_KEYS.birthDate]),
     partnerAgeMin,
     partnerAgeMax,
     gender: normalizeSingleChoice(
@@ -391,60 +302,5 @@ export function normalizeHardMatchAnswers(
 export function tryReadHardMatchAnswers(
   rawAnswers: Record<string, unknown>,
 ): HardMatchAnswers | null {
-  try {
-    return normalizeHardMatchValues(rawAnswers);
-  } catch {
-    return null;
-  }
-}
-
-export function areHardMatchAnswersCompatible(
-  left: HardMatchAnswers,
-  right: HardMatchAnswers,
-  revealAt: Date,
-) {
-  const leftAge = calculateAgeOnDate(left.birthDate, revealAt);
-  const rightAge = calculateAgeOnDate(right.birthDate, revealAt);
-
-  if (
-    leftAge < right.partnerAgeMin ||
-    leftAge > right.partnerAgeMax ||
-    rightAge < left.partnerAgeMin ||
-    rightAge > left.partnerAgeMax
-  ) {
-    return false;
-  }
-
-  if (
-    !multiPreferenceMatches(
-      left.partnerGenders,
-      right.gender,
-      HARD_MATCH_GENDERS,
-    ) ||
-    !multiPreferenceMatches(
-      right.partnerGenders,
-      left.gender,
-      HARD_MATCH_GENDERS,
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    !multiPreferenceMatches(left.partnerLooks, right.looks, HARD_MATCH_LOOKS) ||
-    !multiPreferenceMatches(right.partnerLooks, left.looks, HARD_MATCH_LOOKS)
-  ) {
-    return false;
-  }
-
-  if (
-    left.heightCm < right.partnerHeightMin ||
-    left.heightCm > right.partnerHeightMax ||
-    right.heightCm < left.partnerHeightMin ||
-    right.heightCm > left.partnerHeightMax
-  ) {
-    return false;
-  }
-
-  return true;
+  return parseHardMatchAnswers(rawAnswers);
 }

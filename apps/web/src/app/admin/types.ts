@@ -69,10 +69,22 @@ export type AdminUser = {
   } | null;
   questionnaireResponse: {
     submittedAt: string | null;
-    /** Omitted on paginated list; present on `GET /admin/users/:userId`. */
-    answers?: Record<string, unknown>;
   } | null;
-  participations: Array<{ status: string; cycleId: string }>;
+};
+
+export type AdminUserDetail = AdminUser & {
+  participationCount: number;
+  questionnaireAnswerCount: number;
+};
+
+export type AdminUserQuestionnaire = {
+  submittedAt: string | null;
+  answers: Record<string, unknown>;
+} | null;
+
+export type AdminUserParticipation = {
+  cycleId: string;
+  status: "OPTED_IN" | "OPTED_OUT";
 };
 
 export type AdminReport = {
@@ -107,14 +119,6 @@ export type AuditLogEntry = {
     displayName: string | null;
     school: { name: string } | null;
   } | null;
-};
-
-export type AdminOverview = {
-  schools: AdminSchool[];
-  cycles: AdminCycle[];
-  questionnaireQuestions: AdminQuestionSummary[];
-  users: AdminUser[];
-  reports: AdminReport[];
 };
 
 export type AdminDashboardData = {
@@ -164,18 +168,15 @@ export type CycleMatchDetail = {
 };
 
 export type AdminCycleDetail = {
-  cycle: AdminCycle & {
-    participations: CycleParticipantDetail[];
-    matches: CycleMatchDetail[];
-  };
+  cycle: AdminCycle;
   summary: {
     participationCount: number;
     optedInCount: number;
+    submittedQuestionnaireCount: number;
     matchedPairCount: number;
     reportedMatchCount: number;
     pendingContactCount: number;
   };
-  logs: AuditLogEntry[];
 };
 
 export type AdminCyclePreview = {

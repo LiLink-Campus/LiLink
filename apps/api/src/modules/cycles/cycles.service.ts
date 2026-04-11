@@ -328,7 +328,9 @@ export class CyclesService {
         },
         include: {
           user: {
-            include: {
+            select: {
+              id: true,
+              displayName: true,
               questionnaireResponse: true,
             },
           },
@@ -358,7 +360,6 @@ export class CyclesService {
     participations: Array<{
       user: {
         id: string;
-        schoolId: string | null;
         displayName: string | null;
         questionnaireResponse: {
           answers: Prisma.JsonValue;
@@ -418,7 +419,13 @@ export class CyclesService {
             some: { userId: { in: participantIds } },
           },
         },
-        include: { participants: true },
+        select: {
+          participants: {
+            select: {
+              userId: true,
+            },
+          },
+        },
       }),
     ]);
 

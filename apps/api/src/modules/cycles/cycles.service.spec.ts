@@ -565,26 +565,25 @@ describe('CyclesService', () => {
       new Date('2026-04-10T00:00:00.000Z'),
     );
 
-    expect(result.selectedPairs).toEqual([
-      {
-        left: expect.objectContaining({ id: 'user-a' }),
-        right: expect.objectContaining({ id: 'user-b' }),
-        score: 78,
-        reasons: [
-          '你们对进入关系的期待很一致。',
-          '你们都把 真诚、稳定 放在重要位置。',
-        ],
-      },
-      {
-        left: expect.objectContaining({ id: 'user-c' }),
-        right: expect.objectContaining({ id: 'user-d' }),
-        score: 78,
-        reasons: [
-          '你们对进入关系的期待很一致。',
-          '你们都把 幽默感、上进 放在重要位置。',
-        ],
-      },
-    ]);
+    expect(result.selectedPairs).toHaveLength(2);
+    expect(result.selectedPairs[0]).toMatchObject({
+      left: { id: 'user-a' },
+      right: { id: 'user-b' },
+      score: 78,
+      reasons: [
+        '你们对进入关系的期待很一致。',
+        '你们都把 真诚、稳定 放在重要位置。',
+      ],
+    });
+    expect(result.selectedPairs[1]).toMatchObject({
+      left: { id: 'user-c' },
+      right: { id: 'user-d' },
+      score: 78,
+      reasons: [
+        '你们对进入关系的期待很一致。',
+        '你们都把 幽默感、上进 放在重要位置。',
+      ],
+    });
   });
 
   it('excludes blocked and previously matched pairs before choosing the final result set', async () => {
@@ -629,16 +628,12 @@ describe('CyclesService', () => {
     );
 
     expect(result.candidates).toHaveLength(1);
-    expect(result.selectedPairs).toEqual([
-      {
-        left: expect.objectContaining({ id: 'user-b' }),
-        right: expect.objectContaining({ id: 'user-c' }),
-        score: 72,
-        reasons: [
-          '你们对进入关系的期待很一致。',
-          '你们都把 真诚 放在重要位置。',
-        ],
-      },
-    ]);
+    expect(result.selectedPairs).toHaveLength(1);
+    expect(result.selectedPairs[0]).toMatchObject({
+      left: { id: 'user-b' },
+      right: { id: 'user-c' },
+      score: 72,
+      reasons: ['你们对进入关系的期待很一致。', '你们都把 真诚 放在重要位置。'],
+    });
   });
 });

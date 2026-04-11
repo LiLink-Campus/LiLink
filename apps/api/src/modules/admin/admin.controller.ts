@@ -18,9 +18,13 @@ import {
   BatchReviewReportsDto,
   CreateSchoolDto,
   ListAuditLogsQueryDto,
+  ListCycleLogsQueryDto,
+  ListCycleMatchesQueryDto,
+  ListCycleParticipantsQueryDto,
   ListCyclesQueryDto,
   ListReportsQueryDto,
   ListSchoolsQueryDto,
+  ListUserParticipationsQueryDto,
   ListUsersQueryDto,
   RunCycleDto,
   ReorderQuestionsDto,
@@ -36,11 +40,6 @@ import { AdminService } from './admin.service';
 @UseGuards(AdminGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
-
-  @Get('overview')
-  getOverview() {
-    return this.adminService.getOverview();
-  }
 
   @Get('dashboard')
   getDashboard() {
@@ -111,6 +110,30 @@ export class AdminController {
   @Get('cycles/:cycleId')
   getCycleDetail(@Param('cycleId') cycleId: string) {
     return this.adminService.getCycleDetail(cycleId);
+  }
+
+  @Get('cycles/:cycleId/participants')
+  getCycleParticipants(
+    @Param('cycleId') cycleId: string,
+    @Query() query: ListCycleParticipantsQueryDto,
+  ) {
+    return this.adminService.getCycleParticipants(cycleId, query);
+  }
+
+  @Get('cycles/:cycleId/matches')
+  getCycleMatches(
+    @Param('cycleId') cycleId: string,
+    @Query() query: ListCycleMatchesQueryDto,
+  ) {
+    return this.adminService.getCycleMatches(cycleId, query);
+  }
+
+  @Get('cycles/:cycleId/logs')
+  getCycleLogs(
+    @Param('cycleId') cycleId: string,
+    @Query() query: ListCycleLogsQueryDto,
+  ) {
+    return this.adminService.getCycleLogs(cycleId, query);
   }
 
   @Get('cycles/:cycleId/preview')
@@ -239,6 +262,19 @@ export class AdminController {
   @Get('users/:userId')
   getUserById(@Param('userId') userId: string) {
     return this.adminService.getUserById(userId);
+  }
+
+  @Get('users/:userId/questionnaire')
+  getUserQuestionnaire(@Param('userId') userId: string) {
+    return this.adminService.getUserQuestionnaire(userId);
+  }
+
+  @Get('users/:userId/participations')
+  getUserParticipations(
+    @Param('userId') userId: string,
+    @Query() query: ListUserParticipationsQueryDto,
+  ) {
+    return this.adminService.getUserParticipations(userId, query);
   }
 
   @Get('settings')

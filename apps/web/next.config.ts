@@ -4,6 +4,7 @@ import type { NextConfig } from "next";
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirectory = path.dirname(currentFilePath);
+const workspaceRoot = path.resolve(currentDirectory, "../..");
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
 
 if (process.env.NODE_ENV === "production" && !apiBaseUrl) {
@@ -15,7 +16,7 @@ if (process.env.NODE_ENV === "production" && !apiBaseUrl) {
 const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: {
-    root: currentDirectory,
+    root: workspaceRoot,
   },
   typescript: {
     ignoreBuildErrors: false,

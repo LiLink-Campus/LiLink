@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getLandingPayload } from "../lib/api";
+import { getLandingPayload } from "../lib/public-server-api";
 import { HeroRevealCountdown } from "./hero-reveal-countdown";
 
 export const revalidate = 60;

@@ -4,7 +4,13 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { HARD_MATCH_KEYS } from "../../../lib/hard-match";
 import { useAdminCollection } from "../use-admin-collection";
-import type { AdminUser } from "../types";
+import type {
+  AdminUser,
+  AdminUserDetail,
+  AdminUserParticipation,
+  AdminUserQuestionnaire,
+  PaginatedResult,
+} from "../types";
 
 const HARD_MATCH_LABELS: Record<string, string> = {
   [HARD_MATCH_KEYS.birthDate]: "出生年月日",
@@ -75,8 +81,12 @@ export default function AdminUsersPage() {
   const [detailTab, setDetailTab] = useState<DetailTab>("profile");
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
-  const [userDetail, setUserDetail] = useState<AdminUser | null>(null);
+  const [userDetail, setUserDetail] = useState<AdminUserDetail | null>(null);
+  const [questionnaireData, setQuestionnaireData] = useState<AdminUserQuestionnaire>(null);
+  const [participationsData, setParticipationsData] = useState<PaginatedResult<AdminUserParticipation> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [questionnaireLoading, setQuestionnaireLoading] = useState(false);
+  const [participationsLoading, setParticipationsLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const deferredSearch = useDeferredValue(search);
@@ -101,11 +111,13 @@ export default function AdminUsersPage() {
   }, [users, selectedUserId]);
 
   const selectedUser = users.find((u) => u.id === selectedUserId) ?? null;
-
-  const displayUser =
-    selectedUser && userDetail && userDetail.id === selectedUser.id
-      ? userDetail
-      : selectedUser;
+  const activeUserDetail =
+    userDetail && userDetail.id === selectedUserId ? userDetail : null;
+  const displayUser = activeUserDetail ?? selectedUser;
+  const effectiveDetailTab =
+    activeUserDetail && activeUserDetail.id === selectedUserId
+      ? detailTab
+      : "profile";
 
   useEffect(() => {
     if (!selectedUserId) {
@@ -118,7 +130,7 @@ export default function AdminUsersPage() {
     setDetailLoading(true);
     setDetailError(null);
 
-    void fetchApi<AdminUser>(`/admin/users/${selectedUserId}`)
+    void fetchApi<AdminUserDetail>(`/admin/users/${selectedUserId}`)
       .then((user) => {
         if (!cancelled) setUserDetail(user);
       })
@@ -146,7 +158,7 @@ export default function AdminUsersPage() {
     setDetailLoading(true);
     setDetailError(null);
     try {
-      const user = await fetchApi<AdminUser>(`/admin/users/${selectedUserId}`);
+      const user = await fetchApi<AdminUserDetail>(`/admin/users/${selectedUserId}`);
       setUserDetail(user);
     } catch (caughtError) {
       setUserDetail(null);
@@ -164,24 +176,98 @@ export default function AdminUsersPage() {
     setDetailTab("profile");
     setEditing(false);
     setEditForm(null);
+    setQuestionnaireData(null);
+    setParticipationsData(null);
   }, [selectedUserId]);
 
   const questionnaireAnswerCount = useMemo(() => {
-    const answers = displayUser?.questionnaireResponse?.answers;
-    if (!answers || typeof answers !== "object") return null;
-    return Object.keys(answers as Record<string, unknown>).length;
-  }, [displayUser]);
+    if (activeUserDetail) {
+      return activeUserDetail.questionnaireAnswerCount;
+    }
+
+    return null;
+  }, [activeUserDetail]);
 
   const answerGroups = useMemo(() => {
-    if (detailTab !== "questionnaire") return null;
-    const answers = displayUser?.questionnaireResponse?.answers;
+    if (effectiveDetailTab !== "questionnaire") return null;
+    const answers = questionnaireData?.answers;
     if (!answers || typeof answers !== "object") return null;
 
     const entries = Object.entries(answers as Record<string, unknown>);
     const hardMatch = entries.filter(([k]) => HARD_MATCH_KEY_SET.has(k));
     const questionnaire = entries.filter(([k]) => !HARD_MATCH_KEY_SET.has(k));
     return { hardMatch, questionnaire, total: entries.length };
-  }, [displayUser, detailTab]);
+  }, [effectiveDetailTab, questionnaireData]);
+
+  useEffect(() => {
+    if (detailTab !== "questionnaire" || !selectedUserId) {
+      return;
+    }
+
+    let cancelled = false;
+    setQuestionnaireLoading(true);
+
+    void fetchApi<AdminUserQuestionnaire>(`/admin/users/${selectedUserId}/questionnaire`)
+      .then((payload) => {
+        if (!cancelled) {
+          setQuestionnaireData(payload);
+        }
+      })
+      .catch((caughtError) => {
+        if (!cancelled) {
+          setActionError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "问卷详情加载失败。",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setQuestionnaireLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detailTab, selectedUserId]);
+
+  useEffect(() => {
+    if (detailTab !== "cycles" || !selectedUserId) {
+      return;
+    }
+
+    let cancelled = false;
+    setParticipationsLoading(true);
+
+    void fetchApi<PaginatedResult<AdminUserParticipation>>(
+      `/admin/users/${selectedUserId}/participations?page=1&pageSize=200`,
+    )
+      .then((payload) => {
+        if (!cancelled) {
+          setParticipationsData(payload);
+        }
+      })
+      .catch((caughtError) => {
+        if (!cancelled) {
+          setActionError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "轮次参与记录加载失败。",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setParticipationsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detailTab, selectedUserId]);
 
   function startEditing() {
     if (!selectedUser) return;
@@ -456,7 +542,7 @@ export default function AdminUsersPage() {
                 </div>
                 <div>
                   <span>轮次参与</span>
-                  <strong>{detailLoading ? "…" : displayUser.participations.length}</strong>
+                  <strong>{detailLoading || !userDetail ? "…" : userDetail.participationCount}</strong>
                 </div>
               </div>
 
@@ -468,12 +554,12 @@ export default function AdminUsersPage() {
                     key: "questionnaire" as const,
                     label: `问卷回答${questionnaireAnswerCount != null ? ` (${questionnaireAnswerCount})` : ""}`,
                   },
-                  { key: "cycles" as const, label: `轮次参与 (${displayUser.participations.length})` },
+                  { key: "cycles" as const, label: `轮次参与 (${userDetail?.participationCount ?? 0})` },
                 ]).map((tab) => (
                   <button
                     key={tab.key}
                     type="button"
-                    className={detailTab === tab.key ? "admin-tab active" : "admin-tab"}
+                    className={effectiveDetailTab === tab.key ? "admin-tab active" : "admin-tab"}
                     onClick={() => setDetailTab(tab.key)}
                   >
                     {tab.label}
@@ -482,7 +568,7 @@ export default function AdminUsersPage() {
               </div>
 
               {/* ── Tab: Profile ─── */}
-              {detailTab === "profile" && (
+              {effectiveDetailTab === "profile" && (
                 <div style={{ animation: "fadeIn 0.2s ease" }}>
                   {editing && editForm ? (
                     <div className="admin-page-stack">
@@ -552,7 +638,7 @@ export default function AdminUsersPage() {
               )}
 
               {/* ── Tab: Questionnaire ─── */}
-              {detailTab === "questionnaire" && (
+              {effectiveDetailTab === "questionnaire" && (
                 <div style={{ animation: "fadeIn 0.2s ease" }}>
                   {answerGroups ? (
                     <div className="admin-page-stack">
@@ -600,7 +686,7 @@ export default function AdminUsersPage() {
                         </>
                       )}
                     </div>
-                  ) : detailLoading ? (
+                  ) : questionnaireLoading ? (
                     <div className="admin-empty-state">正在加载问卷详情…</div>
                   ) : !displayUser.questionnaireResponse?.submittedAt ? (
                     <div className="admin-empty-state">该用户还没有提交问卷。</div>
@@ -611,18 +697,18 @@ export default function AdminUsersPage() {
               )}
 
               {/* ── Tab: Cycles ─── */}
-              {detailTab === "cycles" && (
+              {effectiveDetailTab === "cycles" && (
                 <div style={{ animation: "fadeIn 0.2s ease" }}>
-                  {detailLoading ? (
+                  {participationsLoading ? (
                     <div className="admin-empty-state">正在加载轮次参与记录…</div>
-                  ) : displayUser.participations.length > 0 ? (
+                  ) : participationsData && participationsData.items.length > 0 ? (
                     <div className="admin-table-wrap">
                       <table className="admin-table">
                         <thead>
                           <tr><th>轮次 ID</th><th>状态</th></tr>
                         </thead>
                         <tbody>
-                          {displayUser.participations.map((p) => (
+                          {participationsData.items.map((p) => (
                             <tr key={p.cycleId}>
                               <td style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>{p.cycleId}</td>
                               <td><span className="domain-chip">{p.status === "OPTED_IN" ? "已参加" : "未参加"}</span></td>

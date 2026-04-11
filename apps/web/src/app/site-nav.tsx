@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { fetchApi, fetchAuthMeDeduped, type AuthMePayload } from "../lib/api";
+import { useState } from "react";
+import { useAuthSession } from "./auth-session";
+import { fetchApi } from "../lib/api";
 
 const PUBLIC_NAV_ITEMS = [
   { href: "/about", label: "关于" },
@@ -14,38 +15,10 @@ const PUBLIC_NAV_ITEMS = [
 export function SiteNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const [authMe, setAuthMe] = useState<AuthMePayload | null>(null);
+  const { user, setUser } = useAuthSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const onAdminPath = pathname.startsWith("/admin");
-  const authenticatedUser = onAdminPath ? null : authMe;
-
-  useEffect(() => {
-    if (pathname.startsWith("/admin")) {
-      return;
-    }
-
-    let active = true;
-
-    void fetchAuthMeDeduped()
-      .then((user) => {
-        if (!active) {
-          return;
-        }
-
-        setAuthMe(user);
-      })
-      .catch(() => {
-        if (!active) {
-          return;
-        }
-
-        setAuthMe(null);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [pathname]);
+  const authenticatedUser = onAdminPath ? null : user;
 
   if (pathname.startsWith("/admin")) {
     return null;
@@ -56,7 +29,7 @@ export function SiteNav() {
       method: "POST",
     });
 
-    setAuthMe(null);
+    setUser(null);
     setMenuOpen(false);
     router.push("/");
     router.refresh();

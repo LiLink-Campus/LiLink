@@ -123,6 +123,33 @@ export class AdminAuditService {
     return this.loadAuditLogsByIds(rows.map((row) => row.id));
   }
 
+  async listAuditLogsByCondition(
+    condition: Prisma.Sql,
+    query: { page?: number; pageSize?: number } = {},
+  ) {
+    const pagination = this.normalizePagination(query);
+    const [idRows, totalRows] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT "id"
+        FROM "AuditLog"
+        WHERE (${condition})
+        ORDER BY "createdAt" DESC
+        OFFSET ${pagination.skip}
+        LIMIT ${pagination.pageSize}
+      `),
+      this.prisma.$queryRaw<Array<{ total: bigint | number }>>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS total
+        FROM "AuditLog"
+        WHERE (${condition})
+      `),
+    ]);
+
+    const items = await this.loadAuditLogsByIds(idRows.map((row) => row.id));
+    const total = Number(totalRows[0]?.total ?? 0);
+
+    return this.buildPageResult(items, total, pagination);
+  }
+
   async write(
     adminActorId: string,
     action: string,

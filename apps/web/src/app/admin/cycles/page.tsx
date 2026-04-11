@@ -3,7 +3,15 @@
 import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { useAdminCollection } from "../use-admin-collection";
-import type { AdminCycle, AdminCycleDetail, AdminCyclePreview } from "../types";
+import type {
+  AdminCycle,
+  AdminCycleDetail,
+  AdminCyclePreview,
+  AuditLogEntry,
+  CycleMatchDetail,
+  CycleParticipantDetail,
+  PaginatedResult,
+} from "../types";
 
 const STATUS_STYLES: Record<AdminCycle["status"], { bg: string; color: string }> = {
   OPEN: { bg: "var(--sage-soft)", color: "var(--sage)" },
@@ -57,6 +65,23 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
+function buildAdminQueryString(
+  params: Record<string, string | number | undefined>,
+) {
+  const searchParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null || value === "") {
+      continue;
+    }
+
+    searchParams.set(key, String(value));
+  }
+
+  const serialized = searchParams.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
 export default function AdminCyclesPage() {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -64,8 +89,14 @@ export default function AdminCyclesPage() {
   const [page, setPage] = useState(1);
   const [cycleForm, setCycleForm] = useState(createEmptyCycleForm);
   const [cycleDetail, setCycleDetail] = useState<AdminCycleDetail | null>(null);
+  const [participantsData, setParticipantsData] = useState<PaginatedResult<CycleParticipantDetail> | null>(null);
+  const [matchesData, setMatchesData] = useState<PaginatedResult<CycleMatchDetail> | null>(null);
+  const [logsData, setLogsData] = useState<PaginatedResult<AuditLogEntry> | null>(null);
   const [cyclePreview, setCyclePreview] = useState<AdminCyclePreview | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
+  const [matchesLoading, setMatchesLoading] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -87,6 +118,10 @@ export default function AdminCyclesPage() {
     },
   );
   const cycles = useMemo(() => data?.items ?? [], [data]);
+  const PAGE_SIZE_PARTICIPANTS = 10;
+  const PAGE_SIZE_MATCHES = 6;
+  const PAGE_SIZE_LOGS = 10;
+  const PAGE_SIZE_PAIRS = 6;
 
   useEffect(() => {
     if (!cycles.length) {
@@ -109,6 +144,9 @@ export default function AdminCyclesPage() {
     if (!selectedCycle) {
       setCycleForm(createEmptyCycleForm());
       setCycleDetail(null);
+      setParticipantsData(null);
+      setMatchesData(null);
+      setLogsData(null);
       setCyclePreview(null);
       return;
     }
@@ -128,6 +166,12 @@ export default function AdminCyclesPage() {
     setParticipantFilter("ALL");
   }, [selectedCycle]);
 
+  async function loadCycleSummary(cycleId: string) {
+    const detail = await fetchApi<AdminCycleDetail>(`/admin/cycles/${cycleId}`);
+    setCycleDetail(detail);
+    return detail;
+  }
+
   useEffect(() => {
     if (!isExistingCycleSelection(selectedCycleId)) {
       setCycleDetail(null);
@@ -137,7 +181,7 @@ export default function AdminCyclesPage() {
     let active = true;
     setDetailLoading(true);
 
-    fetchApi<AdminCycleDetail>(`/admin/cycles/${selectedCycleId}`)
+    loadCycleSummary(selectedCycleId)
       .then((detail) => {
         if (!active) return;
         setCycleDetail(detail);
@@ -156,6 +200,121 @@ export default function AdminCyclesPage() {
     return () => { active = false; };
   }, [selectedCycleId]);
 
+  useEffect(() => {
+    if (!isExistingCycleSelection(selectedCycleId)) {
+      setParticipantsData(null);
+      return;
+    }
+
+    let active = true;
+    setParticipantsLoading(true);
+
+    fetchApi<PaginatedResult<CycleParticipantDetail>>(
+      `/admin/cycles/${selectedCycleId}/participants${buildAdminQueryString({
+        page: participantPage,
+        pageSize: PAGE_SIZE_PARTICIPANTS,
+        status: participantFilter === "ALL" ? undefined : participantFilter,
+      })}`,
+    )
+      .then((result) => {
+        if (active) {
+          setParticipantsData(result);
+        }
+      })
+      .catch((caughtError) => {
+        if (active) {
+          setActionError(
+            caughtError instanceof Error ? caughtError.message : "轮次参与者加载失败。",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setParticipantsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [participantFilter, participantPage, selectedCycleId]);
+
+  useEffect(() => {
+    if (!isExistingCycleSelection(selectedCycleId)) {
+      setMatchesData(null);
+      return;
+    }
+
+    let active = true;
+    setMatchesLoading(true);
+
+    fetchApi<PaginatedResult<CycleMatchDetail>>(
+      `/admin/cycles/${selectedCycleId}/matches${buildAdminQueryString({
+        page: matchPage,
+        pageSize: PAGE_SIZE_MATCHES,
+      })}`,
+    )
+      .then((result) => {
+        if (active) {
+          setMatchesData(result);
+        }
+      })
+      .catch((caughtError) => {
+        if (active) {
+          setActionError(
+            caughtError instanceof Error ? caughtError.message : "轮次匹配结果加载失败。",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setMatchesLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [matchPage, selectedCycleId]);
+
+  useEffect(() => {
+    if (!isExistingCycleSelection(selectedCycleId)) {
+      setLogsData(null);
+      return;
+    }
+
+    let active = true;
+    setLogsLoading(true);
+
+    fetchApi<PaginatedResult<AuditLogEntry>>(
+      `/admin/cycles/${selectedCycleId}/logs${buildAdminQueryString({
+        page: logPage,
+        pageSize: PAGE_SIZE_LOGS,
+      })}`,
+    )
+      .then((result) => {
+        if (active) {
+          setLogsData(result);
+        }
+      })
+      .catch((caughtError) => {
+        if (active) {
+          setActionError(
+            caughtError instanceof Error ? caughtError.message : "轮次日志加载失败。",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLogsLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [logPage, selectedCycleId]);
+
   async function saveCycle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending("save");
@@ -173,8 +332,7 @@ export default function AdminCyclesPage() {
       setActionMessage(cycleForm.cycleId ? "轮次已更新。" : "轮次已创建。");
       await refresh();
       setSelectedCycleId(saved.id);
-      const detail = await fetchApi<AdminCycleDetail>(`/admin/cycles/${saved.id}`);
-      setCycleDetail(detail);
+      await loadCycleSummary(saved.id);
     } catch (caughtError) {
       setActionError(caughtError instanceof Error ? caughtError.message : "轮次保存失败。");
     } finally {
@@ -209,8 +367,7 @@ export default function AdminCyclesPage() {
       );
       await refresh();
       if (selectedCycleId) {
-        const detail = await fetchApi<AdminCycleDetail>(`/admin/cycles/${selectedCycleId}`);
-        setCycleDetail(detail);
+        await loadCycleSummary(selectedCycleId);
       }
     } catch (caughtError) {
       setActionError(caughtError instanceof Error ? caughtError.message : "轮次执行失败。");
@@ -269,11 +426,6 @@ export default function AdminCyclesPage() {
   if (loading) {
     return <div className="admin-empty-state">正在加载轮次中心...</div>;
   }
-
-  const PAGE_SIZE_PARTICIPANTS = 10;
-  const PAGE_SIZE_MATCHES = 6;
-  const PAGE_SIZE_LOGS = 10;
-  const PAGE_SIZE_PAIRS = 6;
 
   return (
     <div className="qb-container" style={{ maxWidth: "72rem" }}>
@@ -459,81 +611,74 @@ export default function AdminCyclesPage() {
 
         {detailLoading ? (
           <div className="admin-empty-state">正在加载轮次详情...</div>
-        ) : cycleDetail ? (() => {
-          const all = cycleDetail.cycle.participations;
-          const optedIn = all.filter((p) => p.status === "OPTED_IN").length;
-          const withQ = all.filter((p) => p.user.questionnaireResponse?.submittedAt).length;
-          const filtered = participantFilter === "ALL" ? all : all.filter((p) => p.status === participantFilter);
-          const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE_PARTICIPANTS));
-          const safePage = Math.min(participantPage, totalPages);
-          const sliceStart = (safePage - 1) * PAGE_SIZE_PARTICIPANTS;
-          const visible = filtered.slice(sliceStart, sliceStart + PAGE_SIZE_PARTICIPANTS);
-
-          return (
-            <div className="admin-page-stack">
-              <div className="admin-inline-metrics">
-                <div><span>总参与</span><strong>{all.length}</strong></div>
-                <div><span>已 Opt-in</span><strong>{optedIn}</strong></div>
-                <div><span>已提交问卷</span><strong>{withQ}</strong></div>
-                <div><span>未提交问卷</span><strong>{all.length - withQ}</strong></div>
-              </div>
-
-              <div className="admin-tabs">
-                {(["ALL", "OPTED_IN", "OPTED_OUT"] as const).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    className={participantFilter === f ? "admin-tab active" : "admin-tab"}
-                    onClick={() => { setParticipantFilter(f); setParticipantPage(1); }}
-                  >
-                    {f === "ALL" ? `全部 (${all.length})` : `${PARTICIPATION_STATUS_LABELS[f]} (${all.filter((p) => p.status === f).length})`}
-                  </button>
-                ))}
-              </div>
-
-              {filtered.length > 0 ? (
-                <div className="admin-table-wrap">
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>用户</th>
-                        <th>学校</th>
-                        <th>状态</th>
-                        <th>问卷</th>
-                        <th>加入时间</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visible.map((p) => (
-                        <tr key={p.id}>
-                          <td><strong style={{ fontSize: "0.88rem" }}>{p.user.displayName ?? p.user.email}</strong></td>
-                          <td>{p.user.school?.name ?? "—"}</td>
-                          <td><span className="domain-chip">{PARTICIPATION_STATUS_LABELS[p.status]}</span></td>
-                          <td>
-                            {p.user.questionnaireResponse?.submittedAt
-                              ? <span style={{ color: "var(--sage)" }}>已提交</span>
-                              : <span style={{ color: "var(--coral)" }}>未提交</span>}
-                          </td>
-                          <td>{p.optedInAt ? formatDateTime(p.optedInAt) : "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="admin-empty-state">当前筛选条件下没有参与者。</div>
-              )}
-
-              {totalPages > 1 && (
-                <div className="admin-pagination">
-                  <button disabled={safePage <= 1} onClick={() => setParticipantPage(safePage - 1)} type="button">上一页</button>
-                  <span>{safePage} / {totalPages} · 共 {filtered.length} 人</span>
-                  <button disabled={safePage >= totalPages} onClick={() => setParticipantPage(safePage + 1)} type="button">下一页</button>
-                </div>
-              )}
+        ) : cycleDetail ? (
+          <div className="admin-page-stack">
+            <div className="admin-inline-metrics">
+              <div><span>总参与</span><strong>{cycleDetail.summary.participationCount}</strong></div>
+              <div><span>已 Opt-in</span><strong>{cycleDetail.summary.optedInCount}</strong></div>
+              <div><span>已提交问卷</span><strong>{cycleDetail.summary.submittedQuestionnaireCount}</strong></div>
+              <div><span>未提交问卷</span><strong>{cycleDetail.summary.participationCount - cycleDetail.summary.submittedQuestionnaireCount}</strong></div>
             </div>
-          );
-        })() : (
+
+            <div className="admin-tabs">
+              {(["ALL", "OPTED_IN", "OPTED_OUT"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  className={participantFilter === f ? "admin-tab active" : "admin-tab"}
+                  onClick={() => { setParticipantFilter(f); setParticipantPage(1); }}
+                >
+                  {f === "ALL"
+                    ? `全部 (${cycleDetail.summary.participationCount})`
+                    : `${PARTICIPATION_STATUS_LABELS[f]} (${f === "OPTED_IN" ? cycleDetail.summary.optedInCount : cycleDetail.summary.participationCount - cycleDetail.summary.optedInCount})`}
+                </button>
+              ))}
+            </div>
+
+            {participantsLoading ? (
+              <div className="admin-empty-state">正在加载参与者列表...</div>
+            ) : participantsData && participantsData.items.length > 0 ? (
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>用户</th>
+                      <th>学校</th>
+                      <th>状态</th>
+                      <th>问卷</th>
+                      <th>加入时间</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {participantsData.items.map((p) => (
+                      <tr key={p.id}>
+                        <td><strong style={{ fontSize: "0.88rem" }}>{p.user.displayName ?? p.user.email}</strong></td>
+                        <td>{p.user.school?.name ?? "—"}</td>
+                        <td><span className="domain-chip">{PARTICIPATION_STATUS_LABELS[p.status]}</span></td>
+                        <td>
+                          {p.user.questionnaireResponse?.submittedAt
+                            ? <span style={{ color: "var(--sage)" }}>已提交</span>
+                            : <span style={{ color: "var(--coral)" }}>未提交</span>}
+                        </td>
+                        <td>{p.optedInAt ? formatDateTime(p.optedInAt) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="admin-empty-state">当前筛选条件下没有参与者。</div>
+            )}
+
+            {participantsData && participantsData.totalPages > 1 && (
+              <div className="admin-pagination">
+                <button disabled={participantsData.page <= 1} onClick={() => setParticipantPage(participantsData.page - 1)} type="button">上一页</button>
+                <span>{participantsData.page} / {participantsData.totalPages} · 共 {participantsData.total} 人</span>
+                <button disabled={participantsData.page >= participantsData.totalPages} onClick={() => setParticipantPage(participantsData.page + 1)} type="button">下一页</button>
+              </div>
+            )}
+          </div>
+        ) : (
           <div className="admin-empty-state">选择轮次后查看参与者列表。</div>
         )}
       </section>
@@ -549,80 +694,79 @@ export default function AdminCyclesPage() {
 
         {detailLoading ? (
           <div className="admin-empty-state">正在加载匹配结果...</div>
-        ) : cycleDetail ? (() => {
-          const allM = cycleDetail.cycle.matches;
-          const mTotalPages = Math.max(1, Math.ceil(allM.length / PAGE_SIZE_MATCHES));
-          const mSafePage = Math.min(matchPage, mTotalPages);
-          const mStart = (mSafePage - 1) * PAGE_SIZE_MATCHES;
-          const visibleM = allM.slice(mStart, mStart + PAGE_SIZE_MATCHES);
+        ) : cycleDetail ? (
+          <div className="admin-page-stack">
+            <div className="admin-inline-metrics">
+              <div><span>参与人数</span><strong>{cycleDetail.summary.participationCount}</strong></div>
+              <div><span>已 opt-in</span><strong>{cycleDetail.summary.optedInCount}</strong></div>
+              <div><span>匹配对数</span><strong>{cycleDetail.summary.matchedPairCount}</strong></div>
+              <div><span>待联系</span><strong>{cycleDetail.summary.pendingContactCount}</strong></div>
+            </div>
 
-          const allLogs = cycleDetail.logs;
-          const logTotalPages = Math.max(1, Math.ceil(allLogs.length / PAGE_SIZE_LOGS));
-          const logSafePage = Math.min(logPage, logTotalPages);
-          const logStart = (logSafePage - 1) * PAGE_SIZE_LOGS;
-          const visibleLogs = allLogs.slice(logStart, logStart + PAGE_SIZE_LOGS);
-
-          return (
-            <div className="admin-page-stack">
-              <div className="admin-inline-metrics">
-                <div><span>参与人数</span><strong>{cycleDetail.summary.participationCount}</strong></div>
-                <div><span>已 opt-in</span><strong>{cycleDetail.summary.optedInCount}</strong></div>
-                <div><span>匹配对数</span><strong>{cycleDetail.summary.matchedPairCount}</strong></div>
-                <div><span>待联系</span><strong>{cycleDetail.summary.pendingContactCount}</strong></div>
-              </div>
-
-              <div className="admin-record-list">
-                {visibleM.map((match) => (
-                  <div key={match.id} className="admin-record-item">
-                    <div className="admin-record-topline">
-                      <strong>{match.participants.map((p) => p.user.displayName ?? p.user.email).join(" × ")}</strong>
-                      <span className="domain-chip">分数 {match.score.toFixed(1)}</span>
-                    </div>
-                    <div className="admin-inline-meta">
-                      <span>引荐：{match.introducedAt ? formatDateTime(match.introducedAt) : "未引荐"}</span>
-                      <span>举报数：{match.reports.length}</span>
-                    </div>
-                    <ul className="admin-reason-list">
-                      {match.reasons.map((r) => <li key={r}>{r}</li>)}
-                    </ul>
-                  </div>
-                ))}
-                {allM.length === 0 && <div className="admin-empty-state">当前轮次还没有生成匹配。</div>}
-              </div>
-
-              {mTotalPages > 1 && (
-                <div className="admin-pagination">
-                  <button disabled={mSafePage <= 1} onClick={() => setMatchPage(mSafePage - 1)} type="button">上一页</button>
-                  <span>{mSafePage} / {mTotalPages} · 共 {allM.length} 组</span>
-                  <button disabled={mSafePage >= mTotalPages} onClick={() => setMatchPage(mSafePage + 1)} type="button">下一页</button>
-                </div>
-              )}
-
-              <div>
-                <h3>运行记录</h3>
+            {matchesLoading ? (
+              <div className="admin-empty-state">正在加载匹配结果...</div>
+            ) : matchesData && matchesData.items.length > 0 ? (
+              <>
                 <div className="admin-record-list">
-                  {visibleLogs.map((log) => (
-                    <div key={log.id} className="admin-record-item">
+                  {matchesData.items.map((match) => (
+                    <div key={match.id} className="admin-record-item">
                       <div className="admin-record-topline">
-                        <strong>{log.action}</strong>
-                        <span className="domain-chip">{formatDateTime(log.createdAt)}</span>
+                        <strong>{match.participants.map((p) => p.user.displayName ?? p.user.email).join(" × ")}</strong>
+                        <span className="domain-chip">分数 {match.score.toFixed(1)}</span>
                       </div>
-                      <p>{JSON.stringify(log.metadata ?? {})}</p>
+                      <div className="admin-inline-meta">
+                        <span>引荐：{match.introducedAt ? formatDateTime(match.introducedAt) : "未引荐"}</span>
+                        <span>举报数：{match.reports.length}</span>
+                      </div>
+                      <ul className="admin-reason-list">
+                        {match.reasons.map((r) => <li key={r}>{r}</li>)}
+                      </ul>
                     </div>
                   ))}
-                  {allLogs.length === 0 && <div className="admin-empty-state">当前轮次还没有运行日志。</div>}
                 </div>
-                {logTotalPages > 1 && (
+                {matchesData.totalPages > 1 && (
                   <div className="admin-pagination">
-                    <button disabled={logSafePage <= 1} onClick={() => setLogPage(logSafePage - 1)} type="button">上一页</button>
-                    <span>{logSafePage} / {logTotalPages} · 共 {allLogs.length} 条</span>
-                    <button disabled={logSafePage >= logTotalPages} onClick={() => setLogPage(logSafePage + 1)} type="button">下一页</button>
+                    <button disabled={matchesData.page <= 1} onClick={() => setMatchPage(matchesData.page - 1)} type="button">上一页</button>
+                    <span>{matchesData.page} / {matchesData.totalPages} · 共 {matchesData.total} 组</span>
+                    <button disabled={matchesData.page >= matchesData.totalPages} onClick={() => setMatchPage(matchesData.page + 1)} type="button">下一页</button>
                   </div>
                 )}
-              </div>
+              </>
+            ) : (
+              <div className="admin-empty-state">当前轮次还没有生成匹配。</div>
+            )}
+
+            <div>
+              <h3>运行记录</h3>
+              {logsLoading ? (
+                <div className="admin-empty-state">正在加载运行日志...</div>
+              ) : logsData && logsData.items.length > 0 ? (
+                <>
+                  <div className="admin-record-list">
+                    {logsData.items.map((log) => (
+                      <div key={log.id} className="admin-record-item">
+                        <div className="admin-record-topline">
+                          <strong>{log.action}</strong>
+                          <span className="domain-chip">{formatDateTime(log.createdAt)}</span>
+                        </div>
+                        <p>{JSON.stringify(log.metadata ?? {})}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {logsData.totalPages > 1 && (
+                    <div className="admin-pagination">
+                      <button disabled={logsData.page <= 1} onClick={() => setLogPage(logsData.page - 1)} type="button">上一页</button>
+                      <span>{logsData.page} / {logsData.totalPages} · 共 {logsData.total} 条</span>
+                      <button disabled={logsData.page >= logsData.totalPages} onClick={() => setLogPage(logsData.page + 1)} type="button">下一页</button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="admin-empty-state">当前轮次还没有运行日志。</div>
+              )}
             </div>
-          );
-        })() : (
+          </div>
+        ) : (
           <div className="admin-empty-state">选择轮次后查看匹配结果。</div>
         )}
       </section>

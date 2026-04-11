@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 apps/*/node_modules/
+.npm-cache/
 
 # Build outputs
 .next/
@@ -49,4 +50,3 @@ next-env.d.ts
 .vercel/
 .turbo/
 tmp/
-
