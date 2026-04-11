@@ -565,25 +565,20 @@ describe('CyclesService', () => {
       new Date('2026-04-10T00:00:00.000Z'),
     );
 
-    expect(result.selectedPairs).toEqual([
-      {
-        left: expect.objectContaining({ id: 'user-a' }),
-        right: expect.objectContaining({ id: 'user-b' }),
-        score: 78,
-        reasons: [
-          '你们对进入关系的期待很一致。',
-          '你们都把 真诚、稳定 放在重要位置。',
-        ],
-      },
-      {
-        left: expect.objectContaining({ id: 'user-c' }),
-        right: expect.objectContaining({ id: 'user-d' }),
-        score: 78,
-        reasons: [
-          '你们对进入关系的期待很一致。',
-          '你们都把 幽默感、上进 放在重要位置。',
-        ],
-      },
+    expect(result.selectedPairs).toHaveLength(2);
+    expect(result.selectedPairs[0]?.left).toMatchObject({ id: 'user-a' });
+    expect(result.selectedPairs[0]?.right).toMatchObject({ id: 'user-b' });
+    expect(result.selectedPairs[0]?.score).toBe(78);
+    expect(result.selectedPairs[0]?.reasons).toEqual([
+      '你们对进入关系的期待很一致。',
+      '你们都把 真诚、稳定 放在重要位置。',
+    ]);
+    expect(result.selectedPairs[1]?.left).toMatchObject({ id: 'user-c' });
+    expect(result.selectedPairs[1]?.right).toMatchObject({ id: 'user-d' });
+    expect(result.selectedPairs[1]?.score).toBe(78);
+    expect(result.selectedPairs[1]?.reasons).toEqual([
+      '你们对进入关系的期待很一致。',
+      '你们都把 幽默感、上进 放在重要位置。',
     ]);
   });
 
@@ -629,16 +624,13 @@ describe('CyclesService', () => {
     );
 
     expect(result.candidates).toHaveLength(1);
-    expect(result.selectedPairs).toEqual([
-      {
-        left: expect.objectContaining({ id: 'user-b' }),
-        right: expect.objectContaining({ id: 'user-c' }),
-        score: 72,
-        reasons: [
-          '你们对进入关系的期待很一致。',
-          '你们都把 真诚 放在重要位置。',
-        ],
-      },
+    expect(result.selectedPairs).toHaveLength(1);
+    expect(result.selectedPairs[0]?.left).toMatchObject({ id: 'user-b' });
+    expect(result.selectedPairs[0]?.right).toMatchObject({ id: 'user-c' });
+    expect(result.selectedPairs[0]?.score).toBe(72);
+    expect(result.selectedPairs[0]?.reasons).toEqual([
+      '你们对进入关系的期待很一致。',
+      '你们都把 真诚 放在重要位置。',
     ]);
   });
 });

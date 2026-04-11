@@ -33,9 +33,13 @@ export function HeroRevealCountdown({
   const [nowMs, setNowMs] = useState<number | null>(null);
 
   useEffect(() => {
-    setNowMs(Date.now());
-    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
-    return () => window.clearInterval(id);
+    const tick = () => setNowMs(Date.now());
+    const intervalId = window.setInterval(tick, 1000);
+    const timeoutId = window.setTimeout(tick, 0);
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   if (offline) {

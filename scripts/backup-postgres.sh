@@ -7,7 +7,8 @@ umask 077
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 readonly DEFAULT_ENV_FILE="${PROJECT_ROOT}/.env"
-readonly DEFAULT_BACKUP_DIRECTORY="/home/admin/backups/lilink"
+# Repo-local default so backups stay under the project tree (gitignored).
+readonly DEFAULT_BACKUP_DIRECTORY="${PROJECT_ROOT}/backups/postgres"
 readonly DEFAULT_CONTAINER_NAME="lilink-postgres"
 readonly DEFAULT_DATABASE_NAME="lilink"
 readonly DEFAULT_DATABASE_USER="lilink"
