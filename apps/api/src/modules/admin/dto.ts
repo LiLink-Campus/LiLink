@@ -6,7 +6,6 @@ import {
   IsEmail,
   IsIn,
   IsInt,
-  IsObject,
   Length,
   ValidateNested,
   IsOptional,

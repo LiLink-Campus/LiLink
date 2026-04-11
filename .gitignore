@@ -41,6 +41,9 @@ Thumbs.db
 postgres-data/
 mailpit-data/
 
+# Postgres dumps (pg_dump / scripts/backup-postgres.sh)
+backups/
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
