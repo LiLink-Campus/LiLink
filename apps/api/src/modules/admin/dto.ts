@@ -6,7 +6,6 @@ import {
   IsEmail,
   IsIn,
   IsInt,
-  IsObject,
   Length,
   ValidateNested,
   IsOptional,
@@ -43,6 +42,16 @@ export class ListCyclesQueryDto extends ListQueryDto {
   status?: 'DRAFT' | 'OPEN' | 'REVEAL_READY' | 'REVEALED';
 }
 
+export class ListCycleParticipantsQueryDto extends ListQueryDto {
+  @IsOptional()
+  @IsIn(['OPTED_IN', 'OPTED_OUT'])
+  status?: 'OPTED_IN' | 'OPTED_OUT';
+}
+
+export class ListCycleMatchesQueryDto extends ListQueryDto {}
+
+export class ListCycleLogsQueryDto extends ListQueryDto {}
+
 export class ListUsersQueryDto extends ListQueryDto {
   @IsOptional()
   @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])
@@ -56,6 +65,8 @@ export class ListUsersQueryDto extends ListQueryDto {
   @IsIn(['all', 'test', 'real'])
   userType?: 'all' | 'test' | 'real';
 }
+
+export class ListUserParticipationsQueryDto extends ListQueryDto {}
 
 export class ListReportsQueryDto extends ListQueryDto {
   @IsOptional()

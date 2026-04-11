@@ -28,19 +28,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            apps/web/package-lock.json
-            apps/api/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install root dependencies
+      - name: Install dependencies
         run: npm ci
-
-      - name: Install web dependencies
-        run: npm ci --prefix apps/web
-
-      - name: Install API dependencies
-        run: npm ci --prefix apps/api
 
       - name: Run root lint
         run: npm run lint
@@ -85,18 +76,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            apps/api/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install API dependencies
-        run: npm ci --prefix apps/api
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
 
       - name: Apply API migrations
-        working-directory: apps/api
-        run: npx prisma migrate deploy
+        run: npm exec --workspace api prisma migrate deploy
 
       - name: Run API unit tests
-        run: npm --prefix apps/api run test
+        run: npm run test --workspace api
 
       - name: Run API e2e tests
-        run: npm --prefix apps/api run test:e2e
+        run: npm run test:e2e --workspace api

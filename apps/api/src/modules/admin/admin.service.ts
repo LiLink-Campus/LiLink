@@ -17,9 +17,13 @@ import {
   AdminUpdateUserDto,
   BatchReviewReportsDto,
   ListAuditLogsQueryDto,
+  ListCycleLogsQueryDto,
+  ListCycleMatchesQueryDto,
+  ListCycleParticipantsQueryDto,
   ListCyclesQueryDto,
   ListReportsQueryDto,
   ListSchoolsQueryDto,
+  ListUserParticipationsQueryDto,
   ListUsersQueryDto,
   RunCycleDto,
   ReorderQuestionsDto,
@@ -29,30 +33,67 @@ import {
   UpsertQuestionDto,
 } from './dto';
 
-const OVERVIEW_USERS_LIMIT = 20;
+const adminSchoolNameSelect = {
+  name: true,
+} satisfies Prisma.SchoolSelect;
 
-const adminUserListInclude = {
-  school: true,
-  profile: true,
+const adminUserProfileSelect = {
+  fullName: true,
+  headline: true,
+  bio: true,
+  schoolYear: true,
+  programName: true,
+} satisfies Prisma.UserProfileSelect;
+
+const adminUserListSelect = {
+  id: true,
+  email: true,
+  status: true,
+  displayName: true,
+  isTest: true,
+  createdAt: true,
+  school: {
+    select: adminSchoolNameSelect,
+  },
+  profile: {
+    select: adminUserProfileSelect,
+  },
   questionnaireResponse: {
     select: {
       submittedAt: true,
     },
   },
-  participations: {
-    orderBy: { createdAt: 'desc' as const },
-    take: 3,
-  },
-} satisfies Prisma.UserInclude;
+} satisfies Prisma.UserSelect;
 
-const adminUserDetailInclude = {
-  school: true,
-  profile: true,
-  questionnaireResponse: true,
-  participations: {
-    orderBy: { createdAt: 'desc' as const },
+const adminReportListSelect = {
+  id: true,
+  matchId: true,
+  reason: true,
+  details: true,
+  status: true,
+  adminNotes: true,
+  handledAt: true,
+  createdBlock: true,
+  createdAt: true,
+  reporter: {
+    select: {
+      email: true,
+      displayName: true,
+      school: {
+        select: adminSchoolNameSelect,
+      },
+    },
   },
-} satisfies Prisma.UserInclude;
+  reportedUser: {
+    select: {
+      email: true,
+      displayName: true,
+      school: {
+        select: adminSchoolNameSelect,
+      },
+    },
+  },
+} satisfies Prisma.ReportSelect;
 
 @Injectable()
 export class AdminService {
@@ -62,78 +103,6 @@ export class AdminService {
     private readonly adminAuditService: AdminAuditService,
     private readonly adminSchoolService: AdminSchoolService,
   ) {}
-
-  async getOverview() {
-    const [schools, cycles, users, questionnaireVersion, reports] =
-      await Promise.all([
-        this.prisma.school.findMany({
-          include: {
-            domains: {
-              orderBy: { domain: 'asc' },
-            },
-            _count: {
-              select: {
-                users: true,
-              },
-            },
-          },
-          orderBy: { name: 'asc' },
-        }),
-        this.prisma.matchCycle.findMany({
-          include: {
-            _count: {
-              select: {
-                participations: true,
-                matches: true,
-              },
-            },
-          },
-          orderBy: { revealAt: 'desc' },
-          take: 6,
-        }),
-        this.prisma.user.findMany({
-          omit: { passwordHash: true },
-          include: adminUserListInclude,
-          orderBy: { createdAt: 'desc' },
-          take: OVERVIEW_USERS_LIMIT,
-        }),
-        this.prisma.questionnaireVersion.findFirst({
-          where: { isCurrent: true },
-          include: {
-            questions: {
-              orderBy: { order: 'asc' },
-            },
-          },
-        }),
-        this.prisma.report.findMany({
-          include: {
-            reporter: {
-              include: {
-                school: true,
-              },
-            },
-            reportedUser: {
-              include: {
-                school: true,
-              },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        }),
-      ]);
-
-    return {
-      schools,
-      cycles,
-      users,
-      reports,
-      questionnaireQuestions:
-        questionnaireVersion?.questions.map((question) => ({
-          key: question.key,
-          prompt: question.prompt,
-        })) ?? [],
-    };
-  }
 
   async getDashboard() {
     const [
@@ -159,18 +128,7 @@ export class AdminService {
       }),
       this.prisma.report.findMany({
         where: { status: 'OPEN' },
-        include: {
-          reporter: {
-            include: {
-              school: true,
-            },
-          },
-          reportedUser: {
-            include: {
-              school: true,
-            },
-          },
-        },
+        select: adminReportListSelect,
         orderBy: { createdAt: 'desc' },
         take: 10,
       }),
@@ -256,18 +214,7 @@ export class AdminService {
   async getReports(query: ListReportsQueryDto = {}) {
     if (!this.hasListQuery(query)) {
       return this.prisma.report.findMany({
-        include: {
-          reporter: {
-            include: {
-              school: true,
-            },
-          },
-          reportedUser: {
-            include: {
-              school: true,
-            },
-          },
-        },
+        select: adminReportListSelect,
         orderBy: { createdAt: 'desc' },
       });
     }
@@ -299,18 +246,7 @@ export class AdminService {
     const [items, total] = await Promise.all([
       this.prisma.report.findMany({
         where,
-        include: {
-          reporter: {
-            include: {
-              school: true,
-            },
-          },
-          reportedUser: {
-            include: {
-              school: true,
-            },
-          },
-        },
+        select: adminReportListSelect,
         orderBy: { createdAt: 'desc' },
         skip: pagination.skip,
         take: pagination.pageSize,
@@ -324,22 +260,56 @@ export class AdminService {
   async getUserById(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      omit: { passwordHash: true },
-      include: adminUserDetailInclude,
+      select: {
+        ...adminUserListSelect,
+        questionnaireResponse: {
+          select: {
+            submittedAt: true,
+            answers: true,
+          },
+        },
+        _count: {
+          select: {
+            participations: true,
+          },
+        },
+      },
     });
 
     if (!user) {
       throw new NotFoundException('User not found.');
     }
 
-    return user;
+    return {
+      id: user.id,
+      email: user.email,
+      status: user.status,
+      displayName: user.displayName,
+      isTest: user.isTest,
+      createdAt: user.createdAt,
+      school: user.school,
+      profile: user.profile,
+      questionnaireResponse: user.questionnaireResponse
+        ? {
+            submittedAt: user.questionnaireResponse.submittedAt,
+          }
+        : null,
+      participationCount: user._count.participations,
+      questionnaireAnswerCount:
+        user.questionnaireResponse &&
+        typeof user.questionnaireResponse.answers === 'object' &&
+        user.questionnaireResponse.answers
+          ? Object.keys(
+              user.questionnaireResponse.answers as Record<string, unknown>,
+            ).length
+          : 0,
+    };
   }
 
   async getUsers(query: ListUsersQueryDto = {}) {
     if (!this.hasListQuery(query)) {
       return this.prisma.user.findMany({
-        omit: { passwordHash: true },
-        include: adminUserListInclude,
+        select: adminUserListSelect,
         orderBy: { createdAt: 'desc' },
       });
     }
@@ -411,13 +381,72 @@ export class AdminService {
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        omit: { passwordHash: true },
-        include: adminUserListInclude,
+        select: adminUserListSelect,
         orderBy: { createdAt: 'desc' },
         skip: pagination.skip,
         take: pagination.pageSize,
       }),
       this.prisma.user.count({ where }),
+    ]);
+
+    return this.buildPageResult(items, total, pagination);
+  }
+
+  async getUserQuestionnaire(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        questionnaireResponse: {
+          select: {
+            submittedAt: true,
+            answers: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    if (!user.questionnaireResponse) {
+      return null;
+    }
+
+    return {
+      submittedAt: user.questionnaireResponse.submittedAt,
+      answers: user.questionnaireResponse.answers as Record<string, unknown>,
+    };
+  }
+
+  async getUserParticipations(
+    userId: string,
+    query: ListUserParticipationsQueryDto = {},
+  ) {
+    const userExists = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!userExists) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const pagination = this.normalizePagination(query);
+    const where = { userId };
+
+    const [items, total] = await Promise.all([
+      this.prisma.cycleParticipation.findMany({
+        where,
+        select: {
+          cycleId: true,
+          status: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: pagination.skip,
+        take: pagination.pageSize,
+      }),
+      this.prisma.cycleParticipation.count({ where }),
     ]);
 
     return this.buildPageResult(items, total, pagination);
@@ -501,49 +530,11 @@ export class AdminService {
     const cycle = await this.prisma.matchCycle.findUnique({
       where: { id: cycleId },
       include: {
-        participations: {
-          include: {
-            user: {
-              omit: { passwordHash: true },
-              include: {
-                school: true,
-                profile: true,
-                questionnaireResponse: true,
-              },
-            },
+        _count: {
+          select: {
+            participations: true,
+            matches: true,
           },
-          orderBy: [{ status: 'desc' }, { updatedAt: 'desc' }],
-        },
-        matches: {
-          include: {
-            participants: {
-              include: {
-                user: {
-                  omit: { passwordHash: true },
-                  include: {
-                    school: true,
-                    profile: true,
-                  },
-                },
-              },
-            },
-            reports: {
-              include: {
-                reporter: {
-                  include: {
-                    school: true,
-                  },
-                },
-                reportedUser: {
-                  include: {
-                    school: true,
-                  },
-                },
-              },
-              orderBy: { createdAt: 'desc' },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
         },
       },
     });
@@ -552,29 +543,154 @@ export class AdminService {
       throw new NotFoundException('Cycle not found.');
     }
 
-    const cycleLogs =
-      await this.adminAuditService.getRecentAuditLogsByCondition(
-        Prisma.sql`"metadata"->>'cycleId' = ${cycleId}`,
-        100,
-      );
+    const [
+      optedInCount,
+      submittedQuestionnaireCount,
+      reportedMatchCount,
+      pendingContactCount,
+    ] = await Promise.all([
+      this.prisma.cycleParticipation.count({
+        where: {
+          cycleId,
+          status: 'OPTED_IN',
+        },
+      }),
+      this.prisma.cycleParticipation.count({
+        where: {
+          cycleId,
+          user: {
+            questionnaireResponse: {
+              is: {
+                submittedAt: {
+                  not: null,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.match.count({
+        where: {
+          cycleId,
+          reports: {
+            some: {},
+          },
+        },
+      }),
+      this.prisma.match.count({
+        where: {
+          cycleId,
+          introducedAt: null,
+        },
+      }),
+    ]);
 
     return {
       cycle,
       summary: {
-        participationCount: cycle.participations.length,
-        optedInCount: cycle.participations.filter(
-          (item) => item.status === 'OPTED_IN',
-        ).length,
-        matchedPairCount: cycle.matches.length,
-        reportedMatchCount: cycle.matches.filter(
-          (match) => match.reports.length > 0,
-        ).length,
-        pendingContactCount: cycle.matches.filter(
-          (match) => !match.introducedAt,
-        ).length,
+        participationCount: cycle._count.participations,
+        optedInCount,
+        submittedQuestionnaireCount,
+        matchedPairCount: cycle._count.matches,
+        reportedMatchCount,
+        pendingContactCount,
       },
-      logs: cycleLogs,
     };
+  }
+
+  async getCycleParticipants(
+    cycleId: string,
+    query: ListCycleParticipantsQueryDto = {},
+  ) {
+    await this.assertCycleExists(cycleId);
+
+    const pagination = this.normalizePagination(query);
+    const where = {
+      cycleId,
+      ...(query.status ? { status: query.status } : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.cycleParticipation.findMany({
+        where,
+        select: {
+          id: true,
+          status: true,
+          optedInAt: true,
+          updatedAt: true,
+          user: {
+            select: adminUserListSelect,
+          },
+        },
+        orderBy: [{ status: 'desc' }, { updatedAt: 'desc' }],
+        skip: pagination.skip,
+        take: pagination.pageSize,
+      }),
+      this.prisma.cycleParticipation.count({ where }),
+    ]);
+
+    return this.buildPageResult(items, total, pagination);
+  }
+
+  async getCycleMatches(cycleId: string, query: ListCycleMatchesQueryDto = {}) {
+    await this.assertCycleExists(cycleId);
+
+    const pagination = this.normalizePagination(query);
+    const where = { cycleId };
+
+    const [items, total] = await Promise.all([
+      this.prisma.match.findMany({
+        where,
+        select: {
+          id: true,
+          score: true,
+          reasons: true,
+          revealedAt: true,
+          introducedAt: true,
+          participants: {
+            select: {
+              id: true,
+              userId: true,
+              position: true,
+              contactRequestedAt: true,
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  displayName: true,
+                  status: true,
+                  school: {
+                    select: adminSchoolNameSelect,
+                  },
+                  profile: {
+                    select: adminUserProfileSelect,
+                  },
+                },
+              },
+            },
+          },
+          reports: {
+            select: adminReportListSelect,
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: pagination.skip,
+        take: pagination.pageSize,
+      }),
+      this.prisma.match.count({ where }),
+    ]);
+
+    return this.buildPageResult(items, total, pagination);
+  }
+
+  async getCycleLogs(cycleId: string, query: ListCycleLogsQueryDto = {}) {
+    await this.assertCycleExists(cycleId);
+
+    return this.adminAuditService.listAuditLogsByCondition(
+      Prisma.sql`"metadata"->>'cycleId' = ${cycleId}`,
+      query,
+    );
   }
 
   async previewCycle(cycleId: string) {
@@ -780,24 +896,54 @@ export class AdminService {
   async getReportContext(reportId: string) {
     const report = await this.prisma.report.findUnique({
       where: { id: reportId },
-      include: {
+      select: {
+        id: true,
+        reporterId: true,
+        reportedUserId: true,
+        matchId: true,
+        reason: true,
+        details: true,
+        status: true,
+        adminNotes: true,
+        handledAt: true,
+        createdBlock: true,
+        createdAt: true,
         reporter: {
-          omit: { passwordHash: true },
-          include: {
-            school: true,
-            profile: true,
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            status: true,
+            school: {
+              select: adminSchoolNameSelect,
+            },
+            profile: {
+              select: adminUserProfileSelect,
+            },
           },
         },
         reportedUser: {
-          omit: { passwordHash: true },
-          include: {
-            school: true,
-            profile: true,
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            status: true,
+            school: {
+              select: adminSchoolNameSelect,
+            },
+            profile: {
+              select: adminUserProfileSelect,
+            },
             reportsReceived: {
-              include: {
+              select: {
+                ...adminReportListSelect,
                 reporter: {
-                  include: {
-                    school: true,
+                  select: {
+                    email: true,
+                    displayName: true,
+                    school: {
+                      select: adminSchoolNameSelect,
+                    },
                   },
                 },
               },
@@ -805,10 +951,15 @@ export class AdminService {
               take: 10,
             },
             reportsFiled: {
-              include: {
+              select: {
+                ...adminReportListSelect,
                 reportedUser: {
-                  include: {
-                    school: true,
+                  select: {
+                    email: true,
+                    displayName: true,
+                    school: {
+                      select: adminSchoolNameSelect,
+                    },
                   },
                 },
               },
@@ -818,23 +969,33 @@ export class AdminService {
           },
         },
         match: {
-          include: {
+          select: {
+            id: true,
+            introducedAt: true,
             participants: {
-              include: {
+              select: {
+                id: true,
+                userId: true,
+                position: true,
+                contactRequestedAt: true,
                 user: {
-                  omit: { passwordHash: true },
-                  include: {
-                    school: true,
-                    profile: true,
+                  select: {
+                    id: true,
+                    email: true,
+                    displayName: true,
+                    status: true,
+                    school: {
+                      select: adminSchoolNameSelect,
+                    },
+                    profile: {
+                      select: adminUserProfileSelect,
+                    },
                   },
                 },
               },
             },
             reports: {
-              include: {
-                reporter: true,
-                reportedUser: true,
-              },
+              select: adminReportListSelect,
               orderBy: { createdAt: 'desc' },
             },
           },
@@ -1126,6 +1287,17 @@ export class AdminService {
     return selectionLimit;
   }
 
+  private async assertCycleExists(cycleId: string) {
+    const cycle = await this.prisma.matchCycle.findUnique({
+      where: { id: cycleId },
+      select: { id: true },
+    });
+
+    if (!cycle) {
+      throw new NotFoundException('Cycle not found.');
+    }
+  }
+
   private hasListQuery(query: {
     page?: number;
     pageSize?: number;
@@ -1273,6 +1445,12 @@ export class AdminService {
     const schools = await this.prisma.school.findMany({
       take: 9,
       orderBy: { name: 'asc' },
+      include: {
+        domains: {
+          orderBy: { domain: 'asc' },
+          take: 1,
+        },
+      },
     });
     if (schools.length < 3) {
       throw new BadRequestException(
@@ -1639,10 +1817,7 @@ export class AdminService {
 
     for (let i = 0; i < BULK_COUNT; i++) {
       const school = schoolList[i % schoolList.length];
-      const domains = await this.prisma.schoolDomain.findFirst({
-        where: { schoolId: school.id },
-      });
-      const domain = domains?.domain ?? 'test.edu.cn';
+      const domain = school.domains[0]?.domain ?? 'test.edu.cn';
       const n = String(i + 1).padStart(2, '0');
       await upsertUser({
         email: `seed.bulk.${n}@${domain}`,

@@ -1,22 +1,4 @@
-const DEFAULT_API_BASE_URL = "http://localhost:4000/v1";
-
-function resolveApiBaseUrl() {
-  const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-
-  if (configuredApiBaseUrl) {
-    return configuredApiBaseUrl;
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "NEXT_PUBLIC_API_BASE_URL is required in production runtime.",
-    );
-  }
-
-  return DEFAULT_API_BASE_URL;
-}
-
-export const apiBaseUrl = resolveApiBaseUrl();
+import { apiBaseUrl } from "./api-base-url";
 
 const API_ERROR_EN_TO_ZH: Record<string, string> = {
   "This email domain is not currently accepted.":
@@ -109,46 +91,4 @@ export function fetchAuthMeDeduped(): Promise<AuthMePayload | null> {
       });
   }
   return authMeInflight;
-}
-
-/** Origin of `apiBaseUrl` for `<link rel="preconnect">` (HTTPS/API host). */
-export function resolveApiOriginForPreconnect(): string | null {
-  try {
-    return new URL(apiBaseUrl).origin;
-  } catch {
-    return null;
-  }
-}
-
-export type LandingPayload = {
-  brand: string;
-  tagline: string;
-  stats: {
-    registeredUsers: number;
-    completedQuestionnaires: number;
-    matchesDelivered: number;
-  };
-  currentCycle: {
-    codename: string;
-    revealAt: string;
-    participationDeadline: string;
-  } | null;
-};
-
-/**
- * Server-only: caches public landing JSON to cut TTFB vs. no-store fetchApi.
- * Tune `revalidate` on the home page route if stats must refresh faster.
- */
-export async function getLandingPayload() {
-  const response = await fetch(`${apiBaseUrl}/public/landing`, {
-    headers: { Accept: "application/json" },
-    next: { revalidate: 60 },
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(parseFailedResponseBody(body, response.status));
-  }
-
-  return response.json() as Promise<LandingPayload>;
 }

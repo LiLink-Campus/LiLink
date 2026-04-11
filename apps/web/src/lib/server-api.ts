@@ -1,6 +1,8 @@
+import "server-only";
+
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { apiBaseUrl } from "./api";
+import { apiBaseUrl } from "./api-base-url";
 
 const USER_COOKIE_NAME = process.env.COOKIE_NAME?.trim() || "lilink_token";
 const ADMIN_COOKIE_NAME =
@@ -111,4 +113,17 @@ export async function requireUserSession<T>(
   }
 
   return load();
+}
+
+export async function redirectAuthenticatedUser(destination = "/dashboard") {
+  if (!(await hasUserSessionCookie())) {
+    return;
+  }
+
+  try {
+    await fetchUserApiServer("/auth/me");
+    redirect(destination);
+  } catch {
+    // Ignore stale session cookies and render the public page.
+  }
 }

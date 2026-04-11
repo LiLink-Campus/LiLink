@@ -105,8 +105,7 @@ describe('AdminService', () => {
       [
         {
           where: unknown;
-          omit: { passwordHash: boolean };
-          include: unknown;
+          select: unknown;
           orderBy: unknown;
           skip: number;
           take: number;
@@ -126,18 +125,31 @@ describe('AdminService', () => {
           },
         ],
       },
-      omit: { passwordHash: true },
-      include: {
-        school: true,
-        profile: true,
+      select: {
+        id: true,
+        email: true,
+        status: true,
+        displayName: true,
+        isTest: true,
+        createdAt: true,
+        school: {
+          select: {
+            name: true,
+          },
+        },
+        profile: {
+          select: {
+            fullName: true,
+            headline: true,
+            bio: true,
+            schoolYear: true,
+            programName: true,
+          },
+        },
         questionnaireResponse: {
           select: {
             submittedAt: true,
           },
-        },
-        participations: {
-          orderBy: { createdAt: 'desc' },
-          take: 3,
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -155,58 +167,6 @@ describe('AdminService', () => {
           },
         ],
       },
-    });
-  });
-
-  it('caps the overview user list instead of loading every user', async () => {
-    const findMany = jest.fn().mockResolvedValue([{ id: 'user-1' }]);
-    const prisma = {
-      school: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      matchCycle: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      user: {
-        findMany,
-      },
-      questionnaireVersion: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      report: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-    };
-    const service = new AdminService(
-      prisma as never,
-      { runRevealCycle: jest.fn() } as never,
-      {
-        listAuditLogs: jest.fn(),
-        getRecentAuditLogsByCondition: jest.fn(),
-        write: jest.fn(),
-      } as never,
-      {} as never,
-    );
-
-    await service.getOverview();
-
-    expect(findMany).toHaveBeenCalledWith({
-      omit: { passwordHash: true },
-      include: {
-        school: true,
-        profile: true,
-        questionnaireResponse: {
-          select: {
-            submittedAt: true,
-          },
-        },
-        participations: {
-          orderBy: { createdAt: 'desc' },
-          take: 3,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
     });
   });
 
