@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/coverage
+.git
+**/.git
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+*.log
+**/test
+
+# Frontend is not part of the API image; omitting it shrinks the build context.
+apps/web
+.github
