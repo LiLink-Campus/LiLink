@@ -45,7 +45,7 @@ type CyclesServiceTestHarness = {
       }>;
     }>,
     revealAt: Date,
-  ) => { score: number; reasons: string[] } | null;
+  ) => { rawScore: number; score: number; reasons: string[] } | null;
   toEligibleParticipants: (
     participations: unknown[],
   ) => EligibleParticipantStub[];
@@ -248,7 +248,8 @@ describe('CyclesService', () => {
     );
 
     expect(result).toEqual({
-      score: 66,
+      rawScore: 66,
+      score: 100,
       reasons: ['你们对进入关系的期待很一致。'],
     });
   });
@@ -569,7 +570,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-a' },
       right: { id: 'user-b' },
-      score: 78,
+      score: 71.4,
       reasons: [
         '你们对进入关系的期待很一致。',
         '你们都把 真诚、稳定 放在重要位置。',
@@ -578,12 +579,95 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[1]).toMatchObject({
       left: { id: 'user-c' },
       right: { id: 'user-d' },
-      score: 78,
+      score: 71.4,
       reasons: [
         '你们对进入关系的期待很一致。',
         '你们都把 幽默感、上进 放在重要位置。',
       ],
     });
+  });
+
+  it('prioritizes maximum match coverage before total score', async () => {
+    const prisma = {
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new CyclesService(prisma as never);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'scorePair'
+    >;
+    const participants = [
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+      createBroadParticipant('user-c', {}),
+      createBroadParticipant('user-d', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'scorePair')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<
+            string,
+            { rawScore: number; score: number; reasons: string[] }
+          > = {
+            'user-a::user-b': {
+              rawScore: 95,
+              score: 95,
+              reasons: ['ab'],
+            },
+            'user-a::user-c': {
+              rawScore: 60,
+              score: 60,
+              reasons: ['ac'],
+            },
+            'user-b::user-d': {
+              rawScore: 60,
+              score: 60,
+              reasons: ['bd'],
+            },
+          };
+
+          return scoreByPairKey[pairKey] ?? null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(result.selectedPairs).toHaveLength(2);
+    expect(
+      result.selectedPairs.map((pair) => ({
+        pairKey: [pair.left.id, pair.right.id].sort().join('::'),
+        score: pair.score,
+        reasons: pair.reasons,
+      })),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          pairKey: 'user-a::user-c',
+          score: 60,
+          reasons: ['ac'],
+        },
+        {
+          pairKey: 'user-b::user-d',
+          score: 60,
+          reasons: ['bd'],
+        },
+      ]),
+    );
   });
 
   it('excludes blocked and previously matched pairs before choosing the final result set', async () => {
@@ -632,7 +716,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-b' },
       right: { id: 'user-c' },
-      score: 72,
+      score: 57.1,
       reasons: ['你们对进入关系的期待很一致。', '你们都把 真诚 放在重要位置。'],
     });
   });
