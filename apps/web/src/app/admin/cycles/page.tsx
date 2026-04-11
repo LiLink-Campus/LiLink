@@ -87,6 +87,7 @@ export default function AdminCyclesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminCycle["status"]>("ALL");
   const [page, setPage] = useState(1);
+  const [cycleDataRefreshKey, setCycleDataRefreshKey] = useState(0);
   const [cycleForm, setCycleForm] = useState(createEmptyCycleForm);
   const [cycleDetail, setCycleDetail] = useState<AdminCycleDetail | null>(null);
   const [participantsData, setParticipantsData] = useState<PaginatedResult<CycleParticipantDetail> | null>(null);
@@ -172,6 +173,10 @@ export default function AdminCyclesPage() {
     return detail;
   }
 
+  function refreshSelectedCycleDataViews() {
+    setCycleDataRefreshKey((currentValue) => currentValue + 1);
+  }
+
   useEffect(() => {
     if (!isExistingCycleSelection(selectedCycleId)) {
       setCycleDetail(null);
@@ -237,7 +242,7 @@ export default function AdminCyclesPage() {
     return () => {
       active = false;
     };
-  }, [participantFilter, participantPage, selectedCycleId]);
+  }, [cycleDataRefreshKey, participantFilter, participantPage, selectedCycleId]);
 
   useEffect(() => {
     if (!isExistingCycleSelection(selectedCycleId)) {
@@ -275,7 +280,7 @@ export default function AdminCyclesPage() {
     return () => {
       active = false;
     };
-  }, [matchPage, selectedCycleId]);
+  }, [cycleDataRefreshKey, matchPage, selectedCycleId]);
 
   useEffect(() => {
     if (!isExistingCycleSelection(selectedCycleId)) {
@@ -313,7 +318,7 @@ export default function AdminCyclesPage() {
     return () => {
       active = false;
     };
-  }, [logPage, selectedCycleId]);
+  }, [cycleDataRefreshKey, logPage, selectedCycleId]);
 
   async function saveCycle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -368,6 +373,7 @@ export default function AdminCyclesPage() {
       await refresh();
       if (selectedCycleId) {
         await loadCycleSummary(selectedCycleId);
+        refreshSelectedCycleDataViews();
       }
     } catch (caughtError) {
       setActionError(caughtError instanceof Error ? caughtError.message : "轮次执行失败。");
