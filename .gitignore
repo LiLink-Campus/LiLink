@@ -28,7 +28,7 @@ apps/*/.env.*
 # Database
 *.db
 *.db-journal
-prisma/dev.db
+apps/api/prisma/*.db
 
 # OS / IDE
 .DS_Store
@@ -36,6 +36,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+.eslintcache
 
 # Docker
 postgres-data/
@@ -52,4 +53,5 @@ next-env.d.ts
 .vercel/
 .turbo/
 tmp/
+*.pem
 
