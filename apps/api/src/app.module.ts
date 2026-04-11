@@ -14,11 +14,15 @@ import { AccountModule } from './modules/account/account.module';
 import { CyclesModule } from './modules/cycles/cycles.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AdminSessionModule } from './modules/admin-session/admin-session.module';
+import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: monorepoEnvFilePaths(),
+    }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
       {
