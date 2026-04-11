@@ -33,6 +33,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Prisma Client is not committed; ESLint type-aware rules need generated types.
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: postgresql://lilink:lilink@127.0.0.1:5432/lilink?schema=public
+        run: npm run db:generate
+
       - name: Run root lint
         run: npm run lint
 

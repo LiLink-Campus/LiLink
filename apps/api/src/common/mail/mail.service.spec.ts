@@ -107,19 +107,19 @@ describe('MailService', () => {
       },
     } as never);
 
-    const email = service.buildVerificationCodeEmail({
+    const built = service.buildVerificationCodeEmail({
       dedupeKey: 'verification-code:code-1',
       recipientEmail: 'user@example.com',
       code: '123456',
     });
 
-    expect(email).toMatchObject({
+    expect(built).toMatchObject({
       dedupeKey: 'verification-code:code-1',
       recipientEmail: 'user@example.com',
       subject: 'LiLink verification code',
       maxAttempts: 1,
     });
-    expect(email.html).toContain('123456');
+    expect(built.html).toContain('123456');
   });
 
   it('flushes pending emails and marks them as sent', async () => {
@@ -221,7 +221,7 @@ describe('MailService', () => {
     });
 
     expect(emailCodeUpdateMany).toHaveBeenCalledTimes(1);
-    const emailCodeUpdateCalls = emailCodeUpdateMany.mock.calls as Array<
+    const syncCalls = emailCodeUpdateMany.mock.calls as unknown as Array<
       [
         {
           where: { deliveryDedupeKey: string };
@@ -229,14 +229,11 @@ describe('MailService', () => {
         },
       ]
     >;
-    const emailCodeUpdatePayload = emailCodeUpdateCalls[0]?.[0] as {
-      where: { deliveryDedupeKey: string };
-      data: { deliveryStatus: string; sentAt: Date };
-    };
-    expect(emailCodeUpdatePayload.where.deliveryDedupeKey).toBe(
-      'verification-code:code-1',
-    );
-    expect(emailCodeUpdatePayload.data.deliveryStatus).toBe('SENT');
-    expect(emailCodeUpdatePayload.data.sentAt).toBeInstanceOf(Date);
+    const syncPayload = syncCalls[0]?.[0];
+    expect(syncPayload?.where).toEqual({
+      deliveryDedupeKey: 'verification-code:code-1',
+    });
+    expect(syncPayload?.data.deliveryStatus).toBe('SENT');
+    expect(syncPayload?.data.sentAt).toBeInstanceOf(Date);
   });
 });
