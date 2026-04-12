@@ -53,6 +53,7 @@ type CyclesServiceTestHarness = {
     participants: EligibleParticipantStub[],
     questions: unknown[],
     revealAt: Date,
+    currentCycleId?: string,
   ) => Promise<{
     candidates: CandidatePairStub[];
     selectedPairs: CandidatePairStub[];
@@ -527,6 +528,54 @@ describe('CyclesService', () => {
     });
   });
 
+  it('ignores matches from the current cycle when loading historical pair exclusions', async () => {
+    const matchFindMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      match: {
+        findMany: matchFindMany,
+      },
+    };
+    const service = new CyclesService(prisma as never);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+
+    await calculatePairs(
+      [
+        createBroadParticipant('user-a', {}),
+        createBroadParticipant('user-b', {}),
+      ],
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+      'cycle-1',
+    );
+
+    expect(matchFindMany).toHaveBeenCalledWith({
+      where: {
+        participants: {
+          some: {
+            userId: {
+              in: ['user-a', 'user-b'],
+            },
+          },
+        },
+        cycleId: {
+          not: 'cycle-1',
+        },
+      },
+      select: {
+        participants: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    });
+  });
+
   it('selects the highest-scoring disjoint pairs from an overlapping candidate pool', async () => {
     const prisma = {
       block: {
@@ -668,6 +717,96 @@ describe('CyclesService', () => {
         },
       ]),
     );
+  });
+
+  it('falls back to the next valid candidate when the top-scoring pair already exists in history', async () => {
+    const prisma = {
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            participants: [{ userId: 'user-a' }, { userId: 'user-b' }],
+          },
+        ]),
+      },
+    };
+    const service = new CyclesService(prisma as never);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'scorePair'
+    >;
+    const participants = [
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+      createBroadParticipant('user-c', {}),
+      createBroadParticipant('user-d', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'scorePair')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<
+            string,
+            { rawScore: number; score: number; reasons: string[] }
+          > = {
+            'user-a::user-b': {
+              rawScore: 98,
+              score: 98,
+              reasons: ['ab'],
+            },
+            'user-a::user-c': {
+              rawScore: 94,
+              score: 94,
+              reasons: ['ac'],
+            },
+            'user-b::user-d': {
+              rawScore: 91,
+              score: 91,
+              reasons: ['bd'],
+            },
+          };
+
+          return scoreByPairKey[pairKey] ?? null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+      'cycle-2',
+    );
+
+    expect(
+      result.selectedPairs.map((pair) => ({
+        pairKey: [pair.left.id, pair.right.id].sort().join('::'),
+        score: pair.score,
+      })),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          pairKey: 'user-a::user-c',
+          score: 94,
+        },
+        {
+          pairKey: 'user-b::user-d',
+          score: 91,
+        },
+      ]),
+    );
+    expect(
+      result.selectedPairs.some(
+        (pair) =>
+          [pair.left.id, pair.right.id].sort().join('::') === 'user-a::user-b',
+      ),
+    ).toBe(false);
   });
 
   it('excludes blocked and previously matched pairs before choosing the final result set', async () => {
