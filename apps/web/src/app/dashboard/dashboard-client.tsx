@@ -80,8 +80,9 @@ export type DashboardPayload = {
     matched: boolean;
   } | null;
   latestMatch: DashboardMatch | null;
-  /** Last three revealed rounds; omitted on older API deployments. */
-  recentMatchHistory?: DashboardHistoryItem[];
+  latestMatchVisibility: "VISIBLE" | "LIMITED" | null;
+  latestMatchLimitedReason: "REPORTED" | "BLOCKED" | null;
+  recentMatchHistory: DashboardHistoryItem[];
 };
 
 export type QuestionnairePayload = {
@@ -169,7 +170,7 @@ function applyContactSuccessToDashboard(
     ),
   });
 
-  const nextRecentMatchHistory = current.recentMatchHistory?.map<DashboardHistoryItem>(
+  const nextRecentMatchHistory = current.recentMatchHistory.map<DashboardHistoryItem>(
     (item) =>
       item.match?.id === matchId && item.result === "MATCHED"
         ? { ...item, match: updateMatch(item.match) }
@@ -194,17 +195,12 @@ function applyReportSuccessToDashboard(
     return current;
   }
 
-  if (!current.recentMatchHistory) {
-    return current.latestMatch?.id === matchId
-      ? {
-          ...current,
-          latestMatch: {
-            ...current.latestMatch,
-            reportStatus: "OPEN",
-          },
-        }
-      : current;
-  }
+  const limitMatch = (match: DashboardMatch): DashboardMatch => ({
+    ...match,
+    reportStatus: "OPEN",
+    reasons: [],
+    participants: [],
+  });
 
   const nextRecentMatchHistory = current.recentMatchHistory.map<DashboardHistoryItem>(
     (item) =>
@@ -213,20 +209,18 @@ function applyReportSuccessToDashboard(
             ...item,
             visibility: "LIMITED",
             limitedReason: "REPORTED",
-            match: {
-              ...item.match,
-              reportStatus: "OPEN",
-              reasons: [],
-              participants: [],
-            },
+            match: limitMatch(item.match),
           }
         : item,
   );
 
+  const isLatest = current.latestMatch?.id === matchId;
+
   return {
     ...current,
-    latestMatch:
-      current.latestMatch?.id === matchId ? null : current.latestMatch,
+    latestMatch: isLatest ? limitMatch(current.latestMatch!) : current.latestMatch,
+    latestMatchVisibility: isLatest ? ("LIMITED" as const) : current.latestMatchVisibility,
+    latestMatchLimitedReason: isLatest ? ("REPORTED" as const) : current.latestMatchLimitedReason,
     recentMatchHistory: nextRecentMatchHistory,
   };
 }
@@ -536,7 +530,7 @@ export default function DashboardPage({
     [dashboard?.latestMatch?.reasons],
   );
 
-  const recentMatchHistory = dashboard?.recentMatchHistory ?? [];
+  const recentMatchHistory = dashboard?.recentMatchHistory ?? [] as DashboardHistoryItem[];
 
   if (error && !dashboard) {
     return (
@@ -597,6 +591,21 @@ export default function DashboardPage({
               你已参加「{dashboard.lastRevealedRound.codename}」这轮匹配；本轮可配对人数不足或没有与你相容的组合，因此没有为你生成匹配对象。
             </p>
             <p className="dashboard-muted">下一轮开放报名时，在页面上方点击「参加本轮」即可再次参与；你也可以更新问卷，提高下次匹配成功率。</p>
+          </>
+        ) : dashboard?.latestMatchVisibility === "LIMITED" && dashboard.latestMatch ? (
+          <>
+            <h2>本轮匹配已受限</h2>
+            <p className="dashboard-muted">
+              {dashboard.latestMatchLimitedReason === "REPORTED"
+                ? "你已举报本轮匹配对象，对方的可识别信息已被隐藏。系统已将该对象从你后续轮次中隔离。"
+                : "你与本轮匹配对象之间存在屏蔽关系，对方的可识别信息已被隐藏。"}
+            </p>
+            <p className="dashboard-muted">
+              匹配度：<strong>{dashboard.latestMatch.score.toFixed(1)}</strong> / 100
+            </p>
+            {dashboard.latestMatch.reportStatus ? (
+              <span className="domain-chip">举报处理中</span>
+            ) : null}
           </>
         ) : counterpart ? (
           <>

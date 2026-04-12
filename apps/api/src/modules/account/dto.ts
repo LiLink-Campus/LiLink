@@ -260,6 +260,12 @@ export class DashboardResponseDto {
   @ApiProperty({ type: () => DashboardMatchResponseDto, nullable: true })
   latestMatch!: DashboardMatchResponseDto | null;
 
+  @ApiPropertyOptional({ enum: DashboardHistoryVisibility, nullable: true })
+  latestMatchVisibility!: DashboardHistoryVisibility | null;
+
+  @ApiPropertyOptional({ enum: DashboardHistoryLimitedReason, nullable: true })
+  latestMatchLimitedReason!: DashboardHistoryLimitedReason | null;
+
   @ApiProperty({
     type: () => DashboardHistoryItemResponseDto,
     isArray: true,

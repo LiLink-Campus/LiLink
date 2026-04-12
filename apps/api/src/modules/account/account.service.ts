@@ -347,9 +347,7 @@ export class AccountService {
         codename: lastRevealedParticipation.cycle.codename,
         revealAt: lastRevealedParticipation.cycle.revealAt.toISOString(),
         participationStatus: lastRevealedParticipation.status,
-        matched:
-          latestMatchVisibility?.visibility ===
-          DashboardHistoryVisibility.VISIBLE,
+        matched: Boolean(latestRevealedMatchParticipant),
       };
     }
 
@@ -366,15 +364,16 @@ export class AccountService {
             participationStatus: currentParticipation?.status ?? 'OPTED_OUT',
           }
         : null,
-      latestMatch:
-        latestRevealedMatchParticipant &&
-        latestMatchVisibility?.visibility === DashboardHistoryVisibility.VISIBLE
-          ? this.buildDashboardMatch(
-              latestRevealedMatchParticipant,
-              false,
-              latestMatchVisibility.reportStatus,
-            )
-          : null,
+      latestMatch: latestRevealedMatchParticipant
+        ? this.buildDashboardMatch(
+            latestRevealedMatchParticipant,
+            latestMatchVisibility?.visibility ===
+              DashboardHistoryVisibility.LIMITED,
+            latestMatchVisibility?.reportStatus ?? null,
+          )
+        : null,
+      latestMatchVisibility: latestMatchVisibility?.visibility ?? null,
+      latestMatchLimitedReason: latestMatchVisibility?.limitedReason ?? null,
       lastRevealedRound,
       recentMatchHistory,
     };
