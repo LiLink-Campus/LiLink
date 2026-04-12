@@ -1,5 +1,32 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { config as loadDotenv } from 'dotenv';
+
+/**
+ * Loads repo-root `.env` then `apps/api/.env` (override), matching `scripts/load-env.mjs`.
+ * Preserves variables that were already defined by the parent process.
+ * Must run before `env.ts` parses `process.env` (e.g. `main.ts` imports `env` before `NestFactory.create`).
+ */
+export function preloadMonorepoEnvIntoProcess(): void {
+  const apiPackageRoot = resolveApiPackageRoot(__dirname);
+  const repoRoot = join(apiPackageRoot, '..', '..');
+  const rootPath = join(repoRoot, '.env');
+  const apiPath = join(apiPackageRoot, '.env');
+  const mergedEnv: Record<string, string> = {};
+
+  if (existsSync(rootPath)) {
+    loadDotenv({ path: rootPath, processEnv: mergedEnv });
+  }
+  if (existsSync(apiPath)) {
+    loadDotenv({ path: apiPath, processEnv: mergedEnv, override: true });
+  }
+
+  for (const [key, value] of Object.entries(mergedEnv)) {
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
 
 /**
  * Resolves `.env` paths for ConfigModule: api package first, then repo root fallback.
