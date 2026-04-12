@@ -40,6 +40,12 @@ function buildHistoryMatchParticipant({
     cycleId,
     contactRequestedAt: currentUserRequestedAt,
     match: {
+      cycle: {
+        id: cycleId,
+        codename: `${cycleId}-codename`,
+        revealAt: new Date('2026-01-01T00:00:00.000Z'),
+        status: 'REVEALED',
+      },
       id: matchId,
       score,
       reasons,
@@ -284,6 +290,68 @@ describe('AccountService', () => {
     });
   });
 
+  it('keeps latestMatch tied to the last revealed participation cycle', async () => {
+    const revealedCycles = [
+      buildRevealedCycle('cycle-4', '第四轮', '2026-04-04T12:00:00.000Z'),
+      buildRevealedCycle('cycle-3', '第三轮', '2026-04-03T12:00:00.000Z'),
+      buildRevealedCycle('cycle-2', '第二轮', '2026-04-02T12:00:00.000Z'),
+    ];
+    const olderLatestCycle = buildRevealedCycle(
+      'cycle-1',
+      '第一轮',
+      '2026-04-01T12:00:00.000Z',
+    );
+    const service = new AccountService(
+      createDashboardPrismaMock({
+        revealedCycles,
+        recentParticipations: [
+          {
+            cycleId: 'cycle-4',
+            status: 'OPTED_OUT',
+          },
+          {
+            cycleId: 'cycle-3',
+            status: 'OPTED_OUT',
+          },
+          {
+            cycleId: 'cycle-2',
+            status: 'OPTED_OUT',
+          },
+        ],
+        recentMatches: [
+          buildHistoryMatchParticipant({
+            cycleId: 'cycle-1',
+            matchId: 'match-1',
+            introducedAt: new Date('2026-04-01T13:00:00.000Z'),
+          }),
+        ],
+        lastRevealedParticipation: {
+          cycleId: 'cycle-1',
+          status: 'OPTED_IN',
+          cycle: olderLatestCycle,
+        },
+      }) as never,
+      {} as never,
+      {} as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.latestMatch).toMatchObject({
+      id: 'match-1',
+    });
+    expect(dashboard.lastRevealedRound).toMatchObject({
+      cycleId: 'cycle-1',
+      matched: true,
+    });
+    expect(dashboard.recentMatchHistory).toHaveLength(3);
+    expect(dashboard.recentMatchHistory.map((item) => item.cycleId)).toEqual([
+      'cycle-4',
+      'cycle-3',
+      'cycle-2',
+    ]);
+  });
+
   it('limits reported history matches and keeps the match id for reuse', async () => {
     const revealedCycles = [
       buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
@@ -318,6 +386,10 @@ describe('AccountService', () => {
     const dashboard = await service.getDashboard('user-1');
 
     expect(dashboard.latestMatch).toBeNull();
+    expect(dashboard.lastRevealedRound).toMatchObject({
+      cycleId: 'cycle-1',
+      matched: false,
+    });
     expect(dashboard.recentMatchHistory[0]).toMatchObject({
       result: 'MATCHED',
       visibility: 'LIMITED',
@@ -370,6 +442,10 @@ describe('AccountService', () => {
     const dashboard = await service.getDashboard('user-1');
 
     expect(dashboard.latestMatch).toBeNull();
+    expect(dashboard.lastRevealedRound).toMatchObject({
+      cycleId: 'cycle-1',
+      matched: false,
+    });
     expect(dashboard.recentMatchHistory[0]).toMatchObject({
       result: 'MATCHED',
       visibility: 'LIMITED',

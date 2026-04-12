@@ -147,6 +147,106 @@ function limitedHistoryExplanation(
   return "该条匹配记录的可识别信息已被系统隐藏。";
 }
 
+function findLatestVisibleMatch(
+  history: DashboardHistoryItem[] | undefined,
+): DashboardMatch | null {
+  if (!history) {
+    return null;
+  }
+
+  const latestVisibleItem = history.find(
+    (item) =>
+      item.result === "MATCHED" &&
+      item.visibility === "VISIBLE" &&
+      item.match,
+  );
+
+  return latestVisibleItem?.match ?? null;
+}
+
+function applyContactSuccessToDashboard(
+  current: DashboardPayload | null,
+  matchId: string,
+  userId: string | null | undefined,
+) {
+  if (!current) {
+    return current;
+  }
+
+  const timestamp = new Date().toISOString();
+
+  const updateMatch = (match: DashboardMatch): DashboardMatch => ({
+    ...match,
+    introducedAt: match.introducedAt ?? timestamp,
+    currentUserRequestedAt: timestamp,
+    participants: match.participants.map((participant) =>
+      participant.userId === userId
+        ? { ...participant, contactRequestedAt: timestamp }
+        : participant,
+    ),
+  });
+
+  const nextRecentMatchHistory = current.recentMatchHistory?.map<DashboardHistoryItem>(
+    (item) =>
+      item.match?.id === matchId && item.result === "MATCHED"
+        ? { ...item, match: updateMatch(item.match) }
+        : item,
+  );
+
+  return {
+    ...current,
+    latestMatch:
+      current.latestMatch?.id === matchId
+        ? updateMatch(current.latestMatch)
+        : current.latestMatch,
+    recentMatchHistory: nextRecentMatchHistory,
+  };
+}
+
+function applyReportSuccessToDashboard(
+  current: DashboardPayload | null,
+  matchId: string,
+) {
+  if (!current) {
+    return current;
+  }
+
+  if (!current.recentMatchHistory) {
+    return current.latestMatch?.id === matchId
+      ? {
+          ...current,
+          latestMatch: {
+            ...current.latestMatch,
+            reportStatus: "OPEN",
+          },
+        }
+      : current;
+  }
+
+  const nextRecentMatchHistory = current.recentMatchHistory.map<DashboardHistoryItem>(
+    (item) =>
+      item.match?.id === matchId && item.result === "MATCHED"
+        ? {
+            ...item,
+            visibility: "LIMITED",
+            limitedReason: "REPORTED",
+            match: {
+              ...item.match,
+              reportStatus: "OPEN",
+              reasons: [],
+              participants: [],
+            },
+          }
+        : item,
+  );
+
+  return {
+    ...current,
+    latestMatch: findLatestVisibleMatch(nextRecentMatchHistory),
+    recentMatchHistory: nextRecentMatchHistory,
+  };
+}
+
 function softQuestionSingleValueIsValid(
   raw: string,
   options: NonNullable<Question["options"]>,
@@ -305,6 +405,16 @@ export default function DashboardPage({
     setDashboard(nextDashboard);
   }
 
+  async function refreshDashboardAfterMutation(
+    onRefreshFailureMessage: string,
+  ) {
+    try {
+      await refreshDashboard();
+    } catch {
+      setError(onRefreshFailureMessage);
+    }
+  }
+
   function closeReportForm() {
     setReportOpen(false);
     setReportTargetMatchId(null);
@@ -381,10 +491,16 @@ export default function DashboardPage({
   async function requestContact(matchId: string) {
     setSaving("contact");
     setSavedMessage(null);
+    setError(null);
     try {
       await fetchApi(`/me/matches/${matchId}/contact`, { method: "POST" });
-      await refreshDashboard();
+      setDashboard((current) =>
+        applyContactSuccessToDashboard(current, matchId, user?.id),
+      );
       setSavedMessage("已向双方发送引荐邮件。");
+      await refreshDashboardAfterMutation(
+        "引荐已提交，但页面刷新失败。请稍后手动刷新查看最新状态。",
+      );
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "引荐发送失败。");
     } finally {
@@ -397,14 +513,18 @@ export default function DashboardPage({
     if (!matchId) return;
     setSaving("report");
     setSavedMessage(null);
+    setError(null);
     try {
       await fetchApi(`/me/matches/${matchId}/report`, {
         method: "POST",
         body: JSON.stringify({ reason: reportReason, ...(reportDetails.trim() ? { details: reportDetails.trim() } : {}) }),
       });
-      await refreshDashboard();
+      setDashboard((current) => applyReportSuccessToDashboard(current, matchId));
       closeReportForm();
       setSavedMessage("举报已提交，系统已将该对象从你后续轮次里隔离。");
+      await refreshDashboardAfterMutation(
+        "举报已提交，但页面刷新失败。请稍后手动刷新查看最新状态。",
+      );
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "举报提交失败。");
     } finally {
