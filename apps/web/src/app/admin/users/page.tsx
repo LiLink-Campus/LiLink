@@ -1,9 +1,10 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { HARD_MATCH_KEYS } from "../../../lib/hard-match";
 import { useAdminCollection } from "../use-admin-collection";
+import { useAdminSearch } from "../use-admin-search";
 import type {
   AdminUser,
   AdminUserDetail,
@@ -70,7 +71,6 @@ function buildEditForm(user: AdminUser): EditForm {
 }
 
 export default function AdminUsersPage() {
-  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminUser["status"]>("ALL");
   const [questionnaireFilter, setQuestionnaireFilter] = useState<"all" | "submitted" | "missing">("all");
   const [userTypeFilter, setUserTypeFilter] = useState<"all" | "test" | "real">("all");
@@ -89,13 +89,13 @@ export default function AdminUsersPage() {
   const [participationsLoading, setParticipationsLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  const deferredSearch = useDeferredValue(search);
+  const { draftSearch, submittedSearch, setDraftSearch, submitSearch } = useAdminSearch();
   const { data, loading, error, refresh } = useAdminCollection<AdminUser>(
     "/admin/users",
     {
       page,
       pageSize: ADMIN_USERS_PAGE_SIZE,
-      search: deferredSearch.trim(),
+      search: submittedSearch.trim(),
       status: statusFilter === "ALL" ? undefined : statusFilter,
       questionnaire: questionnaireFilter,
       userType: userTypeFilter,
@@ -370,6 +370,12 @@ export default function AdminUsersPage() {
     }
   }
 
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(1);
+    submitSearch();
+  }
+
   if (loading) {
     return <div className="admin-empty-state">正在加载用户中心...</div>;
   }
@@ -403,13 +409,13 @@ export default function AdminUsersPage() {
               <h2>全部用户</h2>
             </div>
           </div>
-          <div className="admin-search-bar">
+          <form className="admin-search-bar" onSubmit={handleSearchSubmit}>
             <input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              value={draftSearch}
+              onChange={(event) => setDraftSearch(event.target.value)}
               placeholder="搜索邮箱、昵称、姓名、学校或状态"
             />
-          </div>
+          </form>
           <div className="admin-tabs">
             {(["ALL", "ACTIVE", "PENDING", "SUSPENDED"] as const).map((s) => (
               <button

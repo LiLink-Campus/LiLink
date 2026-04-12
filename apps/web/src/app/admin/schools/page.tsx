@@ -2,7 +2,6 @@
 
 import {
   FormEvent,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -10,6 +9,7 @@ import {
 } from "react";
 import { fetchApi } from "../../../lib/api";
 import { useAdminCollection } from "../use-admin-collection";
+import { useAdminSearch } from "../use-admin-search";
 import type { AdminSchool } from "../types";
 
 function emptySchoolForm() {
@@ -24,7 +24,6 @@ function normalizeDomains(value: string) {
 }
 
 export default function AdminSchoolsPage() {
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptySchoolForm);
@@ -33,7 +32,13 @@ export default function AdminSchoolsPage() {
   const [mergeSource, setMergeSource] = useState<AdminSchool | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  const deferredSearch = useDeferredValue(search);
+  const {
+    draftSearch,
+    submittedSearch,
+    setDraftSearch,
+    submitSearch,
+    clearSearch,
+  } = useAdminSearch();
   const {
     data,
     loading,
@@ -42,7 +47,7 @@ export default function AdminSchoolsPage() {
   } = useAdminCollection<AdminSchool>("/admin/schools", {
     page,
     pageSize: 20,
-    search: deferredSearch.trim(),
+    search: submittedSearch.trim(),
   });
 
   const schools = useMemo(() => data?.items ?? [], [data]);
@@ -153,6 +158,12 @@ export default function AdminSchoolsPage() {
     } finally {
       setPending(null);
     }
+  }
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(1);
+    submitSearch();
   }
 
   function renderEditor() {
@@ -267,25 +278,25 @@ export default function AdminSchoolsPage() {
       </div>
 
       {/* Search */}
-      <div className="qb-search">
+      <form className="qb-search" onSubmit={handleSearchSubmit}>
         <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
+          value={draftSearch}
+          onChange={(event) => setDraftSearch(event.target.value)}
           placeholder="搜索学校名称、slug 或邮箱域名…"
         />
-        {search && (
+        {draftSearch && (
           <button
             type="button"
             className="qb-search-clear"
-            onClick={() => setSearch("")}
+            onClick={() => {
+              clearSearch();
+              setPage(1);
+            }}
           >
             ×
           </button>
         )}
-      </div>
+      </form>
 
       {mergeSource && (
         <div className="form-success" style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -309,7 +320,7 @@ export default function AdminSchoolsPage() {
       <div className="qb-list">
         {schools.length === 0 && editingId !== "new" && (
           <div className="admin-empty-state">
-            {search.trim()
+            {submittedSearch.trim()
               ? "没有找到匹配的学校。"
               : "还没有学校，点击下方按钮添加第一所。"}
           </div>
