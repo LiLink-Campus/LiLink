@@ -147,23 +147,6 @@ function limitedHistoryExplanation(
   return "该条匹配记录的可识别信息已被系统隐藏。";
 }
 
-function findLatestVisibleMatch(
-  history: DashboardHistoryItem[] | undefined,
-): DashboardMatch | null {
-  if (!history) {
-    return null;
-  }
-
-  const latestVisibleItem = history.find(
-    (item) =>
-      item.result === "MATCHED" &&
-      item.visibility === "VISIBLE" &&
-      item.match,
-  );
-
-  return latestVisibleItem?.match ?? null;
-}
-
 function applyContactSuccessToDashboard(
   current: DashboardPayload | null,
   matchId: string,
@@ -242,7 +225,8 @@ function applyReportSuccessToDashboard(
 
   return {
     ...current,
-    latestMatch: findLatestVisibleMatch(nextRecentMatchHistory),
+    latestMatch:
+      current.latestMatch?.id === matchId ? null : current.latestMatch,
     recentMatchHistory: nextRecentMatchHistory,
   };
 }
