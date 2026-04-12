@@ -1,8 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
+import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 
 describe('AccountService', () => {
+  afterEach(() => {
+    clearStickyParticipationCache();
+  });
+
   it('rejects participation changes after the deadline', async () => {
     const prisma = {
       matchCycle: {
@@ -134,6 +139,96 @@ describe('AccountService', () => {
     await expect(service.getDashboard('user-1')).resolves.toMatchObject({
       latestMatch: null,
     });
+  });
+
+  it('inherits the latest participation state into the current open cycle on dashboard load', async () => {
+    const createMany = jest.fn().mockResolvedValue({ count: 1 });
+    const cycleParticipation = {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            userId: 'user-1',
+            status: 'OPTED_IN',
+            updatedAt: new Date('2026-04-10T12:00:00.000Z'),
+          },
+        ]),
+      createMany,
+      findUnique: jest.fn().mockResolvedValue({
+        status: 'OPTED_IN',
+      }),
+    };
+    const prisma = {
+      userProfile: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-2',
+          codename: 'Round 2',
+          revealAt: new Date('2026-05-01T12:00:00.000Z'),
+          participationDeadline: new Date('2026-04-30T12:00:00.000Z'),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          status: 'OPEN',
+        }),
+      },
+      matchParticipant: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      cycleParticipation,
+      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ cycleParticipation }),
+      ),
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.getDashboard('user-1')).resolves.toMatchObject({
+      currentCycle: {
+        id: 'cycle-2',
+        participationStatus: 'OPTED_IN',
+      },
+    });
+    const createManyCalls = createMany.mock.calls as Array<
+      [
+        {
+          data: Array<{
+            cycleId: string;
+            userId: string;
+            status: 'OPTED_IN' | 'OPTED_OUT';
+            optedInAt: Date | null;
+          }>;
+          skipDuplicates: boolean;
+        },
+      ]
+    >;
+    const createManyArgument = createManyCalls[0]?.[0];
+
+    if (!createManyArgument) {
+      throw new Error('Expected createMany to be called.');
+    }
+
+    expect(createManyArgument.skipDuplicates).toBe(true);
+    expect(createManyArgument.data).toEqual([
+      {
+        cycleId: 'cycle-2',
+        userId: 'user-1',
+        status: 'OPTED_IN',
+        optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
+      },
+    ]);
+    expect(createManyArgument.data[0]?.optedInAt).toBeInstanceOf(Date);
   });
 
   it('queues introduction emails instead of rolling back the match state', async () => {

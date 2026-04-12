@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import {
@@ -144,6 +145,10 @@ export class AccountService {
 
         return !blockedCounterpartIds.has(counterpart.userId);
       }) ?? null;
+
+    if (cycle) {
+      await ensureStickyCycleParticipations(this.prisma, cycle);
+    }
 
     const participation =
       cycle &&

@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { QuestionType } from '@prisma/client';
 import { CyclesService } from './cycles.service';
+import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 
 type EligibleParticipantStub = {
   id: string;
@@ -125,24 +126,37 @@ const VALUE_QUESTION = {
 };
 
 describe('CyclesService', () => {
+  afterEach(() => {
+    clearStickyParticipationCache();
+  });
+
   it('rejects running a cycle before reveal time by default', async () => {
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
     const prisma = {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'cycle-1',
           status: 'OPEN',
           revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
           participations: [],
         }),
         updateMany: jest.fn(),
         update: jest.fn(),
       },
+      cycleParticipation,
       questionnaireVersion: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'questionnaire-1',
           questions: [],
         }),
       },
+      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ cycleParticipation }),
+      ),
     };
     const service = new CyclesService(prisma as never);
 
@@ -152,15 +166,103 @@ describe('CyclesService', () => {
   });
 
   it('allows an explicit internal force run before reveal time', async () => {
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
     const prisma = {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'cycle-1',
           status: 'OPEN',
           revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
           participations: [],
         }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update: jest.fn().mockResolvedValue({ id: 'cycle-1', status: 'OPEN' }),
+      },
+      cycleParticipation,
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ cycleParticipation }),
+      ),
+    };
+    const service = new CyclesService(prisma as never);
+
+    await expect(service.runRevealCycle({ force: true })).resolves.toEqual({
+      ok: true,
+      message:
+        'Not enough complete participants to generate matches. No users are opted in (OPTED_IN) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers are required.',
+    });
+  });
+
+  it('backfills sticky participation records before running an existing open cycle', async () => {
+    const createMany = jest.fn().mockResolvedValue({ count: 2 });
+    const matchDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
+    const cycleParticipation = {
+      findMany: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            userId: 'user-1',
+            status: 'OPTED_IN',
+            updatedAt: new Date('2026-04-10T12:00:00.000Z'),
+          },
+          {
+            userId: 'user-2',
+            status: 'OPTED_IN',
+            updatedAt: new Date('2026-04-11T12:00:00.000Z'),
+          },
+        ]),
+      createMany,
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'cycle-1',
+            status: 'OPEN',
+            revealAt: new Date(Date.now() - 60_000),
+            createdAt: new Date('2026-04-20T12:00:00.000Z'),
+            updatedAt: new Date(Date.now() - 60_000),
+            participations: [],
+          })
+          .mockResolvedValueOnce({
+            id: 'cycle-1',
+            status: 'OPEN',
+            revealAt: new Date(Date.now() - 60_000),
+            createdAt: new Date('2026-04-20T12:00:00.000Z'),
+            updatedAt: new Date(Date.now() - 60_000),
+            participations: [
+              {
+                user: {
+                  id: 'user-1',
+                  displayName: 'A',
+                  questionnaireResponse: { answers: {} },
+                },
+              },
+              {
+                user: {
+                  id: 'user-2',
+                  displayName: 'B',
+                  questionnaireResponse: { answers: {} },
+                },
+              },
+            ],
+          }),
+        updateMany,
         update: jest.fn().mockResolvedValue({ id: 'cycle-1', status: 'OPEN' }),
       },
       questionnaireVersion: {
@@ -169,13 +271,134 @@ describe('CyclesService', () => {
           questions: [],
         }),
       },
+      cycleParticipation,
+      match: {
+        deleteMany: matchDeleteMany,
+      },
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            cycleParticipation,
+            match: {
+              deleteMany: matchDeleteMany,
+              create: matchCreate,
+            },
+            matchCycle: {
+              update: matchCycleUpdate,
+            },
+            auditLog: {
+              create: auditLogCreate,
+            },
+          }),
+      ),
     };
     const service = new CyclesService(prisma as never);
+    const testHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'toEligibleParticipants' | 'calculatePairs'
+    >;
+    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
+      {
+        id: 'user-1',
+        displayName: 'A',
+        hardMatchAnswers: {
+          birthDate: '2000-05-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 165,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢徒步。',
+        },
+        answers: {},
+      },
+      {
+        id: 'user-2',
+        displayName: 'B',
+        hardMatchAnswers: {
+          birthDate: '1999-07-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '男',
+          partnerGenders: ['女'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 178,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢阅读。',
+        },
+        answers: {},
+      },
+    ]);
+    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
+      candidates: [],
+      selectedPairs: [
+        {
+          left: { id: 'user-1' },
+          right: { id: 'user-2' },
+          score: 88,
+          reasons: ['reason'],
+        },
+      ],
+    });
 
-    await expect(service.runRevealCycle({ force: true })).resolves.toEqual({
+    await expect(
+      service.runRevealCycle({ force: true, cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
       ok: true,
-      message:
-        'Not enough complete participants to generate matches. No users are opted in (OPTED_IN) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers are required.',
+      cycleId: 'cycle-1',
+      createdMatches: 1,
+    });
+
+    const createManyCalls = createMany.mock.calls as Array<
+      [
+        {
+          data: Array<{
+            cycleId: string;
+            userId: string;
+            status: 'OPTED_IN' | 'OPTED_OUT';
+            optedInAt: Date | null;
+          }>;
+          skipDuplicates: boolean;
+        },
+      ]
+    >;
+    const createManyArgument = createManyCalls[0]?.[0];
+
+    if (!createManyArgument) {
+      throw new Error('Expected createMany to be called.');
+    }
+
+    expect(createManyArgument.skipDuplicates).toBe(true);
+    expect(createManyArgument.data).toEqual([
+      {
+        cycleId: 'cycle-1',
+        userId: 'user-1',
+        status: 'OPTED_IN',
+        optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
+      },
+      {
+        cycleId: 'cycle-1',
+        userId: 'user-2',
+        status: 'OPTED_IN',
+        optedInAt: createManyArgument.data[1]?.optedInAt ?? null,
+      },
+    ]);
+    expect(createManyArgument.data[0]?.optedInAt).toBeInstanceOf(Date);
+    expect(createManyArgument.data[1]?.optedInAt).toBeInstanceOf(Date);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'cycle-1',
+        status: 'OPEN',
+      },
+      data: {
+        status: 'REVEAL_READY',
+      },
     });
   });
 
@@ -262,18 +485,24 @@ describe('CyclesService', () => {
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
     const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
     const prisma = {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'cycle-1',
           status: 'REVEAL_READY',
           revealAt: new Date(Date.now() - 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
           updatedAt: new Date(Date.now() - 11 * 60_000),
           participations: [],
         }),
         updateMany,
         update,
       },
+      cycleParticipation,
       questionnaireVersion: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'questionnaire-1',
@@ -290,6 +519,7 @@ describe('CyclesService', () => {
       $transaction: jest.fn(
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
+            cycleParticipation,
             match: {
               deleteMany: matchDeleteMany,
               create: matchCreate,
@@ -409,16 +639,23 @@ describe('CyclesService', () => {
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
     const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
     const prisma = {
       matchCycle: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'cycle-1',
           status: 'OPEN',
           revealAt: new Date(Date.now() - 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
           participations: [],
         }),
         updateMany,
+        update: jest.fn().mockResolvedValue({ id: 'cycle-1', status: 'OPEN' }),
       },
+      cycleParticipation,
       questionnaireVersion: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'questionnaire-1',
@@ -435,6 +672,7 @@ describe('CyclesService', () => {
       $transaction: jest.fn(
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
+            cycleParticipation,
             match: {
               deleteMany: matchDeleteMany,
               create: matchCreate,
