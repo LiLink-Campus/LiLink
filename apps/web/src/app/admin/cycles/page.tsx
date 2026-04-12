@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { useAdminCollection } from "../use-admin-collection";
+import { useAdminSearch } from "../use-admin-search";
 import type {
   AdminCycle,
   AdminCycleDetail,
@@ -84,7 +85,6 @@ function buildAdminQueryString(
 
 export default function AdminCyclesPage() {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminCycle["status"]>("ALL");
   const [page, setPage] = useState(1);
   const [cycleDataRefreshKey, setCycleDataRefreshKey] = useState(0);
@@ -108,13 +108,13 @@ export default function AdminCyclesPage() {
   const [logPage, setLogPage] = useState(1);
   const [pairPage, setPairPage] = useState(1);
 
-  const deferredSearch = useDeferredValue(search);
+  const { draftSearch, submittedSearch, setDraftSearch, submitSearch } = useAdminSearch();
   const { data, loading, error, refresh } = useAdminCollection<AdminCycle>(
     "/admin/cycles",
     {
       page,
       pageSize: 10,
-      search: deferredSearch.trim(),
+      search: submittedSearch.trim(),
       status: statusFilter === "ALL" ? undefined : statusFilter,
     },
   );
@@ -429,6 +429,12 @@ export default function AdminCyclesPage() {
     URL.revokeObjectURL(url);
   }
 
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(1);
+    submitSearch();
+  }
+
   if (loading) {
     return <div className="admin-empty-state">正在加载轮次中心...</div>;
   }
@@ -475,13 +481,13 @@ export default function AdminCyclesPage() {
               <h2>全部轮次</h2>
             </div>
           </div>
-          <div className="admin-search-bar">
+          <form className="admin-search-bar" onSubmit={handleSearchSubmit}>
             <input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              value={draftSearch}
+              onChange={(event) => setDraftSearch(event.target.value)}
               placeholder="搜索 codename、状态或备注"
             />
-          </div>
+          </form>
           <div className="admin-tabs">
             {(["ALL", "DRAFT", "OPEN", "REVEAL_READY", "REVEALED"] as const).map((s) => (
               <button
