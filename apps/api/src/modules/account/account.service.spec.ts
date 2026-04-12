@@ -348,6 +348,47 @@ describe('AccountService', () => {
     ]);
   });
 
+  it('queries match participants only for dashboard-visible revealed cycles', async () => {
+    const revealedCycles = [
+      buildRevealedCycle('cycle-4', '第四轮', '2026-04-04T12:00:00.000Z'),
+      buildRevealedCycle('cycle-3', '第三轮', '2026-04-03T12:00:00.000Z'),
+      buildRevealedCycle('cycle-2', '第二轮', '2026-04-02T12:00:00.000Z'),
+    ];
+    const prisma = createDashboardPrismaMock({
+      revealedCycles,
+      lastRevealedParticipation: {
+        cycleId: 'cycle-1',
+        status: 'OPTED_IN',
+        cycle: buildRevealedCycle(
+          'cycle-1',
+          '第一轮',
+          '2026-04-01T12:00:00.000Z',
+        ),
+      },
+    });
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.getDashboard('user-1');
+
+    expect(prisma.matchParticipant.findMany).toHaveBeenCalledTimes(1);
+    const [query] = prisma.matchParticipant.findMany.mock.calls[0] as [
+      Record<string, unknown>,
+    ];
+
+    expect(query).toHaveProperty('select');
+    expect(query).not.toHaveProperty('include');
+    expect(query.where).toEqual({
+      userId: 'user-1',
+      cycleId: {
+        in: ['cycle-4', 'cycle-3', 'cycle-2', 'cycle-1'],
+      },
+    });
+  });
+
   it('limits reported history matches and keeps the match id for reuse', async () => {
     const revealedCycles = [
       buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
