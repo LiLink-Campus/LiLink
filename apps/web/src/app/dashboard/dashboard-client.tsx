@@ -32,6 +32,36 @@ export type Question = {
   }>;
 };
 
+export type DashboardMatchParticipant = {
+  userId: string;
+  displayName: string | null;
+  introLine: string | null;
+  email: string | null;
+  schoolName: string | null;
+  contactRequestedAt: string | null;
+};
+
+export type DashboardMatch = {
+  id: string;
+  score: number;
+  reasons: string[];
+  introducedAt: string | null;
+  currentUserRequestedAt: string | null;
+  reportStatus: string | null;
+  participants: DashboardMatchParticipant[];
+};
+
+export type DashboardHistoryItem = {
+  cycleId: string;
+  codename: string;
+  revealAt: string;
+  participationStatus: "OPTED_IN" | "OPTED_OUT";
+  result: "MATCHED" | "UNMATCHED" | "NOT_PARTICIPATED";
+  visibility: "VISIBLE" | "LIMITED" | "NOT_APPLICABLE";
+  limitedReason: "REPORTED" | "BLOCKED" | null;
+  match: DashboardMatch | null;
+};
+
 export type DashboardPayload = {
   questionnaireSubmittedAt: string | null;
   currentCycle: {
@@ -49,22 +79,9 @@ export type DashboardPayload = {
     participationStatus: "OPTED_IN" | "OPTED_OUT";
     matched: boolean;
   } | null;
-  latestMatch: {
-    id: string;
-    score: number;
-    reasons: string[];
-    introducedAt: string | null;
-    currentUserRequestedAt: string | null;
-    reportStatus: string | null;
-    participants: Array<{
-      userId: string;
-      displayName: string | null;
-      introLine: string | null;
-      email: string | null;
-      schoolName: string | null;
-      contactRequestedAt: string | null;
-    }>;
-  } | null;
+  latestMatch: DashboardMatch | null;
+  /** Last three revealed rounds; omitted on older API deployments. */
+  recentMatchHistory?: DashboardHistoryItem[];
 };
 
 export type QuestionnairePayload = {
@@ -96,6 +113,38 @@ function keepCurrentQuestionAnswers(
 
 function buildDashboardFieldId(...parts: Array<string | number>) {
   return `dashboard-${parts.join("-")}`;
+}
+
+const DEFAULT_REPORT_REASON = "骚扰";
+
+function formatCycleRevealAt(iso: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Asia/Shanghai",
+  }).format(new Date(iso));
+}
+
+function normalizeMatchReasons(reasons: unknown): string[] {
+  if (!Array.isArray(reasons)) {
+    return [];
+  }
+  return reasons.filter(
+    (item): item is string =>
+      typeof item === "string" && item.trim().length > 0,
+  );
+}
+
+function limitedHistoryExplanation(
+  reason: "REPORTED" | "BLOCKED" | null,
+): string {
+  if (reason === "REPORTED") {
+    return "该条记录因你曾举报相关匹配而隐藏了对方可识别信息。";
+  }
+  if (reason === "BLOCKED") {
+    return "该条记录因你与对方存在屏蔽关系，仅保留流程信息。";
+  }
+  return "该条匹配记录的可识别信息已被系统隐藏。";
 }
 
 function softQuestionSingleValueIsValid(
@@ -205,9 +254,12 @@ export default function DashboardPage({
   const [saving, setSaving] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(initialUser.displayName ?? "");
-  const [reportReason, setReportReason] = useState("骚扰");
+  const [reportReason, setReportReason] = useState(DEFAULT_REPORT_REASON);
   const [reportDetails, setReportDetails] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
+  const [reportTargetMatchId, setReportTargetMatchId] = useState<string | null>(
+    null,
+  );
   const [questionnaireBodyVisible, setQuestionnaireBodyVisible] = useState(true);
   const initialQuestionnaireVisibilitySet = useRef(false);
 
@@ -248,6 +300,34 @@ export default function DashboardPage({
     }));
   }
 
+  async function refreshDashboard() {
+    const nextDashboard = await fetchApi<DashboardPayload>("/me/dashboard");
+    setDashboard(nextDashboard);
+  }
+
+  function closeReportForm() {
+    setReportOpen(false);
+    setReportTargetMatchId(null);
+    setReportReason(DEFAULT_REPORT_REASON);
+    setReportDetails("");
+  }
+
+  function openReportForm(matchId: string) {
+    setReportTargetMatchId(matchId);
+    setReportReason(DEFAULT_REPORT_REASON);
+    setReportDetails("");
+    setReportOpen(true);
+  }
+
+  function toggleReportForm(matchId: string) {
+    if (reportOpen && reportTargetMatchId === matchId) {
+      closeReportForm();
+      return;
+    }
+
+    openReportForm(matchId);
+  }
+
   async function saveQuestionnaire() {
     setSaving("questionnaire");
     setSavedMessage(null);
@@ -271,8 +351,7 @@ export default function DashboardPage({
             })
           : Promise.resolve(),
       ]);
-      const nextDashboard = await fetchApi<DashboardPayload>("/me/dashboard");
-      setDashboard(nextDashboard);
+      await refreshDashboard();
       startTransition(() => { setSavedMessage("问卷已保存。"); });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "问卷保存失败。");
@@ -299,17 +378,12 @@ export default function DashboardPage({
     }
   }
 
-  async function requestContact() {
-    if (!dashboard?.latestMatch) return;
+  async function requestContact(matchId: string) {
     setSaving("contact");
     setSavedMessage(null);
     try {
-      await fetchApi(`/me/matches/${dashboard.latestMatch.id}/contact`, { method: "POST" });
-      setDashboard((current) =>
-        current?.latestMatch
-          ? { ...current, latestMatch: { ...current.latestMatch, introducedAt: new Date().toISOString(), currentUserRequestedAt: new Date().toISOString() } }
-          : current,
-      );
+      await fetchApi(`/me/matches/${matchId}/contact`, { method: "POST" });
+      await refreshDashboard();
       setSavedMessage("已向双方发送引荐邮件。");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "引荐发送失败。");
@@ -319,19 +393,17 @@ export default function DashboardPage({
   }
 
   async function submitReport() {
-    if (!dashboard?.latestMatch) return;
+    const matchId = reportTargetMatchId;
+    if (!matchId) return;
     setSaving("report");
     setSavedMessage(null);
     try {
-      await fetchApi(`/me/matches/${dashboard.latestMatch.id}/report`, {
+      await fetchApi(`/me/matches/${matchId}/report`, {
         method: "POST",
         body: JSON.stringify({ reason: reportReason, ...(reportDetails.trim() ? { details: reportDetails.trim() } : {}) }),
       });
-      setDashboard((current) =>
-        current?.latestMatch ? { ...current, latestMatch: { ...current.latestMatch, reportStatus: "OPEN" } } : current,
-      );
-      setReportOpen(false);
-      setReportDetails("");
+      await refreshDashboard();
+      closeReportForm();
       setSavedMessage("举报已提交，系统已将该对象从你后续轮次里隔离。");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "举报提交失败。");
@@ -355,16 +427,12 @@ export default function DashboardPage({
     [questions, answers, hardMatchForm, displayName],
   );
 
-  const latestMatchReasons = useMemo(() => {
-    const raw = dashboard?.latestMatch?.reasons;
-    if (!Array.isArray(raw)) {
-      return [];
-    }
-    return raw.filter(
-      (item): item is string =>
-        typeof item === "string" && item.trim().length > 0,
-    );
-  }, [dashboard?.latestMatch?.reasons]);
+  const latestMatchReasons = useMemo(
+    () => normalizeMatchReasons(dashboard?.latestMatch?.reasons),
+    [dashboard?.latestMatch?.reasons],
+  );
+
+  const recentMatchHistory = dashboard?.recentMatchHistory ?? [];
 
   if (error && !dashboard) {
     return (
@@ -468,37 +536,34 @@ export default function DashboardPage({
               {introduced ? (
                 <span className="domain-chip">已引荐</span>
               ) : (
-                <button className="button-primary" disabled={saving === "contact"} type="button" onClick={() => void requestContact()}>
+                <button
+                  className="button-primary"
+                  disabled={saving === "contact"}
+                  type="button"
+                  onClick={() => {
+                    if (!dashboard?.latestMatch) return;
+                    void requestContact(dashboard.latestMatch.id);
+                  }}
+                >
                   {saving === "contact" ? "发送中…" : "双方引荐联系"}
                 </button>
               )}
               {dashboard?.latestMatch?.reportStatus ? (
                 <span className="domain-chip">举报处理中</span>
               ) : (
-                <button className="button-secondary" disabled={saving === "report"} type="button" onClick={() => setReportOpen((c) => !c)}>举报</button>
+                <button
+                  className="button-secondary"
+                  disabled={saving === "report"}
+                  type="button"
+                  onClick={() => {
+                    if (!dashboard?.latestMatch) return;
+                    toggleReportForm(dashboard.latestMatch.id);
+                  }}
+                >
+                  举报
+                </button>
               )}
             </div>
-            {reportOpen ? (
-              <div className="report-form">
-                <label>
-                  <span>举报原因</span>
-                  <select id={buildDashboardFieldId("report-reason")} name="reportReason" value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
-                    <option value="骚扰">骚扰</option>
-                    <option value="冒犯内容">冒犯内容</option>
-                    <option value="身份异常">身份异常</option>
-                    <option value="恶意行为">恶意行为</option>
-                    <option value="其他">其他</option>
-                  </select>
-                </label>
-                <label>
-                  <span>补充说明（可选）</span>
-                  <textarea id={buildDashboardFieldId("report-details")} name="reportDetails" rows={3} value={reportDetails} onChange={(e) => setReportDetails(e.target.value)} />
-                </label>
-                <button className="button-primary" disabled={saving === "report"} type="button" onClick={() => void submitReport()}>
-                  {saving === "report" ? "提交中…" : "确认举报"}
-                </button>
-              </div>
-            ) : null}
           </>
         ) : (
           <>
@@ -529,6 +594,191 @@ export default function DashboardPage({
           </>
         )}
       </section>
+
+      {recentMatchHistory.length > 0 ? (
+        <section className="content-panel dashboard-panel-wide">
+          <p className="eyebrow">最近轮次</p>
+          <h2>最近三次匹配记录</h2>
+          <p className="dashboard-muted">
+            按揭晓时间从新到旧排列。仅当该轮为「已匹配且完整可见」时，可使用联络或举报（与页面顶部相同的接口规则）。
+          </p>
+          <ul className="dashboard-history-list">
+            {recentMatchHistory.map((item) => {
+              const participationLabel =
+                item.participationStatus === "OPTED_IN" ? "已参加" : "未参加";
+              const sameAsLatestHero =
+                Boolean(dashboard?.latestMatch) &&
+                item.result === "MATCHED" &&
+                item.visibility === "VISIBLE" &&
+                item.match?.id === dashboard?.latestMatch?.id;
+
+              return (
+                <li key={item.cycleId} className="dashboard-history-card">
+                  <div className="dashboard-history-card-head">
+                    <h3 className="dashboard-history-title">{item.codename}</h3>
+                    <p className="dashboard-muted dashboard-history-meta">
+                      {formatCycleRevealAt(item.revealAt)} · {participationLabel}
+                    </p>
+                  </div>
+                  {item.result === "NOT_PARTICIPATED" ? (
+                    <p className="dashboard-muted" style={{ margin: "0.35rem 0 0" }}>
+                      该轮你未报名参加。
+                    </p>
+                  ) : null}
+                  {item.result === "UNMATCHED" ? (
+                    <p className="dashboard-muted" style={{ margin: "0.35rem 0 0" }}>
+                      你参加了该轮，但未匹配到对象。
+                    </p>
+                  ) : null}
+                  {item.result === "MATCHED" && item.visibility === "LIMITED" ? (
+                    <p className="dashboard-muted" style={{ margin: "0.35rem 0 0" }}>
+                      {limitedHistoryExplanation(item.limitedReason)}
+                    </p>
+                  ) : null}
+                  {item.result === "MATCHED" &&
+                  item.visibility === "VISIBLE" &&
+                  item.match &&
+                  sameAsLatestHero ? (
+                    <p className="dashboard-muted" style={{ margin: "0.35rem 0 0" }}>
+                      与当前页面顶部「本轮匹配」为同一条记录，引荐与举报请使用上方操作区。
+                    </p>
+                  ) : null}
+                  {item.result === "MATCHED" &&
+                  item.visibility === "VISIBLE" &&
+                  item.match &&
+                  !sameAsLatestHero &&
+                  user ? (
+                    <div className="dashboard-history-match-body">
+                      {(() => {
+                        const hm = item.match;
+                        const counterpartHistory =
+                          hm.participants.find((p) => p.userId !== user.id) ??
+                          null;
+                        const introducedRow = Boolean(hm.introducedAt);
+                        const rowReasons = normalizeMatchReasons(hm.reasons);
+                        return (
+                          <>
+                            <p className="dashboard-match-score" style={{ marginTop: "0.5rem" }}>
+                              匹配度：<strong>{hm.score.toFixed(1)}</strong> / 100
+                            </p>
+                            {!introducedRow ? (
+                              <p className="dashboard-muted">
+                                未引荐前不展示对方学校、昵称等可识别信息。
+                              </p>
+                            ) : null}
+                            {introducedRow && counterpartHistory?.email ? (
+                              <p className="form-success dashboard-match-email">
+                                联络邮箱：{counterpartHistory.email}
+                              </p>
+                            ) : null}
+                            {introducedRow && counterpartHistory?.introLine ? (
+                              <p className="dashboard-muted dashboard-match-intro">
+                                对方介绍：{counterpartHistory.introLine}
+                              </p>
+                            ) : null}
+                            {rowReasons.length > 0 ? (
+                              <ul className="reason-list" style={{ marginTop: "0.5rem" }}>
+                                {rowReasons.map((reason, ri) => (
+                                  <li key={`${item.cycleId}-${ri}-${reason.slice(0, 32)}`}>
+                                    {reason}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            <div className="auth-actions" style={{ marginTop: "0.75rem" }}>
+                              {introducedRow ? (
+                                <span className="domain-chip">已引荐</span>
+                              ) : (
+                                <button
+                                  className="button-primary"
+                                  disabled={saving === "contact"}
+                                  type="button"
+                                  onClick={() => void requestContact(hm.id)}
+                                >
+                                  {saving === "contact" ? "发送中…" : "双方引荐联系"}
+                                </button>
+                              )}
+                              {hm.reportStatus ? (
+                                <span className="domain-chip">举报处理中</span>
+                              ) : (
+                                <button
+                                  className="button-secondary"
+                                  disabled={saving === "report"}
+                                  type="button"
+                                  onClick={() => {
+                                    toggleReportForm(hm.id);
+                                  }}
+                                >
+                                  举报
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {reportOpen && reportTargetMatchId ? (
+        <section className="content-panel dashboard-panel-wide">
+          <p className="eyebrow">举报匹配</p>
+          <h2>提交举报</h2>
+          <p className="dashboard-muted">
+            请确认你要举报的是当前选中的这条匹配记录；提交后系统将按规则处理并可能限制相关展示。
+          </p>
+          <div className="report-form">
+            <label>
+              <span>举报原因</span>
+              <select
+                id={buildDashboardFieldId("report-reason")}
+                name="reportReason"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+              >
+                <option value="骚扰">骚扰</option>
+                <option value="冒犯内容">冒犯内容</option>
+                <option value="身份异常">身份异常</option>
+                <option value="恶意行为">恶意行为</option>
+                <option value="其他">其他</option>
+              </select>
+            </label>
+            <label>
+              <span>补充说明（可选）</span>
+              <textarea
+                id={buildDashboardFieldId("report-details")}
+                name="reportDetails"
+                rows={3}
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+              />
+            </label>
+            <div className="auth-actions">
+              <button
+                className="button-primary"
+                disabled={saving === "report"}
+                type="button"
+                onClick={() => void submitReport()}
+              >
+                {saving === "report" ? "提交中…" : "确认举报"}
+              </button>
+              <button
+                className="button-secondary"
+                disabled={saving === "report"}
+                type="button"
+                onClick={closeReportForm}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {/* ── Questionnaire ─────────────────────────────────── */}
       <section className="content-panel dashboard-panel-wide">
