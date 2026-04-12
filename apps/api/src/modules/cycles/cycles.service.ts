@@ -166,6 +166,7 @@ export class CyclesService {
       participants,
       questionnaire.questions,
       cycle.revealAt,
+      cycle.id,
     );
 
     if (selectedPairs.length === 0) {
@@ -295,6 +296,7 @@ export class CyclesService {
       participants,
       questionnaire.questions,
       cycle.revealAt,
+      cycle.id,
     );
     const matchedUserIds = new Set(
       selectedPairs.flatMap((pair) => [pair.left.id, pair.right.id]),
@@ -327,6 +329,49 @@ export class CyclesService {
 
   private createPairKey(firstUserId: string, secondUserId: string) {
     return [firstUserId, secondUserId].sort().join('::');
+  }
+
+  private buildHistoricalPairKeySet(
+    matches: Array<{ participants: Array<{ userId: string }> }>,
+  ) {
+    return new Set(
+      matches
+        .map((match) => {
+          const ids = match.participants.map(
+            (participant) => participant.userId,
+          );
+
+          if (ids.length !== 2) {
+            return null;
+          }
+
+          return this.createPairKey(ids[0], ids[1]);
+        })
+        .filter((value): value is string => Boolean(value)),
+    );
+  }
+
+  private loadHistoricalPairKeys(
+    participantIds: string[],
+    currentCycleId?: string,
+  ) {
+    return this.prisma.match
+      .findMany({
+        where: {
+          participants: {
+            some: { userId: { in: participantIds } },
+          },
+          ...(currentCycleId ? { cycleId: { not: currentCycleId } } : {}),
+        },
+        select: {
+          participants: {
+            select: {
+              userId: true,
+            },
+          },
+        },
+      })
+      .then((matches) => this.buildHistoricalPairKeySet(matches));
   }
 
   private loadRunnableCycle(cycleId?: string) {
@@ -410,11 +455,12 @@ export class CyclesService {
     participants: EligibleParticipant[],
     questions: QuestionnaireQuestion[],
     revealAt: Date,
+    currentCycleId?: string,
   ) {
     const scoreBounds = this.calculateMatchScoreBounds(questions);
     const participantIds = participants.map((participant) => participant.id);
 
-    const [blocks, priorMatches] = await Promise.all([
+    const [blocks, historicalPairKeys] = await Promise.all([
       this.prisma.block.findMany({
         where: {
           OR: [
@@ -423,40 +469,13 @@ export class CyclesService {
           ],
         },
       }),
-      this.prisma.match.findMany({
-        where: {
-          participants: {
-            some: { userId: { in: participantIds } },
-          },
-        },
-        select: {
-          participants: {
-            select: {
-              userId: true,
-            },
-          },
-        },
-      }),
+      this.loadHistoricalPairKeys(participantIds, currentCycleId),
     ]);
 
     const blockedPairKeys = new Set(
       blocks.map((block) =>
         this.createPairKey(block.blockerId, block.blockedId),
       ),
-    );
-    const historicalPairKeys = new Set(
-      priorMatches
-        .map((match) => {
-          const ids = match.participants.map(
-            (participant) => participant.userId,
-          );
-          if (ids.length !== 2) {
-            return null;
-          }
-
-          return this.createPairKey(ids[0], ids[1]);
-        })
-        .filter((value): value is string => Boolean(value)),
     );
 
     const candidates: CandidatePair[] = [];
