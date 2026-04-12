@@ -2,11 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
-function buildRevealedCycle(
-  id: string,
-  codename: string,
-  revealAt: string,
-) {
+function buildRevealedCycle(id: string, codename: string, revealAt: string) {
   return {
     id,
     codename,
