@@ -64,6 +64,10 @@ export class ListUsersQueryDto extends ListQueryDto {
   @IsOptional()
   @IsIn(['all', 'test', 'real'])
   userType?: 'all' | 'test' | 'real';
+
+  @IsOptional()
+  @IsIn(['all', '男', '女', '非二元'])
+  gender?: 'all' | '男' | '女' | '非二元';
 }
 
 export class ListUserParticipationsQueryDto extends ListQueryDto {}

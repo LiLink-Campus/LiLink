@@ -29,6 +29,13 @@ const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 
+/** Only ACTIVE users may appear in matching / preview / reveal pools. */
+const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput =
+  {
+    status: 'OPTED_IN',
+    user: { status: 'ACTIVE' },
+  };
+
 type EligibleParticipant = {
   id: string;
   displayName: string | null;
@@ -268,7 +275,7 @@ export class CyclesService {
         where: { id: cycleId },
         include: {
           participations: {
-            where: { status: 'OPTED_IN' },
+            where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
             include: {
               user: {
                 include: {
@@ -301,7 +308,7 @@ export class CyclesService {
             where: { id: cycleId },
             include: {
               participations: {
-                where: { status: 'OPTED_IN' },
+                where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
                 include: {
                   user: {
                     include: {
@@ -414,9 +421,7 @@ export class CyclesService {
   private loadRunnableCycle(cycleId?: string) {
     const include = {
       participations: {
-        where: {
-          status: 'OPTED_IN' as const,
-        },
+        where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
         include: {
           user: {
             select: {

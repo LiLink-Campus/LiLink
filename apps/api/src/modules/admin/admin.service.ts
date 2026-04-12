@@ -346,6 +346,19 @@ export class AdminService {
       whereClauses.push({ isTest: false });
     }
 
+    if (query.gender && query.gender !== 'all') {
+      whereClauses.push({
+        questionnaireResponse: {
+          is: {
+            answers: {
+              path: ['hard_gender'],
+              equals: query.gender,
+            },
+          },
+        },
+      });
+    }
+
     if (search) {
       whereClauses.push({
         OR: [
@@ -1313,6 +1326,7 @@ export class AdminService {
     status?: string;
     questionnaire?: string;
     userType?: string;
+    gender?: string;
     action?: string;
   }) {
     return Boolean(
@@ -1322,6 +1336,7 @@ export class AdminService {
       query.status ||
       query.questionnaire ||
       query.userType ||
+      query.gender ||
       query.action,
     );
   }

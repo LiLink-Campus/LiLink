@@ -629,6 +629,23 @@ export class AccountService {
       );
     }
 
+    if (input.optIn) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { status: true },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found.');
+      }
+
+      if (user.status !== 'ACTIVE') {
+        throw new BadRequestException(
+          'Suspended or pending accounts cannot opt in to matching.',
+        );
+      }
+    }
+
     const participation = await this.prisma.cycleParticipation.upsert({
       where: {
         cycleId_userId: {

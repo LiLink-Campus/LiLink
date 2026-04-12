@@ -172,6 +172,33 @@ describe('AccountService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('rejects opt-in when the account is not ACTIVE', async () => {
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'SUSPENDED' }),
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      select: { status: true },
+    });
+  });
+
   it('filters stale questionnaire answers down to the current questionnaire keys', async () => {
     const service = new AccountService(
       {

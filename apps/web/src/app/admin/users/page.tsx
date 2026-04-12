@@ -74,6 +74,7 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminUser["status"]>("ALL");
   const [questionnaireFilter, setQuestionnaireFilter] = useState<"all" | "submitted" | "missing">("all");
   const [userTypeFilter, setUserTypeFilter] = useState<"all" | "test" | "real">("all");
+  const [genderFilter, setGenderFilter] = useState<"all" | "男" | "女" | "非二元">("all");
   const [page, setPage] = useState(1);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
@@ -99,6 +100,7 @@ export default function AdminUsersPage() {
       status: statusFilter === "ALL" ? undefined : statusFilter,
       questionnaire: questionnaireFilter,
       userType: userTypeFilter,
+      gender: genderFilter,
     },
   );
   const users = useMemo(() => data?.items ?? [], [data]);
@@ -462,6 +464,18 @@ export default function AdminUsersPage() {
                 {pending === "delete-test" ? "删除中…" : "删除全部测试用户"}
               </button>
             )}
+          </div>
+          <div className="admin-tabs">
+            {(["all", "男", "女", "非二元"] as const).map((g) => (
+              <button
+                key={g}
+                type="button"
+                className={genderFilter === g ? "admin-tab active" : "admin-tab"}
+                onClick={() => { setGenderFilter(g); setPage(1); }}
+              >
+                {g === "all" ? "全部性别" : g}
+              </button>
+            ))}
           </div>
           <div className="admin-record-list">
             {users.map((user) => (
