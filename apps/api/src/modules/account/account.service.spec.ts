@@ -252,6 +252,8 @@ describe('AccountService', () => {
     expect(dashboard.latestMatch).toMatchObject({
       id: 'match-3',
     });
+    expect(dashboard.latestMatchVisibility).toBe('VISIBLE');
+    expect(dashboard.latestMatchLimitedReason).toBeNull();
     expect(dashboard.lastRevealedRound).toMatchObject({
       cycleId: 'cycle-3',
       matched: true,
@@ -422,10 +424,17 @@ describe('AccountService', () => {
 
     const dashboard = await service.getDashboard('user-1');
 
-    expect(dashboard.latestMatch).toBeNull();
+    expect(dashboard.latestMatch).toMatchObject({
+      id: 'match-1',
+      reportStatus: 'OPEN',
+      reasons: [],
+      participants: [],
+    });
+    expect(dashboard.latestMatchVisibility).toBe('LIMITED');
+    expect(dashboard.latestMatchLimitedReason).toBe('REPORTED');
     expect(dashboard.lastRevealedRound).toMatchObject({
       cycleId: 'cycle-1',
-      matched: false,
+      matched: true,
     });
     expect(dashboard.recentMatchHistory[0]).toMatchObject({
       result: 'MATCHED',
@@ -440,7 +449,7 @@ describe('AccountService', () => {
     });
   });
 
-  it('limits blocked history matches and keeps them out of latestMatch', async () => {
+  it('limits blocked history matches but still returns latestMatch with LIMITED visibility', async () => {
     const revealedCycles = [
       buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
     ];
@@ -478,10 +487,16 @@ describe('AccountService', () => {
 
     const dashboard = await service.getDashboard('user-1');
 
-    expect(dashboard.latestMatch).toBeNull();
+    expect(dashboard.latestMatch).toMatchObject({
+      id: 'match-1',
+      reasons: [],
+      participants: [],
+    });
+    expect(dashboard.latestMatchVisibility).toBe('LIMITED');
+    expect(dashboard.latestMatchLimitedReason).toBe('BLOCKED');
     expect(dashboard.lastRevealedRound).toMatchObject({
       cycleId: 'cycle-1',
-      matched: false,
+      matched: true,
     });
     expect(dashboard.recentMatchHistory[0]).toMatchObject({
       result: 'MATCHED',
