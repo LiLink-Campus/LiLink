@@ -39,24 +39,46 @@ type DashboardCycleParticipationSummary = Prisma.CycleParticipationGetPayload<{
 }>;
 
 type DashboardMatchParticipant = Prisma.MatchParticipantGetPayload<{
-  include: {
+  select: {
+    id: true;
+    cycleId: true;
+    contactRequestedAt: true;
     match: {
-      include: {
+      select: {
+        id: true;
+        score: true;
+        reasons: true;
+        introducedAt: true;
         cycle: {
           select: {
             id: true;
             codename: true;
             revealAt: true;
+          };
+        };
+        reports: {
+          select: {
             status: true;
           };
         };
-        reports: true;
         participants: {
-          include: {
+          select: {
+            userId: true;
+            contactRequestedAt: true;
             user: {
-              include: {
-                profile: true;
-                school: true;
+              select: {
+                email: true;
+                displayName: true;
+                profile: {
+                  select: {
+                    headline: true;
+                  };
+                };
+                school: {
+                  select: {
+                    name: true;
+                  };
+                };
                 questionnaireResponse: {
                   select: {
                     answers: true;
@@ -128,6 +150,14 @@ export class AccountService {
     ]);
 
     const revealedCycleIds = revealedCycles.map((item) => item.id);
+    const dashboardMatchCycleIds = Array.from(
+      new Set([
+        ...revealedCycleIds,
+        ...(lastRevealedParticipation
+          ? [lastRevealedParticipation.cycleId]
+          : []),
+      ]),
+    );
 
     const [
       currentParticipation,
@@ -158,52 +188,78 @@ export class AccountService {
               status: true,
             },
           }),
-      this.prisma.matchParticipant.findMany({
-        where: {
-          userId,
-        },
-        include: {
-          match: {
-            include: {
-              cycle: {
+      dashboardMatchCycleIds.length === 0
+        ? Promise.resolve<DashboardMatchParticipant[]>([])
+        : this.prisma.matchParticipant.findMany({
+            where: {
+              userId,
+              cycleId: {
+                in: dashboardMatchCycleIds,
+              },
+            },
+            select: {
+              id: true,
+              cycleId: true,
+              contactRequestedAt: true,
+              match: {
                 select: {
                   id: true,
-                  codename: true,
-                  revealAt: true,
-                  status: true,
-                },
-              },
-              reports: {
-                where: { reporterId: userId },
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-              },
-              participants: {
-                include: {
-                  user: {
-                    include: {
-                      profile: true,
-                      school: true,
-                      questionnaireResponse: {
-                        select: { answers: true },
+                  score: true,
+                  reasons: true,
+                  introducedAt: true,
+                  cycle: {
+                    select: {
+                      id: true,
+                      codename: true,
+                      revealAt: true,
+                    },
+                  },
+                  reports: {
+                    where: { reporterId: userId },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: {
+                      status: true,
+                    },
+                  },
+                  participants: {
+                    select: {
+                      userId: true,
+                      contactRequestedAt: true,
+                      user: {
+                        select: {
+                          email: true,
+                          displayName: true,
+                          profile: {
+                            select: {
+                              headline: true,
+                            },
+                          },
+                          school: {
+                            select: {
+                              name: true,
+                            },
+                          },
+                          questionnaireResponse: {
+                            select: {
+                              answers: true,
+                            },
+                          },
+                        },
                       },
                     },
                   },
                 },
               },
             },
-          },
-        },
-      }),
+          }),
     ]);
 
-    const allRevealedMatchParticipants = revealedMatchParticipants
-      .filter((participant) => participant.match.cycle.status === 'REVEALED')
-      .sort(
-        (left, right) =>
-          right.match.cycle.revealAt.getTime() -
-          left.match.cycle.revealAt.getTime(),
-      );
+    const allRevealedMatchParticipants = [...revealedMatchParticipants].sort(
+      (left, right) =>
+        right.match.cycle.revealAt.getTime() -
+        left.match.cycle.revealAt.getTime(),
+    );
 
     const counterpartUserIds = allRevealedMatchParticipants
       .map((participant) =>
