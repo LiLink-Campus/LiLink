@@ -6,9 +6,12 @@ const STICKY_PARTICIPATION_CYCLE_STATUSES: MatchCycleStatus[] = [
   'REVEAL_READY',
 ];
 
+const CACHE_TTL_MS = 30_000;
+const processedCycleTimestamps = new Map<string, number>();
+
 type StickyParticipationPrismaClient = Pick<
   PrismaService,
-  'matchCycle' | 'cycleParticipation'
+  'matchCycle' | 'cycleParticipation' | '$transaction'
 >;
 
 type StickyParticipationCycle = {
@@ -17,6 +20,20 @@ type StickyParticipationCycle = {
   createdAt: Date;
   status: MatchCycleStatus;
 };
+
+export function clearStickyParticipationCache() {
+  processedCycleTimestamps.clear();
+}
+
+function isCacheValid(cycleId: string): boolean {
+  const processedAt = processedCycleTimestamps.get(cycleId);
+  if (!processedAt) return false;
+  if (Date.now() - processedAt > CACHE_TTL_MS) {
+    processedCycleTimestamps.delete(cycleId);
+    return false;
+  }
+  return true;
+}
 
 function shouldInitializeStickyParticipations(status: MatchCycleStatus) {
   return STICKY_PARTICIPATION_CYCLE_STATUSES.includes(status);
@@ -51,20 +68,11 @@ async function loadStickyParticipationCycle(
   });
 }
 
-export async function ensureStickyCycleParticipations(
-  prisma: StickyParticipationPrismaClient,
-  cycleOrId: StickyParticipationCycle | string,
+async function initializeStickyParticipations(
+  tx: Pick<StickyParticipationPrismaClient, 'cycleParticipation'>,
+  cycle: StickyParticipationCycle,
 ) {
-  const cycle =
-    typeof cycleOrId === 'string'
-      ? await loadStickyParticipationCycle(prisma, cycleOrId)
-      : cycleOrId;
-
-  if (!cycle || !shouldInitializeStickyParticipations(cycle.status)) {
-    return { createdCount: 0 };
-  }
-
-  const existingParticipations = await prisma.cycleParticipation.findMany({
+  const existingParticipations = await tx.cycleParticipation.findMany({
     where: { cycleId: cycle.id },
     select: { userId: true },
   });
@@ -72,7 +80,7 @@ export async function ensureStickyCycleParticipations(
     existingParticipations.map((participation) => participation.userId),
   );
 
-  const previousParticipations = await prisma.cycleParticipation.findMany({
+  const previousParticipations = await tx.cycleParticipation.findMany({
     where: {
       cycleId: { not: cycle.id },
       OR: [
@@ -138,10 +146,35 @@ export async function ensureStickyCycleParticipations(
     return { createdCount: 0 };
   }
 
-  const result = await prisma.cycleParticipation.createMany({
+  const result = await tx.cycleParticipation.createMany({
     data: createData,
     skipDuplicates: true,
   });
 
   return { createdCount: result.count };
+}
+
+export async function ensureStickyCycleParticipations(
+  prisma: StickyParticipationPrismaClient,
+  cycleOrId: StickyParticipationCycle | string,
+) {
+  const cycle =
+    typeof cycleOrId === 'string'
+      ? await loadStickyParticipationCycle(prisma, cycleOrId)
+      : cycleOrId;
+
+  if (!cycle || !shouldInitializeStickyParticipations(cycle.status)) {
+    return { createdCount: 0 };
+  }
+
+  if (isCacheValid(cycle.id)) {
+    return { createdCount: 0 };
+  }
+
+  const result = await prisma.$transaction(async (tx) =>
+    initializeStickyParticipations(tx, cycle),
+  );
+
+  processedCycleTimestamps.set(cycle.id, Date.now());
+  return result;
 }
