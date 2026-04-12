@@ -18,8 +18,8 @@ function buildMockPrisma(overrides: {
   };
   return {
     ...inner,
-    $transaction: jest.fn(async (fn: (tx: typeof inner) => unknown) =>
-      fn(inner),
+    $transaction: jest.fn((fn: (tx: typeof inner) => unknown) =>
+      Promise.resolve(fn(inner)),
     ),
   };
 }

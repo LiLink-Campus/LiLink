@@ -559,8 +559,8 @@ describe('AccountService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       cycleParticipation,
-      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
-        fn({ cycleParticipation }),
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
+        Promise.resolve(fn({ cycleParticipation })),
       ),
     };
     const service = new AccountService(

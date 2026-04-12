@@ -154,8 +154,8 @@ describe('CyclesService', () => {
           questions: [],
         }),
       },
-      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
-        fn({ cycleParticipation }),
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
+        Promise.resolve(fn({ cycleParticipation })),
       ),
     };
     const service = new CyclesService(prisma as never);
@@ -189,8 +189,8 @@ describe('CyclesService', () => {
           questions: [],
         }),
       },
-      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
-        fn({ cycleParticipation }),
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
+        Promise.resolve(fn({ cycleParticipation })),
       ),
     };
     const service = new CyclesService(prisma as never);

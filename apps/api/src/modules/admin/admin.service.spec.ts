@@ -113,8 +113,8 @@ describe('AdminService', () => {
         }),
       },
       cycleParticipation,
-      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
-        fn({ cycleParticipation }),
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
+        Promise.resolve(fn({ cycleParticipation })),
       ),
     };
     const adminAuditService = {
