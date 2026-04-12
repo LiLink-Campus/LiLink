@@ -6,6 +6,7 @@ import {
 import { Prisma, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
 import { CyclesService } from '../cycles/cycles.service';
 import {
   normalizeQuestionOptions,
@@ -500,6 +501,8 @@ export class AdminService {
         },
       });
 
+      await ensureStickyCycleParticipations(this.prisma, cycle);
+
       await this.adminAuditService.write(adminActorId, 'cycle.updated', {
         cycleId: cycle.id,
         status: cycle.status,
@@ -517,6 +520,8 @@ export class AdminService {
         notes: input.notes,
       },
     });
+
+    await ensureStickyCycleParticipations(this.prisma, cycle);
 
     await this.adminAuditService.write(adminActorId, 'cycle.created', {
       cycleId: cycle.id,
@@ -542,6 +547,8 @@ export class AdminService {
     if (!cycle) {
       throw new NotFoundException('Cycle not found.');
     }
+
+    await ensureStickyCycleParticipations(this.prisma, cycle);
 
     const [
       optedInCount,
@@ -603,6 +610,7 @@ export class AdminService {
     query: ListCycleParticipantsQueryDto = {},
   ) {
     await this.assertCycleExists(cycleId);
+    await ensureStickyCycleParticipations(this.prisma, cycleId);
 
     const pagination = this.normalizePagination(query);
     const where = {
