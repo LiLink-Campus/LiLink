@@ -1097,6 +1097,41 @@ ul {
     margin-top: 0.5rem;
 }
 
+.dashboard-history-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dashboard-history-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.15rem;
+  background: var(--bg-elevated);
+}
+
+.dashboard-history-card-head {
+  margin-bottom: 0.15rem;
+}
+
+.dashboard-history-title {
+  font-size: 1.1rem;
+  margin: 0 0 0.2rem;
+  font-weight: 600;
+}
+
+.dashboard-history-meta {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.dashboard-history-match-body {
+  margin-top: 0.25rem;
+}
+
 
 .dashboard-shell {
   display: grid;

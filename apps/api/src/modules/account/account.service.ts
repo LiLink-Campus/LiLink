@@ -10,11 +10,89 @@ import {
   readQuestionnaireOneLiner,
 } from '../questionnaire/hard-match';
 import {
+  DashboardHistoryItemResponseDto,
+  DashboardHistoryLimitedReason,
+  DashboardHistoryResult,
+  DashboardHistoryVisibility,
+  DashboardMatchResponseDto,
+  DashboardResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
   UpdateProfileDto,
 } from './dto';
+
+const DASHBOARD_HISTORY_LIMIT = 3;
+
+type DashboardCycleSummary = Prisma.MatchCycleGetPayload<{
+  select: {
+    id: true;
+    codename: true;
+    revealAt: true;
+  };
+}>;
+
+type DashboardCycleParticipationSummary = Prisma.CycleParticipationGetPayload<{
+  select: {
+    cycleId: true;
+    status: true;
+  };
+}>;
+
+type DashboardMatchParticipant = Prisma.MatchParticipantGetPayload<{
+  select: {
+    id: true;
+    cycleId: true;
+    contactRequestedAt: true;
+    match: {
+      select: {
+        id: true;
+        score: true;
+        reasons: true;
+        introducedAt: true;
+        cycle: {
+          select: {
+            id: true;
+            codename: true;
+            revealAt: true;
+          };
+        };
+        reports: {
+          select: {
+            status: true;
+          };
+        };
+        participants: {
+          select: {
+            userId: true;
+            contactRequestedAt: true;
+            user: {
+              select: {
+                email: true;
+                displayName: true;
+                profile: {
+                  select: {
+                    headline: true;
+                  };
+                };
+                school: {
+                  select: {
+                    name: true;
+                  };
+                };
+                questionnaireResponse: {
+                  select: {
+                    answers: true;
+                  };
+                };
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class AccountService {
@@ -24,12 +102,12 @@ export class AccountService {
     private readonly questionnaireService: QuestionnaireService,
   ) {}
 
-  async getDashboard(userId: string) {
+  async getDashboard(userId: string): Promise<DashboardResponseDto> {
     const [
       profile,
       questionnaire,
       cycle,
-      recentMatchParticipants,
+      revealedCycles,
       lastRevealedParticipation,
     ] = await Promise.all([
       this.prisma.userProfile.findUnique({
@@ -42,36 +120,15 @@ export class AccountService {
         where: { status: { in: ['OPEN', 'REVEAL_READY'] } },
         orderBy: { revealAt: 'asc' },
       }),
-      this.prisma.matchParticipant.findMany({
-        where: { userId },
-        include: {
-          match: {
-            include: {
-              reports: {
-                where: { reporterId: userId },
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-              },
-              participants: {
-                include: {
-                  user: {
-                    include: {
-                      profile: true,
-                      school: true,
-                      questionnaireResponse: {
-                        select: { answers: true },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+      this.prisma.matchCycle.findMany({
+        where: { status: 'REVEALED' },
+        orderBy: { revealAt: 'desc' },
+        take: DASHBOARD_HISTORY_LIMIT,
+        select: {
+          id: true,
+          codename: true,
+          revealAt: true,
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        take: 5,
       }),
       this.prisma.cycleParticipation.findFirst({
         where: {
@@ -93,9 +150,125 @@ export class AccountService {
       }),
     ]);
 
-    const counterpartUserIds = recentMatchParticipants
+    if (cycle) {
+      await ensureStickyCycleParticipations(this.prisma, cycle);
+    }
+
+    const revealedCycleIds = revealedCycles.map((item) => item.id);
+    const dashboardMatchCycleIds = Array.from(
+      new Set([
+        ...revealedCycleIds,
+        ...(lastRevealedParticipation
+          ? [lastRevealedParticipation.cycleId]
+          : []),
+      ]),
+    );
+
+    const [
+      currentParticipation,
+      recentCycleParticipations,
+      revealedMatchParticipants,
+    ] = await Promise.all([
+      cycle
+        ? this.prisma.cycleParticipation.findUnique({
+            where: {
+              cycleId_userId: {
+                cycleId: cycle.id,
+                userId,
+              },
+            },
+          })
+        : Promise.resolve(null),
+      revealedCycleIds.length === 0
+        ? Promise.resolve<DashboardCycleParticipationSummary[]>([])
+        : this.prisma.cycleParticipation.findMany({
+            where: {
+              userId,
+              cycleId: {
+                in: revealedCycleIds,
+              },
+            },
+            select: {
+              cycleId: true,
+              status: true,
+            },
+          }),
+      dashboardMatchCycleIds.length === 0
+        ? Promise.resolve<DashboardMatchParticipant[]>([])
+        : this.prisma.matchParticipant.findMany({
+            where: {
+              userId,
+              cycleId: {
+                in: dashboardMatchCycleIds,
+              },
+            },
+            select: {
+              id: true,
+              cycleId: true,
+              contactRequestedAt: true,
+              match: {
+                select: {
+                  id: true,
+                  score: true,
+                  reasons: true,
+                  introducedAt: true,
+                  cycle: {
+                    select: {
+                      id: true,
+                      codename: true,
+                      revealAt: true,
+                    },
+                  },
+                  reports: {
+                    where: { reporterId: userId },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: {
+                      status: true,
+                    },
+                  },
+                  participants: {
+                    select: {
+                      userId: true,
+                      contactRequestedAt: true,
+                      user: {
+                        select: {
+                          email: true,
+                          displayName: true,
+                          profile: {
+                            select: {
+                              headline: true,
+                            },
+                          },
+                          school: {
+                            select: {
+                              name: true,
+                            },
+                          },
+                          questionnaireResponse: {
+                            select: {
+                              answers: true,
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          }),
+    ]);
+
+    const allRevealedMatchParticipants = [...revealedMatchParticipants].sort(
+      (left, right) =>
+        right.match.cycle.revealAt.getTime() -
+        left.match.cycle.revealAt.getTime(),
+    );
+
+    const counterpartUserIds = allRevealedMatchParticipants
       .map((participant) =>
-        participant.match.participants.find((item) => item.userId !== userId),
+        this.findCounterpartParticipant(participant.match.participants, userId),
       )
       .filter((participant): participant is NonNullable<typeof participant> =>
         Boolean(participant),
@@ -129,37 +302,41 @@ export class AccountService {
           ),
     );
 
-    const latestMatch =
-      recentMatchParticipants.find((participant) => {
-        const counterpart = participant.match.participants.find(
-          (item) => item.userId !== userId,
-        );
+    const recentParticipationByCycleId = new Map(
+      recentCycleParticipations.map((participation) => [
+        participation.cycleId,
+        participation,
+      ]),
+    );
+    const recentMatchParticipantByCycleId = new Map(
+      allRevealedMatchParticipants.map((participant) => [
+        participant.cycleId,
+        participant,
+      ]),
+    );
 
-        if (!counterpart) {
-          return false;
-        }
+    const recentMatchHistory = revealedCycles.map((revealedCycle) =>
+      this.buildDashboardHistoryItem({
+        userId,
+        cycle: revealedCycle,
+        participation: recentParticipationByCycleId.get(revealedCycle.id),
+        matchParticipant: recentMatchParticipantByCycleId.get(revealedCycle.id),
+        blockedCounterpartIds,
+      }),
+    );
 
-        if (participant.match.reports.length > 0) {
-          return false;
-        }
-
-        return !blockedCounterpartIds.has(counterpart.userId);
-      }) ?? null;
-
-    if (cycle) {
-      await ensureStickyCycleParticipations(this.prisma, cycle);
-    }
-
-    const participation =
-      cycle &&
-      (await this.prisma.cycleParticipation.findUnique({
-        where: {
-          cycleId_userId: {
-            cycleId: cycle.id,
-            userId,
-          },
-        },
-      }));
+    const latestRevealedMatchParticipant = lastRevealedParticipation
+      ? (recentMatchParticipantByCycleId.get(
+          lastRevealedParticipation.cycleId,
+        ) ?? null)
+      : null;
+    const latestMatchVisibility = latestRevealedMatchParticipant
+      ? this.resolveDashboardMatchVisibility({
+          userId,
+          participant: latestRevealedMatchParticipant,
+          blockedCounterpartIds,
+        })
+      : null;
 
     let lastRevealedRound: {
       cycleId: string;
@@ -170,61 +347,180 @@ export class AccountService {
     } | null = null;
 
     if (lastRevealedParticipation) {
-      const matchedInCycle = await this.prisma.matchParticipant.findFirst({
-        where: {
-          userId,
-          cycleId: lastRevealedParticipation.cycleId,
-        },
-        select: { id: true },
-      });
-
       lastRevealedRound = {
         cycleId: lastRevealedParticipation.cycle.id,
         codename: lastRevealedParticipation.cycle.codename,
         revealAt: lastRevealedParticipation.cycle.revealAt.toISOString(),
         participationStatus: lastRevealedParticipation.status,
-        matched: Boolean(matchedInCycle),
+        matched: Boolean(latestRevealedMatchParticipant),
       };
     }
 
     return {
       profile,
-      questionnaireSubmittedAt: questionnaire?.submittedAt ?? null,
+      questionnaireSubmittedAt: this.toIsoString(questionnaire?.submittedAt),
       currentCycle: cycle
         ? {
             id: cycle.id,
             codename: cycle.codename,
-            revealAt: cycle.revealAt,
-            participationDeadline: cycle.participationDeadline,
+            revealAt: cycle.revealAt.toISOString(),
+            participationDeadline: cycle.participationDeadline.toISOString(),
             status: cycle.status,
-            participationStatus: participation?.status ?? 'OPTED_OUT',
+            participationStatus: currentParticipation?.status ?? 'OPTED_OUT',
           }
         : null,
-      latestMatch: latestMatch
-        ? {
-            id: latestMatch.match.id,
-            score: latestMatch.match.score,
-            reasons: latestMatch.match.reasons,
-            introducedAt: latestMatch.match.introducedAt,
-            currentUserRequestedAt: latestMatch.contactRequestedAt,
-            reportStatus: latestMatch.match.reports[0]?.status ?? null,
-            participants: latestMatch.match.participants.map((participant) => ({
-              userId: participant.userId,
-              displayName: participant.user.displayName,
-              introLine: this.displayIntroLine(
-                participant.user.questionnaireResponse?.answers,
-                participant.user.profile?.headline,
-              ),
-              email: latestMatch.match.introducedAt
-                ? participant.user.email
-                : null,
-              schoolName: participant.user.school?.name ?? null,
-              contactRequestedAt: participant.contactRequestedAt,
-            })),
-          }
+      latestMatch: latestRevealedMatchParticipant
+        ? this.buildDashboardMatch(
+            latestRevealedMatchParticipant,
+            latestMatchVisibility?.visibility ===
+              DashboardHistoryVisibility.LIMITED,
+            latestMatchVisibility?.reportStatus ?? null,
+          )
         : null,
+      latestMatchVisibility: latestMatchVisibility?.visibility ?? null,
+      latestMatchLimitedReason: latestMatchVisibility?.limitedReason ?? null,
       lastRevealedRound,
+      recentMatchHistory,
     };
+  }
+
+  private buildDashboardHistoryItem({
+    userId,
+    cycle,
+    participation,
+    matchParticipant,
+    blockedCounterpartIds,
+  }: {
+    userId: string;
+    cycle: DashboardCycleSummary;
+    participation?: DashboardCycleParticipationSummary;
+    matchParticipant?: DashboardMatchParticipant;
+    blockedCounterpartIds: Set<string>;
+  }): DashboardHistoryItemResponseDto {
+    const participationStatus = participation?.status ?? 'OPTED_OUT';
+
+    if (matchParticipant) {
+      const { limitedReason, reportStatus, visibility } =
+        this.resolveDashboardMatchVisibility({
+          userId,
+          participant: matchParticipant,
+          blockedCounterpartIds,
+        });
+
+      return {
+        cycleId: cycle.id,
+        codename: cycle.codename,
+        revealAt: cycle.revealAt.toISOString(),
+        participationStatus,
+        result: DashboardHistoryResult.MATCHED,
+        visibility,
+        limitedReason,
+        match: this.buildDashboardMatch(
+          matchParticipant,
+          visibility === DashboardHistoryVisibility.LIMITED,
+          reportStatus,
+        ),
+      };
+    }
+
+    return {
+      cycleId: cycle.id,
+      codename: cycle.codename,
+      revealAt: cycle.revealAt.toISOString(),
+      participationStatus,
+      result:
+        participationStatus === 'OPTED_IN'
+          ? DashboardHistoryResult.UNMATCHED
+          : DashboardHistoryResult.NOT_PARTICIPATED,
+      visibility: DashboardHistoryVisibility.NOT_APPLICABLE,
+      limitedReason: null,
+      match: null,
+    };
+  }
+
+  private resolveDashboardMatchVisibility({
+    userId,
+    participant,
+    blockedCounterpartIds,
+  }: {
+    userId: string;
+    participant: DashboardMatchParticipant;
+    blockedCounterpartIds: Set<string>;
+  }) {
+    const reportStatus = participant.match.reports[0]?.status ?? null;
+    const counterpart = this.findCounterpartParticipant(
+      participant.match.participants,
+      userId,
+    );
+    const limitedReason = reportStatus
+      ? DashboardHistoryLimitedReason.REPORTED
+      : counterpart && blockedCounterpartIds.has(counterpart.userId)
+        ? DashboardHistoryLimitedReason.BLOCKED
+        : null;
+
+    return {
+      reportStatus,
+      limitedReason,
+      visibility: limitedReason
+        ? DashboardHistoryVisibility.LIMITED
+        : DashboardHistoryVisibility.VISIBLE,
+    };
+  }
+
+  private buildDashboardMatch(
+    participant: DashboardMatchParticipant,
+    hideSensitiveFields: boolean,
+    reportStatus: string | null,
+  ): DashboardMatchResponseDto {
+    return {
+      id: participant.match.id,
+      score: participant.match.score,
+      reasons: hideSensitiveFields
+        ? []
+        : this.normalizeMatchReasons(participant.match.reasons),
+      introducedAt: this.toIsoString(participant.match.introducedAt),
+      currentUserRequestedAt: this.toIsoString(participant.contactRequestedAt),
+      reportStatus,
+      participants: hideSensitiveFields
+        ? []
+        : participant.match.participants.map((matchParticipant) => ({
+            userId: matchParticipant.userId,
+            displayName: matchParticipant.user.displayName,
+            introLine: this.displayIntroLine(
+              matchParticipant.user.questionnaireResponse?.answers,
+              matchParticipant.user.profile?.headline,
+            ),
+            email: participant.match.introducedAt
+              ? matchParticipant.user.email
+              : null,
+            schoolName: matchParticipant.user.school?.name ?? null,
+            contactRequestedAt: this.toIsoString(
+              matchParticipant.contactRequestedAt,
+            ),
+          })),
+    };
+  }
+
+  private findCounterpartParticipant(
+    participants: DashboardMatchParticipant['match']['participants'],
+    userId: string,
+  ) {
+    return participants.find((item) => item.userId !== userId) ?? null;
+  }
+
+  private normalizeMatchReasons(rawReasons: Prisma.JsonValue): string[] {
+    if (!Array.isArray(rawReasons)) {
+      return [];
+    }
+
+    return rawReasons.filter(
+      (item): item is string =>
+        typeof item === 'string' && item.trim().length > 0,
+    );
+  }
+
+  private toIsoString(value: Date | null | undefined): string | null {
+    return value ? value.toISOString() : null;
   }
 
   async updateProfile(userId: string, input: UpdateProfileDto) {

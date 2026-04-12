@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { preloadMonorepoEnvIntoProcess } from './monorepo-env-paths';
+
+preloadMonorepoEnvIntoProcess();
 
 const envSchema = z.object({
   APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
