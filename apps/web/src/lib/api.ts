@@ -67,7 +67,9 @@ export async function fetchApi<T>(
     throw new Error(parseFailedResponseBody(body, response.status));
   }
 
-  return response.json() as Promise<T>;
+  const text = await response.text();
+  if (!text) return null as unknown as T;
+  return JSON.parse(text) as T;
 }
 
 export type AuthMePayload = {
