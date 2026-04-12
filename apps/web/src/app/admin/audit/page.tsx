@@ -1,7 +1,8 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useAdminCollection } from "../use-admin-collection";
+import { useAdminSearch } from "../use-admin-search";
 import type { AuditLogEntry } from "../types";
 
 function formatDateTime(value: string) {
@@ -12,16 +13,15 @@ function formatDateTime(value: string) {
 }
 
 export default function AdminAuditPage() {
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState("");
-  const deferredSearch = useDeferredValue(search);
+  const { draftSearch, submittedSearch, setDraftSearch, submitSearch } = useAdminSearch();
   const { data, loading, error, refresh } = useAdminCollection<AuditLogEntry>(
     "/admin/audit-logs",
     {
       page,
       pageSize: 20,
-      search: deferredSearch.trim(),
+      search: submittedSearch.trim(),
       action: actionFilter || undefined,
     },
   );
@@ -31,6 +31,12 @@ export default function AdminAuditPage() {
     [data],
   );
   const logs = data?.items ?? [];
+
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(1);
+    submitSearch();
+  }
 
   if (loading) {
     return <div className="admin-empty-state">正在加载审计日志...</div>;
@@ -50,16 +56,13 @@ export default function AdminAuditPage() {
 
       {error ? <p className="form-error">{error}</p> : null}
 
-      <div className="admin-search-bar">
+      <form className="admin-search-bar" onSubmit={handleSearchSubmit}>
         <input
-          value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(1);
-          }}
+          value={draftSearch}
+          onChange={(event) => setDraftSearch(event.target.value)}
           placeholder="搜索 action、操作者邮箱或 metadata"
         />
-      </div>
+      </form>
       <div className="admin-tabs">
         <button
           type="button"

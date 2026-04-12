@@ -1,8 +1,9 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { useAdminCollection } from "../use-admin-collection";
+import { useAdminSearch } from "../use-admin-search";
 import type { AdminReport, AdminReportContext } from "../types";
 
 type ReportFilter = "ALL" | AdminReport["status"];
@@ -23,7 +24,6 @@ function formatDateTime(value: string) {
 
 export default function AdminReportsPage() {
   const [filter, setFilter] = useState<ReportFilter>("OPEN");
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
@@ -33,13 +33,13 @@ export default function AdminReportsPage() {
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const deferredSearch = useDeferredValue(search);
+  const { draftSearch, submittedSearch, setDraftSearch, submitSearch } = useAdminSearch();
   const { data, loading, error, refresh } = useAdminCollection<AdminReport>(
     "/admin/reports",
     {
       page,
       pageSize: 10,
-      search: deferredSearch.trim(),
+      search: submittedSearch.trim(),
       status: filter === "ALL" ? undefined : filter,
     },
   );
@@ -166,6 +166,12 @@ export default function AdminReportsPage() {
     }
   }
 
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(1);
+    submitSearch();
+  }
+
   if (loading) {
     return <div className="admin-empty-state">正在加载举报中心...</div>;
   }
@@ -193,16 +199,13 @@ export default function AdminReportsPage() {
               <h2>举报列表</h2>
             </div>
           </div>
-          <div className="admin-search-bar">
+          <form className="admin-search-bar" onSubmit={handleSearchSubmit}>
             <input
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
+              value={draftSearch}
+              onChange={(event) => setDraftSearch(event.target.value)}
               placeholder="搜索原因、详情、举报人或被举报人邮箱"
             />
-          </div>
+          </form>
 
           <div className="admin-tabs">
             {(["ALL", "OPEN", "RESOLVED", "DISMISSED"] as const).map((status) => (
