@@ -129,61 +129,63 @@ export class AccountService {
 
     const revealedCycleIds = revealedCycles.map((item) => item.id);
 
-    const [currentParticipation, recentCycleParticipations, revealedMatchParticipants] =
-      await Promise.all([
-        cycle
-          ? this.prisma.cycleParticipation.findUnique({
-              where: {
-                cycleId_userId: {
-                  cycleId: cycle.id,
-                  userId,
-                },
-              },
-            })
-          : Promise.resolve(null),
-        revealedCycleIds.length === 0
-          ? Promise.resolve<DashboardCycleParticipationSummary[]>([])
-          : this.prisma.cycleParticipation.findMany({
-              where: {
+    const [
+      currentParticipation,
+      recentCycleParticipations,
+      revealedMatchParticipants,
+    ] = await Promise.all([
+      cycle
+        ? this.prisma.cycleParticipation.findUnique({
+            where: {
+              cycleId_userId: {
+                cycleId: cycle.id,
                 userId,
-                cycleId: {
-                  in: revealedCycleIds,
+              },
+            },
+          })
+        : Promise.resolve(null),
+      revealedCycleIds.length === 0
+        ? Promise.resolve<DashboardCycleParticipationSummary[]>([])
+        : this.prisma.cycleParticipation.findMany({
+            where: {
+              userId,
+              cycleId: {
+                in: revealedCycleIds,
+              },
+            },
+            select: {
+              cycleId: true,
+              status: true,
+            },
+          }),
+      this.prisma.matchParticipant.findMany({
+        where: {
+          userId,
+        },
+        include: {
+          match: {
+            include: {
+              cycle: {
+                select: {
+                  id: true,
+                  codename: true,
+                  revealAt: true,
+                  status: true,
                 },
               },
-              select: {
-                cycleId: true,
-                status: true,
+              reports: {
+                where: { reporterId: userId },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
               },
-            }),
-        this.prisma.matchParticipant.findMany({
-          where: {
-            userId,
-          },
-          include: {
-            match: {
-              include: {
-                cycle: {
-                  select: {
-                    id: true,
-                    codename: true,
-                    revealAt: true,
-                    status: true,
-                  },
-                },
-                reports: {
-                  where: { reporterId: userId },
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                },
-                participants: {
-                  include: {
-                    user: {
-                      include: {
-                        profile: true,
-                        school: true,
-                        questionnaireResponse: {
-                          select: { answers: true },
-                        },
+              participants: {
+                include: {
+                  user: {
+                    include: {
+                      profile: true,
+                      school: true,
+                      questionnaireResponse: {
+                        select: { answers: true },
                       },
                     },
                   },
@@ -191,14 +193,16 @@ export class AccountService {
               },
             },
           },
-        }),
-      ]);
+        },
+      }),
+    ]);
 
     const allRevealedMatchParticipants = revealedMatchParticipants
       .filter((participant) => participant.match.cycle.status === 'REVEALED')
       .sort(
         (left, right) =>
-          right.match.cycle.revealAt.getTime() - left.match.cycle.revealAt.getTime(),
+          right.match.cycle.revealAt.getTime() -
+          left.match.cycle.revealAt.getTime(),
       );
 
     const counterpartUserIds = allRevealedMatchParticipants
@@ -244,7 +248,10 @@ export class AccountService {
       ]),
     );
     const recentMatchParticipantByCycleId = new Map(
-      allRevealedMatchParticipants.map((participant) => [participant.cycleId, participant]),
+      allRevealedMatchParticipants.map((participant) => [
+        participant.cycleId,
+        participant,
+      ]),
     );
 
     const recentMatchHistory = revealedCycles.map((revealedCycle) =>
@@ -258,7 +265,9 @@ export class AccountService {
     );
 
     const latestRevealedMatchParticipant = lastRevealedParticipation
-      ? recentMatchParticipantByCycleId.get(lastRevealedParticipation.cycleId) ?? null
+      ? (recentMatchParticipantByCycleId.get(
+          lastRevealedParticipation.cycleId,
+        ) ?? null)
       : null;
     const latestMatchVisibility = latestRevealedMatchParticipant
       ? this.resolveDashboardMatchVisibility({
@@ -283,7 +292,8 @@ export class AccountService {
         revealAt: lastRevealedParticipation.cycle.revealAt.toISOString(),
         participationStatus: lastRevealedParticipation.status,
         matched:
-          latestMatchVisibility?.visibility === DashboardHistoryVisibility.VISIBLE,
+          latestMatchVisibility?.visibility ===
+          DashboardHistoryVisibility.VISIBLE,
       };
     }
 
@@ -420,7 +430,9 @@ export class AccountService {
               matchParticipant.user.questionnaireResponse?.answers,
               matchParticipant.user.profile?.headline,
             ),
-            email: participant.match.introducedAt ? matchParticipant.user.email : null,
+            email: participant.match.introducedAt
+              ? matchParticipant.user.email
+              : null,
             schoolName: matchParticipant.user.school?.name ?? null,
             contactRequestedAt: this.toIsoString(
               matchParticipant.contactRequestedAt,
