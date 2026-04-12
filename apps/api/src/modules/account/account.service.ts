@@ -42,6 +42,14 @@ type DashboardMatchParticipant = Prisma.MatchParticipantGetPayload<{
   include: {
     match: {
       include: {
+        cycle: {
+          select: {
+            id: true;
+            codename: true;
+            revealAt: true;
+            status: true;
+          };
+        };
         reports: true;
         participants: {
           include: {
@@ -121,7 +129,7 @@ export class AccountService {
 
     const revealedCycleIds = revealedCycles.map((item) => item.id);
 
-    const [currentParticipation, recentCycleParticipations, recentMatchParticipants] =
+    const [currentParticipation, recentCycleParticipations, revealedMatchParticipants] =
       await Promise.all([
         cycle
           ? this.prisma.cycleParticipation.findUnique({
@@ -147,43 +155,53 @@ export class AccountService {
                 status: true,
               },
             }),
-        revealedCycleIds.length === 0
-          ? Promise.resolve<DashboardMatchParticipant[]>([])
-          : this.prisma.matchParticipant.findMany({
-              where: {
-                userId,
-                cycleId: {
-                  in: revealedCycleIds,
-                },
-              },
+        this.prisma.matchParticipant.findMany({
+          where: {
+            userId,
+          },
+          include: {
+            match: {
               include: {
-                match: {
+                cycle: {
+                  select: {
+                    id: true,
+                    codename: true,
+                    revealAt: true,
+                    status: true,
+                  },
+                },
+                reports: {
+                  where: { reporterId: userId },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+                participants: {
                   include: {
-                    reports: {
-                      where: { reporterId: userId },
-                      orderBy: { createdAt: 'desc' },
-                      take: 1,
-                    },
-                    participants: {
+                    user: {
                       include: {
-                        user: {
-                          include: {
-                            profile: true,
-                            school: true,
-                            questionnaireResponse: {
-                              select: { answers: true },
-                            },
-                          },
+                        profile: true,
+                        school: true,
+                        questionnaireResponse: {
+                          select: { answers: true },
                         },
                       },
                     },
                   },
                 },
               },
-            }),
+            },
+          },
+        }),
       ]);
 
-    const counterpartUserIds = recentMatchParticipants
+    const allRevealedMatchParticipants = revealedMatchParticipants
+      .filter((participant) => participant.match.cycle.status === 'REVEALED')
+      .sort(
+        (left, right) =>
+          right.match.cycle.revealAt.getTime() - left.match.cycle.revealAt.getTime(),
+      );
+
+    const counterpartUserIds = allRevealedMatchParticipants
       .map((participant) =>
         this.findCounterpartParticipant(participant.match.participants, userId),
       )
@@ -226,7 +244,7 @@ export class AccountService {
       ]),
     );
     const recentMatchParticipantByCycleId = new Map(
-      recentMatchParticipants.map((participant) => [participant.cycleId, participant]),
+      allRevealedMatchParticipants.map((participant) => [participant.cycleId, participant]),
     );
 
     const recentMatchHistory = revealedCycles.map((revealedCycle) =>
@@ -239,12 +257,16 @@ export class AccountService {
       }),
     );
 
-    const latestVisibleHistoryItem = recentMatchHistory.find(
-      (item) =>
-        item.result === DashboardHistoryResult.MATCHED &&
-        item.visibility === DashboardHistoryVisibility.VISIBLE &&
-        item.match,
-    );
+    const latestRevealedMatchParticipant = lastRevealedParticipation
+      ? recentMatchParticipantByCycleId.get(lastRevealedParticipation.cycleId) ?? null
+      : null;
+    const latestMatchVisibility = latestRevealedMatchParticipant
+      ? this.resolveDashboardMatchVisibility({
+          userId,
+          participant: latestRevealedMatchParticipant,
+          blockedCounterpartIds,
+        })
+      : null;
 
     let lastRevealedRound: {
       cycleId: string;
@@ -255,22 +277,13 @@ export class AccountService {
     } | null = null;
 
     if (lastRevealedParticipation) {
-      const matchedInCycle =
-        recentMatchParticipantByCycleId.get(lastRevealedParticipation.cycleId) ??
-        (await this.prisma.matchParticipant.findFirst({
-          where: {
-            userId,
-            cycleId: lastRevealedParticipation.cycleId,
-          },
-          select: { id: true },
-        }));
-
       lastRevealedRound = {
         cycleId: lastRevealedParticipation.cycle.id,
         codename: lastRevealedParticipation.cycle.codename,
         revealAt: lastRevealedParticipation.cycle.revealAt.toISOString(),
         participationStatus: lastRevealedParticipation.status,
-        matched: Boolean(matchedInCycle),
+        matched:
+          latestMatchVisibility?.visibility === DashboardHistoryVisibility.VISIBLE,
       };
     }
 
@@ -287,7 +300,15 @@ export class AccountService {
             participationStatus: currentParticipation?.status ?? 'OPTED_OUT',
           }
         : null,
-      latestMatch: latestVisibleHistoryItem?.match ?? null,
+      latestMatch:
+        latestRevealedMatchParticipant &&
+        latestMatchVisibility?.visibility === DashboardHistoryVisibility.VISIBLE
+          ? this.buildDashboardMatch(
+              latestRevealedMatchParticipant,
+              false,
+              latestMatchVisibility.reportStatus,
+            )
+          : null,
       lastRevealedRound,
       recentMatchHistory,
     };
@@ -309,19 +330,12 @@ export class AccountService {
     const participationStatus = participation?.status ?? 'OPTED_OUT';
 
     if (matchParticipant) {
-      const currentUserReportStatus = matchParticipant.match.reports[0]?.status ?? null;
-      const counterpart = this.findCounterpartParticipant(
-        matchParticipant.match.participants,
-        userId,
-      );
-      const limitedReason = currentUserReportStatus
-        ? DashboardHistoryLimitedReason.REPORTED
-        : counterpart && blockedCounterpartIds.has(counterpart.userId)
-          ? DashboardHistoryLimitedReason.BLOCKED
-          : null;
-      const visibility = limitedReason
-        ? DashboardHistoryVisibility.LIMITED
-        : DashboardHistoryVisibility.VISIBLE;
+      const { limitedReason, reportStatus, visibility } =
+        this.resolveDashboardMatchVisibility({
+          userId,
+          participant: matchParticipant,
+          blockedCounterpartIds,
+        });
 
       return {
         cycleId: cycle.id,
@@ -334,7 +348,7 @@ export class AccountService {
         match: this.buildDashboardMatch(
           matchParticipant,
           visibility === DashboardHistoryVisibility.LIMITED,
-          currentUserReportStatus,
+          reportStatus,
         ),
       };
     }
@@ -351,6 +365,35 @@ export class AccountService {
       visibility: DashboardHistoryVisibility.NOT_APPLICABLE,
       limitedReason: null,
       match: null,
+    };
+  }
+
+  private resolveDashboardMatchVisibility({
+    userId,
+    participant,
+    blockedCounterpartIds,
+  }: {
+    userId: string;
+    participant: DashboardMatchParticipant;
+    blockedCounterpartIds: Set<string>;
+  }) {
+    const reportStatus = participant.match.reports[0]?.status ?? null;
+    const counterpart = this.findCounterpartParticipant(
+      participant.match.participants,
+      userId,
+    );
+    const limitedReason = reportStatus
+      ? DashboardHistoryLimitedReason.REPORTED
+      : counterpart && blockedCounterpartIds.has(counterpart.userId)
+        ? DashboardHistoryLimitedReason.BLOCKED
+        : null;
+
+    return {
+      reportStatus,
+      limitedReason,
+      visibility: limitedReason
+        ? DashboardHistoryVisibility.LIMITED
+        : DashboardHistoryVisibility.VISIBLE,
     };
   }
 
