@@ -2,6 +2,148 @@ import { BadRequestException } from '@nestjs/common';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
+function buildRevealedCycle(
+  id: string,
+  codename: string,
+  revealAt: string,
+) {
+  return {
+    id,
+    codename,
+    revealAt: new Date(revealAt),
+  };
+}
+
+function buildHistoryMatchParticipant({
+  cycleId,
+  matchId,
+  counterpartUserId = 'user-2',
+  score = 82,
+  reasons = ['reason'],
+  introducedAt = null,
+  currentUserRequestedAt = null,
+  counterpartRequestedAt = null,
+  reportStatus = null,
+}: {
+  cycleId: string;
+  matchId: string;
+  counterpartUserId?: string;
+  score?: number;
+  reasons?: string[];
+  introducedAt?: Date | null;
+  currentUserRequestedAt?: Date | null;
+  counterpartRequestedAt?: Date | null;
+  reportStatus?: 'OPEN' | 'RESOLVED' | 'DISMISSED' | null;
+}) {
+  return {
+    id: `participant-${cycleId}`,
+    cycleId,
+    contactRequestedAt: currentUserRequestedAt,
+    match: {
+      id: matchId,
+      score,
+      reasons,
+      introducedAt,
+      reports: reportStatus ? [{ status: reportStatus }] : [],
+      participants: [
+        {
+          userId: 'user-1',
+          contactRequestedAt: currentUserRequestedAt,
+          user: {
+            email: 'user-1@example.com',
+            displayName: 'User 1',
+            profile: { headline: 'hello' },
+            school: { name: 'School A' },
+            questionnaireResponse: null,
+          },
+        },
+        {
+          userId: counterpartUserId,
+          contactRequestedAt: counterpartRequestedAt,
+          user: {
+            email: `${counterpartUserId}@example.com`,
+            displayName: 'User 2',
+            profile: { headline: 'world' },
+            school: { name: 'School B' },
+            questionnaireResponse: null,
+          },
+        },
+      ],
+    },
+  };
+}
+
+function createDashboardPrismaMock({
+  revealedCycles,
+  recentParticipations = [],
+  recentMatches = [],
+  blocks = [],
+  currentCycle = null,
+  currentParticipation = null,
+  lastRevealedParticipation = null,
+  matchedInLastRevealedRound = null,
+}: {
+  revealedCycles: Array<{
+    id: string;
+    codename: string;
+    revealAt: Date;
+  }>;
+  recentParticipations?: Array<{
+    cycleId: string;
+    status: 'OPTED_IN' | 'OPTED_OUT';
+  }>;
+  recentMatches?: unknown[];
+  blocks?: Array<{
+    blockerId: string;
+    blockedId: string;
+  }>;
+  currentCycle?: {
+    id: string;
+    codename: string;
+    revealAt: Date;
+    participationDeadline: Date;
+    status: 'DRAFT' | 'OPEN' | 'REVEAL_READY' | 'REVEALED';
+  } | null;
+  currentParticipation?: {
+    status: 'OPTED_IN' | 'OPTED_OUT';
+  } | null;
+  lastRevealedParticipation?: {
+    cycleId: string;
+    status: 'OPTED_IN' | 'OPTED_OUT';
+    cycle: {
+      id: string;
+      codename: string;
+      revealAt: Date;
+    };
+  } | null;
+  matchedInLastRevealedRound?: { id: string } | null;
+}) {
+  return {
+    userProfile: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    questionnaireResponse: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    matchCycle: {
+      findFirst: jest.fn().mockResolvedValue(currentCycle),
+      findMany: jest.fn().mockResolvedValue(revealedCycles),
+    },
+    cycleParticipation: {
+      findFirst: jest.fn().mockResolvedValue(lastRevealedParticipation),
+      findMany: jest.fn().mockResolvedValue(recentParticipations),
+      findUnique: jest.fn().mockResolvedValue(currentParticipation),
+    },
+    matchParticipant: {
+      findMany: jest.fn().mockResolvedValue(recentMatches),
+      findFirst: jest.fn().mockResolvedValue(matchedInLastRevealedRound),
+    },
+    block: {
+      findMany: jest.fn().mockResolvedValue(blocks),
+    },
+  };
+}
+
 describe('AccountService', () => {
   it('rejects participation changes after the deadline', async () => {
     const prisma = {
@@ -66,73 +208,177 @@ describe('AccountService', () => {
     });
   });
 
-  it('hides the latest match when the counterpart is blocked', async () => {
+  it('returns three recent history items in reveal order', async () => {
+    const revealedCycles = [
+      buildRevealedCycle('cycle-3', '第三轮', '2026-04-03T12:00:00.000Z'),
+      buildRevealedCycle('cycle-2', '第二轮', '2026-04-02T12:00:00.000Z'),
+      buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
+    ];
     const service = new AccountService(
-      {
-        userProfile: {
-          findUnique: jest.fn().mockResolvedValue(null),
+      createDashboardPrismaMock({
+        revealedCycles,
+        recentParticipations: [
+          {
+            cycleId: 'cycle-3',
+            status: 'OPTED_IN',
+          },
+          {
+            cycleId: 'cycle-2',
+            status: 'OPTED_IN',
+          },
+        ],
+        recentMatches: [
+          buildHistoryMatchParticipant({
+            cycleId: 'cycle-3',
+            matchId: 'match-3',
+            introducedAt: new Date('2026-04-03T13:00:00.000Z'),
+            currentUserRequestedAt: new Date('2026-04-03T13:05:00.000Z'),
+          }),
+        ],
+        lastRevealedParticipation: {
+          cycleId: 'cycle-3',
+          status: 'OPTED_IN',
+          cycle: revealedCycles[0],
         },
-        questionnaireResponse: {
-          findUnique: jest.fn().mockResolvedValue(null),
-        },
-        matchCycle: {
-          findFirst: jest.fn().mockResolvedValue(null),
-        },
-        matchParticipant: {
-          findMany: jest.fn().mockResolvedValue([
-            {
-              id: 'participant-1',
-              contactRequestedAt: null,
-              match: {
-                id: 'match-1',
-                score: 82,
-                reasons: ['reason'],
-                introducedAt: '2026-04-01T00:00:00.000Z',
-                reports: [],
-                participants: [
-                  {
-                    userId: 'user-1',
-                    contactRequestedAt: null,
-                    user: {
-                      email: 'user-1@example.com',
-                      displayName: 'User 1',
-                      profile: { headline: 'hello' },
-                      school: { name: 'School A' },
-                    },
-                  },
-                  {
-                    userId: 'user-2',
-                    contactRequestedAt: null,
-                    user: {
-                      email: 'user-2@example.com',
-                      displayName: 'User 2',
-                      profile: { headline: 'world' },
-                      school: { name: 'School B' },
-                    },
-                  },
-                ],
-              },
-            },
-          ]),
-        },
-        block: {
-          findMany: jest.fn().mockResolvedValue([
-            {
-              blockerId: 'user-1',
-              blockedId: 'user-2',
-            },
-          ]),
-        },
-        cycleParticipation: {
-          findFirst: jest.fn().mockResolvedValue(null),
-        },
-      } as never,
+      }) as never,
       {} as never,
       {} as never,
     );
 
-    await expect(service.getDashboard('user-1')).resolves.toMatchObject({
-      latestMatch: null,
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.latestMatch).toMatchObject({
+      id: 'match-3',
+    });
+    expect(dashboard.lastRevealedRound).toMatchObject({
+      cycleId: 'cycle-3',
+      matched: true,
+    });
+    expect(dashboard.recentMatchHistory).toHaveLength(3);
+    expect(dashboard.recentMatchHistory[0]).toMatchObject({
+      cycleId: 'cycle-3',
+      codename: '第三轮',
+      participationStatus: 'OPTED_IN',
+      result: 'MATCHED',
+      visibility: 'VISIBLE',
+      limitedReason: null,
+      match: {
+        id: 'match-3',
+      },
+    });
+    expect(dashboard.recentMatchHistory[1]).toMatchObject({
+      cycleId: 'cycle-2',
+      participationStatus: 'OPTED_IN',
+      result: 'UNMATCHED',
+      visibility: 'NOT_APPLICABLE',
+      limitedReason: null,
+      match: null,
+    });
+    expect(dashboard.recentMatchHistory[2]).toMatchObject({
+      cycleId: 'cycle-1',
+      participationStatus: 'OPTED_OUT',
+      result: 'NOT_PARTICIPATED',
+      visibility: 'NOT_APPLICABLE',
+      limitedReason: null,
+      match: null,
+    });
+  });
+
+  it('limits reported history matches and keeps the match id for reuse', async () => {
+    const revealedCycles = [
+      buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
+    ];
+    const service = new AccountService(
+      createDashboardPrismaMock({
+        revealedCycles,
+        recentParticipations: [
+          {
+            cycleId: 'cycle-1',
+            status: 'OPTED_IN',
+          },
+        ],
+        recentMatches: [
+          buildHistoryMatchParticipant({
+            cycleId: 'cycle-1',
+            matchId: 'match-1',
+            reportStatus: 'OPEN',
+            currentUserRequestedAt: new Date('2026-04-01T12:30:00.000Z'),
+          }),
+        ],
+        lastRevealedParticipation: {
+          cycleId: 'cycle-1',
+          status: 'OPTED_IN',
+          cycle: revealedCycles[0],
+        },
+      }) as never,
+      {} as never,
+      {} as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.latestMatch).toBeNull();
+    expect(dashboard.recentMatchHistory[0]).toMatchObject({
+      result: 'MATCHED',
+      visibility: 'LIMITED',
+      limitedReason: 'REPORTED',
+      match: {
+        id: 'match-1',
+        reportStatus: 'OPEN',
+        reasons: [],
+        participants: [],
+      },
+    });
+  });
+
+  it('limits blocked history matches and keeps them out of latestMatch', async () => {
+    const revealedCycles = [
+      buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
+    ];
+    const service = new AccountService(
+      createDashboardPrismaMock({
+        revealedCycles,
+        recentParticipations: [
+          {
+            cycleId: 'cycle-1',
+            status: 'OPTED_IN',
+          },
+        ],
+        recentMatches: [
+          buildHistoryMatchParticipant({
+            cycleId: 'cycle-1',
+            matchId: 'match-1',
+            counterpartUserId: 'user-2',
+          }),
+        ],
+        blocks: [
+          {
+            blockerId: 'user-1',
+            blockedId: 'user-2',
+          },
+        ],
+        lastRevealedParticipation: {
+          cycleId: 'cycle-1',
+          status: 'OPTED_IN',
+          cycle: revealedCycles[0],
+        },
+      }) as never,
+      {} as never,
+      {} as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.latestMatch).toBeNull();
+    expect(dashboard.recentMatchHistory[0]).toMatchObject({
+      result: 'MATCHED',
+      visibility: 'LIMITED',
+      limitedReason: 'BLOCKED',
+      match: {
+        id: 'match-1',
+        reasons: [],
+        participants: [],
+      },
     });
   });
 

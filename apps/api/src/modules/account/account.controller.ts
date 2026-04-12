@@ -8,22 +8,29 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { AccountService } from './account.service';
 import {
+  DashboardResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
   UpdateProfileDto,
 } from './dto';
 
+@ApiTags('me')
 @Controller('me')
 @UseGuards(JwtAuthGuard)
 export class AccountController {
   constructor(private readonly accountService: AccountService) {}
 
   @Get('dashboard')
+  @ApiOperation({
+    summary: "Get the signed-in user's dashboard payload.",
+  })
+  @ApiOkResponse({ type: DashboardResponseDto })
   getDashboard(@Req() request: AuthenticatedRequest) {
     return this.accountService.getDashboard(request.user!.sub);
   }
