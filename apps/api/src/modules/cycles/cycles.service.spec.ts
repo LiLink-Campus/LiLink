@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { QuestionType } from '@prisma/client';
 import { CyclesService } from './cycles.service';
+import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 
 type EligibleParticipantStub = {
   id: string;
@@ -125,7 +126,15 @@ const VALUE_QUESTION = {
 };
 
 describe('CyclesService', () => {
+  afterEach(() => {
+    clearStickyParticipationCache();
+  });
+
   it('rejects running a cycle before reveal time by default', async () => {
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
     const prisma = {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
@@ -138,16 +147,16 @@ describe('CyclesService', () => {
         updateMany: jest.fn(),
         update: jest.fn(),
       },
-      cycleParticipation: {
-        findMany: jest.fn().mockResolvedValue([]),
-        createMany: jest.fn(),
-      },
+      cycleParticipation,
       questionnaireVersion: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'questionnaire-1',
           questions: [],
         }),
       },
+      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ cycleParticipation }),
+      ),
     };
     const service = new CyclesService(prisma as never);
 
@@ -157,6 +166,10 @@ describe('CyclesService', () => {
   });
 
   it('allows an explicit internal force run before reveal time', async () => {
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
     const prisma = {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
@@ -169,16 +182,16 @@ describe('CyclesService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         update: jest.fn().mockResolvedValue({ id: 'cycle-1', status: 'OPEN' }),
       },
-      cycleParticipation: {
-        findMany: jest.fn().mockResolvedValue([]),
-        createMany: jest.fn(),
-      },
+      cycleParticipation,
       questionnaireVersion: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'questionnaire-1',
           questions: [],
         }),
       },
+      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ cycleParticipation }),
+      ),
     };
     const service = new CyclesService(prisma as never);
 
@@ -196,6 +209,24 @@ describe('CyclesService', () => {
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
     const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
+    const cycleParticipation = {
+      findMany: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            userId: 'user-1',
+            status: 'OPTED_IN',
+            updatedAt: new Date('2026-04-10T12:00:00.000Z'),
+          },
+          {
+            userId: 'user-2',
+            status: 'OPTED_IN',
+            updatedAt: new Date('2026-04-11T12:00:00.000Z'),
+          },
+        ]),
+      createMany,
+    };
     const prisma = {
       matchCycle: {
         findUnique: jest
@@ -240,30 +271,14 @@ describe('CyclesService', () => {
           questions: [],
         }),
       },
-      cycleParticipation: {
-        findMany: jest
-          .fn()
-          .mockResolvedValueOnce([])
-          .mockResolvedValueOnce([
-            {
-              userId: 'user-1',
-              status: 'OPTED_IN',
-              updatedAt: new Date('2026-04-10T12:00:00.000Z'),
-            },
-            {
-              userId: 'user-2',
-              status: 'OPTED_IN',
-              updatedAt: new Date('2026-04-11T12:00:00.000Z'),
-            },
-          ]),
-        createMany,
-      },
+      cycleParticipation,
       match: {
         deleteMany: matchDeleteMany,
       },
       $transaction: jest.fn(
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
+            cycleParticipation,
             match: {
               deleteMany: matchDeleteMany,
               create: matchCreate,
@@ -470,6 +485,10 @@ describe('CyclesService', () => {
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
     const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
     const prisma = {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
@@ -483,10 +502,7 @@ describe('CyclesService', () => {
         updateMany,
         update,
       },
-      cycleParticipation: {
-        findMany: jest.fn().mockResolvedValue([]),
-        createMany: jest.fn(),
-      },
+      cycleParticipation,
       questionnaireVersion: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'questionnaire-1',
@@ -503,6 +519,7 @@ describe('CyclesService', () => {
       $transaction: jest.fn(
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
+            cycleParticipation,
             match: {
               deleteMany: matchDeleteMany,
               create: matchCreate,
@@ -622,6 +639,10 @@ describe('CyclesService', () => {
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
     const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
     const prisma = {
       matchCycle: {
         findUnique: jest.fn().mockResolvedValue({
@@ -634,10 +655,7 @@ describe('CyclesService', () => {
         updateMany,
         update: jest.fn().mockResolvedValue({ id: 'cycle-1', status: 'OPEN' }),
       },
-      cycleParticipation: {
-        findMany: jest.fn().mockResolvedValue([]),
-        createMany: jest.fn(),
-      },
+      cycleParticipation,
       questionnaireVersion: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'questionnaire-1',
@@ -654,6 +672,7 @@ describe('CyclesService', () => {
       $transaction: jest.fn(
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
+            cycleParticipation,
             match: {
               deleteMany: matchDeleteMany,
               create: matchCreate,

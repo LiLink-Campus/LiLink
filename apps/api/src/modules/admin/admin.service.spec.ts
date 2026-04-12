@@ -1,7 +1,12 @@
 import { AdminService } from './admin.service';
 import { BadRequestException } from '@nestjs/common';
+import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 
 describe('AdminService', () => {
+  afterEach(() => {
+    clearStickyParticipationCache();
+  });
+
   it('forwards cycle id and admin actor id when manually running a cycle', async () => {
     const prisma = {};
     const cyclesService = {
@@ -77,6 +82,24 @@ describe('AdminService', () => {
 
   it('initializes sticky participation records when creating an open cycle', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 2 });
+    const cycleParticipation = {
+      findMany: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            userId: 'user-1',
+            status: 'OPTED_IN',
+            updatedAt: new Date('2026-04-10T12:00:00.000Z'),
+          },
+          {
+            userId: 'user-2',
+            status: 'OPTED_OUT',
+            updatedAt: new Date('2026-04-11T12:00:00.000Z'),
+          },
+        ]),
+      createMany,
+    };
     const prisma = {
       matchCycle: {
         create: jest.fn().mockResolvedValue({
@@ -89,24 +112,10 @@ describe('AdminService', () => {
           notes: null,
         }),
       },
-      cycleParticipation: {
-        findMany: jest
-          .fn()
-          .mockResolvedValueOnce([])
-          .mockResolvedValueOnce([
-            {
-              userId: 'user-1',
-              status: 'OPTED_IN',
-              updatedAt: new Date('2026-04-10T12:00:00.000Z'),
-            },
-            {
-              userId: 'user-2',
-              status: 'OPTED_OUT',
-              updatedAt: new Date('2026-04-11T12:00:00.000Z'),
-            },
-          ]),
-        createMany,
-      },
+      cycleParticipation,
+      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ cycleParticipation }),
+      ),
     };
     const adminAuditService = {
       listAuditLogs: jest.fn(),

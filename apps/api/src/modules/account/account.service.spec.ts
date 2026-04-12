@@ -1,8 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
+import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 
 describe('AccountService', () => {
+  afterEach(() => {
+    clearStickyParticipationCache();
+  });
+
   it('rejects participation changes after the deadline', async () => {
     const prisma = {
       matchCycle: {
@@ -138,48 +143,53 @@ describe('AccountService', () => {
 
   it('inherits the latest participation state into the current open cycle on dashboard load', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 1 });
-    const service = new AccountService(
-      {
-        userProfile: {
-          findUnique: jest.fn().mockResolvedValue(null),
-        },
-        questionnaireResponse: {
-          findUnique: jest.fn().mockResolvedValue(null),
-        },
-        matchCycle: {
-          findFirst: jest.fn().mockResolvedValue({
-            id: 'cycle-2',
-            codename: 'Round 2',
-            revealAt: new Date('2026-05-01T12:00:00.000Z'),
-            participationDeadline: new Date('2026-04-30T12:00:00.000Z'),
-            createdAt: new Date('2026-04-20T12:00:00.000Z'),
-            status: 'OPEN',
-          }),
-        },
-        matchParticipant: {
-          findMany: jest.fn().mockResolvedValue([]),
-        },
-        block: {
-          findMany: jest.fn().mockResolvedValue([]),
-        },
-        cycleParticipation: {
-          findFirst: jest.fn().mockResolvedValue(null),
-          findMany: jest
-            .fn()
-            .mockResolvedValueOnce([])
-            .mockResolvedValueOnce([
-              {
-                userId: 'user-1',
-                status: 'OPTED_IN',
-                updatedAt: new Date('2026-04-10T12:00:00.000Z'),
-              },
-            ]),
-          createMany,
-          findUnique: jest.fn().mockResolvedValue({
+    const cycleParticipation = {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            userId: 'user-1',
             status: 'OPTED_IN',
-          }),
-        },
-      } as never,
+            updatedAt: new Date('2026-04-10T12:00:00.000Z'),
+          },
+        ]),
+      createMany,
+      findUnique: jest.fn().mockResolvedValue({
+        status: 'OPTED_IN',
+      }),
+    };
+    const prisma = {
+      userProfile: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-2',
+          codename: 'Round 2',
+          revealAt: new Date('2026-05-01T12:00:00.000Z'),
+          participationDeadline: new Date('2026-04-30T12:00:00.000Z'),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          status: 'OPEN',
+        }),
+      },
+      matchParticipant: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      cycleParticipation,
+      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ cycleParticipation }),
+      ),
+    };
+    const service = new AccountService(
+      prisma as never,
       {} as never,
       {} as never,
     );
