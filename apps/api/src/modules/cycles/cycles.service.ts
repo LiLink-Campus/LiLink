@@ -7,6 +7,7 @@ import blossom from 'edmonds-blossom-fixed';
 import { QuestionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
 import {
   HardMatchAnswers,
   areHardMatchAnswersCompatible,
@@ -102,6 +103,17 @@ export class CyclesService {
       }
 
       return { ok: true, message: 'No open cycle was found.' };
+    }
+
+    const stickyParticipationInitialization =
+      await ensureStickyCycleParticipations(this.prisma, cycle);
+
+    if (stickyParticipationInitialization.createdCount > 0) {
+      cycle = await this.loadRunnableCycle(cycle.id);
+
+      if (!cycle) {
+        throw new NotFoundException('Cycle not found.');
+      }
     }
 
     if (cycle.status === 'REVEAL_READY') {
@@ -251,7 +263,7 @@ export class CyclesService {
   }
 
   async previewCycle(cycleId: string) {
-    const [cycle, questionnaire] = await Promise.all([
+    const [initialCycle, questionnaire] = await Promise.all([
       this.prisma.matchCycle.findUnique({
         where: { id: cycleId },
         include: {
@@ -276,6 +288,31 @@ export class CyclesService {
         },
       }),
     ]);
+
+    if (!initialCycle) {
+      throw new NotFoundException('Cycle not found.');
+    }
+
+    const stickyParticipationInitialization =
+      await ensureStickyCycleParticipations(this.prisma, initialCycle);
+    const cycle =
+      stickyParticipationInitialization.createdCount > 0
+        ? await this.prisma.matchCycle.findUnique({
+            where: { id: cycleId },
+            include: {
+              participations: {
+                where: { status: 'OPTED_IN' },
+                include: {
+                  user: {
+                    include: {
+                      questionnaireResponse: true,
+                    },
+                  },
+                },
+              },
+            },
+          })
+        : initialCycle;
 
     if (!cycle) {
       throw new NotFoundException('Cycle not found.');

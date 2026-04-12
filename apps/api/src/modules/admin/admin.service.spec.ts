@@ -75,6 +75,112 @@ describe('AdminService', () => {
     });
   });
 
+  it('initializes sticky participation records when creating an open cycle', async () => {
+    const createMany = jest.fn().mockResolvedValue({ count: 2 });
+    const prisma = {
+      matchCycle: {
+        create: jest.fn().mockResolvedValue({
+          id: 'cycle-2',
+          codename: 'Round 2',
+          participationDeadline: new Date('2026-04-30T12:00:00.000Z'),
+          revealAt: new Date('2026-05-01T12:00:00.000Z'),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          status: 'OPEN',
+          notes: null,
+        }),
+      },
+      cycleParticipation: {
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([
+            {
+              userId: 'user-1',
+              status: 'OPTED_IN',
+              updatedAt: new Date('2026-04-10T12:00:00.000Z'),
+            },
+            {
+              userId: 'user-2',
+              status: 'OPTED_OUT',
+              updatedAt: new Date('2026-04-11T12:00:00.000Z'),
+            },
+          ]),
+        createMany,
+      },
+    };
+    const adminAuditService = {
+      listAuditLogs: jest.fn(),
+      getRecentAuditLogsByCondition: jest.fn(),
+      write: jest.fn(),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      adminAuditService as never,
+      {} as never,
+    );
+
+    await expect(
+      service.upsertCycle(
+        {
+          codename: 'Round 2',
+          participationDeadline: '2026-04-30T12:00:00.000Z',
+          revealAt: '2026-05-01T12:00:00.000Z',
+          status: 'OPEN',
+          notes: null,
+        },
+        'admin-1',
+      ),
+    ).resolves.toMatchObject({
+      id: 'cycle-2',
+      status: 'OPEN',
+    });
+
+    const createManyCalls = createMany.mock.calls as Array<
+      [
+        {
+          data: Array<{
+            cycleId: string;
+            userId: string;
+            status: 'OPTED_IN' | 'OPTED_OUT';
+            optedInAt: Date | null;
+          }>;
+          skipDuplicates: boolean;
+        },
+      ]
+    >;
+    const createManyArgument = createManyCalls[0]?.[0];
+
+    if (!createManyArgument) {
+      throw new Error('Expected createMany to be called.');
+    }
+
+    expect(createManyArgument.skipDuplicates).toBe(true);
+    expect(createManyArgument.data).toEqual([
+      {
+        cycleId: 'cycle-2',
+        userId: 'user-1',
+        status: 'OPTED_IN',
+        optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
+      },
+      {
+        cycleId: 'cycle-2',
+        userId: 'user-2',
+        status: 'OPTED_OUT',
+        optedInAt: null,
+      },
+    ]);
+    expect(createManyArgument.data[0]?.optedInAt).toBeInstanceOf(Date);
+    expect(adminAuditService.write).toHaveBeenCalledWith(
+      'admin-1',
+      'cycle.created',
+      {
+        cycleId: 'cycle-2',
+        status: 'OPEN',
+      },
+    );
+  });
+
   it('treats users with an unsubmitted questionnaire response as missing', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const count = jest.fn().mockResolvedValue(0);
