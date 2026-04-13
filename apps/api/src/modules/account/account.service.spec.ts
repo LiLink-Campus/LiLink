@@ -542,24 +542,11 @@ describe('AccountService', () => {
     });
   });
 
-  it('inherits the latest participation state into the current open cycle on dashboard load', async () => {
-    const createMany = jest.fn().mockResolvedValue({ count: 1 });
+  it('treats a missing current-cycle participation as opted out on dashboard load', async () => {
     const cycleParticipation = {
       findFirst: jest.fn().mockResolvedValue(null),
-      findMany: jest
-        .fn()
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([
-          {
-            userId: 'user-1',
-            status: 'OPTED_IN',
-            updatedAt: new Date('2026-04-10T12:00:00.000Z'),
-          },
-        ]),
-      createMany,
-      findUnique: jest.fn().mockResolvedValue({
-        status: 'OPTED_IN',
-      }),
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
     };
     const prisma = {
       userProfile: {
@@ -586,9 +573,6 @@ describe('AccountService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       cycleParticipation,
-      $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
-        Promise.resolve(fn({ cycleParticipation })),
-      ),
     };
     const service = new AccountService(
       prisma as never,
@@ -599,38 +583,9 @@ describe('AccountService', () => {
     await expect(service.getDashboard('user-1')).resolves.toMatchObject({
       currentCycle: {
         id: 'cycle-2',
-        participationStatus: 'OPTED_IN',
+        participationStatus: 'OPTED_OUT',
       },
     });
-    const createManyCalls = createMany.mock.calls as Array<
-      [
-        {
-          data: Array<{
-            cycleId: string;
-            userId: string;
-            status: 'OPTED_IN' | 'OPTED_OUT';
-            optedInAt: Date | null;
-          }>;
-          skipDuplicates: boolean;
-        },
-      ]
-    >;
-    const createManyArgument = createManyCalls[0]?.[0];
-
-    if (!createManyArgument) {
-      throw new Error('Expected createMany to be called.');
-    }
-
-    expect(createManyArgument.skipDuplicates).toBe(true);
-    expect(createManyArgument.data).toEqual([
-      {
-        cycleId: 'cycle-2',
-        userId: 'user-1',
-        status: 'OPTED_IN',
-        optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
-      },
-    ]);
-    expect(createManyArgument.data[0]?.optedInAt).toBeInstanceOf(Date);
   });
 
   it('queues introduction emails instead of rolling back the match state', async () => {
