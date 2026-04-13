@@ -957,6 +957,74 @@ describe('CyclesService', () => {
     );
   });
 
+  it('prefers two lower-scoring pairs over one higher-scoring pair when questions are empty', async () => {
+    const prisma = {
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new CyclesService(prisma as never);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'scorePair'
+    >;
+    const participants = [
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+      createBroadParticipant('user-c', {}),
+      createBroadParticipant('user-d', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'scorePair')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<
+            string,
+            { rawScore: number; score: number; reasons: string[] }
+          > = {
+            'user-a::user-b': {
+              rawScore: 100,
+              score: 100,
+              reasons: ['ab'],
+            },
+            'user-a::user-c': {
+              rawScore: 40,
+              score: 40,
+              reasons: ['ac'],
+            },
+            'user-b::user-d': {
+              rawScore: 40,
+              score: 40,
+              reasons: ['bd'],
+            },
+          };
+
+          return scoreByPairKey[pairKey] ?? null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(result.selectedPairs).toHaveLength(2);
+    expect(
+      result.selectedPairs.map((pair) =>
+        [pair.left.id, pair.right.id].sort().join('::'),
+      ),
+    ).toEqual(expect.arrayContaining(['user-a::user-c', 'user-b::user-d']));
+  });
+
   it('falls back to the next valid candidate when the top-scoring pair already exists in history', async () => {
     const prisma = {
       block: {
