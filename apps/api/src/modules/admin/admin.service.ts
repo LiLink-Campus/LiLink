@@ -163,14 +163,18 @@ export class AdminService {
   }
 
   async getCycles(query: ListCyclesQueryDto = {}) {
+    const participationCountFilter = {
+      participations: {
+        where: { status: 'OPTED_IN' as const },
+      },
+      matches: true,
+    };
+
     if (!this.hasListQuery(query)) {
       return this.prisma.matchCycle.findMany({
         include: {
           _count: {
-            select: {
-              participations: true,
-              matches: true,
-            },
+            select: participationCountFilter,
           },
         },
         orderBy: { revealAt: 'desc' },
@@ -196,10 +200,7 @@ export class AdminService {
         where,
         include: {
           _count: {
-            select: {
-              participations: true,
-              matches: true,
-            },
+            select: participationCountFilter,
           },
         },
         orderBy: { revealAt: 'desc' },
@@ -552,7 +553,9 @@ export class AdminService {
       include: {
         _count: {
           select: {
-            participations: true,
+            participations: {
+              where: { status: 'OPTED_IN' },
+            },
             matches: true,
           },
         },
