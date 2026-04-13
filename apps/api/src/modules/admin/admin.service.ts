@@ -566,8 +566,6 @@ export class AdminService {
       throw new NotFoundException('Cycle not found.');
     }
 
-    await ensureStickyCycleParticipations(this.prisma, cycle);
-
     const [
       optedInCount,
       submittedQuestionnaireCount,
@@ -628,7 +626,6 @@ export class AdminService {
     query: ListCycleParticipantsQueryDto = {},
   ) {
     await this.assertCycleExists(cycleId);
-    await ensureStickyCycleParticipations(this.prisma, cycleId);
 
     const pagination = this.normalizePagination(query);
     const where = {

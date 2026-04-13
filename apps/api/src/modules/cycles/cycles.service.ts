@@ -296,7 +296,7 @@ export class CyclesService {
   }
 
   async previewCycle(cycleId: string) {
-    const [initialCycle, questionnaire] = await Promise.all([
+    const [cycle, questionnaire] = await Promise.all([
       this.prisma.matchCycle.findUnique({
         where: { id: cycleId },
         include: {
@@ -321,31 +321,6 @@ export class CyclesService {
         },
       }),
     ]);
-
-    if (!initialCycle) {
-      throw new NotFoundException('Cycle not found.');
-    }
-
-    const stickyParticipationInitialization =
-      await ensureStickyCycleParticipations(this.prisma, initialCycle);
-    const cycle =
-      stickyParticipationInitialization.createdCount > 0
-        ? await this.prisma.matchCycle.findUnique({
-            where: { id: cycleId },
-            include: {
-              participations: {
-                where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
-                include: {
-                  user: {
-                    include: {
-                      questionnaireResponse: true,
-                    },
-                  },
-                },
-              },
-            },
-          })
-        : initialCycle;
 
     if (!cycle) {
       throw new NotFoundException('Cycle not found.');

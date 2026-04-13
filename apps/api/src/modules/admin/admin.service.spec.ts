@@ -190,6 +190,112 @@ describe('AdminService', () => {
     );
   });
 
+  it('loads cycle detail without backfilling participation rows', async () => {
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          codename: 'Round 1',
+          revealAt: new Date('2026-05-01T12:00:00.000Z'),
+          participationDeadline: new Date('2026-04-30T12:00:00.000Z'),
+          status: 'OPEN',
+          notes: null,
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
+          _count: {
+            participations: 8,
+            matches: 3,
+          },
+        }),
+      },
+      cycleParticipation: {
+        count: jest.fn().mockResolvedValueOnce(5).mockResolvedValueOnce(4),
+      },
+      match: {
+        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(2),
+      },
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(service.getCycleDetail('cycle-1')).resolves.toMatchObject({
+      cycle: {
+        id: 'cycle-1',
+      },
+      summary: {
+        participationCount: 8,
+        optedInCount: 5,
+        submittedQuestionnaireCount: 4,
+        matchedPairCount: 3,
+        reportedMatchCount: 1,
+        pendingContactCount: 2,
+      },
+    });
+  });
+
+  it('loads cycle participants without backfilling participation rows', async () => {
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'cycle-1' }),
+      },
+      cycleParticipation: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'participation-1',
+            status: 'OPTED_IN',
+            optedInAt: new Date('2026-04-21T12:00:00.000Z'),
+            updatedAt: new Date('2026-04-21T12:00:00.000Z'),
+            user: {
+              id: 'user-1',
+              email: 'user-1@example.com',
+              status: 'ACTIVE',
+              displayName: 'User 1',
+              isTest: false,
+              createdAt: new Date('2026-04-01T12:00:00.000Z'),
+              school: null,
+              profile: null,
+              questionnaireResponse: null,
+            },
+          },
+        ]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.getCycleParticipants('cycle-1', { page: 1, pageSize: 10 }),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          id: 'participation-1',
+          status: 'OPTED_IN',
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 10,
+      totalPages: 1,
+    });
+  });
+
   it('treats users with an unsubmitted questionnaire response as missing', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const count = jest.fn().mockResolvedValue(0);

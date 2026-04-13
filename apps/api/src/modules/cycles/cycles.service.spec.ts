@@ -402,6 +402,42 @@ describe('CyclesService', () => {
     });
   });
 
+  it('previews cycles without backfilling sticky participation rows', async () => {
+    const matchCycleFindUnique = jest.fn().mockResolvedValue({
+      id: 'cycle-1',
+      status: 'OPEN',
+      revealAt: new Date('2026-05-01T12:00:00.000Z'),
+      createdAt: new Date('2026-04-20T12:00:00.000Z'),
+      participations: [],
+    });
+    const prisma = {
+      matchCycle: {
+        findUnique: matchCycleFindUnique,
+      },
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+    };
+    const service = new CyclesService(prisma as never);
+
+    await expect(service.previewCycle('cycle-1')).resolves.toMatchObject({
+      cycleId: 'cycle-1',
+      candidates: [],
+      suggestedPairs: [],
+      unmatchedUserIds: [],
+    });
+    expect(matchCycleFindUnique).toHaveBeenCalledTimes(1);
+  });
+
   it('builds reasons from configured question templates instead of hard-coded keys', () => {
     const service = new CyclesService({} as never);
     const scorePair = (
