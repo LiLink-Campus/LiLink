@@ -271,7 +271,9 @@ export class AdminService {
         },
         _count: {
           select: {
-            participations: true,
+            participations: {
+              where: { status: 'OPTED_IN' },
+            },
           },
         },
       },
