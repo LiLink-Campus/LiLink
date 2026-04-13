@@ -514,7 +514,7 @@ export default function AdminCyclesPage() {
                 </div>
                 <p>揭晓：{formatDateTime(cycle.revealAt)}</p>
                 <div className="admin-inline-meta">
-                  <span>参与记录 {cycle._count.participations}</span>
+                  <span>报名人数 {cycle._count.participations}</span>
                   <span>匹配数 {cycle._count.matches}</span>
                 </div>
               </button>
@@ -572,7 +572,7 @@ export default function AdminCyclesPage() {
           {selectedCycle && (
             <div className="admin-inline-metrics">
               <div><span>状态</span><strong>{CYCLE_STATUS_LABELS[selectedCycle.status]}</strong></div>
-              <div><span>参与记录</span><strong>{selectedCycle._count.participations}</strong></div>
+              <div><span>报名人数</span><strong>{selectedCycle._count.participations}</strong></div>
               <div><span>匹配数</span><strong>{selectedCycle._count.matches}</strong></div>
             </div>
           )}
