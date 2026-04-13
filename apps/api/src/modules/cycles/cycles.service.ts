@@ -71,6 +71,32 @@ type MatchScoreBounds = {
   max: number;
 };
 
+/**
+ * Blossom maximizes the sum of edge weights. To maximize matching cardinality
+ * first and total raw score second, shift each edge by a prefix derived from
+ * score bounds so that one extra matched pair always outweighs any raw-score
+ * tradeoff among feasible matchings.
+ */
+function lexicographicMatchingEdgeWeight(
+  rawScore: number,
+  participantCount: number,
+  scoreBounds: MatchScoreBounds,
+): number {
+  const maxPairs = Math.floor(participantCount / 2);
+  if (maxPairs <= 0) {
+    return rawScore;
+  }
+
+  let lexPrefix =
+    (maxPairs - 1) * scoreBounds.max - maxPairs * scoreBounds.min + 1;
+
+  if (lexPrefix < 1) {
+    lexPrefix = maxPairs * scoreBounds.max + 1;
+  }
+
+  return lexPrefix + rawScore;
+}
+
 function buildInsufficientParticipantsMessage(
   optedInCount: number,
   eligibleCount: number,
@@ -569,6 +595,7 @@ export class CyclesService {
     const selectedPairs = this.selectOptimalDisjointPairs(
       candidates,
       participants,
+      scoreBounds,
     );
 
     return {
@@ -772,6 +799,7 @@ export class CyclesService {
   private selectOptimalDisjointPairs(
     candidates: CandidatePair[],
     participants: EligibleParticipant[],
+    scoreBounds: MatchScoreBounds,
   ) {
     if (candidates.length === 0) {
       return [];
@@ -797,7 +825,13 @@ export class CyclesService {
           );
         }
 
-        return [leftIndex, rightIndex, candidate.rawScore];
+        const blossomWeight = lexicographicMatchingEdgeWeight(
+          candidate.rawScore,
+          participants.length,
+          scoreBounds,
+        );
+
+        return [leftIndex, rightIndex, blossomWeight];
       },
     );
     const mateByIndex = blossom(edges, true);
