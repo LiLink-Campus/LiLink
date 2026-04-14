@@ -10,7 +10,13 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RequestCodeDto } from './dto';
+import {
+  LoginDto,
+  RegisterDto,
+  RequestCodeDto,
+  RequestPasswordResetCodeDto,
+  ResetPasswordDto,
+} from './dto';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { env } from '../../config/env';
@@ -32,6 +38,23 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const { token, ...payload } = await this.authService.register(body);
+    this.attachAuthCookie(response, token);
+    return payload;
+  }
+
+  @Post('request-password-reset-code')
+  @Throttle({ default: { ttl: 60_000, limit: 3 } })
+  requestPasswordResetCode(@Body() body: RequestPasswordResetCodeDto) {
+    return this.authService.requestPasswordResetCode(body.email);
+  }
+
+  @Post('reset-password')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  async resetPassword(
+    @Body() body: ResetPasswordDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { token, ...payload } = await this.authService.resetPassword(body);
     this.attachAuthCookie(response, token);
     return payload;
   }

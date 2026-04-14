@@ -1,0 +1,195 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useEffect, useState } from "react";
+import { fetchApi } from "../../lib/api";
+
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_MAX_LENGTH = 128;
+const VERIFICATION_CODE_LENGTH = 6;
+
+type CodeResponse = {
+  email: string;
+  expiresAt: string;
+  devCode?: string;
+};
+
+export default function ForgotPasswordPageClient() {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [devCode, setDevCode] = useState<string | undefined>();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [canRevealDevCode, setCanRevealDevCode] = useState(false);
+
+  useEffect(() => {
+    const localhostHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+    setCanRevealDevCode(localhostHosts.has(window.location.hostname));
+  }, []);
+
+  async function requestCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+
+    try {
+      const result = await fetchApi<CodeResponse>(
+        "/auth/request-password-reset-code",
+        {
+          method: "POST",
+          body: JSON.stringify({ email }),
+        },
+      );
+
+      setDevCode(result.devCode);
+      setStep(2);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "验证码发送失败，请稍后再试。",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function resetPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+
+    if (newPassword !== passwordConfirm) {
+      setError("两次输入的密码不一致，请重新确认。");
+      setPending(false);
+      return;
+    }
+
+    try {
+      await fetchApi("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ email, code, newPassword }),
+      });
+
+      window.location.href = "/dashboard";
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : "重置失败，请重试。",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <main className="page-shell prose-shell">
+      <section className="content-panel auth-panel">
+        <p className="eyebrow">
+          重置密码 &middot; 第 {step} 步（共 2 步）
+        </p>
+        <h1>重置密码</h1>
+        {step === 1 ? (
+          <p>输入你的学校邮箱，我们会发送验证码来验证你的身份</p>
+        ) : (
+          <p>请输入验证码并设置新密码</p>
+        )}
+
+        {step === 1 ? (
+          <form className="auth-form" onSubmit={requestCode}>
+            <label>
+              <span>学校邮箱</span>
+              <input
+                required
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="your.name@school.edu"
+              />
+            </label>
+            {error ? <p className="form-error">{error}</p> : null}
+            <button className="button-primary" disabled={pending} type="submit">
+              {pending ? "发送中..." : "发送验证码"}
+            </button>
+          </form>
+        ) : (
+          <form className="auth-form" onSubmit={resetPassword}>
+            <div className="dev-inline">
+              <span>已发送到</span>
+              <strong>{email}</strong>
+            </div>
+            {canRevealDevCode && devCode ? (
+              <p className="dev-note">开发环境验证码：{devCode}</p>
+            ) : null}
+            <label>
+              <span>验证码</span>
+              <input
+                required
+                value={code}
+                maxLength={VERIFICATION_CODE_LENGTH}
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                onChange={(event) => setCode(event.target.value)}
+                placeholder="6 位验证码"
+              />
+            </label>
+            <label>
+              <span>新密码</span>
+              <input
+                required
+                type="password"
+                value={newPassword}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
+                autoComplete="new-password"
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder={`至少 ${PASSWORD_MIN_LENGTH} 位，含字母和数字`}
+              />
+            </label>
+            <label>
+              <span>确认新密码</span>
+              <input
+                required
+                type="password"
+                value={passwordConfirm}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
+                autoComplete="new-password"
+                onChange={(event) => setPasswordConfirm(event.target.value)}
+                placeholder="再次输入新密码"
+              />
+            </label>
+            {error ? <p className="form-error">{error}</p> : null}
+            <div className="auth-actions">
+              <button
+                className="button-secondary"
+                disabled={pending}
+                type="button"
+                onClick={() => setStep(1)}
+              >
+                重新输入邮箱
+              </button>
+              <button
+                className="button-primary"
+                disabled={
+                  pending ||
+                  newPassword !== passwordConfirm ||
+                  newPassword.length < PASSWORD_MIN_LENGTH
+                }
+                type="submit"
+              >
+                {pending ? "重置中..." : "重置密码"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <p className="auth-hint">
+          想起密码了？<Link href="/login">返回登录</Link>
+        </p>
+      </section>
+    </main>
+  );
+}

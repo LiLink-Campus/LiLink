@@ -69,4 +69,38 @@ describe('AuthController', () => {
     });
     expect(response.cookie).toHaveBeenCalled();
   });
+
+  it('strips the token from the reset-password response body while still setting the cookie', async () => {
+    const authController = new AuthController({
+      resetPassword: jest.fn().mockResolvedValue({
+        token: 'jwt-token',
+        user: {
+          id: 'user-1',
+          email: 'user@example.com',
+          displayName: 'User',
+        },
+      }),
+    } as never);
+    const response = {
+      cookie: jest.fn(),
+    };
+
+    await expect(
+      authController.resetPassword(
+        {
+          email: 'user@example.com',
+          code: '123456',
+          newPassword: 'Password123',
+        },
+        response as never,
+      ),
+    ).resolves.toEqual({
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'User',
+      },
+    });
+    expect(response.cookie).toHaveBeenCalled();
+  });
 });

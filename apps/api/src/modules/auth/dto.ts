@@ -54,3 +54,25 @@ export class LoginDto {
   @MaxLength(PASSWORD_MAX_LENGTH)
   password!: string;
 }
+
+export class RequestPasswordResetCodeDto {
+  @IsEmail()
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @Length(6, 6)
+  code!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(PASSWORD_MAX_LENGTH)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
+    message: 'Password must include at least one letter and one number.',
+  })
+  newPassword!: string;
+}

@@ -25,6 +25,27 @@ type RegisterTransaction = {
   };
 };
 
+type VerificationCodeTransaction = {
+  emailCode: {
+    create: jest.Mock;
+    updateMany: jest.Mock;
+  };
+  outboundEmail: {
+    create: jest.Mock;
+  };
+};
+
+type ResetPasswordTransaction = {
+  emailCode: {
+    findFirst: jest.Mock;
+    updateMany: jest.Mock;
+  };
+  user: {
+    findUnique: jest.Mock;
+    update: jest.Mock;
+  };
+};
+
 describe('AuthService', () => {
   beforeEach(() => {
     mockedArgon2.hash.mockReset();
@@ -91,6 +112,7 @@ describe('AuthService', () => {
       email: 'user@example.com',
       deliveryStatus: 'PENDING',
     });
+    const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     const outboundCreate = jest.fn().mockResolvedValue(undefined);
     const findUnique = jest.fn().mockResolvedValue({
       id: 'code-1',
@@ -103,13 +125,13 @@ describe('AuthService', () => {
       },
       $transaction: jest.fn(
         async (
-          callback: (transaction: {
-            emailCode: { create: typeof create };
-            outboundEmail: { create: typeof outboundCreate };
-          }) => Promise<unknown>,
+          callback: (transaction: VerificationCodeTransaction) => Promise<unknown>,
         ) =>
           callback({
-            emailCode: { create },
+            emailCode: {
+              create,
+              updateMany: invalidateExistingCodes,
+            },
             outboundEmail: { create: outboundCreate },
           }),
       ),
@@ -149,6 +171,14 @@ describe('AuthService', () => {
     expect(createPayload?.data.deliveryDedupeKey).toMatch(
       /^verification-code:/,
     );
+    expect(invalidateExistingCodes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          email: 'user@example.com',
+          purpose: 'register',
+        }),
+      }),
+    );
 
     expect(outboundCreate).toHaveBeenCalledTimes(1);
     const outboundCalls = outboundCreate.mock.calls as unknown as Array<
@@ -183,6 +213,7 @@ describe('AuthService', () => {
   it('rejects requestCode when the verification email could not be delivered', async () => {
     mockedArgon2.hash.mockResolvedValue('hashed-code');
 
+    const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
     const prisma = {
       emailCode: {
@@ -193,14 +224,12 @@ describe('AuthService', () => {
       },
       $transaction: jest.fn(
         async (
-          callback: (transaction: {
-            emailCode: { create: jest.Mock };
-            outboundEmail: { create: jest.Mock };
-          }) => Promise<unknown>,
+          callback: (transaction: VerificationCodeTransaction) => Promise<unknown>,
         ) =>
           callback({
             emailCode: {
               create: jest.fn().mockResolvedValue({ id: 'code-1' }),
+              updateMany: invalidateExistingCodes,
             },
             outboundEmail: {
               create: jest.fn().mockResolvedValue(undefined),
@@ -235,6 +264,104 @@ describe('AuthService', () => {
     await expect(
       authService.requestCode('user@example.com'),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('allows password reset for an existing user even when the email domain is no longer accepted', async () => {
+    mockedArgon2.hash.mockResolvedValue('hashed-code');
+
+    const resolveByEmail = jest.fn();
+    const create = jest.fn().mockResolvedValue({
+      id: 'code-1',
+      email: 'user@legacy.invalid',
+      deliveryStatus: 'PENDING',
+    });
+    const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
+    const outboundCreate = jest.fn().mockResolvedValue(undefined);
+    const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'user-1',
+          email: 'user@legacy.invalid',
+          status: 'ACTIVE',
+        }),
+      },
+      emailCode: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'code-1',
+          deliveryStatus: 'SENT',
+        }),
+      },
+      $transaction: jest.fn(
+        async (
+          callback: (transaction: VerificationCodeTransaction) => Promise<unknown>,
+        ) =>
+          callback({
+            emailCode: {
+              create,
+              updateMany: invalidateExistingCodes,
+            },
+            outboundEmail: { create: outboundCreate },
+          }),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {
+        buildVerificationCodeEmail: jest.fn(
+          (input: {
+            dedupeKey: string;
+            recipientEmail: string;
+            code: string;
+          }) => ({
+            dedupeKey: input.dedupeKey,
+            recipientEmail: input.recipientEmail,
+            subject: 'LiLink verification code',
+            html: '<p>Code</p>',
+            maxAttempts: 1,
+          }),
+        ),
+        flushQueuedEmails,
+      } as never,
+      {
+        resolveByEmail,
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      authService.requestPasswordResetCode('user@legacy.invalid'),
+    ).resolves.toMatchObject({
+      email: 'user@legacy.invalid',
+    });
+    expect(resolveByEmail).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a neutral response for unknown password-reset emails without queuing mail', async () => {
+    const buildVerificationCodeEmail = jest.fn();
+    const flushQueuedEmails = jest.fn();
+    const authService = new AuthService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+      } as never,
+      {
+        buildVerificationCodeEmail,
+        flushQueuedEmails,
+      } as never,
+      {} as never,
+      {} as never,
+    );
+
+    const result =
+      await authService.requestPasswordResetCode('missing@example.com');
+
+    expect(result.email).toBe('missing@example.com');
+    expect(result.expiresAt).toBeInstanceOf(Date);
+    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
+    expect(flushQueuedEmails).not.toHaveBeenCalled();
   });
 
   it('rejects passwords that exceed the configured maximum length', () => {
@@ -378,5 +505,60 @@ describe('AuthService', () => {
         },
       }),
     );
+  });
+
+  it('rejects password reset for suspended users before consuming the code or updating the password', async () => {
+    const emailCodeFindFirst = jest.fn();
+    const emailCodeUpdateMany = jest.fn();
+    const userFindUnique = jest.fn().mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      status: 'SUSPENDED',
+    });
+    const userUpdate = jest.fn();
+    const tx: ResetPasswordTransaction = {
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+        updateMany: emailCodeUpdateMany,
+      },
+      user: {
+        findUnique: userFindUnique,
+        update: userUpdate,
+      },
+    };
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'user-1',
+          email: 'user@example.com',
+          status: 'SUSPENDED',
+        }),
+      },
+      $transaction: jest.fn(
+        async (
+          callback: (transaction: ResetPasswordTransaction) => Promise<unknown>,
+        ) => callback(tx),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      {
+        sign: jest.fn(),
+      } as never,
+    );
+
+    await expect(
+      authService.resetPassword({
+        email: 'user@example.com',
+        code: '123456',
+        newPassword: 'Password123',
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(emailCodeFindFirst).not.toHaveBeenCalled();
+    expect(emailCodeUpdateMany).not.toHaveBeenCalled();
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(mockedArgon2.hash).not.toHaveBeenCalled();
   });
 });

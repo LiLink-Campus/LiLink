@@ -69,6 +69,9 @@ export default function LoginPageClient() {
           </button>
         </form>
         <p className="auth-hint">
+          <Link href="/forgot-password">忘记密码？</Link>
+        </p>
+        <p className="auth-hint">
           还没有账号？<Link href="/register">立即注册</Link>
         </p>
       </section>
