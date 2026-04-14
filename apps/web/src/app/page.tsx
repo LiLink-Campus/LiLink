@@ -7,7 +7,7 @@ export const revalidate = 60;
 /** Homepage hero strip: public-facing counts differ from admin/API totals. */
 const HOMEPAGE_REGISTERED_COUNT_PAD = 50;
 const HOMEPAGE_COMPLETED_COUNT_PAD = 40;
-const HOMEPAGE_COMPLETED_QUESTIONNAIRES_DISPLAY_OFFSET = 10;
+const HOMEPAGE_MATCHES_DELIVERED_DISPLAY_OFFSET = 10;
 
 function formatDateLabel(value: string | null) {
   if (!value) {
@@ -93,8 +93,7 @@ export default async function Home() {
           <strong>
             {landing
               ? landing.stats.completedQuestionnaires +
-                HOMEPAGE_COMPLETED_COUNT_PAD +
-                HOMEPAGE_COMPLETED_QUESTIONNAIRES_DISPLAY_OFFSET
+                HOMEPAGE_COMPLETED_COUNT_PAD
               : "—"}
           </strong>
         </div>
@@ -109,7 +108,7 @@ export default async function Home() {
               ? "—"
               : matchesLabelIsNarrative
                 ? "正在准备进行首轮匹配"
-                : matchesDelivered}
+                : matchesDelivered + HOMEPAGE_MATCHES_DELIVERED_DISPLAY_OFFSET}
           </strong>
         </div>
       </section>
