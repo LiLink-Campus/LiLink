@@ -119,6 +119,23 @@ function buildDashboardFieldId(...parts: Array<string | number>) {
 const DEFAULT_REPORT_REASON = "骚扰";
 const REPORT_FORM_SECTION_ID = "dashboard-report-panel";
 
+/** User-visible label for the report ticket chip (API `ReportStatus`). */
+function reportHandlingChipLabel(status: string | null): string | null {
+  if (!status) {
+    return null;
+  }
+  switch (status) {
+    case "OPEN":
+      return "举报处理中";
+    case "RESOLVED":
+      return "处理完成";
+    case "DISMISSED":
+      return "已驳回";
+    default:
+      return "举报处理中";
+  }
+}
+
 function formatCycleRevealAt(iso: string) {
   return new Intl.DateTimeFormat("zh-CN", {
     dateStyle: "long",
@@ -626,9 +643,10 @@ export default function DashboardPage({
             <p className="dashboard-muted">
               匹配度：<strong>{dashboard.latestMatch.score.toFixed(1)}</strong> / 100
             </p>
-            {dashboard.latestMatch.reportStatus ? (
-              <span className="domain-chip">举报处理中</span>
-            ) : null}
+            {(() => {
+              const label = reportHandlingChipLabel(dashboard.latestMatch.reportStatus);
+              return label ? <span className="domain-chip">{label}</span> : null;
+            })()}
           </>
         ) : counterpart ? (
           <>
@@ -689,27 +707,32 @@ export default function DashboardPage({
                   {saving === "contact" ? "发送中…" : "双方引荐联系"}
                 </button>
               )}
-              {dashboard?.latestMatch?.reportStatus ? (
-                <span className="domain-chip">举报处理中</span>
-              ) : (
-                <button
-                  className="button-secondary"
-                  aria-controls={REPORT_FORM_SECTION_ID}
-                  aria-expanded={
-                    dashboard?.latestMatch
-                      ? reportFormIsOpenForMatch(dashboard.latestMatch.id)
-                      : false
-                  }
-                  disabled={saving === "report"}
-                  type="button"
-                  onClick={() => {
-                    if (!dashboard?.latestMatch) return;
-                    toggleReportForm(dashboard.latestMatch.id);
-                  }}
-                >
-                  举报
-                </button>
-              )}
+              {(() => {
+                const label = reportHandlingChipLabel(
+                  dashboard?.latestMatch?.reportStatus ?? null,
+                );
+                return label ? (
+                  <span className="domain-chip">{label}</span>
+                ) : (
+                  <button
+                    className="button-secondary"
+                    aria-controls={REPORT_FORM_SECTION_ID}
+                    aria-expanded={
+                      dashboard?.latestMatch
+                        ? reportFormIsOpenForMatch(dashboard.latestMatch.id)
+                        : false
+                    }
+                    disabled={saving === "report"}
+                    type="button"
+                    onClick={() => {
+                      if (!dashboard?.latestMatch) return;
+                      toggleReportForm(dashboard.latestMatch.id);
+                    }}
+                  >
+                    举报
+                  </button>
+                );
+              })()}
             </div>
           </>
         ) : (
@@ -845,22 +868,25 @@ export default function DashboardPage({
                                   {saving === "contact" ? "发送中…" : "双方引荐联系"}
                                 </button>
                               )}
-                              {hm.reportStatus ? (
-                                <span className="domain-chip">举报处理中</span>
-                              ) : (
-                                <button
-                                  className="button-secondary"
-                                  aria-controls={REPORT_FORM_SECTION_ID}
-                                  aria-expanded={reportFormIsOpenForMatch(hm.id)}
-                                  disabled={saving === "report"}
-                                  type="button"
-                                  onClick={() => {
-                                    toggleReportForm(hm.id);
-                                  }}
-                                >
-                                  举报
-                                </button>
-                              )}
+                              {(() => {
+                                const label = reportHandlingChipLabel(hm.reportStatus);
+                                return label ? (
+                                  <span className="domain-chip">{label}</span>
+                                ) : (
+                                  <button
+                                    className="button-secondary"
+                                    aria-controls={REPORT_FORM_SECTION_ID}
+                                    aria-expanded={reportFormIsOpenForMatch(hm.id)}
+                                    disabled={saving === "report"}
+                                    type="button"
+                                    onClick={() => {
+                                      toggleReportForm(hm.id);
+                                    }}
+                                  >
+                                    举报
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </>
                         );
