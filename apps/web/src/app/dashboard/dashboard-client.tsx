@@ -117,6 +117,7 @@ function buildDashboardFieldId(...parts: Array<string | number>) {
 }
 
 const DEFAULT_REPORT_REASON = "骚扰";
+const REPORT_FORM_SECTION_ID = "dashboard-report-panel";
 
 function formatCycleRevealAt(iso: string) {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -340,6 +341,8 @@ export default function DashboardPage({
   );
   const [questionnaireBodyVisible, setQuestionnaireBodyVisible] = useState(true);
   const initialQuestionnaireVisibilitySet = useRef(false);
+  const reportSectionRef = useRef<HTMLElement | null>(null);
+  const reportReasonSelectRef = useRef<HTMLSelectElement | null>(null);
 
   useEffect(() => {
     if (!dashboard || initialQuestionnaireVisibilitySet.current) {
@@ -350,6 +353,22 @@ export default function DashboardPage({
       setQuestionnaireBodyVisible(false);
     }
   }, [dashboard]);
+
+  useEffect(() => {
+    if (!reportOpen || !reportTargetMatchId) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      reportSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      reportReasonSelectRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [reportOpen, reportTargetMatchId]);
 
   const birthDayOptions = useMemo(
     () => buildDayOptions(hardMatchForm.birthYear, hardMatchForm.birthMonth),
@@ -414,6 +433,10 @@ export default function DashboardPage({
     }
 
     openReportForm(matchId);
+  }
+
+  function reportFormIsOpenForMatch(matchId: string) {
+    return reportOpen && reportTargetMatchId === matchId;
   }
 
   async function saveQuestionnaire() {
@@ -671,6 +694,12 @@ export default function DashboardPage({
               ) : (
                 <button
                   className="button-secondary"
+                  aria-controls={REPORT_FORM_SECTION_ID}
+                  aria-expanded={
+                    dashboard?.latestMatch
+                      ? reportFormIsOpenForMatch(dashboard.latestMatch.id)
+                      : false
+                  }
                   disabled={saving === "report"}
                   type="button"
                   onClick={() => {
@@ -821,6 +850,8 @@ export default function DashboardPage({
                               ) : (
                                 <button
                                   className="button-secondary"
+                                  aria-controls={REPORT_FORM_SECTION_ID}
+                                  aria-expanded={reportFormIsOpenForMatch(hm.id)}
                                   disabled={saving === "report"}
                                   type="button"
                                   onClick={() => {
@@ -844,7 +875,11 @@ export default function DashboardPage({
       ) : null}
 
       {reportOpen && reportTargetMatchId ? (
-        <section className="content-panel dashboard-panel-wide">
+        <section
+          ref={reportSectionRef}
+          className="content-panel dashboard-panel-wide"
+          id={REPORT_FORM_SECTION_ID}
+        >
           <p className="eyebrow">举报匹配</p>
           <h2>提交举报</h2>
           <p className="dashboard-muted">
@@ -854,6 +889,7 @@ export default function DashboardPage({
             <label>
               <span>举报原因</span>
               <select
+                ref={reportReasonSelectRef}
                 id={buildDashboardFieldId("report-reason")}
                 name="reportReason"
                 value={reportReason}

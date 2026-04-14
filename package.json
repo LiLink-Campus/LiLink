@@ -18,7 +18,7 @@
     "build:shared": "npm run build --workspace @lilink/shared",
     "build:web": "npm run build --workspace web",
     "build:api": "npm run build --workspace api",
-    "typecheck:web": "npm run typecheck --workspace web",
+    "typecheck:web": "npm run build:shared && npm run typecheck --workspace web",
     "lint": "npm run lint:shared && npm run lint:web && npm run lint:api",
     "lint:shared": "npm run lint --workspace @lilink/shared",
     "lint:web": "npm run lint --workspace web",
