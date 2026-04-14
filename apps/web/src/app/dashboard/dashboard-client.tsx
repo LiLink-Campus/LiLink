@@ -609,7 +609,12 @@ export default function DashboardPage({
           </>
         ) : counterpart ? (
           <>
-            <h2>{introduced ? "引荐与说明" : "本轮匹配"}</h2>
+                       <h2>{introduced ? "引荐与说明" : "本轮匹配"}</h2>
+            {introduced ? (
+              <p className="dashboard-muted" style={{ marginTop: "0.35rem" }}>
+                引荐已完成：系统已向你与对方的注册邮箱各发送一封引荐邮件（含联络方式与下方说明）。请查收收件箱及垃圾邮件夹后，再通过邮件与对方联系。
+              </p>
+            ) : null}
             {dashboard?.latestMatch ? (
               <p className="dashboard-match-score">
                 匹配度：<strong>{dashboard.latestMatch.score.toFixed(1)}</strong> / 100
