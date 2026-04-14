@@ -15,6 +15,8 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
     "账号已被暂停使用。",
   "Account is not active yet.":
     "账号尚未激活。",
+  "Verification email could not be delivered. Please try again later.":
+    "验证邮件发送失败，请稍后再试。",
   "User account no longer exists.":
     "账号不存在。",
 };
