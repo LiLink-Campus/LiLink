@@ -315,15 +315,15 @@ describe('AccountService', () => {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
-          submittedAt: expect.any(Date),
-        }),
+          submittedAt: expect.any(Date) as unknown as Date,
+        }) as object,
         update: expect.objectContaining({
           answers: {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
-          submittedAt: expect.any(Date),
-        }),
+          submittedAt: expect.any(Date) as unknown as Date,
+        }) as object,
       }),
     );
   });

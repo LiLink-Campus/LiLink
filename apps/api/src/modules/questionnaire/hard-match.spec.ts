@@ -9,7 +9,11 @@ import {
 } from './hard-match';
 
 describe('hard-match helpers', () => {
-  const allowedSchoolIds = ['school-bupt', 'school-cuc', 'school-uestc'] as const;
+  const allowedSchoolIds = [
+    'school-bupt',
+    'school-cuc',
+    'school-uestc',
+  ] as const;
   const validAnswers = {
     [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
     [HARD_MATCH_KEYS.partnerAgeMin]: 18,
@@ -54,19 +58,25 @@ describe('hard-match helpers', () => {
 
   it('rejects questionnaire saves without a one-line intro', () => {
     expect(() =>
-      normalizeHardMatchAnswers({
-        ...validAnswers,
-        [HARD_MATCH_KEYS.oneLinerIntro]: '   ',
-      }, allowedSchoolIds),
+      normalizeHardMatchAnswers(
+        {
+          ...validAnswers,
+          [HARD_MATCH_KEYS.oneLinerIntro]: '   ',
+        },
+        allowedSchoolIds,
+      ),
     ).toThrow(BadRequestException);
   });
 
   it('rejects questionnaire saves with a school id outside the active school list', () => {
     expect(() =>
-      normalizeHardMatchAnswers({
-        ...validAnswers,
-        [HARD_MATCH_KEYS.school]: 'school-missing',
-      }, allowedSchoolIds),
+      normalizeHardMatchAnswers(
+        {
+          ...validAnswers,
+          [HARD_MATCH_KEYS.school]: 'school-missing',
+        },
+        allowedSchoolIds,
+      ),
     ).toThrow(BadRequestException);
   });
 

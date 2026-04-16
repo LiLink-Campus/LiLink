@@ -320,7 +320,10 @@ export function normalizeHardMatchAnswers(
   rawAnswers: Record<string, unknown>,
   allowedSchoolIds: readonly string[],
 ): HardMatchAnswerRecord {
-  const normalizedValues = normalizeHardMatchValues(rawAnswers, allowedSchoolIds);
+  const normalizedValues = normalizeHardMatchValues(
+    rawAnswers,
+    allowedSchoolIds,
+  );
 
   if (!normalizedValues.oneLinerIntro) {
     throw requiredFieldError(HARD_MATCH_KEYS.oneLinerIntro);
@@ -339,7 +342,8 @@ export function normalizeHardMatchAnswers(
     [HARD_MATCH_KEYS.partnerHeightMax]: normalizedValues.partnerHeightMax,
     [HARD_MATCH_KEYS.oneLinerIntro]: normalizedValues.oneLinerIntro,
     [HARD_MATCH_KEYS.school]: normalizedValues.school,
-    [HARD_MATCH_KEYS.excludedPartnerSchools]: normalizedValues.excludedPartnerSchools,
+    [HARD_MATCH_KEYS.excludedPartnerSchools]:
+      normalizedValues.excludedPartnerSchools,
   };
 }
 

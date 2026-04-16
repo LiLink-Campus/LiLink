@@ -41,10 +41,7 @@ export class AuthService {
     const school =
       await this.schoolResolverService.resolveByEmail(normalizedEmail);
 
-    const result = await this.sendVerificationCode(
-      normalizedEmail,
-      'register',
-    );
+    const result = await this.sendVerificationCode(normalizedEmail, 'register');
 
     return { ...result, school };
   }

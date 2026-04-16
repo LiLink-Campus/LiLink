@@ -183,10 +183,12 @@ describe('AdminSchoolService', () => {
         Promise.resolve(
           callback({
             school: {
-              findMany: jest.fn().mockResolvedValue([
-                { id: 'school-target' },
-                { id: 'school-third' },
-              ]),
+              findMany: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: 'school-target' },
+                  { id: 'school-third' },
+                ]),
               delete: jest.fn().mockResolvedValue(undefined),
             },
             user: {

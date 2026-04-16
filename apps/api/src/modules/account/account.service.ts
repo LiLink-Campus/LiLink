@@ -616,7 +616,9 @@ export class AccountService {
       (response.answers ?? {}) as Record<string, unknown>,
       {
         currentSchoolId: user?.schoolId ?? null,
-        allowedSchoolIds: currentQuestionnaire.schools.map((school) => school.id),
+        allowedSchoolIds: currentQuestionnaire.schools.map(
+          (school) => school.id,
+        ),
       },
     );
     const filteredAnswers = this.questionnaireService.sanitizeStoredAnswers(
@@ -626,9 +628,7 @@ export class AccountService {
 
     for (const hardMatchKey of hardMatchQuestionKeys()) {
       if (schoolAwareAnswers[hardMatchKey] != null) {
-        filteredAnswers[hardMatchKey] = schoolAwareAnswers[
-          hardMatchKey
-        ] as Prisma.InputJsonValue;
+        filteredAnswers[hardMatchKey] = schoolAwareAnswers[hardMatchKey];
       }
     }
 

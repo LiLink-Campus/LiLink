@@ -452,7 +452,10 @@ describe('CyclesService', () => {
   it('injects the current school id when building eligible participants', () => {
     const service = new CyclesService({} as never);
     const toEligibleParticipants = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'toEligibleParticipants'>
+      service as unknown as Pick<
+        CyclesServiceTestHarness,
+        'toEligibleParticipants'
+      >
     ).toEligibleParticipants.bind(service);
 
     const participants = toEligibleParticipants([
