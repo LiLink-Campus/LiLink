@@ -9,6 +9,7 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
 import {
+  HARD_MATCH_KEYS,
   HardMatchAnswers,
   areHardMatchAnswersCompatible,
   tryReadHardMatchAnswers,
@@ -106,7 +107,7 @@ function buildInsufficientParticipantsMessage(
     return `${prefix} No users are opted in (OPTED_IN) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers are required.`;
   }
   if (eligibleCount === 0) {
-    return `${prefix} ${optedInCount} user(s) opted in, but none have valid hard-matching questionnaire answers (birth date, partner age range, gender / partner genders, looks / partner looks, height / partner height range).`;
+    return `${prefix} ${optedInCount} user(s) opted in, but none have valid hard-matching questionnaire answers (birth date, partner age range, gender / partner genders, looks / partner looks, height / partner height range, and a recognized school).`;
   }
   return `${prefix} Only ${eligibleCount} of ${optedInCount} opted-in user(s) are eligible; at least 2 are required.`;
 }
@@ -306,6 +307,7 @@ export class CyclesService {
               user: {
                 include: {
                   questionnaireResponse: true,
+                  school: { select: { id: true } },
                 },
               },
             },
@@ -429,6 +431,7 @@ export class CyclesService {
               id: true,
               displayName: true,
               questionnaireResponse: true,
+              school: { select: { id: true } },
             },
           },
         },
@@ -458,23 +461,27 @@ export class CyclesService {
       user: {
         id: string;
         displayName: string | null;
+        school?: { id: string } | null;
         questionnaireResponse: {
           answers: Prisma.JsonValue;
         } | null;
       };
     }>,
-  ) {
+  ): EligibleParticipant[] {
     return participations
       .map((entry) => entry.user)
-      .map((user) => {
+      .map((user): EligibleParticipant | null => {
         if (!user.questionnaireResponse) {
           return null;
         }
 
-        const answers = (user.questionnaireResponse.answers ?? {}) as Record<
-          string,
-          unknown
-        >;
+        const answers: Record<string, unknown> = {
+          ...((user.questionnaireResponse.answers ?? {}) as Record<
+            string,
+            unknown
+          >),
+          [HARD_MATCH_KEYS.school]: user.school?.id ?? '',
+        };
         const hardMatchAnswers = tryReadHardMatchAnswers(answers);
 
         if (!hardMatchAnswers) {
@@ -486,7 +493,7 @@ export class CyclesService {
           displayName: user.displayName,
           hardMatchAnswers,
           answers,
-        } satisfies EligibleParticipant;
+        };
       })
       .filter(
         (participant): participant is EligibleParticipant =>

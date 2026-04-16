@@ -25,7 +25,6 @@ const envSchema = z.object({
   COOKIE_NAME: z.string().default('lilink_token'),
   ADMIN_COOKIE_NAME: z.string().default('lilink_admin_token'),
   COOKIE_DOMAIN: z.string().optional(),
-  ALLOWED_EMAIL_DOMAINS: z.string().default(''),
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().int().default(1025),
   SMTP_SECURE: z
@@ -49,9 +48,3 @@ const envSchema = z.object({
 export type AppEnv = z.infer<typeof envSchema>;
 
 export const env = envSchema.parse(process.env);
-
-export function allowedEmailDomains() {
-  return env.ALLOWED_EMAIL_DOMAINS.split(',')
-    .map((domain) => domain.trim().toLowerCase())
-    .filter(Boolean);
-}

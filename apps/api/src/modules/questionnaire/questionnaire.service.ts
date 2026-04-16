@@ -24,19 +24,33 @@ type QuestionnaireQuestion = {
   reasonRules?: Prisma.JsonValue | null;
 };
 
+type QuestionnaireSchoolOption = {
+  id: string;
+  name: string;
+};
+
 @Injectable()
 export class QuestionnaireService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getCurrentVersion() {
-    const questionnaire = await this.prisma.questionnaireVersion.findFirst({
-      where: { isCurrent: true },
-      include: {
-        questions: {
-          orderBy: { order: 'asc' },
+    const [questionnaire, schools] = await Promise.all([
+      this.prisma.questionnaireVersion.findFirst({
+        where: { isCurrent: true },
+        include: {
+          questions: {
+            orderBy: { order: 'asc' },
+          },
         },
-      },
-    });
+      }),
+      this.prisma.school.findMany({
+        select: {
+          id: true,
+          name: true,
+        },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
 
     if (!questionnaire) {
       throw new NotFoundException(
@@ -51,12 +65,14 @@ export class QuestionnaireService {
         options: normalizeQuestionOptions(question.options),
         reasonRules: normalizeQuestionReasonRules(question.reasonRules),
       })),
+      schools,
     };
   }
 
   validateAnswers(
     questions: QuestionnaireQuestion[],
     rawAnswers: Record<string, unknown>,
+    allowedSchoolIds: readonly string[],
   ) {
     const questionsByKey = new Map(
       questions.map((question) => [question.key, question]),
@@ -75,7 +91,7 @@ export class QuestionnaireService {
     }
 
     const normalizedAnswers: Record<string, Prisma.InputJsonValue> = {
-      ...normalizeHardMatchAnswers(rawAnswers),
+      ...normalizeHardMatchAnswers(rawAnswers, allowedSchoolIds),
     };
 
     for (const question of questions) {
@@ -132,5 +148,15 @@ export class QuestionnaireService {
     }
 
     return sanitizedAnswers;
+  }
+
+  listSchoolOptions(): Promise<QuestionnaireSchoolOption[]> {
+    return this.prisma.school.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: { name: 'asc' },
+    });
   }
 }

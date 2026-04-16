@@ -202,12 +202,22 @@ describe('AccountService', () => {
   it('filters stale questionnaire answers down to the current questionnaire keys', async () => {
     const service = new AccountService(
       {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            schoolId: 'school-cuc',
+          }),
+        },
         questionnaireResponse: {
           findUnique: jest.fn().mockResolvedValue({
             answers: {
               current_question: 'kept',
               removed_question: 'dropped',
               [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
+              [HARD_MATCH_KEYS.school]: 'school-bupt',
+              [HARD_MATCH_KEYS.excludedPartnerSchools]: [
+                'school-bupt',
+                'school-deleted',
+              ],
               [HARD_MATCH_KEYS.oneLinerIntro]:
                 '测试用一句话介绍，用于回归问卷过滤。',
             },
@@ -226,6 +236,10 @@ describe('AccountService', () => {
               options: null,
             },
           ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+            { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+          ],
         }),
         sanitizeStoredAnswers: jest.fn().mockReturnValue({
           current_question: 'kept',
@@ -237,9 +251,114 @@ describe('AccountService', () => {
       answers: {
         current_question: 'kept',
         [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
+        [HARD_MATCH_KEYS.school]: 'school-cuc',
+        [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-bupt'],
         [HARD_MATCH_KEYS.oneLinerIntro]: '测试用一句话介绍，用于回归问卷过滤。',
       },
     });
+  });
+
+  it('injects the current user school id before validating and saving questionnaire answers', async () => {
+    const upsert = jest.fn().mockResolvedValue({ id: 'response-1' });
+    const validateAnswers = jest.fn().mockReturnValue({
+      [HARD_MATCH_KEYS.school]: 'school-bupt',
+      current_question: 'kept',
+    });
+    const service = new AccountService(
+      {
+        user: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            school: {
+              id: 'school-bupt',
+              name: '北京邮电大学玛丽女王海南学院',
+            },
+          }),
+        },
+        questionnaireResponse: {
+          upsert,
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          questions: [],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+            { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+          ],
+        }),
+        validateAnswers,
+      } as never,
+    );
+
+    await service.saveQuestionnaire('user-1', {
+      answers: {
+        current_question: 'kept',
+      },
+    });
+
+    expect(validateAnswers).toHaveBeenCalledWith(
+      [],
+      {
+        current_question: 'kept',
+        [HARD_MATCH_KEYS.school]: 'school-bupt',
+      },
+      ['school-bupt', 'school-cuc'],
+    );
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        create: expect.objectContaining({
+          answers: {
+            [HARD_MATCH_KEYS.school]: 'school-bupt',
+            current_question: 'kept',
+          },
+          submittedAt: expect.any(Date),
+        }),
+        update: expect.objectContaining({
+          answers: {
+            [HARD_MATCH_KEYS.school]: 'school-bupt',
+            current_question: 'kept',
+          },
+          submittedAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it('rejects questionnaire saves when the current user has no recognized school', async () => {
+    const validateAnswers = jest.fn();
+    const upsert = jest.fn();
+    const service = new AccountService(
+      {
+        user: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            school: null,
+          }),
+        },
+        questionnaireResponse: {
+          upsert,
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          questions: [],
+          schools: [],
+        }),
+        validateAnswers,
+      } as never,
+    );
+
+    await expect(
+      service.saveQuestionnaire('user-1', { answers: {} }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(validateAnswers).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it('returns three recent history items in reveal order', async () => {

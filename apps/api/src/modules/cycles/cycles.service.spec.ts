@@ -18,6 +18,8 @@ type EligibleParticipantStub = {
     partnerHeightMin: number;
     partnerHeightMax: number;
     oneLinerIntro: string;
+    school: string;
+    excludedPartnerSchools: string[];
   };
   answers: Record<string, unknown>;
 };
@@ -61,6 +63,9 @@ type CyclesServiceTestHarness = {
   }>;
 };
 
+const SCHOOL_BUPT = 'school-bupt';
+const SCHOOL_CUC = 'school-cuc';
+
 function createBroadParticipant(
   id: string,
   answers: Record<string, unknown>,
@@ -80,6 +85,8 @@ function createBroadParticipant(
       partnerHeightMin: 120,
       partnerHeightMax: 220,
       oneLinerIntro: '喜欢社交与电影。',
+      school: SCHOOL_BUPT,
+      excludedPartnerSchools: [],
     },
     answers,
   };
@@ -313,6 +320,8 @@ describe('CyclesService', () => {
           partnerHeightMin: 120,
           partnerHeightMax: 220,
           oneLinerIntro: '喜欢徒步。',
+          school: SCHOOL_BUPT,
+          excludedPartnerSchools: [],
         },
         answers: {},
       },
@@ -331,6 +340,8 @@ describe('CyclesService', () => {
           partnerHeightMin: 120,
           partnerHeightMax: 220,
           oneLinerIntro: '喜欢阅读。',
+          school: SCHOOL_CUC,
+          excludedPartnerSchools: [],
         },
         answers: {},
       },
@@ -438,6 +449,74 @@ describe('CyclesService', () => {
     expect(matchCycleFindUnique).toHaveBeenCalledTimes(1);
   });
 
+  it('injects the current school id when building eligible participants', () => {
+    const service = new CyclesService({} as never);
+    const toEligibleParticipants = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'toEligibleParticipants'>
+    ).toEligibleParticipants.bind(service);
+
+    const participants = toEligibleParticipants([
+      {
+        user: {
+          id: 'user-1',
+          displayName: 'A',
+          school: { id: SCHOOL_BUPT },
+          questionnaireResponse: {
+            answers: {
+              hard_birth_date: '2000-05-10',
+              hard_partner_age_min: 18,
+              hard_partner_age_max: 30,
+              hard_gender: '女',
+              hard_partner_genders: ['男'],
+              hard_looks: '普通人',
+              hard_partner_looks: ['普通人'],
+              hard_height_cm: 165,
+              hard_partner_height_min: 120,
+              hard_partner_height_max: 220,
+              hard_one_liner_intro: '喜欢徒步。',
+              hard_excluded_partner_schools: [SCHOOL_CUC],
+            },
+          },
+        },
+      },
+      {
+        user: {
+          id: 'user-2',
+          displayName: 'B',
+          school: null,
+          questionnaireResponse: {
+            answers: {
+              hard_birth_date: '1999-07-10',
+              hard_partner_age_min: 18,
+              hard_partner_age_max: 30,
+              hard_gender: '男',
+              hard_partner_genders: ['女'],
+              hard_looks: '普通人',
+              hard_partner_looks: ['普通人'],
+              hard_height_cm: 178,
+              hard_partner_height_min: 120,
+              hard_partner_height_max: 220,
+              hard_one_liner_intro: '喜欢阅读。',
+            },
+          },
+        },
+      },
+    ]);
+
+    expect(participants).toHaveLength(1);
+    expect(participants[0]).toMatchObject({
+      id: 'user-1',
+      hardMatchAnswers: {
+        school: SCHOOL_BUPT,
+        excludedPartnerSchools: [SCHOOL_CUC],
+      },
+      answers: {
+        hard_school: SCHOOL_BUPT,
+        hard_excluded_partner_schools: [SCHOOL_CUC],
+      },
+    });
+  });
+
   it('builds reasons from configured question templates instead of hard-coded keys', () => {
     const service = new CyclesService({} as never);
     const scorePair = (
@@ -460,6 +539,8 @@ describe('CyclesService', () => {
           partnerHeightMin: 120,
           partnerHeightMax: 220,
           oneLinerIntro: '喜欢徒步。',
+          school: SCHOOL_BUPT,
+          excludedPartnerSchools: [],
         },
         answers: {
           relationship_intent: 'serious',
@@ -480,6 +561,8 @@ describe('CyclesService', () => {
           partnerHeightMin: 120,
           partnerHeightMax: 220,
           oneLinerIntro: '喜欢阅读。',
+          school: SCHOOL_CUC,
+          excludedPartnerSchools: [],
         },
         answers: {
           relationship_intent: 'serious',
@@ -592,6 +675,8 @@ describe('CyclesService', () => {
             partnerHeightMin: 120,
             partnerHeightMax: 220,
             oneLinerIntro: '喜欢徒步。',
+            school: SCHOOL_BUPT,
+            excludedPartnerSchools: [],
           },
           answers: {},
         },
@@ -610,6 +695,8 @@ describe('CyclesService', () => {
             partnerHeightMin: 120,
             partnerHeightMax: 220,
             oneLinerIntro: '喜欢阅读。',
+            school: SCHOOL_CUC,
+            excludedPartnerSchools: [],
           },
           answers: {},
         },

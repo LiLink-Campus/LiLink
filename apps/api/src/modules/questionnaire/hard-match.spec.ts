@@ -9,6 +9,7 @@ import {
 } from './hard-match';
 
 describe('hard-match helpers', () => {
+  const allowedSchoolIds = ['school-bupt', 'school-cuc', 'school-uestc'] as const;
   const validAnswers = {
     [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
     [HARD_MATCH_KEYS.partnerAgeMin]: 18,
@@ -21,10 +22,12 @@ describe('hard-match helpers', () => {
     [HARD_MATCH_KEYS.partnerHeightMin]: 150,
     [HARD_MATCH_KEYS.partnerHeightMax]: 190,
     [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
+    [HARD_MATCH_KEYS.school]: 'school-bupt',
+    [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
   } as const;
 
   it('normalizes a complete hard-match answer set', () => {
-    expect(normalizeHardMatchAnswers(validAnswers)).toEqual({
+    expect(normalizeHardMatchAnswers(validAnswers, allowedSchoolIds)).toEqual({
       [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
       [HARD_MATCH_KEYS.partnerAgeMin]: 18,
       [HARD_MATCH_KEYS.partnerAgeMax]: 30,
@@ -36,6 +39,8 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.partnerHeightMin]: 150,
       [HARD_MATCH_KEYS.partnerHeightMax]: 190,
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
+      [HARD_MATCH_KEYS.school]: 'school-bupt',
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
     });
   });
 
@@ -52,12 +57,24 @@ describe('hard-match helpers', () => {
       normalizeHardMatchAnswers({
         ...validAnswers,
         [HARD_MATCH_KEYS.oneLinerIntro]: '   ',
-      }),
+      }, allowedSchoolIds),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects questionnaire saves with a school id outside the active school list', () => {
+    expect(() =>
+      normalizeHardMatchAnswers({
+        ...validAnswers,
+        [HARD_MATCH_KEYS.school]: 'school-missing',
+      }, allowedSchoolIds),
     ).toThrow(BadRequestException);
   });
 
   it('applies age, height, and mutual preference hard filters', () => {
-    const left = tryReadHardMatchAnswers(validAnswers)!;
+    const left = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+    })!;
     const rightAnswers = {
       [HARD_MATCH_KEYS.birthDate]: '2001-07-12',
       [HARD_MATCH_KEYS.partnerAgeMin]: 18,
@@ -70,6 +87,8 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.partnerHeightMin]: 170,
       [HARD_MATCH_KEYS.partnerHeightMax]: 195,
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢画画，常在图书馆自习。',
+      [HARD_MATCH_KEYS.school]: 'school-cuc',
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
     } as const;
     const right = tryReadHardMatchAnswers(rightAnswers)!;
 
@@ -110,6 +129,33 @@ describe('hard-match helpers', () => {
       areHardMatchAnswersCompatible(
         left,
         tooTallRight,
+        new Date('2026-05-20T00:00:00.000Z'),
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects when either side excludes the other school id', () => {
+    const left = tryReadHardMatchAnswers(validAnswers)!;
+    const excludedRight = tryReadHardMatchAnswers({
+      [HARD_MATCH_KEYS.birthDate]: '2001-07-12',
+      [HARD_MATCH_KEYS.partnerAgeMin]: 18,
+      [HARD_MATCH_KEYS.partnerAgeMax]: 35,
+      [HARD_MATCH_KEYS.gender]: '女',
+      [HARD_MATCH_KEYS.partnerGenders]: ['男'],
+      [HARD_MATCH_KEYS.looks]: '小帅/美',
+      [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美'],
+      [HARD_MATCH_KEYS.heightCm]: 165,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 170,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 195,
+      [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢画画，常在图书馆自习。',
+      [HARD_MATCH_KEYS.school]: 'school-cuc',
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-bupt'],
+    })!;
+
+    expect(
+      areHardMatchAnswersCompatible(
+        left,
+        excludedRight,
         new Date('2026-05-20T00:00:00.000Z'),
       ),
     ).toBe(false);

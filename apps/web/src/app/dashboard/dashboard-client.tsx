@@ -17,6 +17,7 @@ import {
   hardMatchFormFromAnswers,
   toggleMultiSelectValue,
   type HardMatchFormState,
+  type HardMatchSchoolOption,
 } from "../../lib/hard-match";
 
 export type Question = {
@@ -87,6 +88,7 @@ export type DashboardPayload = {
 
 export type QuestionnairePayload = {
   questions: Question[];
+  schools: HardMatchSchoolOption[];
 };
 
 export type SavedQuestionnairePayload = {
@@ -328,11 +330,13 @@ export default function DashboardPage({
   initialUser,
   initialDashboard,
   initialQuestions,
+  initialSchools,
   initialSavedQuestionnaire,
 }: {
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
   initialQuestions: Question[];
+  initialSchools: HardMatchSchoolOption[];
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
   const [user] = useState<AuthMePayload | null>(initialUser);
@@ -340,11 +344,12 @@ export default function DashboardPage({
     initialDashboard,
   );
   const [questions] = useState<Question[]>(initialQuestions);
+  const [schoolOptions] = useState<HardMatchSchoolOption[]>(initialSchools);
   const [answers, setAnswers] = useState<Record<string, unknown>>(
     keepCurrentQuestionAnswers(initialQuestions, initialSavedQuestionnaire?.answers),
   );
   const [hardMatchForm, setHardMatchForm] = useState<HardMatchFormState>(
-    () => hardMatchFormFromAnswers(initialSavedQuestionnaire?.answers),
+    () => hardMatchFormFromAnswers(initialSavedQuestionnaire?.answers, initialSchools),
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
@@ -405,7 +410,7 @@ export default function DashboardPage({
   }, [dashboard?.latestMatch, user]);
 
   function toggleHardSelection(
-    field: "partnerGenders" | "partnerLooks",
+    field: "partnerGenders" | "partnerLooks" | "excludedPartnerSchools",
     nextValue: string,
   ) {
     setHardMatchForm((current) => ({
@@ -1198,6 +1203,22 @@ export default function DashboardPage({
                     {HEIGHT_OPTIONS.map((h) => <option key={h} value={String(h)}>{h} cm</option>)}
                   </select>
                 </label>
+              </div>
+            </fieldset>
+
+            <fieldset className="question-block">
+              <legend>不希望对方是哪个学校的（可多选）</legend>
+              <p className="dashboard-muted">选中的学校将被排除，不选则不限。</p>
+              <div className="chip-grid">
+                {schoolOptions.map((school, i) => {
+                  const active = hardMatchForm.excludedPartnerSchools.includes(school.id);
+                  return (
+                    <label key={school.id} className={active ? "chip active" : "chip"}>
+                      <input checked={active} id={buildDashboardFieldId("excluded-partner-schools", i)} name="excludedPartnerSchools" type="checkbox" onChange={() => toggleHardSelection("excludedPartnerSchools", school.id)} />
+                      <span>{school.name}</span>
+                    </label>
+                  );
+                })}
               </div>
             </fieldset>
           </div>

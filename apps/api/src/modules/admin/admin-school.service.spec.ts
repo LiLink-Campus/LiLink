@@ -1,4 +1,5 @@
 import { AdminSchoolService } from './admin-school.service';
+import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
 describe('AdminSchoolService', () => {
   it('normalizes domains when creating a school', async () => {
@@ -132,6 +133,102 @@ describe('AdminSchoolService', () => {
         },
       },
       include: { domains: true },
+    });
+  });
+
+  it('rewrites questionnaire school references when merging schools', async () => {
+    const questionnaireResponse = {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'response-1',
+          answers: {
+            [HARD_MATCH_KEYS.school]: 'school-source',
+            [HARD_MATCH_KEYS.excludedPartnerSchools]: [
+              'school-source',
+              'school-third',
+            ],
+          },
+          user: {
+            schoolId: 'school-target',
+          },
+        },
+        {
+          id: 'response-2',
+          answers: {
+            [HARD_MATCH_KEYS.school]: 'school-source',
+          },
+          user: {
+            schoolId: 'school-target',
+          },
+        },
+      ]),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const prisma = {
+      school: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'school-source',
+            name: 'Source School',
+            domains: [{ id: 'domain-1', domain: 'source.edu' }],
+            _count: { users: 2 },
+          })
+          .mockResolvedValueOnce({
+            id: 'school-target',
+            name: 'Target School',
+          }),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        Promise.resolve(
+          callback({
+            school: {
+              findMany: jest.fn().mockResolvedValue([
+                { id: 'school-target' },
+                { id: 'school-third' },
+              ]),
+              delete: jest.fn().mockResolvedValue(undefined),
+            },
+            user: {
+              updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+            },
+            schoolDomain: {
+              updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            },
+            questionnaireResponse,
+          }),
+        ),
+      ),
+    };
+    const auditService = {
+      write: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new AdminSchoolService(
+      prisma as never,
+      auditService as never,
+    );
+
+    await service.merge('school-source', 'school-target', 'admin-1');
+
+    expect(questionnaireResponse.update).toHaveBeenNthCalledWith(1, {
+      where: { id: 'response-1' },
+      data: {
+        answers: {
+          [HARD_MATCH_KEYS.school]: 'school-target',
+          [HARD_MATCH_KEYS.excludedPartnerSchools]: [
+            'school-target',
+            'school-third',
+          ],
+        },
+      },
+    });
+    expect(questionnaireResponse.update).toHaveBeenNthCalledWith(2, {
+      where: { id: 'response-2' },
+      data: {
+        answers: {
+          [HARD_MATCH_KEYS.school]: 'school-target',
+        },
+      },
     });
   });
 });

@@ -6,6 +6,7 @@ import { HARD_MATCH_KEYS } from "../../../lib/hard-match";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
 import type {
+  AdminSchool,
   AdminUser,
   AdminUserDetail,
   AdminUserParticipation,
@@ -25,6 +26,8 @@ const HARD_MATCH_LABELS: Record<string, string> = {
   [HARD_MATCH_KEYS.partnerHeightMin]: "希望对方身高下限",
   [HARD_MATCH_KEYS.partnerHeightMax]: "希望对方身高上限",
   [HARD_MATCH_KEYS.oneLinerIntro]: "一句话介绍",
+  [HARD_MATCH_KEYS.school]: "你的学校",
+  [HARD_MATCH_KEYS.excludedPartnerSchools]: "不希望对方的学校",
 };
 
 const HARD_MATCH_KEY_SET = new Set(Object.keys(HARD_MATCH_LABELS));
@@ -41,7 +44,23 @@ const ADMIN_USERS_PAGE_SIZE = 6;
 
 type DetailTab = "profile" | "questionnaire" | "cycles";
 
-function formatAnswer(value: unknown): string {
+function formatAnswer(
+  key: string,
+  value: unknown,
+  schoolNameById: Record<string, string>,
+): string {
+  if (key === HARD_MATCH_KEYS.school && typeof value === "string") {
+    return schoolNameById[value] ?? value;
+  }
+
+  if (key === HARD_MATCH_KEYS.excludedPartnerSchools && Array.isArray(value)) {
+    return value
+      .map((item) =>
+        typeof item === "string" ? (schoolNameById[item] ?? item) : String(item),
+      )
+      .join("、");
+  }
+
   if (Array.isArray(value)) return value.join("、");
   if (typeof value === "boolean") return value ? "是" : "否";
   if (typeof value === "string" || typeof value === "number") return String(value);
@@ -89,6 +108,7 @@ export default function AdminUsersPage() {
   const [questionnaireLoading, setQuestionnaireLoading] = useState(false);
   const [participationsLoading, setParticipationsLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [schoolNameById, setSchoolNameById] = useState<Record<string, string>>({});
 
   const { draftSearch, submittedSearch, setDraftSearch, submitSearch } = useAdminSearch();
   const { data, loading, error, refresh } = useAdminCollection<AdminUser>(
@@ -120,6 +140,27 @@ export default function AdminUsersPage() {
     activeUserDetail && activeUserDetail.id === selectedUserId
       ? detailTab
       : "profile";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchApi<PaginatedResult<AdminSchool>>("/admin/schools?page=1&pageSize=200")
+      .then((payload) => {
+        if (cancelled) return;
+        setSchoolNameById(
+          Object.fromEntries(payload.items.map((school) => [school.id, school.name])),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSchoolNameById({});
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedUserId) {
@@ -675,7 +716,7 @@ export default function AdminUsersPage() {
                                 {answerGroups.hardMatch.map(([key, value]) => (
                                   <tr key={key}>
                                     <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>{HARD_MATCH_LABELS[key] ?? key}</td>
-                                    <td>{formatAnswer(value)}</td>
+                                    <td>{formatAnswer(key, value, schoolNameById)}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -697,7 +738,7 @@ export default function AdminUsersPage() {
                                 {answerGroups.questionnaire.map(([key, value]) => (
                                   <tr key={key}>
                                     <td style={{ fontWeight: 500 }}>{key}</td>
-                                    <td>{formatAnswer(value)}</td>
+                                    <td>{formatAnswer(key, value, schoolNameById)}</td>
                                   </tr>
                                 ))}
                               </tbody>

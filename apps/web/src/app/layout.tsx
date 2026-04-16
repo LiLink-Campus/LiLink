@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { resolveApiOriginForPreconnect } from "../lib/public-server-api";
 import { AuthSessionProvider } from "./auth-session";
 import { SiteNav } from "./site-nav";
+import { AnnouncementDialog } from "./announcement-dialog";
 import "./globals.css";
 
 const apiPreconnectOrigin = resolveApiOriginForPreconnect();
@@ -59,6 +60,7 @@ export default function RootLayout({
             </footer>
           </div>
         </AuthSessionProvider>
+        <AnnouncementDialog />
         <Analytics />
         <SpeedInsights />
       </body>

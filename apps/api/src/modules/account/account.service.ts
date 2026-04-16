@@ -5,9 +5,11 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import {
+  HARD_MATCH_KEYS,
   hardMatchQuestionKeys,
   readQuestionnaireOneLiner,
 } from '../questionnaire/hard-match';
+import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import {
   DashboardHistoryItemResponseDto,
   DashboardHistoryLimitedReason,
@@ -554,10 +556,28 @@ export class AccountService {
   }
 
   async saveQuestionnaire(userId: string, input: SaveQuestionnaireDto) {
-    const questionnaire = await this.questionnaireService.getCurrentVersion();
+    const [questionnaire, user] = await Promise.all([
+      this.questionnaireService.getCurrentVersion(),
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        include: { school: { select: { id: true } } },
+      }),
+    ]);
+
+    if (!user.school?.id) {
+      throw new BadRequestException(
+        'A recognized school is required before saving the questionnaire.',
+      );
+    }
+
+    const answersWithSchool = {
+      ...input.answers,
+      [HARD_MATCH_KEYS.school]: user.school.id,
+    };
     const normalizedAnswers = this.questionnaireService.validateAnswers(
       questionnaire.questions,
-      input.answers,
+      answersWithSchool,
+      questionnaire.schools.map((school) => school.id),
     );
 
     return this.prisma.questionnaireResponse.upsert({
@@ -577,26 +597,36 @@ export class AccountService {
   }
 
   async getQuestionnaire(userId: string) {
-    const [response, currentQuestionnaire] = await Promise.all([
+    const [response, currentQuestionnaire, user] = await Promise.all([
       this.prisma.questionnaireResponse.findUnique({
         where: { userId },
       }),
       this.questionnaireService.getCurrentVersion().catch(() => null),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { schoolId: true },
+      }),
     ]);
 
     if (!response || !currentQuestionnaire) {
       return response;
     }
 
+    const schoolAwareAnswers = syncQuestionnaireSchoolAnswers(
+      (response.answers ?? {}) as Record<string, unknown>,
+      {
+        currentSchoolId: user?.schoolId ?? null,
+        allowedSchoolIds: currentQuestionnaire.schools.map((school) => school.id),
+      },
+    );
     const filteredAnswers = this.questionnaireService.sanitizeStoredAnswers(
       currentQuestionnaire.questions,
-      (response.answers ?? {}) as Record<string, unknown>,
+      schoolAwareAnswers,
     );
-    const rawAnswers = (response.answers ?? {}) as Record<string, unknown>;
 
     for (const hardMatchKey of hardMatchQuestionKeys()) {
-      if (rawAnswers[hardMatchKey] != null) {
-        filteredAnswers[hardMatchKey] = rawAnswers[
+      if (schoolAwareAnswers[hardMatchKey] != null) {
+        filteredAnswers[hardMatchKey] = schoolAwareAnswers[
           hardMatchKey
         ] as Prisma.InputJsonValue;
       }
