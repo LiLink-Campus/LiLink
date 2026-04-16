@@ -479,10 +479,9 @@ describe('AdminService', () => {
           }),
         },
         school: {
-          findMany: jest.fn().mockResolvedValue([
-            { id: 'school-bupt' },
-            { id: 'school-cuc' },
-          ]),
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: 'school-bupt' }, { id: 'school-cuc' }]),
         },
       } as never,
       { runRevealCycle: jest.fn() } as never,
@@ -527,6 +526,11 @@ describe('AdminService', () => {
       createdAt: new Date('2026-04-01T12:00:00.000Z'),
       updatedAt: new Date('2026-04-15T12:00:00.000Z'),
     });
+    const schoolDelegate = {
+      findMany: jest
+        .fn()
+        .mockResolvedValue([{ id: 'school-bupt' }, { id: 'school-cuc' }]),
+    };
     const prisma = {
       user: {
         findUnique: jest.fn().mockResolvedValue({
@@ -536,12 +540,7 @@ describe('AdminService', () => {
         }),
         update: userUpdate,
       },
-      school: {
-        findMany: jest.fn().mockResolvedValue([
-          { id: 'school-bupt' },
-          { id: 'school-cuc' },
-        ]),
-      },
+      school: schoolDelegate,
       questionnaireResponse,
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         Promise.resolve(
@@ -549,7 +548,7 @@ describe('AdminService', () => {
             user: {
               update: userUpdate,
             },
-            school: prisma.school,
+            school: schoolDelegate,
             questionnaireResponse,
           }),
         ),
@@ -567,11 +566,7 @@ describe('AdminService', () => {
       {} as never,
     );
 
-    await service.updateUser(
-      'user-1',
-      { schoolId: 'school-cuc' },
-      'admin-1',
-    );
+    await service.updateUser('user-1', { schoolId: 'school-cuc' }, 'admin-1');
 
     expect(questionnaireResponse.update).toHaveBeenCalledWith({
       where: { id: 'response-1' },

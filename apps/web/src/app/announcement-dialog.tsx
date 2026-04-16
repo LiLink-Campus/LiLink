@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { announcements } from "./announcements";
 
 const SEEN_KEY = "lilink_seen_announcement";
 
 export function AnnouncementDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [visible, setVisible] = useState(false);
 
   const latest = announcements[0];
 
@@ -17,14 +16,12 @@ export function AnnouncementDialog() {
     const seen = localStorage.getItem(SEEN_KEY);
     if (seen === latest.id) return;
 
-    setVisible(true);
     dialogRef.current?.showModal();
   }, [latest]);
 
   function dismiss() {
     if (latest) localStorage.setItem(SEEN_KEY, latest.id);
     dialogRef.current?.close();
-    setVisible(false);
   }
 
   if (!latest) return null;
@@ -36,24 +33,23 @@ export function AnnouncementDialog() {
       onClose={dismiss}
       aria-labelledby="announcement-title"
     >
-      {visible && (
-        <div className="announcement-dialog-inner">
-          <div className="announcement-dialog-header">
-            <span className="announcement-badge">更新公告</span>
-            <time className="announcement-date">{latest.date}</time>
-          </div>
-          <h2 id="announcement-title" className="announcement-title">
-            {latest.title}
-          </h2>
-          <p className="announcement-body">{latest.content}</p>
-          <button
-            className="button-primary announcement-dismiss"
-            onClick={dismiss}
-          >
-            知道了
-          </button>
+      <div className="announcement-dialog-inner">
+        <div className="announcement-dialog-header">
+          <span className="announcement-badge">更新公告</span>
+          <time className="announcement-date">{latest.date}</time>
         </div>
-      )}
+        <h2 id="announcement-title" className="announcement-title">
+          {latest.title}
+        </h2>
+        <p className="announcement-body">{latest.content}</p>
+        <button
+          className="button-primary announcement-dismiss"
+          onClick={dismiss}
+          type="button"
+        >
+          知道了
+        </button>
+      </div>
     </dialog>
   );
 }

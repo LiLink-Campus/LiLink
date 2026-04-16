@@ -144,7 +144,9 @@ describe('AuthService', () => {
       },
       $transaction: jest.fn(
         async (
-          callback: (transaction: VerificationCodeTransaction) => Promise<unknown>,
+          callback: (
+            transaction: VerificationCodeTransaction,
+          ) => Promise<unknown>,
         ) =>
           callback({
             emailCode: {
@@ -195,8 +197,8 @@ describe('AuthService', () => {
         where: expect.objectContaining({
           email: 'user@example.com',
           purpose: 'register',
-        }),
-      }),
+        }) as object,
+      }) as object,
     );
 
     expect(outboundCreate).toHaveBeenCalledTimes(1);
@@ -243,7 +245,9 @@ describe('AuthService', () => {
       },
       $transaction: jest.fn(
         async (
-          callback: (transaction: VerificationCodeTransaction) => Promise<unknown>,
+          callback: (
+            transaction: VerificationCodeTransaction,
+          ) => Promise<unknown>,
         ) =>
           callback({
             emailCode: {
@@ -313,7 +317,9 @@ describe('AuthService', () => {
       },
       $transaction: jest.fn(
         async (
-          callback: (transaction: VerificationCodeTransaction) => Promise<unknown>,
+          callback: (
+            transaction: VerificationCodeTransaction,
+          ) => Promise<unknown>,
         ) =>
           callback({
             emailCode: {
@@ -374,8 +380,9 @@ describe('AuthService', () => {
       {} as never,
     );
 
-    const result =
-      await authService.requestPasswordResetCode('missing@example.com');
+    const result = await authService.requestPasswordResetCode(
+      'missing@example.com',
+    );
 
     expect(result.email).toBe('missing@example.com');
     expect(result.expiresAt).toBeInstanceOf(Date);

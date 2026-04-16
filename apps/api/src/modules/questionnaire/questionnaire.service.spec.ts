@@ -138,7 +138,9 @@ describe('QuestionnaireService', () => {
               type: QuestionType.SINGLE_SELECT,
               required: true,
               options: [{ value: 'fast', label: 'Fast' }],
-              reasonRules: [{ type: 'EXACT_MATCH', template: 'same', priority: 3 }],
+              reasonRules: [
+                { type: 'EXACT_MATCH', template: 'same', priority: 3 },
+              ],
             },
           ],
         }),
@@ -152,20 +154,24 @@ describe('QuestionnaireService', () => {
     };
     const schoolAwareService = new QuestionnaireService(prisma as never);
 
-    await expect(schoolAwareService.getCurrentVersion()).resolves.toMatchObject({
-      id: 'version-1',
-      schools: [
-        { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
-        { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
-      ],
-      questions: [
-        {
-          key: 'pace',
-          options: [{ value: 'fast', label: 'Fast' }],
-          reasonRules: [{ type: 'EXACT_MATCH', template: 'same', priority: 3 }],
-        },
-      ],
-    });
+    await expect(schoolAwareService.getCurrentVersion()).resolves.toMatchObject(
+      {
+        id: 'version-1',
+        schools: [
+          { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+        ],
+        questions: [
+          {
+            key: 'pace',
+            options: [{ value: 'fast', label: 'Fast' }],
+            reasonRules: [
+              { type: 'EXACT_MATCH', template: 'same', priority: 3 },
+            ],
+          },
+        ],
+      },
+    );
   });
 
   it('drops stale saved answers whose options no longer exist', () => {
