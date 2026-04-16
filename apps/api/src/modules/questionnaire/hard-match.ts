@@ -20,6 +20,7 @@ import {
   type HardMatchGender,
   type HardMatchKey,
   type HardMatchLooks,
+  type HardMatchSchoolId,
 } from '@lilink/shared';
 
 export {
@@ -37,6 +38,7 @@ export {
   type HardMatchGender,
   type HardMatchKey,
   type HardMatchLooks,
+  type HardMatchSchoolId,
 };
 
 const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
@@ -51,6 +53,8 @@ const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
   [HARD_MATCH_KEYS.partnerHeightMin]: '希望对方身高下限（厘米）',
   [HARD_MATCH_KEYS.partnerHeightMax]: '希望对方身高上限（厘米）',
   [HARD_MATCH_KEYS.oneLinerIntro]: '一句话介绍',
+  [HARD_MATCH_KEYS.school]: '你的学校',
+  [HARD_MATCH_KEYS.excludedPartnerSchools]: '不希望对方的学校',
 };
 
 export type HardMatchAnswerRecord = {
@@ -65,6 +69,8 @@ export type HardMatchAnswerRecord = {
   [HARD_MATCH_KEYS.partnerHeightMin]: number;
   [HARD_MATCH_KEYS.partnerHeightMax]: number;
   [HARD_MATCH_KEYS.oneLinerIntro]: string;
+  [HARD_MATCH_KEYS.school]: HardMatchSchoolId;
+  [HARD_MATCH_KEYS.excludedPartnerSchools]: HardMatchSchoolId[];
 };
 
 function labelFor(key: HardMatchKey) {
@@ -122,6 +128,30 @@ function normalizeMultiChoice<T extends string>(
   }
 
   return normalizedValues;
+}
+
+function normalizeOptionalMultiChoice<T extends string>(
+  value: unknown,
+  key: HardMatchKey,
+  allowedValues: readonly T[],
+): T[] {
+  if (value == null || (Array.isArray(value) && value.length === 0)) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw invalidFieldError(key);
+  }
+
+  const containsInvalidValue = value.some(
+    (item) =>
+      typeof item !== 'string' || !allowedValues.includes(item.trim() as T),
+  );
+  if (containsInvalidValue) {
+    throw invalidFieldError(key);
+  }
+
+  return readStringArray(value, allowedValues);
 }
 
 function normalizeAge(value: unknown, key: HardMatchKey): number {
@@ -205,6 +235,7 @@ function normalizeOneLinerIntroValue(
 
 function normalizeHardMatchValues(
   rawAnswers: Record<string, unknown>,
+  allowedSchoolIds: readonly string[],
 ): HardMatchAnswers {
   const partnerAgeMin = normalizeAge(
     rawAnswers[HARD_MATCH_KEYS.partnerAgeMin],
@@ -272,13 +303,24 @@ function normalizeHardMatchValues(
       rawAnswers[HARD_MATCH_KEYS.oneLinerIntro],
       { allowEmpty: true },
     ),
+    school: normalizeSingleChoice(
+      rawAnswers[HARD_MATCH_KEYS.school],
+      HARD_MATCH_KEYS.school,
+      allowedSchoolIds,
+    ),
+    excludedPartnerSchools: normalizeOptionalMultiChoice(
+      rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
+      HARD_MATCH_KEYS.excludedPartnerSchools,
+      allowedSchoolIds,
+    ),
   };
 }
 
 export function normalizeHardMatchAnswers(
   rawAnswers: Record<string, unknown>,
+  allowedSchoolIds: readonly string[],
 ): HardMatchAnswerRecord {
-  const normalizedValues = normalizeHardMatchValues(rawAnswers);
+  const normalizedValues = normalizeHardMatchValues(rawAnswers, allowedSchoolIds);
 
   if (!normalizedValues.oneLinerIntro) {
     throw requiredFieldError(HARD_MATCH_KEYS.oneLinerIntro);
@@ -296,6 +338,8 @@ export function normalizeHardMatchAnswers(
     [HARD_MATCH_KEYS.partnerHeightMin]: normalizedValues.partnerHeightMin,
     [HARD_MATCH_KEYS.partnerHeightMax]: normalizedValues.partnerHeightMax,
     [HARD_MATCH_KEYS.oneLinerIntro]: normalizedValues.oneLinerIntro,
+    [HARD_MATCH_KEYS.school]: normalizedValues.school,
+    [HARD_MATCH_KEYS.excludedPartnerSchools]: normalizedValues.excludedPartnerSchools,
   };
 }
 

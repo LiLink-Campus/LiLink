@@ -11,7 +11,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
-import { allowedEmailDomains, env } from '../../config/env';
+import { env } from '../../config/env';
 import { RegisterDto, LoginDto, ResetPasswordDto } from './dto';
 
 type TransactionClient = Omit<
@@ -318,14 +318,7 @@ export class AuthService {
     const domainRecord = await this.schoolResolverService.resolveByEmail(
       `placeholder@${domain}`,
     );
-    const envDomains = allowedEmailDomains();
-
-    const envMatch = envDomains.some(
-      (allowedDomain) =>
-        domain === allowedDomain || domain.endsWith(`.${allowedDomain}`),
-    );
-
-    if (!domainRecord && !envMatch) {
+    if (!domainRecord) {
       throw new BadRequestException(
         'This email domain is not currently accepted.',
       );

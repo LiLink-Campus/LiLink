@@ -45,6 +45,7 @@ export default async function DashboardServerPage() {
       initialUser={bootstrap.user}
       initialDashboard={bootstrap.dashboard}
       initialQuestions={bootstrap.questionnaire.questions}
+      initialSchools={bootstrap.questionnaire.schools}
       initialSavedQuestionnaire={bootstrap.savedQuestionnaire}
     />
   );

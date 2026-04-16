@@ -1,0 +1,27 @@
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+}
+
+/**
+ * Append new entries at the top. The first element is always treated as
+ * the "latest" and will be shown in the pop-up dialog on first visit.
+ */
+export const announcements: Announcement[] = [
+  {
+    id: "2026-04-15-excluded-school",
+    title: "新增「不希望对方学校」硬性条件",
+    content:
+      "现在你可以在「对方条件」中选择不希望匹配对象所在的学校（可多选），该选项为硬性约束，被选中的学校将被双向排除在匹配之外，不选任何学校则不限，请前往问卷页面更新你的偏好。",
+    date: "2026-04-15",
+  },
+  {
+    id: "2026-04-14-launch",
+    title: "LiLink 全量开放注册",
+    content:
+      "欢迎来到 LiLink！平台现已全量开放注册，完成深度问卷即可参与每周匹配。祝你在这里遇见值得期待的人。",
+    date: "2026-04-14",
+  },
+];

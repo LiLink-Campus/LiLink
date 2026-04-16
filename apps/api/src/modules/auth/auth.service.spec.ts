@@ -104,6 +104,25 @@ describe('AuthService', () => {
     expect(findFirst).not.toHaveBeenCalled();
   });
 
+  it('rejects requestCode when the email domain does not resolve to a configured school', async () => {
+    const buildVerificationCodeEmail = jest.fn();
+    const authService = new AuthService(
+      {} as never,
+      {
+        buildVerificationCodeEmail,
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue(null),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      authService.requestCode('user@invalid.example'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
+  });
+
   it('queues and flushes a verification email before returning success', async () => {
     mockedArgon2.hash.mockResolvedValue('hashed-code');
 

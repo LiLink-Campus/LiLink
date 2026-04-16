@@ -29,6 +29,11 @@ export {
   buildDayOptions,
 };
 
+export type HardMatchSchoolOption = {
+  id: string;
+  name: string;
+};
+
 export type HardMatchFormState = {
   birthYear: string;
   birthMonth: string;
@@ -43,6 +48,7 @@ export type HardMatchFormState = {
   partnerHeightMin: string;
   partnerHeightMax: string;
   oneLinerIntro: string;
+  excludedPartnerSchools: string[];
 };
 
 export function createEmptyHardMatchForm(): HardMatchFormState {
@@ -60,13 +66,16 @@ export function createEmptyHardMatchForm(): HardMatchFormState {
     partnerHeightMin: String(HARD_MATCH_HEIGHT_MIN_CM),
     partnerHeightMax: String(HARD_MATCH_FORM_HEIGHT_MAX_CM),
     oneLinerIntro: "",
+    excludedPartnerSchools: [],
   };
 }
 
 export function hardMatchFormFromAnswers(
   savedAnswers: Record<string, unknown> | undefined,
+  schoolOptions: HardMatchSchoolOption[],
 ): HardMatchFormState {
   const birthDate = splitBirthDate(savedAnswers?.[HARD_MATCH_KEYS.birthDate]);
+  const allowedSchoolIds = schoolOptions.map((school) => school.id);
 
   return {
     ...createEmptyHardMatchForm(),
@@ -108,6 +117,10 @@ export function hardMatchFormFromAnswers(
     ),
     oneLinerIntro: normalizeOneLinerIntro(
       savedAnswers?.[HARD_MATCH_KEYS.oneLinerIntro],
+    ),
+    excludedPartnerSchools: readStringArray(
+      savedAnswers?.[HARD_MATCH_KEYS.excludedPartnerSchools],
+      allowedSchoolIds,
     ),
   };
 }
@@ -180,6 +193,7 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     [HARD_MATCH_KEYS.partnerHeightMin]: partnerHeightMin,
     [HARD_MATCH_KEYS.partnerHeightMax]: partnerHeightMax,
     [HARD_MATCH_KEYS.oneLinerIntro]: oneLinerIntro,
+    [HARD_MATCH_KEYS.excludedPartnerSchools]: formState.excludedPartnerSchools,
   };
 }
 

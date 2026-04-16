@@ -9,6 +9,7 @@ import { QuestionnaireService } from './questionnaire.service';
 
 describe('QuestionnaireService', () => {
   const service = new QuestionnaireService({} as never);
+  const allowedSchoolIds = ['school-bupt', 'school-cuc'];
 
   it('rejects unexpected answer keys', () => {
     expect(() =>
@@ -26,6 +27,7 @@ describe('QuestionnaireService', () => {
           },
         ],
         { unknown_key: 'value' },
+        allowedSchoolIds,
       ),
     ).toThrow(BadRequestException);
   });
@@ -69,9 +71,12 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.partnerHeightMin]: 120,
           [HARD_MATCH_KEYS.partnerHeightMax]: 220,
           [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
+          [HARD_MATCH_KEYS.school]: 'school-bupt',
+          [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
           pace: 'Fast',
           values: ['Humor', 'humor', 'Curiosity'],
         },
+        allowedSchoolIds,
       ),
     ).toEqual({
       [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
@@ -85,6 +90,8 @@ describe('QuestionnaireService', () => {
       [HARD_MATCH_KEYS.partnerHeightMin]: 120,
       [HARD_MATCH_KEYS.partnerHeightMax]: 220,
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
+      [HARD_MATCH_KEYS.school]: 'school-bupt',
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
       pace: 'fast',
       values: ['humor', 'curiosity'],
     });
@@ -108,8 +115,57 @@ describe('QuestionnaireService', () => {
         {
           pace: 'Fast',
         },
+        allowedSchoolIds,
       ),
     ).toThrow(BadRequestException);
+  });
+
+  it('returns the current questionnaire with normalized rules and school options', async () => {
+    const prisma = {
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          title: 'Current',
+          description: null,
+          isCurrent: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          questions: [
+            {
+              id: 'question-1',
+              key: 'pace',
+              prompt: 'Pace',
+              type: QuestionType.SINGLE_SELECT,
+              required: true,
+              options: [{ value: 'fast', label: 'Fast' }],
+              reasonRules: [{ type: 'EXACT_MATCH', template: 'same', priority: 3 }],
+            },
+          ],
+        }),
+      },
+      school: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+        ]),
+      },
+    };
+    const schoolAwareService = new QuestionnaireService(prisma as never);
+
+    await expect(schoolAwareService.getCurrentVersion()).resolves.toMatchObject({
+      id: 'version-1',
+      schools: [
+        { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+        { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+      ],
+      questions: [
+        {
+          key: 'pace',
+          options: [{ value: 'fast', label: 'Fast' }],
+          reasonRules: [{ type: 'EXACT_MATCH', template: 'same', priority: 3 }],
+        },
+      ],
+    });
   });
 
   it('drops stale saved answers whose options no longer exist', () => {
@@ -177,8 +233,11 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.partnerHeightMin]: 120,
           [HARD_MATCH_KEYS.partnerHeightMax]: 220,
           [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
+          [HARD_MATCH_KEYS.school]: 'school-bupt',
+          [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
           values: ['Curiosity', 'Stability', 'Humor'],
         },
+        allowedSchoolIds,
       ),
     ).toThrow(BadRequestException);
   });
@@ -212,8 +271,11 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.partnerHeightMin]: 120,
           [HARD_MATCH_KEYS.partnerHeightMax]: 220,
           [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
+          [HARD_MATCH_KEYS.school]: 'school-bupt',
+          [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
           values: ['Curiosity', 'Stability'],
         },
+        allowedSchoolIds,
       ),
     ).toMatchObject({
       values: ['curiosity', 'stability'],

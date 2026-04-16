@@ -1,6 +1,7 @@
 import { AdminService } from './admin.service';
 import { BadRequestException } from '@nestjs/common';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
+import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
 describe('AdminService', () => {
   afterEach(() => {
@@ -457,5 +458,137 @@ describe('AdminService', () => {
         'admin-1',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('returns questionnaire answers with the canonical school id', async () => {
+    const service = new AdminService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            schoolId: 'school-cuc',
+            questionnaireResponse: {
+              submittedAt: new Date('2026-04-15T12:00:00.000Z'),
+              answers: {
+                [HARD_MATCH_KEYS.school]: 'school-bupt',
+                [HARD_MATCH_KEYS.excludedPartnerSchools]: [
+                  'school-bupt',
+                  'school-deleted',
+                ],
+              },
+            },
+          }),
+        },
+        school: {
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'school-bupt' },
+            { id: 'school-cuc' },
+          ]),
+        },
+      } as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(service.getUserQuestionnaire('user-1')).resolves.toEqual({
+      submittedAt: new Date('2026-04-15T12:00:00.000Z'),
+      answers: {
+        [HARD_MATCH_KEYS.school]: 'school-cuc',
+        [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-bupt'],
+      },
+    });
+  });
+
+  it('syncs questionnaire school answers when an admin reassigns the user school', async () => {
+    const questionnaireResponse = {
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'response-1',
+        answers: {
+          [HARD_MATCH_KEYS.school]: 'school-bupt',
+          [HARD_MATCH_KEYS.excludedPartnerSchools]: [
+            'school-bupt',
+            'school-deleted',
+          ],
+        },
+      }),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const userUpdate = jest.fn().mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User 1',
+      schoolId: 'school-cuc',
+      status: 'ACTIVE',
+      isTest: false,
+      createdAt: new Date('2026-04-01T12:00:00.000Z'),
+      updatedAt: new Date('2026-04-15T12:00:00.000Z'),
+    });
+    const prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'user-1',
+          email: 'user@example.com',
+          schoolId: 'school-bupt',
+        }),
+        update: userUpdate,
+      },
+      school: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'school-bupt' },
+          { id: 'school-cuc' },
+        ]),
+      },
+      questionnaireResponse,
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        Promise.resolve(
+          callback({
+            user: {
+              update: userUpdate,
+            },
+            school: prisma.school,
+            questionnaireResponse,
+          }),
+        ),
+      ),
+    };
+    const adminAuditService = {
+      listAuditLogs: jest.fn(),
+      getRecentAuditLogsByCondition: jest.fn(),
+      write: jest.fn(),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      adminAuditService as never,
+      {} as never,
+    );
+
+    await service.updateUser(
+      'user-1',
+      { schoolId: 'school-cuc' },
+      'admin-1',
+    );
+
+    expect(questionnaireResponse.update).toHaveBeenCalledWith({
+      where: { id: 'response-1' },
+      data: {
+        answers: {
+          [HARD_MATCH_KEYS.school]: 'school-cuc',
+          [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-bupt'],
+        },
+      },
+    });
+    expect(adminAuditService.write).toHaveBeenCalledWith(
+      'admin-1',
+      'user.updated',
+      {
+        userId: 'user-1',
+        fields: ['schoolId'],
+      },
+    );
   });
 });

@@ -12,6 +12,7 @@ import {
   normalizeQuestionOptions,
   normalizeQuestionReasonRules,
 } from '../questionnaire/questionnaire-config';
+import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminSchoolService } from './admin-school.service';
 import {
@@ -410,17 +411,24 @@ export class AdminService {
   }
 
   async getUserQuestionnaire(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        questionnaireResponse: {
-          select: {
-            submittedAt: true,
-            answers: true,
+    const [user, schools] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          schoolId: true,
+          questionnaireResponse: {
+            select: {
+              submittedAt: true,
+              answers: true,
+            },
           },
         },
-      },
-    });
+      }),
+      this.prisma.school.findMany({
+        select: { id: true },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
 
     if (!user) {
       throw new NotFoundException('User not found.');
@@ -432,7 +440,13 @@ export class AdminService {
 
     return {
       submittedAt: user.questionnaireResponse.submittedAt,
-      answers: user.questionnaireResponse.answers as Record<string, unknown>,
+      answers: syncQuestionnaireSchoolAnswers(
+        user.questionnaireResponse.answers as Record<string, unknown>,
+        {
+          currentSchoolId: user.schoolId ?? null,
+          allowedSchoolIds: schools.map((school) => school.id),
+        },
+      ),
     };
   }
 
@@ -1248,10 +1262,49 @@ export class AdminService {
       throw new BadRequestException('No fields to update.');
     }
 
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      omit: { passwordHash: true },
+    const updatedUser = await this.prisma.$transaction(async (tx) => {
+      const nextUser = await tx.user.update({
+        where: { id: userId },
+        data: updateData,
+        omit: { passwordHash: true },
+      });
+
+      if (input.schoolId === undefined) {
+        return nextUser;
+      }
+
+      const response = await tx.questionnaireResponse.findUnique({
+        where: { userId },
+        select: {
+          id: true,
+          answers: true,
+        },
+      });
+
+      if (!response) {
+        return nextUser;
+      }
+
+      const schools = await tx.school.findMany({
+        select: { id: true },
+        orderBy: { name: 'asc' },
+      });
+      const syncedAnswers = syncQuestionnaireSchoolAnswers(
+        response.answers as Record<string, unknown>,
+        {
+          currentSchoolId: nextUser.schoolId ?? null,
+          allowedSchoolIds: schools.map((school) => school.id),
+        },
+      );
+
+      await tx.questionnaireResponse.update({
+        where: { id: response.id },
+        data: {
+          answers: syncedAnswers as Prisma.InputJsonValue,
+        },
+      });
+
+      return nextUser;
     });
 
     await this.adminAuditService.write(adminActorId, 'user.updated', {

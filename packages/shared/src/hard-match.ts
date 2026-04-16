@@ -20,10 +20,13 @@ export const HARD_MATCH_KEYS = {
   partnerHeightMin: "hard_partner_height_min",
   partnerHeightMax: "hard_partner_height_max",
   oneLinerIntro: "hard_one_liner_intro",
+  school: "hard_school",
+  excludedPartnerSchools: "hard_excluded_partner_schools",
 } as const;
 
 export type HardMatchGender = (typeof HARD_MATCH_GENDERS)[number];
 export type HardMatchLooks = (typeof HARD_MATCH_LOOKS)[number];
+export type HardMatchSchoolId = string;
 export type HardMatchKey =
   (typeof HARD_MATCH_KEYS)[keyof typeof HARD_MATCH_KEYS];
 
@@ -39,6 +42,8 @@ export type HardMatchAnswers = {
   partnerHeightMin: number;
   partnerHeightMax: number;
   oneLinerIntro: string;
+  school: HardMatchSchoolId;
+  excludedPartnerSchools: HardMatchSchoolId[];
 };
 
 const HARD_MATCH_KEY_SET = new Set<string>(Object.values(HARD_MATCH_KEYS));
@@ -127,6 +132,15 @@ export function readSingleChoice<T extends string>(
   return allowedValues.includes(normalizedValue) ? normalizedValue : null;
 }
 
+export function readNonEmptyString(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalizedValue = value.trim();
+  return normalizedValue.length > 0 ? normalizedValue : null;
+}
+
 export function readStringArray<T extends string>(
   value: unknown,
   allowedValues: readonly T[],
@@ -141,6 +155,21 @@ export function readStringArray<T extends string>(
         .filter((item): item is string => typeof item === "string")
         .map((item) => item.trim() as T)
         .filter((item) => allowedValues.includes(item)),
+    ),
+  ];
+}
+
+export function readTrimmedStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [] as string[];
+  }
+
+  return [
+    ...new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean),
     ),
   ];
 }
@@ -256,6 +285,10 @@ export function parseHardMatchAnswers(
   const oneLinerIntro = normalizeOneLinerIntro(
     rawAnswers[HARD_MATCH_KEYS.oneLinerIntro],
   );
+  const school = readNonEmptyString(rawAnswers[HARD_MATCH_KEYS.school]);
+  const excludedPartnerSchools = readTrimmedStringArray(
+    rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
+  );
 
   if (
     partnerAgeMin == null ||
@@ -265,7 +298,8 @@ export function parseHardMatchAnswers(
     partnerHeightMax == null ||
     birthDate == null ||
     gender == null ||
-    looks == null
+    looks == null ||
+    school == null
   ) {
     return null;
   }
@@ -297,6 +331,8 @@ export function parseHardMatchAnswers(
     partnerHeightMin,
     partnerHeightMax,
     oneLinerIntro,
+    school,
+    excludedPartnerSchools,
   };
 }
 
@@ -384,6 +420,13 @@ export function areHardMatchAnswersCompatible(
     left.heightCm > right.partnerHeightMax ||
     right.heightCm < left.partnerHeightMin ||
     right.heightCm > left.partnerHeightMax
+  ) {
+    return false;
+  }
+
+  if (
+    left.excludedPartnerSchools.includes(right.school) ||
+    right.excludedPartnerSchools.includes(left.school)
   ) {
     return false;
   }

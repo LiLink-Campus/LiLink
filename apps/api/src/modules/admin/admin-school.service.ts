@@ -3,7 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isDeepStrictEqual } from 'node:util';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import { CreateSchoolDto, ListSchoolsQueryDto, UpdateSchoolDto } from './dto';
 import { AdminAuditService } from './admin-audit.service';
 
@@ -161,9 +164,22 @@ export class AdminSchoolService {
     if (!target) throw new NotFoundException('Target school not found.');
 
     await this.prisma.$transaction(async (tx) => {
+      const remainingSchools = await tx.school.findMany({
+        where: { id: { not: sourceSchoolId } },
+        select: { id: true },
+        orderBy: { name: 'asc' },
+      });
+
       await tx.user.updateMany({
         where: { schoolId: sourceSchoolId },
         data: { schoolId: targetSchoolId },
+      });
+
+      await this.syncQuestionnaireResponses(tx, {
+        allowedSchoolIds: remainingSchools.map((school) => school.id),
+        rewrittenSchoolIds: {
+          [sourceSchoolId]: targetSchoolId,
+        },
       });
 
       await tx.schoolDomain.updateMany({
@@ -195,8 +211,24 @@ export class AdminSchoolService {
       throw new NotFoundException('School not found.');
     }
 
-    await this.prisma.schoolDomain.deleteMany({ where: { schoolId } });
-    await this.prisma.school.delete({ where: { id: schoolId } });
+    await this.prisma.$transaction(async (tx) => {
+      const remainingSchools = await tx.school.findMany({
+        where: { id: { not: schoolId } },
+        select: { id: true },
+        orderBy: { name: 'asc' },
+      });
+
+      await this.syncQuestionnaireResponses(tx, {
+        allowedSchoolIds: remainingSchools.map((item) => item.id),
+        rewrittenSchoolIds: {
+          [schoolId]: null,
+        },
+      });
+
+      await tx.schoolDomain.deleteMany({ where: { schoolId } });
+      await tx.school.delete({ where: { id: schoolId } });
+    });
+
     await this.adminAuditService.write(adminActorId, 'school.deleted', {
       schoolId,
       slug: school.slug,
@@ -245,5 +277,45 @@ export class AdminSchoolService {
       pageSize: pagination.pageSize,
       totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
     };
+  }
+
+  private async syncQuestionnaireResponses(
+    tx: Prisma.TransactionClient,
+    options: {
+      allowedSchoolIds: readonly string[];
+      rewrittenSchoolIds?: Readonly<Record<string, string | null>>;
+    },
+  ) {
+    const responses = await tx.questionnaireResponse.findMany({
+      select: {
+        id: true,
+        answers: true,
+        user: {
+          select: {
+            schoolId: true,
+          },
+        },
+      },
+    });
+
+    for (const response of responses) {
+      const rawAnswers = response.answers as Record<string, unknown>;
+      const syncedAnswers = syncQuestionnaireSchoolAnswers(rawAnswers, {
+        currentSchoolId: response.user.schoolId ?? null,
+        allowedSchoolIds: options.allowedSchoolIds,
+        rewrittenSchoolIds: options.rewrittenSchoolIds,
+      });
+
+      if (isDeepStrictEqual(rawAnswers, syncedAnswers)) {
+        continue;
+      }
+
+      await tx.questionnaireResponse.update({
+        where: { id: response.id },
+        data: {
+          answers: syncedAnswers as Prisma.InputJsonValue,
+        },
+      });
+    }
   }
 }
