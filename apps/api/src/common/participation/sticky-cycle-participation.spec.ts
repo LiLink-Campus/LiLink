@@ -78,6 +78,7 @@ describe('ensureStickyCycleParticipations', () => {
             cycleId: string;
             userId: string;
             status: 'OPTED_IN' | 'OPTED_OUT';
+            intent: 'FRIEND' | 'DATE' | 'BOTH' | null;
             optedInAt: Date | null;
           }>;
           skipDuplicates: boolean;
@@ -91,17 +92,21 @@ describe('ensureStickyCycleParticipations', () => {
     }
 
     expect(createManyArgument.skipDuplicates).toBe(true);
+    // Weekly intent is intentionally cleared on sticky carry-over so the user
+    // is forced to re-pick FRIEND/DATE/BOTH every cycle.
     expect(createManyArgument.data).toEqual([
       {
         cycleId: 'cycle-2',
         userId: 'user-opted-in',
         status: 'OPTED_IN',
+        intent: null,
         optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
       },
       {
         cycleId: 'cycle-2',
         userId: 'user-opted-out',
         status: 'OPTED_OUT',
+        intent: null,
         optedInAt: null,
       },
     ]);
