@@ -1,8 +1,13 @@
-import { redirectAuthenticatedUser } from "../../lib/server-api";
+import { AuthRedirectGate } from "../auth-redirect-gate";
+import { hasUserSessionCookie } from "../../lib/server-api";
 import ForgotPasswordPageClient from "./forgot-password-page-client";
 
 export default async function ForgotPasswordPage() {
-  await redirectAuthenticatedUser();
+  const hasSessionCookie = await hasUserSessionCookie();
 
-  return <ForgotPasswordPageClient />;
+  return (
+    <AuthRedirectGate blockUntilHydrated={hasSessionCookie}>
+      <ForgotPasswordPageClient />
+    </AuthRedirectGate>
+  );
 }

@@ -4,6 +4,8 @@ import {
   hasUserSessionCookie,
 } from "../../lib/server-api";
 import type { AuthMePayload } from "../../lib/api";
+import "../protected.css";
+import "./dashboard.css";
 import DashboardPage, {
   type DashboardPayload,
   type QuestionnairePayload,
