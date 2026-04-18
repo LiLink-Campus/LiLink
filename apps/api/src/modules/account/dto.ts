@@ -82,6 +82,24 @@ export class UpdateProfileDto {
 export class SaveQuestionnaireDto {
   @IsObject()
   answers!: Record<string, unknown>;
+
+  @IsObject()
+  hardMatchForm!: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  displayName?: string;
+}
+
+export class SaveQuestionnaireResultDto {
+  @ApiProperty({ enum: ['DRAFT', 'SUBMITTED'] })
+  saveState!: 'DRAFT' | 'SUBMITTED';
+
+  @ApiProperty({ format: 'date-time', nullable: true })
+  questionnaireSubmittedAt!: string | null;
+
+  @ApiProperty()
+  hasDraft!: boolean;
 }
 
 export class ToggleParticipationDto {

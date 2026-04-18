@@ -221,6 +221,7 @@ describe('AccountService', () => {
               [HARD_MATCH_KEYS.oneLinerIntro]:
                 '测试用一句话介绍，用于回归问卷过滤。',
             },
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
           }),
         },
       } as never,
@@ -255,25 +256,39 @@ describe('AccountService', () => {
         [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-bupt'],
         [HARD_MATCH_KEYS.oneLinerIntro]: '测试用一句话介绍，用于回归问卷过滤。',
       },
+      submittedAt: '2026-04-18T12:00:00.000Z',
+      draft: null,
     });
   });
 
-  it('injects the current user school id before validating and saving questionnaire answers', async () => {
+  it('submits a complete questionnaire and clears any draft payload', async () => {
     const upsert = jest.fn().mockResolvedValue({ id: 'response-1' });
+    const userUpdate = jest.fn().mockResolvedValue(undefined);
+    const transaction = jest
+      .fn()
+      .mockImplementation((operations: Promise<unknown>[]) =>
+        Promise.all(operations),
+      );
     const validateAnswers = jest.fn().mockReturnValue({
       [HARD_MATCH_KEYS.school]: 'school-bupt',
       current_question: 'kept',
     });
+    const sanitizeStoredAnswers = jest.fn().mockReturnValue({
+      current_question: 'kept',
+    });
     const service = new AccountService(
       {
+        $transaction: transaction,
         user: {
           findUniqueOrThrow: jest.fn().mockResolvedValue({
             id: 'user-1',
+            displayName: null,
             school: {
               id: 'school-bupt',
               name: '北京邮电大学玛丽女王海南学院',
             },
           }),
+          update: userUpdate,
         },
         questionnaireResponse: {
           upsert,
@@ -283,30 +298,75 @@ describe('AccountService', () => {
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-1',
-          questions: [],
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              type: 'SINGLE_SELECT',
+              required: true,
+              options: null,
+            },
+          ],
           schools: [
             { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
             { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
           ],
         }),
         validateAnswers,
+        sanitizeStoredAnswers,
       } as never,
     );
 
-    await service.saveQuestionnaire('user-1', {
-      answers: {
-        current_question: 'kept',
-      },
+    await expect(
+      service.saveQuestionnaire('user-1', {
+        displayName: '测试昵称',
+        answers: {
+          current_question: 'kept',
+        },
+        hardMatchForm: {
+          birthYear: '2000',
+          birthMonth: '5',
+          birthDay: '10',
+          partnerAgeMin: '18',
+          partnerAgeMax: '30',
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: '165',
+          partnerHeightMin: '160',
+          partnerHeightMax: '190',
+          oneLinerIntro: '喜欢散步。',
+          excludedPartnerSchools: ['school-cuc'],
+        },
+      }),
+    ).resolves.toMatchObject({
+      saveState: 'SUBMITTED',
+      hasDraft: false,
     });
 
     expect(validateAnswers).toHaveBeenCalledWith(
-      [],
-      {
+      [
+        {
+          key: 'current_question',
+          prompt: 'Current question',
+          type: 'SINGLE_SELECT',
+          required: true,
+          options: null,
+        },
+      ],
+      expect.objectContaining({
         current_question: 'kept',
+        [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
         [HARD_MATCH_KEYS.school]: 'school-bupt',
-      },
+        [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
+      }),
       ['school-bupt', 'school-cuc'],
     );
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { displayName: '测试昵称' },
+    });
     expect(upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { userId: 'user-1' },
@@ -315,6 +375,7 @@ describe('AccountService', () => {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
+          draftAnswers: {},
           submittedAt: expect.any(Date) as unknown as Date,
         }) as object,
         update: expect.objectContaining({
@@ -322,10 +383,309 @@ describe('AccountService', () => {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
+          draftAnswers: {},
           submittedAt: expect.any(Date) as unknown as Date,
         }) as object,
       }),
     );
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(sanitizeStoredAnswers).toHaveBeenCalledWith(
+      [
+        {
+          key: 'current_question',
+          prompt: 'Current question',
+          type: 'SINGLE_SELECT',
+          required: true,
+          options: null,
+        },
+      ],
+      {
+        current_question: 'kept',
+      },
+    );
+  });
+
+  it('skips rewriting the user row when the nickname is unchanged', async () => {
+    const upsert = jest.fn().mockResolvedValue({ id: 'response-1' });
+    const userUpdate = jest.fn().mockResolvedValue(undefined);
+    const transaction = jest
+      .fn()
+      .mockImplementation((operations: Promise<unknown>[]) =>
+        Promise.all(operations),
+      );
+    const validateAnswers = jest.fn().mockReturnValue({
+      [HARD_MATCH_KEYS.school]: 'school-bupt',
+      current_question: 'kept',
+    });
+    const sanitizeStoredAnswers = jest.fn().mockReturnValue({
+      current_question: 'kept',
+    });
+    const service = new AccountService(
+      {
+        $transaction: transaction,
+        user: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            displayName: '测试昵称',
+            school: {
+              id: 'school-bupt',
+              name: '北京邮电大学玛丽女王海南学院',
+            },
+          }),
+          update: userUpdate,
+        },
+        questionnaireResponse: {
+          upsert,
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              type: 'SINGLE_SELECT',
+              required: true,
+              options: null,
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+            { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+          ],
+        }),
+        validateAnswers,
+        sanitizeStoredAnswers,
+      } as never,
+    );
+
+    await expect(
+      service.saveQuestionnaire('user-1', {
+        displayName: '测试昵称',
+        answers: {
+          current_question: 'kept',
+        },
+        hardMatchForm: {
+          birthYear: '2000',
+          birthMonth: '5',
+          birthDay: '10',
+          partnerAgeMin: '18',
+          partnerAgeMax: '30',
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: '165',
+          partnerHeightMin: '160',
+          partnerHeightMax: '190',
+          oneLinerIntro: '喜欢散步。',
+          excludedPartnerSchools: ['school-cuc'],
+        },
+      }),
+    ).resolves.toMatchObject({
+      saveState: 'SUBMITTED',
+      hasDraft: false,
+    });
+
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.mock.calls[0][0]).toHaveLength(1);
+    expect(upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('stores an incomplete questionnaire as a draft without replacing the submitted answers', async () => {
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'response-1',
+      submittedAt: new Date('2026-04-10T08:00:00.000Z'),
+    });
+    const userUpdate = jest.fn().mockResolvedValue(undefined);
+    const validateAnswers = jest.fn();
+    const sanitizeStoredAnswers = jest.fn().mockReturnValue({
+      current_question: 'partial-answer',
+    });
+    const service = new AccountService(
+      {
+        user: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            displayName: null,
+            school: {
+              id: 'school-bupt',
+              name: '北京邮电大学玛丽女王海南学院',
+            },
+          }),
+          update: userUpdate,
+        },
+        questionnaireResponse: {
+          upsert,
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              type: 'SINGLE_SELECT',
+              required: true,
+              options: null,
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+            { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+          ],
+        }),
+        validateAnswers,
+        sanitizeStoredAnswers,
+      } as never,
+    );
+
+    await expect(
+      service.saveQuestionnaire('user-1', {
+        displayName: 'A',
+        answers: {
+          current_question: 'partial-answer',
+        },
+        hardMatchForm: {
+          birthYear: '2000',
+          birthMonth: '',
+          birthDay: '',
+          partnerAgeMin: '18',
+          partnerAgeMax: '30',
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: '',
+          partnerHeightMin: '160',
+          partnerHeightMax: '190',
+          oneLinerIntro: '喜欢散步。',
+          excludedPartnerSchools: ['school-cuc'],
+        },
+      }),
+    ).resolves.toEqual({
+      saveState: 'DRAFT',
+      questionnaireSubmittedAt: '2026-04-10T08:00:00.000Z',
+      hasDraft: true,
+    });
+
+    expect(validateAnswers).not.toHaveBeenCalled();
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        create: expect.objectContaining({
+          answers: {},
+          draftAnswers: {
+            softAnswers: {
+              current_question: 'partial-answer',
+            },
+            hardMatchForm: expect.objectContaining({
+              birthYear: '2000',
+              birthMonth: '',
+              birthDay: '',
+              heightCm: '',
+              oneLinerIntro: '喜欢散步。',
+            }),
+            displayName: 'A',
+          },
+        }) as object,
+        update: expect.objectContaining({
+          draftAnswers: expect.objectContaining({
+            displayName: 'A',
+          }),
+        }) as object,
+      }),
+    );
+  });
+
+  it('skips rewriting the user row on draft saves when the nickname is unchanged', async () => {
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'response-1',
+      submittedAt: new Date('2026-04-10T08:00:00.000Z'),
+    });
+    const userUpdate = jest.fn().mockResolvedValue(undefined);
+    const validateAnswers = jest.fn();
+    const sanitizeStoredAnswers = jest.fn().mockReturnValue({
+      current_question: 'partial-answer',
+    });
+    const service = new AccountService(
+      {
+        user: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            displayName: '测试昵称',
+            school: {
+              id: 'school-bupt',
+              name: '北京邮电大学玛丽女王海南学院',
+            },
+          }),
+          update: userUpdate,
+        },
+        questionnaireResponse: {
+          upsert,
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              type: 'SINGLE_SELECT',
+              required: true,
+              options: null,
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+            { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+          ],
+        }),
+        validateAnswers,
+        sanitizeStoredAnswers,
+      } as never,
+    );
+
+    await expect(
+      service.saveQuestionnaire('user-1', {
+        displayName: '测试昵称',
+        answers: {
+          current_question: 'partial-answer',
+        },
+        hardMatchForm: {
+          birthYear: '2000',
+          birthMonth: '',
+          birthDay: '',
+          partnerAgeMin: '18',
+          partnerAgeMax: '30',
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: '',
+          partnerHeightMin: '160',
+          partnerHeightMax: '190',
+          oneLinerIntro: '喜欢散步。',
+          excludedPartnerSchools: ['school-cuc'],
+        },
+      }),
+    ).resolves.toEqual({
+      saveState: 'DRAFT',
+      questionnaireSubmittedAt: '2026-04-10T08:00:00.000Z',
+      hasDraft: true,
+    });
+
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(validateAnswers).not.toHaveBeenCalled();
+    expect(upsert).toHaveBeenCalledTimes(1);
   });
 
   it('rejects questionnaire saves when the current user has no recognized school', async () => {
@@ -355,7 +715,10 @@ describe('AccountService', () => {
     );
 
     await expect(
-      service.saveQuestionnaire('user-1', { answers: {} }),
+      service.saveQuestionnaire('user-1', {
+        answers: {},
+        hardMatchForm: {},
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(validateAnswers).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();

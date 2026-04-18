@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { takeNextAutosaveQueueItem } from "@lilink/shared";
 import { fetchApi, type AuthMePayload } from "../../lib/api";
 import {
   AGE_OPTIONS,
@@ -12,7 +19,6 @@ import {
   HEIGHT_OPTIONS,
   MONTH_OPTIONS,
   buildDayOptions,
-  buildHardMatchAnswerRecord,
   getHardMatchFormSaveErrorMessage,
   hardMatchFormFromAnswers,
   toggleMultiSelectValue,
@@ -93,7 +99,37 @@ export type QuestionnairePayload = {
 
 export type SavedQuestionnairePayload = {
   answers: Record<string, unknown>;
+  submittedAt: string | null;
+  draft: {
+    softAnswers: Record<string, unknown>;
+    hardMatchForm: HardMatchFormState;
+    displayName: string;
+  } | null;
 } | null;
+
+type QuestionnaireSavePayload = {
+  answers: Record<string, unknown>;
+  hardMatchForm: HardMatchFormState;
+  displayName: string;
+};
+
+type QuestionnaireSaveResponse = {
+  saveState: "DRAFT" | "SUBMITTED";
+  questionnaireSubmittedAt: string | null;
+  hasDraft: boolean;
+};
+
+function buildQuestionnaireSavePayload(
+  answers: Record<string, unknown>,
+  hardMatchForm: HardMatchFormState,
+  displayName: string,
+): QuestionnaireSavePayload {
+  return {
+    answers,
+    hardMatchForm,
+    displayName,
+  };
+}
 
 function keepCurrentQuestionAnswers(
   questions: Question[],
@@ -326,6 +362,32 @@ function getQuestionnaireIncompleteMessage(
   return `价值观问卷还有 ${incompleteSoft.length} 道必答题未完成。`;
 }
 
+function questionnaireAutosaveStatusText(
+  saveState: "idle" | "pending" | "saving" | "draft-saved" | "submitted" | "error",
+  hasSavedQuestionnaire: boolean,
+  hasDraftQuestionnaire: boolean,
+) {
+  if (saveState === "pending") {
+    return "检测到修改，系统即将自动保存。";
+  }
+
+  if (saveState === "saving") {
+    return "正在自动保存…";
+  }
+
+  if (saveState === "draft-saved" || hasDraftQuestionnaire) {
+    return hasSavedQuestionnaire
+      ? "未完成修改已自动保存为草稿；当前匹配仍按上次正式保存的完整问卷计算。"
+      : "草稿已自动保存；补全全部必答项后，系统会自动转为正式问卷。";
+  }
+
+  if (saveState === "submitted") {
+    return "问卷已自动保存。";
+  }
+
+  return "系统会自动保存你的修改。";
+}
+
 export default function DashboardPage({
   initialUser,
   initialDashboard,
@@ -339,6 +401,8 @@ export default function DashboardPage({
   initialSchools: HardMatchSchoolOption[];
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
+  const initialDraft = initialSavedQuestionnaire?.draft ?? null;
+  const initialSubmittedAnswers = initialSavedQuestionnaire?.answers;
   const [user] = useState<AuthMePayload | null>(initialUser);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(
     initialDashboard,
@@ -346,15 +410,29 @@ export default function DashboardPage({
   const [questions] = useState<Question[]>(initialQuestions);
   const [schoolOptions] = useState<HardMatchSchoolOption[]>(initialSchools);
   const [answers, setAnswers] = useState<Record<string, unknown>>(
-    keepCurrentQuestionAnswers(initialQuestions, initialSavedQuestionnaire?.answers),
+    initialDraft?.softAnswers ??
+      keepCurrentQuestionAnswers(initialQuestions, initialSubmittedAnswers),
   );
   const [hardMatchForm, setHardMatchForm] = useState<HardMatchFormState>(
-    () => hardMatchFormFromAnswers(initialSavedQuestionnaire?.answers, initialSchools),
+    () =>
+      initialDraft?.hardMatchForm ??
+      hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools),
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState(initialUser.displayName ?? "");
+  const [displayName, setDisplayName] = useState(
+    initialDraft?.displayName ?? initialUser.displayName ?? "",
+  );
+  const [questionnaireSaveError, setQuestionnaireSaveError] = useState<string | null>(
+    null,
+  );
+  const [questionnaireSaveState, setQuestionnaireSaveState] = useState<
+    "idle" | "pending" | "saving" | "draft-saved" | "submitted" | "error"
+  >(initialDraft ? "draft-saved" : "idle");
+  const [hasQuestionnaireDraft, setHasQuestionnaireDraft] = useState(
+    Boolean(initialDraft),
+  );
   const [reportReason, setReportReason] = useState(DEFAULT_REPORT_REASON);
   const [reportDetails, setReportDetails] = useState("");
   const [reportOpen, setReportOpen] = useState(false);
@@ -365,16 +443,35 @@ export default function DashboardPage({
   const initialQuestionnaireVisibilitySet = useRef(false);
   const reportSectionRef = useRef<HTMLElement | null>(null);
   const reportReasonSelectRef = useRef<HTMLSelectElement | null>(null);
+  const questionnaireAutosaveReady = useRef(false);
+  const questionnaireSaveAbortRef = useRef<AbortController | null>(null);
+  const questionnaireSaveInFlightRef = useRef(false);
+  const queuedQuestionnaireSaveRef = useRef<{
+    payload: QuestionnaireSavePayload;
+    snapshot: string;
+  } | null>(null);
+  const questionnaireUnmountedRef = useRef(false);
+  const lastSavedQuestionnaireSnapshotRef = useRef(
+    JSON.stringify(
+      buildQuestionnaireSavePayload(
+        initialDraft?.softAnswers ??
+          keepCurrentQuestionAnswers(initialQuestions, initialSubmittedAnswers),
+        initialDraft?.hardMatchForm ??
+          hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools),
+        initialDraft?.displayName ?? initialUser.displayName ?? "",
+      ),
+    ),
+  );
 
   useEffect(() => {
     if (!dashboard || initialQuestionnaireVisibilitySet.current) {
       return;
     }
     initialQuestionnaireVisibilitySet.current = true;
-    if (dashboard.questionnaireSubmittedAt) {
+    if (dashboard.questionnaireSubmittedAt && !initialDraft) {
       setQuestionnaireBodyVisible(false);
     }
-  }, [dashboard]);
+  }, [dashboard, initialDraft]);
 
   useEffect(() => {
     if (!reportOpen || !reportTargetMatchId) {
@@ -403,6 +500,15 @@ export default function DashboardPage({
       setHardMatchForm((current) => ({ ...current, birthDay: "" }));
     }
   }, [birthDayOptions, hardMatchForm.birthDay]);
+
+  const questionnaireSavePayload = useMemo(
+    () => buildQuestionnaireSavePayload(answers, hardMatchForm, displayName),
+    [answers, hardMatchForm, displayName],
+  );
+  const questionnaireSnapshot = useMemo(
+    () => JSON.stringify(questionnaireSavePayload),
+    [questionnaireSavePayload],
+  );
 
   const counterpart = useMemo(() => {
     if (!dashboard?.latestMatch || !user) return null;
@@ -434,6 +540,133 @@ export default function DashboardPage({
     }
   }
 
+  const flushQueuedQuestionnaireSave = useEffectEvent(
+    async (payload: QuestionnaireSavePayload, snapshot: string) => {
+      if (
+        questionnaireUnmountedRef.current ||
+        questionnaireSaveInFlightRef.current ||
+        snapshot === lastSavedQuestionnaireSnapshotRef.current
+      ) {
+        return;
+      }
+
+      const abortController = new AbortController();
+
+      questionnaireSaveInFlightRef.current = true;
+      questionnaireSaveAbortRef.current = abortController;
+      setQuestionnaireSaveState("saving");
+      setQuestionnaireSaveError(null);
+
+      try {
+        const result = await fetchApi<QuestionnaireSaveResponse>(
+          "/me/questionnaire",
+          {
+            method: "PUT",
+            body: JSON.stringify(payload),
+            signal: abortController.signal,
+          },
+        );
+
+        if (questionnaireUnmountedRef.current) {
+          return;
+        }
+
+        lastSavedQuestionnaireSnapshotRef.current = snapshot;
+        setHasQuestionnaireDraft(result.hasDraft);
+        setDashboard((current) =>
+          current
+            ? {
+                ...current,
+                questionnaireSubmittedAt: result.questionnaireSubmittedAt,
+              }
+            : current,
+        );
+        setQuestionnaireSaveState(
+          result.saveState === "SUBMITTED" ? "submitted" : "draft-saved",
+        );
+      } catch (caughtError) {
+        if (
+          caughtError instanceof Error &&
+          caughtError.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setQuestionnaireSaveState("error");
+        setQuestionnaireSaveError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "问卷自动保存失败。",
+        );
+      } finally {
+        questionnaireSaveAbortRef.current = null;
+        questionnaireSaveInFlightRef.current = false;
+
+        const nextQueuedSave = takeNextAutosaveQueueItem(
+          queuedQuestionnaireSaveRef.current,
+          {
+            isUnmounted: questionnaireUnmountedRef.current,
+            lastSavedSnapshot: lastSavedQuestionnaireSnapshotRef.current,
+          },
+        );
+        if (nextQueuedSave) {
+          queuedQuestionnaireSaveRef.current = null;
+          void flushQueuedQuestionnaireSave(
+            nextQueuedSave.payload,
+            nextQueuedSave.snapshot,
+          );
+        }
+      }
+    },
+  );
+
+  const queueQuestionnaireSave = useEffectEvent(
+    (payload: QuestionnaireSavePayload, snapshot: string) => {
+      if (snapshot === lastSavedQuestionnaireSnapshotRef.current) {
+        queuedQuestionnaireSaveRef.current = null;
+        return;
+      }
+
+      if (questionnaireSaveInFlightRef.current) {
+        queuedQuestionnaireSaveRef.current = { payload, snapshot };
+        return;
+      }
+
+      void flushQueuedQuestionnaireSave(payload, snapshot);
+    },
+  );
+
+  useEffect(() => {
+    if (!questionnaireAutosaveReady.current) {
+      questionnaireAutosaveReady.current = true;
+      return;
+    }
+
+    if (questionnaireSnapshot === lastSavedQuestionnaireSnapshotRef.current) {
+      return;
+    }
+
+    setQuestionnaireSaveState("pending");
+    setQuestionnaireSaveError(null);
+
+    const timeoutId = window.setTimeout(() => {
+      queueQuestionnaireSave(questionnaireSavePayload, questionnaireSnapshot);
+    }, 800);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [questionnaireSavePayload, questionnaireSnapshot]);
+
+  useEffect(
+    () => () => {
+      questionnaireUnmountedRef.current = true;
+      queuedQuestionnaireSaveRef.current = null;
+      questionnaireSaveAbortRef.current?.abort();
+    },
+    [],
+  );
+
   function closeReportForm() {
     setReportOpen(false);
     setReportTargetMatchId(null);
@@ -459,38 +692,6 @@ export default function DashboardPage({
 
   function reportFormIsOpenForMatch(matchId: string) {
     return reportOpen && reportTargetMatchId === matchId;
-  }
-
-  async function saveQuestionnaire() {
-    setSaving("questionnaire");
-    setSavedMessage(null);
-    setError(null);
-
-    try {
-      const trimmedName = displayName.trim();
-      if (trimmedName.length < 2) {
-        throw new Error("昵称至少填写 2 个字。");
-      }
-      const hardMatchAnswers = buildHardMatchAnswerRecord(hardMatchForm);
-      await Promise.all([
-        fetchApi("/me/questionnaire", {
-          method: "PUT",
-          body: JSON.stringify({ answers: { ...hardMatchAnswers, ...answers } }),
-        }),
-        trimmedName
-          ? fetchApi("/me/profile", {
-              method: "PUT",
-              body: JSON.stringify({ displayName: trimmedName }),
-            })
-          : Promise.resolve(),
-      ]);
-      await refreshDashboard();
-      startTransition(() => { setSavedMessage("问卷已保存。"); });
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "问卷保存失败。");
-    } finally {
-      setSaving(null);
-    }
   }
 
   async function toggleParticipation(nextValue: boolean) {
@@ -593,6 +794,11 @@ export default function DashboardPage({
   const isOptedIn = dashboard?.currentCycle?.participationStatus === "OPTED_IN";
   const introduced = Boolean(dashboard?.latestMatch?.introducedAt);
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
+  const questionnaireStatus = questionnaireAutosaveStatusText(
+    questionnaireSaveState,
+    hasSavedQuestionnaire,
+    hasQuestionnaireDraft,
+  );
 
   return (
     <main className="page-shell dashboard-page">
@@ -601,8 +807,10 @@ export default function DashboardPage({
         <h1>欢迎回来</h1>
         <p className="dashboard-lede">
           {hasSavedQuestionnaire
-            ? "你已保存问卷资料，可随时在下方修改并重新保存；并在此决定是否参加当前轮次。"
-            : "在这里填写个人信息、完成价值观问卷，并决定是否参加当前轮次。"}
+            ? hasQuestionnaireDraft
+              ? "你有一份未完成草稿；当前轮次仍按上次正式保存的问卷计算。补全后系统会自动切换到最新版本。"
+              : "你已保存问卷资料，可随时在下方修改；系统会自动同步最新版本，并在此决定是否参加当前轮次。"
+            : "在这里填写个人信息、完成价值观问卷，并决定是否参加当前轮次。系统会自动保存你的编辑进度。"}
         </p>
         {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
         {error ? <p className="form-error">{error}</p> : null}
@@ -972,13 +1180,16 @@ export default function DashboardPage({
         {hasSavedQuestionnaire && !questionnaireBodyVisible ? (
           <>
             <p className="dashboard-muted">
-              问卷已保存。匹配会按你<strong>最近一次保存</strong>的内容计算；需要改答案或客观条件时，展开后即可编辑并再次保存。
+              {hasQuestionnaireDraft
+                ? <>你有一份未完成草稿。当前匹配仍按<strong>最近一次正式保存</strong>的完整问卷计算；展开后继续编辑即可。</>
+                : <>问卷已保存。匹配会按你<strong>最近一次保存</strong>的内容计算；需要改答案或客观条件时，展开后即可继续编辑。</>}
             </p>
+            <p className="dashboard-muted">{questionnaireStatus}</p>
             {questionnaireIncompleteMessage ? (
               <p className="form-error" role="alert">
                 {questionnaireIncompleteMessage}
                 {" "}
-                请展开问卷，补全后点击「保存全部问卷」。
+                请展开问卷，补全后系统会自动转为正式问卷。
               </p>
             ) : null}
             <button
@@ -993,16 +1204,16 @@ export default function DashboardPage({
           <>
             <p className="dashboard-muted">
               {hasSavedQuestionnaire
-                ? "可随时修改下列内容；保存后会在后续匹配与揭晓中使用最新版本。带「可多选」的项目全选等同于不限。"
-                : "填写你的基本信息和对另一半的期望，再完成价值观问卷。带「可多选」的项目全选等同于不限。"}
+                ? hasQuestionnaireDraft
+                  ? "可继续修改下列内容；未完成时只会保存为草稿，补全后才会替换正式问卷。带「可多选」的项目全选等同于不限。"
+                  : "可随时修改下列内容；系统会自动保存，完整版本会在后续匹配与揭晓中生效。带「可多选」的项目全选等同于不限。"
+                : "填写你的基本信息和对另一半的期望，再完成价值观问卷。系统会自动保存草稿；带「可多选」的项目全选等同于不限。"}
             </p>
-            {questionnaireIncompleteMessage ? (
-              <p className="form-error" role="alert">
-                {questionnaireIncompleteMessage}
+            <div className="dashboard-questionnaire-toolbar">
+              <p className="dashboard-muted" style={{ margin: 0 }}>
+                {questionnaireStatus}
               </p>
-            ) : null}
-            {hasSavedQuestionnaire ? (
-              <div className="dashboard-questionnaire-toolbar">
+              {hasSavedQuestionnaire ? (
                 <button
                   className="button-ghost"
                   type="button"
@@ -1010,7 +1221,17 @@ export default function DashboardPage({
                 >
                   收起问卷
                 </button>
-              </div>
+              ) : null}
+            </div>
+            {questionnaireSaveError ? (
+              <p className="form-error" role="alert">
+                {questionnaireSaveError}
+              </p>
+            ) : null}
+            {questionnaireIncompleteMessage ? (
+              <p className="form-error" role="alert">
+                {questionnaireIncompleteMessage}
+              </p>
             ) : null}
 
         {/* ── 关于你 ── */}
@@ -1325,15 +1546,6 @@ export default function DashboardPage({
           </div>
         )}
 
-        <button
-          className="button-primary"
-          disabled={saving === "questionnaire"}
-          type="button"
-          onClick={() => void saveQuestionnaire()}
-          style={{ marginTop: "1.5rem" }}
-        >
-          {saving === "questionnaire" ? "保存中…" : "保存全部问卷"}
-        </button>
           </>
         )}
       </section>

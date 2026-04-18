@@ -464,6 +464,7 @@ export class CyclesService {
         school?: { id: string } | null;
         questionnaireResponse: {
           answers: Prisma.JsonValue;
+          submittedAt: Date | null;
         } | null;
       };
     }>,
@@ -471,7 +472,10 @@ export class CyclesService {
     return participations
       .map((entry) => entry.user)
       .map((user): EligibleParticipant | null => {
-        if (!user.questionnaireResponse) {
+        if (
+          !user.questionnaireResponse ||
+          user.questionnaireResponse.submittedAt == null
+        ) {
           return null;
         }
 

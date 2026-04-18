@@ -1,13 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma, QuestionType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import {
   HARD_MATCH_KEYS,
+  buildHardMatchAnswerRecordFromDraftForm,
+  type HardMatchDraftForm,
   hardMatchQuestionKeys,
   readQuestionnaireOneLiner,
+  sanitizeHardMatchDraftForm,
 } from '../questionnaire/hard-match';
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import {
@@ -94,6 +97,25 @@ type DashboardMatchParticipant = Prisma.MatchParticipantGetPayload<{
     };
   };
 }>;
+
+type QuestionnaireDraftPayload = {
+  softAnswers: Record<string, Prisma.InputJsonValue>;
+  hardMatchForm: HardMatchDraftForm;
+  displayName: string;
+};
+
+type QuestionnaireDraftQuestion = {
+  key: string;
+  prompt: string;
+  type: QuestionType;
+  required: boolean;
+  selectionLimit?: number | null;
+  options: Prisma.JsonValue | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 @Injectable()
 export class AccountService {
@@ -520,6 +542,78 @@ export class AccountService {
     return value ? value.toISOString() : null;
   }
 
+  private hasDisplayNameChange(
+    currentDisplayName: string | null | undefined,
+    nextDisplayName: string,
+  ) {
+    if (nextDisplayName.length < 2) {
+      return false;
+    }
+
+    return (currentDisplayName?.trim() ?? '') !== nextDisplayName;
+  }
+
+  private assertKnownQuestionnaireKeys(
+    questions: Array<{ key: string }>,
+    rawAnswers: Record<string, unknown>,
+  ) {
+    const allowedKeys = new Set(questions.map((question) => question.key));
+
+    for (const answerKey of Object.keys(rawAnswers)) {
+      if (!allowedKeys.has(answerKey)) {
+        throw new BadRequestException(
+          `Unexpected questionnaire field: ${answerKey}.`,
+        );
+      }
+    }
+  }
+
+  private buildQuestionnaireDraftPayload(
+    questions: QuestionnaireDraftQuestion[],
+    input: SaveQuestionnaireDto,
+    allowedSchoolIds: readonly string[],
+  ): QuestionnaireDraftPayload {
+    return {
+      softAnswers: this.questionnaireService.sanitizeStoredAnswers(
+        questions,
+        input.answers,
+      ),
+      hardMatchForm: sanitizeHardMatchDraftForm(
+        input.hardMatchForm,
+        allowedSchoolIds,
+      ),
+      displayName:
+        typeof input.displayName === 'string' ? input.displayName.trim() : '',
+    };
+  }
+
+  private normalizeStoredQuestionnaireDraftPayload(
+    questions: QuestionnaireDraftQuestion[],
+    rawDraftPayload: Prisma.JsonValue | null | undefined,
+    allowedSchoolIds: readonly string[],
+  ): QuestionnaireDraftPayload | null {
+    if (!isRecord(rawDraftPayload)) {
+      return null;
+    }
+
+    return {
+      softAnswers: this.questionnaireService.sanitizeStoredAnswers(
+        questions,
+        isRecord(rawDraftPayload.softAnswers)
+          ? rawDraftPayload.softAnswers
+          : {},
+      ),
+      hardMatchForm: sanitizeHardMatchDraftForm(
+        rawDraftPayload.hardMatchForm,
+        allowedSchoolIds,
+      ),
+      displayName:
+        typeof rawDraftPayload.displayName === 'string'
+          ? rawDraftPayload.displayName.trim()
+          : '',
+    };
+  }
+
   async updateProfile(userId: string, input: UpdateProfileDto) {
     const { displayName, ...profileFields } = input;
 
@@ -570,30 +664,111 @@ export class AccountService {
       );
     }
 
-    const answersWithSchool = {
-      ...input.answers,
-      [HARD_MATCH_KEYS.school]: user.school.id,
-    };
-    const normalizedAnswers = this.questionnaireService.validateAnswers(
+    this.assertKnownQuestionnaireKeys(questionnaire.questions, input.answers);
+
+    const allowedSchoolIds = questionnaire.schools.map((school) => school.id);
+    const draftPayload = this.buildQuestionnaireDraftPayload(
       questionnaire.questions,
-      answersWithSchool,
-      questionnaire.schools.map((school) => school.id),
+      input,
+      allowedSchoolIds,
+    );
+    const trimmedDisplayName = draftPayload.displayName;
+    const shouldUpdateDisplayName = this.hasDisplayNameChange(
+      user.displayName,
+      trimmedDisplayName,
     );
 
-    return this.prisma.questionnaireResponse.upsert({
-      where: { userId },
-      create: {
-        userId,
-        versionId: questionnaire.id,
-        answers: normalizedAnswers as Prisma.InputJsonValue,
-        submittedAt: new Date(),
-      },
-      update: {
-        versionId: questionnaire.id,
-        answers: normalizedAnswers as Prisma.InputJsonValue,
-        submittedAt: new Date(),
-      },
-    });
+    try {
+      if (trimmedDisplayName.length < 2) {
+        throw new BadRequestException(
+          'Display name must contain at least 2 characters.',
+        );
+      }
+
+      const hardMatchAnswers = buildHardMatchAnswerRecordFromDraftForm(
+        draftPayload.hardMatchForm,
+        user.school.id,
+        allowedSchoolIds,
+      );
+      const normalizedAnswers = this.questionnaireService.validateAnswers(
+        questionnaire.questions,
+        {
+          ...input.answers,
+          ...hardMatchAnswers,
+        },
+        allowedSchoolIds,
+      );
+      const submittedAt = new Date();
+
+      const submittedOperations: Prisma.PrismaPromise<unknown>[] = [];
+
+      if (shouldUpdateDisplayName) {
+        submittedOperations.push(
+          this.prisma.user.update({
+            where: { id: userId },
+            data: { displayName: trimmedDisplayName },
+          }),
+        );
+      }
+
+      submittedOperations.push(
+        this.prisma.questionnaireResponse.upsert({
+          where: { userId },
+          create: {
+            userId,
+            versionId: questionnaire.id,
+            answers: normalizedAnswers as Prisma.InputJsonValue,
+            draftAnswers: Prisma.DbNull,
+            submittedAt,
+          },
+          update: {
+            versionId: questionnaire.id,
+            answers: normalizedAnswers as Prisma.InputJsonValue,
+            draftAnswers: Prisma.DbNull,
+            submittedAt,
+          },
+        }),
+      );
+
+      await this.prisma.$transaction(submittedOperations);
+
+      return {
+        saveState: 'SUBMITTED' as const,
+        questionnaireSubmittedAt: submittedAt.toISOString(),
+        hasDraft: false,
+      };
+    } catch (error) {
+      if (!(error instanceof BadRequestException)) {
+        throw error;
+      }
+
+      if (shouldUpdateDisplayName) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { displayName: trimmedDisplayName },
+        });
+      }
+
+      const response = await this.prisma.questionnaireResponse.upsert({
+        where: { userId },
+        create: {
+          userId,
+          versionId: questionnaire.id,
+          answers: {},
+          draftAnswers: draftPayload as Prisma.InputJsonValue,
+          submittedAt: null,
+        },
+        update: {
+          draftAnswers: draftPayload as Prisma.InputJsonValue,
+        },
+      });
+
+      return {
+        saveState: 'DRAFT' as const,
+        questionnaireSubmittedAt: this.toIsoString(response.submittedAt),
+        hasDraft: true,
+      };
+    }
   }
 
   async getQuestionnaire(userId: string) {
@@ -608,17 +783,26 @@ export class AccountService {
       }),
     ]);
 
-    if (!response || !currentQuestionnaire) {
-      return response;
+    if (!response) {
+      return null;
     }
 
+    if (!currentQuestionnaire) {
+      return {
+        answers: isRecord(response.answers) ? response.answers : {},
+        submittedAt: this.toIsoString(response.submittedAt),
+        draft: null,
+      };
+    }
+
+    const allowedSchoolIds = currentQuestionnaire.schools.map(
+      (school) => school.id,
+    );
     const schoolAwareAnswers = syncQuestionnaireSchoolAnswers(
       (response.answers ?? {}) as Record<string, unknown>,
       {
         currentSchoolId: user?.schoolId ?? null,
-        allowedSchoolIds: currentQuestionnaire.schools.map(
-          (school) => school.id,
-        ),
+        allowedSchoolIds,
       },
     );
     const filteredAnswers = this.questionnaireService.sanitizeStoredAnswers(
@@ -633,8 +817,13 @@ export class AccountService {
     }
 
     return {
-      ...response,
       answers: filteredAnswers,
+      submittedAt: this.toIsoString(response.submittedAt),
+      draft: this.normalizeStoredQuestionnaireDraftPayload(
+        currentQuestionnaire.questions,
+        response.draftAnswers,
+        allowedSchoolIds,
+      ),
     };
   }
 

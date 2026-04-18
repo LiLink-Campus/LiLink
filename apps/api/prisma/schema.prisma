@@ -183,6 +183,7 @@ model QuestionnaireResponse {
   versionId   String
   version     QuestionnaireVersion @relation(fields: [versionId], references: [id])
   answers     Json
+  draftAnswers Json?
   submittedAt DateTime?
   updatedAt   DateTime             @updatedAt
 

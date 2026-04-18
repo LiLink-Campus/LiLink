@@ -1,6 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  HARD_MATCH_AGE_MAX,
+  HARD_MATCH_AGE_MIN,
   HARD_MATCH_GENDERS,
+  HARD_MATCH_FORM_HEIGHT_MAX_CM,
   HARD_MATCH_HEIGHT_MAX_CM,
   HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_KEYS,
@@ -72,6 +75,170 @@ export type HardMatchAnswerRecord = {
   [HARD_MATCH_KEYS.school]: HardMatchSchoolId;
   [HARD_MATCH_KEYS.excludedPartnerSchools]: HardMatchSchoolId[];
 };
+
+export type HardMatchDraftForm = {
+  birthYear: string;
+  birthMonth: string;
+  birthDay: string;
+  partnerAgeMin: string;
+  partnerAgeMax: string;
+  gender: string;
+  partnerGenders: string[];
+  looks: string;
+  partnerLooks: string[];
+  heightCm: string;
+  partnerHeightMin: string;
+  partnerHeightMax: string;
+  oneLinerIntro: string;
+  excludedPartnerSchools: string[];
+};
+
+export function createEmptyHardMatchDraftForm(): HardMatchDraftForm {
+  return {
+    birthYear: '',
+    birthMonth: '',
+    birthDay: '',
+    partnerAgeMin: String(HARD_MATCH_AGE_MIN),
+    partnerAgeMax: String(HARD_MATCH_AGE_MAX),
+    gender: '',
+    partnerGenders: [],
+    looks: '',
+    partnerLooks: [],
+    heightCm: '',
+    partnerHeightMin: String(HARD_MATCH_HEIGHT_MIN_CM),
+    partnerHeightMax: String(HARD_MATCH_FORM_HEIGHT_MAX_CM),
+    oneLinerIntro: '',
+    excludedPartnerSchools: [],
+  };
+}
+
+function readDigits(value: unknown, maxLength: number) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0 || trimmedValue.length > maxLength) {
+    return '';
+  }
+
+  return /^\d+$/.test(trimmedValue) ? trimmedValue : '';
+}
+
+function readAllowedString(
+  value: unknown,
+  allowedValues: readonly string[],
+): string {
+  return readSingleChoice(value, allowedValues) ?? '';
+}
+
+function readAllowedNumberString(
+  value: unknown,
+  minimumValue: number,
+  maximumValue: number,
+  fallbackValue: string,
+) {
+  if (typeof value !== 'string') {
+    return fallbackValue;
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return fallbackValue;
+  }
+
+  const normalizedValue = readIntegerInRange(
+    Number.parseInt(trimmedValue, 10),
+    minimumValue,
+    maximumValue,
+  );
+
+  return normalizedValue == null ? fallbackValue : String(normalizedValue);
+}
+
+export function sanitizeHardMatchDraftForm(
+  rawForm: unknown,
+  allowedSchoolIds: readonly string[],
+): HardMatchDraftForm {
+  if (!rawForm || typeof rawForm !== 'object' || Array.isArray(rawForm)) {
+    return createEmptyHardMatchDraftForm();
+  }
+
+  const form = rawForm as Record<string, unknown>;
+
+  return {
+    birthYear: readDigits(form.birthYear, 4),
+    birthMonth: readDigits(form.birthMonth, 2),
+    birthDay: readDigits(form.birthDay, 2),
+    partnerAgeMin: readAllowedNumberString(
+      form.partnerAgeMin,
+      HARD_MATCH_AGE_MIN,
+      HARD_MATCH_AGE_MAX,
+      String(HARD_MATCH_AGE_MIN),
+    ),
+    partnerAgeMax: readAllowedNumberString(
+      form.partnerAgeMax,
+      HARD_MATCH_AGE_MIN,
+      HARD_MATCH_AGE_MAX,
+      String(HARD_MATCH_AGE_MAX),
+    ),
+    gender: readAllowedString(form.gender, HARD_MATCH_GENDERS),
+    partnerGenders: readStringArray(form.partnerGenders, HARD_MATCH_GENDERS),
+    looks: readAllowedString(form.looks, HARD_MATCH_LOOKS),
+    partnerLooks: readStringArray(form.partnerLooks, HARD_MATCH_LOOKS),
+    heightCm: readAllowedNumberString(
+      form.heightCm,
+      HARD_MATCH_HEIGHT_MIN_CM,
+      HARD_MATCH_HEIGHT_MAX_CM,
+      '',
+    ),
+    partnerHeightMin: readAllowedNumberString(
+      form.partnerHeightMin,
+      HARD_MATCH_HEIGHT_MIN_CM,
+      HARD_MATCH_HEIGHT_MAX_CM,
+      String(HARD_MATCH_HEIGHT_MIN_CM),
+    ),
+    partnerHeightMax: readAllowedNumberString(
+      form.partnerHeightMax,
+      HARD_MATCH_HEIGHT_MIN_CM,
+      HARD_MATCH_HEIGHT_MAX_CM,
+      String(HARD_MATCH_FORM_HEIGHT_MAX_CM),
+    ),
+    oneLinerIntro: normalizeOneLinerIntro(form.oneLinerIntro),
+    excludedPartnerSchools: readStringArray(
+      form.excludedPartnerSchools,
+      allowedSchoolIds,
+    ),
+  };
+}
+
+export function buildHardMatchAnswerRecordFromDraftForm(
+  form: HardMatchDraftForm,
+  schoolId: string,
+  allowedSchoolIds: readonly string[],
+) {
+  const rawAnswers: Record<string, unknown> = {
+    [HARD_MATCH_KEYS.partnerAgeMin]: Number(form.partnerAgeMin),
+    [HARD_MATCH_KEYS.partnerAgeMax]: Number(form.partnerAgeMax),
+    [HARD_MATCH_KEYS.gender]: form.gender,
+    [HARD_MATCH_KEYS.partnerGenders]: form.partnerGenders,
+    [HARD_MATCH_KEYS.looks]: form.looks,
+    [HARD_MATCH_KEYS.partnerLooks]: form.partnerLooks,
+    [HARD_MATCH_KEYS.heightCm]: Number(form.heightCm),
+    [HARD_MATCH_KEYS.partnerHeightMin]: Number(form.partnerHeightMin),
+    [HARD_MATCH_KEYS.partnerHeightMax]: Number(form.partnerHeightMax),
+    [HARD_MATCH_KEYS.oneLinerIntro]: form.oneLinerIntro,
+    [HARD_MATCH_KEYS.school]: schoolId,
+    [HARD_MATCH_KEYS.excludedPartnerSchools]: form.excludedPartnerSchools,
+  };
+
+  if (form.birthYear && form.birthMonth && form.birthDay) {
+    rawAnswers[HARD_MATCH_KEYS.birthDate] =
+      `${form.birthYear}-${form.birthMonth.padStart(2, '0')}-${form.birthDay.padStart(2, '0')}`;
+  }
+
+  return normalizeHardMatchAnswers(rawAnswers, allowedSchoolIds);
+}
 
 function labelFor(key: HardMatchKey) {
   return HARD_MATCH_FIELD_LABELS[key];
