@@ -1,8 +1,13 @@
-import { redirectAuthenticatedUser } from "../../lib/server-api";
+import { AuthRedirectGate } from "../auth-redirect-gate";
+import { hasUserSessionCookie } from "../../lib/server-api";
 import RegisterPageClient from "./register-page-client";
 
 export default async function RegisterPage() {
-  await redirectAuthenticatedUser();
+  const hasSessionCookie = await hasUserSessionCookie();
 
-  return <RegisterPageClient />;
+  return (
+    <AuthRedirectGate blockUntilHydrated={hasSessionCookie}>
+      <RegisterPageClient />
+    </AuthRedirectGate>
+  );
 }
