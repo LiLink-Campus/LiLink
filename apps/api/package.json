@@ -109,6 +109,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "^@lilink/shared$": "<rootDir>/../../../packages/shared/src/index.ts"
+    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

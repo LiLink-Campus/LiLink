@@ -6,12 +6,13 @@ import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import {
   HARD_MATCH_KEYS,
-  buildHardMatchAnswerRecordFromDraftForm,
+  buildHardMatchAnswerRecordFromFormInput,
   type HardMatchDraftForm,
   hardMatchQuestionKeys,
   readQuestionnaireOneLiner,
   sanitizeHardMatchDraftForm,
 } from '../questionnaire/hard-match';
+import { IncompleteQuestionnaireSubmissionException } from '../questionnaire/incomplete-questionnaire-submission.exception';
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import {
   DashboardHistoryItemResponseDto,
@@ -680,13 +681,13 @@ export class AccountService {
 
     try {
       if (trimmedDisplayName.length < 2) {
-        throw new BadRequestException(
+        throw new IncompleteQuestionnaireSubmissionException(
           'Display name must contain at least 2 characters.',
         );
       }
 
-      const hardMatchAnswers = buildHardMatchAnswerRecordFromDraftForm(
-        draftPayload.hardMatchForm,
+      const hardMatchAnswers = buildHardMatchAnswerRecordFromFormInput(
+        input.hardMatchForm,
         user.school.id,
         allowedSchoolIds,
       );
@@ -738,7 +739,7 @@ export class AccountService {
         hasDraft: false,
       };
     } catch (error) {
-      if (!(error instanceof BadRequestException)) {
+      if (!(error instanceof IncompleteQuestionnaireSubmissionException)) {
         throw error;
       }
 

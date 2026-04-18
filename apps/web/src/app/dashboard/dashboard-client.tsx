@@ -119,6 +119,18 @@ type QuestionnaireSaveResponse = {
   hasDraft: boolean;
 };
 
+type QuestionnaireAutosaveState =
+  | "idle"
+  | "pending"
+  | "saving"
+  | "draft-saved"
+  | "submitted"
+  | "error";
+
+const QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS = [1500, 3000, 5000, 10000];
+const QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS =
+  QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS.length;
+
 function buildQuestionnaireSavePayload(
   answers: Record<string, unknown>,
   hardMatchForm: HardMatchFormState,
@@ -129,6 +141,13 @@ function buildQuestionnaireSavePayload(
     hardMatchForm,
     displayName,
   };
+}
+
+function questionnaireAutosaveRetryDelayMs(attemptNumber: number) {
+  const retryIndex = Math.max(0, attemptNumber - 1);
+  return QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS[
+    Math.min(retryIndex, QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS.length - 1)
+  ];
 }
 
 function keepCurrentQuestionAnswers(
@@ -363,7 +382,7 @@ function getQuestionnaireIncompleteMessage(
 }
 
 function questionnaireAutosaveStatusText(
-  saveState: "idle" | "pending" | "saving" | "draft-saved" | "submitted" | "error",
+  saveState: QuestionnaireAutosaveState,
   hasSavedQuestionnaire: boolean,
   hasDraftQuestionnaire: boolean,
 ) {
@@ -383,6 +402,10 @@ function questionnaireAutosaveStatusText(
 
   if (saveState === "submitted") {
     return "问卷已自动保存。";
+  }
+
+  if (saveState === "error") {
+    return "自动保存暂时失败，请查看下方提示。";
   }
 
   return "系统会自动保存你的修改。";
@@ -427,9 +450,10 @@ export default function DashboardPage({
   const [questionnaireSaveError, setQuestionnaireSaveError] = useState<string | null>(
     null,
   );
-  const [questionnaireSaveState, setQuestionnaireSaveState] = useState<
-    "idle" | "pending" | "saving" | "draft-saved" | "submitted" | "error"
-  >(initialDraft ? "draft-saved" : "idle");
+  const [questionnaireSaveState, setQuestionnaireSaveState] = useState<QuestionnaireAutosaveState>(
+    initialDraft ? "draft-saved" : "idle",
+  );
+  const [questionnaireManualRetryTick, setQuestionnaireManualRetryTick] = useState(0);
   const [hasQuestionnaireDraft, setHasQuestionnaireDraft] = useState(
     Boolean(initialDraft),
   );
@@ -446,6 +470,8 @@ export default function DashboardPage({
   const questionnaireAutosaveReady = useRef(false);
   const questionnaireSaveAbortRef = useRef<AbortController | null>(null);
   const questionnaireSaveInFlightRef = useRef(false);
+  const questionnaireRetryTimerRef = useRef<number | null>(null);
+  const questionnaireRetryAttemptRef = useRef(0);
   const queuedQuestionnaireSaveRef = useRef<{
     payload: QuestionnaireSavePayload;
     snapshot: string;
@@ -510,6 +536,15 @@ export default function DashboardPage({
     [questionnaireSavePayload],
   );
 
+  function clearQuestionnaireRetryTimer() {
+    if (questionnaireRetryTimerRef.current == null) {
+      return;
+    }
+
+    window.clearTimeout(questionnaireRetryTimerRef.current);
+    questionnaireRetryTimerRef.current = null;
+  }
+
   const counterpart = useMemo(() => {
     if (!dashboard?.latestMatch || !user) return null;
     return dashboard.latestMatch.participants.find((p) => p.userId !== user.id) ?? null;
@@ -542,6 +577,9 @@ export default function DashboardPage({
 
   const flushQueuedQuestionnaireSave = useEffectEvent(
     async (payload: QuestionnaireSavePayload, snapshot: string) => {
+      let shouldScheduleRetry = false;
+      let retryDelayMs: number | null = null;
+
       if (
         questionnaireUnmountedRef.current ||
         questionnaireSaveInFlightRef.current ||
@@ -571,6 +609,8 @@ export default function DashboardPage({
           return;
         }
 
+        clearQuestionnaireRetryTimer();
+        questionnaireRetryAttemptRef.current = 0;
         lastSavedQuestionnaireSnapshotRef.current = snapshot;
         setHasQuestionnaireDraft(result.hasDraft);
         setDashboard((current) =>
@@ -592,11 +632,28 @@ export default function DashboardPage({
           return;
         }
 
+        if (
+          !queuedQuestionnaireSaveRef.current ||
+          queuedQuestionnaireSaveRef.current.snapshot === snapshot
+        ) {
+          queuedQuestionnaireSaveRef.current = { payload, snapshot };
+        }
+
+        questionnaireRetryAttemptRef.current += 1;
+        if (
+          questionnaireRetryAttemptRef.current <=
+          QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS
+        ) {
+          retryDelayMs = questionnaireAutosaveRetryDelayMs(
+            questionnaireRetryAttemptRef.current,
+          );
+          shouldScheduleRetry = true;
+        }
         setQuestionnaireSaveState("error");
         setQuestionnaireSaveError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "问卷自动保存失败。",
+          retryDelayMs == null
+            ? "问卷自动保存多次失败，请检查当前填写内容后立即重试。"
+            : `问卷自动保存失败，系统将在 ${Math.ceil(retryDelayMs / 1000)} 秒后自动重试。`,
         );
       } finally {
         questionnaireSaveAbortRef.current = null;
@@ -610,6 +667,43 @@ export default function DashboardPage({
           },
         );
         if (nextQueuedSave) {
+          if (
+            shouldScheduleRetry &&
+            retryDelayMs != null &&
+            nextQueuedSave.snapshot === snapshot
+          ) {
+            queuedQuestionnaireSaveRef.current = nextQueuedSave;
+            clearQuestionnaireRetryTimer();
+            questionnaireRetryTimerRef.current = window.setTimeout(() => {
+              questionnaireRetryTimerRef.current = null;
+              if (questionnaireUnmountedRef.current) {
+                return;
+              }
+
+              const retrySave = takeNextAutosaveQueueItem(
+                queuedQuestionnaireSaveRef.current,
+                {
+                  isUnmounted: questionnaireUnmountedRef.current,
+                  lastSavedSnapshot: lastSavedQuestionnaireSnapshotRef.current,
+                },
+              );
+              if (!retrySave) {
+                return;
+              }
+
+              queuedQuestionnaireSaveRef.current = null;
+              setQuestionnaireSaveState("pending");
+              setQuestionnaireSaveError(null);
+              void flushQueuedQuestionnaireSave(
+                retrySave.payload,
+                retrySave.snapshot,
+              );
+            }, retryDelayMs);
+            return;
+          }
+
+          clearQuestionnaireRetryTimer();
+          questionnaireRetryAttemptRef.current = 0;
           queuedQuestionnaireSaveRef.current = null;
           void flushQueuedQuestionnaireSave(
             nextQueuedSave.payload,
@@ -622,7 +716,10 @@ export default function DashboardPage({
 
   const queueQuestionnaireSave = useEffectEvent(
     (payload: QuestionnaireSavePayload, snapshot: string) => {
+      clearQuestionnaireRetryTimer();
+
       if (snapshot === lastSavedQuestionnaireSnapshotRef.current) {
+        questionnaireRetryAttemptRef.current = 0;
         queuedQuestionnaireSaveRef.current = null;
         return;
       }
@@ -646,6 +743,8 @@ export default function DashboardPage({
       return;
     }
 
+    clearQuestionnaireRetryTimer();
+    questionnaireRetryAttemptRef.current = 0;
     setQuestionnaireSaveState("pending");
     setQuestionnaireSaveError(null);
 
@@ -658,9 +757,46 @@ export default function DashboardPage({
     };
   }, [questionnaireSavePayload, questionnaireSnapshot]);
 
+  useEffect(() => {
+    if (questionnaireManualRetryTick === 0) {
+      return;
+    }
+
+    clearQuestionnaireRetryTimer();
+    questionnaireRetryAttemptRef.current = 0;
+
+    const retrySave =
+      takeNextAutosaveQueueItem(queuedQuestionnaireSaveRef.current, {
+        isUnmounted: questionnaireUnmountedRef.current,
+        lastSavedSnapshot: lastSavedQuestionnaireSnapshotRef.current,
+      }) ??
+      (questionnaireUnmountedRef.current ||
+      questionnaireSaveInFlightRef.current ||
+      questionnaireSnapshot === lastSavedQuestionnaireSnapshotRef.current
+        ? null
+        : {
+            payload: questionnaireSavePayload,
+            snapshot: questionnaireSnapshot,
+          });
+
+    if (!retrySave) {
+      return;
+    }
+
+    queuedQuestionnaireSaveRef.current = null;
+    setQuestionnaireSaveState("pending");
+    setQuestionnaireSaveError(null);
+    void flushQueuedQuestionnaireSave(retrySave.payload, retrySave.snapshot);
+  }, [
+    questionnaireManualRetryTick,
+    questionnaireSavePayload,
+    questionnaireSnapshot,
+  ]);
+
   useEffect(
     () => () => {
       questionnaireUnmountedRef.current = true;
+      clearQuestionnaireRetryTimer();
       queuedQuestionnaireSaveRef.current = null;
       questionnaireSaveAbortRef.current?.abort();
     },
@@ -1213,6 +1349,17 @@ export default function DashboardPage({
               <p className="dashboard-muted" style={{ margin: 0 }}>
                 {questionnaireStatus}
               </p>
+              {questionnaireSaveError ? (
+                <button
+                  className="button-secondary"
+                  type="button"
+                  onClick={() =>
+                    setQuestionnaireManualRetryTick((current) => current + 1)
+                  }
+                >
+                  立即重试
+                </button>
+              ) : null}
               {hasSavedQuestionnaire ? (
                 <button
                   className="button-ghost"
