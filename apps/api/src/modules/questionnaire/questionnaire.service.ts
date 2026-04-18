@@ -7,6 +7,7 @@ import { QuestionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { hardMatchQuestionKeys, normalizeHardMatchAnswers } from './hard-match';
+import { IncompleteQuestionnaireSubmissionException } from './incomplete-questionnaire-submission.exception';
 import {
   normalizeQuestionAnswer,
   normalizeQuestionOptions,
@@ -99,7 +100,7 @@ export class QuestionnaireService {
 
       if (rawAnswer == null) {
         if (question.required) {
-          throw new BadRequestException(
+          throw new IncompleteQuestionnaireSubmissionException(
             `Question "${question.prompt}" is required.`,
           );
         }
@@ -111,7 +112,7 @@ export class QuestionnaireService {
 
       if (normalizedAnswer == null) {
         if (question.required) {
-          throw new BadRequestException(
+          throw new IncompleteQuestionnaireSubmissionException(
             `Question "${question.prompt}" is required.`,
           );
         }

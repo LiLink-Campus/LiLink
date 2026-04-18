@@ -25,6 +25,7 @@ import {
   type HardMatchLooks,
   type HardMatchSchoolId,
 } from '@lilink/shared';
+import { IncompleteQuestionnaireSubmissionException } from './incomplete-questionnaire-submission.exception';
 
 export {
   HARD_MATCH_GENDERS,
@@ -240,12 +241,104 @@ export function buildHardMatchAnswerRecordFromDraftForm(
   return normalizeHardMatchAnswers(rawAnswers, allowedSchoolIds);
 }
 
+function readRequiredIntegerInput(value: unknown, key: HardMatchKey): number {
+  if (typeof value !== 'string') {
+    throw requiredFieldError(key);
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    throw requiredFieldError(key);
+  }
+
+  if (!/^\d+$/.test(trimmedValue)) {
+    throw invalidFieldError(key);
+  }
+
+  return Number.parseInt(trimmedValue, 10);
+}
+
+function readRequiredBirthDatePart(
+  value: unknown,
+  maximumLength: number,
+): string {
+  if (typeof value !== 'string') {
+    throw requiredFieldError(HARD_MATCH_KEYS.birthDate);
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    throw requiredFieldError(HARD_MATCH_KEYS.birthDate);
+  }
+
+  if (trimmedValue.length > maximumLength || !/^\d+$/.test(trimmedValue)) {
+    throw invalidFieldError(
+      HARD_MATCH_KEYS.birthDate,
+      'must use the YYYY-MM-DD format.',
+    );
+  }
+
+  return trimmedValue;
+}
+
+export function buildHardMatchAnswerRecordFromFormInput(
+  rawForm: unknown,
+  schoolId: string,
+  allowedSchoolIds: readonly string[],
+) {
+  if (!rawForm || typeof rawForm !== 'object' || Array.isArray(rawForm)) {
+    throw requiredFieldError(HARD_MATCH_KEYS.birthDate);
+  }
+
+  const form = rawForm as Record<string, unknown>;
+  const birthYear = readRequiredBirthDatePart(form.birthYear, 4);
+  const birthMonth = readRequiredBirthDatePart(form.birthMonth, 2);
+  const birthDay = readRequiredBirthDatePart(form.birthDay, 2);
+
+  return normalizeHardMatchAnswers(
+    {
+      [HARD_MATCH_KEYS.birthDate]:
+        `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`,
+      [HARD_MATCH_KEYS.partnerAgeMin]: readRequiredIntegerInput(
+        form.partnerAgeMin,
+        HARD_MATCH_KEYS.partnerAgeMin,
+      ),
+      [HARD_MATCH_KEYS.partnerAgeMax]: readRequiredIntegerInput(
+        form.partnerAgeMax,
+        HARD_MATCH_KEYS.partnerAgeMax,
+      ),
+      [HARD_MATCH_KEYS.gender]: form.gender,
+      [HARD_MATCH_KEYS.partnerGenders]: form.partnerGenders,
+      [HARD_MATCH_KEYS.looks]: form.looks,
+      [HARD_MATCH_KEYS.partnerLooks]: form.partnerLooks,
+      [HARD_MATCH_KEYS.heightCm]: readRequiredIntegerInput(
+        form.heightCm,
+        HARD_MATCH_KEYS.heightCm,
+      ),
+      [HARD_MATCH_KEYS.partnerHeightMin]: readRequiredIntegerInput(
+        form.partnerHeightMin,
+        HARD_MATCH_KEYS.partnerHeightMin,
+      ),
+      [HARD_MATCH_KEYS.partnerHeightMax]: readRequiredIntegerInput(
+        form.partnerHeightMax,
+        HARD_MATCH_KEYS.partnerHeightMax,
+      ),
+      [HARD_MATCH_KEYS.oneLinerIntro]: form.oneLinerIntro,
+      [HARD_MATCH_KEYS.school]: schoolId,
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: form.excludedPartnerSchools,
+    },
+    allowedSchoolIds,
+  );
+}
+
 function labelFor(key: HardMatchKey) {
   return HARD_MATCH_FIELD_LABELS[key];
 }
 
 function requiredFieldError(key: HardMatchKey): BadRequestException {
-  return new BadRequestException(`Question "${labelFor(key)}" is required.`);
+  return new IncompleteQuestionnaireSubmissionException(
+    `Question "${labelFor(key)}" is required.`,
+  );
 }
 
 function invalidFieldError(
