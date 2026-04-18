@@ -465,6 +465,7 @@ describe('CyclesService', () => {
           displayName: 'A',
           school: { id: SCHOOL_BUPT },
           questionnaireResponse: {
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
             answers: {
               hard_birth_date: '2000-05-10',
               hard_partner_age_min: 18,
@@ -488,6 +489,7 @@ describe('CyclesService', () => {
           displayName: 'B',
           school: null,
           questionnaireResponse: {
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
             answers: {
               hard_birth_date: '1999-07-10',
               hard_partner_age_min: 18,
@@ -518,6 +520,44 @@ describe('CyclesService', () => {
         hard_excluded_partner_schools: [SCHOOL_CUC],
       },
     });
+  });
+
+  it('ignores questionnaire drafts that were never formally submitted', () => {
+    const service = new CyclesService({} as never);
+    const toEligibleParticipants = (
+      service as unknown as Pick<
+        CyclesServiceTestHarness,
+        'toEligibleParticipants'
+      >
+    ).toEligibleParticipants.bind(service);
+
+    const participants = toEligibleParticipants([
+      {
+        user: {
+          id: 'user-1',
+          displayName: 'A',
+          school: { id: SCHOOL_BUPT },
+          questionnaireResponse: {
+            submittedAt: null,
+            answers: {
+              hard_birth_date: '2000-05-10',
+              hard_partner_age_min: 18,
+              hard_partner_age_max: 30,
+              hard_gender: '女',
+              hard_partner_genders: ['男'],
+              hard_looks: '普通人',
+              hard_partner_looks: ['普通人'],
+              hard_height_cm: 165,
+              hard_partner_height_min: 120,
+              hard_partner_height_max: 220,
+              hard_one_liner_intro: '喜欢徒步。',
+            },
+          },
+        },
+      },
+    ]);
+
+    expect(participants).toEqual([]);
   });
 
   it('builds reasons from configured question templates instead of hard-coded keys', () => {
