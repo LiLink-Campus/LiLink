@@ -1,11 +1,30 @@
 import Link from "next/link";
-import {
-  LandingHeroCard,
-  LandingRevealMeta,
-  LandingStatsStrip,
-} from "./landing-live-data";
+import { getLandingPayload } from "../lib/public-server-api";
+import { HeroRevealCountdown } from "./hero-reveal-countdown";
 
-export default function Home() {
+export const revalidate = 60;
+
+const HOMEPAGE_REGISTERED_COUNT_PAD = 50;
+const HOMEPAGE_COMPLETED_COUNT_PAD = 40;
+const HOMEPAGE_MATCHES_DELIVERED_DISPLAY_OFFSET = 10;
+
+function formatDateLabel(value: string | null) {
+  if (!value) {
+    return "轮次时间待配置";
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Asia/Shanghai",
+  }).format(new Date(value));
+}
+
+export default async function Home() {
+  const landing = await getLandingPayload().catch(() => null);
+  const matchesDelivered = landing?.stats.matchesDelivered ?? 0;
+  const matchesLabelIsNarrative = landing != null && matchesDelivered <= 0;
+
   return (
     <main>
       <section className="hero-section">
@@ -36,13 +55,64 @@ export default function Home() {
               了解机制
             </Link>
           </div>
-          <LandingRevealMeta />
+          <div className="hero-meta">
+            <span>{landing ? "下次揭晓" : "状态提醒"}</span>
+            <HeroRevealCountdown
+              offline={landing == null}
+              revealAt={landing?.currentCycle?.revealAt ?? null}
+              serverFallbackLabel={
+                landing
+                  ? formatDateLabel(landing.currentCycle?.revealAt ?? null)
+                  : "平台数据暂时不可用"
+              }
+            />
+          </div>
         </div>
 
-        <LandingHeroCard />
+        <div className="hero-card">
+          <small>LiLink weekly reveal</small>
+          <strong>{landing?.tagline ?? "当前无法连接平台数据接口。"}</strong>
+          <p>
+            {landing
+              ? "园区限定、学校白名单、每周一个轮次。把相遇从高频刷屏，拉回到节制与期待。"
+              : "请稍后重试。如果这是部署环境，请检查前端 API 地址、后端服务和跨域配置。"}
+          </p>
+        </div>
       </section>
 
-      <LandingStatsStrip />
+      <section className="stats-strip">
+        <div>
+          <span>注册用户</span>
+          <strong>
+            {landing
+              ? `${landing.stats.registeredUsers + HOMEPAGE_REGISTERED_COUNT_PAD}+`
+              : "—"}
+          </strong>
+        </div>
+        <div>
+          <span>已完成问卷</span>
+          <strong>
+            {landing
+              ? landing.stats.completedQuestionnaires +
+                HOMEPAGE_COMPLETED_COUNT_PAD
+              : "—"}
+          </strong>
+        </div>
+        <div>
+          <span>已送出匹配</span>
+          <strong
+            className={
+              matchesLabelIsNarrative ? "stats-strip-note" : undefined
+            }
+          >
+            {landing == null
+              ? "—"
+              : matchesLabelIsNarrative
+                ? "正在准备进行首轮匹配"
+                : matchesDelivered + HOMEPAGE_MATCHES_DELIVERED_DISPLAY_OFFSET}
+          </strong>
+        </div>
+      </section>
 
       <section className="story-section">
         <div className="section-heading">
