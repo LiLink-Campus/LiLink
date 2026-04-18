@@ -434,3 +434,363 @@
   vertical-align: middle;
   border: 1.5px solid var(--accent);
 }
+
+/* ─── Weekly intent card ────────────────────────────────── */
+.weekly-intent-card {
+  --intent-color: var(--accent);
+  --intent-gradient: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    color-mix(in srgb, var(--accent) 70%, white 30%) 100%
+  );
+
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: calc(var(--radius-lg) + 6px);
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      color-mix(in srgb, var(--intent-color) 18%, transparent) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 0% 100%,
+      color-mix(in srgb, var(--intent-color) 12%, transparent) 0%,
+      transparent 55%
+    ),
+    var(--bg-elevated);
+  padding: 1.45rem 1.5rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  overflow: hidden;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+}
+
+.weekly-intent-card.is-locked {
+  border-color: color-mix(in srgb, var(--intent-color) 55%, var(--border));
+  box-shadow:
+    0 22px 48px -38px color-mix(in srgb, var(--intent-color) 70%, transparent),
+    0 4px 16px -10px color-mix(in srgb, var(--intent-color) 35%, transparent);
+}
+
+.weekly-intent-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.85rem 1.25rem;
+}
+
+.weekly-intent-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+}
+
+.weekly-intent-eyebrow::before {
+  content: "";
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--intent-gradient);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--intent-color) 20%, transparent);
+}
+
+.weekly-intent-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.weekly-intent-subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--fg-secondary);
+  font-size: 0.93rem;
+  line-height: 1.55;
+  max-width: 32rem;
+}
+
+.weekly-intent-meta {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.weekly-intent-meta-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-secondary);
+  margin: 0;
+}
+
+.weekly-intent-meta-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.weekly-intent-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--intent-color) 14%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--intent-color) 42%, var(--border));
+  color: var(--fg);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.weekly-intent-status-pill::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--intent-gradient);
+}
+
+.weekly-intent-status-pill.is-pending {
+  background: color-mix(in srgb, var(--coral) 12%, var(--bg));
+  border-color: color-mix(in srgb, var(--coral) 55%, var(--border));
+}
+
+.weekly-intent-status-pill.is-pending::before {
+  background: var(--coral);
+}
+
+.weekly-intent-status-pill.is-off {
+  background: var(--bg);
+  border-color: var(--border-strong);
+  color: var(--fg-secondary);
+}
+
+.weekly-intent-status-pill.is-off::before {
+  background: var(--border-strong);
+}
+
+.weekly-intent-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--coral-soft) 70%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--coral) 35%, var(--border));
+  color: var(--fg);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.weekly-intent-callout-icon {
+  flex-shrink: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: var(--coral);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.weekly-intent-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+@media (max-width: 720px) {
+  .weekly-intent-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.weekly-intent-option {
+  --opt-color: var(--intent-color);
+  --opt-gradient: var(--intent-gradient);
+  appearance: none;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.1rem 1.1rem 1rem;
+  border-radius: calc(var(--radius-md) + 4px);
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg);
+  color: inherit;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+.weekly-intent-option:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--opt-color) 55%, var(--border));
+  box-shadow:
+    0 18px 32px -22px color-mix(in srgb, var(--opt-color) 60%, transparent);
+}
+
+.weekly-intent-option:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--opt-color) 70%, transparent);
+  outline-offset: 3px;
+}
+
+.weekly-intent-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.weekly-intent-option.is-active {
+  border-color: var(--opt-color);
+  background:
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--opt-color) 22%, var(--bg)) 0%,
+      var(--bg) 70%
+    );
+  box-shadow:
+    0 22px 48px -32px color-mix(in srgb, var(--opt-color) 75%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--opt-color) 35%, transparent);
+}
+
+.weekly-intent-option-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.weekly-intent-option-glyph {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 14px;
+  background: var(--opt-gradient);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--opt-color) 75%, transparent);
+}
+
+.weekly-intent-option-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.weekly-intent-option-primary {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.weekly-intent-option-subtitle {
+  font-size: 0.78rem;
+  color: var(--fg-secondary);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.weekly-intent-option-check {
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: transparent;
+  transition: all 0.2s ease;
+}
+
+.weekly-intent-option.is-active .weekly-intent-option-check {
+  background: var(--opt-color);
+  border-color: var(--opt-color);
+  color: white;
+}
+
+.weekly-intent-option-description {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--fg-secondary);
+}
+
+.weekly-intent-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.65rem;
+  border-top: 1px dashed var(--border);
+}
+
+.weekly-intent-footer-note {
+  font-size: 0.82rem;
+  color: var(--fg-secondary);
+  margin: 0;
+  flex: 1;
+  min-width: 14rem;
+}
+
+.weekly-intent-button-ghost {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--fg-secondary);
+  border-radius: var(--radius-pill);
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.weekly-intent-button-ghost:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  color: var(--fg);
+}
+
+.weekly-intent-button-ghost:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

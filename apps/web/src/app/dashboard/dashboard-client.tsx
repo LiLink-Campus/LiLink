@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import {
+  startTransition,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { fetchApi, type AuthMePayload } from "../../lib/api";
 import {
   AGE_OPTIONS,
@@ -19,6 +26,12 @@ import {
   type HardMatchFormState,
   type HardMatchSchoolOption,
 } from "../../lib/hard-match";
+import {
+  WEEKLY_INTENTS,
+  WEEKLY_INTENT_LABELS,
+  WEEKLY_INTENT_VISUALS,
+  type WeeklyIntent,
+} from "../../lib/weekly-intent";
 
 export type Question = {
   id: string;
@@ -72,6 +85,7 @@ export type DashboardPayload = {
     participationDeadline: string;
     status: "DRAFT" | "OPEN" | "REVEAL_READY" | "REVEALED";
     participationStatus: "OPTED_IN" | "OPTED_OUT";
+    intent: WeeklyIntent | null;
   } | null;
   lastRevealedRound: {
     cycleId: string;
@@ -326,6 +340,192 @@ function getQuestionnaireIncompleteMessage(
   return `价值观问卷还有 ${incompleteSoft.length} 道必答题未完成。`;
 }
 
+function formatCycleDeadline(iso: string): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Shanghai",
+  }).format(new Date(iso));
+}
+
+type WeeklyIntentCardProps = {
+  dashboard: DashboardPayload | null;
+  nextRevealLabel: string | null;
+  saving: boolean;
+  onChoose: (intent: WeeklyIntent) => void;
+  onWithdraw: () => void;
+};
+
+function WeeklyIntentCard({
+  dashboard,
+  nextRevealLabel,
+  saving,
+  onChoose,
+  onWithdraw,
+}: WeeklyIntentCardProps) {
+  const cycle = dashboard?.currentCycle ?? null;
+  const isOptedIn = cycle?.participationStatus === "OPTED_IN";
+  const currentIntent = cycle?.intent ?? null;
+  // Sticky carry-over: server kept us OPTED_IN but cleared intent — the user
+  // must explicitly re-pick this round before they can be matched.
+  const needsIntentReselect = isOptedIn && !currentIntent;
+  const cardAccent = currentIntent
+    ? WEEKLY_INTENT_VISUALS[currentIntent].accent
+    : "var(--accent)";
+  const cardGradient = currentIntent
+    ? WEEKLY_INTENT_VISUALS[currentIntent].accentGradient
+    : "linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, white))";
+  const cardClassName = `weekly-intent-card${currentIntent ? " is-locked" : ""}`;
+  const cardStyle = {
+    "--intent-color": cardAccent,
+    "--intent-gradient": cardGradient,
+  } as CSSProperties;
+  const deadlineLabel = cycle
+    ? formatCycleDeadline(cycle.participationDeadline)
+    : null;
+
+  let statusPill: { label: string; tone: "default" | "pending" | "off" } = {
+    label: "本轮未开放",
+    tone: "off",
+  };
+  if (cycle) {
+    if (currentIntent) {
+      statusPill = {
+        label: `本周锁定：${WEEKLY_INTENT_LABELS[currentIntent].primary}`,
+        tone: "default",
+      };
+    } else if (needsIntentReselect) {
+      statusPill = { label: "上周已参与 · 待选本周意图", tone: "pending" };
+    } else {
+      statusPill = { label: "本轮未参与", tone: "off" };
+    }
+  }
+
+  return (
+    <div className={cardClassName} style={cardStyle}>
+      <div className="weekly-intent-header">
+        <div>
+          <p className="weekly-intent-eyebrow">本周匹配意图 · 每周重新选择</p>
+          <h2 className="weekly-intent-title">本周你想找什么？</h2>
+          <p className="weekly-intent-subtitle">
+            选择 Friend / Date / Both 之一作为本轮的硬约束 —
+            BOTH 可与任意意图相容，FRIEND 与 DATE 互斥。每个新轮次都需要重新选择。
+          </p>
+        </div>
+        <div className="weekly-intent-meta">
+          <p className="weekly-intent-meta-label">下次揭晓</p>
+          <p className="weekly-intent-meta-value">
+            {nextRevealLabel ?? "暂无开放轮次"}
+          </p>
+          {deadlineLabel ? (
+            <p className="weekly-intent-meta-label" style={{ marginTop: "0.45rem" }}>
+              报名截止 {deadlineLabel}
+            </p>
+          ) : null}
+          <span
+            className={
+              statusPill.tone === "pending"
+                ? "weekly-intent-status-pill is-pending"
+                : statusPill.tone === "off"
+                  ? "weekly-intent-status-pill is-off"
+                  : "weekly-intent-status-pill"
+            }
+            style={{ marginTop: "0.55rem" }}
+          >
+            {statusPill.label}
+          </span>
+        </div>
+      </div>
+
+      {needsIntentReselect ? (
+        <div className="weekly-intent-callout" role="status">
+          <span className="weekly-intent-callout-icon" aria-hidden="true">!</span>
+          <span>
+            上一轮你参与过，本周仍保留报名状态，但
+            <strong>本周意图必须重选</strong>
+            后才会进入匹配池。请在下方挑一项。
+          </span>
+        </div>
+      ) : null}
+
+      {!cycle ? (
+        <p className="dashboard-muted" style={{ margin: 0 }}>
+          当前没有开放中的轮次；下一轮上线后再回到这里设置本周意图。
+        </p>
+      ) : (
+        <ul className="weekly-intent-options">
+          {WEEKLY_INTENTS.map((intent) => {
+            const meta = WEEKLY_INTENT_LABELS[intent];
+            const visual = WEEKLY_INTENT_VISUALS[intent];
+            const active = currentIntent === intent;
+            const optionStyle = {
+              "--opt-color": visual.accent,
+              "--opt-gradient": visual.accentGradient,
+            } as CSSProperties;
+            return (
+              <li key={intent}>
+                <button
+                  type="button"
+                  className={
+                    active
+                      ? "weekly-intent-option is-active"
+                      : "weekly-intent-option"
+                  }
+                  style={optionStyle}
+                  disabled={saving}
+                  aria-pressed={active}
+                  onClick={() => {
+                    if (!active) onChoose(intent);
+                  }}
+                >
+                  <div className="weekly-intent-option-head">
+                    <span className="weekly-intent-option-glyph" aria-hidden="true">
+                      {visual.glyph}
+                    </span>
+                    <div className="weekly-intent-option-titles">
+                      <p className="weekly-intent-option-primary">{meta.primary}</p>
+                      <p className="weekly-intent-option-subtitle">{meta.subtitle}</p>
+                    </div>
+                    <span className="weekly-intent-option-check" aria-hidden="true">
+                      ✓
+                    </span>
+                  </div>
+                  <p className="weekly-intent-option-description">
+                    {meta.description}
+                  </p>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {cycle ? (
+        <div className="weekly-intent-footer">
+          <p className="weekly-intent-footer-note">
+            {currentIntent
+              ? "可在截止前随时更换；切换不同意图也算同一轮报名，不会重复占用名额。"
+              : "选择任意一项后，本周即报名成功；BOTH 与所有人相容，是兜底选项。"}
+          </p>
+          {isOptedIn ? (
+            <button
+              type="button"
+              className="weekly-intent-button-ghost"
+              disabled={saving}
+              onClick={onWithdraw}
+            >
+              {saving ? "更新中…" : "退出本轮"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function DashboardPage({
   initialUser,
   initialDashboard,
@@ -493,19 +693,69 @@ export default function DashboardPage({
     }
   }
 
-  async function toggleParticipation(nextValue: boolean) {
-    setSaving("participation");
+  // Pick a weekly intent → server enforces "opt-in requires intent" so this
+  // single call covers both the participation toggle and the intent choice.
+  async function chooseWeeklyIntent(nextIntent: WeeklyIntent) {
+    setSaving("intent");
     setSavedMessage(null);
+    setError(null);
     try {
-      await fetchApi("/me/participation", { method: "PUT", body: JSON.stringify({ optIn: nextValue }) });
+      await fetchApi("/me/participation", {
+        method: "PUT",
+        body: JSON.stringify({ optIn: true, intent: nextIntent }),
+      });
       setDashboard((current) =>
         current?.currentCycle
-          ? { ...current, currentCycle: { ...current.currentCycle, participationStatus: nextValue ? "OPTED_IN" : "OPTED_OUT" } }
+          ? {
+              ...current,
+              currentCycle: {
+                ...current.currentCycle,
+                participationStatus: "OPTED_IN",
+                intent: nextIntent,
+              },
+            }
           : current,
       );
-      setSavedMessage(nextValue ? "你已参加本轮匹配。" : "你已跳过本轮，仍可随时改回。");
+      setSavedMessage(
+        `本周匹配已锁定为 ${WEEKLY_INTENT_LABELS[nextIntent].primary}（${WEEKLY_INTENT_LABELS[nextIntent].subtitle}）。`,
+      );
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "参与状态更新失败。");
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "本周意图保存失败。",
+      );
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function withdrawWeeklyIntent() {
+    setSaving("intent");
+    setSavedMessage(null);
+    setError(null);
+    try {
+      await fetchApi("/me/participation", {
+        method: "PUT",
+        body: JSON.stringify({ optIn: false }),
+      });
+      setDashboard((current) =>
+        current?.currentCycle
+          ? {
+              ...current,
+              currentCycle: {
+                ...current.currentCycle,
+                participationStatus: "OPTED_OUT",
+                intent: null,
+              },
+            }
+          : current,
+      );
+      setSavedMessage("你已退出本轮，意图已清空；随时可以重新选择。");
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : "退出本轮失败。",
+      );
     } finally {
       setSaving(null);
     }
@@ -590,7 +840,6 @@ export default function DashboardPage({
     );
   }
 
-  const isOptedIn = dashboard?.currentCycle?.participationStatus === "OPTED_IN";
   const introduced = Boolean(dashboard?.latestMatch?.introducedAt);
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
 
@@ -609,22 +858,13 @@ export default function DashboardPage({
       </header>
 
       <section className="dashboard-panel-wide">
-        <div className="dashboard-reveal-card">
-          <div className="dashboard-reveal-copy">
-            <p className="dashboard-reveal-label">下次揭晓时间</p>
-            <p className="dashboard-reveal-time">{nextRevealLabel ?? "当前没有开放中的轮次"}</p>
-          </div>
-          {dashboard?.currentCycle ? (
-            <div className="dashboard-reveal-actions">
-              <span className={isOptedIn ? "dashboard-participation-pill on" : "dashboard-participation-pill"}>
-                {isOptedIn ? "本轮参与中" : "本轮未参与"}
-              </span>
-              <button className={isOptedIn ? "button-secondary" : "button-primary"} disabled={saving === "participation"} type="button" onClick={() => toggleParticipation(!isOptedIn)}>
-                {saving === "participation" ? "更新中…" : isOptedIn ? "取消本轮" : "参加本轮"}
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <WeeklyIntentCard
+          dashboard={dashboard}
+          nextRevealLabel={nextRevealLabel}
+          saving={saving === "intent"}
+          onChoose={(nextIntent) => void chooseWeeklyIntent(nextIntent)}
+          onWithdraw={() => void withdrawWeeklyIntent()}
+        />
       </section>
 
       <section className="content-panel dashboard-panel-wide">

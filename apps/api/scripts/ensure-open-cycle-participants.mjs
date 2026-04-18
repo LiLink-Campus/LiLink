@@ -81,18 +81,22 @@ async function main() {
 
   let upserted = 0;
   for (const user of eligible) {
+    // Default to BOTH so a freshly-opened cycle is immediately matchable in
+    // operations / smoke tests; users can still re-pick FRIEND or DATE later.
     await prisma.cycleParticipation.upsert({
       where: {
         cycleId_userId: { cycleId: cycle.id, userId: user.id },
       },
       update: {
         status: 'OPTED_IN',
+        intent: 'BOTH',
         optedInAt: new Date(),
       },
       create: {
         cycleId: cycle.id,
         userId: user.id,
         status: 'OPTED_IN',
+        intent: 'BOTH',
         optedInAt: new Date(),
       },
     });

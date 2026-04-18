@@ -153,6 +153,7 @@ describe('AdminService', () => {
             cycleId: string;
             userId: string;
             status: 'OPTED_IN' | 'OPTED_OUT';
+            intent: 'FRIEND' | 'DATE' | 'BOTH' | null;
             optedInAt: Date | null;
           }>;
           skipDuplicates: boolean;
@@ -171,12 +172,14 @@ describe('AdminService', () => {
         cycleId: 'cycle-2',
         userId: 'user-1',
         status: 'OPTED_IN',
+        intent: null,
         optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
       },
       {
         cycleId: 'cycle-2',
         userId: 'user-2',
         status: 'OPTED_OUT',
+        intent: null,
         optedInAt: null,
       },
     ]);

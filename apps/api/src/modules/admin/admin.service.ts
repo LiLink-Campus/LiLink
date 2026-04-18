@@ -1868,13 +1868,20 @@ export class AdminService {
         },
       });
 
+      // Synthetic test users default to BOTH so the test pool always has a
+      // bridge intent and matching can run end-to-end without manual UI clicks.
       await this.prisma.cycleParticipation.upsert({
         where: { cycleId_userId: { cycleId: cycle.id, userId: user.id } },
-        update: { status: 'OPTED_IN', optedInAt: new Date() },
+        update: {
+          status: 'OPTED_IN',
+          intent: 'BOTH',
+          optedInAt: new Date(),
+        },
         create: {
           cycleId: cycle.id,
           userId: user.id,
           status: 'OPTED_IN',
+          intent: 'BOTH',
           optedInAt: new Date(),
         },
       });

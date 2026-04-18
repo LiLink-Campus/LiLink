@@ -15,6 +15,11 @@ import {
   tryReadHardMatchAnswers,
 } from '../questionnaire/hard-match';
 import {
+  areWeeklyIntentsCompatible,
+  isWeeklyIntent,
+  type WeeklyIntent,
+} from '@lilink/shared';
+import {
   labelForQuestionValue,
   normalizeQuestionAnswer,
   normalizeQuestionOptions,
@@ -30,10 +35,16 @@ const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 
-/** Only ACTIVE users may appear in matching / preview / reveal pools. */
+/**
+ * Only ACTIVE users with an explicit weekly intent may appear in matching /
+ * preview / reveal pools. The `intent` filter is what enforces "every user
+ * must re-pick FRIEND/DATE/BOTH each cycle" — sticky-cycle-participation
+ * carries the OPTED_IN status forward but leaves intent NULL on purpose.
+ */
 const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput =
   {
     status: 'OPTED_IN',
+    intent: { not: null },
     user: { status: 'ACTIVE' },
   };
 
@@ -42,6 +53,7 @@ type EligibleParticipant = {
   displayName: string | null;
   hardMatchAnswers: HardMatchAnswers;
   answers: Record<string, unknown>;
+  intent: WeeklyIntent;
 };
 
 type CandidatePair = {
@@ -104,10 +116,10 @@ function buildInsufficientParticipantsMessage(
 ): string {
   const prefix = 'Not enough complete participants to generate matches.';
   if (optedInCount === 0) {
-    return `${prefix} No users are opted in (OPTED_IN) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers are required.`;
+    return `${prefix} No users are opted in with a weekly intent (FRIEND/DATE/BOTH) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers and a weekly intent are required.`;
   }
   if (eligibleCount === 0) {
-    return `${prefix} ${optedInCount} user(s) opted in, but none have valid hard-matching questionnaire answers (birth date, partner age range, gender / partner genders, looks / partner looks, height / partner height range, and a recognized school).`;
+    return `${prefix} ${optedInCount} user(s) opted in (with a weekly intent), but none have valid hard-matching questionnaire answers (birth date, partner age range, gender / partner genders, looks / partner looks, height / partner height range, and a recognized school).`;
   }
   return `${prefix} Only ${eligibleCount} of ${optedInCount} opted-in user(s) are eligible; at least 2 are required.`;
 }
@@ -303,9 +315,12 @@ export class CyclesService {
         include: {
           participations: {
             where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
-            include: {
+            select: {
+              intent: true,
               user: {
-                include: {
+                select: {
+                  id: true,
+                  displayName: true,
                   questionnaireResponse: true,
                   school: { select: { id: true } },
                 },
@@ -425,7 +440,8 @@ export class CyclesService {
     const include = {
       participations: {
         where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
-        include: {
+        select: {
+          intent: true,
           user: {
             select: {
               id: true,
@@ -436,7 +452,7 @@ export class CyclesService {
           },
         },
       },
-    };
+    } satisfies Prisma.MatchCycleInclude;
 
     if (cycleId) {
       return this.prisma.matchCycle.findUnique({
@@ -458,6 +474,7 @@ export class CyclesService {
 
   private toEligibleParticipants(
     participations: Array<{
+      intent: WeeklyIntent | null;
       user: {
         id: string;
         displayName: string | null;
@@ -469,9 +486,16 @@ export class CyclesService {
     }>,
   ): EligibleParticipant[] {
     return participations
-      .map((entry) => entry.user)
-      .map((user): EligibleParticipant | null => {
+      .map((entry): EligibleParticipant | null => {
+        const { user } = entry;
         if (!user.questionnaireResponse) {
+          return null;
+        }
+
+        // Defense in depth — the SQL filter already excludes intent=null,
+        // but if anything ever bypasses it (eg. raw queries) we still drop
+        // the row instead of silently treating it as compatible with all.
+        if (!isWeeklyIntent(entry.intent)) {
           return null;
         }
 
@@ -493,6 +517,7 @@ export class CyclesService {
           displayName: user.displayName,
           hardMatchAnswers,
           answers,
+          intent: entry.intent,
         };
       })
       .filter(
@@ -600,6 +625,12 @@ export class CyclesService {
     revealAt: Date,
     scoreBounds = this.calculateMatchScoreBounds(questions),
   ) {
+    // Weekly-intent compatibility (FRIEND/DATE/BOTH) is a hard cycle-level
+    // constraint, evaluated alongside the long-lived hard-match answers.
+    if (!areWeeklyIntentsCompatible(left.intent, right.intent)) {
+      return null;
+    }
+
     if (
       !areHardMatchAnswersCompatible(
         left.hardMatchAnswers,

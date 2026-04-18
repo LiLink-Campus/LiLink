@@ -49,6 +49,11 @@ function buildStickyParticipationCreateInput(
     cycleId,
     userId,
     status,
+    // Intent is intentionally NOT carried forward from the previous cycle —
+    // weekly intent (FRIEND/DATE/BOTH) is asked fresh every round. The user
+    // remains OPTED_IN as a courtesy, but the matching algorithm filters out
+    // intent=null rows so they will not be matched until they re-pick.
+    intent: null,
     optedInAt: status === 'OPTED_IN' ? initializedAt : null,
   };
 }
