@@ -394,6 +394,10 @@ function questionnaireAutosaveStatusText(
     return "正在自动保存…";
   }
 
+  if (saveState === "error") {
+    return "自动保存暂时失败，请查看下方提示。";
+  }
+
   if (saveState === "draft-saved" || hasDraftQuestionnaire) {
     return hasSavedQuestionnaire
       ? "未完成修改已自动保存为草稿；当前匹配仍按上次正式保存的完整问卷计算。"
@@ -402,10 +406,6 @@ function questionnaireAutosaveStatusText(
 
   if (saveState === "submitted") {
     return "问卷已自动保存。";
-  }
-
-  if (saveState === "error") {
-    return "自动保存暂时失败，请查看下方提示。";
   }
 
   return "系统会自动保存你的修改。";
@@ -578,6 +578,7 @@ export default function DashboardPage({
   const flushQueuedQuestionnaireSave = useEffectEvent(
     async (payload: QuestionnaireSavePayload, snapshot: string) => {
       let shouldScheduleRetry = false;
+      let shouldStopRetryingCurrentSnapshot = false;
       let retryDelayMs: number | null = null;
 
       if (
@@ -648,6 +649,8 @@ export default function DashboardPage({
             questionnaireRetryAttemptRef.current,
           );
           shouldScheduleRetry = true;
+        } else {
+          shouldStopRetryingCurrentSnapshot = true;
         }
         setQuestionnaireSaveState("error");
         setQuestionnaireSaveError(
@@ -699,6 +702,15 @@ export default function DashboardPage({
                 retrySave.snapshot,
               );
             }, retryDelayMs);
+            return;
+          }
+
+          if (
+            shouldStopRetryingCurrentSnapshot &&
+            nextQueuedSave.snapshot === snapshot
+          ) {
+            clearQuestionnaireRetryTimer();
+            queuedQuestionnaireSaveRef.current = null;
             return;
           }
 

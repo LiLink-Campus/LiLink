@@ -743,14 +743,7 @@ export class AccountService {
         throw error;
       }
 
-      if (shouldUpdateDisplayName) {
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: { displayName: trimmedDisplayName },
-        });
-      }
-
-      const response = await this.prisma.questionnaireResponse.upsert({
+      const draftUpsertArgs = {
         where: { userId },
         create: {
           userId,
@@ -762,7 +755,17 @@ export class AccountService {
         update: {
           draftAnswers: draftPayload as Prisma.InputJsonValue,
         },
-      });
+      };
+      const response = shouldUpdateDisplayName
+        ? await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+              where: { id: userId },
+              data: { displayName: trimmedDisplayName },
+            });
+
+            return tx.questionnaireResponse.upsert(draftUpsertArgs);
+          })
+        : await this.prisma.questionnaireResponse.upsert(draftUpsertArgs);
 
       return {
         saveState: 'DRAFT' as const,
