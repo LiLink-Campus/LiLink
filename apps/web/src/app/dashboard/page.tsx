@@ -40,6 +40,8 @@ function intentStatus(dashboard: DashboardPayload): HubCardStatus {
 
 function matchStatus(dashboard: DashboardPayload): HubCardStatus {
   const currentCycle = dashboard.currentCycle;
+  const currentCycleIsStillOpen =
+    currentCycle?.status === "OPEN" || currentCycle?.status === "REVEAL_READY";
 
   if (dashboard.latestMatchVisibility === "LIMITED") {
     return { label: "本轮已受限", tone: "warn" };
@@ -52,21 +54,22 @@ function matchStatus(dashboard: DashboardPayload): HubCardStatus {
   if (
     currentCycle?.participationStatus === "OPTED_IN" &&
     !currentCycle.intent &&
-    (currentCycle.status === "OPEN" || currentCycle.status === "REVEAL_READY")
+    currentCycleIsStillOpen
   ) {
     return { label: "待选本周意图", tone: "warn" };
+  }
+  if (
+    currentCycle?.participationStatus === "OPTED_IN" &&
+    currentCycleIsStillOpen
+  ) {
+    // The active cycle status should win over the previous round's outcome.
+    return { label: "等待揭晓", tone: "accent" };
   }
   if (
     dashboard.lastRevealedRound?.participationStatus === "OPTED_IN" &&
     !dashboard.lastRevealedRound.matched
   ) {
     return { label: "本轮未匹配", tone: "default" };
-  }
-  if (
-    currentCycle?.participationStatus === "OPTED_IN" &&
-    (currentCycle.status === "OPEN" || currentCycle.status === "REVEAL_READY")
-  ) {
-    return { label: "等待揭晓", tone: "accent" };
   }
   return { label: "暂无匹配", tone: "default" };
 }

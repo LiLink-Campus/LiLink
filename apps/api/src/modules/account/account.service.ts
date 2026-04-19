@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import { isWeeklyIntent } from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
@@ -659,7 +660,7 @@ export class AccountService {
       // Strict contract: opting in MUST come with an intent. The DTO already
       // enforces this, but we re-check here for defense in depth so that any
       // bypass of class-validator still fails loudly.
-      if (!input.intent) {
+      if (!isWeeklyIntent(input.intent)) {
         throw new BadRequestException(
           'A weekly intent (FRIEND, DATE, or BOTH) is required when opting into a cycle.',
         );
@@ -682,7 +683,7 @@ export class AccountService {
     }
 
     const nextStatus = input.optIn ? 'OPTED_IN' : 'OPTED_OUT';
-    const nextIntent = input.optIn ? input.intent! : null;
+    const nextIntent = input.optIn ? input.intent : null;
 
     const participation = await this.prisma.cycleParticipation.upsert({
       where: {

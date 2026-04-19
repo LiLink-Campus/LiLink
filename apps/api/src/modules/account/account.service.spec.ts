@@ -202,6 +202,38 @@ describe('AccountService', () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it('rejects opt-in when the weekly intent is not one of the allowed values', async () => {
+    const upsert = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', {
+        optIn: true,
+        intent: 'INVALID' as never,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it('rejects opt-in when the account is not ACTIVE', async () => {
     const prisma = {
       matchCycle: {
