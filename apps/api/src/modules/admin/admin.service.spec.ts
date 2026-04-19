@@ -81,6 +81,108 @@ describe('AdminService', () => {
     });
   });
 
+  it('uses full report counts in the risk profile while keeping preview lists capped', async () => {
+    const prisma = {
+      report: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'report-1',
+          reporterId: 'reporter-1',
+          reportedUserId: 'reported-1',
+          matchId: null,
+          reason: 'Spam',
+          details: null,
+          status: 'OPEN',
+          adminNotes: null,
+          handledAt: null,
+          createdBlock: false,
+          createdAt: new Date('2026-04-15T12:00:00.000Z'),
+          reporter: {
+            id: 'reporter-1',
+            email: 'reporter@example.com',
+            displayName: 'Reporter',
+            status: 'ACTIVE',
+            school: null,
+            profile: null,
+          },
+          reportedUser: {
+            id: 'reported-1',
+            email: 'reported@example.com',
+            displayName: 'Reported User',
+            status: 'ACTIVE',
+            school: null,
+            profile: null,
+            reportsReceived: Array.from({ length: 10 }, (_, index) => ({
+              id: `received-${index}`,
+              status: index < 4 ? 'OPEN' : 'RESOLVED',
+            })),
+            reportsFiled: Array.from({ length: 10 }, (_, index) => ({
+              id: `filed-${index}`,
+              status: 'OPEN',
+            })),
+          },
+          match: null,
+        }),
+        count: jest
+          .fn()
+          .mockResolvedValueOnce(14)
+          .mockResolvedValueOnce(11)
+          .mockResolvedValueOnce(9)
+          .mockResolvedValueOnce(5),
+      },
+      block: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'block-1' }]),
+      },
+    };
+    const adminAuditService = {
+      listAuditLogs: jest.fn(),
+      getRecentAuditLogsByCondition: jest
+        .fn()
+        .mockResolvedValue([{ id: 'log-1' }]),
+      write: jest.fn(),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      adminAuditService as never,
+      {} as never,
+    );
+
+    await expect(service.getReportContext('report-1')).resolves.toMatchObject({
+      riskProfile: {
+        reportedUserStatus: 'ACTIVE',
+        receivedReportCount: 14,
+        filedReportCount: 11,
+        resolvedReportCount: 9,
+        openReportCount: 5,
+        mutualBlocks: [{ id: 'block-1' }],
+      },
+      logs: [{ id: 'log-1' }],
+    });
+
+    expect(prisma.report.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        reportedUserId: 'reported-1',
+      },
+    });
+    expect(prisma.report.count).toHaveBeenNthCalledWith(2, {
+      where: {
+        reporterId: 'reported-1',
+      },
+    });
+    expect(prisma.report.count).toHaveBeenNthCalledWith(3, {
+      where: {
+        reportedUserId: 'reported-1',
+        status: 'RESOLVED',
+      },
+    });
+    expect(prisma.report.count).toHaveBeenNthCalledWith(4, {
+      where: {
+        reportedUserId: 'reported-1',
+        status: 'OPEN',
+      },
+    });
+  });
+
   it('initializes sticky participation records when creating an open cycle', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 2 });
     const cycleParticipation = {
