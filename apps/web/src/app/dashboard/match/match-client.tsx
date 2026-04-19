@@ -57,6 +57,11 @@ export function MatchClient({
 
   const introduced = Boolean(latestMatch?.introducedAt);
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
+  const currentCycle = dashboard?.currentCycle ?? null;
+  const needsIntentReselect =
+    currentCycle?.participationStatus === "OPTED_IN" &&
+    !currentCycle.intent &&
+    (currentCycle.status === "OPEN" || currentCycle.status === "REVEAL_READY");
 
   return (
     <main className="page-shell dashboard-page">
@@ -197,9 +202,18 @@ export function MatchClient({
           </>
         ) : (
           <>
-            {dashboard?.currentCycle?.participationStatus === "OPTED_IN" &&
-            (dashboard.currentCycle.status === "OPEN" ||
-              dashboard.currentCycle.status === "REVEAL_READY") ? (
+            {needsIntentReselect ? (
+              <>
+                <h2>待选择本周意图</h2>
+                <p className="dashboard-muted">
+                  你沿用了上一轮的报名状态，但这周的匹配意图还没有重新选择。
+                  在进入匹配池之前，需要先到「本周意图」页面选择
+                  Friend、Date 或 Both。
+                </p>
+              </>
+            ) : currentCycle?.participationStatus === "OPTED_IN" &&
+              (currentCycle.status === "OPEN" ||
+                currentCycle.status === "REVEAL_READY") ? (
               <>
                 <h2>
                   {hasSavedQuestionnaire ? "等待本轮揭晓" : "还没有匹配结果"}
