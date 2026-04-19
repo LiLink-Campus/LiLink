@@ -58,7 +58,7 @@ function buildStickyParticipationCreateInput(
     // Sticky carry-over keeps the latest stored intent for OPTED_IN users.
     // When a historical OPTED_IN row predates the feature and has no intent
     // yet, BOTH is the compatibility-preserving default.
-    intent: status === 'OPTED_IN' ? previousIntent ?? 'BOTH' : null,
+    intent: status === 'OPTED_IN' ? (previousIntent ?? 'BOTH') : null,
     optedInAt: status === 'OPTED_IN' ? initializedAt : null,
   };
 }
