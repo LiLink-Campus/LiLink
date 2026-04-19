@@ -8,6 +8,7 @@
     "packages/shared"
   ],
   "scripts": {
+    "postinstall": "node scripts/postinstall-prisma-generate.cjs",
     "dev": "npm run build:shared && concurrently -k -n shared,web,api \"npm run dev:shared\" \"npm run dev:web:raw\" \"npm run dev:api:raw\"",
     "dev:web": "npm run build:shared && npm run dev:web:raw",
     "dev:api": "npm run build:shared && npm run dev:api:raw",

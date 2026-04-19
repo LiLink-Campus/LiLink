@@ -1053,7 +1053,14 @@ export class AdminService {
       throw new NotFoundException('Report was not found.');
     }
 
-    const [blockState, relatedLogs] = await Promise.all([
+    const [
+      blockState,
+      relatedLogs,
+      receivedReportCount,
+      filedReportCount,
+      resolvedReportCount,
+      openReportCount,
+    ] = await Promise.all([
       this.prisma.block.findMany({
         where: {
           OR: [
@@ -1077,20 +1084,38 @@ export class AdminService {
         `,
         120,
       ),
+      this.prisma.report.count({
+        where: {
+          reportedUserId: report.reportedUserId,
+        },
+      }),
+      this.prisma.report.count({
+        where: {
+          reporterId: report.reportedUserId,
+        },
+      }),
+      this.prisma.report.count({
+        where: {
+          reportedUserId: report.reportedUserId,
+          status: 'RESOLVED',
+        },
+      }),
+      this.prisma.report.count({
+        where: {
+          reportedUserId: report.reportedUserId,
+          status: 'OPEN',
+        },
+      }),
     ]);
 
     return {
       report,
       riskProfile: {
         reportedUserStatus: report.reportedUser.status,
-        receivedReportCount: report.reportedUser.reportsReceived.length,
-        filedReportCount: report.reportedUser.reportsFiled.length,
-        resolvedReportCount: report.reportedUser.reportsReceived.filter(
-          (item) => item.status === 'RESOLVED',
-        ).length,
-        openReportCount: report.reportedUser.reportsReceived.filter(
-          (item) => item.status === 'OPEN',
-        ).length,
+        receivedReportCount,
+        filedReportCount,
+        resolvedReportCount,
+        openReportCount,
         mutualBlocks: blockState,
       },
       logs: relatedLogs,
