@@ -8,7 +8,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { fetchApi, type AuthMePayload } from "../../../lib/api";
+import {
+  fetchApi,
+  isApiRequestError,
+  type AuthMePayload,
+} from "../../../lib/api";
 import {
   AGE_OPTIONS,
   BIRTH_YEAR_OPTIONS,
@@ -114,6 +118,27 @@ function questionnaireAutosaveStatusText(
   }
 
   return "系统会自动保存你的修改。";
+}
+
+function questionnaireAutosaveShouldRetry(error: unknown) {
+  if (!isApiRequestError(error)) {
+    return true;
+  }
+
+  return error.status >= 500;
+}
+
+function questionnaireAutosaveFailureMessage(
+  error: unknown,
+  retryDelayMs: number | null,
+) {
+  if (isApiRequestError(error) && error.status >= 400 && error.status < 500) {
+    return "当前页面数据已失效或填写内容未通过校验，请刷新页面后重试。";
+  }
+
+  return retryDelayMs == null
+    ? "问卷自动保存多次失败，请检查当前填写内容后立即重试。"
+    : `问卷自动保存失败，系统将在 ${Math.ceil(retryDelayMs / 1000)} 秒后自动重试。`;
 }
 
 export function ProfileClient({
@@ -285,24 +310,26 @@ export function ProfileClient({
           queuedQuestionnaireSaveRef.current = { payload, snapshot };
         }
 
-        questionnaireRetryAttemptRef.current += 1;
-        if (
-          questionnaireRetryAttemptRef.current <=
-          QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS
-        ) {
-          retryDelayMs = questionnaireAutosaveRetryDelayMs(
-            questionnaireRetryAttemptRef.current,
-          );
-          shouldScheduleRetry = true;
+        if (questionnaireAutosaveShouldRetry(caughtError)) {
+          questionnaireRetryAttemptRef.current += 1;
+          if (
+            questionnaireRetryAttemptRef.current <=
+            QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS
+          ) {
+            retryDelayMs = questionnaireAutosaveRetryDelayMs(
+              questionnaireRetryAttemptRef.current,
+            );
+            shouldScheduleRetry = true;
+          } else {
+            shouldStopRetryingCurrentSnapshot = true;
+          }
         } else {
           shouldStopRetryingCurrentSnapshot = true;
         }
 
         setQuestionnaireSaveState("error");
         setQuestionnaireSaveError(
-          retryDelayMs == null
-            ? "问卷自动保存多次失败，请检查当前填写内容后立即重试。"
-            : `问卷自动保存失败，系统将在 ${Math.ceil(retryDelayMs / 1000)} 秒后自动重试。`,
+          questionnaireAutosaveFailureMessage(caughtError, retryDelayMs),
         );
       } finally {
         questionnaireSaveAbortRef.current = null;
