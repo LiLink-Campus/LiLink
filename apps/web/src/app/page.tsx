@@ -4,7 +4,6 @@ import { HeroRevealCountdown } from "./hero-reveal-countdown";
 
 export const revalidate = 60;
 
-/** Homepage hero strip: public-facing counts differ from admin/API totals. */
 const HOMEPAGE_REGISTERED_COUNT_PAD = 50;
 const HOMEPAGE_COMPLETED_COUNT_PAD = 40;
 const HOMEPAGE_MATCHES_DELIVERED_DISPLAY_OFFSET = 10;
@@ -73,9 +72,11 @@ export default async function Home() {
         <div className="hero-card">
           <small>LiLink weekly reveal</small>
           <strong>{landing?.tagline ?? "当前无法连接平台数据接口。"}</strong>
-          <p>{landing
+          <p>
+            {landing
               ? "园区限定、学校白名单、每周一个轮次。把相遇从高频刷屏，拉回到节制与期待。"
-              : "请稍后重试。如果这是部署环境，请检查前端 API 地址、后端服务和跨域配置。"}</p>
+              : "请稍后重试。如果这是部署环境，请检查前端 API 地址、后端服务和跨域配置。"}
+          </p>
         </div>
       </section>
 

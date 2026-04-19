@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
+import { WEEKLY_INTENT_LABELS } from "../../../lib/weekly-intent";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
 import type {
@@ -64,6 +65,19 @@ function formatDateTime(value: string) {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatParticipantIntent(participant: CycleParticipantDetail) {
+  if (participant.status !== "OPTED_IN") {
+    return "—";
+  }
+
+  if (!participant.intent) {
+    return "未选择";
+  }
+
+  const labels = WEEKLY_INTENT_LABELS[participant.intent];
+  return `${labels.subtitle} (${participant.intent})`;
 }
 
 function buildAdminQueryString(
@@ -514,7 +528,7 @@ export default function AdminCyclesPage() {
                 </div>
                 <p>揭晓：{formatDateTime(cycle.revealAt)}</p>
                 <div className="admin-inline-meta">
-                  <span>报名人数 {cycle._count.participations}</span>
+                  <span>可匹配人数 {cycle._count.participations}</span>
                   <span>匹配数 {cycle._count.matches}</span>
                 </div>
               </button>
@@ -572,7 +586,7 @@ export default function AdminCyclesPage() {
           {selectedCycle && (
             <div className="admin-inline-metrics">
               <div><span>状态</span><strong>{CYCLE_STATUS_LABELS[selectedCycle.status]}</strong></div>
-              <div><span>报名人数</span><strong>{selectedCycle._count.participations}</strong></div>
+              <div><span>可匹配人数</span><strong>{selectedCycle._count.participations}</strong></div>
               <div><span>匹配数</span><strong>{selectedCycle._count.matches}</strong></div>
             </div>
           )}
@@ -627,7 +641,7 @@ export default function AdminCyclesPage() {
           <div className="admin-page-stack">
             <div className="admin-inline-metrics">
               <div><span>总参与</span><strong>{cycleDetail.summary.participationCount}</strong></div>
-              <div><span>已 Opt-in</span><strong>{cycleDetail.summary.optedInCount}</strong></div>
+              <div><span>可匹配人数</span><strong>{cycleDetail.summary.matchableParticipantCount}</strong></div>
               <div><span>已提交问卷</span><strong>{cycleDetail.summary.submittedQuestionnaireCount}</strong></div>
               <div><span>未提交问卷</span><strong>{cycleDetail.summary.participationCount - cycleDetail.summary.submittedQuestionnaireCount}</strong></div>
             </div>
@@ -640,9 +654,7 @@ export default function AdminCyclesPage() {
                   className={participantFilter === f ? "admin-tab active" : "admin-tab"}
                   onClick={() => { setParticipantFilter(f); setParticipantPage(1); }}
                 >
-                  {f === "ALL"
-                    ? `全部 (${cycleDetail.summary.participationCount})`
-                    : `${PARTICIPATION_STATUS_LABELS[f]} (${f === "OPTED_IN" ? cycleDetail.summary.optedInCount : cycleDetail.summary.participationCount - cycleDetail.summary.optedInCount})`}
+                  {f === "ALL" ? "全部" : PARTICIPATION_STATUS_LABELS[f]}
                 </button>
               ))}
             </div>
@@ -657,6 +669,7 @@ export default function AdminCyclesPage() {
                       <th>用户</th>
                       <th>学校</th>
                       <th>状态</th>
+                      <th>本周意图</th>
                       <th>问卷</th>
                       <th>加入时间</th>
                     </tr>
@@ -667,6 +680,7 @@ export default function AdminCyclesPage() {
                         <td><strong style={{ fontSize: "0.88rem" }}>{p.user.displayName ?? p.user.email}</strong></td>
                         <td>{p.user.school?.name ?? "—"}</td>
                         <td><span className="domain-chip">{PARTICIPATION_STATUS_LABELS[p.status]}</span></td>
+                        <td>{formatParticipantIntent(p)}</td>
                         <td>
                           {p.user.questionnaireResponse?.submittedAt
                             ? <span style={{ color: "var(--sage)" }}>已提交</span>
@@ -709,8 +723,8 @@ export default function AdminCyclesPage() {
         ) : cycleDetail ? (
           <div className="admin-page-stack">
             <div className="admin-inline-metrics">
-              <div><span>参与人数</span><strong>{cycleDetail.summary.participationCount}</strong></div>
-              <div><span>已 opt-in</span><strong>{cycleDetail.summary.optedInCount}</strong></div>
+              <div><span>总参与</span><strong>{cycleDetail.summary.participationCount}</strong></div>
+              <div><span>可匹配人数</span><strong>{cycleDetail.summary.matchableParticipantCount}</strong></div>
               <div><span>匹配对数</span><strong>{cycleDetail.summary.matchedPairCount}</strong></div>
               <div><span>待联系</span><strong>{cycleDetail.summary.pendingContactCount}</strong></div>
             </div>

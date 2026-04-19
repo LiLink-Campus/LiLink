@@ -25,10 +25,6 @@ export default function createNextConfig(phase: string): NextConfig {
       ignoreBuildErrors: false,
     },
     experimental: {
-      cpus: 1,
-      staticGenerationMaxConcurrency: 1,
-      staticGenerationMinPagesPerWorker: 100,
-      staticGenerationRetryCount: 1,
       workerThreads: true,
     },
   };

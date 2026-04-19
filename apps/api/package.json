@@ -7,26 +7,28 @@
   "license": "UNLICENSED",
   "scripts": {
     "admin:create": "node scripts/create-admin.mjs",
-    "build": "nest build",
+    "prepare:prisma": "prisma generate",
+    "build:shared": "npm run build:shared --prefix ../..",
+    "build": "npm run prepare:prisma && nest build",
     "db:bootstrap": "node scripts/bootstrap-db.mjs",
-    "ensure-cycle-participants": "npm run build:shared --prefix ../.. && node scripts/ensure-open-cycle-participants.mjs",
+    "ensure-cycle-participants": "npm run build:shared && node scripts/ensure-open-cycle-participants.mjs",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "sticky-participations:backfill": "ts-node scripts/backfill-sticky-cycle-participations.ts",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
+    "start": "npm run prepare:prisma && nest start",
+    "start:dev": "npm run prepare:prisma && nest start --watch",
+    "start:debug": "npm run prepare:prisma && nest start --debug --watch",
     "start:prod": "node dist/src/main.js",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint": "npm run prepare:prisma && eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "npm run build:shared --prefix ../.. && ts-node prisma/seed.ts",
+    "prisma:seed": "npm run build:shared && ts-node prisma/seed.ts",
     "prisma:seed-defaults": "node scripts/seed-defaults.mjs",
-    "prisma:seed:default": "npm run build:shared --prefix ../.. && cross-env SEED_SCOPE=default ts-node prisma/seed.ts",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "prisma:seed:default": "npm run build:shared && cross-env SEED_SCOPE=default ts-node prisma/seed.ts",
+    "test": "npm run prepare:prisma && npm run build:shared && jest",
+    "test:watch": "npm run prepare:prisma && npm run build:shared && jest --watch",
+    "test:cov": "npm run prepare:prisma && npm run build:shared && jest --coverage",
+    "test:debug": "npm run prepare:prisma && npm run build:shared && node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:e2e": "npm run prepare:prisma && npm run build:shared && jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@lilink/shared": "file:../../packages/shared",
@@ -93,7 +95,7 @@
     }
   },
   "prisma": {
-    "seed": "npm run build:shared --prefix ../.. && ts-node prisma/seed.ts"
+    "seed": "npm run build:shared && ts-node prisma/seed.ts"
   },
   "jest": {
     "moduleFileExtensions": [

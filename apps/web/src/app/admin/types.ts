@@ -1,3 +1,5 @@
+import type { WeeklyIntent } from "../../lib/weekly-intent";
+
 export type AdminSchool = {
   id: string;
   name: string;
@@ -143,6 +145,7 @@ export type PaginatedResult<T> = {
 export type CycleParticipantDetail = {
   id: string;
   status: "OPTED_IN" | "OPTED_OUT";
+  intent: WeeklyIntent | null;
   optedInAt: string | null;
   updatedAt: string;
   user: AdminUser;
@@ -171,7 +174,7 @@ export type AdminCycleDetail = {
   cycle: AdminCycle;
   summary: {
     participationCount: number;
-    optedInCount: number;
+    matchableParticipantCount: number;
     submittedQuestionnaireCount: number;
     matchedPairCount: number;
     reportedMatchCount: number;

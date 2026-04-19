@@ -22,6 +22,7 @@ type EligibleParticipantStub = {
     excludedPartnerSchools: string[];
   };
   answers: Record<string, unknown>;
+  intent: 'FRIEND' | 'DATE' | 'BOTH';
 };
 
 type CandidatePairStub = {
@@ -69,6 +70,7 @@ const SCHOOL_CUC = 'school-cuc';
 function createBroadParticipant(
   id: string,
   answers: Record<string, unknown>,
+  intent: 'FRIEND' | 'DATE' | 'BOTH' = 'BOTH',
 ): EligibleParticipantStub {
   return {
     id,
@@ -89,6 +91,7 @@ function createBroadParticipant(
       excludedPartnerSchools: [],
     },
     answers,
+    intent,
   };
 }
 
@@ -205,7 +208,7 @@ describe('CyclesService', () => {
     await expect(service.runRevealCycle({ force: true })).resolves.toEqual({
       ok: true,
       message:
-        'Not enough complete participants to generate matches. No users are opted in (OPTED_IN) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers are required.',
+        'Not enough complete participants to generate matches. No users are opted in with a weekly intent (FRIEND/DATE/BOTH) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers and a weekly intent are required.',
     });
   });
 
@@ -224,11 +227,13 @@ describe('CyclesService', () => {
           {
             userId: 'user-1',
             status: 'OPTED_IN',
+            intent: 'FRIEND',
             updatedAt: new Date('2026-04-10T12:00:00.000Z'),
           },
           {
             userId: 'user-2',
             status: 'OPTED_IN',
+            intent: 'DATE',
             updatedAt: new Date('2026-04-11T12:00:00.000Z'),
           },
         ]),
@@ -324,6 +329,7 @@ describe('CyclesService', () => {
           excludedPartnerSchools: [],
         },
         answers: {},
+        intent: 'BOTH',
       },
       {
         id: 'user-2',
@@ -344,6 +350,7 @@ describe('CyclesService', () => {
           excludedPartnerSchools: [],
         },
         answers: {},
+        intent: 'BOTH',
       },
     ]);
     jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
@@ -373,6 +380,7 @@ describe('CyclesService', () => {
             cycleId: string;
             userId: string;
             status: 'OPTED_IN' | 'OPTED_OUT';
+            intent: 'FRIEND' | 'DATE' | 'BOTH' | null;
             optedInAt: Date | null;
           }>;
           skipDuplicates: boolean;
@@ -386,17 +394,20 @@ describe('CyclesService', () => {
     }
 
     expect(createManyArgument.skipDuplicates).toBe(true);
+    // Sticky carry-over preserves the latest stored intent for OPTED_IN users.
     expect(createManyArgument.data).toEqual([
       {
         cycleId: 'cycle-1',
         userId: 'user-1',
         status: 'OPTED_IN',
+        intent: 'FRIEND',
         optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
       },
       {
         cycleId: 'cycle-1',
         userId: 'user-2',
         status: 'OPTED_IN',
+        intent: 'DATE',
         optedInAt: createManyArgument.data[1]?.optedInAt ?? null,
       },
     ]);
@@ -460,6 +471,7 @@ describe('CyclesService', () => {
 
     const participants = toEligibleParticipants([
       {
+        intent: 'BOTH',
         user: {
           id: 'user-1',
           displayName: 'A',
@@ -484,6 +496,7 @@ describe('CyclesService', () => {
         },
       },
       {
+        intent: 'FRIEND',
         user: {
           id: 'user-2',
           displayName: 'B',
@@ -519,6 +532,7 @@ describe('CyclesService', () => {
         hard_school: SCHOOL_BUPT,
         hard_excluded_partner_schools: [SCHOOL_CUC],
       },
+      intent: 'BOTH',
     });
   });
 
@@ -533,6 +547,7 @@ describe('CyclesService', () => {
 
     const participants = toEligibleParticipants([
       {
+        intent: 'BOTH',
         user: {
           id: 'user-1',
           displayName: 'A',
@@ -558,6 +573,105 @@ describe('CyclesService', () => {
     ]);
 
     expect(participants).toEqual([]);
+  });
+
+  it('drops participants whose weekly intent is missing or invalid', () => {
+    const service = new CyclesService({} as never);
+    const toEligibleParticipants = (
+      service as unknown as Pick<
+        CyclesServiceTestHarness,
+        'toEligibleParticipants'
+      >
+    ).toEligibleParticipants.bind(service);
+
+    const validQuestionnaireAnswers = {
+      hard_birth_date: '2000-05-10',
+      hard_partner_age_min: 18,
+      hard_partner_age_max: 30,
+      hard_gender: '女',
+      hard_partner_genders: ['男'],
+      hard_looks: '普通人',
+      hard_partner_looks: ['普通人'],
+      hard_height_cm: 165,
+      hard_partner_height_min: 120,
+      hard_partner_height_max: 220,
+      hard_one_liner_intro: '喜欢徒步。',
+      hard_excluded_partner_schools: [],
+    };
+
+    const participants = toEligibleParticipants([
+      {
+        intent: null,
+        user: {
+          id: 'user-no-intent',
+          displayName: 'NoIntent',
+          school: { id: SCHOOL_BUPT },
+          questionnaireResponse: {
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            answers: validQuestionnaireAnswers,
+          },
+        },
+      },
+      {
+        intent: 'GHOST',
+        user: {
+          id: 'user-bad-intent',
+          displayName: 'BadIntent',
+          school: { id: SCHOOL_BUPT },
+          questionnaireResponse: {
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            answers: validQuestionnaireAnswers,
+          },
+        },
+      },
+      {
+        intent: 'DATE',
+        user: {
+          id: 'user-good',
+          displayName: 'Good',
+          school: { id: SCHOOL_BUPT },
+          questionnaireResponse: {
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            answers: validQuestionnaireAnswers,
+          },
+        },
+      },
+    ]);
+
+    expect(participants.map((participant) => participant.id)).toEqual([
+      'user-good',
+    ]);
+    expect(participants[0]?.intent).toBe('DATE');
+  });
+
+  it('blocks pairing when weekly intents are incompatible (FRIEND vs DATE)', () => {
+    const service = new CyclesService({} as never);
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const friendOnly = createBroadParticipant('user-friend', {}, 'FRIEND');
+    const dateOnly = createBroadParticipant('user-date', {}, 'DATE');
+    const bridge = createBroadParticipant('user-both', {}, 'BOTH');
+
+    expect(
+      scorePair(friendOnly, dateOnly, [], new Date('2026-04-10T00:00:00.000Z')),
+    ).toBeNull();
+
+    expect(
+      scorePair(friendOnly, bridge, [], new Date('2026-04-10T00:00:00.000Z')),
+    ).not.toBeNull();
+    expect(
+      scorePair(dateOnly, bridge, [], new Date('2026-04-10T00:00:00.000Z')),
+    ).not.toBeNull();
+    expect(
+      scorePair(
+        friendOnly,
+        friendOnly,
+        [],
+        new Date('2026-04-10T00:00:00.000Z'),
+      ),
+    ).not.toBeNull();
   });
 
   it('builds reasons from configured question templates instead of hard-coded keys', () => {
@@ -588,6 +702,7 @@ describe('CyclesService', () => {
         answers: {
           relationship_intent: 'serious',
         },
+        intent: 'BOTH',
       },
       {
         id: 'user-2',
@@ -610,6 +725,7 @@ describe('CyclesService', () => {
         answers: {
           relationship_intent: 'serious',
         },
+        intent: 'BOTH',
       },
       [
         {
@@ -722,6 +838,7 @@ describe('CyclesService', () => {
             excludedPartnerSchools: [],
           },
           answers: {},
+          intent: 'BOTH',
         },
         {
           id: 'user-2',
@@ -742,6 +859,7 @@ describe('CyclesService', () => {
             excludedPartnerSchools: [],
           },
           answers: {},
+          intent: 'BOTH',
         },
       ]);
     const calculatePairsSpy = jest
@@ -873,8 +991,11 @@ describe('CyclesService', () => {
           partnerHeightMin: 120,
           partnerHeightMax: 220,
           oneLinerIntro: '喜欢徒步。',
+          school: SCHOOL_BUPT,
+          excludedPartnerSchools: [],
         },
         answers: {},
+        intent: 'BOTH',
       },
       {
         id: 'user-2',
@@ -891,8 +1012,11 @@ describe('CyclesService', () => {
           partnerHeightMin: 120,
           partnerHeightMax: 220,
           oneLinerIntro: '喜欢阅读。',
+          school: SCHOOL_CUC,
+          excludedPartnerSchools: [],
         },
         answers: {},
+        intent: 'BOTH',
       },
     ]);
     jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({

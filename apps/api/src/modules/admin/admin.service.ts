@@ -97,6 +97,14 @@ const adminReportListSelect = {
   },
 } satisfies Prisma.ReportSelect;
 
+const MATCHABLE_CYCLE_PARTICIPATION_WHERE = {
+  status: 'OPTED_IN' as const,
+  intent: { not: null },
+  user: {
+    status: 'ACTIVE' as const,
+  },
+} satisfies Prisma.CycleParticipationWhereInput;
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -120,7 +128,9 @@ export class AdminService {
         include: {
           _count: {
             select: {
-              participations: true,
+              participations: {
+                where: MATCHABLE_CYCLE_PARTICIPATION_WHERE,
+              },
               matches: true,
             },
           },
@@ -164,9 +174,9 @@ export class AdminService {
   }
 
   async getCycles(query: ListCyclesQueryDto = {}) {
-    const participationCountFilter = {
+    const matchableParticipationCountFilter = {
       participations: {
-        where: { status: 'OPTED_IN' as const },
+        where: MATCHABLE_CYCLE_PARTICIPATION_WHERE,
       },
       matches: true,
     };
@@ -175,7 +185,7 @@ export class AdminService {
       return this.prisma.matchCycle.findMany({
         include: {
           _count: {
-            select: participationCountFilter,
+            select: matchableParticipationCountFilter,
           },
         },
         orderBy: { revealAt: 'desc' },
@@ -201,7 +211,7 @@ export class AdminService {
         where,
         include: {
           _count: {
-            select: participationCountFilter,
+            select: matchableParticipationCountFilter,
           },
         },
         orderBy: { revealAt: 'desc' },
@@ -567,9 +577,7 @@ export class AdminService {
       include: {
         _count: {
           select: {
-            participations: {
-              where: { status: 'OPTED_IN' },
-            },
+            participations: true,
             matches: true,
           },
         },
@@ -581,7 +589,7 @@ export class AdminService {
     }
 
     const [
-      optedInCount,
+      matchableParticipantCount,
       submittedQuestionnaireCount,
       reportedMatchCount,
       pendingContactCount,
@@ -589,7 +597,7 @@ export class AdminService {
       this.prisma.cycleParticipation.count({
         where: {
           cycleId,
-          status: 'OPTED_IN',
+          ...MATCHABLE_CYCLE_PARTICIPATION_WHERE,
         },
       }),
       this.prisma.cycleParticipation.count({
@@ -626,7 +634,7 @@ export class AdminService {
       cycle,
       summary: {
         participationCount: cycle._count.participations,
-        optedInCount,
+        matchableParticipantCount,
         submittedQuestionnaireCount,
         matchedPairCount: cycle._count.matches,
         reportedMatchCount,
@@ -653,6 +661,7 @@ export class AdminService {
         select: {
           id: true,
           status: true,
+          intent: true,
           optedInAt: true,
           updatedAt: true,
           user: {
@@ -1044,7 +1053,14 @@ export class AdminService {
       throw new NotFoundException('Report was not found.');
     }
 
-    const [blockState, relatedLogs] = await Promise.all([
+    const [
+      blockState,
+      relatedLogs,
+      receivedReportCount,
+      filedReportCount,
+      resolvedReportCount,
+      openReportCount,
+    ] = await Promise.all([
       this.prisma.block.findMany({
         where: {
           OR: [
@@ -1068,20 +1084,38 @@ export class AdminService {
         `,
         120,
       ),
+      this.prisma.report.count({
+        where: {
+          reportedUserId: report.reportedUserId,
+        },
+      }),
+      this.prisma.report.count({
+        where: {
+          reporterId: report.reportedUserId,
+        },
+      }),
+      this.prisma.report.count({
+        where: {
+          reportedUserId: report.reportedUserId,
+          status: 'RESOLVED',
+        },
+      }),
+      this.prisma.report.count({
+        where: {
+          reportedUserId: report.reportedUserId,
+          status: 'OPEN',
+        },
+      }),
     ]);
 
     return {
       report,
       riskProfile: {
         reportedUserStatus: report.reportedUser.status,
-        receivedReportCount: report.reportedUser.reportsReceived.length,
-        filedReportCount: report.reportedUser.reportsFiled.length,
-        resolvedReportCount: report.reportedUser.reportsReceived.filter(
-          (item) => item.status === 'RESOLVED',
-        ).length,
-        openReportCount: report.reportedUser.reportsReceived.filter(
-          (item) => item.status === 'OPEN',
-        ).length,
+        receivedReportCount,
+        filedReportCount,
+        resolvedReportCount,
+        openReportCount,
         mutualBlocks: blockState,
       },
       logs: relatedLogs,
@@ -1868,13 +1902,20 @@ export class AdminService {
         },
       });
 
+      // Synthetic test users default to BOTH so the test pool always has a
+      // bridge intent and matching can run end-to-end without manual UI clicks.
       await this.prisma.cycleParticipation.upsert({
         where: { cycleId_userId: { cycleId: cycle.id, userId: user.id } },
-        update: { status: 'OPTED_IN', optedInAt: new Date() },
+        update: {
+          status: 'OPTED_IN',
+          intent: 'BOTH',
+          optedInAt: new Date(),
+        },
         create: {
           cycleId: cycle.id,
           userId: user.id,
           status: 'OPTED_IN',
+          intent: 'BOTH',
           optedInAt: new Date(),
         },
       });

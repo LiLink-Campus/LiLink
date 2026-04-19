@@ -249,7 +249,7 @@ export default function AdminOverviewPage({
                   </strong>
                 </div>
                 <div className="adm-kv">
-                  <span>参与记录</span>
+                  <span>可匹配人数</span>
                   <strong>
                     {summary.openCycle._count.participations}
                   </strong>
