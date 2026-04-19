@@ -30,7 +30,7 @@ afterEach(() => {
 
 describe('ensureStickyCycleParticipations', () => {
   it('creates missing current-cycle records from each user\u2019s latest previous participation state', async () => {
-    const createMany = jest.fn().mockResolvedValue({ count: 2 });
+    const createMany = jest.fn().mockResolvedValue({ count: 3 });
     const prisma = buildMockPrisma({
       findMany: jest
         .fn()
@@ -39,21 +39,31 @@ describe('ensureStickyCycleParticipations', () => {
           {
             userId: 'user-opted-in',
             status: 'OPTED_IN',
+            intent: 'FRIEND',
             updatedAt: new Date('2026-04-01T10:00:00.000Z'),
+          },
+          {
+            userId: 'user-opted-in-no-intent',
+            status: 'OPTED_IN',
+            intent: null,
+            updatedAt: new Date('2026-04-01T09:30:00.000Z'),
           },
           {
             userId: 'user-opted-out',
             status: 'OPTED_OUT',
+            intent: 'DATE',
             updatedAt: new Date('2026-04-01T09:00:00.000Z'),
           },
           {
             userId: 'user-opted-in',
             status: 'OPTED_OUT',
+            intent: null,
             updatedAt: new Date('2026-03-01T09:00:00.000Z'),
           },
           {
             userId: 'user-existing',
             status: 'OPTED_IN',
+            intent: 'BOTH',
             updatedAt: new Date('2026-04-01T08:00:00.000Z'),
           },
         ]),
@@ -67,7 +77,7 @@ describe('ensureStickyCycleParticipations', () => {
         createdAt: new Date('2026-04-20T12:00:00.000Z'),
         status: 'OPEN',
       }),
-    ).resolves.toEqual({ createdCount: 2 });
+    ).resolves.toEqual({ createdCount: 3 });
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
 
@@ -78,6 +88,7 @@ describe('ensureStickyCycleParticipations', () => {
             cycleId: string;
             userId: string;
             status: 'OPTED_IN' | 'OPTED_OUT';
+            intent: 'FRIEND' | 'DATE' | 'BOTH' | null;
             optedInAt: Date | null;
           }>;
           skipDuplicates: boolean;
@@ -91,21 +102,33 @@ describe('ensureStickyCycleParticipations', () => {
     }
 
     expect(createManyArgument.skipDuplicates).toBe(true);
+    // Sticky carry-over preserves the latest stored intent for OPTED_IN users
+    // and falls back to BOTH for pre-feature OPTED_IN rows with no intent yet.
     expect(createManyArgument.data).toEqual([
       {
         cycleId: 'cycle-2',
         userId: 'user-opted-in',
         status: 'OPTED_IN',
+        intent: 'FRIEND',
         optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
+      },
+      {
+        cycleId: 'cycle-2',
+        userId: 'user-opted-in-no-intent',
+        status: 'OPTED_IN',
+        intent: 'BOTH',
+        optedInAt: createManyArgument.data[1]?.optedInAt ?? null,
       },
       {
         cycleId: 'cycle-2',
         userId: 'user-opted-out',
         status: 'OPTED_OUT',
+        intent: null,
         optedInAt: null,
       },
     ]);
     expect(createManyArgument.data[0]?.optedInAt).toBeInstanceOf(Date);
+    expect(createManyArgument.data[1]?.optedInAt).toBeInstanceOf(Date);
   });
 
   it('does nothing for cycles that are not open for participation', async () => {

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import { isWeeklyIntent } from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
@@ -364,6 +365,7 @@ export class AccountService {
             participationDeadline: cycle.participationDeadline.toISOString(),
             status: cycle.status,
             participationStatus: currentParticipation?.status ?? 'OPTED_OUT',
+            intent: currentParticipation?.intent ?? null,
           }
         : null,
       latestMatch: latestRevealedMatchParticipant
@@ -655,6 +657,15 @@ export class AccountService {
     }
 
     if (input.optIn) {
+      // Strict contract: opting in MUST come with an intent. The DTO already
+      // enforces this, but we re-check here for defense in depth so that any
+      // bypass of class-validator still fails loudly.
+      if (!isWeeklyIntent(input.intent)) {
+        throw new BadRequestException(
+          'A weekly intent (FRIEND, DATE, or BOTH) is required when opting into a cycle.',
+        );
+      }
+
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { status: true },
@@ -671,6 +682,9 @@ export class AccountService {
       }
     }
 
+    const nextStatus = input.optIn ? 'OPTED_IN' : 'OPTED_OUT';
+    const nextIntent = input.optIn ? input.intent : null;
+
     const participation = await this.prisma.cycleParticipation.upsert({
       where: {
         cycleId_userId: {
@@ -681,11 +695,13 @@ export class AccountService {
       create: {
         cycleId: cycle.id,
         userId,
-        status: input.optIn ? 'OPTED_IN' : 'OPTED_OUT',
+        status: nextStatus,
+        intent: nextIntent,
         optedInAt: input.optIn ? new Date() : null,
       },
       update: {
-        status: input.optIn ? 'OPTED_IN' : 'OPTED_OUT',
+        status: nextStatus,
+        intent: nextIntent,
         optedInAt: input.optIn ? new Date() : null,
       },
     });
@@ -693,6 +709,7 @@ export class AccountService {
     await this.createAuditLog(userId, 'participation.updated', {
       cycleId: cycle.id,
       status: participation.status,
+      intent: participation.intent,
     });
 
     return participation;
