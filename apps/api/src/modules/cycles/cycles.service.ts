@@ -36,10 +36,10 @@ const NORMALIZED_SCORE_MAX = 100;
 const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 
 /**
- * Only ACTIVE users with an explicit weekly intent may appear in matching /
- * preview / reveal pools. The `intent` filter is what enforces "every user
- * must re-pick FRIEND/DATE/BOTH each cycle" — sticky-cycle-participation
- * carries the OPTED_IN status forward but leaves intent NULL on purpose.
+ * Only ACTIVE users with a stored weekly intent may appear in matching /
+ * preview / reveal pools. Sticky carry-over preserves the latest intent for
+ * OPTED_IN users and falls back to BOTH for pre-feature rows, so a NULL
+ * intent here means the participation still lacks a usable cycle intent.
  */
 const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput =
   {

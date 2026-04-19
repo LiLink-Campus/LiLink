@@ -231,7 +231,7 @@ export class DashboardCurrentCycleResponseDto {
     enum: WEEKLY_INTENTS as unknown as string[],
     nullable: true,
     description:
-      "Weekly matching intent (FRIEND/DATE/BOTH). Null means the user hasn't picked one this round and will be excluded from matching.",
+      'Weekly matching intent (FRIEND/DATE/BOTH). Sticky carry-over preserves the last stored value for opted-in users; null means this participation still lacks a usable intent and will be excluded from matching.',
   })
   intent!: WeeklyIntent | null;
 }

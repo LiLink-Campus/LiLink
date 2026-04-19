@@ -28,9 +28,9 @@ export function WeeklyIntentCard({
   const cycle = dashboard?.currentCycle ?? null;
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
   const currentIntent = cycle?.intent ?? null;
-  // Sticky carry-over: server kept us OPTED_IN but cleared intent — the user
-  // must explicitly re-pick this round before they can be matched.
-  const needsIntentReselect = isOptedIn && !currentIntent;
+  // Sticky carry-over normally preserves the previous intent for OPTED_IN
+  // users. If this branch is hit, the participation is missing a usable value.
+  const hasMissingIntent = isOptedIn && !currentIntent;
   const cardAccent = currentIntent
     ? WEEKLY_INTENT_VISUALS[currentIntent].accent
     : "var(--accent)";
@@ -52,8 +52,8 @@ export function WeeklyIntentCard({
         label: `本周锁定：${WEEKLY_INTENT_LABELS[currentIntent].primary}`,
         tone: "default",
       };
-    } else if (needsIntentReselect) {
-      statusPill = { label: "上周已参与 · 待选本周意图", tone: "pending" };
+    } else if (hasMissingIntent) {
+      statusPill = { label: "本周意图待确认", tone: "pending" };
     } else {
       statusPill = { label: "本轮未参与", tone: "off" };
     }
@@ -72,7 +72,7 @@ export function WeeklyIntentCard({
         <h2 className="weekly-intent-title">本周你想找什么？</h2>
         <p className="weekly-intent-subtitle">
           选择 Friend / Date / Both 之一作为本轮的硬约束 — BOTH 可与任意意图相容，FRIEND
-          与 DATE 互斥。每个新轮次都需要重新选择。
+          与 DATE 互斥。默认沿用上一轮，也可在截止前改成别的。
         </p>
       </div>
 
@@ -90,15 +90,15 @@ export function WeeklyIntentCard({
         </li>
       </ul>
 
-      {needsIntentReselect ? (
+      {hasMissingIntent ? (
         <div className="weekly-intent-callout" role="status">
           <span className="weekly-intent-callout-icon" aria-hidden="true">
             !
           </span>
           <span>
-            上一轮你参与过，本周仍保留报名状态，但
-            <strong>本周意图必须重选</strong>
-            后才会进入匹配池。请在下方挑一项。
+            当前这轮还没有保存可用的本周意图。请在下方确认
+            <strong> Friend、Date 或 Both </strong>
+            之一，匹配会按这次确认后的设置计算。
           </span>
         </div>
       ) : null}
