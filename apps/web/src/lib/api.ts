@@ -21,6 +21,20 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
     "账号不存在。",
 };
 
+export class ApiRequestError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
+}
+
+export function isApiRequestError(error: unknown): error is ApiRequestError {
+  return error instanceof ApiRequestError;
+}
+
 function userFacingApiMessage(raw: string): string {
   const trimmed = raw.trim();
   return API_ERROR_EN_TO_ZH[trimmed] ?? trimmed;
@@ -66,7 +80,10 @@ export async function fetchApi<T>(
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(parseFailedResponseBody(body, response.status));
+    throw new ApiRequestError(
+      parseFailedResponseBody(body, response.status),
+      response.status,
+    );
   }
 
   const text = await response.text();

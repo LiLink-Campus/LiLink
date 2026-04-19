@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
@@ -572,7 +573,9 @@ describe('AccountService', () => {
   it('skips rewriting the user row when the nickname is unchanged', async () => {
     const upsert = jest.fn().mockResolvedValue({ id: 'response-1' });
     const userUpdate = jest.fn().mockResolvedValue(undefined);
-    const transaction = jest
+    const transaction: jest.MockedFunction<
+      (operations: Promise<unknown>[]) => Promise<unknown[]>
+    > = jest
       .fn()
       .mockImplementation((operations: Promise<unknown>[]) =>
         Promise.all(operations),
@@ -655,12 +658,18 @@ describe('AccountService', () => {
 
     expect(userUpdate).not.toHaveBeenCalled();
     expect(transaction).toHaveBeenCalledTimes(1);
-    expect(transaction.mock.calls[0][0]).toHaveLength(1);
+    const submittedOperations = transaction.mock.calls[0]?.[0];
+    expect(submittedOperations).toBeDefined();
+    expect(submittedOperations).toHaveLength(1);
     expect(upsert).toHaveBeenCalledTimes(1);
   });
 
   it('stores an incomplete questionnaire as a draft without replacing the submitted answers', async () => {
-    const upsert = jest.fn().mockResolvedValue({
+    const upsert: jest.MockedFunction<
+      (
+        args: Prisma.QuestionnaireResponseUpsertArgs,
+      ) => Promise<{ id: string; submittedAt: Date }>
+    > = jest.fn().mockResolvedValue({
       id: 'response-1',
       submittedAt: new Date('2026-04-10T08:00:00.000Z'),
     });
@@ -740,52 +749,59 @@ describe('AccountService', () => {
 
     expect(validateAnswers).not.toHaveBeenCalled();
     expect(userUpdate).not.toHaveBeenCalled();
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { userId: 'user-1' },
-        create: expect.objectContaining({
-          answers: {},
-          draftAnswers: {
-            softAnswers: {
-              current_question: 'partial-answer',
-            },
-            hardMatchForm: expect.objectContaining({
-              birthYear: '2000',
-              birthMonth: '',
-              birthDay: '',
-              heightCm: '',
-              oneLinerIntro: '喜欢散步。',
-            }),
-            displayName: 'A',
-          },
-        }) as object,
-        update: expect.objectContaining({
-          draftAnswers: expect.objectContaining({
-            displayName: 'A',
-          }),
-        }) as object,
-      }),
-    );
+    expect(upsert).toHaveBeenCalledTimes(1);
+    const draftUpsertArgs = upsert.mock.calls[0]?.[0];
+    expect(draftUpsertArgs).toBeDefined();
+    expect(draftUpsertArgs?.where).toEqual({ userId: 'user-1' });
+    expect(draftUpsertArgs?.create.answers).toEqual({});
+
+    const createdDraftPayload = draftUpsertArgs?.create.draftAnswers as Record<
+      string,
+      unknown
+    >;
+    expect(createdDraftPayload.displayName).toBe('A');
+    expect(createdDraftPayload.softAnswers).toEqual({
+      current_question: 'partial-answer',
+    });
+    expect(createdDraftPayload.hardMatchForm).toMatchObject({
+      birthYear: '2000',
+      birthMonth: '',
+      birthDay: '',
+      heightCm: '',
+      oneLinerIntro: '喜欢散步。',
+    });
+
+    const updatedDraftPayload = draftUpsertArgs?.update.draftAnswers as Record<
+      string,
+      unknown
+    >;
+    expect(updatedDraftPayload.displayName).toBe('A');
   });
 
   it('updates the nickname and draft together when saving an incomplete questionnaire', async () => {
-    const upsert = jest.fn().mockResolvedValue({
+    const upsert: jest.MockedFunction<
+      (
+        args: Prisma.QuestionnaireResponseUpsertArgs,
+      ) => Promise<{ id: string; submittedAt: Date }>
+    > = jest.fn().mockResolvedValue({
       id: 'response-1',
       submittedAt: new Date('2026-04-10T08:00:00.000Z'),
     });
     const userUpdate = jest.fn().mockResolvedValue(undefined);
-    const transaction = jest.fn().mockImplementation(
-      (
-        callback: (tx: {
-          user: { update: typeof userUpdate };
-          questionnaireResponse: { upsert: typeof upsert };
-        }) => Promise<unknown>,
-      ) =>
-        callback({
-          user: { update: userUpdate },
-          questionnaireResponse: { upsert },
-        }),
-    );
+    const transaction = jest
+      .fn()
+      .mockImplementation(
+        (
+          callback: (tx: {
+            user: { update: typeof userUpdate };
+            questionnaireResponse: { upsert: typeof upsert };
+          }) => Promise<unknown>,
+        ) =>
+          callback({
+            user: { update: userUpdate },
+            questionnaireResponse: { upsert },
+          }),
+      );
     const validateAnswers = jest.fn();
     const sanitizeStoredAnswers = jest.fn().mockReturnValue({
       current_question: 'partial-answer',
@@ -866,16 +882,16 @@ describe('AccountService', () => {
       where: { id: 'user-1' },
       data: { displayName: '新昵称' },
     });
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { userId: 'user-1' },
-        update: expect.objectContaining({
-          draftAnswers: expect.objectContaining({
-            displayName: '新昵称',
-          }),
-        }) as object,
-      }),
-    );
+    expect(upsert).toHaveBeenCalledTimes(1);
+    const draftUpsertArgs = upsert.mock.calls[0]?.[0];
+    expect(draftUpsertArgs).toBeDefined();
+    expect(draftUpsertArgs?.where).toEqual({ userId: 'user-1' });
+
+    const updatedDraftPayload = draftUpsertArgs?.update.draftAnswers as Record<
+      string,
+      unknown
+    >;
+    expect(updatedDraftPayload.displayName).toBe('新昵称');
   });
 
   it('skips rewriting the user row on draft saves when the nickname is unchanged', async () => {

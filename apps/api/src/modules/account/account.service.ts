@@ -6,7 +6,6 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import {
-  HARD_MATCH_KEYS,
   buildHardMatchAnswerRecordFromFormInput,
   type HardMatchDraftForm,
   hardMatchQuestionKeys,
