@@ -33,10 +33,6 @@
   line-height: 1.5;
 }
 
-.dashboard-questionnaire-toolbar {
-  margin: -0.15rem 0 1rem;
-}
-
 .dashboard-reveal-card {
   width: 100%;
   box-sizing: border-box;
@@ -348,7 +344,11 @@
 }
 
 .dash-q-group {
-  margin-top: 5rem;
+  /* No top margin: in tab-switched mode, only one group is visible at a
+     time and the tab bar's bottom border + margin already provide the
+     visual gap. The previous 5rem was meant to separate three groups
+     stacked in a long-scroll layout, which no longer exists. */
+  margin-top: 0;
   padding: 0;
   border: none;
   border-radius: 0;
@@ -433,4 +433,501 @@
   margin-right: 0.55rem;
   vertical-align: middle;
   border: 1.5px solid var(--accent);
+}
+
+/* ─── Weekly intent card ─────────────────────────────────
+   Visual contract: matches sibling .content-panel — white surface,
+   1px border, shadow-xs. Three intent hues (F / D / B) are confined
+   to the option glyph and the active option border, so the card
+   never looks "more decorated" than the rest of the dashboard. */
+.weekly-intent-card {
+  --intent-color: var(--accent);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.weekly-intent-card.is-locked .weekly-intent-card-divider {
+  background: color-mix(in srgb, var(--intent-color) 35%, var(--border));
+}
+
+.weekly-intent-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.weekly-intent-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 3.5vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.weekly-intent-subtitle {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: 0.93rem;
+  line-height: 1.55;
+  max-width: 36rem;
+}
+
+.weekly-intent-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.weekly-intent-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--fg-secondary);
+  white-space: nowrap;
+}
+
+.weekly-intent-meta-chip strong {
+  color: var(--fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.weekly-intent-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--accent-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.weekly-intent-status-pill::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.weekly-intent-status-pill.is-pending {
+  background: var(--coral-soft);
+  border-color: color-mix(in srgb, var(--coral) 35%, var(--border));
+  color: var(--coral);
+}
+
+.weekly-intent-status-pill.is-off {
+  background: var(--bg);
+  border-color: var(--border-strong);
+  color: var(--fg-secondary);
+}
+
+.weekly-intent-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--coral-soft);
+  border: 1px solid color-mix(in srgb, var(--coral) 30%, var(--border));
+  color: var(--fg);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.weekly-intent-callout-icon {
+  flex-shrink: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: var(--coral);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.weekly-intent-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .weekly-intent-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.weekly-intent-option {
+  --opt-color: var(--accent);
+  appearance: none;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.95rem 1rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg);
+  color: inherit;
+  /* Make every option fill its grid/list cell on both axes. Without
+     `width: 100%` a <button> sizes to the widest line of its content,
+     which made FRIEND wider than DATE wider than BOTH (each card had
+     a different description length). */
+  width: 100%;
+  height: 100%;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.weekly-intent-option:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  color: var(--fg);
+}
+
+.weekly-intent-option:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--opt-color) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.weekly-intent-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.weekly-intent-option.is-active {
+  border-color: var(--opt-color);
+  background: color-mix(in srgb, var(--opt-color) 8%, var(--bg));
+}
+
+.weekly-intent-option-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.weekly-intent-option-glyph {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--opt-color) 12%, var(--bg));
+  border: 1.5px solid color-mix(in srgb, var(--opt-color) 55%, var(--border));
+  color: var(--opt-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.weekly-intent-option.is-active .weekly-intent-option-glyph {
+  background: var(--opt-color);
+  border-color: var(--opt-color);
+  color: white;
+}
+
+.weekly-intent-option-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.weekly-intent-option-primary {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.weekly-intent-option-subtitle {
+  font-size: 0.78rem;
+  color: var(--fg-secondary);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.weekly-intent-option-check {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: transparent;
+  transition: all 0.2s ease;
+}
+
+.weekly-intent-option.is-active .weekly-intent-option-check {
+  background: var(--opt-color);
+  border-color: var(--opt-color);
+  color: white;
+}
+
+.weekly-intent-option-description {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--fg-secondary);
+  /* Push the description to fill any remaining space so each option's
+     bottom edge aligns regardless of how many lines its text wraps to. */
+  flex-grow: 1;
+  /* Reserve room for two wrapped lines unconditionally — needed for the
+     single-column mobile layout too, otherwise BOTH (one-line description)
+     visibly shrinks below FRIEND/DATE which both wrap to two lines. */
+  min-height: calc(0.85rem * 1.5 * 2);
+}
+
+/* ─── Override globals.css `.content-panel ul { list-style-type: disc;
+   padding-left: 1.5rem }`. Those defaults are meant for prose lists
+   inside .content-panel; the dashboard's nav / option / meta ULs need
+   to stay flush left with no bullets. Specificity (0,2,1) > (0,1,1). */
+.dashboard-page ul.weekly-intent-options,
+.dashboard-page ul.weekly-intent-meta,
+.dashboard-page ul.dashboard-history-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.weekly-intent-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.weekly-intent-footer-note {
+  font-size: 0.82rem;
+  color: var(--fg-secondary);
+  margin: 0;
+  flex: 1;
+  min-width: 14rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 480px) {
+  .weekly-intent-option {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .weekly-intent-meta-chip {
+    font-size: 0.74rem;
+  }
+}
+
+/* ─── Sub-page nav (chips above each /dashboard/* page) ── */
+.dashboard-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.25rem 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-subnav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--fg-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.dashboard-subnav-link:hover {
+  border-color: var(--border-hover);
+  color: var(--fg);
+}
+
+.dashboard-subnav-link.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* ─── In-panel section tabs (e.g. profile sub-grouping) ──
+   Rendered as <button> chips inside a .content-panel, used to switch
+   between 关于你 / 希望 TA / 价值观 sections. Visual language matches
+   .dashboard-subnav-link but: (1) sits inside a panel with a divider,
+   (2) is a button (state) rather than an anchor (navigation). */
+.dashboard-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 1.25rem;
+  padding: 0 0 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-section-tab {
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--fg-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.dashboard-section-tab:hover {
+  border-color: var(--border-hover);
+  color: var(--fg);
+}
+
+.dashboard-section-tab.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* ─── Dashboard hub: 4 entry cards ───────────────────── */
+.dashboard-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .dashboard-hub-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.25rem 1.3rem 1.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.dashboard-hub-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-hub-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dashboard-hub-card-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-hub-card-arrow {
+  font-size: 1.05rem;
+  color: var(--fg-secondary);
+  flex-shrink: 0;
+}
+
+.dashboard-hub-card-summary {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--fg-secondary);
+}
+
+.dashboard-hub-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+
+.dashboard-hub-card-status.is-on {
+  background: var(--sage-soft);
+  border-color: color-mix(in srgb, var(--sage) 30%, var(--border));
+  color: var(--sage);
+}
+
+.dashboard-hub-card-status.is-warn {
+  background: var(--coral-soft);
+  border-color: color-mix(in srgb, var(--coral) 30%, var(--border));
+  color: var(--coral);
+}
+
+.dashboard-hub-card-status.is-accent {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--accent-text);
 }

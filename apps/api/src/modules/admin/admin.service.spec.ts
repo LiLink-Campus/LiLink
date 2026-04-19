@@ -137,7 +137,6 @@ describe('AdminService', () => {
           participationDeadline: '2026-04-30T12:00:00.000Z',
           revealAt: '2026-05-01T12:00:00.000Z',
           status: 'OPEN',
-          notes: null,
         },
         'admin-1',
       ),
@@ -153,6 +152,7 @@ describe('AdminService', () => {
             cycleId: string;
             userId: string;
             status: 'OPTED_IN' | 'OPTED_OUT';
+            intent: 'FRIEND' | 'DATE' | 'BOTH' | null;
             optedInAt: Date | null;
           }>;
           skipDuplicates: boolean;
@@ -171,12 +171,14 @@ describe('AdminService', () => {
         cycleId: 'cycle-2',
         userId: 'user-1',
         status: 'OPTED_IN',
+        intent: 'BOTH',
         optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
       },
       {
         cycleId: 'cycle-2',
         userId: 'user-2',
         status: 'OPTED_OUT',
+        intent: null,
         optedInAt: null,
       },
     ]);
@@ -233,11 +235,22 @@ describe('AdminService', () => {
       },
       summary: {
         participationCount: 8,
-        optedInCount: 5,
+        matchableParticipantCount: 5,
         submittedQuestionnaireCount: 4,
         matchedPairCount: 3,
         reportedMatchCount: 1,
         pendingContactCount: 2,
+      },
+    });
+
+    expect(prisma.cycleParticipation.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        cycleId: 'cycle-1',
+        status: 'OPTED_IN',
+        intent: { not: null },
+        user: {
+          status: 'ACTIVE',
+        },
       },
     });
   });
@@ -252,6 +265,7 @@ describe('AdminService', () => {
           {
             id: 'participation-1',
             status: 'OPTED_IN',
+            intent: 'DATE',
             optedInAt: new Date('2026-04-21T12:00:00.000Z'),
             updatedAt: new Date('2026-04-21T12:00:00.000Z'),
             user: {
@@ -288,6 +302,7 @@ describe('AdminService', () => {
         {
           id: 'participation-1',
           status: 'OPTED_IN',
+          intent: 'DATE',
         },
       ],
       total: 1,

@@ -9,9 +9,11 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { WEEKLY_INTENTS, type WeeklyIntent } from '@lilink/shared';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -87,6 +89,12 @@ export class SaveQuestionnaireDto {
 export class ToggleParticipationDto {
   @IsBoolean()
   optIn!: boolean;
+
+  // Required when opting in; ignored otherwise. Strict contract: opting in
+  // without an intent must fail the request rather than silently default.
+  @ValidateIf((dto: ToggleParticipationDto) => dto.optIn === true)
+  @IsIn(WEEKLY_INTENTS as unknown as string[])
+  intent?: WeeklyIntent;
 }
 
 export class ReportMatchDto {
@@ -218,6 +226,14 @@ export class DashboardCurrentCycleResponseDto {
 
   @ApiProperty({ enum: ['OPTED_IN', 'OPTED_OUT'] })
   participationStatus!: 'OPTED_IN' | 'OPTED_OUT';
+
+  @ApiPropertyOptional({
+    enum: WEEKLY_INTENTS as unknown as string[],
+    nullable: true,
+    description:
+      'Weekly matching intent (FRIEND/DATE/BOTH). Sticky carry-over preserves the last stored value for opted-in users; null means this participation still lacks a usable intent and will be excluded from matching.',
+  })
+  intent!: WeeklyIntent | null;
 }
 
 export class DashboardLastRevealedRoundResponseDto {

@@ -2,6 +2,7 @@
 node_modules/
 apps/*/node_modules/
 .npm-cache/
+.codex-local/
 
 # Build outputs
 .next/
@@ -36,6 +37,7 @@ apps/api/prisma/*.db
 Thumbs.db
 .idea/
 .vscode/
+AGENTS.md
 *.swp
 .eslintcache
 
@@ -56,7 +58,6 @@ next-env.d.ts
 tmp/
 *.pem
 
-# Local marketing tooling / exports (not versioned)
+# Standalone poster render subproject (independent npm workspace, ships its
+# own node_modules; not part of the main app build)
 marketing/
-AGENTS.md
-

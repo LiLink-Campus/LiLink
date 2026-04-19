@@ -109,6 +109,7 @@ function createDashboardPrismaMock({
   } | null;
   currentParticipation?: {
     status: 'OPTED_IN' | 'OPTED_OUT';
+    intent?: 'FRIEND' | 'DATE' | 'BOTH' | null;
   } | null;
   lastRevealedParticipation?: {
     cycleId: string;
@@ -168,8 +169,69 @@ describe('AccountService', () => {
     );
 
     await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects opt-in without an explicit weekly intent', async () => {
+    const upsert = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
       service.setParticipation('user-1', { optIn: true }),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects opt-in when the weekly intent is not one of the allowed values', async () => {
+    const upsert = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', {
+        optIn: true,
+        intent: 'INVALID' as never,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it('rejects opt-in when the account is not ACTIVE', async () => {
@@ -191,12 +253,114 @@ describe('AccountService', () => {
     );
 
     await expect(
-      service.setParticipation('user-1', { optIn: true }),
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
       select: { status: true },
     });
+  });
+
+  it('persists the chosen intent and writes it into the audit log on opt-in', async () => {
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'participation-1',
+      status: 'OPTED_IN',
+      intent: 'DATE',
+    });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.setParticipation('user-1', { optIn: true, intent: 'DATE' });
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          status: 'OPTED_IN',
+          intent: 'DATE',
+        }) as object,
+        update: expect.objectContaining({
+          status: 'OPTED_IN',
+          intent: 'DATE',
+        }) as object,
+      }),
+    );
+    expect(auditLogCreate).toHaveBeenCalledWith({
+      data: {
+        actorId: 'user-1',
+        action: 'participation.updated',
+        metadata: {
+          cycleId: 'cycle-1',
+          status: 'OPTED_IN',
+          intent: 'DATE',
+        },
+      },
+    });
+  });
+
+  it('clears intent on opt-out so rejoining requires an explicit fresh choice', async () => {
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'participation-1',
+      status: 'OPTED_OUT',
+      intent: null,
+    });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await service.setParticipation('user-1', { optIn: false });
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          status: 'OPTED_OUT',
+          intent: null,
+          optedInAt: null,
+        }) as object,
+        update: expect.objectContaining({
+          status: 'OPTED_OUT',
+          intent: null,
+          optedInAt: null,
+        }) as object,
+      }),
+    );
   });
 
   it('filters stale questionnaire answers down to the current questionnaire keys', async () => {
@@ -703,6 +867,57 @@ describe('AccountService', () => {
       currentCycle: {
         id: 'cycle-2',
         participationStatus: 'OPTED_OUT',
+        intent: null,
+      },
+    });
+  });
+
+  it('exposes the saved weekly intent on the dashboard payload', async () => {
+    const cycleParticipation = {
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue({
+        status: 'OPTED_IN',
+        intent: 'BOTH',
+      }),
+    };
+    const prisma = {
+      userProfile: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-3',
+          codename: 'Round 3',
+          revealAt: new Date('2026-05-08T12:00:00.000Z'),
+          participationDeadline: new Date('2026-05-07T12:00:00.000Z'),
+          createdAt: new Date('2026-04-25T12:00:00.000Z'),
+          status: 'OPEN',
+        }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      matchParticipant: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      cycleParticipation,
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(service.getDashboard('user-1')).resolves.toMatchObject({
+      currentCycle: {
+        id: 'cycle-3',
+        participationStatus: 'OPTED_IN',
+        intent: 'BOTH',
       },
     });
   });

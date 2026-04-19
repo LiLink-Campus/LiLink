@@ -1,4 +1,9 @@
-import { MatchCycleStatus, ParticipationStatus, Prisma } from '@prisma/client';
+import {
+  MatchCycleStatus,
+  ParticipationStatus,
+  Prisma,
+  WeeklyIntent,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 const STICKY_PARTICIPATION_CYCLE_STATUSES: MatchCycleStatus[] = [
@@ -43,12 +48,17 @@ function buildStickyParticipationCreateInput(
   cycleId: string,
   userId: string,
   status: ParticipationStatus,
+  previousIntent: WeeklyIntent | null,
   initializedAt: Date,
 ): Prisma.CycleParticipationCreateManyInput {
   return {
     cycleId,
     userId,
     status,
+    // Sticky carry-over keeps the latest stored intent for OPTED_IN users.
+    // When a historical OPTED_IN row predates the feature and has no intent
+    // yet, BOTH is the compatibility-preserving default.
+    intent: status === 'OPTED_IN' ? previousIntent ?? 'BOTH' : null,
     optedInAt: status === 'OPTED_IN' ? initializedAt : null,
   };
 }
@@ -100,6 +110,7 @@ async function initializeStickyParticipations(
     select: {
       userId: true,
       status: true,
+      intent: true,
       updatedAt: true,
     },
     orderBy: [
@@ -137,6 +148,7 @@ async function initializeStickyParticipations(
         cycle.id,
         participation.userId,
         participation.status,
+        participation.intent,
         initializedAt,
       ),
     );
