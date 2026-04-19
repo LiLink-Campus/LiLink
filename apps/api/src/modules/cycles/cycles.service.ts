@@ -15,10 +15,18 @@ import {
   tryReadHardMatchAnswers,
 } from '../questionnaire/hard-match';
 import {
+  areWeeklyIntentsCompatible,
+  isWeeklyIntent,
+  type WeeklyIntent,
+} from '@lilink/shared';
+import {
+  type QuestionOption,
+  type QuestionReasonRule,
   labelForQuestionValue,
   normalizeQuestionAnswer,
   normalizeQuestionOptions,
   normalizeQuestionReasonRules,
+  resolveQuestionOptionValue,
   renderReasonTemplate,
 } from '../questionnaire/questionnaire-config';
 
@@ -30,10 +38,16 @@ const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 
-/** Only ACTIVE users may appear in matching / preview / reveal pools. */
+/**
+ * Only ACTIVE users with a stored weekly intent may appear in matching /
+ * preview / reveal pools. Sticky carry-over preserves the latest intent for
+ * OPTED_IN users and falls back to BOTH for pre-feature rows, so a NULL
+ * intent here means the participation still lacks a usable cycle intent.
+ */
 const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput =
   {
     status: 'OPTED_IN',
+    intent: { not: null },
     user: { status: 'ACTIVE' },
   };
 
@@ -42,6 +56,7 @@ type EligibleParticipant = {
   displayName: string | null;
   hardMatchAnswers: HardMatchAnswers;
   answers: Record<string, unknown>;
+  intent: WeeklyIntent;
 };
 
 type CandidatePair = {
@@ -57,9 +72,20 @@ type QuestionnaireQuestion = {
   prompt: string;
   type: QuestionType;
   weight: number;
+  selectionLimit?: number | null;
   options: Prisma.JsonValue | null;
   reasonRules: Prisma.JsonValue | null;
 };
+
+type PreparedQuestion = Omit<
+  QuestionnaireQuestion,
+  'options' | 'reasonRules'
+> & {
+  normalizedOptions: QuestionOption[];
+  normalizedReasonRules: QuestionReasonRule[];
+};
+
+type MatchQuestion = QuestionnaireQuestion | PreparedQuestion;
 
 type RunRevealCycleOptions = {
   force?: boolean;
@@ -104,12 +130,137 @@ function buildInsufficientParticipantsMessage(
 ): string {
   const prefix = 'Not enough complete participants to generate matches.';
   if (optedInCount === 0) {
-    return `${prefix} No users are opted in (OPTED_IN) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers are required.`;
+    return `${prefix} No users are opted in with a weekly intent (FRIEND/DATE/BOTH) for this cycle. At least 2 opted-in users with valid hard-matching questionnaire answers and a weekly intent are required.`;
   }
   if (eligibleCount === 0) {
-    return `${prefix} ${optedInCount} user(s) opted in, but none have valid hard-matching questionnaire answers (birth date, partner age range, gender / partner genders, looks / partner looks, height / partner height range, and a recognized school).`;
+    return `${prefix} ${optedInCount} user(s) opted in (with a weekly intent), but none have valid hard-matching questionnaire answers (birth date, partner age range, gender / partner genders, looks / partner looks, height / partner height range, and a recognized school).`;
   }
   return `${prefix} Only ${eligibleCount} of ${optedInCount} opted-in user(s) are eligible; at least 2 are required.`;
+}
+
+function isPreparedQuestion(
+  question: MatchQuestion,
+): question is PreparedQuestion {
+  return 'normalizedOptions' in question && 'normalizedReasonRules' in question;
+}
+
+function prepareQuestion(question: MatchQuestion): PreparedQuestion {
+  if (isPreparedQuestion(question)) {
+    return question;
+  }
+
+  return {
+    key: question.key,
+    prompt: question.prompt,
+    type: question.type,
+    weight: question.weight,
+    selectionLimit: question.selectionLimit ?? null,
+    normalizedOptions: normalizeQuestionOptions(question.options),
+    normalizedReasonRules: normalizeQuestionReasonRules(question.reasonRules),
+  };
+}
+
+function prepareQuestions(questions: MatchQuestion[]): PreparedQuestion[] {
+  return questions.map((question) => prepareQuestion(question));
+}
+
+function readNormalizedQuestionString(value: unknown) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalizedValue = value.trim();
+  return normalizedValue.length > 0 ? normalizedValue : null;
+}
+
+function normalizePreparedQuestionAnswer(
+  question: PreparedQuestion,
+  rawAnswer: unknown,
+  options: { invalidAsNull?: boolean } = {},
+) {
+  const fallbackQuestion = {
+    ...question,
+    options: question.normalizedOptions,
+    reasonRules: question.normalizedReasonRules,
+  };
+
+  if (
+    question.type === QuestionType.SINGLE_SELECT ||
+    question.type === QuestionType.SCALE
+  ) {
+    if (typeof rawAnswer !== 'string') {
+      return options.invalidAsNull
+        ? null
+        : normalizeQuestionAnswer(fallbackQuestion, rawAnswer);
+    }
+
+    const normalizedAnswer = readNormalizedQuestionString(rawAnswer);
+    if (!normalizedAnswer) {
+      return null;
+    }
+
+    if (question.normalizedOptions.length === 0) {
+      return normalizedAnswer;
+    }
+
+    const resolvedValue = resolveQuestionOptionValue(
+      normalizedAnswer,
+      question.normalizedOptions,
+    );
+
+    if (!resolvedValue) {
+      return options.invalidAsNull
+        ? null
+        : normalizeQuestionAnswer(fallbackQuestion, rawAnswer);
+    }
+
+    return resolvedValue;
+  }
+
+  if (question.type !== QuestionType.MULTI_SELECT) {
+    return options.invalidAsNull
+      ? null
+      : normalizeQuestionAnswer(fallbackQuestion, rawAnswer);
+  }
+
+  if (!Array.isArray(rawAnswer)) {
+    return options.invalidAsNull
+      ? null
+      : normalizeQuestionAnswer(fallbackQuestion, rawAnswer);
+  }
+
+  const normalizedValues = [
+    ...new Set(
+      rawAnswer
+        .map((value) => {
+          if (typeof value !== 'string') {
+            return null;
+          }
+
+          if (question.normalizedOptions.length === 0) {
+            return readNormalizedQuestionString(value);
+          }
+
+          return resolveQuestionOptionValue(value, question.normalizedOptions);
+        })
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+
+  if (normalizedValues.length === 0) {
+    return null;
+  }
+
+  if (
+    question.selectionLimit != null &&
+    normalizedValues.length > question.selectionLimit
+  ) {
+    return options.invalidAsNull
+      ? null
+      : normalizeQuestionAnswer(fallbackQuestion, rawAnswer);
+  }
+
+  return normalizedValues;
 }
 
 @Injectable()
@@ -303,9 +454,12 @@ export class CyclesService {
         include: {
           participations: {
             where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
-            include: {
+            select: {
+              intent: true,
               user: {
-                include: {
+                select: {
+                  id: true,
+                  displayName: true,
                   questionnaireResponse: true,
                   school: { select: { id: true } },
                 },
@@ -425,7 +579,8 @@ export class CyclesService {
     const include = {
       participations: {
         where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
-        include: {
+        select: {
+          intent: true,
           user: {
             select: {
               id: true,
@@ -436,7 +591,7 @@ export class CyclesService {
           },
         },
       },
-    };
+    } satisfies Prisma.MatchCycleInclude;
 
     if (cycleId) {
       return this.prisma.matchCycle.findUnique({
@@ -458,6 +613,7 @@ export class CyclesService {
 
   private toEligibleParticipants(
     participations: Array<{
+      intent: WeeklyIntent | null;
       user: {
         id: string;
         displayName: string | null;
@@ -470,12 +626,19 @@ export class CyclesService {
     }>,
   ): EligibleParticipant[] {
     return participations
-      .map((entry) => entry.user)
-      .map((user): EligibleParticipant | null => {
+      .map((entry): EligibleParticipant | null => {
+        const { user } = entry;
         if (
           !user.questionnaireResponse ||
           user.questionnaireResponse.submittedAt == null
         ) {
+          return null;
+        }
+
+        // Defense in depth — the SQL filter already excludes intent=null,
+        // but if anything ever bypasses it (eg. raw queries) we still drop
+        // the row instead of silently treating it as compatible with all.
+        if (!isWeeklyIntent(entry.intent)) {
           return null;
         }
 
@@ -497,6 +660,7 @@ export class CyclesService {
           displayName: user.displayName,
           hardMatchAnswers,
           answers,
+          intent: entry.intent,
         };
       })
       .filter(
@@ -511,7 +675,8 @@ export class CyclesService {
     revealAt: Date,
     currentCycleId?: string,
   ) {
-    const scoreBounds = this.calculateMatchScoreBounds(questions);
+    const preparedQuestions = prepareQuestions(questions);
+    const scoreBounds = this.calculateMatchScoreBounds(preparedQuestions);
     const participantIds = participants.map((participant) => participant.id);
 
     const [blocks, historicalPairKeys] = await Promise.all([
@@ -551,7 +716,7 @@ export class CyclesService {
         const scored = this.scorePair(
           left,
           right,
-          questions,
+          preparedQuestions,
           revealAt,
           scoreBounds,
         );
@@ -593,17 +758,18 @@ export class CyclesService {
   private scorePair(
     left: EligibleParticipant,
     right: EligibleParticipant,
-    questions: Array<{
-      key: string;
-      prompt: string;
-      type: QuestionType;
-      weight: number;
-      options: Prisma.JsonValue | null;
-      reasonRules: Prisma.JsonValue | null;
-    }>,
+    questions: MatchQuestion[],
     revealAt: Date,
-    scoreBounds = this.calculateMatchScoreBounds(questions),
+    scoreBounds = this.calculateMatchScoreBounds(prepareQuestions(questions)),
   ) {
+    const preparedQuestions = prepareQuestions(questions);
+
+    // Weekly-intent compatibility (FRIEND/DATE/BOTH) is a hard cycle-level
+    // constraint, evaluated alongside the long-lived hard-match answers.
+    if (!areWeeklyIntentsCompatible(left.intent, right.intent)) {
+      return null;
+    }
+
     if (
       !areHardMatchAnswersCompatible(
         left.hardMatchAnswers,
@@ -618,13 +784,13 @@ export class CyclesService {
     const reasons: Array<{ text: string; priority: number; order: number }> =
       [];
 
-    for (const [order, question] of questions.entries()) {
-      const leftAnswer = normalizeQuestionAnswer(
+    for (const [order, question] of preparedQuestions.entries()) {
+      const leftAnswer = normalizePreparedQuestionAnswer(
         question,
         left.answers[question.key],
         { invalidAsNull: true },
       );
-      const rightAnswer = normalizeQuestionAnswer(
+      const rightAnswer = normalizePreparedQuestionAnswer(
         question,
         right.answers[question.key],
         { invalidAsNull: true },
@@ -704,15 +870,14 @@ export class CyclesService {
   }
 
   private buildReasonMessages(
-    question: QuestionnaireQuestion,
+    question: MatchQuestion,
     leftAnswer: string | string[],
     rightAnswer: string | string[],
     order: number,
   ) {
-    const optionList = normalizeQuestionOptions(question.options);
-    const rules = normalizeQuestionReasonRules(question.reasonRules);
+    const preparedQuestion = prepareQuestion(question);
 
-    return rules
+    return preparedQuestion.normalizedReasonRules
       .map((rule) => {
         if (rule.type === 'EXACT_MATCH') {
           if (
@@ -724,9 +889,12 @@ export class CyclesService {
           }
 
           const text = renderReasonTemplate(rule.template, {
-            answer_label: labelForQuestionValue(leftAnswer, optionList),
-            question_prompt: question.prompt,
-            question_key: question.key,
+            answer_label: labelForQuestionValue(
+              leftAnswer,
+              preparedQuestion.normalizedOptions,
+            ),
+            question_prompt: preparedQuestion.prompt,
+            question_key: preparedQuestion.key,
             count: 1,
           }).trim();
 
@@ -736,7 +904,7 @@ export class CyclesService {
 
           return {
             text,
-            priority: rule.priority ?? question.weight,
+            priority: rule.priority ?? preparedQuestion.weight,
             order,
           };
         }
@@ -753,7 +921,7 @@ export class CyclesService {
         }
 
         const overlapLabels = overlap.map((value) =>
-          labelForQuestionValue(value, optionList),
+          labelForQuestionValue(value, preparedQuestion.normalizedOptions),
         );
         const maxLabels = rule.maxLabels ?? overlapLabels.length;
         const visibleLabels = overlapLabels.slice(0, maxLabels);
@@ -761,8 +929,8 @@ export class CyclesService {
           labels: visibleLabels.join('、'),
           labels_2: overlapLabels.slice(0, 2).join('、'),
           labels_3: overlapLabels.slice(0, 3).join('、'),
-          question_prompt: question.prompt,
-          question_key: question.key,
+          question_prompt: preparedQuestion.prompt,
+          question_key: preparedQuestion.key,
           count: overlap.length,
         }).trim();
 
@@ -772,7 +940,7 @@ export class CyclesService {
 
         return {
           text,
-          priority: rule.priority ?? question.weight,
+          priority: rule.priority ?? preparedQuestion.weight,
           order,
         };
       })
@@ -862,29 +1030,25 @@ export class CyclesService {
   }
 
   private calculateMatchScoreBounds(
-    questions: Array<{
-      type: QuestionType;
-      weight: number;
-      selectionLimit?: number | null;
-      options: Prisma.JsonValue | null;
-      prompt: string;
-    }>,
+    questions: MatchQuestion[],
   ): MatchScoreBounds {
     let max = BASE_MATCH_SCORE;
 
     for (const question of questions) {
+      const preparedQuestion = prepareQuestion(question);
+
       if (
-        question.type === QuestionType.SINGLE_SELECT ||
-        question.type === QuestionType.SCALE
+        preparedQuestion.type === QuestionType.SINGLE_SELECT ||
+        preparedQuestion.type === QuestionType.SCALE
       ) {
-        max += question.weight * SINGLE_SELECT_MATCH_BONUS;
+        max += preparedQuestion.weight * SINGLE_SELECT_MATCH_BONUS;
         continue;
       }
 
-      if (question.type === QuestionType.MULTI_SELECT) {
+      if (preparedQuestion.type === QuestionType.MULTI_SELECT) {
         max +=
-          this.getMaxMultiSelectOverlap(question) *
-          question.weight *
+          this.getMaxMultiSelectOverlap(preparedQuestion) *
+          preparedQuestion.weight *
           MULTI_SELECT_OVERLAP_BONUS;
       }
     }
@@ -898,9 +1062,12 @@ export class CyclesService {
   private getMaxMultiSelectOverlap(question: {
     prompt: string;
     selectionLimit?: number | null;
-    options: Prisma.JsonValue | null;
+    normalizedOptions?: QuestionOption[];
+    options?: Prisma.JsonValue | null;
   }) {
-    const optionCount = normalizeQuestionOptions(question.options).length;
+    const optionCount =
+      question.normalizedOptions?.length ??
+      normalizeQuestionOptions(question.options ?? null).length;
     const selectionLimit = question.selectionLimit ?? null;
 
     if (selectionLimit != null) {

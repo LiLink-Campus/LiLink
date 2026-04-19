@@ -36,6 +36,12 @@ enum ParticipationStatus {
   OPTED_IN
 }
 
+enum WeeklyIntent {
+  FRIEND
+  DATE
+  BOTH
+}
+
 enum ReportStatus {
   OPEN
   RESOLVED
@@ -213,12 +219,14 @@ model CycleParticipation {
   userId    String
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   status    ParticipationStatus @default(OPTED_OUT)
+  intent    WeeklyIntent?
   optedInAt DateTime?
   createdAt DateTime            @default(now())
   updatedAt DateTime            @updatedAt
 
   @@unique([cycleId, userId])
   @@index([userId, status])
+  @@index([cycleId, status, intent])
 }
 
 model Match {

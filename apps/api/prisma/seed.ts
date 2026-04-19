@@ -1126,18 +1126,24 @@ async function upsertSeedUser(
     });
   }
 
+  // Seed users default to BOTH for OPTED_IN so demo runs always have at least
+  // one bridge intent in the pool. OPTED_OUT keeps intent null per schema.
+  const seededIntent = participation === 'opted_in' ? 'BOTH' : null;
+
   await prisma.cycleParticipation.upsert({
     where: {
       cycleId_userId: { cycleId, userId: user.id },
     },
     update: {
       status: participation === 'opted_in' ? 'OPTED_IN' : 'OPTED_OUT',
+      intent: seededIntent,
       optedInAt: participation === 'opted_in' ? new Date() : null,
     },
     create: {
       cycleId,
       userId: user.id,
       status: participation === 'opted_in' ? 'OPTED_IN' : 'OPTED_OUT',
+      intent: seededIntent,
       optedInAt: participation === 'opted_in' ? new Date() : null,
     },
   });

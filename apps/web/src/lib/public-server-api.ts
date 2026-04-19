@@ -1,21 +1,7 @@
 import "server-only";
 
 import { apiBaseUrl } from "./api-base-url";
-
-type LandingPayload = {
-  brand: string;
-  tagline: string;
-  stats: {
-    registeredUsers: number;
-    completedQuestionnaires: number;
-    matchesDelivered: number;
-  };
-  currentCycle: {
-    codename: string;
-    revealAt: string;
-    participationDeadline: string;
-  } | null;
-};
+import type { LandingPayload } from "./landing-payload";
 
 function parseFailedResponseBody(text: string, status: number): string {
   const trimmed = text.trim();
@@ -64,5 +50,3 @@ export async function getLandingPayload() {
 
   return response.json() as Promise<LandingPayload>;
 }
-
-export type { LandingPayload };
