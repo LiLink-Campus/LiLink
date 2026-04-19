@@ -1,6 +1,6 @@
 /**
- * Weekly matching intent — answered each cycle, NOT stored on the user
- * profile, so the value must be re-collected every round.
+ * Weekly matching intent — stored per cycle participation rather than on the
+ * user profile, so each round can preserve or override the previous value.
  *
  * Compatibility rule (intersection-based):
  *   FRIEND ↔ FRIEND  ✓        FRIEND ↔ DATE  ✗        FRIEND ↔ BOTH  ✓

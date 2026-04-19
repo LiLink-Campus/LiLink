@@ -227,11 +227,13 @@ describe('CyclesService', () => {
           {
             userId: 'user-1',
             status: 'OPTED_IN',
+            intent: 'FRIEND',
             updatedAt: new Date('2026-04-10T12:00:00.000Z'),
           },
           {
             userId: 'user-2',
             status: 'OPTED_IN',
+            intent: 'DATE',
             updatedAt: new Date('2026-04-11T12:00:00.000Z'),
           },
         ]),
@@ -392,21 +394,20 @@ describe('CyclesService', () => {
     }
 
     expect(createManyArgument.skipDuplicates).toBe(true);
-    // Sticky carry-over keeps OPTED_IN status but always nulls intent so the
-    // weekly intent must be re-collected for each new cycle.
+    // Sticky carry-over preserves the latest stored intent for OPTED_IN users.
     expect(createManyArgument.data).toEqual([
       {
         cycleId: 'cycle-1',
         userId: 'user-1',
         status: 'OPTED_IN',
-        intent: null,
+        intent: 'FRIEND',
         optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
       },
       {
         cycleId: 'cycle-1',
         userId: 'user-2',
         status: 'OPTED_IN',
-        intent: null,
+        intent: 'DATE',
         optedInAt: createManyArgument.data[1]?.optedInAt ?? null,
       },
     ]);

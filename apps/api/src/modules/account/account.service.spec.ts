@@ -318,7 +318,7 @@ describe('AccountService', () => {
     });
   });
 
-  it('clears intent on opt-out so the user must re-pick before matching', async () => {
+  it('clears intent on opt-out so rejoining requires an explicit fresh choice', async () => {
     const upsert = jest.fn().mockResolvedValue({
       id: 'participation-1',
       status: 'OPTED_OUT',

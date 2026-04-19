@@ -62,7 +62,8 @@ function matchStatus(dashboard: DashboardPayload): HubCardStatus {
     currentCycle?.participationStatus === "OPTED_IN" &&
     currentCycleIsStillOpen
   ) {
-    // The active cycle status should win over the previous round's outcome.
+    // The hub intentionally keeps the latest revealed outcome front-and-center;
+    // this branch is only reached when no revealed-round status is available.
     return { label: "等待揭晓", tone: "accent" };
   }
   if (
@@ -100,7 +101,7 @@ export default async function DashboardHubPage() {
       href: "/dashboard/intent",
       title: "本周意图",
       summary:
-        "选择 Friend / Date / Both 决定本周参与匹配；每轮重新选一次，可在截止前更换。",
+        "选择 Friend / Date / Both 决定本周参与匹配；默认沿用上一轮，也可在截止前更换。",
       status: intentStatus(dashboard),
     },
     {

@@ -171,7 +171,7 @@ describe('AdminService', () => {
         cycleId: 'cycle-2',
         userId: 'user-1',
         status: 'OPTED_IN',
-        intent: null,
+        intent: 'BOTH',
         optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
       },
       {
