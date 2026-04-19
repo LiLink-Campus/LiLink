@@ -604,6 +604,116 @@ describe('AccountService', () => {
     );
   });
 
+  it('updates the nickname and draft together when saving an incomplete questionnaire', async () => {
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'response-1',
+      submittedAt: new Date('2026-04-10T08:00:00.000Z'),
+    });
+    const userUpdate = jest.fn().mockResolvedValue(undefined);
+    const transaction = jest.fn().mockImplementation(
+      (
+        callback: (tx: {
+          user: { update: typeof userUpdate };
+          questionnaireResponse: { upsert: typeof upsert };
+        }) => Promise<unknown>,
+      ) =>
+        callback({
+          user: { update: userUpdate },
+          questionnaireResponse: { upsert },
+        }),
+    );
+    const validateAnswers = jest.fn();
+    const sanitizeStoredAnswers = jest.fn().mockReturnValue({
+      current_question: 'partial-answer',
+    });
+    const service = new AccountService(
+      {
+        $transaction: transaction,
+        user: {
+          findUniqueOrThrow: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            displayName: '旧昵称',
+            school: {
+              id: 'school-bupt',
+              name: '北京邮电大学玛丽女王海南学院',
+            },
+          }),
+          update: userUpdate,
+        },
+        questionnaireResponse: {
+          upsert,
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              type: 'SINGLE_SELECT',
+              required: true,
+              options: null,
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+            { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+          ],
+        }),
+        validateAnswers,
+        sanitizeStoredAnswers,
+      } as never,
+    );
+
+    await expect(
+      service.saveQuestionnaire('user-1', {
+        displayName: '新昵称',
+        answers: {
+          current_question: 'partial-answer',
+        },
+        hardMatchForm: {
+          birthYear: '2000',
+          birthMonth: '',
+          birthDay: '',
+          partnerAgeMin: '18',
+          partnerAgeMax: '30',
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: '',
+          partnerHeightMin: '160',
+          partnerHeightMax: '190',
+          oneLinerIntro: '喜欢散步。',
+          excludedPartnerSchools: ['school-cuc'],
+        },
+      }),
+    ).resolves.toEqual({
+      saveState: 'DRAFT',
+      questionnaireSubmittedAt: '2026-04-10T08:00:00.000Z',
+      hasDraft: true,
+    });
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(validateAnswers).not.toHaveBeenCalled();
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { displayName: '新昵称' },
+    });
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        update: expect.objectContaining({
+          draftAnswers: expect.objectContaining({
+            displayName: '新昵称',
+          }),
+        }) as object,
+      }),
+    );
+  });
+
   it('skips rewriting the user row on draft saves when the nickname is unchanged', async () => {
     const upsert = jest.fn().mockResolvedValue({
       id: 'response-1',
