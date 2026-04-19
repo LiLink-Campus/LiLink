@@ -39,6 +39,8 @@ function intentStatus(dashboard: DashboardPayload): HubCardStatus {
 }
 
 function matchStatus(dashboard: DashboardPayload): HubCardStatus {
+  const currentCycle = dashboard.currentCycle;
+
   if (dashboard.latestMatchVisibility === "LIMITED") {
     return { label: "本轮已受限", tone: "warn" };
   }
@@ -48,15 +50,21 @@ function matchStatus(dashboard: DashboardPayload): HubCardStatus {
       : { label: "待引荐", tone: "accent" };
   }
   if (
+    currentCycle?.participationStatus === "OPTED_IN" &&
+    !currentCycle.intent &&
+    (currentCycle.status === "OPEN" || currentCycle.status === "REVEAL_READY")
+  ) {
+    return { label: "待选本周意图", tone: "warn" };
+  }
+  if (
     dashboard.lastRevealedRound?.participationStatus === "OPTED_IN" &&
     !dashboard.lastRevealedRound.matched
   ) {
     return { label: "本轮未匹配", tone: "default" };
   }
   if (
-    dashboard.currentCycle?.participationStatus === "OPTED_IN" &&
-    (dashboard.currentCycle.status === "OPEN" ||
-      dashboard.currentCycle.status === "REVEAL_READY")
+    currentCycle?.participationStatus === "OPTED_IN" &&
+    (currentCycle.status === "OPEN" || currentCycle.status === "REVEAL_READY")
   ) {
     return { label: "等待揭晓", tone: "accent" };
   }
