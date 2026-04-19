@@ -297,8 +297,7 @@ export function buildHardMatchAnswerRecordFromFormInput(
 
   return normalizeHardMatchAnswers(
     {
-      [HARD_MATCH_KEYS.birthDate]:
-        `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`,
+      [HARD_MATCH_KEYS.birthDate]: `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`,
       [HARD_MATCH_KEYS.partnerAgeMin]: readRequiredIntegerInput(
         form.partnerAgeMin,
         HARD_MATCH_KEYS.partnerAgeMin,
