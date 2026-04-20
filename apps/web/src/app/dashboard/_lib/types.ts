@@ -30,6 +30,8 @@ export type DashboardMatch = {
   id: string;
   score: number;
   reasons: string[];
+  reason: string | null;
+  conversationTopics: string[];
   introducedAt: string | null;
   currentUserRequestedAt: string | null;
   reportStatus: string | null;

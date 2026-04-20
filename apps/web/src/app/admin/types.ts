@@ -155,6 +155,8 @@ export type CycleMatchDetail = {
   id: string;
   score: number;
   reasons: string[];
+  reason: string | null;
+  conversationTopics: string[];
   revealedAt: string | null;
   introducedAt: string | null;
   participants: Array<{

@@ -34,6 +34,7 @@ const envSchema = z.object({
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
   SMTP_FROM: z.string().min(1, 'SMTP_FROM is required.'),
+  DEEPSEEK_API_KEY: z.string().default(''),
   ADMIN_BOOTSTRAP_EMAIL: z.email().optional(),
   ADMIN_BOOTSTRAP_PASSWORD: z
     .string()

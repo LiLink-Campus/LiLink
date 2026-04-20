@@ -29,11 +29,18 @@ import {
   resolveQuestionOptionValue,
   renderReasonTemplate,
 } from '../questionnaire/questionnaire-config';
+import {
+  MatchNarrativeService,
+  type MatchNarrativeInput,
+  type MatchNarrativeQuestionAnswer,
+  type MatchNarrativeSignal,
+} from './match-narrative.service';
 
 const BASE_MATCH_SCORE = 48;
 const SINGLE_SELECT_MATCH_BONUS = 6;
 const MULTI_SELECT_OVERLAP_BONUS = 3;
 const MAX_MATCH_REASONS = 3;
+const MATCH_NARRATIVE_MAX_CONCURRENCY = 3;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
@@ -57,6 +64,7 @@ type EligibleParticipant = {
   hardMatchAnswers: HardMatchAnswers;
   answers: Record<string, unknown>;
   intent: WeeklyIntent;
+  introLine: string;
 };
 
 type CandidatePair = {
@@ -65,11 +73,13 @@ type CandidatePair = {
   rawScore: number;
   score: number;
   reasons: string[];
+  sharedSignals: MatchNarrativeSignal[];
 };
 
 type QuestionnaireQuestion = {
   key: string;
   prompt: string;
+  description?: string | null;
   type: QuestionType;
   weight: number;
   selectionLimit?: number | null;
@@ -152,6 +162,7 @@ function prepareQuestion(question: MatchQuestion): PreparedQuestion {
   return {
     key: question.key,
     prompt: question.prompt,
+    description: question.description ?? null,
     type: question.type,
     weight: question.weight,
     selectionLimit: question.selectionLimit ?? null,
@@ -265,7 +276,10 @@ function normalizePreparedQuestionAnswer(
 
 @Injectable()
 export class CyclesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly matchNarrativeService: MatchNarrativeService = new MatchNarrativeService(),
+  ) {}
 
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
     const [cycleCandidate, questionnaire] = await Promise.all([
@@ -377,6 +391,12 @@ export class CyclesService {
     const unmatchedCount = participants.length - selectedPairs.length * 2;
 
     try {
+      const preparedQuestions = prepareQuestions(questionnaire.questions);
+      const resolvedNarratives = await this.generateNarrativesForPairs(
+        selectedPairs,
+        preparedQuestions,
+      );
+
       await this.prisma.$transaction(async (tx) => {
         let clearedMatches = 0;
         if (options?.force) {
@@ -386,12 +406,17 @@ export class CyclesService {
           clearedMatches = deleted.count;
         }
 
-        for (const pair of selectedPairs) {
+        for (const [pairIndex, pair] of selectedPairs.entries()) {
+          const narrative = resolvedNarratives[pairIndex];
+
           await tx.match.create({
             data: {
               cycleId: cycle.id,
               score: pair.score,
               reasons: pair.reasons,
+              reason: narrative.reason,
+              conversationTopics: narrative.conversationTopics,
+              narrativeSource: narrative.source,
               revealedAt: new Date(),
               participants: {
                 create: [
@@ -445,6 +470,39 @@ export class CyclesService {
     };
 
     return result;
+  }
+
+  private async generateNarrativesForPairs(
+    selectedPairs: CandidatePair[],
+    preparedQuestions: PreparedQuestion[],
+  ) {
+    const resolvedNarratives = new Array(selectedPairs.length);
+    const workerCount = Math.min(
+      MATCH_NARRATIVE_MAX_CONCURRENCY,
+      selectedPairs.length,
+    );
+    let nextPairIndex = 0;
+
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const currentPairIndex = nextPairIndex;
+        nextPairIndex += 1;
+
+        if (currentPairIndex >= selectedPairs.length) {
+          return;
+        }
+
+        const pair = selectedPairs[currentPairIndex];
+        resolvedNarratives[currentPairIndex] =
+          await this.matchNarrativeService.generateNarrative(
+            this.buildNarrativeInput(pair, preparedQuestions),
+          );
+      }
+    });
+
+    await Promise.all(workers);
+
+    return resolvedNarratives;
   }
 
   async previewCycle(cycleId: string) {
@@ -661,6 +719,7 @@ export class CyclesService {
           hardMatchAnswers,
           answers,
           intent: entry.intent,
+          introLine: hardMatchAnswers.oneLinerIntro,
         };
       })
       .filter(
@@ -730,6 +789,7 @@ export class CyclesService {
           rawScore: scored.rawScore,
           score: scored.score,
           reasons: scored.reasons,
+          sharedSignals: scored.sharedSignals,
         });
       }
     }
@@ -783,6 +843,7 @@ export class CyclesService {
     let rawScore = BASE_MATCH_SCORE;
     const reasons: Array<{ text: string; priority: number; order: number }> =
       [];
+    const sharedSignals: MatchNarrativeSignal[] = [];
 
     for (const [order, question] of preparedQuestions.entries()) {
       const leftAnswer = normalizePreparedQuestionAnswer(
@@ -807,6 +868,20 @@ export class CyclesService {
         leftAnswer === rightAnswer
       ) {
         rawScore += weight * SINGLE_SELECT_MATCH_BONUS;
+        const matchedLabel =
+          typeof leftAnswer === 'string'
+            ? labelForQuestionValue(leftAnswer, question.normalizedOptions)
+            : '';
+
+        sharedSignals.push({
+          questionKey: question.key,
+          prompt: question.prompt,
+          type: 'EXACT_MATCH',
+          weight,
+          sharedLabels: matchedLabel ? [matchedLabel] : [],
+          leftAnswerLabels: matchedLabel ? [matchedLabel] : [],
+          rightAnswerLabels: matchedLabel ? [matchedLabel] : [],
+        });
         reasons.push(
           ...this.buildReasonMessages(question, leftAnswer, rightAnswer, order),
         );
@@ -821,6 +896,21 @@ export class CyclesService {
 
         if (overlap.length > 0) {
           rawScore += overlap.length * weight * MULTI_SELECT_OVERLAP_BONUS;
+          sharedSignals.push({
+            questionKey: question.key,
+            prompt: question.prompt,
+            type: 'MULTI_OVERLAP',
+            weight,
+            sharedLabels: overlap.map((value) =>
+              labelForQuestionValue(value, question.normalizedOptions),
+            ),
+            leftAnswerLabels: leftOptions.map((value) =>
+              labelForQuestionValue(value, question.normalizedOptions),
+            ),
+            rightAnswerLabels: rightOptions.map((value) =>
+              labelForQuestionValue(value, question.normalizedOptions),
+            ),
+          });
           reasons.push(
             ...this.buildReasonMessages(
               question,
@@ -862,6 +952,7 @@ export class CyclesService {
     return {
       rawScore,
       score: this.normalizeMatchScore(rawScore, scoreBounds),
+      sharedSignals,
       reasons:
         uniqueReasons.length > 0
           ? uniqueReasons
@@ -947,6 +1038,82 @@ export class CyclesService {
       .filter(
         (reason): reason is { text: string; priority: number; order: number } =>
           reason !== null,
+      );
+  }
+
+  private buildNarrativeInput(
+    pair: CandidatePair,
+    preparedQuestions: PreparedQuestion[],
+  ): MatchNarrativeInput {
+    const leftIntent = isWeeklyIntent(pair.left.intent)
+      ? pair.left.intent
+      : 'BOTH';
+    const rightIntent = isWeeklyIntent(pair.right.intent)
+      ? pair.right.intent
+      : 'BOTH';
+
+    return {
+      score: pair.score,
+      intentPair: [leftIntent, rightIntent],
+      heuristicReasons: pair.reasons,
+      sharedSignals: pair.sharedSignals ?? [],
+      participantA: {
+        intro: pair.left.introLine ?? '',
+        questionnaire: this.buildNarrativeQuestionnaire(
+          pair.left,
+          preparedQuestions,
+        ),
+      },
+      participantB: {
+        intro: pair.right.introLine ?? '',
+        questionnaire: this.buildNarrativeQuestionnaire(
+          pair.right,
+          preparedQuestions,
+        ),
+      },
+    };
+  }
+
+  private buildNarrativeQuestionnaire(
+    participant: EligibleParticipant,
+    preparedQuestions: PreparedQuestion[],
+  ): MatchNarrativeQuestionAnswer[] {
+    if (!participant.answers) {
+      return [];
+    }
+
+    return preparedQuestions
+      .map((question) => {
+        const normalizedAnswer = normalizePreparedQuestionAnswer(
+          question,
+          participant.answers[question.key],
+          { invalidAsNull: true },
+        );
+
+        if (normalizedAnswer == null) {
+          return null;
+        }
+
+        const answerValues = Array.isArray(normalizedAnswer)
+          ? normalizedAnswer
+          : [normalizedAnswer];
+        const answerLabels = answerValues.map((value) =>
+          labelForQuestionValue(value, question.normalizedOptions),
+        );
+
+        return {
+          key: question.key,
+          prompt: question.prompt,
+          description: question.description ?? null,
+          type: question.type,
+          weight: question.weight,
+          answerValues,
+          answerLabels,
+        } satisfies MatchNarrativeQuestionAnswer;
+      })
+      .filter(
+        (questionAnswer): questionAnswer is MatchNarrativeQuestionAnswer =>
+          questionAnswer !== null,
       );
   }
 

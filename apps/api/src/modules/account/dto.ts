@@ -181,6 +181,12 @@ export class DashboardMatchResponseDto {
   @ApiProperty({ type: String, isArray: true })
   reasons!: string[];
 
+  @ApiProperty({ nullable: true })
+  reason!: string | null;
+
+  @ApiProperty({ type: String, isArray: true })
+  conversationTopics!: string[];
+
   @ApiProperty({ nullable: true, format: 'date-time' })
   introducedAt!: string | null;
 

@@ -27,6 +27,17 @@ export function normalizeMatchReasons(reasons: unknown): string[] {
   );
 }
 
+export function normalizeConversationTopics(topics: unknown): string[] {
+  if (!Array.isArray(topics)) {
+    return [];
+  }
+
+  return topics.filter(
+    (item): item is string =>
+      typeof item === "string" && item.trim().length > 0,
+  );
+}
+
 export function limitedHistoryExplanation(
   reason: "REPORTED" | "BLOCKED" | null,
 ): string {

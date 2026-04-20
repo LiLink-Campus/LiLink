@@ -6,6 +6,7 @@ import { SubPageNav } from "../_components/SubPageNav";
 import { useMatchActions } from "../_components/useMatchActions";
 import {
   REPORT_FORM_SECTION_ID,
+  normalizeConversationTopics,
   normalizeMatchReasons,
   reportHandlingChipLabel,
 } from "../_lib/format";
@@ -54,6 +55,10 @@ export function MatchClient({
       : null;
 
   const latestMatchReasons = normalizeMatchReasons(latestMatch?.reasons);
+  const latestMatchReason = latestMatch?.reason?.trim() ?? "";
+  const latestConversationTopics = normalizeConversationTopics(
+    latestMatch?.conversationTopics,
+  );
 
   const introduced = Boolean(latestMatch?.introducedAt);
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
@@ -153,7 +158,11 @@ export function MatchClient({
                   系统根据问卷与客观条件生成；点击「双方引荐联系」后，相同说明也会出现在通知邮件里。
                 </p>
               )}
-              {latestMatchReasons.length > 0 ? (
+              {latestMatchReason ? (
+                <p className="dashboard-muted" style={{ margin: "0 0 0.75rem" }}>
+                  {latestMatchReason}
+                </p>
+              ) : latestMatchReasons.length > 0 ? (
                 <ul className="reason-list" style={{ marginTop: 0 }}>
                   {latestMatchReasons.map((reason, index) => (
                     <li key={`${index}-${reason.slice(0, 48)}`}>{reason}</li>
@@ -167,6 +176,21 @@ export function MatchClient({
                   暂无匹配理由条目。
                 </p>
               )}
+              {latestConversationTopics.length > 0 ? (
+                <>
+                  <p
+                    className="eyebrow"
+                    style={{ marginTop: "1rem", marginBottom: "0.35rem" }}
+                  >
+                    聊天话题
+                  </p>
+                  <ul className="reason-list" style={{ marginTop: 0 }}>
+                    {latestConversationTopics.map((topic, index) => (
+                      <li key={`${index}-${topic.slice(0, 48)}`}>{topic}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
             </div>
             <div className="auth-actions">
               {introduced ? (

@@ -27,7 +27,8 @@ type IntroductionEmailInput = {
     schoolName?: string | null;
     introLine?: string | null;
   };
-  reasons: string[];
+  reason: string;
+  conversationTopics: string[];
 };
 
 type VerificationCodeEmailInput = {
@@ -70,9 +71,10 @@ export class MailService {
     const recipientName = input.recipient.displayName ?? 'LiLink 用户';
     const escapedRequesterName = escapeHtml(requesterName);
     const escapedRecipientName = escapeHtml(recipientName);
-    const reasons = input.reasons
-      .map((reason) => `<li>${escapeHtml(reason)}</li>`)
+    const conversationTopics = input.conversationTopics
+      .map((topic) => `<li>${escapeHtml(topic)}</li>`)
       .join('');
+    const reason = escapeHtml(input.reason);
 
     return [
       {
@@ -85,7 +87,9 @@ export class MailService {
           <p>对方学校：${escapeHtml(input.recipient.schoolName ?? '未填写')}</p>
           <p>对方一句话介绍：${escapeHtml(input.recipient.introLine ?? '暂无')}</p>
           <p>本次匹配理由：</p>
-          <ul>${reasons}</ul>
+          <p>${reason}</p>
+          <p>可以从这些话题开始聊天：</p>
+          <ul>${conversationTopics}</ul>
         `,
       },
       {
@@ -98,7 +102,9 @@ export class MailService {
           <p>对方学校：${escapeHtml(input.requester.schoolName ?? '未填写')}</p>
           <p>对方一句话介绍：${escapeHtml(input.requester.introLine ?? '暂无')}</p>
           <p>本次匹配理由：</p>
-          <ul>${reasons}</ul>
+          <p>${reason}</p>
+          <p>可以从这些话题开始聊天：</p>
+          <ul>${conversationTopics}</ul>
         `,
       },
     ];
