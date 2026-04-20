@@ -54,6 +54,8 @@ type DashboardMatchParticipant = Prisma.MatchParticipantGetPayload<{
         id: true;
         score: true;
         reasons: true;
+        reason: true;
+        conversationTopics: true;
         introducedAt: true;
         cycle: {
           select: {
@@ -231,6 +233,8 @@ export class AccountService {
                   id: true,
                   score: true,
                   reasons: true,
+                  reason: true,
+                  conversationTopics: true,
                   introducedAt: true,
                   cycle: {
                     select: {
@@ -493,12 +497,25 @@ export class AccountService {
     hideSensitiveFields: boolean,
     reportStatus: string | null,
   ): DashboardMatchResponseDto {
+    const normalizedReasons = this.normalizeMatchReasons(
+      participant.match.reasons,
+    );
+    const normalizedReason = this.normalizeMatchReason(
+      participant.match.reason,
+      normalizedReasons,
+    );
+    const normalizedConversationTopics = this.normalizeConversationTopics(
+      participant.match.conversationTopics,
+    );
+
     return {
       id: participant.match.id,
       score: participant.match.score,
-      reasons: hideSensitiveFields
+      reasons: hideSensitiveFields ? [] : normalizedReasons,
+      reason: hideSensitiveFields ? null : normalizedReason,
+      conversationTopics: hideSensitiveFields
         ? []
-        : this.normalizeMatchReasons(participant.match.reasons),
+        : normalizedConversationTopics,
       introducedAt: this.toIsoString(participant.match.introducedAt),
       currentUserRequestedAt: this.toIsoString(participant.contactRequestedAt),
       reportStatus,
@@ -538,6 +555,43 @@ export class AccountService {
       (item): item is string =>
         typeof item === 'string' && item.trim().length > 0,
     );
+  }
+
+  private normalizeMatchReason(
+    rawReason: string | null | undefined,
+    normalizedReasons: string[],
+  ) {
+    const trimmedReason = rawReason?.trim();
+    if (trimmedReason) {
+      return trimmedReason;
+    }
+
+    if (normalizedReasons.length === 0) {
+      return null;
+    }
+
+    return normalizedReasons.join(' ');
+  }
+
+  private normalizeConversationTopics(
+    rawTopics: Prisma.JsonValue | null | undefined,
+  ) {
+    if (!Array.isArray(rawTopics)) {
+      return [];
+    }
+
+    return rawTopics.filter(
+      (item): item is string =>
+        typeof item === 'string' && item.trim().length > 0,
+    );
+  }
+
+  private defaultConversationTopics() {
+    return [
+      '最近一次让你觉得很放松的周末通常怎么过',
+      '你最近在慢慢坚持的一件事是什么',
+      '什么样的聊天节奏会让你觉得相处自然',
+    ];
   }
 
   private toIsoString(value: Date | null | undefined): string | null {
@@ -978,6 +1032,9 @@ export class AccountService {
     );
 
     const claimedAt = new Date();
+    const conversationTopics = this.normalizeConversationTopics(
+      participant.match.conversationTopics,
+    );
 
     const queuedEmails = this.mailService.buildIntroductionEmails({
       matchId: participant.match.id,
@@ -999,7 +1056,15 @@ export class AccountService {
           counterpart.user.profile?.headline,
         ),
       },
-      reasons: participant.match.reasons as string[],
+      reason:
+        this.normalizeMatchReason(
+          participant.match.reason,
+          this.normalizeMatchReasons(participant.match.reasons),
+        ) ?? '你们在多项关系判断与日常偏好上呈现出稳定的相容趋势。',
+      conversationTopics:
+        conversationTopics.length > 0
+          ? conversationTopics
+          : this.defaultConversationTopics(),
     });
 
     await this.prisma.$transaction(async (tx) => {

@@ -39,7 +39,8 @@ describe('MailService', () => {
           email: 'user-2@example.com',
           displayName: 'User 2',
         },
-        reasons: ['reason'],
+        reason: 'reason paragraph',
+        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
       }),
     ).toEqual([
       expect.objectContaining({
@@ -79,14 +80,20 @@ describe('MailService', () => {
         schoolName: 'R&D School',
         introLine: 'Intro <i>text</i>',
       },
-      reasons: ['Reason <strong>1</strong>'],
+      reason: 'Reason <strong>1</strong>',
+      conversationTopics: ['Topic <strong>1</strong>', 'Topic 2', 'Topic 3'],
     });
 
     expect(requesterEmail.html).toContain('&lt;img src=x onerror=alert(2)&gt;');
     expect(requesterEmail.html).toContain('&lt;i&gt;text&lt;/i&gt;');
     expect(requesterEmail.html).not.toContain('<img src=x onerror=alert(2)>');
     expect(requesterEmail.html).not.toContain('<i>text</i>');
-    expect(requesterEmail.html).toContain('&lt;strong&gt;1&lt;/strong&gt;');
+    expect(requesterEmail.html).toContain(
+      'Reason &lt;strong&gt;1&lt;/strong&gt;',
+    );
+    expect(requesterEmail.html).toContain(
+      'Topic &lt;strong&gt;1&lt;/strong&gt;',
+    );
 
     expect(recipientEmail.html).toContain(
       '&lt;script&gt;alert(1)&lt;/script&gt;',

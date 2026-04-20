@@ -691,6 +691,8 @@ export class AdminService {
           id: true,
           score: true,
           reasons: true,
+          reason: true,
+          conversationTopics: true,
           revealedAt: true,
           introducedAt: true,
           participants: {
@@ -727,7 +729,28 @@ export class AdminService {
       this.prisma.match.count({ where }),
     ]);
 
-    return this.buildPageResult(items, total, pagination);
+    const normalizedItems = items.map((item) => ({
+      ...item,
+      reason:
+        typeof item.reason === 'string' && item.reason.trim().length > 0
+          ? item.reason.trim()
+          : Array.isArray(item.reasons)
+            ? item.reasons
+                .filter(
+                  (reason): reason is string =>
+                    typeof reason === 'string' && reason.trim().length > 0,
+                )
+                .join(' ')
+            : null,
+      conversationTopics: Array.isArray(item.conversationTopics)
+        ? item.conversationTopics.filter(
+            (topic): topic is string =>
+              typeof topic === 'string' && topic.trim().length > 0,
+          )
+        : [],
+    }));
+
+    return this.buildPageResult(normalizedItems, total, pagination);
   }
 
   async getCycleLogs(cycleId: string, query: ListCycleLogsQueryDto = {}) {

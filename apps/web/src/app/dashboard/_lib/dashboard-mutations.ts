@@ -55,6 +55,8 @@ export function applyReportSuccessToDashboard(
     ...match,
     reportStatus: "OPEN",
     reasons: [],
+    reason: null,
+    conversationTopics: [],
     participants: [],
   });
 

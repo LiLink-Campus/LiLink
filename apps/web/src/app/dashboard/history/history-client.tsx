@@ -8,6 +8,7 @@ import {
   REPORT_FORM_SECTION_ID,
   formatCycleRevealAt,
   limitedHistoryExplanation,
+  normalizeConversationTopics,
   normalizeMatchReasons,
   reportHandlingChipLabel,
 } from "../_lib/format";
@@ -122,6 +123,9 @@ export function HistoryClient({
                           ) ?? null;
                         const introducedRow = Boolean(hm.introducedAt);
                         const rowReasons = normalizeMatchReasons(hm.reasons);
+                        const rowReason = hm.reason?.trim() ?? "";
+                        const rowConversationTopics =
+                          normalizeConversationTopics(hm.conversationTopics);
                         return (
                           <>
                             <p
@@ -146,7 +150,14 @@ export function HistoryClient({
                                 对方介绍：{counterpartHistory.introLine}
                               </p>
                             ) : null}
-                            {rowReasons.length > 0 ? (
+                            {rowReason ? (
+                              <p
+                                className="dashboard-muted"
+                                style={{ marginTop: "0.5rem" }}
+                              >
+                                {rowReason}
+                              </p>
+                            ) : rowReasons.length > 0 ? (
                               <ul
                                 className="reason-list"
                                 style={{ marginTop: "0.5rem" }}
@@ -162,6 +173,34 @@ export function HistoryClient({
                                   </li>
                                 ))}
                               </ul>
+                            ) : null}
+                            {rowConversationTopics.length > 0 ? (
+                              <>
+                                <p
+                                  className="eyebrow"
+                                  style={{
+                                    marginTop: "0.85rem",
+                                    marginBottom: "0.35rem",
+                                  }}
+                                >
+                                  聊天话题
+                                </p>
+                                <ul
+                                  className="reason-list"
+                                  style={{ marginTop: 0 }}
+                                >
+                                  {rowConversationTopics.map((topic, topicIndex) => (
+                                    <li
+                                      key={`${item.cycleId}-${topicIndex}-${topic.slice(
+                                        0,
+                                        32,
+                                      )}`}
+                                    >
+                                      {topic}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </>
                             ) : null}
                             <div
                               className="auth-actions"

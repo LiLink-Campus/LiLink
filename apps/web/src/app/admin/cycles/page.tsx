@@ -744,9 +744,20 @@ export default function AdminCyclesPage() {
                         <span>引荐：{match.introducedAt ? formatDateTime(match.introducedAt) : "未引荐"}</span>
                         <span>举报数：{match.reports.length}</span>
                       </div>
-                      <ul className="admin-reason-list">
-                        {match.reasons.map((r) => <li key={r}>{r}</li>)}
-                      </ul>
+                      {match.reason?.trim() ? (
+                        <p style={{ margin: "0.65rem 0 0" }}>{match.reason}</p>
+                      ) : (
+                        <ul className="admin-reason-list">
+                          {match.reasons.map((r) => <li key={r}>{r}</li>)}
+                        </ul>
+                      )}
+                      {match.conversationTopics.length > 0 ? (
+                        <ul className="admin-reason-list">
+                          {match.conversationTopics.map((topic) => (
+                            <li key={topic}>{topic}</li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                   ))}
                 </div>

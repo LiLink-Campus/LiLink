@@ -30,6 +30,7 @@ type CandidatePairStub = {
   right: { id: string };
   score: number;
   reasons: string[];
+  sharedSignals?: unknown[];
 };
 
 type CyclesServiceTestHarness = {
@@ -49,7 +50,12 @@ type CyclesServiceTestHarness = {
       }>;
     }>,
     revealAt: Date,
-  ) => { rawScore: number; score: number; reasons: string[] } | null;
+  ) => {
+    rawScore: number;
+    score: number;
+    reasons: string[];
+    sharedSignals: unknown[];
+  } | null;
   toEligibleParticipants: (
     participations: unknown[],
   ) => EligibleParticipantStub[];
@@ -62,6 +68,10 @@ type CyclesServiceTestHarness = {
     candidates: CandidatePairStub[];
     selectedPairs: CandidatePairStub[];
   }>;
+  generateNarrativesForPairs: (
+    selectedPairs: CandidatePairStub[],
+    preparedQuestions: unknown[],
+  ) => Promise<unknown[]>;
 };
 
 const SCHOOL_BUPT = 'school-bupt';
@@ -749,11 +759,17 @@ describe('CyclesService', () => {
       new Date('2026-04-10T00:00:00.000Z'),
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       rawScore: 66,
       score: 100,
       reasons: ['你们对进入关系的期待很一致。'],
     });
+    expect(result?.sharedSignals).toEqual([
+      expect.objectContaining({
+        questionKey: 'relationship_intent',
+        type: 'EXACT_MATCH',
+      }),
+    ]);
   });
 
   it('recovers a stale reveal-ready cycle before executing it', async () => {
@@ -915,6 +931,207 @@ describe('CyclesService', () => {
         },
       },
     });
+  });
+
+  it('resets the cycle to open when narrative generation fails before persistence', async () => {
+    const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          revealAt: new Date(Date.now() - 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          participations: [],
+        }),
+        updateMany,
+        update: matchCycleUpdate,
+      },
+      cycleParticipation,
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        Promise.resolve(callback({ cycleParticipation })),
+      ),
+    };
+    const matchNarrativeService = {
+      generateNarrative: jest
+        .fn()
+        .mockRejectedValue(new Error('DeepSeek is unavailable.')),
+    };
+    const service = new CyclesService(
+      prisma as never,
+      matchNarrativeService as never,
+    );
+    const testHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'toEligibleParticipants' | 'calculatePairs'
+    >;
+
+    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
+      {
+        id: 'user-1',
+        displayName: 'A',
+        hardMatchAnswers: {
+          birthDate: '2000-05-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 165,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢徒步。',
+          school: SCHOOL_BUPT,
+          excludedPartnerSchools: [],
+        },
+        answers: {},
+        intent: 'BOTH',
+      },
+      {
+        id: 'user-2',
+        displayName: 'B',
+        hardMatchAnswers: {
+          birthDate: '1999-07-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '男',
+          partnerGenders: ['女'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 178,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢阅读。',
+          school: SCHOOL_CUC,
+          excludedPartnerSchools: [],
+        },
+        answers: {},
+        intent: 'BOTH',
+      },
+    ]);
+    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
+      candidates: [],
+      selectedPairs: [
+        {
+          left: { id: 'user-1' },
+          right: { id: 'user-2' },
+          score: 88,
+          reasons: ['reason'],
+        },
+      ],
+    });
+
+    await expect(
+      service.runRevealCycle({ force: true, cycleId: 'cycle-1' }),
+    ).rejects.toThrow('DeepSeek is unavailable.');
+
+    expect(matchCycleUpdate).toHaveBeenCalledWith({
+      where: { id: 'cycle-1' },
+      data: { status: 'OPEN' },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('limits narrative generation concurrency during reveal', async () => {
+    const service = new CyclesService(
+      { matchCycle: {}, questionnaireVersion: {}, $transaction: jest.fn() } as never,
+      {
+        generateNarrative: jest.fn(),
+      } as never,
+    );
+    const testHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'generateNarrativesForPairs'
+    >;
+    let activeNarrativeCalls = 0;
+    let maxActiveNarrativeCalls = 0;
+    const pendingResolvers: Array<() => void> = [];
+
+    (
+      service as unknown as {
+        matchNarrativeService: {
+          generateNarrative: (input: unknown) => Promise<unknown>;
+        };
+      }
+    ).matchNarrativeService.generateNarrative = jest.fn(
+      async (_input: unknown) =>
+        new Promise((resolve) => {
+          activeNarrativeCalls += 1;
+          maxActiveNarrativeCalls = Math.max(
+            maxActiveNarrativeCalls,
+            activeNarrativeCalls,
+          );
+          pendingResolvers.push(() => {
+            activeNarrativeCalls -= 1;
+            resolve({
+              reason: 'reason paragraph',
+              conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
+              source: 'RULES_FALLBACK',
+            });
+          });
+        }),
+    );
+
+    const generationPromise = testHarness.generateNarrativesForPairs(
+      [
+        {
+          left: { id: 'user-1' },
+          right: { id: 'user-2' },
+          score: 88,
+          reasons: ['ab'],
+        },
+        {
+          left: { id: 'user-3' },
+          right: { id: 'user-4' },
+          score: 87,
+          reasons: ['cd'],
+        },
+        {
+          left: { id: 'user-5' },
+          right: { id: 'user-6' },
+          score: 86,
+          reasons: ['ef'],
+        },
+        {
+          left: { id: 'user-7' },
+          right: { id: 'user-8' },
+          score: 85,
+          reasons: ['gh'],
+        },
+        {
+          left: { id: 'user-9' },
+          right: { id: 'user-10' },
+          score: 84,
+          reasons: ['ij'],
+        },
+      ],
+      [],
+    );
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(maxActiveNarrativeCalls).toBe(3);
+    expect(pendingResolvers).toHaveLength(3);
+
+    while (pendingResolvers.length > 0) {
+      const currentBatch = pendingResolvers.splice(0);
+      currentBatch.forEach((resolveNarrative) => resolveNarrative());
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+
+    await expect(generationPromise).resolves.toHaveLength(5);
+    expect(maxActiveNarrativeCalls).toBe(3);
   });
 
   it('clears prior matches on force reveal and records cleared count in audit', async () => {
