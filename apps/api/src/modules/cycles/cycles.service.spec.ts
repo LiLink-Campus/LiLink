@@ -367,6 +367,9 @@ describe('CyclesService', () => {
           questions: [],
         }),
       },
+      match: {
+        count: jest.fn().mockResolvedValue(0),
+      },
       cycleParticipation,
       $transaction: jest.fn(
         async (callback: (tx: unknown) => Promise<unknown>) =>
@@ -386,7 +389,18 @@ describe('CyclesService', () => {
           }),
       ),
     };
-    const service = new CyclesService(prisma as never);
+    const service = new CyclesService(
+      prisma as never,
+      {
+        generateNarrative: jest.fn().mockResolvedValue({
+          reason:
+            '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
+          conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
+          source: 'DEEPSEEK',
+        }),
+        buildDefaultNarrative: jest.fn(),
+      } as never,
+    );
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -935,65 +949,36 @@ describe('CyclesService', () => {
     ]);
   });
 
-  it('recovers a stale preparing cycle before preparing it again', async () => {
-    const update = jest.fn().mockResolvedValue({ id: 'cycle-1' });
-    const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
-    const claimReveal = jest.fn().mockResolvedValue({ count: 1 });
-    const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
-    const revealMatchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+  it('fills pending narratives while a cycle stays in PREPARING', async () => {
+    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
-    const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
     };
+    const pendingMatch = {
+      id: 'match-1',
+      score: 88,
+      reasons: ['reason'],
+      createdAt: new Date(Date.now() - 5 * 60_000),
+      participants: [
+        { userId: 'user-1', position: 1 },
+        { userId: 'user-2', position: 2 },
+      ],
+    };
     const prisma = {
       matchCycle: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValueOnce({
-            id: 'cycle-1',
-            status: 'PREPARING',
-            participationDeadline: new Date(Date.now() - 2 * 60_000),
-            revealAt: new Date(Date.now() - 60_000),
-            createdAt: new Date('2026-04-20T12:00:00.000Z'),
-            updatedAt: new Date(Date.now() - 11 * 60_000),
-            participations: [],
-          })
-          .mockResolvedValueOnce({
-            id: 'cycle-1',
-            status: 'OPEN',
-            participationDeadline: new Date(Date.now() - 2 * 60_000),
-            revealAt: new Date(Date.now() - 60_000),
-            createdAt: new Date('2026-04-20T12:00:00.000Z'),
-            updatedAt: new Date(Date.now() - 60_000),
-            participations: [],
-          })
-          .mockResolvedValueOnce({
-            id: 'cycle-1',
-            status: 'OPEN',
-            participationDeadline: new Date(Date.now() - 2 * 60_000),
-            revealAt: new Date(Date.now() - 60_000),
-            createdAt: new Date('2026-04-20T12:00:00.000Z'),
-            updatedAt: new Date(Date.now() - 60_000),
-            participations: [],
-          })
-          .mockResolvedValueOnce({
-            id: 'cycle-1',
-            status: 'OPEN',
-            participationDeadline: new Date(Date.now() - 2 * 60_000),
-            revealAt: new Date(Date.now() - 60_000),
-            createdAt: new Date('2026-04-20T12:00:00.000Z'),
-            updatedAt: new Date(Date.now() - 60_000),
-            participations: [],
-          })
-          .mockResolvedValueOnce({
-            id: 'cycle-1',
-            status: 'REVEAL_READY',
-            revealAt: new Date(Date.now() - 60_000),
-          }),
-        updateMany: claimPreparation,
-        update,
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'PREPARING',
+          participationDeadline: new Date(Date.now() - 2 * 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:10:00.000Z'),
+          participations: [],
+        }),
+        updateMany: matchCycleUpdateMany,
       },
       cycleParticipation,
       questionnaireVersion: {
@@ -1002,115 +987,122 @@ describe('CyclesService', () => {
           questions: [],
         }),
       },
-      $transaction: jest.fn(
-        async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({
-            cycleParticipation,
-            match: {
-              create: matchCreate,
-              updateMany: revealMatchUpdateMany,
-            },
-            matchCycle: {
-              update: matchCycleUpdate,
-              updateMany: claimReveal,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
+      match: {
+        findMany: jest.fn().mockResolvedValue([pendingMatch]),
+        count: jest
+          .fn()
+          .mockResolvedValueOnce(1)
+          .mockResolvedValueOnce(0),
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          match: {
+            updateMany: matchUpdateMany,
+          },
+          matchCycle: {
+            updateMany: matchCycleUpdateMany,
+          },
+          auditLog: {
+            create: auditLogCreate,
+          },
+        }),
       ),
     };
-    const service = new CyclesService(prisma as never);
+    const matchNarrativeService = {
+      generateNarrative: jest.fn().mockResolvedValue({
+        reason:
+          '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
+        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
+        source: 'DEEPSEEK',
+      }),
+      buildDefaultNarrative: jest.fn(),
+    };
+    const service = new CyclesService(
+      prisma as never,
+      matchNarrativeService as never,
+    );
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'toEligibleParticipants' | 'calculatePairs'
+      'toEligibleParticipants'
     >;
-    const eligibleParticipantsSpy = jest
-      .spyOn(testHarness, 'toEligibleParticipants')
-      .mockReturnValue([
-        {
-          id: 'user-1',
-          displayName: 'A',
-          hardMatchAnswers: {
-            birthDate: '2000-05-10',
-            partnerAgeMin: 18,
-            partnerAgeMax: 30,
-            gender: '女',
-            partnerGenders: ['男'],
-            looks: '普通人',
-            partnerLooks: ['普通人'],
-            heightCm: 165,
-            partnerHeightMin: 120,
-            partnerHeightMax: 220,
-            oneLinerIntro: '喜欢徒步。',
-            school: SCHOOL_BUPT,
-            excludedPartnerSchools: [],
-          },
-          answers: {},
-          intent: 'BOTH',
-        },
-        {
-          id: 'user-2',
-          displayName: 'B',
-          hardMatchAnswers: {
-            birthDate: '1999-07-10',
-            partnerAgeMin: 18,
-            partnerAgeMax: 30,
-            gender: '男',
-            partnerGenders: ['女'],
-            looks: '普通人',
-            partnerLooks: ['普通人'],
-            heightCm: 178,
-            partnerHeightMin: 120,
-            partnerHeightMax: 220,
-            oneLinerIntro: '喜欢阅读。',
-            school: SCHOOL_CUC,
-            excludedPartnerSchools: [],
-          },
-          answers: {},
-          intent: 'BOTH',
-        },
-      ]);
-    const calculatePairsSpy = jest
-      .spyOn(testHarness, 'calculatePairs')
-      .mockResolvedValue({
-        candidates: [],
-        selectedPairs: [
-          {
-            left: { id: 'user-1' },
-            right: { id: 'user-2' },
-            score: 88,
-            reasons: ['reason'],
-          },
-        ],
-      });
 
-    await expect(
-      service.runRevealCycle({ force: true, cycleId: 'cycle-1' }),
-    ).resolves.toMatchObject({
+    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
+      {
+        id: 'user-1',
+        displayName: 'A',
+        hardMatchAnswers: {
+          birthDate: '2000-05-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 165,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢徒步。',
+          school: SCHOOL_BUPT,
+          excludedPartnerSchools: [],
+        },
+        answers: {},
+        intent: 'BOTH',
+      },
+      {
+        id: 'user-2',
+        displayName: 'B',
+        hardMatchAnswers: {
+          birthDate: '1999-07-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '男',
+          partnerGenders: ['女'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 178,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢阅读。',
+          school: SCHOOL_CUC,
+          excludedPartnerSchools: [],
+        },
+        answers: {},
+        intent: 'BOTH',
+      },
+    ]);
+
+    await expect(service.runRevealCycle({ cycleId: 'cycle-1' })).resolves.toMatchObject({
       ok: true,
       cycleId: 'cycle-1',
+      state: 'PREPARED',
+      createdMatches: 1,
     });
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'cycle-1' },
-      data: { status: 'OPEN' },
-    });
-    expect(claimPreparation).toHaveBeenCalledWith({
+
+    expect(matchNarrativeService.generateNarrative).toHaveBeenCalledTimes(1);
+    expect(matchNarrativeService.buildDefaultNarrative).not.toHaveBeenCalled();
+    expect(matchUpdateMany).toHaveBeenCalledWith({
       where: {
-        id: 'cycle-1',
-        status: 'OPEN',
+        id: 'match-1',
+        OR: [{ reason: null }, { conversationTopics: null }, { narrativeSource: null }],
       },
       data: {
-        status: 'PREPARING',
+        reason:
+          '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
+        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
+        narrativeSource: 'DEEPSEEK',
       },
     });
-    expect(eligibleParticipantsSpy).toHaveBeenCalled();
-    expect(calculatePairsSpy).toHaveBeenCalled();
-    expect(matchCreate).toHaveBeenCalledTimes(1);
-    expect(auditLogCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        action: 'cycle.prepared',
-      }),
+    expect(matchCycleUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'cycle-1',
+        status: 'PREPARING',
+      },
+      data: {
+        status: 'REVEAL_READY',
+      },
     });
     expect(auditLogCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -1119,9 +1111,10 @@ describe('CyclesService', () => {
     });
   });
 
-  it('resets the cycle to open when narrative generation fails before persistence', async () => {
-    const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
-    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+  it('uses the default narrative after one hour instead of retrying forever', async () => {
+    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
@@ -1130,13 +1123,14 @@ describe('CyclesService', () => {
       matchCycle: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'cycle-1',
-          status: 'OPEN',
-          revealAt: new Date(Date.now() - 60_000),
+          status: 'PREPARING',
+          participationDeadline: new Date(Date.now() - 2 * 60_000),
+          revealAt: new Date(Date.now() + 60_000),
           createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:10:00.000Z'),
           participations: [],
         }),
-        updateMany,
-        update: matchCycleUpdate,
+        updateMany: matchCycleUpdateMany,
       },
       cycleParticipation,
       questionnaireVersion: {
@@ -1145,14 +1139,142 @@ describe('CyclesService', () => {
           questions: [],
         }),
       },
-      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-        Promise.resolve(callback({ cycleParticipation })),
+      match: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'match-1',
+            score: 88,
+            reasons: ['reason'],
+            createdAt: new Date(Date.now() - 61 * 60_000),
+            participants: [
+              { userId: 'user-1', position: 1 },
+              { userId: 'user-2', position: 2 },
+            ],
+          },
+        ]),
+        count: jest
+          .fn()
+          .mockResolvedValueOnce(1)
+          .mockResolvedValueOnce(0),
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          match: {
+            updateMany: matchUpdateMany,
+          },
+          matchCycle: {
+            updateMany: matchCycleUpdateMany,
+          },
+          auditLog: {
+            create: auditLogCreate,
+          },
+        }),
+      ),
+    };
+    const defaultNarrative = {
+      reason:
+        '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，这意味着彼此在建立信任、理解边界和推进交流时，更容易形成自然、清楚而持续的互动基础，也更容易把后续相处落到舒服、平衡且可继续发展的日常节奏里。',
+      conversationTopics: [
+        '最近一次让你觉得很放松的周末通常怎么过',
+        '你最近在慢慢坚持的一件事是什么',
+        '什么样的聊天节奏会让你觉得相处自然',
+      ],
+      source: 'RULES_FALLBACK' as const,
+    };
+    const matchNarrativeService = {
+      generateNarrative: jest.fn(),
+      buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
+    };
+    const service = new CyclesService(
+      prisma as never,
+      matchNarrativeService as never,
+    );
+
+    await expect(service.runRevealCycle({ cycleId: 'cycle-1' })).resolves.toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'PREPARED',
+      createdMatches: 1,
+    });
+
+    expect(matchNarrativeService.generateNarrative).not.toHaveBeenCalled();
+    expect(matchNarrativeService.buildDefaultNarrative).toHaveBeenCalledTimes(1);
+    expect(matchUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'match-1',
+        OR: [{ reason: null }, { conversationTopics: null }, { narrativeSource: null }],
+      },
+      data: {
+        reason: defaultNarrative.reason,
+        conversationTopics: defaultNarrative.conversationTopics,
+        narrativeSource: 'RULES_FALLBACK',
+      },
+    });
+  });
+
+  it('falls back immediately when narrative generation fails during preparation', async () => {
+    const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
+    const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const finalizePreparation = jest.fn().mockResolvedValue({ id: 'cycle-1' });
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
+    const defaultNarrative = {
+      reason:
+        '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，这意味着彼此在建立信任、理解边界和推进交流时，更容易形成自然、清楚而持续的互动基础。',
+      conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
+      source: 'RULES_FALLBACK' as const,
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() - 2 * 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
+          participations: [],
+        }),
+        updateMany: claimPreparation,
+        update: jest.fn(),
+      },
+      cycleParticipation,
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          cycleParticipation,
+          match: {
+            create: matchCreate,
+          },
+          matchCycle: {
+            update: finalizePreparation,
+          },
+          auditLog: {
+            create: auditLogCreate,
+          },
+        }),
       ),
     };
     const matchNarrativeService = {
       generateNarrative: jest
         .fn()
         .mockRejectedValue(new Error('DeepSeek is unavailable.')),
+      buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
     };
     const service = new CyclesService(
       prisma as never,
@@ -1220,14 +1342,122 @@ describe('CyclesService', () => {
     });
 
     await expect(
-      service.runRevealCycle({ force: true, cycleId: 'cycle-1' }),
-    ).rejects.toThrow('DeepSeek is unavailable.');
-
-    expect(matchCycleUpdate).toHaveBeenCalledWith({
-      where: { id: 'cycle-1' },
-      data: { status: 'OPEN' },
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'PREPARED',
+      createdMatches: 1,
     });
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+
+    expect(matchNarrativeService.generateNarrative).toHaveBeenCalledTimes(1);
+    expect(matchNarrativeService.buildDefaultNarrative).toHaveBeenCalledTimes(1);
+    expect(matchCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        reason: defaultNarrative.reason,
+        conversationTopics: defaultNarrative.conversationTopics,
+        narrativeSource: 'RULES_FALLBACK',
+      }),
+    });
+    expect(finalizePreparation).toHaveBeenCalledWith({
+      where: { id: 'cycle-1' },
+      data: {
+        status: 'REVEAL_READY',
+      },
+    });
+    expect(auditLogCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'cycle.prepared',
+      }),
+    });
+  });
+
+  it('restarts matching when a manually-set PREPARING cycle has no generated matches yet', async () => {
+    const reopenPreparingCycle = jest.fn().mockResolvedValue({ count: 1 });
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'PREPARING',
+          participationDeadline: new Date(Date.now() - 2 * 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:10:00.000Z'),
+          participations: [],
+        }),
+        updateMany: reopenPreparingCycle,
+      },
+      cycleParticipation,
+      questionnaireVersion: {
+        findFirst: jest.fn(),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          cycleParticipation,
+        }),
+      ),
+    };
+    const service = new CyclesService(
+      prisma as never,
+      {
+        generateNarrative: jest.fn(),
+        buildDefaultNarrative: jest.fn(),
+      } as never,
+    );
+    const privateService = service as unknown as {
+      prepareCycle: (options: {
+        cycleId: string;
+        force?: boolean;
+        adminActorId?: string;
+      }) => Promise<{
+        ok: true;
+        cycleId: string;
+        state: 'PREPARED';
+        createdMatches: number;
+        unmatchedCount: number;
+        message: string;
+      }>;
+    };
+    const prepareCycleSpy = jest
+      .spyOn(privateService, 'prepareCycle')
+      .mockResolvedValue({
+        ok: true,
+        cycleId: 'cycle-1',
+        state: 'PREPARED',
+        createdMatches: 1,
+        unmatchedCount: 0,
+        message: 'Cycle is prepared and waiting for reveal.',
+      });
+
+    await expect(service.runRevealCycle({ cycleId: 'cycle-1' })).resolves.toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'PREPARED',
+      createdMatches: 1,
+    });
+
+    expect(reopenPreparingCycle).toHaveBeenCalledWith({
+      where: {
+        id: 'cycle-1',
+        status: 'PREPARING',
+      },
+      data: {
+        status: 'OPEN',
+      },
+    });
+    expect(prepareCycleSpy).toHaveBeenCalledWith({
+      cycleId: 'cycle-1',
+      force: undefined,
+      adminActorId: undefined,
+    });
   });
 
   it('limits narrative generation concurrency during reveal', async () => {
@@ -1322,6 +1552,43 @@ describe('CyclesService', () => {
 
     await expect(generationPromise).resolves.toHaveLength(5);
     expect(maxActiveNarrativeCalls).toBe(3);
+  });
+
+  it('logs per-cycle automation failures instead of swallowing them silently', async () => {
+    const prisma = {
+      matchCycle: {
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([{ id: 'cycle-open' }])
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([]),
+      },
+    };
+    const service = new CyclesService(prisma as never);
+    const loggerSpy = jest
+      .spyOn(
+        (
+          service as unknown as {
+            logger: { error: (message: string) => void };
+          }
+        ).logger,
+        'error',
+      )
+      .mockImplementation(() => undefined);
+
+    jest
+      .spyOn(service as never, 'prepareCycle')
+      .mockRejectedValue(new Error('boom'));
+
+    await expect(service.runAutomationTick()).resolves.toEqual({
+      ok: true,
+      preparedCycleIds: [],
+      revealedCycleIds: [],
+    });
+
+    expect(loggerSpy).toHaveBeenCalledWith(
+      'Cycle automation prepare failed for cycle cycle-open. boom',
+    );
   });
 
   it('clears prior matches before a force rerun', async () => {
