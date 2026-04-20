@@ -12,7 +12,11 @@ export class PublicService {
         this.prisma.questionnaireResponse.count({
           where: { submittedAt: { not: null } },
         }),
-        this.prisma.match.count(),
+        this.prisma.match.count({
+          where: {
+            revealedAt: { not: null },
+          },
+        }),
         this.prisma.matchCycle.findFirst({
           where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
           orderBy: { revealAt: 'asc' },
