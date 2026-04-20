@@ -41,7 +41,9 @@ function intentStatus(dashboard: DashboardPayload): HubCardStatus {
 function matchStatus(dashboard: DashboardPayload): HubCardStatus {
   const currentCycle = dashboard.currentCycle;
   const currentCycleIsStillOpen =
-    currentCycle?.status === "OPEN" || currentCycle?.status === "REVEAL_READY";
+    currentCycle?.status === "OPEN" ||
+    currentCycle?.status === "PREPARING" ||
+    currentCycle?.status === "REVEAL_READY";
 
   if (dashboard.latestMatchVisibility === "LIMITED") {
     return { label: "本轮已受限", tone: "warn" };

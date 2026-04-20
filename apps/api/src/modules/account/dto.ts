@@ -245,8 +245,10 @@ export class DashboardCurrentCycleResponseDto {
   @ApiProperty({ format: 'date-time' })
   participationDeadline!: string;
 
-  @ApiProperty({ enum: ['DRAFT', 'OPEN', 'REVEAL_READY', 'REVEALED'] })
-  status!: 'DRAFT' | 'OPEN' | 'REVEAL_READY' | 'REVEALED';
+  @ApiProperty({
+    enum: ['DRAFT', 'OPEN', 'PREPARING', 'REVEAL_READY', 'REVEALED'],
+  })
+  status!: 'DRAFT' | 'OPEN' | 'PREPARING' | 'REVEAL_READY' | 'REVEALED';
 
   @ApiProperty({ enum: ['OPTED_IN', 'OPTED_OUT'] })
   participationStatus!: 'OPTED_IN' | 'OPTED_OUT';

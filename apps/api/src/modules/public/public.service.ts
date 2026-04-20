@@ -14,7 +14,7 @@ export class PublicService {
         }),
         this.prisma.match.count(),
         this.prisma.matchCycle.findFirst({
-          where: { status: { in: ['OPEN', 'REVEAL_READY'] } },
+          where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
           orderBy: { revealAt: 'asc' },
         }),
       ]);

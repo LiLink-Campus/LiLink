@@ -56,7 +56,7 @@ export type DashboardPayload = {
     codename: string;
     revealAt: string;
     participationDeadline: string;
-    status: "DRAFT" | "OPEN" | "REVEAL_READY" | "REVEALED";
+    status: "DRAFT" | "OPEN" | "PREPARING" | "REVEAL_READY" | "REVEALED";
     participationStatus: "OPTED_IN" | "OPTED_OUT";
     intent: WeeklyIntent | null;
   } | null;

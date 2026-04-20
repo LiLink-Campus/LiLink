@@ -143,7 +143,7 @@ export class AccountService {
         where: { userId },
       }),
       this.prisma.matchCycle.findFirst({
-        where: { status: { in: ['OPEN', 'REVEAL_READY'] } },
+        where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
         orderBy: { revealAt: 'asc' },
       }),
       this.prisma.matchCycle.findMany({
@@ -992,6 +992,10 @@ export class AccountService {
       throw new NotFoundException('Match was not found for this user.');
     }
 
+    if (participant.match.revealedAt == null) {
+      throw new BadRequestException('This match is not revealed yet.');
+    }
+
     if (participant.match.introducedAt) {
       throw new BadRequestException('This match has already been introduced.');
     }
@@ -1126,6 +1130,10 @@ export class AccountService {
 
     if (!participant) {
       throw new NotFoundException('Match was not found for this user.');
+    }
+
+    if (participant.match.revealedAt == null) {
+      throw new BadRequestException('This match is not revealed yet.');
     }
 
     const counterpart = await this.prisma.matchParticipant.findFirst({

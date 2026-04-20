@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const STICKY_PARTICIPATION_CYCLE_STATUSES: MatchCycleStatus[] = [
   'OPEN',
+  'PREPARING',
   'REVEAL_READY',
 ];
 

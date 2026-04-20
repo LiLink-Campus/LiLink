@@ -66,7 +66,9 @@ export function MatchClient({
   const hasMissingIntent =
     currentCycle?.participationStatus === "OPTED_IN" &&
     !currentCycle.intent &&
-    (currentCycle.status === "OPEN" || currentCycle.status === "REVEAL_READY");
+    (currentCycle.status === "OPEN" ||
+      currentCycle.status === "PREPARING" ||
+      currentCycle.status === "REVEAL_READY");
 
   return (
     <main className="page-shell dashboard-page">
@@ -236,6 +238,7 @@ export function MatchClient({
               </>
             ) : currentCycle?.participationStatus === "OPTED_IN" &&
               (currentCycle.status === "OPEN" ||
+                currentCycle.status === "PREPARING" ||
                 currentCycle.status === "REVEAL_READY") ? (
               <>
                 <h2>

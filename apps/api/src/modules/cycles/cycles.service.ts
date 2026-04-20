@@ -12,6 +12,7 @@ import {
   HARD_MATCH_KEYS,
   HardMatchAnswers,
   areHardMatchAnswersCompatible,
+  isHardMatchKey,
   tryReadHardMatchAnswers,
 } from '../questionnaire/hard-match';
 import {
@@ -43,7 +44,7 @@ const MAX_MATCH_REASONS = 3;
 const MATCH_NARRATIVE_MAX_CONCURRENCY = 3;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
-const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
+const PREPARATION_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 
 /**
  * Only ACTIVE users with a stored weekly intent may appear in matching /
@@ -57,6 +58,23 @@ const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput 
     intent: { not: null },
     user: { status: 'ACTIVE' },
   };
+
+const CYCLE_PROCESSING_INCLUDE = {
+  participations: {
+    where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
+    select: {
+      intent: true,
+      user: {
+        select: {
+          id: true,
+          displayName: true,
+          questionnaireResponse: true,
+          school: { select: { id: true } },
+        },
+      },
+    },
+  },
+} satisfies Prisma.MatchCycleInclude;
 
 type EligibleParticipant = {
   id: string;
@@ -106,6 +124,23 @@ type RunRevealCycleOptions = {
 type MatchScoreBounds = {
   min: number;
   max: number;
+};
+
+type CyclePreparationResult = {
+  ok: true;
+  cycleId: string;
+  state: 'PREPARED' | 'SKIPPED';
+  message: string;
+  createdMatches: number;
+  unmatchedCount: number;
+};
+
+type CycleRevealResult = {
+  ok: true;
+  cycleId: string;
+  state: 'REVEALED' | 'SKIPPED';
+  message: string;
+  createdMatches: number;
 };
 
 /**
@@ -282,8 +317,179 @@ export class CyclesService {
   ) {}
 
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
+    if (!options.cycleId) {
+      return this.runAutomationTick();
+    }
+
+    let cycle = await this.loadCycleForProcessing(options.cycleId);
+
+    if (!cycle) {
+      throw new NotFoundException('Cycle not found.');
+    }
+
+    if (
+      options.force &&
+      cycle.status === 'PREPARING' &&
+      !this.isStalePreparation(cycle.updatedAt)
+    ) {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        unmatchedCount: 0,
+        message: 'Cycle is already being prepared.',
+      } satisfies CyclePreparationResult;
+    }
+
+    if (options.force && cycle.status !== 'OPEN') {
+      if (cycle.status === 'DRAFT') {
+        throw new BadRequestException('Draft cycles cannot be executed.');
+      }
+
+      if (cycle.status === 'PREPARING') {
+        await this.resetPreparingCycleToOpen(cycle.id);
+      } else {
+        await this.resetCycleForForcedRerun(cycle.id);
+      }
+      cycle = await this.loadCycleForProcessing(cycle.id);
+
+      if (!cycle) {
+        throw new NotFoundException('Cycle not found.');
+      }
+    }
+
+    if (cycle.status === 'PREPARING') {
+      if (!this.isStalePreparation(cycle.updatedAt)) {
+        return {
+          ok: true,
+          cycleId: cycle.id,
+          state: 'SKIPPED',
+          createdMatches: 0,
+          unmatchedCount: 0,
+          message: 'Cycle is already being prepared.',
+        } satisfies CyclePreparationResult;
+      }
+
+      await this.resetPreparingCycleToOpen(cycle.id);
+      cycle = await this.loadCycleForProcessing(cycle.id);
+
+      if (!cycle) {
+        throw new NotFoundException('Cycle not found.');
+      }
+    }
+
+    if (cycle.status === 'OPEN') {
+      const preparationResult = await this.prepareCycle({
+        cycleId: cycle.id,
+        force: options.force,
+        adminActorId: options.adminActorId,
+      });
+
+      if (preparationResult.state !== 'PREPARED') {
+        return preparationResult;
+      }
+
+      if (!options.force && cycle.revealAt > new Date()) {
+        return preparationResult;
+      }
+
+      return this.revealPreparedCycle({
+        cycleId: cycle.id,
+        force: options.force,
+        adminActorId: options.adminActorId,
+      });
+    }
+
+    if (cycle.status === 'REVEAL_READY') {
+      return this.revealPreparedCycle({
+        cycleId: cycle.id,
+        force: options.force,
+        adminActorId: options.adminActorId,
+      });
+    }
+
+    if (cycle.status === 'REVEALED') {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        message: 'Cycle has already been revealed.',
+      } satisfies CycleRevealResult;
+    }
+
+    throw new BadRequestException(
+      'Only open or prepared cycles can be executed.',
+    );
+  }
+
+  async runAutomationTick() {
+    const recoveredCycleIds = await this.recoverStalePreparingCycles();
+    const preparedCycleIds: string[] = [];
+    const revealedCycleIds: string[] = [];
+
+    const duePreparationCycles = await this.prisma.matchCycle.findMany({
+      where: {
+        status: 'OPEN',
+        participationDeadline: { lte: new Date() },
+      },
+      orderBy: [{ participationDeadline: 'asc' }, { revealAt: 'asc' }],
+      select: { id: true },
+    });
+
+    for (const cycle of duePreparationCycles) {
+      try {
+        const result = await this.prepareCycle({
+          cycleId: cycle.id,
+        });
+
+        if (result.state === 'PREPARED') {
+          preparedCycleIds.push(cycle.id);
+        }
+      } catch {
+        // Skip failed cycles and let the next tick retry after the underlying issue is fixed.
+      }
+    }
+
+    const dueRevealCycles = await this.prisma.matchCycle.findMany({
+      where: {
+        status: 'REVEAL_READY',
+        revealAt: { lte: new Date() },
+      },
+      orderBy: { revealAt: 'asc' },
+      select: { id: true },
+    });
+
+    for (const cycle of dueRevealCycles) {
+      try {
+        const result = await this.revealPreparedCycle({
+          cycleId: cycle.id,
+        });
+
+        if (result.state === 'REVEALED') {
+          revealedCycleIds.push(cycle.id);
+        }
+      } catch {
+        // Keep the cycle in REVEAL_READY so a future tick can reveal it.
+      }
+    }
+
+    return {
+      ok: true,
+      recoveredCycleIds,
+      preparedCycleIds,
+      revealedCycleIds,
+    };
+  }
+
+  private async prepareCycle(options: {
+    cycleId: string;
+    force?: boolean;
+    adminActorId?: string;
+  }): Promise<CyclePreparationResult> {
     const [cycleCandidate, questionnaire] = await Promise.all([
-      this.loadRunnableCycle(options.cycleId),
+      this.loadCycleForProcessing(options.cycleId),
       this.prisma.questionnaireVersion.findFirst({
         where: { isCurrent: true },
         include: {
@@ -297,18 +503,34 @@ export class CyclesService {
     let cycle = cycleCandidate;
 
     if (!cycle) {
-      if (options.cycleId) {
-        throw new NotFoundException('Cycle not found.');
-      }
-
-      return { ok: true, message: 'No open cycle was found.' };
+      throw new NotFoundException('Cycle not found.');
     }
 
     const stickyParticipationInitialization =
       await ensureStickyCycleParticipations(this.prisma, cycle);
 
     if (stickyParticipationInitialization.createdCount > 0) {
-      cycle = await this.loadRunnableCycle(cycle.id);
+      cycle = await this.loadCycleForProcessing(cycle.id);
+
+      if (!cycle) {
+        throw new NotFoundException('Cycle not found.');
+      }
+    }
+
+    if (cycle.status === 'PREPARING') {
+      if (!this.isStalePreparation(cycle.updatedAt)) {
+        return {
+          ok: true,
+          cycleId: cycle.id,
+          state: 'SKIPPED',
+          createdMatches: 0,
+          unmatchedCount: 0,
+          message: 'Cycle is already being prepared.',
+        };
+      }
+
+      await this.resetPreparingCycleToOpen(cycle.id);
+      cycle = await this.loadCycleForProcessing(cycle.id);
 
       if (!cycle) {
         throw new NotFoundException('Cycle not found.');
@@ -316,30 +538,46 @@ export class CyclesService {
     }
 
     if (cycle.status === 'REVEAL_READY') {
-      if (!this.isStaleRevealProcessing(cycle.updatedAt)) {
-        return {
-          ok: true,
-          message: 'Cycle is already being processed.',
-        };
-      }
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        unmatchedCount: 0,
+        message: 'Cycle is already prepared and waiting for reveal.',
+      };
+    }
 
-      await this.resetCycleToOpen(cycle.id);
-      cycle = {
-        ...cycle,
-        status: 'OPEN',
+    if (cycle.status === 'REVEALED') {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        unmatchedCount: 0,
+        message: 'Cycle has already been revealed.',
       };
     }
 
     if (cycle.status !== 'OPEN') {
-      throw new BadRequestException('Only open cycles can be executed.');
+      throw new BadRequestException('Only open cycles can be prepared.');
     }
 
-    if (!options?.force && cycle.revealAt > new Date()) {
-      throw new BadRequestException('Reveal time has not been reached yet.');
+    if (!options.force && cycle.participationDeadline > new Date()) {
+      throw new BadRequestException(
+        'Participation deadline has not been reached yet.',
+      );
     }
 
     if (!questionnaire) {
-      return { ok: false, message: 'Current questionnaire is not configured.' };
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        unmatchedCount: 0,
+        message: 'Current questionnaire is not configured.',
+      };
     }
 
     const claimResult = await this.prisma.matchCycle.updateMany({
@@ -348,64 +586,61 @@ export class CyclesService {
         status: 'OPEN',
       },
       data: {
-        status: 'REVEAL_READY',
+        status: 'PREPARING',
       },
     });
 
     if (claimResult.count === 0) {
       return {
         ok: true,
-        message: 'Cycle is already being processed.',
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        unmatchedCount: 0,
+        message: 'Cycle is already being prepared.',
       };
     }
 
     const optedInCount = cycle.participations.length;
     const participants = this.toEligibleParticipants(cycle.participations);
+    const preparedQuestions = prepareQuestions(questionnaire.questions);
+
+    let selectedPairs: CandidatePair[] = [];
+    let preparationMessage = 'Cycle is prepared and waiting for reveal.';
 
     if (participants.length < 2) {
-      await this.resetCycleToOpen(cycle.id);
-      return {
-        ok: true,
-        message: buildInsufficientParticipantsMessage(
-          optedInCount,
-          participants.length,
-        ),
-      };
-    }
+      preparationMessage = `${buildInsufficientParticipantsMessage(
+        optedInCount,
+        participants.length,
+      )} The cycle has been prepared and will reveal zero matches.`;
+    } else {
+      const calculatedPairs = await this.calculatePairs(
+        participants,
+        questionnaire.questions,
+        cycle.revealAt,
+        cycle.id,
+      );
 
-    const { selectedPairs } = await this.calculatePairs(
-      participants,
-      questionnaire.questions,
-      cycle.revealAt,
-      cycle.id,
-    );
+      selectedPairs = calculatedPairs.selectedPairs;
 
-    if (selectedPairs.length === 0) {
-      await this.resetCycleToOpen(cycle.id);
-      return {
-        ok: true,
-        message: 'No compatible pairs were found for this cycle.',
-      };
+      if (selectedPairs.length === 0) {
+        preparationMessage =
+          'No compatible pairs were found for this cycle. The cycle has been prepared and will reveal zero matches.';
+      }
     }
 
     const unmatchedCount = participants.length - selectedPairs.length * 2;
 
     try {
-      const preparedQuestions = prepareQuestions(questionnaire.questions);
-      const resolvedNarratives = await this.generateNarrativesForPairs(
-        selectedPairs,
-        preparedQuestions,
-      );
+      const resolvedNarratives =
+        selectedPairs.length > 0
+          ? await this.generateNarrativesForPairs(
+              selectedPairs,
+              preparedQuestions,
+            )
+          : [];
 
       await this.prisma.$transaction(async (tx) => {
-        let clearedMatches = 0;
-        if (options?.force) {
-          const deleted = await tx.match.deleteMany({
-            where: { cycleId: cycle.id },
-          });
-          clearedMatches = deleted.count;
-        }
-
         for (const [pairIndex, pair] of selectedPairs.entries()) {
           const narrative = resolvedNarratives[pairIndex];
 
@@ -417,7 +652,7 @@ export class CyclesService {
               reason: narrative.reason,
               conversationTopics: narrative.conversationTopics,
               narrativeSource: narrative.source,
-              revealedAt: new Date(),
+              revealedAt: null,
               participants: {
                 create: [
                   {
@@ -439,44 +674,165 @@ export class CyclesService {
         await tx.matchCycle.update({
           where: { id: cycle.id },
           data: {
-            status: 'REVEALED',
+            status: 'REVEAL_READY',
           },
         });
 
         await tx.auditLog.create({
           data: {
             adminActorId: options.adminActorId,
-            action: 'cycle.revealed',
+            action: 'cycle.prepared',
             metadata: {
               cycleId: cycle.id,
               createdMatches: selectedPairs.length,
               unmatchedCount,
-              forced: options?.force ?? false,
-              ...(clearedMatches > 0 ? { clearedMatches } : {}),
+              forced: options.force ?? false,
+              message: preparationMessage,
             },
           },
         });
       });
     } catch (error) {
-      await this.resetCycleToOpen(cycle.id);
+      await this.resetPreparingCycleToOpen(cycle.id);
       throw error;
     }
 
-    const result = {
+    return {
       ok: true,
       cycleId: cycle.id,
+      state: 'PREPARED',
       createdMatches: selectedPairs.length,
       unmatchedCount,
+      message: preparationMessage,
     };
+  }
 
-    return result;
+  private async revealPreparedCycle(options: {
+    cycleId: string;
+    force?: boolean;
+    adminActorId?: string;
+  }): Promise<CycleRevealResult> {
+    const cycle = await this.prisma.matchCycle.findUnique({
+      where: { id: options.cycleId },
+      select: {
+        id: true,
+        revealAt: true,
+        status: true,
+      },
+    });
+
+    if (!cycle) {
+      throw new NotFoundException('Cycle not found.');
+    }
+
+    if (cycle.status === 'PREPARING') {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        message: 'Cycle is still being prepared.',
+      };
+    }
+
+    if (cycle.status === 'OPEN') {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        message: 'Cycle has not been prepared yet.',
+      };
+    }
+
+    if (cycle.status === 'REVEALED') {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        message: 'Cycle has already been revealed.',
+      };
+    }
+
+    if (cycle.status !== 'REVEAL_READY') {
+      throw new BadRequestException('Only prepared cycles can be revealed.');
+    }
+
+    if (!options.force && cycle.revealAt > new Date()) {
+      throw new BadRequestException('Reveal time has not been reached yet.');
+    }
+
+    const revealedAt = new Date();
+    const revealedMatchCount = await this.prisma.$transaction(async (tx) => {
+      const claimedCycle = await tx.matchCycle.updateMany({
+        where: {
+          id: cycle.id,
+          status: 'REVEAL_READY',
+        },
+        data: {
+          status: 'REVEALED',
+        },
+      });
+
+      if (claimedCycle.count === 0) {
+        return null;
+      }
+
+      const revealedMatches = await tx.match.updateMany({
+        where: {
+          cycleId: cycle.id,
+          revealedAt: null,
+        },
+        data: {
+          revealedAt,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          adminActorId: options.adminActorId,
+          action: 'cycle.revealed',
+          metadata: {
+            cycleId: cycle.id,
+            createdMatches: revealedMatches.count,
+            forced: options.force ?? false,
+          },
+        },
+      });
+
+      return revealedMatches.count;
+    });
+
+    if (revealedMatchCount == null) {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        message: 'Cycle is already being revealed.',
+      };
+    }
+
+    return {
+      ok: true,
+      cycleId: cycle.id,
+      state: 'REVEALED',
+      createdMatches: revealedMatchCount,
+      message:
+        revealedMatchCount > 0
+          ? `Cycle revealed ${revealedMatchCount} prepared match(es).`
+          : 'Cycle revealed with no matches.',
+    };
   }
 
   private async generateNarrativesForPairs(
     selectedPairs: CandidatePair[],
     preparedQuestions: PreparedQuestion[],
   ) {
-    const resolvedNarratives = new Array(selectedPairs.length);
+    const resolvedNarratives = Array<Awaited<
+      ReturnType<MatchNarrativeService['generateNarrative']>
+    > | null>(selectedPairs.length).fill(null);
     const workerCount = Math.min(
       MATCH_NARRATIVE_MAX_CONCURRENCY,
       selectedPairs.length,
@@ -502,7 +858,15 @@ export class CyclesService {
 
     await Promise.all(workers);
 
-    return resolvedNarratives;
+    return resolvedNarratives.map((narrative) => {
+      if (!narrative) {
+        throw new BadRequestException(
+          'Match narrative generation completed with missing results.',
+        );
+      }
+
+      return narrative;
+    });
   }
 
   async previewCycle(cycleId: string) {
@@ -633,39 +997,10 @@ export class CyclesService {
       .then((matches) => this.buildHistoricalPairKeySet(matches));
   }
 
-  private loadRunnableCycle(cycleId?: string) {
-    const include = {
-      participations: {
-        where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
-        select: {
-          intent: true,
-          user: {
-            select: {
-              id: true,
-              displayName: true,
-              questionnaireResponse: true,
-              school: { select: { id: true } },
-            },
-          },
-        },
-      },
-    } satisfies Prisma.MatchCycleInclude;
-
-    if (cycleId) {
-      return this.prisma.matchCycle.findUnique({
-        where: { id: cycleId },
-        include,
-      });
-    }
-
-    return this.prisma.matchCycle.findFirst({
-      where: {
-        status: {
-          in: ['OPEN', 'REVEAL_READY'],
-        },
-      },
-      orderBy: { revealAt: 'asc' },
-      include,
+  private loadCycleForProcessing(cycleId: string) {
+    return this.prisma.matchCycle.findUnique({
+      where: { id: cycleId },
+      include: CYCLE_PROCESSING_INCLUDE,
     });
   }
 
@@ -1083,6 +1418,7 @@ export class CyclesService {
     }
 
     return preparedQuestions
+      .filter((question) => !isHardMatchKey(question.key))
       .map((question) => {
         const normalizedAnswer = normalizePreparedQuestionAnswer(
           question,
@@ -1280,7 +1616,7 @@ export class CyclesService {
     return Math.round(normalizedScore * 10) / 10;
   }
 
-  private async resetCycleToOpen(cycleId: string) {
+  private async resetPreparingCycleToOpen(cycleId: string) {
     await this.prisma.matchCycle.update({
       where: { id: cycleId },
       data: {
@@ -1289,7 +1625,49 @@ export class CyclesService {
     });
   }
 
-  private isStaleRevealProcessing(updatedAt: Date) {
-    return Date.now() - updatedAt.getTime() >= REVEAL_RECOVERY_THRESHOLD_MS;
+  private async resetCycleForForcedRerun(cycleId: string) {
+    await this.prisma.$transaction([
+      this.prisma.match.deleteMany({
+        where: { cycleId },
+      }),
+      this.prisma.matchCycle.update({
+        where: { id: cycleId },
+        data: { status: 'OPEN' },
+      }),
+    ]);
+  }
+
+  private async recoverStalePreparingCycles() {
+    const staleCycles = await this.prisma.matchCycle.findMany({
+      where: {
+        status: 'PREPARING',
+        updatedAt: {
+          lte: new Date(Date.now() - PREPARATION_RECOVERY_THRESHOLD_MS),
+        },
+      },
+      select: { id: true },
+    });
+
+    if (staleCycles.length === 0) {
+      return [];
+    }
+
+    await this.prisma.matchCycle.updateMany({
+      where: {
+        id: { in: staleCycles.map((cycle) => cycle.id) },
+        status: 'PREPARING',
+      },
+      data: {
+        status: 'OPEN',
+      },
+    });
+
+    return staleCycles.map((cycle) => cycle.id);
+  }
+
+  private isStalePreparation(updatedAt: Date) {
+    return (
+      Date.now() - updatedAt.getTime() >= PREPARATION_RECOVERY_THRESHOLD_MS
+    );
   }
 }
