@@ -17,6 +17,7 @@ import type {
 
 const STATUS_STYLES: Record<AdminCycle["status"], { bg: string; color: string }> = {
   OPEN: { bg: "var(--sage-soft)", color: "var(--sage)" },
+  PREPARING: { bg: "rgba(191, 219, 254, 0.35)", color: "#1d4ed8" },
   DRAFT: { bg: "var(--gold-soft)", color: "#8a6d2b" },
   REVEAL_READY: { bg: "var(--accent-soft)", color: "var(--accent-text)" },
   REVEALED: { bg: "var(--coral-soft)", color: "var(--coral)" },
@@ -26,6 +27,7 @@ const CYCLE_STATUS_LABELS: Record<"ALL" | AdminCycle["status"], string> = {
   ALL: "全部",
   DRAFT: "草稿",
   OPEN: "开放报名",
+  PREPARING: "预生成中",
   REVEAL_READY: "待揭晓",
   REVEALED: "已揭晓",
 };
@@ -97,6 +99,19 @@ function buildAdminQueryString(
   return serialized ? `?${serialized}` : "";
 }
 
+function truncateAdminNarrativePreview(value: string | null, maxLength = 56) {
+  const normalizedValue = value?.trim();
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (normalizedValue.length <= maxLength) {
+    return normalizedValue;
+  }
+
+  return `${normalizedValue.slice(0, maxLength).trim()}…`;
+}
+
 export default function AdminCyclesPage() {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminCycle["status"]>("ALL");
@@ -121,6 +136,7 @@ export default function AdminCyclesPage() {
   const [matchPage, setMatchPage] = useState(1);
   const [logPage, setLogPage] = useState(1);
   const [pairPage, setPairPage] = useState(1);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
 
   const { draftSearch, submittedSearch, setDraftSearch, submitSearch } = useAdminSearch();
   const { data, loading, error, refresh } = useAdminCollection<AdminCycle>(
@@ -178,8 +194,13 @@ export default function AdminCyclesPage() {
     setMatchPage(1);
     setLogPage(1);
     setPairPage(1);
+    setExpandedMatchId(null);
     setParticipantFilter("ALL");
   }, [selectedCycle]);
+
+  useEffect(() => {
+    setExpandedMatchId(null);
+  }, [matchPage, selectedCycleId]);
 
   async function loadCycleSummary(cycleId: string) {
     const detail = await fetchApi<AdminCycleDetail>(`/admin/cycles/${cycleId}`);
@@ -503,7 +524,7 @@ export default function AdminCyclesPage() {
             />
           </form>
           <div className="admin-tabs">
-            {(["ALL", "DRAFT", "OPEN", "REVEAL_READY", "REVEALED"] as const).map((s) => (
+            {(["ALL", "DRAFT", "OPEN", "PREPARING", "REVEAL_READY", "REVEALED"] as const).map((s) => (
               <button
                 key={s}
                 type="button"
@@ -611,6 +632,7 @@ export default function AdminCyclesPage() {
               <select value={cycleForm.status} onChange={(e) => setCycleForm((f) => ({ ...f, status: e.target.value as AdminCycle["status"] }))}>
                 <option value="DRAFT">草稿</option>
                 <option value="OPEN">开放报名</option>
+                <option value="PREPARING">预生成中</option>
                 <option value="REVEAL_READY">待揭晓</option>
                 <option value="REVEALED">已揭晓</option>
               </select>
@@ -734,32 +756,57 @@ export default function AdminCyclesPage() {
             ) : matchesData && matchesData.items.length > 0 ? (
               <>
                 <div className="admin-record-list">
-                  {matchesData.items.map((match) => (
+                  {matchesData.items.map((match) => {
+                    const isExpanded = expandedMatchId === match.id;
+                    const reasonPreview = truncateAdminNarrativePreview(match.reason);
+
+                    return (
                     <div key={match.id} className="admin-record-item">
                       <div className="admin-record-topline">
                         <strong>{match.participants.map((p) => p.user.displayName ?? p.user.email).join(" × ")}</strong>
                         <span className="domain-chip">分数 {match.score.toFixed(1)}</span>
                       </div>
                       <div className="admin-inline-meta">
+                        <span>揭晓：{match.revealedAt ? formatDateTime(match.revealedAt) : "待揭晓"}</span>
                         <span>引荐：{match.introducedAt ? formatDateTime(match.introducedAt) : "未引荐"}</span>
                         <span>举报数：{match.reports.length}</span>
                       </div>
-                      {match.reason?.trim() ? (
-                        <p style={{ margin: "0.65rem 0 0" }}>{match.reason}</p>
-                      ) : (
-                        <ul className="admin-reason-list">
-                          {match.reasons.map((r) => <li key={r}>{r}</li>)}
-                        </ul>
-                      )}
-                      {match.conversationTopics.length > 0 ? (
-                        <ul className="admin-reason-list">
-                          {match.conversationTopics.map((topic) => (
-                            <li key={topic}>{topic}</li>
-                          ))}
-                        </ul>
+                      <div className="admin-inline-meta" style={{ marginTop: "0.65rem" }}>
+                        <span>
+                          文案：
+                          {match.reason?.trim() || match.reasons.length > 0 ? "已生成" : "暂无"}
+                        </span>
+                        {reasonPreview ? <span>{reasonPreview}</span> : null}
+                      </div>
+                      <div className="auth-actions" style={{ marginTop: "0.75rem" }}>
+                        <button
+                          className="button-secondary"
+                          type="button"
+                          onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
+                        >
+                          {isExpanded ? "收起文案" : "查看文案"}
+                        </button>
+                      </div>
+                      {isExpanded ? (
+                        <>
+                          {match.reason?.trim() ? (
+                            <p style={{ margin: "0.75rem 0 0" }}>{match.reason}</p>
+                          ) : (
+                            <ul className="admin-reason-list">
+                              {match.reasons.map((r) => <li key={r}>{r}</li>)}
+                            </ul>
+                          )}
+                          {match.conversationTopics.length > 0 ? (
+                            <ul className="admin-reason-list">
+                              {match.conversationTopics.map((topic) => (
+                                <li key={topic}>{topic}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </>
                       ) : null}
                     </div>
-                  ))}
+                  )})}
                 </div>
                 {matchesData.totalPages > 1 && (
                   <div className="admin-pagination">

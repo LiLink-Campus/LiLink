@@ -13,17 +13,17 @@ export class CyclesController {
   constructor(private readonly cyclesService: CyclesService) {}
 
   @Post('run')
-  run(
-    @Headers('x-cron-secret') secret?: string,
-    @Headers('x-force-run') forceRun?: string,
-  ) {
+  run(@Headers('x-cron-secret') secret?: string) {
+    return this.tick(secret);
+  }
+
+  @Post('tick')
+  tick(@Headers('x-cron-secret') secret?: string) {
     if (!this.hasValidCronSecret(secret)) {
       throw new UnauthorizedException('Cron secret is invalid.');
     }
 
-    return this.cyclesService.runRevealCycle({
-      force: forceRun === '1' || forceRun === 'true',
-    });
+    return this.cyclesService.runAutomationTick();
   }
 
   private hasValidCronSecret(secret?: string) {

@@ -1488,7 +1488,7 @@ describe('AccountService', () => {
     });
   });
 
-  it('queues introduction emails instead of rolling back the match state', async () => {
+  it('queues introduction emails with the stored narrative reason and topics', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 2 });
     const queuedEmails = [
       {
@@ -1515,8 +1515,16 @@ describe('AccountService', () => {
           userId: 'user-1',
           match: {
             id: 'match-1',
+            revealedAt: new Date('2026-05-08T12:00:00.000Z'),
             introducedAt: null,
             reasons: ['reason'],
+            reason:
+              '你们在相处节奏和价值判断上都强调稳定与真诚，因此更容易在建立信任后形成持续而自然的交流。',
+            conversationTopics: [
+              '最近怎么放松',
+              '理想陪伴节奏',
+              '想坚持的小事',
+            ],
             participants: [
               {
                 userId: 'user-1',
@@ -1525,6 +1533,12 @@ describe('AccountService', () => {
                   displayName: 'User 1',
                   profile: { headline: 'hello' },
                   school: { name: 'School A' },
+                  questionnaireResponse: {
+                    answers: {
+                      [HARD_MATCH_KEYS.oneLinerIntro]:
+                        '喜欢读书和散步，也愿意认真沟通。',
+                    },
+                  },
                 },
               },
               {
@@ -1534,6 +1548,12 @@ describe('AccountService', () => {
                   displayName: 'User 2',
                   profile: { headline: 'world' },
                   school: { name: 'School B' },
+                  questionnaireResponse: {
+                    answers: {
+                      [HARD_MATCH_KEYS.oneLinerIntro]:
+                        '平时爱看展，也很看重稳定陪伴。',
+                    },
+                  },
                 },
               },
             ],
@@ -1569,6 +1589,24 @@ describe('AccountService', () => {
     await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
       ok: true,
     });
+    expect(mailService.buildIntroductionEmails).toHaveBeenCalledWith({
+      matchId: 'match-1',
+      requester: {
+        email: 'user-1@example.com',
+        displayName: 'User 1',
+        schoolName: 'School A',
+        introLine: '喜欢读书和散步，也愿意认真沟通。',
+      },
+      recipient: {
+        email: 'user-2@example.com',
+        displayName: 'User 2',
+        schoolName: 'School B',
+        introLine: '平时爱看展，也很看重稳定陪伴。',
+      },
+      reason:
+        '你们在相处节奏和价值判断上都强调稳定与真诚，因此更容易在建立信任后形成持续而自然的交流。',
+      conversationTopics: ['最近怎么放松', '理想陪伴节奏', '想坚持的小事'],
+    });
     expect(createMany).toHaveBeenCalledWith({
       data: queuedEmails,
     });
@@ -1578,6 +1616,104 @@ describe('AccountService', () => {
         'match-introduction:match-1:recipient',
       ],
     });
+  });
+
+  it('falls back to legacy reasons and default topics when narrative fields are missing', async () => {
+    const queuedEmails = [
+      {
+        dedupeKey: 'match-introduction:match-1:requester',
+        recipientEmail: 'user-1@example.com',
+        subject: 'subject-1',
+        html: '<p>requester</p>',
+      },
+      {
+        dedupeKey: 'match-introduction:match-1:recipient',
+        recipientEmail: 'user-2@example.com',
+        subject: 'subject-2',
+        html: '<p>recipient</p>',
+      },
+    ];
+    const mailService = {
+      buildIntroductionEmails: jest.fn().mockReturnValue(queuedEmails),
+      flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
+    };
+    const prisma = {
+      matchParticipant: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'participant-1',
+          userId: 'user-1',
+          match: {
+            id: 'match-1',
+            revealedAt: new Date('2026-05-08T12:00:00.000Z'),
+            introducedAt: null,
+            reasons: ['你们都重视稳定。', '你们都偏好真诚沟通。'],
+            reason: null,
+            conversationTopics: null,
+            participants: [
+              {
+                userId: 'user-1',
+                user: {
+                  email: 'user-1@example.com',
+                  displayName: 'User 1',
+                  profile: { headline: 'hello' },
+                  school: { name: 'School A' },
+                  questionnaireResponse: null,
+                },
+              },
+              {
+                userId: 'user-2',
+                user: {
+                  email: 'user-2@example.com',
+                  displayName: 'User 2',
+                  profile: { headline: 'world' },
+                  school: { name: 'School B' },
+                  questionnaireResponse: null,
+                },
+              },
+            ],
+          },
+        }),
+      },
+      block: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback({
+          match: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          matchParticipant: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          outboundEmail: {
+            createMany: jest.fn().mockResolvedValue({ count: 2 }),
+          },
+        }),
+      ),
+    };
+    const service = new AccountService(
+      prisma as never,
+      mailService as never,
+      {} as never,
+    );
+
+    await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
+      ok: true,
+    });
+
+    expect(mailService.buildIntroductionEmails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: '你们都重视稳定。 你们都偏好真诚沟通。',
+        conversationTopics: [
+          '最近一次让你觉得很放松的周末通常怎么过',
+          '你最近在慢慢坚持的一件事是什么',
+          '什么样的聊天节奏会让你觉得相处自然',
+        ],
+      }),
+    );
   });
 
   it('creates only a one-way block when a match is reported', async () => {
@@ -1593,6 +1729,7 @@ describe('AccountService', () => {
             userId: 'user-1',
             match: {
               id: 'match-1',
+              revealedAt: new Date('2026-05-08T12:00:00.000Z'),
               reasons: ['reason'],
               participants: [
                 {

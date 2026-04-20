@@ -27,6 +27,7 @@ enum QuestionType {
 enum MatchCycleStatus {
   DRAFT
   OPEN
+  PREPARING
   REVEAL_READY
   REVEALED
 }

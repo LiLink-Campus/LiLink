@@ -16,7 +16,7 @@ export type AdminCycle = {
   codename: string;
   participationDeadline: string;
   revealAt: string;
-  status: "DRAFT" | "OPEN" | "REVEAL_READY" | "REVEALED";
+  status: "DRAFT" | "OPEN" | "PREPARING" | "REVEAL_READY" | "REVEALED";
   notes: string | null;
   _count: {
     participations: number;

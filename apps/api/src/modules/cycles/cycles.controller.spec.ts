@@ -5,27 +5,25 @@ import { CyclesController } from './cycles.controller';
 describe('CyclesController', () => {
   it('rejects an invalid cron secret', () => {
     const cyclesService = {
-      runRevealCycle: jest.fn(),
+      runAutomationTick: jest.fn(),
     };
     const controller = new CyclesController(cyclesService as never);
 
-    expect(() => controller.run('not-the-secret', 'true')).toThrow(
+    expect(() => controller.run('not-the-secret')).toThrow(
       UnauthorizedException,
     );
-    expect(cyclesService.runRevealCycle).not.toHaveBeenCalled();
+    expect(cyclesService.runAutomationTick).not.toHaveBeenCalled();
   });
 
-  it('runs the reveal cycle when the cron secret matches', async () => {
+  it('runs the automation tick when the cron secret matches', async () => {
     const cyclesService = {
-      runRevealCycle: jest.fn().mockResolvedValue({ ok: true }),
+      runAutomationTick: jest.fn().mockResolvedValue({ ok: true }),
     };
     const controller = new CyclesController(cyclesService as never);
 
-    await expect(controller.run(env.CRON_SECRET, '1')).resolves.toEqual({
+    await expect(controller.run(env.CRON_SECRET)).resolves.toEqual({
       ok: true,
     });
-    expect(cyclesService.runRevealCycle).toHaveBeenCalledWith({
-      force: true,
-    });
+    expect(cyclesService.runAutomationTick).toHaveBeenCalledTimes(1);
   });
 });
