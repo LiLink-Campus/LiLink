@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import blossom from 'edmonds-blossom-fixed';
@@ -34,6 +35,7 @@ import {
   MatchNarrativeService,
   type MatchNarrativeInput,
   type MatchNarrativeQuestionAnswer,
+  type MatchNarrativeResult,
   type MatchNarrativeSignal,
 } from './match-narrative.service';
 
@@ -42,9 +44,9 @@ const SINGLE_SELECT_MATCH_BONUS = 6;
 const MULTI_SELECT_OVERLAP_BONUS = 3;
 const MAX_MATCH_REASONS = 3;
 const MATCH_NARRATIVE_MAX_CONCURRENCY = 3;
+const MATCH_NARRATIVE_DEFAULT_AFTER_MS = 60 * 60 * 1000;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
-const PREPARATION_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 
 /**
  * Only ACTIVE users with a stored weekly intent may appear in matching /
@@ -129,7 +131,7 @@ type MatchScoreBounds = {
 type CyclePreparationResult = {
   ok: true;
   cycleId: string;
-  state: 'PREPARED' | 'SKIPPED';
+  state: 'PREPARED' | 'PENDING' | 'SKIPPED';
   message: string;
   createdMatches: number;
   unmatchedCount: number;
@@ -141,6 +143,22 @@ type CycleRevealResult = {
   state: 'REVEALED' | 'SKIPPED';
   message: string;
   createdMatches: number;
+};
+
+type NarrativePersistenceMatch = {
+  id: string;
+  score: number;
+  reasons: Prisma.JsonValue;
+  createdAt: Date;
+  participants: Array<{
+    userId: string;
+    position: number;
+  }>;
+};
+
+type NarrativeAttemptResult = {
+  matchId: string;
+  narrative: MatchNarrativeResult | null;
 };
 
 /**
@@ -311,6 +329,8 @@ function normalizePreparedQuestionAnswer(
 
 @Injectable()
 export class CyclesService {
+  private readonly logger = new Logger(CyclesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly matchNarrativeService: MatchNarrativeService = new MatchNarrativeService(),
@@ -327,51 +347,12 @@ export class CyclesService {
       throw new NotFoundException('Cycle not found.');
     }
 
-    if (
-      options.force &&
-      cycle.status === 'PREPARING' &&
-      !this.isStalePreparation(cycle.updatedAt)
-    ) {
-      return {
-        ok: true,
-        cycleId: cycle.id,
-        state: 'SKIPPED',
-        createdMatches: 0,
-        unmatchedCount: 0,
-        message: 'Cycle is already being prepared.',
-      } satisfies CyclePreparationResult;
-    }
-
     if (options.force && cycle.status !== 'OPEN') {
       if (cycle.status === 'DRAFT') {
         throw new BadRequestException('Draft cycles cannot be executed.');
       }
 
-      if (cycle.status === 'PREPARING') {
-        await this.resetPreparingCycleToOpen(cycle.id);
-      } else {
-        await this.resetCycleForForcedRerun(cycle.id);
-      }
-      cycle = await this.loadCycleForProcessing(cycle.id);
-
-      if (!cycle) {
-        throw new NotFoundException('Cycle not found.');
-      }
-    }
-
-    if (cycle.status === 'PREPARING') {
-      if (!this.isStalePreparation(cycle.updatedAt)) {
-        return {
-          ok: true,
-          cycleId: cycle.id,
-          state: 'SKIPPED',
-          createdMatches: 0,
-          unmatchedCount: 0,
-          message: 'Cycle is already being prepared.',
-        } satisfies CyclePreparationResult;
-      }
-
-      await this.resetPreparingCycleToOpen(cycle.id);
+      await this.resetCycleForForcedRerun(cycle.id);
       cycle = await this.loadCycleForProcessing(cycle.id);
 
       if (!cycle) {
@@ -381,6 +362,28 @@ export class CyclesService {
 
     if (cycle.status === 'OPEN') {
       const preparationResult = await this.prepareCycle({
+        cycleId: cycle.id,
+        force: options.force,
+        adminActorId: options.adminActorId,
+      });
+
+      if (preparationResult.state !== 'PREPARED') {
+        return preparationResult;
+      }
+
+      if (!options.force && cycle.revealAt > new Date()) {
+        return preparationResult;
+      }
+
+      return this.revealPreparedCycle({
+        cycleId: cycle.id,
+        force: options.force,
+        adminActorId: options.adminActorId,
+      });
+    }
+
+    if (cycle.status === 'PREPARING') {
+      const preparationResult = await this.continuePreparingCycle({
         cycleId: cycle.id,
         force: options.force,
         adminActorId: options.adminActorId,
@@ -425,7 +428,6 @@ export class CyclesService {
   }
 
   async runAutomationTick() {
-    const recoveredCycleIds = await this.recoverStalePreparingCycles();
     const preparedCycleIds: string[] = [];
     const revealedCycleIds: string[] = [];
 
@@ -447,8 +449,30 @@ export class CyclesService {
         if (result.state === 'PREPARED') {
           preparedCycleIds.push(cycle.id);
         }
-      } catch {
-        // Skip failed cycles and let the next tick retry after the underlying issue is fixed.
+      } catch (error) {
+        this.logAutomationError('prepare', cycle.id, error);
+      }
+    }
+
+    const preparingCycles = await this.prisma.matchCycle.findMany({
+      where: {
+        status: 'PREPARING',
+      },
+      orderBy: [{ revealAt: 'asc' }, { updatedAt: 'asc' }],
+      select: { id: true },
+    });
+
+    for (const cycle of preparingCycles) {
+      try {
+        const result = await this.continuePreparingCycle({
+          cycleId: cycle.id,
+        });
+
+        if (result.state === 'PREPARED') {
+          preparedCycleIds.push(cycle.id);
+        }
+      } catch (error) {
+        this.logAutomationError('prepare', cycle.id, error);
       }
     }
 
@@ -470,14 +494,13 @@ export class CyclesService {
         if (result.state === 'REVEALED') {
           revealedCycleIds.push(cycle.id);
         }
-      } catch {
-        // Keep the cycle in REVEAL_READY so a future tick can reveal it.
+      } catch (error) {
+        this.logAutomationError('reveal', cycle.id, error);
       }
     }
 
     return {
       ok: true,
-      recoveredCycleIds,
       preparedCycleIds,
       revealedCycleIds,
     };
@@ -510,26 +533,6 @@ export class CyclesService {
       await ensureStickyCycleParticipations(this.prisma, cycle);
 
     if (stickyParticipationInitialization.createdCount > 0) {
-      cycle = await this.loadCycleForProcessing(cycle.id);
-
-      if (!cycle) {
-        throw new NotFoundException('Cycle not found.');
-      }
-    }
-
-    if (cycle.status === 'PREPARING') {
-      if (!this.isStalePreparation(cycle.updatedAt)) {
-        return {
-          ok: true,
-          cycleId: cycle.id,
-          state: 'SKIPPED',
-          createdMatches: 0,
-          unmatchedCount: 0,
-          message: 'Cycle is already being prepared.',
-        };
-      }
-
-      await this.resetPreparingCycleToOpen(cycle.id);
       cycle = await this.loadCycleForProcessing(cycle.id);
 
       if (!cycle) {
@@ -632,13 +635,13 @@ export class CyclesService {
     const unmatchedCount = participants.length - selectedPairs.length * 2;
 
     try {
-      const resolvedNarratives =
-        selectedPairs.length > 0
-          ? await this.generateNarrativesForPairs(
-              selectedPairs,
-              preparedQuestions,
-            )
-          : [];
+      const resolvedNarratives = await this.generateNarrativesForPairs(
+        selectedPairs,
+        preparedQuestions,
+      );
+      const pendingNarrativeCount = resolvedNarratives.filter(
+        (narrative) => narrative == null,
+      ).length;
 
       await this.prisma.$transaction(async (tx) => {
         for (const [pairIndex, pair] of selectedPairs.entries()) {
@@ -649,9 +652,9 @@ export class CyclesService {
               cycleId: cycle.id,
               score: pair.score,
               reasons: pair.reasons,
-              reason: narrative.reason,
-              conversationTopics: narrative.conversationTopics,
-              narrativeSource: narrative.source,
+              reason: narrative?.reason ?? null,
+              conversationTopics: narrative?.conversationTopics ?? null,
+              narrativeSource: narrative?.source ?? null,
               revealedAt: null,
               participants: {
                 create: [
@@ -671,29 +674,58 @@ export class CyclesService {
           });
         }
 
-        await tx.matchCycle.update({
-          where: { id: cycle.id },
-          data: {
-            status: 'REVEAL_READY',
-          },
-        });
+        if (pendingNarrativeCount === 0) {
+          await tx.matchCycle.update({
+            where: { id: cycle.id },
+            data: {
+              status: 'REVEAL_READY',
+            },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              adminActorId: options.adminActorId,
+              action: 'cycle.prepared',
+              metadata: {
+                cycleId: cycle.id,
+                createdMatches: selectedPairs.length,
+                unmatchedCount,
+                forced: options.force ?? false,
+                message: preparationMessage,
+              },
+            },
+          });
+          return;
+        }
 
         await tx.auditLog.create({
           data: {
             adminActorId: options.adminActorId,
-            action: 'cycle.prepared',
+            action: 'cycle.preparing',
             metadata: {
               cycleId: cycle.id,
               createdMatches: selectedPairs.length,
               unmatchedCount,
+              pendingNarrativeCount,
               forced: options.force ?? false,
-              message: preparationMessage,
+              message: 'Cycle created matches and is waiting for pending narratives.',
             },
           },
         });
       });
+
+      if (pendingNarrativeCount > 0) {
+        return {
+          ok: true,
+          cycleId: cycle.id,
+          state: 'PENDING',
+          createdMatches: selectedPairs.length,
+          unmatchedCount,
+          message: `Cycle created ${selectedPairs.length} match(es) and is still generating ${pendingNarrativeCount} narrative(s).`,
+        };
+      }
     } catch (error) {
-      await this.resetPreparingCycleToOpen(cycle.id);
+      await this.revertPreparationClaimIfEmpty(cycle.id);
       throw error;
     }
 
@@ -704,6 +736,167 @@ export class CyclesService {
       createdMatches: selectedPairs.length,
       unmatchedCount,
       message: preparationMessage,
+    };
+  }
+
+  private async continuePreparingCycle(options: {
+    cycleId: string;
+    force?: boolean;
+    adminActorId?: string;
+  }): Promise<CyclePreparationResult> {
+    const [cycle, questionnaire] = await Promise.all([
+      this.loadCycleForProcessing(options.cycleId),
+      this.prisma.questionnaireVersion.findFirst({
+        where: { isCurrent: true },
+        include: {
+          questions: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      }),
+    ]);
+
+    if (!cycle) {
+      throw new NotFoundException('Cycle not found.');
+    }
+
+    if (cycle.status === 'REVEAL_READY') {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'PREPARED',
+        createdMatches: await this.prisma.match.count({
+          where: { cycleId: cycle.id },
+        }),
+        unmatchedCount: 0,
+        message: 'Cycle is already prepared and waiting for reveal.',
+      };
+    }
+
+    if (cycle.status !== 'PREPARING') {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        unmatchedCount: 0,
+        message: 'Cycle is not in preparing state.',
+      };
+    }
+
+    const [pendingMatches, totalMatchCount] = await Promise.all([
+      this.loadPendingNarrativeMatches(cycle.id),
+      this.prisma.match.count({
+        where: { cycleId: cycle.id },
+      }),
+    ]);
+    const unmatchedCount = Math.max(
+      0,
+      cycle.participations.length - totalMatchCount * 2,
+    );
+
+    if (pendingMatches.length === 0) {
+      if (totalMatchCount === 0) {
+        const reopenedCycle = await this.prisma.matchCycle.updateMany({
+          where: {
+            id: cycle.id,
+            status: 'PREPARING',
+          },
+          data: {
+            status: 'OPEN',
+          },
+        });
+
+        if (reopenedCycle.count === 0) {
+          return {
+            ok: true,
+            cycleId: cycle.id,
+            state: 'SKIPPED',
+            createdMatches: 0,
+            unmatchedCount: 0,
+            message: 'Cycle state changed before preparation could restart.',
+          };
+        }
+
+        return this.prepareCycle({
+          cycleId: cycle.id,
+          force: options.force,
+          adminActorId: options.adminActorId,
+        });
+      }
+
+      return this.finalizePreparedCycle({
+        cycleId: cycle.id,
+        adminActorId: options.adminActorId,
+        force: options.force,
+        createdMatches: totalMatchCount,
+        unmatchedCount,
+        message: 'Cycle is prepared and waiting for reveal.',
+      });
+    }
+
+    const preparedQuestions = questionnaire
+      ? prepareQuestions(questionnaire.questions)
+      : [];
+    const participantsById = new Map(
+      this.toEligibleParticipants(cycle.participations).map((participant) => [
+        participant.id,
+        participant,
+      ]),
+    );
+    const resolvedNarratives = await this.resolvePendingNarrativesForMatches(
+      pendingMatches,
+      participantsById,
+      preparedQuestions,
+      cycle.revealAt,
+    );
+    const completedNarratives = resolvedNarratives.filter(
+      (entry): entry is { matchId: string; narrative: MatchNarrativeResult } =>
+        entry.narrative != null,
+    );
+
+    if (completedNarratives.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        for (const entry of completedNarratives) {
+          await tx.match.updateMany({
+            where: {
+              id: entry.matchId,
+              OR: [
+                { reason: null },
+                { conversationTopics: null },
+                { narrativeSource: null },
+              ],
+            },
+            data: {
+              reason: entry.narrative.reason,
+              conversationTopics: entry.narrative.conversationTopics,
+              narrativeSource: entry.narrative.source,
+            },
+          });
+        }
+      });
+    }
+
+    const remainingPendingCount = await this.countPendingNarratives(cycle.id);
+
+    if (remainingPendingCount === 0) {
+      return this.finalizePreparedCycle({
+        cycleId: cycle.id,
+        adminActorId: options.adminActorId,
+        force: options.force,
+        createdMatches: totalMatchCount,
+        unmatchedCount,
+        message: 'Cycle is prepared and waiting for reveal.',
+      });
+    }
+
+    return {
+      ok: true,
+      cycleId: cycle.id,
+      state: 'PENDING',
+      createdMatches: totalMatchCount,
+      unmatchedCount,
+      message: `Cycle still has ${remainingPendingCount} pending narrative(s).`,
     };
   }
 
@@ -830,42 +1023,125 @@ export class CyclesService {
     selectedPairs: CandidatePair[],
     preparedQuestions: PreparedQuestion[],
   ) {
-    const resolvedNarratives = Array<Awaited<
-      ReturnType<MatchNarrativeService['generateNarrative']>
-    > | null>(selectedPairs.length).fill(null);
-    const workerCount = Math.min(
-      MATCH_NARRATIVE_MAX_CONCURRENCY,
-      selectedPairs.length,
+    return this.mapWithNarrativeConcurrency(
+      selectedPairs,
+      async (pair, pairIndex) => {
+        try {
+          return await this.matchNarrativeService.generateNarrative(
+            this.buildNarrativeInput(pair, preparedQuestions),
+          );
+        } catch (error) {
+          this.logger.warn(
+            this.buildNarrativeErrorMessage(
+              'pair_generation',
+              `${pair.left.id}::${pair.right.id}`,
+              pairIndex,
+              error,
+            ),
+          );
+          return this.matchNarrativeService.buildDefaultNarrative();
+        }
+      },
     );
-    let nextPairIndex = 0;
+  }
+
+  private async resolvePendingNarrativesForMatches(
+    pendingMatches: NarrativePersistenceMatch[],
+    participantsById: Map<string, EligibleParticipant>,
+    preparedQuestions: PreparedQuestion[],
+    revealAt: Date,
+  ) {
+    return this.mapWithNarrativeConcurrency(
+      pendingMatches,
+      async (pendingMatch, matchIndex) => {
+        if (this.hasNarrativeTimedOut(pendingMatch.createdAt)) {
+          return {
+            matchId: pendingMatch.id,
+            narrative: this.matchNarrativeService.buildDefaultNarrative(),
+          } satisfies NarrativeAttemptResult;
+        }
+
+        const narrativeInput = this.buildNarrativeInputForStoredMatch(
+          pendingMatch,
+          participantsById,
+          preparedQuestions,
+          revealAt,
+        );
+
+        if (!narrativeInput) {
+          this.logger.warn(
+            `Narrative retry skipped for match ${pendingMatch.id} because the stored participants are no longer eligible.`,
+          );
+          return {
+            matchId: pendingMatch.id,
+            narrative: this.matchNarrativeService.buildDefaultNarrative(),
+          } satisfies NarrativeAttemptResult;
+        }
+
+        try {
+          return {
+            matchId: pendingMatch.id,
+            narrative:
+              await this.matchNarrativeService.generateNarrative(narrativeInput),
+          } satisfies NarrativeAttemptResult;
+        } catch (error) {
+          this.logger.warn(
+            this.buildNarrativeErrorMessage(
+              'match_retry',
+              pendingMatch.id,
+              matchIndex,
+              error,
+            ),
+          );
+          return {
+            matchId: pendingMatch.id,
+            narrative: this.matchNarrativeService.buildDefaultNarrative(),
+          } satisfies NarrativeAttemptResult;
+        }
+      },
+    );
+  }
+
+  private async mapWithNarrativeConcurrency<Item, Result>(
+    items: Item[],
+    handler: (item: Item, index: number) => Promise<Result>,
+  ): Promise<Result[]> {
+    if (items.length === 0) {
+      return [];
+    }
+
+    const results = Array<Result>(items.length);
+    const completed = Array<boolean>(items.length).fill(false);
+    const workerCount = Math.min(MATCH_NARRATIVE_MAX_CONCURRENCY, items.length);
+    let nextItemIndex = 0;
 
     const workers = Array.from({ length: workerCount }, async () => {
       while (true) {
-        const currentPairIndex = nextPairIndex;
-        nextPairIndex += 1;
+        const currentItemIndex = nextItemIndex;
+        nextItemIndex += 1;
 
-        if (currentPairIndex >= selectedPairs.length) {
+        if (currentItemIndex >= items.length) {
           return;
         }
 
-        const pair = selectedPairs[currentPairIndex];
-        resolvedNarratives[currentPairIndex] =
-          await this.matchNarrativeService.generateNarrative(
-            this.buildNarrativeInput(pair, preparedQuestions),
-          );
+        results[currentItemIndex] = await handler(
+          items[currentItemIndex],
+          currentItemIndex,
+        );
+        completed[currentItemIndex] = true;
       }
     });
 
     await Promise.all(workers);
 
-    return resolvedNarratives.map((narrative) => {
-      if (!narrative) {
+    return results.map((result, index) => {
+      if (!completed[index]) {
         throw new BadRequestException(
-          'Match narrative generation completed with missing results.',
+          'Concurrent narrative processing completed with missing results.',
         );
       }
 
-      return narrative;
+      return result;
     });
   }
 
@@ -1409,6 +1685,47 @@ export class CyclesService {
     };
   }
 
+  private buildNarrativeInputForStoredMatch(
+    match: NarrativePersistenceMatch,
+    participantsById: Map<string, EligibleParticipant>,
+    preparedQuestions: PreparedQuestion[],
+    revealAt: Date,
+  ): MatchNarrativeInput | null {
+    const orderedParticipants = [...match.participants].sort(
+      (left, right) => left.position - right.position,
+    );
+    const left = orderedParticipants[0]
+      ? participantsById.get(orderedParticipants[0].userId)
+      : null;
+    const right = orderedParticipants[1]
+      ? participantsById.get(orderedParticipants[1].userId)
+      : null;
+
+    if (!left || !right) {
+      return null;
+    }
+
+    const rescoredPair = this.scorePair(left, right, preparedQuestions, revealAt);
+
+    return {
+      score: match.score,
+      intentPair: [left.intent, right.intent],
+      heuristicReasons: this.normalizeStoredReasons(match.reasons),
+      sharedSignals: rescoredPair?.sharedSignals ?? [],
+      participantA: {
+        intro: left.introLine ?? '',
+        questionnaire: this.buildNarrativeQuestionnaire(left, preparedQuestions),
+      },
+      participantB: {
+        intro: right.introLine ?? '',
+        questionnaire: this.buildNarrativeQuestionnaire(
+          right,
+          preparedQuestions,
+        ),
+      },
+    };
+  }
+
   private buildNarrativeQuestionnaire(
     participant: EligibleParticipant,
     preparedQuestions: PreparedQuestion[],
@@ -1451,6 +1768,17 @@ export class CyclesService {
         (questionAnswer): questionAnswer is MatchNarrativeQuestionAnswer =>
           questionAnswer !== null,
       );
+  }
+
+  private normalizeStoredReasons(rawReasons: Prisma.JsonValue) {
+    if (!Array.isArray(rawReasons)) {
+      return [];
+    }
+
+    return rawReasons.filter(
+      (reason): reason is string =>
+        typeof reason === 'string' && reason.trim().length > 0,
+    );
   }
 
   private selectOptimalDisjointPairs(
@@ -1616,15 +1944,6 @@ export class CyclesService {
     return Math.round(normalizedScore * 10) / 10;
   }
 
-  private async resetPreparingCycleToOpen(cycleId: string) {
-    await this.prisma.matchCycle.update({
-      where: { id: cycleId },
-      data: {
-        status: 'OPEN',
-      },
-    });
-  }
-
   private async resetCycleForForcedRerun(cycleId: string) {
     await this.prisma.$transaction([
       this.prisma.match.deleteMany({
@@ -1637,37 +1956,142 @@ export class CyclesService {
     ]);
   }
 
-  private async recoverStalePreparingCycles() {
-    const staleCycles = await this.prisma.matchCycle.findMany({
-      where: {
-        status: 'PREPARING',
-        updatedAt: {
-          lte: new Date(Date.now() - PREPARATION_RECOVERY_THRESHOLD_MS),
-        },
-      },
-      select: { id: true },
+  private async revertPreparationClaimIfEmpty(cycleId: string) {
+    const createdMatchCount = await this.prisma.match.count({
+      where: { cycleId },
     });
 
-    if (staleCycles.length === 0) {
-      return [];
+    if (createdMatchCount > 0) {
+      return;
     }
 
     await this.prisma.matchCycle.updateMany({
       where: {
-        id: { in: staleCycles.map((cycle) => cycle.id) },
+        id: cycleId,
         status: 'PREPARING',
       },
       data: {
         status: 'OPEN',
       },
     });
-
-    return staleCycles.map((cycle) => cycle.id);
   }
 
-  private isStalePreparation(updatedAt: Date) {
-    return (
-      Date.now() - updatedAt.getTime() >= PREPARATION_RECOVERY_THRESHOLD_MS
+  private async finalizePreparedCycle(options: {
+    cycleId: string;
+    adminActorId?: string;
+    force?: boolean;
+    createdMatches: number;
+    unmatchedCount: number;
+    message: string;
+  }): Promise<CyclePreparationResult> {
+    const finalized = await this.prisma.$transaction(async (tx) => {
+      const claimedCycle = await tx.matchCycle.updateMany({
+        where: {
+          id: options.cycleId,
+          status: 'PREPARING',
+        },
+        data: {
+          status: 'REVEAL_READY',
+        },
+      });
+
+      if (claimedCycle.count === 0) {
+        return false;
+      }
+
+      await tx.auditLog.create({
+        data: {
+          adminActorId: options.adminActorId,
+          action: 'cycle.prepared',
+          metadata: {
+            cycleId: options.cycleId,
+            createdMatches: options.createdMatches,
+            unmatchedCount: options.unmatchedCount,
+            forced: options.force ?? false,
+            message: options.message,
+          },
+        },
+      });
+
+      return true;
+    });
+
+    return {
+      ok: true,
+      cycleId: options.cycleId,
+      state: 'PREPARED',
+      createdMatches: options.createdMatches,
+      unmatchedCount: options.unmatchedCount,
+      message: finalized
+        ? options.message
+        : 'Cycle is already prepared and waiting for reveal.',
+    };
+  }
+
+  private countPendingNarratives(cycleId: string) {
+    return this.prisma.match.count({
+      where: {
+        cycleId,
+        OR: [
+          { reason: null },
+          { conversationTopics: null },
+          { narrativeSource: null },
+        ],
+      },
+    });
+  }
+
+  private loadPendingNarrativeMatches(cycleId: string) {
+    return this.prisma.match.findMany({
+      where: {
+        cycleId,
+        OR: [
+          { reason: null },
+          { conversationTopics: null },
+          { narrativeSource: null },
+        ],
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        score: true,
+        reasons: true,
+        createdAt: true,
+        participants: {
+          select: {
+            userId: true,
+            position: true,
+          },
+          orderBy: { position: 'asc' },
+        },
+      },
+    });
+  }
+
+  private hasNarrativeTimedOut(createdAt: Date) {
+    return Date.now() - createdAt.getTime() >= MATCH_NARRATIVE_DEFAULT_AFTER_MS;
+  }
+
+  private logAutomationError(
+    stage: 'prepare' | 'reveal',
+    cycleId: string,
+    error: unknown,
+  ) {
+    const message =
+      error instanceof Error ? error.message : 'Unknown automation error.';
+    this.logger.error(
+      `Cycle automation ${stage} failed for cycle ${cycleId}. ${message}`,
     );
+  }
+
+  private buildNarrativeErrorMessage(
+    stage: 'pair_generation' | 'match_retry',
+    key: string,
+    index: number,
+    error: unknown,
+  ) {
+    const message =
+      error instanceof Error ? error.message : 'Unknown narrative error.';
+    return `Narrative ${stage} failed for ${key} at index ${index}. ${message}`;
   }
 }
