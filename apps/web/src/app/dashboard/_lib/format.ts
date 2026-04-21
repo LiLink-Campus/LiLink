@@ -1,3 +1,5 @@
+import type { DashboardCurrentCycle } from "./types";
+
 export function formatCycleRevealAt(iso: string): string {
   return new Intl.DateTimeFormat("zh-CN", {
     dateStyle: "long",
@@ -15,6 +17,19 @@ export function formatCycleDeadline(iso: string): string {
     minute: "2-digit",
     timeZone: "Asia/Shanghai",
   }).format(new Date(iso));
+}
+
+export function canEditCurrentCycleParticipation(
+  cycle: DashboardCurrentCycle | null,
+): boolean {
+  if (!cycle) {
+    return false;
+  }
+
+  return (
+    cycle.status === "OPEN" &&
+    new Date(cycle.participationDeadline).getTime() > Date.now()
+  );
 }
 
 export function normalizeMatchReasons(reasons: unknown): string[] {

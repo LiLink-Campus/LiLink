@@ -8,6 +8,7 @@ import {
 } from "../../../lib/weekly-intent";
 import { SubPageNav } from "../_components/SubPageNav";
 import { WeeklyIntentCard } from "../_components/WeeklyIntentCard";
+import { canEditCurrentCycleParticipation } from "../_lib/format";
 import type { DashboardPayload } from "../_lib/types";
 
 export function IntentClient({
@@ -21,10 +22,19 @@ export function IntentClient({
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const canEditParticipation = canEditCurrentCycleParticipation(
+    dashboard?.currentCycle ?? null,
+  );
 
   // Pick a weekly intent → server enforces "opt-in requires intent" so this
   // single call covers both the participation toggle and the intent choice.
   async function chooseWeeklyIntent(nextIntent: WeeklyIntent) {
+    if (!canEditParticipation) {
+      setSavedMessage(null);
+      setError("本轮报名已锁定，不能再修改参与状态或本周意图。");
+      return;
+    }
+
     setSaving(true);
     setSavedMessage(null);
     setError(null);
@@ -60,6 +70,12 @@ export function IntentClient({
   }
 
   async function withdrawWeeklyIntent() {
+    if (!canEditParticipation) {
+      setSavedMessage(null);
+      setError("本轮报名已锁定，不能再修改参与状态或本周意图。");
+      return;
+    }
+
     setSaving(true);
     setSavedMessage(null);
     setError(null);

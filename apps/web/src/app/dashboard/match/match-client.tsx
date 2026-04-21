@@ -5,6 +5,7 @@ import { ReportForm } from "../_components/ReportForm";
 import { SubPageNav } from "../_components/SubPageNav";
 import { useMatchActions } from "../_components/useMatchActions";
 import {
+  canEditCurrentCycleParticipation,
   REPORT_FORM_SECTION_ID,
   normalizeConversationTopics,
   normalizeMatchReasons,
@@ -63,12 +64,12 @@ export function MatchClient({
   const introduced = Boolean(latestMatch?.introducedAt);
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
   const currentCycle = dashboard?.currentCycle ?? null;
+  const canEditParticipation = canEditCurrentCycleParticipation(currentCycle);
+  const currentCycleIsLocked = currentCycle !== null && !canEditParticipation;
   const hasMissingIntent =
     currentCycle?.participationStatus === "OPTED_IN" &&
     !currentCycle.intent &&
-    (currentCycle.status === "OPEN" ||
-      currentCycle.status === "PREPARING" ||
-      currentCycle.status === "REVEAL_READY");
+    canEditParticipation;
 
   return (
     <main className="page-shell dashboard-page">
@@ -237,6 +238,18 @@ export function MatchClient({
                 </p>
               </>
             ) : currentCycle?.participationStatus === "OPTED_IN" &&
+              !currentCycle.intent &&
+              currentCycleIsLocked ? (
+              <>
+                <h2>本轮已锁定</h2>
+                <p className="dashboard-muted">
+                  本轮报名已经截止，而且这轮没有保存可用的匹配意图，因此系统不会按本轮为你参与匹配。
+                </p>
+                <p className="dashboard-muted">
+                  你仍可继续完善问卷资料，等待下一轮开放后再选择 Friend、Date 或 Both。
+                </p>
+              </>
+            ) : currentCycle?.participationStatus === "OPTED_IN" &&
               (currentCycle.status === "OPEN" ||
                 currentCycle.status === "PREPARING" ||
                 currentCycle.status === "REVEAL_READY") ? (
@@ -248,6 +261,15 @@ export function MatchClient({
                   {hasSavedQuestionnaire
                     ? "你已填写问卷并已参加本轮。揭晓后将在此显示匹配说明与后续操作；在此前可在「问卷资料」中修改资料。"
                     : "本轮揭晓后将在此显示匹配说明与后续操作。"}
+                </p>
+              </>
+            ) : currentCycleIsLocked ? (
+              <>
+                <h2>{hasSavedQuestionnaire ? "本轮已锁定" : "继续完善资料"}</h2>
+                <p className="dashboard-muted">
+                  {hasSavedQuestionnaire
+                    ? "本轮报名已经截止，当前不能再参加或修改本周意图。你可以继续完善问卷资料，等待下一轮开放。"
+                    : "本轮报名已经截止。你仍可继续填写和完善问卷资料，为下一轮开放后的报名做准备。"}
                 </p>
               </>
             ) : (
