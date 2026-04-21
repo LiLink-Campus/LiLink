@@ -3,11 +3,7 @@ jest.mock('argon2', () => ({
   verify: jest.fn(),
 }));
 
-import {
-  BadRequestException,
-  ServiceUnavailableException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { validateSync } from 'class-validator';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
@@ -123,7 +119,7 @@ describe('AuthService', () => {
     expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
   });
 
-  it('queues and flushes a verification email before returning success', async () => {
+  it('queues a verification email and kicks off async delivery', async () => {
     mockedArgon2.hash.mockResolvedValue('hashed-code');
 
     const create = jest.fn().mockResolvedValue({
@@ -133,15 +129,8 @@ describe('AuthService', () => {
     });
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     const outboundCreate = jest.fn().mockResolvedValue(undefined);
-    const findUnique = jest.fn().mockResolvedValue({
-      id: 'code-1',
-      deliveryStatus: 'SENT',
-    });
     const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
     const prisma = {
-      emailCode: {
-        findUnique,
-      },
       $transaction: jest.fn(
         async (
           callback: (
@@ -170,7 +159,7 @@ describe('AuthService', () => {
             recipientEmail: input.recipientEmail,
             subject: 'LiLink verification code',
             html: '<p>Code</p>',
-            maxAttempts: 1,
+            maxAttempts: 3,
           }),
         ),
         deliverQueuedEmailNow,
@@ -216,7 +205,7 @@ describe('AuthService', () => {
     const outboundPayload = outboundCalls[0]?.[0];
     expect(outboundPayload?.data.dedupeKey).toMatch(/^verification-code:/);
     expect(outboundPayload?.data.recipientEmail).toBe('user@example.com');
-    expect(outboundPayload?.data.maxAttempts).toBe(1);
+    expect(outboundPayload?.data.maxAttempts).toBe(3);
 
     expect(deliverQueuedEmailNow).toHaveBeenCalledTimes(1);
     expect(deliverQueuedEmailNow.mock.calls[0]?.[0]).toMatch(
@@ -228,18 +217,15 @@ describe('AuthService', () => {
     });
   });
 
-  it('rejects requestCode when the verification email could not be delivered', async () => {
+  it('swallows immediate-delivery failures so the request still succeeds', async () => {
     mockedArgon2.hash.mockResolvedValue('hashed-code');
 
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
-    const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
+    // Reject the immediate kick-off; cron should later retry via maxAttempts.
+    const deliverQueuedEmailNow = jest
+      .fn()
+      .mockRejectedValue(new Error('SMTP temporarily unavailable'));
     const prisma = {
-      emailCode: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'code-1',
-          deliveryStatus: 'FAILED',
-        }),
-      },
       $transaction: jest.fn(
         async (
           callback: (
@@ -270,7 +256,7 @@ describe('AuthService', () => {
             recipientEmail: input.recipientEmail,
             subject: 'LiLink verification code',
             html: '<p>Code</p>',
-            maxAttempts: 1,
+            maxAttempts: 3,
           }),
         ),
         deliverQueuedEmailNow,
@@ -283,7 +269,12 @@ describe('AuthService', () => {
 
     await expect(
       authService.requestCode('user@example.com'),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    ).resolves.toMatchObject({ email: 'user@example.com' });
+
+    expect(deliverQueuedEmailNow).toHaveBeenCalledTimes(1);
+    // Allow the fire-and-forget `.catch` handler to run so the Logger is
+    // flushed before the test exits (prevents unhandled rejection warnings).
+    await new Promise((resolve) => setImmediate(resolve));
   });
 
   it('allows password reset for an existing user even when the email domain is no longer accepted', async () => {
@@ -340,7 +331,7 @@ describe('AuthService', () => {
             recipientEmail: input.recipientEmail,
             subject: 'LiLink verification code',
             html: '<p>Code</p>',
-            maxAttempts: 1,
+            maxAttempts: 3,
           }),
         ),
         deliverQueuedEmailNow,

@@ -1,7 +1,7 @@
 import {
   BadRequestException,
   Injectable,
-  ServiceUnavailableException,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -25,6 +25,8 @@ const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
@@ -222,7 +224,7 @@ export class AuthService {
       code,
     });
 
-    const createdCode = await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       await tx.emailCode.updateMany({
         where: {
           email,
@@ -233,7 +235,7 @@ export class AuthService {
         data: { consumedAt: new Date() },
       });
 
-      const emailCode = await tx.emailCode.create({
+      await tx.emailCode.create({
         data: {
           email,
           codeHash,
@@ -246,21 +248,22 @@ export class AuthService {
       await tx.outboundEmail.create({
         data: queuedEmail,
       });
-
-      return emailCode;
     });
 
-    await this.mailService.deliverQueuedEmailNow(deliveryDedupeKey);
-
-    const deliveredCode = await this.prisma.emailCode.findUnique({
-      where: { id: createdCode.id },
-    });
-
-    if (deliveredCode?.deliveryStatus !== 'SENT') {
-      throw new ServiceUnavailableException(
-        'Verification email could not be delivered. Please try again later.',
-      );
-    }
+    // Kick off delivery without blocking the HTTP response. Failures fall
+    // through to the 30s cron (`handleEmailQueue`) and are retried up to
+    // `maxAttempts`. This keeps /auth/request-code fast enough to absorb
+    // traffic spikes (e.g. onboarding cohorts) while preserving at-least-once
+    // delivery via the outbound queue.
+    void this.mailService
+      .deliverQueuedEmailNow(deliveryDedupeKey)
+      .catch((error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Immediate delivery failed for ${deliveryDedupeKey}; cron will retry. Reason: ${message}`,
+        );
+      });
 
     return {
       email,
