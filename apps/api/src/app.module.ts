@@ -27,9 +27,15 @@ import { authEmailThrottler } from './modules/auth/auth-throttle';
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot({
       throttlers: [
+        // Default bucket for all non-auth routes. Sized for shared-egress
+        // networks (campus NAT / corporate LAN): ~100 concurrent users can
+        // comfortably issue ~10 requests/min each without hitting the cap,
+        // while still shutting down scanners that burst above ~17 req/s.
+        // Sensitive auth endpoints stay protected via their own @Throttle
+        // decorators (see auth-throttle.ts).
         {
           ttl: 60_000,
-          limit: 30,
+          limit: 1000,
         },
         authEmailThrottler,
       ],
