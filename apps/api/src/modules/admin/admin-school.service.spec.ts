@@ -143,10 +143,29 @@ describe('AdminSchoolService', () => {
           id: 'response-1',
           answers: {
             [HARD_MATCH_KEYS.school]: 'school-source',
-            [HARD_MATCH_KEYS.excludedPartnerSchools]: [
-              'school-source',
-              'school-third',
+            [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-third'],
+            [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [
+              {
+                schoolId: 'school-source',
+                genders: ['女'],
+              },
             ],
+          },
+          draftAnswers: {
+            softAnswers: {
+              current_question: 'kept',
+            },
+            displayName: 'Draft Name',
+            hardMatchForm: {
+              birthYear: '2000',
+              excludedPartnerSchools: ['school-third'],
+              excludedPartnerSchoolGenders: [
+                {
+                  schoolId: 'school-source',
+                  genders: ['女'],
+                },
+              ],
+            },
           },
           user: {
             schoolId: 'school-target',
@@ -157,6 +176,7 @@ describe('AdminSchoolService', () => {
           answers: {
             [HARD_MATCH_KEYS.school]: 'school-source',
           },
+          draftAnswers: null,
           user: {
             schoolId: 'school-target',
           },
@@ -217,10 +237,29 @@ describe('AdminSchoolService', () => {
       data: {
         answers: {
           [HARD_MATCH_KEYS.school]: 'school-target',
-          [HARD_MATCH_KEYS.excludedPartnerSchools]: [
-            'school-target',
-            'school-third',
+          [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-third'],
+          [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [
+            {
+              schoolId: 'school-target',
+              genders: ['女'],
+            },
           ],
+        },
+        draftAnswers: {
+          softAnswers: {
+            current_question: 'kept',
+          },
+          displayName: 'Draft Name',
+          hardMatchForm: {
+            birthYear: '2000',
+            excludedPartnerSchools: ['school-third'],
+            excludedPartnerSchoolGenders: [
+              {
+                schoolId: 'school-target',
+                genders: ['女'],
+              },
+            ],
+          },
         },
       },
     });
@@ -229,6 +268,109 @@ describe('AdminSchoolService', () => {
       data: {
         answers: {
           [HARD_MATCH_KEYS.school]: 'school-target',
+        },
+      },
+    });
+  });
+
+  it('rewrites questionnaire draft exclusions when deleting schools', async () => {
+    const questionnaireResponse = {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'response-1',
+          answers: {
+            [HARD_MATCH_KEYS.school]: 'school-source',
+            [HARD_MATCH_KEYS.excludedPartnerSchools]: [
+              'school-source',
+              'school-third',
+            ],
+            [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [
+              {
+                schoolId: 'school-source',
+                genders: ['女'],
+              },
+              {
+                schoolId: 'school-third',
+                genders: ['男'],
+              },
+            ],
+          },
+          draftAnswers: {
+            softAnswers: {
+              current_question: 'kept',
+            },
+            displayName: 'Draft Name',
+            hardMatchForm: {
+              birthYear: '2000',
+              excludedPartnerSchools: ['school-source', 'school-third'],
+              excludedPartnerSchoolGenders: [
+                {
+                  schoolId: 'school-source',
+                  genders: ['女'],
+                },
+                {
+                  schoolId: 'school-third',
+                  genders: ['男'],
+                },
+              ],
+            },
+          },
+          user: {
+            schoolId: 'school-source',
+          },
+        },
+      ]),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const prisma = {
+      school: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'school-source',
+          slug: 'source-school',
+        }),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        Promise.resolve(
+          callback({
+            school: {
+              findMany: jest.fn().mockResolvedValue([{ id: 'school-third' }]),
+              delete: jest.fn().mockResolvedValue(undefined),
+            },
+            schoolDomain: {
+              deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+            },
+            questionnaireResponse,
+          }),
+        ),
+      ),
+    };
+    const auditService = {
+      write: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new AdminSchoolService(
+      prisma as never,
+      auditService as never,
+    );
+
+    await service.delete('school-source', 'admin-1');
+
+    expect(questionnaireResponse.update).toHaveBeenCalledWith({
+      where: { id: 'response-1' },
+      data: {
+        answers: {
+          [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-third'],
+          [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+        },
+        draftAnswers: {
+          softAnswers: {
+            current_question: 'kept',
+          },
+          displayName: 'Draft Name',
+          hardMatchForm: {
+            birthYear: '2000',
+            excludedPartnerSchools: ['school-third'],
+            excludedPartnerSchoolGenders: [],
+          },
         },
       },
     });
