@@ -50,4 +50,73 @@ describe('PublicService', () => {
     expect(prisma.match.count).toHaveBeenCalledTimes(1);
     expect(prisma.matchCycle.findFirst).toHaveBeenCalledTimes(1);
   });
+
+  describe('getEligibleSchools', () => {
+    it('returns schools with their domains and aggregated counts', async () => {
+      const findMany = jest.fn<
+        Promise<
+          Array<{
+            name: string;
+            description: string | null;
+            domains: Array<{ domain: string }>;
+          }>
+        >,
+        [{ where?: unknown; select?: unknown; orderBy?: unknown }]
+      >();
+      findMany.mockResolvedValue([
+        {
+          name: '复旦大学',
+          description: 'fudan',
+          domains: [{ domain: 'fudan.edu.cn' }, { domain: 'm.fudan.edu.cn' }],
+        },
+        {
+          name: '上海交通大学',
+          description: null,
+          domains: [{ domain: 'sjtu.edu.cn' }],
+        },
+      ]);
+      const prisma = { school: { findMany } };
+      const service = new PublicService(prisma as never);
+
+      const payload = await service.getEligibleSchools();
+
+      expect(payload.totalSchoolCount).toBe(2);
+      expect(payload.totalDomainCount).toBe(3);
+      expect(payload.schools).toEqual([
+        {
+          name: '复旦大学',
+          description: 'fudan',
+          domains: ['fudan.edu.cn', 'm.fudan.edu.cn'],
+        },
+        {
+          name: '上海交通大学',
+          description: null,
+          domains: ['sjtu.edu.cn'],
+        },
+      ]);
+      expect(payload.generatedAt).toBeInstanceOf(Date);
+
+      // Schools without any domain are excluded so the public list never shows
+      // an entry that users cannot actually use to register.
+      const findManyArgs = findMany.mock.calls[0][0];
+      expect(findManyArgs.where).toEqual({ domains: { some: {} } });
+    });
+
+    it('reuses the cached eligible schools payload within the TTL window', async () => {
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          name: '复旦大学',
+          description: null,
+          domains: [{ domain: 'fudan.edu.cn' }],
+        },
+      ]);
+      const prisma = { school: { findMany } };
+      const service = new PublicService(prisma as never);
+
+      await service.getEligibleSchools();
+      await service.getEligibleSchools();
+
+      expect(findMany).toHaveBeenCalledTimes(1);
+    });
+  });
 });

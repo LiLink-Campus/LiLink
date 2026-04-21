@@ -12,4 +12,10 @@ export class PublicController {
   getLanding() {
     return this.publicService.getLandingPayload();
   }
+
+  @Get('schools')
+  @Throttle(createPublicReadThrottle())
+  getSchools() {
+    return this.publicService.getEligibleSchools();
+  }
 }
