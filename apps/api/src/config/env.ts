@@ -22,6 +22,8 @@ const envSchema = z.object({
   ADMIN_JWT_SECRET: z
     .string()
     .min(16, 'ADMIN_JWT_SECRET must be at least 16 characters.'),
+  USER_SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(14),
+  ADMIN_SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(14),
   COOKIE_NAME: z.string().default('lilink_token'),
   ADMIN_COOKIE_NAME: z.string().default('lilink_admin_token'),
   COOKIE_DOMAIN: z.string().optional(),
@@ -34,6 +36,28 @@ const envSchema = z.object({
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
   SMTP_FROM: z.string().min(1, 'SMTP_FROM is required.'),
+  SMTP_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(100).default(10),
+  SMTP_MAX_MESSAGES: z.coerce.number().int().min(1).max(1000).default(100),
+  SMTP_CONNECTION_TIMEOUT_MS: z.coerce.number()
+    .int()
+    .min(1000)
+    .max(120_000)
+    .default(5000),
+  SMTP_GREETING_TIMEOUT_MS: z.coerce.number()
+    .int()
+    .min(1000)
+    .max(120_000)
+    .default(5000),
+  SMTP_SOCKET_TIMEOUT_MS: z.coerce.number()
+    .int()
+    .min(1000)
+    .max(600_000)
+    .default(10_000),
+  SMTP_SEND_CONCURRENCY: z.coerce.number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(10),
   ADMIN_BOOTSTRAP_EMAIL: z.email().optional(),
   ADMIN_BOOTSTRAP_PASSWORD: z
     .string()

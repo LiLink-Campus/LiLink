@@ -15,6 +15,7 @@ import { CyclesModule } from './modules/cycles/cycles.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AdminSessionModule } from './modules/admin-session/admin-session.module';
 import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
+import { authEmailThrottler } from './modules/auth/auth-throttle';
 
 @Module({
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
@@ -24,12 +25,15 @@ import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
       envFilePath: monorepoEnvFilePaths(),
     }),
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60_000,
-        limit: 30,
-      },
-    ]),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60_000,
+          limit: 30,
+        },
+        authEmailThrottler,
+      ],
+    }),
     PrismaModule,
     MailModule,
     SchoolModule,
