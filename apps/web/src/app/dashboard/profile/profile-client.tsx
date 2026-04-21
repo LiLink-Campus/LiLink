@@ -23,6 +23,8 @@ import {
   MONTH_OPTIONS,
   buildDayOptions,
   hardMatchFormFromAnswers,
+  schoolGenderExclusionFor,
+  setSchoolGenderExclusion,
   toggleMultiSelectValue,
   type HardMatchFormState,
   type HardMatchSchoolOption,
@@ -141,6 +143,24 @@ function questionnaireAutosaveFailureMessage(
     : `问卷自动保存失败，系统将在 ${Math.ceil(retryDelayMs / 1000)} 秒后自动重试。`;
 }
 
+function initiallyExpandedExcludedSchoolIds(
+  schoolOptions: HardMatchSchoolOption[],
+  hardMatchForm: HardMatchFormState,
+) {
+  return schoolOptions
+    .filter((school) => {
+      if (hardMatchForm.excludedPartnerSchools.includes(school.id)) {
+        return true;
+      }
+
+      return schoolGenderExclusionFor(
+        hardMatchForm.excludedPartnerSchoolGenders,
+        school.id,
+      ).length > 0;
+    })
+    .map((school) => school.id);
+}
+
 export function ProfileClient({
   initialUser,
   initialDashboard,
@@ -156,6 +176,9 @@ export function ProfileClient({
 }) {
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;
   const initialSubmittedAnswers = initialSavedQuestionnaire?.answers;
+  const initialHardMatchForm =
+    initialDraft?.hardMatchForm ??
+    hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(
     initialDashboard,
   );
@@ -165,10 +188,8 @@ export function ProfileClient({
     initialDraft?.softAnswers ??
       keepCurrentQuestionAnswers(initialQuestions, initialSubmittedAnswers),
   );
-  const [hardMatchForm, setHardMatchForm] = useState<HardMatchFormState>(() =>
-    initialDraft?.hardMatchForm ??
-      hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools),
-  );
+  const [hardMatchForm, setHardMatchForm] =
+    useState<HardMatchFormState>(initialHardMatchForm);
   const [displayName, setDisplayName] = useState(
     initialDraft?.displayName ?? initialUser.displayName ?? "",
   );
@@ -183,6 +204,9 @@ export function ProfileClient({
     Boolean(initialDraft),
   );
   const [activeTab, setActiveTab] = useState<ProfileTab>("self");
+  const [expandedExcludedSchoolIds, setExpandedExcludedSchoolIds] = useState<
+    string[]
+  >(() => initiallyExpandedExcludedSchoolIds(initialSchools, initialHardMatchForm));
   const questionnaireAutosaveReady = useRef(false);
   const questionnaireSaveAbortRef = useRef<AbortController | null>(null);
   const questionnaireSaveInFlightRef = useRef(false);
@@ -198,8 +222,7 @@ export function ProfileClient({
       buildQuestionnaireSavePayload(
         initialDraft?.softAnswers ??
           keepCurrentQuestionAnswers(initialQuestions, initialSubmittedAnswers),
-        initialDraft?.hardMatchForm ??
-          hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools),
+        initialHardMatchForm,
         initialDraft?.displayName ?? initialUser.displayName ?? "",
       ),
     ),
@@ -236,13 +259,81 @@ export function ProfileClient({
   }
 
   function toggleHardSelection(
-    field: "partnerGenders" | "partnerLooks" | "excludedPartnerSchools",
+    field: "partnerGenders" | "partnerLooks",
     nextValue: string,
   ) {
     setHardMatchForm((current) => ({
       ...current,
       [field]: toggleMultiSelectValue(current[field], nextValue),
     }));
+  }
+
+  function toggleExcludedSchoolExpansion(schoolId: string) {
+    setExpandedExcludedSchoolIds((current) =>
+      current.includes(schoolId)
+        ? current.filter((item) => item !== schoolId)
+        : [...current, schoolId],
+    );
+  }
+
+  function toggleExcludedPartnerSchool(schoolId: string) {
+    setExpandedExcludedSchoolIds((current) =>
+      current.includes(schoolId) ? current : [...current, schoolId],
+    );
+    setHardMatchForm((current) => {
+      const isExcluded = current.excludedPartnerSchools.includes(schoolId);
+
+      return {
+        ...current,
+        excludedPartnerSchools: isExcluded
+          ? current.excludedPartnerSchools.filter((item) => item !== schoolId)
+          : [...current.excludedPartnerSchools, schoolId],
+        excludedPartnerSchoolGenders: setSchoolGenderExclusion(
+          current.excludedPartnerSchoolGenders,
+          schoolId,
+          [],
+        ),
+      };
+    });
+  }
+
+  function toggleExcludedPartnerSchoolGender(schoolId: string, gender: string) {
+    setExpandedExcludedSchoolIds((current) =>
+      current.includes(schoolId) ? current : [...current, schoolId],
+    );
+    setHardMatchForm((current) => {
+      const currentGenders = schoolGenderExclusionFor(
+        current.excludedPartnerSchoolGenders,
+        schoolId,
+      );
+      const nextGenders = toggleMultiSelectValue(currentGenders, gender);
+
+      if (nextGenders.length === HARD_MATCH_GENDERS.length) {
+        return {
+          ...current,
+          excludedPartnerSchools: current.excludedPartnerSchools.includes(schoolId)
+            ? current.excludedPartnerSchools
+            : [...current.excludedPartnerSchools, schoolId],
+          excludedPartnerSchoolGenders: setSchoolGenderExclusion(
+            current.excludedPartnerSchoolGenders,
+            schoolId,
+            [],
+          ),
+        };
+      }
+
+      return {
+        ...current,
+        excludedPartnerSchools: current.excludedPartnerSchools.filter(
+          (item) => item !== schoolId,
+        ),
+        excludedPartnerSchoolGenders: setSchoolGenderExclusion(
+          current.excludedPartnerSchoolGenders,
+          schoolId,
+          nextGenders,
+        ),
+      };
+    });
   }
 
   const flushQueuedQuestionnaireSave = useEffectEvent(
@@ -931,37 +1022,107 @@ export function ProfileClient({
             </fieldset>
 
             <fieldset className="question-block">
-              <legend>不希望对方是哪个学校的（可多选）</legend>
+              <legend>按学校细分排除性别（可选）</legend>
               <p className="dashboard-muted">
-                选中的学校将被排除，不选则不限。
+                点开学校后，可以只排除该校里的某些性别；勾选“整校排除”则排除该校所有人。
               </p>
-              <div className="chip-grid">
+              <div className="school-exclusion-list">
                 {schoolOptions.map((school, i) => {
-                  const active = hardMatchForm.excludedPartnerSchools.includes(
+                  const excludedGenders = schoolGenderExclusionFor(
+                    hardMatchForm.excludedPartnerSchoolGenders,
                     school.id,
                   );
+                  const isSchoolExcluded = hardMatchForm.excludedPartnerSchools.includes(
+                    school.id,
+                  );
+                  const isExpanded = expandedExcludedSchoolIds.includes(
+                    school.id,
+                  );
+                  const summary = isSchoolExcluded
+                    ? "整校排除"
+                    : excludedGenders.length > 0
+                      ? `已排除：${excludedGenders.join("、")}`
+                      : "未限制";
                   return (
-                    <label
+                    <section
                       key={school.id}
-                      className={active ? "chip active" : "chip"}
+                      className={
+                        isSchoolExcluded || excludedGenders.length > 0
+                          ? "school-exclusion-card is-active"
+                          : "school-exclusion-card"
+                      }
                     >
-                      <input
-                        checked={active}
-                        id={buildDashboardFieldId(
-                          "excluded-partner-schools",
-                          i,
-                        )}
-                        name="excludedPartnerSchools"
-                        type="checkbox"
-                        onChange={() =>
-                          toggleHardSelection(
-                            "excludedPartnerSchools",
-                            school.id,
-                          )
-                        }
-                      />
-                      <span>{school.name}</span>
-                    </label>
+                      <button
+                        type="button"
+                        className="school-exclusion-summary"
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleExcludedSchoolExpansion(school.id)}
+                      >
+                        <span className="school-exclusion-title">
+                          {school.name}
+                        </span>
+                        <span className="school-exclusion-meta">
+                          {summary}
+                        </span>
+                      </button>
+                      {isExpanded ? (
+                        <div className="school-exclusion-panel">
+                          <label
+                            className={isSchoolExcluded ? "chip active" : "chip"}
+                          >
+                            <input
+                              checked={isSchoolExcluded}
+                              id={buildDashboardFieldId(
+                                "excluded-partner-school-all",
+                                i,
+                              )}
+                              name={`excludedPartnerSchoolAll-${school.id}`}
+                              type="checkbox"
+                              onChange={() =>
+                                toggleExcludedPartnerSchool(school.id)
+                              }
+                            />
+                            <span>整校排除</span>
+                          </label>
+                          <div className="chip-grid school-exclusion-genders">
+                            {HARD_MATCH_GENDERS.map((gender, genderIndex) => {
+                              const active = excludedGenders.includes(gender);
+                              return (
+                                <label
+                                  key={gender}
+                                  className={
+                                    active
+                                      ? "chip active"
+                                      : isSchoolExcluded
+                                        ? "chip is-disabled"
+                                        : "chip"
+                                  }
+                                >
+                                  <input
+                                    checked={active}
+                                    disabled={isSchoolExcluded}
+                                    id={buildDashboardFieldId(
+                                      "excluded-partner-school-gender",
+                                      i,
+                                      genderIndex,
+                                    )}
+                                    name={`excludedPartnerSchoolGender-${school.id}`}
+                                    type="checkbox"
+                                    onChange={() =>
+                                      toggleExcludedPartnerSchoolGender(
+                                        school.id,
+                                        gender,
+                                      )
+                                    }
+                                  />
+                                  <span>{gender}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+                    </section>
                   );
                 })}
               </div>
