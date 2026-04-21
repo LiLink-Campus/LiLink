@@ -64,7 +64,10 @@ export const publicAuthRouteThrottles: Record<
   },
   login: {
     emailLimit: 5,
-    ipLimit: 120,
+    // Sized for shared-egress networks (campus NAT / corporate LAN) where
+    // hundreds of legitimate logins can land on the same source IP within a
+    // minute. Brute-force protection still relies on the per-email cap above.
+    ipLimit: 600,
     ttlMs: AUTH_THROTTLE_TTL_MS,
   },
 };
