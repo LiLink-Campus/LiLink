@@ -11,10 +11,10 @@ export interface Announcement {
  */
 export const announcements: Announcement[] = [
   {
-    id: "2026-04-22-eligible-schools-and-dashboard-perf",
-    title: "新增「支持的学校」总览，仪表盘加载更快",
+    id: "2026-04-22-eligible-schools-and-concurrency-perf",
+    title: "新增「支持的学校」总览，并发性能优化",
     content:
-      "页脚与注册页新增「支持的学校」入口，注册前即可查看完整的可注册邮箱后缀。同时我们优化了仪表盘的数据组装，打开匹配结果会比以前明显更快。",
+      "页脚与注册页新增「支持的学校」入口，注册前即可查看完整的可注册邮箱后缀。后端完成一轮并发性能优化，多人同时使用时响应会更稳。",
     date: "2026-04-22",
   },
   {
