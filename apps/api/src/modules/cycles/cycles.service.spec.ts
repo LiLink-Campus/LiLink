@@ -20,6 +20,10 @@ type EligibleParticipantStub = {
     oneLinerIntro: string;
     school: string;
     excludedPartnerSchools: string[];
+    excludedPartnerSchoolGenders?: Array<{
+      schoolId: string;
+      genders: string[];
+    }>;
   };
   answers: Record<string, unknown>;
   intent: 'FRIEND' | 'DATE' | 'BOTH';

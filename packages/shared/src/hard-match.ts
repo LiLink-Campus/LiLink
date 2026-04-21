@@ -22,11 +22,16 @@ export const HARD_MATCH_KEYS = {
   oneLinerIntro: "hard_one_liner_intro",
   school: "hard_school",
   excludedPartnerSchools: "hard_excluded_partner_schools",
+  excludedPartnerSchoolGenders: "hard_excluded_partner_school_genders",
 } as const;
 
 export type HardMatchGender = (typeof HARD_MATCH_GENDERS)[number];
 export type HardMatchLooks = (typeof HARD_MATCH_LOOKS)[number];
 export type HardMatchSchoolId = string;
+export type HardMatchSchoolGenderExclusion = {
+  schoolId: HardMatchSchoolId;
+  genders: HardMatchGender[];
+};
 export type HardMatchKey =
   (typeof HARD_MATCH_KEYS)[keyof typeof HARD_MATCH_KEYS];
 
@@ -44,6 +49,7 @@ export type HardMatchAnswers = {
   oneLinerIntro: string;
   school: HardMatchSchoolId;
   excludedPartnerSchools: HardMatchSchoolId[];
+  excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
 };
 
 const HARD_MATCH_KEY_SET = new Set<string>(Object.values(HARD_MATCH_KEYS));
@@ -174,6 +180,108 @@ export function readTrimmedStringArray(value: unknown) {
   ];
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function pushUniqueString(
+  values: string[],
+  seenValues: Set<string>,
+  nextValue: string,
+) {
+  if (seenValues.has(nextValue)) {
+    return;
+  }
+
+  seenValues.add(nextValue);
+  values.push(nextValue);
+}
+
+function orderedGenderSelection(genders: Iterable<HardMatchGender>) {
+  const selectedGenders = new Set(genders);
+  return HARD_MATCH_GENDERS.filter((gender) => selectedGenders.has(gender));
+}
+
+export function normalizeExcludedPartnerPreferences(
+  rawValues: {
+    excludedPartnerSchools: unknown;
+    excludedPartnerSchoolGenders: unknown;
+  },
+  allowedSchoolIds?: readonly string[],
+) {
+  const allowedSchoolIdSet =
+    allowedSchoolIds == null ? null : new Set(allowedSchoolIds);
+  const excludedPartnerSchools: HardMatchSchoolId[] = [];
+  const excludedSchoolIdSet = new Set<string>();
+
+  for (const schoolId of readTrimmedStringArray(rawValues.excludedPartnerSchools)) {
+    if (allowedSchoolIdSet && !allowedSchoolIdSet.has(schoolId)) {
+      continue;
+    }
+
+    pushUniqueString(excludedPartnerSchools, excludedSchoolIdSet, schoolId);
+  }
+
+  const partialSchoolGenderSelections = new Map<string, Set<HardMatchGender>>();
+  if (Array.isArray(rawValues.excludedPartnerSchoolGenders)) {
+    for (const item of rawValues.excludedPartnerSchoolGenders) {
+      if (!isRecord(item)) {
+        continue;
+      }
+
+      const schoolId = readNonEmptyString(item.schoolId);
+      if (!schoolId) {
+        continue;
+      }
+
+      if (allowedSchoolIdSet && !allowedSchoolIdSet.has(schoolId)) {
+        continue;
+      }
+
+      if (excludedSchoolIdSet.has(schoolId)) {
+        continue;
+      }
+
+      const genders = readStringArray(item.genders, HARD_MATCH_GENDERS);
+      if (genders.length === 0) {
+        continue;
+      }
+
+      if (allOptionsSelected(genders, HARD_MATCH_GENDERS)) {
+        partialSchoolGenderSelections.delete(schoolId);
+        pushUniqueString(excludedPartnerSchools, excludedSchoolIdSet, schoolId);
+        continue;
+      }
+
+      const accumulatedGenders =
+        partialSchoolGenderSelections.get(schoolId) ?? new Set<HardMatchGender>();
+      for (const gender of genders) {
+        accumulatedGenders.add(gender);
+      }
+
+      if (allOptionsSelected([...accumulatedGenders], HARD_MATCH_GENDERS)) {
+        partialSchoolGenderSelections.delete(schoolId);
+        pushUniqueString(excludedPartnerSchools, excludedSchoolIdSet, schoolId);
+        continue;
+      }
+
+      partialSchoolGenderSelections.set(schoolId, accumulatedGenders);
+    }
+  }
+
+  const excludedPartnerSchoolGenders = [...partialSchoolGenderSelections.entries()]
+    .filter(([schoolId]) => !excludedSchoolIdSet.has(schoolId))
+    .map(([schoolId, genders]) => ({
+      schoolId,
+      genders: orderedGenderSelection(genders),
+    }));
+
+  return {
+    excludedPartnerSchools,
+    excludedPartnerSchoolGenders,
+  };
+}
+
 export function readIntegerInRange(
   value: unknown,
   min: number,
@@ -286,9 +394,11 @@ export function parseHardMatchAnswers(
     rawAnswers[HARD_MATCH_KEYS.oneLinerIntro],
   );
   const school = readNonEmptyString(rawAnswers[HARD_MATCH_KEYS.school]);
-  const excludedPartnerSchools = readTrimmedStringArray(
-    rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
-  );
+  const excludedPartnerPreferences = normalizeExcludedPartnerPreferences({
+    excludedPartnerSchools: rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
+    excludedPartnerSchoolGenders:
+      rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders],
+  });
 
   if (
     partnerAgeMin == null ||
@@ -332,7 +442,9 @@ export function parseHardMatchAnswers(
     partnerHeightMax,
     oneLinerIntro,
     school,
-    excludedPartnerSchools,
+    excludedPartnerSchools: excludedPartnerPreferences.excludedPartnerSchools,
+    excludedPartnerSchoolGenders:
+      excludedPartnerPreferences.excludedPartnerSchoolGenders,
   };
 }
 
@@ -354,6 +466,18 @@ function multiPreferenceMatches<T extends string>(
   return (
     allOptionsSelected(selectedValues, universe) ||
     selectedValues.includes(candidateValue)
+  );
+}
+
+function schoolGenderExclusionMatches(
+  schoolGenderExclusions: readonly HardMatchSchoolGenderExclusion[] | undefined,
+  candidateSchoolId: HardMatchSchoolId,
+  candidateGender: HardMatchGender,
+) {
+  return (schoolGenderExclusions ?? []).some(
+    (entry) =>
+      entry.schoolId === candidateSchoolId &&
+      entry.genders.includes(candidateGender),
   );
 }
 
@@ -427,6 +551,21 @@ export function areHardMatchAnswersCompatible(
   if (
     left.excludedPartnerSchools.includes(right.school) ||
     right.excludedPartnerSchools.includes(left.school)
+  ) {
+    return false;
+  }
+
+  if (
+    schoolGenderExclusionMatches(
+      left.excludedPartnerSchoolGenders,
+      right.school,
+      right.gender,
+    ) ||
+    schoolGenderExclusionMatches(
+      right.excludedPartnerSchoolGenders,
+      left.school,
+      left.gender,
+    )
   ) {
     return false;
   }

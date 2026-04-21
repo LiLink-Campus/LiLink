@@ -28,6 +28,7 @@ describe('hard-match helpers', () => {
     [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
     [HARD_MATCH_KEYS.school]: 'school-bupt',
     [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
+    [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
   } as const;
 
   it('normalizes a complete hard-match answer set', () => {
@@ -45,6 +46,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
       [HARD_MATCH_KEYS.school]: 'school-bupt',
       [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     });
   });
 
@@ -84,6 +86,7 @@ describe('hard-match helpers', () => {
     const left = tryReadHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
     const rightAnswers = {
       [HARD_MATCH_KEYS.birthDate]: '2001-07-12',
@@ -99,6 +102,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢画画，常在图书馆自习。',
       [HARD_MATCH_KEYS.school]: 'school-cuc',
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     } as const;
     const right = tryReadHardMatchAnswers(rightAnswers)!;
 
@@ -133,6 +137,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.heightCm]: 200,
       [HARD_MATCH_KEYS.partnerHeightMin]: 180,
       [HARD_MATCH_KEYS.partnerHeightMax]: 210,
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
 
     expect(
@@ -160,12 +165,50 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢画画，常在图书馆自习。',
       [HARD_MATCH_KEYS.school]: 'school-cuc',
       [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-bupt'],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
 
     expect(
       areHardMatchAnswersCompatible(
         left,
         excludedRight,
+        new Date('2026-05-20T00:00:00.000Z'),
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects when a school-specific gender exclusion matches the counterpart', () => {
+    const left = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [
+        {
+          schoolId: 'school-cuc',
+          genders: ['女'],
+        },
+      ],
+    })!;
+    const right = tryReadHardMatchAnswers({
+      [HARD_MATCH_KEYS.birthDate]: '2001-07-12',
+      [HARD_MATCH_KEYS.partnerAgeMin]: 18,
+      [HARD_MATCH_KEYS.partnerAgeMax]: 35,
+      [HARD_MATCH_KEYS.gender]: '女',
+      [HARD_MATCH_KEYS.partnerGenders]: ['男'],
+      [HARD_MATCH_KEYS.looks]: '小帅/美',
+      [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美'],
+      [HARD_MATCH_KEYS.heightCm]: 165,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 170,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 195,
+      [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢画画，常在图书馆自习。',
+      [HARD_MATCH_KEYS.school]: 'school-cuc',
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+    })!;
+
+    expect(
+      areHardMatchAnswersCompatible(
+        left,
+        right,
         new Date('2026-05-20T00:00:00.000Z'),
       ),
     ).toBe(false);
