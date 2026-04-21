@@ -6,9 +6,16 @@ import {
 import { isDeepStrictEqual } from 'node:util';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
+import {
+  syncExcludedPartnerSchoolPreferences,
+  syncQuestionnaireSchoolAnswers,
+} from '../questionnaire/questionnaire-school-sync';
 import { CreateSchoolDto, ListSchoolsQueryDto, UpdateSchoolDto } from './dto';
 import { AdminAuditService } from './admin-audit.service';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 @Injectable()
 export class AdminSchoolService {
@@ -290,6 +297,7 @@ export class AdminSchoolService {
       select: {
         id: true,
         answers: true,
+        draftAnswers: true,
         user: {
           select: {
             schoolId: true,
@@ -305,17 +313,90 @@ export class AdminSchoolService {
         allowedSchoolIds: options.allowedSchoolIds,
         rewrittenSchoolIds: options.rewrittenSchoolIds,
       });
+      const syncedDraftAnswers = this.syncQuestionnaireDraftAnswers(
+        response.draftAnswers,
+        options,
+      );
 
-      if (isDeepStrictEqual(rawAnswers, syncedAnswers)) {
+      if (
+        isDeepStrictEqual(rawAnswers, syncedAnswers) &&
+        isDeepStrictEqual(response.draftAnswers, syncedDraftAnswers)
+      ) {
         continue;
+      }
+
+      const data: Record<string, Prisma.InputJsonValue> = {};
+      if (!isDeepStrictEqual(rawAnswers, syncedAnswers)) {
+        data.answers = syncedAnswers as Prisma.InputJsonValue;
+      }
+      if (!isDeepStrictEqual(response.draftAnswers, syncedDraftAnswers)) {
+        data.draftAnswers = syncedDraftAnswers as Prisma.InputJsonValue;
       }
 
       await tx.questionnaireResponse.update({
         where: { id: response.id },
-        data: {
-          answers: syncedAnswers as Prisma.InputJsonValue,
-        },
+        data,
       });
     }
+  }
+
+  private syncQuestionnaireDraftAnswers(
+    rawDraftAnswers: Prisma.JsonValue | null,
+    options: {
+      allowedSchoolIds: readonly string[];
+      rewrittenSchoolIds?: Readonly<Record<string, string | null>>;
+    },
+  ) {
+    if (!isRecord(rawDraftAnswers) || !isRecord(rawDraftAnswers.hardMatchForm)) {
+      return rawDraftAnswers;
+    }
+
+    const hardMatchForm = rawDraftAnswers.hardMatchForm;
+    const hasExcludedPartnerSchools = Object.prototype.hasOwnProperty.call(
+      hardMatchForm,
+      'excludedPartnerSchools',
+    );
+    const hasExcludedPartnerSchoolGenders =
+      Object.prototype.hasOwnProperty.call(
+        hardMatchForm,
+        'excludedPartnerSchoolGenders',
+      );
+    const syncedExcludedPartnerPreferences =
+      syncExcludedPartnerSchoolPreferences(
+        {
+          excludedPartnerSchools: hardMatchForm.excludedPartnerSchools,
+          excludedPartnerSchoolGenders:
+            hardMatchForm.excludedPartnerSchoolGenders,
+        },
+        options,
+      );
+    const syncedHardMatchForm: Record<string, Prisma.InputJsonValue> = {
+      ...(hardMatchForm as Record<string, Prisma.InputJsonValue>),
+    };
+
+    if (
+      syncedExcludedPartnerPreferences.excludedPartnerSchools.length > 0 ||
+      hasExcludedPartnerSchools
+    ) {
+      syncedHardMatchForm.excludedPartnerSchools =
+        syncedExcludedPartnerPreferences.excludedPartnerSchools;
+    } else {
+      delete syncedHardMatchForm.excludedPartnerSchools;
+    }
+
+    if (
+      syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders.length > 0 ||
+      hasExcludedPartnerSchoolGenders
+    ) {
+      syncedHardMatchForm.excludedPartnerSchoolGenders =
+        syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders as Prisma.InputJsonValue;
+    } else {
+      delete syncedHardMatchForm.excludedPartnerSchoolGenders;
+    }
+
+    return {
+      ...(rawDraftAnswers as Record<string, Prisma.InputJsonValue>),
+      hardMatchForm: syncedHardMatchForm,
+    };
   }
 }

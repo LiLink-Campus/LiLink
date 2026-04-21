@@ -23,6 +23,8 @@ import {
   MONTH_OPTIONS,
   buildDayOptions,
   hardMatchFormFromAnswers,
+  schoolGenderExclusionFor,
+  setSchoolGenderExclusion,
   toggleMultiSelectValue,
   type HardMatchFormState,
   type HardMatchSchoolOption,
@@ -141,6 +143,20 @@ function questionnaireAutosaveFailureMessage(
     : `问卷自动保存失败，系统将在 ${Math.ceil(retryDelayMs / 1000)} 秒后自动重试。`;
 }
 
+function activeExcludedGendersFor(
+  hardMatchForm: HardMatchFormState,
+  schoolId: string,
+): readonly string[] {
+  if (hardMatchForm.excludedPartnerSchools.includes(schoolId)) {
+    return HARD_MATCH_GENDERS;
+  }
+
+  return schoolGenderExclusionFor(
+    hardMatchForm.excludedPartnerSchoolGenders,
+    schoolId,
+  );
+}
+
 export function ProfileClient({
   initialUser,
   initialDashboard,
@@ -156,6 +172,9 @@ export function ProfileClient({
 }) {
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;
   const initialSubmittedAnswers = initialSavedQuestionnaire?.answers;
+  const initialHardMatchForm =
+    initialDraft?.hardMatchForm ??
+    hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(
     initialDashboard,
   );
@@ -165,10 +184,8 @@ export function ProfileClient({
     initialDraft?.softAnswers ??
       keepCurrentQuestionAnswers(initialQuestions, initialSubmittedAnswers),
   );
-  const [hardMatchForm, setHardMatchForm] = useState<HardMatchFormState>(() =>
-    initialDraft?.hardMatchForm ??
-      hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools),
-  );
+  const [hardMatchForm, setHardMatchForm] =
+    useState<HardMatchFormState>(initialHardMatchForm);
   const [displayName, setDisplayName] = useState(
     initialDraft?.displayName ?? initialUser.displayName ?? "",
   );
@@ -198,8 +215,7 @@ export function ProfileClient({
       buildQuestionnaireSavePayload(
         initialDraft?.softAnswers ??
           keepCurrentQuestionAnswers(initialQuestions, initialSubmittedAnswers),
-        initialDraft?.hardMatchForm ??
-          hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools),
+        initialHardMatchForm,
         initialDraft?.displayName ?? initialUser.displayName ?? "",
       ),
     ),
@@ -236,13 +252,36 @@ export function ProfileClient({
   }
 
   function toggleHardSelection(
-    field: "partnerGenders" | "partnerLooks" | "excludedPartnerSchools",
+    field: "partnerGenders" | "partnerLooks",
     nextValue: string,
   ) {
     setHardMatchForm((current) => ({
       ...current,
       [field]: toggleMultiSelectValue(current[field], nextValue),
     }));
+  }
+
+  function toggleExcludedPartnerSchoolGender(schoolId: string, gender: string) {
+    setHardMatchForm((current) => {
+      const currentActive = activeExcludedGendersFor(current, schoolId);
+      const nextActive = toggleMultiSelectValue([...currentActive], gender);
+      const isNowFullyExcluded = nextActive.length === HARD_MATCH_GENDERS.length;
+      const baseSchools = current.excludedPartnerSchools.filter(
+        (item) => item !== schoolId,
+      );
+
+      return {
+        ...current,
+        excludedPartnerSchools: isNowFullyExcluded
+          ? [...baseSchools, schoolId]
+          : baseSchools,
+        excludedPartnerSchoolGenders: setSchoolGenderExclusion(
+          current.excludedPartnerSchoolGenders,
+          schoolId,
+          isNowFullyExcluded ? [] : nextActive,
+        ),
+      };
+    });
   }
 
   const flushQueuedQuestionnaireSave = useEffectEvent(
@@ -931,37 +970,79 @@ export function ProfileClient({
             </fieldset>
 
             <fieldset className="question-block">
-              <legend>不希望对方是哪个学校的（可多选）</legend>
+              <legend>按学校排除（可选）</legend>
               <p className="dashboard-muted">
-                选中的学校将被排除，不选则不限。
+                在每所学校上，勾选你不希望匹配的性别。三项全选即整校排除。
               </p>
-              <div className="chip-grid">
+              <div className="school-exclusion-list">
                 {schoolOptions.map((school, i) => {
-                  const active = hardMatchForm.excludedPartnerSchools.includes(
+                  const activeGenders = activeExcludedGendersFor(
+                    hardMatchForm,
                     school.id,
                   );
+                  const isFullyExcluded =
+                    activeGenders.length === HARD_MATCH_GENDERS.length;
+                  const isPartiallyExcluded =
+                    !isFullyExcluded && activeGenders.length > 0;
+                  const rowClass = isFullyExcluded
+                    ? "school-exclusion-row is-fully-excluded"
+                    : isPartiallyExcluded
+                      ? "school-exclusion-row is-partially-excluded"
+                      : "school-exclusion-row";
                   return (
-                    <label
-                      key={school.id}
-                      className={active ? "chip active" : "chip"}
-                    >
-                      <input
-                        checked={active}
-                        id={buildDashboardFieldId(
-                          "excluded-partner-schools",
-                          i,
-                        )}
-                        name="excludedPartnerSchools"
-                        type="checkbox"
-                        onChange={() =>
-                          toggleHardSelection(
-                            "excludedPartnerSchools",
-                            school.id,
-                          )
-                        }
-                      />
-                      <span>{school.name}</span>
-                    </label>
+                    <section key={school.id} className={rowClass}>
+                      <div className="school-exclusion-name">
+                        <span className="school-exclusion-name-text">
+                          {school.name}
+                        </span>
+                        {isFullyExcluded ? (
+                          <span className="school-exclusion-status is-strong">
+                            整校排除
+                          </span>
+                        ) : isPartiallyExcluded ? (
+                          <span className="school-exclusion-status">
+                            已排除：{activeGenders.join("、")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div
+                        className="school-exclusion-genders"
+                        role="group"
+                        aria-label={`${school.name} 排除性别`}
+                      >
+                        {HARD_MATCH_GENDERS.map((gender, genderIndex) => {
+                          const active = activeGenders.includes(gender);
+                          return (
+                            <label
+                              key={gender}
+                              className={
+                                active
+                                  ? "school-exclusion-gender is-active"
+                                  : "school-exclusion-gender"
+                              }
+                            >
+                              <input
+                                checked={active}
+                                id={buildDashboardFieldId(
+                                  "excluded-partner-school-gender",
+                                  i,
+                                  genderIndex,
+                                )}
+                                name={`excludedPartnerSchoolGender-${school.id}`}
+                                type="checkbox"
+                                onChange={() =>
+                                  toggleExcludedPartnerSchoolGender(
+                                    school.id,
+                                    gender,
+                                  )
+                                }
+                              />
+                              <span>{gender}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </section>
                   );
                 })}
               </div>

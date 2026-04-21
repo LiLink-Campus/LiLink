@@ -1,5 +1,9 @@
 import type { Prisma } from '@prisma/client';
-import { HARD_MATCH_KEYS, readTrimmedStringArray } from '@lilink/shared';
+import {
+  HARD_MATCH_KEYS,
+  normalizeExcludedPartnerPreferences,
+  readTrimmedStringArray,
+} from '@lilink/shared';
 
 type QuestionnaireAnswers = Record<string, unknown>;
 
@@ -16,6 +20,56 @@ function rewriteSchoolId(
   return rewrittenSchoolIds?.[schoolId] ?? schoolId;
 }
 
+type SchoolPreferenceSyncOptions = {
+  allowedSchoolIds: readonly string[];
+  rewrittenSchoolIds?: Readonly<Record<string, string | null>>;
+};
+
+export function syncExcludedPartnerSchoolPreferences(
+  rawValues: {
+    excludedPartnerSchools: unknown;
+    excludedPartnerSchoolGenders: unknown;
+  },
+  options: SchoolPreferenceSyncOptions,
+) {
+  const excludedPartnerSchools = readTrimmedStringArray(
+    rawValues.excludedPartnerSchools,
+  )
+    .map((schoolId) => rewriteSchoolId(schoolId, options.rewrittenSchoolIds))
+    .filter(Boolean);
+  const rawExcludedPartnerSchoolGenders =
+    rawValues.excludedPartnerSchoolGenders;
+
+  const rewrittenExcludedPartnerSchoolGenders = Array.isArray(
+    rawExcludedPartnerSchoolGenders,
+  )
+    ? rawExcludedPartnerSchoolGenders.map((item: unknown) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          return item;
+        }
+
+        const record = item as Record<string, unknown>;
+        const schoolId =
+          typeof record.schoolId === 'string'
+            ? rewriteSchoolId(record.schoolId, options.rewrittenSchoolIds)
+            : record.schoolId;
+
+        return {
+          ...record,
+          schoolId,
+        };
+      })
+    : rawExcludedPartnerSchoolGenders;
+
+  return normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools,
+      excludedPartnerSchoolGenders: rewrittenExcludedPartnerSchoolGenders,
+    },
+    options.allowedSchoolIds,
+  );
+}
+
 export function syncQuestionnaireSchoolAnswers(
   rawAnswers: QuestionnaireAnswers,
   options: SyncQuestionnaireSchoolAnswersOptions,
@@ -28,6 +82,10 @@ export function syncQuestionnaireSchoolAnswers(
     rawAnswers,
     HARD_MATCH_KEYS.excludedPartnerSchools,
   );
+  const hasExcludedPartnerSchoolGenders = Object.prototype.hasOwnProperty.call(
+    rawAnswers,
+    HARD_MATCH_KEYS.excludedPartnerSchoolGenders,
+  );
 
   if (
     options.currentSchoolId &&
@@ -38,21 +96,33 @@ export function syncQuestionnaireSchoolAnswers(
     delete nextAnswers[HARD_MATCH_KEYS.school];
   }
 
-  const excludedPartnerSchools = readTrimmedStringArray(
-    rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
-  )
-    .map((schoolId) => rewriteSchoolId(schoolId, options.rewrittenSchoolIds))
-    .filter(
-      (schoolId): schoolId is string =>
-        Boolean(schoolId) && allowedSchoolIds.has(schoolId),
-    );
-  const dedupedExcludedPartnerSchools = [...new Set(excludedPartnerSchools)];
+  const excludedPartnerPreferences = syncExcludedPartnerSchoolPreferences(
+    {
+      excludedPartnerSchools: rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
+      excludedPartnerSchoolGenders:
+        rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders],
+    },
+    options,
+  );
 
-  if (dedupedExcludedPartnerSchools.length > 0 || hasExcludedPartnerSchools) {
+  if (
+    excludedPartnerPreferences.excludedPartnerSchools.length > 0 ||
+    hasExcludedPartnerSchools
+  ) {
     nextAnswers[HARD_MATCH_KEYS.excludedPartnerSchools] =
-      dedupedExcludedPartnerSchools;
+      excludedPartnerPreferences.excludedPartnerSchools;
   } else {
     delete nextAnswers[HARD_MATCH_KEYS.excludedPartnerSchools];
+  }
+
+  if (
+    excludedPartnerPreferences.excludedPartnerSchoolGenders.length > 0 ||
+    hasExcludedPartnerSchoolGenders
+  ) {
+    nextAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders] =
+      excludedPartnerPreferences.excludedPartnerSchoolGenders as Prisma.InputJsonValue;
+  } else {
+    delete nextAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders];
   }
 
   return nextAnswers;

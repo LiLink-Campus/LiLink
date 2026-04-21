@@ -10,11 +10,13 @@ import {
   HEIGHT_OPTIONS,
   MONTH_OPTIONS,
   buildDayOptions,
+  normalizeExcludedPartnerPreferences,
   normalizeOneLinerIntro,
   readHeightValue,
   readSingleChoice,
   readStringArray,
   splitBirthDate,
+  type HardMatchSchoolGenderExclusion,
 } from "@lilink/shared";
 
 export {
@@ -34,6 +36,8 @@ export type HardMatchSchoolOption = {
   name: string;
 };
 
+export type { HardMatchSchoolGenderExclusion };
+
 export type HardMatchFormState = {
   birthYear: string;
   birthMonth: string;
@@ -49,6 +53,7 @@ export type HardMatchFormState = {
   partnerHeightMax: string;
   oneLinerIntro: string;
   excludedPartnerSchools: string[];
+  excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
 };
 
 export function createEmptyHardMatchForm(): HardMatchFormState {
@@ -67,6 +72,7 @@ export function createEmptyHardMatchForm(): HardMatchFormState {
     partnerHeightMax: String(HARD_MATCH_FORM_HEIGHT_MAX_CM),
     oneLinerIntro: "",
     excludedPartnerSchools: [],
+    excludedPartnerSchoolGenders: [],
   };
 }
 
@@ -76,6 +82,15 @@ export function hardMatchFormFromAnswers(
 ): HardMatchFormState {
   const birthDate = splitBirthDate(savedAnswers?.[HARD_MATCH_KEYS.birthDate]);
   const allowedSchoolIds = schoolOptions.map((school) => school.id);
+  const excludedPartnerPreferences = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools:
+        savedAnswers?.[HARD_MATCH_KEYS.excludedPartnerSchools],
+      excludedPartnerSchoolGenders:
+        savedAnswers?.[HARD_MATCH_KEYS.excludedPartnerSchoolGenders],
+    },
+    allowedSchoolIds,
+  );
 
   return {
     ...createEmptyHardMatchForm(),
@@ -118,10 +133,9 @@ export function hardMatchFormFromAnswers(
     oneLinerIntro: normalizeOneLinerIntro(
       savedAnswers?.[HARD_MATCH_KEYS.oneLinerIntro],
     ),
-    excludedPartnerSchools: readStringArray(
-      savedAnswers?.[HARD_MATCH_KEYS.excludedPartnerSchools],
-      allowedSchoolIds,
-    ),
+    excludedPartnerSchools: excludedPartnerPreferences.excludedPartnerSchools,
+    excludedPartnerSchoolGenders:
+      excludedPartnerPreferences.excludedPartnerSchoolGenders,
   };
 }
 
@@ -132,6 +146,36 @@ export function toggleMultiSelectValue(
   return currentValues.includes(nextValue)
     ? currentValues.filter((value) => value !== nextValue)
     : [...currentValues, nextValue];
+}
+
+export function schoolGenderExclusionFor(
+  exclusions: HardMatchSchoolGenderExclusion[],
+  schoolId: string,
+) {
+  return exclusions.find((entry) => entry.schoolId === schoolId)?.genders ?? [];
+}
+
+export function setSchoolGenderExclusion(
+  exclusions: HardMatchSchoolGenderExclusion[],
+  schoolId: string,
+  genders: string[],
+): HardMatchSchoolGenderExclusion[] {
+  const normalizedGenders = readStringArray(genders, HARD_MATCH_GENDERS);
+  const nextExclusions = exclusions.filter((entry) => entry.schoolId !== schoolId);
+
+  if (normalizedGenders.length === 0) {
+    return nextExclusions;
+  }
+
+  return [
+    ...nextExclusions,
+    {
+      schoolId,
+      genders: HARD_MATCH_GENDERS.filter((gender) =>
+        normalizedGenders.includes(gender),
+      ),
+    },
+  ];
 }
 
 export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
@@ -179,6 +223,10 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     throw new Error("希望对方身高下限不能大于上限。");
   }
 
+  const excludedPartnerPreferences = normalizeExcludedPartnerPreferences({
+    excludedPartnerSchools: formState.excludedPartnerSchools,
+    excludedPartnerSchoolGenders: formState.excludedPartnerSchoolGenders,
+  });
   const birthDate = `${formState.birthYear}-${formState.birthMonth.padStart(2, "0")}-${formState.birthDay.padStart(2, "0")}`;
 
   return {
@@ -193,7 +241,10 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     [HARD_MATCH_KEYS.partnerHeightMin]: partnerHeightMin,
     [HARD_MATCH_KEYS.partnerHeightMax]: partnerHeightMax,
     [HARD_MATCH_KEYS.oneLinerIntro]: oneLinerIntro,
-    [HARD_MATCH_KEYS.excludedPartnerSchools]: formState.excludedPartnerSchools,
+    [HARD_MATCH_KEYS.excludedPartnerSchools]:
+      excludedPartnerPreferences.excludedPartnerSchools,
+    [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]:
+      excludedPartnerPreferences.excludedPartnerSchoolGenders,
   };
 }
 
