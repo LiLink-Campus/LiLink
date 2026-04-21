@@ -79,9 +79,11 @@ export class QuestionnaireService {
       return this.currentQuestionnaireInFlight;
     }
 
-    this.currentQuestionnaireInFlight = this.loadCurrentVersion().finally(() => {
-      this.currentQuestionnaireInFlight = null;
-    });
+    this.currentQuestionnaireInFlight = this.loadCurrentVersion().finally(
+      () => {
+        this.currentQuestionnaireInFlight = null;
+      },
+    );
 
     return this.currentQuestionnaireInFlight;
   }

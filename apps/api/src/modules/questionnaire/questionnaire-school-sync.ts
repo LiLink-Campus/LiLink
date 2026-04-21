@@ -98,7 +98,8 @@ export function syncQuestionnaireSchoolAnswers(
 
   const excludedPartnerPreferences = syncExcludedPartnerSchoolPreferences(
     {
-      excludedPartnerSchools: rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
+      excludedPartnerSchools:
+        rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
       excludedPartnerSchoolGenders:
         rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders],
     },

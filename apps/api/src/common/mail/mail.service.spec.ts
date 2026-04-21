@@ -49,17 +49,19 @@ function buildOutboundEmail(
   };
 }
 
-function createMailService(overrides: {
-  emailCode?: {
-    updateMany?: jest.Mock;
-  };
-  outboundEmail?: {
-    findMany?: jest.Mock;
-    findUnique?: jest.Mock;
-    updateMany?: jest.Mock;
-    update?: jest.Mock;
-  };
-} = {}) {
+function createMailService(
+  overrides: {
+    emailCode?: {
+      updateMany?: jest.Mock;
+    };
+    outboundEmail?: {
+      findMany?: jest.Mock;
+      findUnique?: jest.Mock;
+      updateMany?: jest.Mock;
+      update?: jest.Mock;
+    };
+  } = {},
+) {
   return new MailService({
     emailCode: {
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -218,14 +220,16 @@ describe('MailService', () => {
         html: '<p>Hello</p>',
       }),
     );
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'email-1' },
-        data: expect.objectContaining({
-          status: 'SENT',
-        }),
-      }),
-    );
+    const [[sentUpdate]] = update.mock.calls as [
+      [
+        {
+          where: { id: string };
+          data: { status: string };
+        },
+      ],
+    ];
+    expect(sentUpdate.where.id).toBe('email-1');
+    expect(sentUpdate.data.status).toBe('SENT');
     expect(emailCodeUpdateMany).not.toHaveBeenCalled();
   });
 
@@ -251,17 +255,19 @@ describe('MailService', () => {
       dedupeKeys: ['verification-code:code-1'],
     });
 
-    expect(emailCodeUpdateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          deliveryDedupeKey: 'verification-code:code-1',
+    const [[deliveryStatusUpdate]] = emailCodeUpdateMany.mock.calls as [
+      [
+        {
+          where: { deliveryDedupeKey: string };
+          data: { deliveryStatus: string; sentAt: Date };
         },
-        data: expect.objectContaining({
-          deliveryStatus: 'SENT',
-          sentAt: expect.any(Date),
-        }),
-      }),
+      ],
+    ];
+    expect(deliveryStatusUpdate.where.deliveryDedupeKey).toBe(
+      'verification-code:code-1',
     );
+    expect(deliveryStatusUpdate.data.deliveryStatus).toBe('SENT');
+    expect(deliveryStatusUpdate.data.sentAt).toBeInstanceOf(Date);
   });
 
   it('delivers a targeted verification email even while the queue worker is busy', async () => {
@@ -348,25 +354,27 @@ describe('MailService', () => {
     );
 
     const seenKeys = new Map<string, number>();
-    const findUnique = jest.fn().mockImplementation(
-      ({ where: { dedupeKey } }: { where: { dedupeKey: string } }) => {
-        const seen = seenKeys.get(dedupeKey) ?? 0;
-        seenKeys.set(dedupeKey, seen + 1);
+    const findUnique = jest
+      .fn()
+      .mockImplementation(
+        ({ where: { dedupeKey } }: { where: { dedupeKey: string } }) => {
+          const seen = seenKeys.get(dedupeKey) ?? 0;
+          seenKeys.set(dedupeKey, seen + 1);
 
-        if (seen === 0) {
+          if (seen === 0) {
+            return buildOutboundEmail({
+              id: `email-${dedupeKey}`,
+              dedupeKey,
+            });
+          }
+
           return buildOutboundEmail({
             id: `email-${dedupeKey}`,
             dedupeKey,
+            status: 'SENT',
           });
-        }
-
-        return buildOutboundEmail({
-          id: `email-${dedupeKey}`,
-          dedupeKey,
-          status: 'SENT',
-        });
-      },
-    );
+        },
+      );
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
     const update = jest.fn().mockResolvedValue(undefined);
     const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -381,8 +389,12 @@ describe('MailService', () => {
       },
     });
 
-    const firstDelivery = service.deliverQueuedEmailNow('verification-code:code-1');
-    const secondDelivery = service.deliverQueuedEmailNow('verification-code:code-2');
+    const firstDelivery = service.deliverQueuedEmailNow(
+      'verification-code:code-1',
+    );
+    const secondDelivery = service.deliverQueuedEmailNow(
+      'verification-code:code-2',
+    );
 
     await new Promise((resolve) => setImmediate(resolve));
 

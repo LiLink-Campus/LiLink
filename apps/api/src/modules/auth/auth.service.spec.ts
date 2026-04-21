@@ -166,7 +166,9 @@ describe('AuthService', () => {
           }),
       ),
     };
-    const resolveByEmail = jest.fn().mockResolvedValue({ schoolId: 'school-1' });
+    const resolveByEmail = jest
+      .fn()
+      .mockResolvedValue({ schoolId: 'school-1' });
     const authService = new AuthService(
       prisma as never,
       {
@@ -229,9 +231,10 @@ describe('AuthService', () => {
     expect(outboundPayload?.data.maxAttempts).toBe(3);
 
     expect(deliverQueuedEmailNow).toHaveBeenCalledTimes(1);
-    expect(deliverQueuedEmailNow.mock.calls[0]?.[0]).toMatch(
-      /^verification-code:/,
-    );
+    const [[deliveryDedupeKey]] = deliverQueuedEmailNow.mock.calls as [
+      [string],
+    ];
+    expect(deliveryDedupeKey).toMatch(/^verification-code:/);
     expect(resolveByEmail).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       email: 'user@example.com',

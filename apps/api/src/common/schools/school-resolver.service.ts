@@ -78,7 +78,10 @@ export class SchoolResolverService {
     return cachedEntry.value;
   }
 
-  private async loadResolutionByDomain(emailDomain: string, cacheEpoch: number) {
+  private async loadResolutionByDomain(
+    emailDomain: string,
+    cacheEpoch: number,
+  ) {
     const candidateDomains = emailDomain
       .split('.')
       .map((_, index, parts) => parts.slice(index).join('.'))

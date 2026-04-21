@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
@@ -8,10 +8,7 @@ import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import {
-  authEmailThrottler,
-  publicAuthRouteThrottles,
-} from './auth-throttle';
+import { authEmailThrottler, publicAuthRouteThrottles } from './auth-throttle';
 
 type AuthServiceStub = {
   requestCode: jest.Mock;
@@ -95,11 +92,11 @@ const endpointCases: EndpointCase[] = [
 
 function createAuthServiceStub(): AuthServiceStub {
   return {
-    requestCode: jest.fn(async (email: string) => ({
+    requestCode: jest.fn((email: string) => ({
       email,
       expiresAt: new Date().toISOString(),
     })),
-    register: jest.fn(async (body: { email: string }) => ({
+    register: jest.fn((body: { email: string }) => ({
       token: 'jwt-token',
       user: {
         id: 'user-1',
@@ -107,11 +104,11 @@ function createAuthServiceStub(): AuthServiceStub {
         displayName: 'Tester',
       },
     })),
-    requestPasswordResetCode: jest.fn(async (email: string) => ({
+    requestPasswordResetCode: jest.fn((email: string) => ({
       email,
       expiresAt: new Date().toISOString(),
     })),
-    resetPassword: jest.fn(async (body: { email: string }) => ({
+    resetPassword: jest.fn((body: { email: string }) => ({
       token: 'jwt-token',
       user: {
         id: 'user-1',
@@ -119,7 +116,7 @@ function createAuthServiceStub(): AuthServiceStub {
         displayName: 'Tester',
       },
     })),
-    login: jest.fn(async (body: { email: string }) => ({
+    login: jest.fn((body: { email: string }) => ({
       token: 'jwt-token',
       user: {
         id: 'user-1',

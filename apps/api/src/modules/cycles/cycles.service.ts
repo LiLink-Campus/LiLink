@@ -39,11 +39,14 @@ const MAX_MATCH_REASONS = 3;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
-type DashboardSnapshotPort = Pick<DashboardSnapshotService, 'syncCycleSnapshots'>;
+type DashboardSnapshotPort = Pick<
+  DashboardSnapshotService,
+  'syncCycleSnapshots'
+>;
 
 const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
-  async syncCycleSnapshots() {
-    return;
+  syncCycleSnapshots() {
+    return Promise.resolve();
   },
 };
 

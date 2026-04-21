@@ -113,14 +113,14 @@ type DashboardSnapshotPort = Pick<
 >;
 
 const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
-  async syncCycleSnapshots() {
-    return;
+  syncCycleSnapshots() {
+    return Promise.resolve();
   },
-  async syncMatchSnapshots() {
-    return;
+  syncMatchSnapshots() {
+    return Promise.resolve();
   },
-  async syncUserMatchSnapshots() {
-    return;
+  syncUserMatchSnapshots() {
+    return Promise.resolve();
   },
 };
 

@@ -57,9 +57,9 @@ describe('AdminSchoolService', () => {
         slug: 'example-school',
       },
     );
-    expect(schoolResolverService.invalidateResolutionCache).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(
+      schoolResolverService.invalidateResolutionCache,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('rejects school creation when all domains are blank', async () => {
@@ -147,9 +147,9 @@ describe('AdminSchoolService', () => {
       },
       include: { domains: true },
     });
-    expect(schoolResolverService.invalidateResolutionCache).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(
+      schoolResolverService.invalidateResolutionCache,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('rewrites questionnaire school references when merging schools', async () => {
@@ -292,9 +292,9 @@ describe('AdminSchoolService', () => {
         },
       },
     });
-    expect(schoolResolverService.invalidateResolutionCache).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(
+      schoolResolverService.invalidateResolutionCache,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('rewrites questionnaire draft exclusions when deleting schools', async () => {
@@ -403,8 +403,8 @@ describe('AdminSchoolService', () => {
         },
       },
     });
-    expect(schoolResolverService.invalidateResolutionCache).toHaveBeenCalledTimes(
-      1,
-    );
+    expect(
+      schoolResolverService.invalidateResolutionCache,
+    ).toHaveBeenCalledTimes(1);
   });
 });
