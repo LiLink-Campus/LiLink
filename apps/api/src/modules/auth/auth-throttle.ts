@@ -3,12 +3,15 @@ import type {
   ThrottlerGetTrackerFunction,
   ThrottlerOptions,
 } from '@nestjs/throttler';
+import { getRealClientIp } from '../../common/http/client-ip';
 
 type AuthThrottleRequest = {
   body?: {
     email?: unknown;
   };
+  headers?: Record<string, unknown>;
   ip?: string;
+  ips?: readonly string[];
   path?: string;
   url?: string;
   method?: string;
@@ -112,7 +115,7 @@ export const getAuthEmailThrottleTracker: ThrottlerGetTrackerFunction = (
     return `email:${normalizedEmail}`;
   }
 
-  return `ip:${request.ip ?? 'unknown'}`;
+  return `ip:${getRealClientIp(request)}`;
 };
 
 export function shouldSkipAuthEmailThrottle(

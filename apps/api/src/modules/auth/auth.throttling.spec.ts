@@ -2,9 +2,10 @@ import { ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import request from 'supertest';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { CustomThrottlerGuard } from '../../common/http/custom-throttler.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -145,7 +146,7 @@ async function createTestApp() {
     ],
     controllers: [AuthController],
     providers: [
-      { provide: APP_GUARD, useClass: ThrottlerGuard },
+      { provide: APP_GUARD, useClass: CustomThrottlerGuard },
       { provide: AuthService, useValue: authService },
       {
         provide: JwtAuthGuard,
@@ -380,6 +381,48 @@ describe('Auth throttling integration', () => {
       expect(blockedResponse.status).toBe(429);
       expect(separateClientResponse.status).toBe(400);
       expect(authService.login).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('uses CF-Connecting-IP over X-Forwarded-For when both are present', async () => {
+    const { app, authService, httpServer } = await createTestApp();
+    const email = 'cf-tracked@example.com';
+    const cfIp = '203.0.113.50';
+    const { ipLimit } = publicAuthRouteThrottles.requestCode;
+
+    try {
+      // Saturate the per-IP bucket for one CF-Connecting-IP. Each request
+      // uses a unique email so the per-email bucket never trips first.
+      for (let attempt = 0; attempt < ipLimit; attempt += 1) {
+        const response = await request(httpServer)
+          .post('/v1/auth/request-code')
+          .set('X-Forwarded-For', SHARED_PROXY_IP)
+          .set('CF-Connecting-IP', cfIp)
+          .send({ email: `${attempt}@example.com` });
+
+        expect(response.status).toBe(SUCCESS_STATUS);
+      }
+
+      // A different CF-Connecting-IP behind the same X-Forwarded-For edge
+      // must get its own bucket (proves we are not bucketing by XFF).
+      const otherCfResponse = await request(httpServer)
+        .post('/v1/auth/request-code')
+        .set('X-Forwarded-For', SHARED_PROXY_IP)
+        .set('CF-Connecting-IP', '203.0.113.51')
+        .send({ email });
+
+      // The original CF-Connecting-IP must now be rate-limited.
+      const sameCfResponse = await request(httpServer)
+        .post('/v1/auth/request-code')
+        .set('X-Forwarded-For', SHARED_PROXY_IP)
+        .set('CF-Connecting-IP', cfIp)
+        .send({ email });
+
+      expect(otherCfResponse.status).toBe(SUCCESS_STATUS);
+      expect(sameCfResponse.status).toBe(429);
+      expect(authService.requestCode).toHaveBeenCalledTimes(ipLimit + 1);
     } finally {
       await app.close();
     }

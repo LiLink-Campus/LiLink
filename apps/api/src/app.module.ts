@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { CustomThrottlerGuard } from './common/http/custom-throttler.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { DashboardSnapshotModule } from './common/dashboard/dashboard-snapshot.module';
 import { MailModule } from './common/mail/mail.module';
@@ -19,7 +20,7 @@ import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
 import { authEmailThrottler } from './modules/auth/auth-throttle';
 
 @Module({
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: CustomThrottlerGuard }],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
