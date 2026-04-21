@@ -127,7 +127,9 @@ export class MailService {
       recipientEmail: input.recipientEmail,
       subject: 'LiLink verification code',
       html: `<p>Your LiLink verification code is <strong>${input.code}</strong>. It expires in 10 minutes.</p>`,
-      maxAttempts: 1,
+      // Total retry budget ~3 min (60s + 120s back-off), well below the 10-min
+      // verification-code TTL. Buffers transient SMTP/upstream hiccups.
+      maxAttempts: 3,
     };
   }
 

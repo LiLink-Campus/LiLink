@@ -42,7 +42,7 @@ function buildOutboundEmail(
     html: '<p>Hello</p>',
     status: 'PENDING' as OutboundEmailStatus,
     attempts: 0,
-    maxAttempts: 1,
+    maxAttempts: 3,
     lastAttemptAt: null,
     nextAttemptAt: null,
     ...overrides,
@@ -149,7 +149,7 @@ describe('MailService', () => {
     expect(recipientEmail.html).toContain('A&amp;B School');
   });
 
-  it('builds a single-attempt verification email payload', () => {
+  it('builds a verification email payload with a small retry budget', () => {
     const service = createMailService();
 
     const built = service.buildVerificationCodeEmail({
@@ -162,7 +162,7 @@ describe('MailService', () => {
       dedupeKey: 'verification-code:code-1',
       recipientEmail: 'user@example.com',
       subject: 'LiLink verification code',
-      maxAttempts: 1,
+      maxAttempts: 3,
     });
     expect(built.html).toContain('123456');
   });
