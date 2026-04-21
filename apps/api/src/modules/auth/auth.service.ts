@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { randomInt, randomUUID } from 'crypto';
+import {
+  createHmac,
+  randomInt,
+  randomUUID,
+  timingSafeEqual,
+} from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -22,6 +27,7 @@ type TransactionClient = Omit<
 type VerificationCodePurpose = 'register' | 'password_reset';
 
 const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
+const VERIFICATION_CODE_HMAC_CONTEXT = 'verification-code';
 
 @Injectable()
 export class AuthService {
@@ -36,12 +42,7 @@ export class AuthService {
 
   async requestCode(email: string) {
     const normalizedEmail = email.trim().toLowerCase();
-    const domain = normalizedEmail.split('@')[1] ?? '';
-
-    await this.assertEmailDomainAllowed(domain);
-
-    const school =
-      await this.schoolResolverService.resolveByEmail(normalizedEmail);
+    const school = await this.resolveAllowedSchool(normalizedEmail);
 
     const result = await this.sendVerificationCode(normalizedEmail, 'register');
 
@@ -50,13 +51,8 @@ export class AuthService {
 
   async register(input: RegisterDto) {
     const normalizedEmail = input.email.trim().toLowerCase();
-    const domain = normalizedEmail.split('@')[1] ?? '';
-
-    await this.assertEmailDomainAllowed(domain);
+    const school = await this.resolveAllowedSchool(normalizedEmail);
     await this.assertRegistrationCapacity();
-
-    const school =
-      await this.schoolResolverService.resolveByEmail(normalizedEmail);
 
     const user = await this.prisma.$transaction(async (tx) => {
       await this.consumeVerificationCode(
@@ -215,9 +211,14 @@ export class AuthService {
     purpose: VerificationCodePurpose,
   ) {
     const code = String(randomInt(100000, 999999));
-    const codeHash = await argon2.hash(code);
     const expiresAt = new Date(Date.now() + VERIFICATION_CODE_TTL_MS);
     const deliveryDedupeKey = `verification-code:${randomUUID()}`;
+    const codeHash = this.createVerificationCodeDigest({
+      email,
+      purpose,
+      deliveryDedupeKey,
+      code,
+    });
     const queuedEmail = this.mailService.buildVerificationCodeEmail({
       dedupeKey: deliveryDedupeKey,
       recipientEmail: email,
@@ -293,7 +294,12 @@ export class AuthService {
       throw new BadRequestException('No valid verification code was found.');
     }
 
-    const isValid = await argon2.verify(latestCode.codeHash, code);
+    const isValid = this.matchesVerificationCodeDigest(latestCode.codeHash, {
+      email,
+      purpose,
+      deliveryDedupeKey: latestCode.deliveryDedupeKey,
+      code,
+    });
     if (!isValid) {
       throw new BadRequestException(
         'Verification code is invalid. Please request a new one.',
@@ -312,15 +318,60 @@ export class AuthService {
     }
   }
 
-  private async assertEmailDomainAllowed(domain: string) {
-    const domainRecord = await this.schoolResolverService.resolveByEmail(
-      `placeholder@${domain}`,
-    );
-    if (!domainRecord) {
+  private async resolveAllowedSchool(email: string) {
+    const resolvedSchool =
+      await this.schoolResolverService.resolveByEmail(email);
+    if (!resolvedSchool) {
       throw new BadRequestException(
         'This email domain is not currently accepted.',
       );
     }
+
+    return resolvedSchool;
+  }
+
+  private createVerificationCodeDigest(input: {
+    email: string;
+    purpose: VerificationCodePurpose;
+    deliveryDedupeKey: string;
+    code: string;
+  }) {
+    return createHmac('sha256', env.JWT_SECRET)
+      .update(VERIFICATION_CODE_HMAC_CONTEXT)
+      .update('\n')
+      .update(input.purpose)
+      .update('\n')
+      .update(input.email)
+      .update('\n')
+      .update(input.deliveryDedupeKey)
+      .update('\n')
+      .update(input.code)
+      .digest('hex');
+  }
+
+  private matchesVerificationCodeDigest(
+    storedDigest: string,
+    input: {
+      email: string;
+      purpose: VerificationCodePurpose;
+      deliveryDedupeKey: string;
+      code: string;
+    },
+  ) {
+    const expectedDigest = this.createVerificationCodeDigest(input);
+    const storedBuffer = Buffer.from(storedDigest);
+    const expectedBuffer = Buffer.from(expectedDigest);
+    const compareLength = Math.max(storedBuffer.length, expectedBuffer.length);
+    const paddedStoredBuffer = Buffer.alloc(compareLength);
+    const paddedExpectedBuffer = Buffer.alloc(compareLength);
+
+    storedBuffer.copy(paddedStoredBuffer);
+    expectedBuffer.copy(paddedExpectedBuffer);
+
+    return (
+      timingSafeEqual(paddedStoredBuffer, paddedExpectedBuffer) &&
+      storedBuffer.length === expectedBuffer.length
+    );
   }
 
   private issueAuthPayload(

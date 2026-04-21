@@ -5,11 +5,33 @@ jest.mock('argon2', () => ({
 
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { validateSync } from 'class-validator';
+import { createHmac } from 'crypto';
 import * as argon2 from 'argon2';
+import { env } from '../../config/env';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto';
 
 const mockedArgon2 = argon2 as jest.Mocked<typeof argon2>;
+const VERIFICATION_CODE_HMAC_CONTEXT = 'verification-code';
+
+function createVerificationCodeDigest(input: {
+  email: string;
+  purpose: 'register' | 'password_reset';
+  deliveryDedupeKey: string;
+  code: string;
+}) {
+  return createHmac('sha256', env.JWT_SECRET)
+    .update(VERIFICATION_CODE_HMAC_CONTEXT)
+    .update('\n')
+    .update(input.purpose)
+    .update('\n')
+    .update(input.email)
+    .update('\n')
+    .update(input.deliveryDedupeKey)
+    .update('\n')
+    .update(input.code)
+    .digest('hex');
+}
 
 type RegisterTransaction = {
   emailCode: {
@@ -120,8 +142,6 @@ describe('AuthService', () => {
   });
 
   it('queues a verification email and kicks off async delivery', async () => {
-    mockedArgon2.hash.mockResolvedValue('hashed-code');
-
     const create = jest.fn().mockResolvedValue({
       id: 'code-1',
       email: 'user@example.com',
@@ -146,6 +166,7 @@ describe('AuthService', () => {
           }),
       ),
     };
+    const resolveByEmail = jest.fn().mockResolvedValue({ schoolId: 'school-1' });
     const authService = new AuthService(
       prisma as never,
       {
@@ -165,7 +186,7 @@ describe('AuthService', () => {
         deliverQueuedEmailNow,
       } as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail,
       } as never,
       {} as never,
     );
@@ -211,6 +232,7 @@ describe('AuthService', () => {
     expect(deliverQueuedEmailNow.mock.calls[0]?.[0]).toMatch(
       /^verification-code:/,
     );
+    expect(resolveByEmail).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       email: 'user@example.com',
       school: { schoolId: 'school-1' },
@@ -218,8 +240,6 @@ describe('AuthService', () => {
   });
 
   it('swallows immediate-delivery failures so the request still succeeds', async () => {
-    mockedArgon2.hash.mockResolvedValue('hashed-code');
-
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     // Reject the immediate kick-off; cron should later retry via maxAttempts.
     const deliverQueuedEmailNow = jest
@@ -278,8 +298,6 @@ describe('AuthService', () => {
   });
 
   it('allows password reset for an existing user even when the email domain is no longer accepted', async () => {
-    mockedArgon2.hash.mockResolvedValue('hashed-code');
-
     const resolveByEmail = jest.fn();
     const create = jest.fn().mockResolvedValue({
       id: 'code-1',
@@ -397,7 +415,8 @@ describe('AuthService', () => {
   it('does not consume the verification code when the code is invalid', async () => {
     const emailCodeFindFirst = jest.fn().mockResolvedValue({
       id: 'code-1',
-      codeHash: 'hash',
+      codeHash: 'wrong-digest',
+      deliveryDedupeKey: 'verification-code:test',
     });
     const emailCodeUpdateMany = jest.fn();
     const userCreate = jest.fn();
@@ -438,8 +457,6 @@ describe('AuthService', () => {
       } as never,
     );
 
-    mockedArgon2.verify.mockResolvedValue(false);
-
     await expect(
       authService.register({
         email: 'user@example.com',
@@ -454,9 +471,16 @@ describe('AuthService', () => {
   });
 
   it('maps unique constraint failures to a friendly registration error', async () => {
+    const deliveryDedupeKey = 'verification-code:test';
     const emailCodeFindFirst = jest.fn().mockResolvedValue({
       id: 'code-1',
-      codeHash: 'hash',
+      codeHash: createVerificationCodeDigest({
+        email: 'user@example.com',
+        purpose: 'register',
+        deliveryDedupeKey,
+        code: '123456',
+      }),
+      deliveryDedupeKey,
     });
     const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const userCreate = jest.fn().mockRejectedValue({ code: 'P2002' });
@@ -496,8 +520,6 @@ describe('AuthService', () => {
         sign: jest.fn(),
       } as never,
     );
-
-    mockedArgon2.verify.mockResolvedValue(true);
     mockedArgon2.hash.mockResolvedValue('hashed-password');
 
     await expect(

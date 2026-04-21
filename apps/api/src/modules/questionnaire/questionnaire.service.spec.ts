@@ -176,6 +176,44 @@ describe('QuestionnaireService', () => {
     );
   });
 
+  it('reuses the cached questionnaire payload within the TTL window', async () => {
+    const prisma = {
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          title: 'Current',
+          description: null,
+          isCurrent: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          questions: [],
+        }),
+      },
+      school: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+        ]),
+      },
+    };
+    const schoolAwareService = new QuestionnaireService(prisma as never);
+
+    await expect(schoolAwareService.getCurrentVersion()).resolves.toMatchObject(
+      {
+        id: 'version-1',
+        schools: [{ id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' }],
+      },
+    );
+    await expect(schoolAwareService.getCurrentVersion()).resolves.toMatchObject(
+      {
+        id: 'version-1',
+        schools: [{ id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' }],
+      },
+    );
+
+    expect(prisma.questionnaireVersion.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.school.findMany).toHaveBeenCalledTimes(1);
+  });
+
   it('drops stale saved answers whose options no longer exist', () => {
     expect(
       service.sanitizeStoredAnswers(

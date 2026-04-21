@@ -48,6 +48,23 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum DashboardSnapshotResult {
+  MATCHED
+  UNMATCHED
+  NOT_PARTICIPATED
+}
+
+enum DashboardSnapshotVisibility {
+  VISIBLE
+  LIMITED
+  NOT_APPLICABLE
+}
+
+enum DashboardSnapshotLimitedReason {
+  REPORTED
+  BLOCKED
+}
+
 enum OutboundEmailStatus {
   PENDING
   PROCESSING
@@ -110,6 +127,7 @@ model User {
   blocksReceived        Block[]                @relation("BlockedUser")
   matchParticipants     MatchParticipant[]
   auditLogs             AuditLog[]             @relation("Actor")
+  dashboardSnapshots    UserCycleDashboardSnapshot[]
 
   @@index([status, createdAt])
   @@index([schoolId])
@@ -206,6 +224,7 @@ model MatchCycle {
   notes                 String?
   participations        CycleParticipation[]
   matches               Match[]
+  dashboardSnapshots    UserCycleDashboardSnapshot[]
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 
@@ -307,6 +326,27 @@ model AuditLog {
   @@index([action, createdAt])
   @@index([actorId, createdAt])
   @@index([adminActorId, createdAt])
+}
+
+model UserCycleDashboardSnapshot {
+  userId              String
+  cycleId             String
+  cycleRevealAt       DateTime
+  cycleCodename       String
+  participationStatus ParticipationStatus
+  result              DashboardSnapshotResult
+  visibility          DashboardSnapshotVisibility
+  limitedReason       DashboardSnapshotLimitedReason?
+  matchId             String?
+  matchPayload        Json?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  user                User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycle               MatchCycle                  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, cycleId])
+  @@index([userId, cycleRevealAt])
+  @@index([cycleId, cycleRevealAt])
 }
 
 model SystemSetting {

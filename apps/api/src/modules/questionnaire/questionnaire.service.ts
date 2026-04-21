@@ -30,11 +30,76 @@ type QuestionnaireSchoolOption = {
   name: string;
 };
 
+type CurrentQuestionnairePayload = {
+  id: string;
+  title: string;
+  description: string | null;
+  isCurrent: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  questions: Array<{
+    id: string;
+    versionId: string;
+    key: string;
+    prompt: string;
+    description: string | null;
+    type: QuestionType;
+    weight: number;
+    order: number;
+    required: boolean;
+    selectionLimit: number | null;
+    options: ReturnType<typeof normalizeQuestionOptions>;
+    reasonRules: ReturnType<typeof normalizeQuestionReasonRules>;
+  }>;
+  schools: QuestionnaireSchoolOption[];
+};
+
+type CachedCurrentQuestionnaire = {
+  expiresAt: number;
+  value: CurrentQuestionnairePayload;
+};
+
+const CURRENT_QUESTIONNAIRE_CACHE_TTL_MS = 30 * 1000;
+
 @Injectable()
 export class QuestionnaireService {
+  private cachedCurrentQuestionnaire: CachedCurrentQuestionnaire | null = null;
+  private currentQuestionnaireInFlight: Promise<CurrentQuestionnairePayload> | null =
+    null;
+
   constructor(private readonly prisma: PrismaService) {}
 
   async getCurrentVersion() {
+    const cachedQuestionnaire = this.readCachedCurrentQuestionnaire();
+    if (cachedQuestionnaire) {
+      return cachedQuestionnaire;
+    }
+
+    if (this.currentQuestionnaireInFlight) {
+      return this.currentQuestionnaireInFlight;
+    }
+
+    this.currentQuestionnaireInFlight = this.loadCurrentVersion().finally(() => {
+      this.currentQuestionnaireInFlight = null;
+    });
+
+    return this.currentQuestionnaireInFlight;
+  }
+
+  private readCachedCurrentQuestionnaire() {
+    if (!this.cachedCurrentQuestionnaire) {
+      return null;
+    }
+
+    if (this.cachedCurrentQuestionnaire.expiresAt <= Date.now()) {
+      this.cachedCurrentQuestionnaire = null;
+      return null;
+    }
+
+    return this.cachedCurrentQuestionnaire.value;
+  }
+
+  private async loadCurrentVersion() {
     const [questionnaire, schools] = await Promise.all([
       this.prisma.questionnaireVersion.findFirst({
         where: { isCurrent: true },
@@ -59,7 +124,7 @@ export class QuestionnaireService {
       );
     }
 
-    return {
+    const currentQuestionnaire = {
       ...questionnaire,
       questions: questionnaire.questions.map((question) => ({
         ...question,
@@ -67,7 +132,14 @@ export class QuestionnaireService {
         reasonRules: normalizeQuestionReasonRules(question.reasonRules),
       })),
       schools,
+    } satisfies CurrentQuestionnairePayload;
+
+    this.cachedCurrentQuestionnaire = {
+      expiresAt: Date.now() + CURRENT_QUESTIONNAIRE_CACHE_TTL_MS,
+      value: currentQuestionnaire,
     };
+
+    return currentQuestionnaire;
   }
 
   validateAnswers(
