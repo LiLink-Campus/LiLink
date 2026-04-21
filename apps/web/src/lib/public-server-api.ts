@@ -1,6 +1,7 @@
 import "server-only";
 
 import { apiBaseUrl } from "./api-base-url";
+import type { EligibleSchoolsPayload } from "./eligible-schools";
 import type { LandingPayload } from "./landing-payload";
 
 function parseFailedResponseBody(text: string, status: number): string {
@@ -49,4 +50,18 @@ export async function getLandingPayload() {
   }
 
   return response.json() as Promise<LandingPayload>;
+}
+
+export async function getEligibleSchools() {
+  const response = await fetch(`${apiBaseUrl}/public/schools`, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 30 },
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(parseFailedResponseBody(body, response.status));
+  }
+
+  return response.json() as Promise<EligibleSchoolsPayload>;
 }

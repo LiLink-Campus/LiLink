@@ -1,10 +1,26 @@
 import Link from "next/link";
 
-const faqs = [
+type FaqItem = {
+  question: string;
+  answer: React.ReactNode;
+};
+
+const faqs: FaqItem[] = [
   {
     question: "LiLink 是什么？",
     answer:
       "LiLink 是面向黎安国际教育创新区的匹配平台。基于心理学量表设计的深度问卷，结合匹配算法，每周为你寻找一个在核心价值观、生活方式与情感风格上真正契合的人。",
+  },
+  {
+    question: "我的学校邮箱可以注册吗？",
+    answer: (
+      <>
+        LiLink 接受园区白名单学校的邮箱注册。完整的可注册学校与邮箱后缀列表见
+        {" "}
+        <Link href="/schools">支持的学校</Link>
+        ，列表实时同步后台配置。如果你的学校尚未上线，欢迎在页脚联系我们补录。
+      </>
+    ),
   },
   {
     question: "匹配算法是怎么运作的？",
