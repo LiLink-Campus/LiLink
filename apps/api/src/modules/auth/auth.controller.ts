@@ -20,19 +20,25 @@ import {
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { env } from '../../config/env';
+import {
+  createSessionClearCookieOptions,
+  createSessionCookieOptions,
+  userSessionConfig,
+} from '../../common/auth/session-config';
+import { createPublicAuthThrottle } from './auth-throttle';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('request-code')
-  @Throttle({ default: { ttl: 60_000, limit: 3 } })
+  @Throttle(createPublicAuthThrottle('requestCode'))
   requestCode(@Body() body: RequestCodeDto) {
     return this.authService.requestCode(body.email);
   }
 
   @Post('register')
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Throttle(createPublicAuthThrottle('register'))
   async register(
     @Body() body: RegisterDto,
     @Res({ passthrough: true }) response: Response,
@@ -43,13 +49,13 @@ export class AuthController {
   }
 
   @Post('request-password-reset-code')
-  @Throttle({ default: { ttl: 60_000, limit: 3 } })
+  @Throttle(createPublicAuthThrottle('requestPasswordResetCode'))
   requestPasswordResetCode(@Body() body: RequestPasswordResetCodeDto) {
     return this.authService.requestPasswordResetCode(body.email);
   }
 
   @Post('reset-password')
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Throttle(createPublicAuthThrottle('resetPassword'))
   async resetPassword(
     @Body() body: ResetPasswordDto,
     @Res({ passthrough: true }) response: Response,
@@ -60,7 +66,7 @@ export class AuthController {
   }
 
   @Post('login')
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Throttle(createPublicAuthThrottle('login'))
   async login(
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response,
@@ -72,12 +78,7 @@ export class AuthController {
 
   @Post('logout')
   logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie(env.COOKIE_NAME, {
-      domain: env.COOKIE_DOMAIN || undefined,
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: env.APP_ENV === 'production',
-    });
+    response.clearCookie(env.COOKIE_NAME, createSessionClearCookieOptions());
 
     return { ok: true };
   }
@@ -89,13 +90,10 @@ export class AuthController {
   }
 
   private attachAuthCookie(response: Response, token: string) {
-    response.cookie(env.COOKIE_NAME, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: env.APP_ENV === 'production',
-      domain: env.COOKIE_DOMAIN || undefined,
-      maxAge: 1000 * 60 * 60 * 24 * 14,
-      path: '/',
-    });
+    response.cookie(
+      env.COOKIE_NAME,
+      token,
+      createSessionCookieOptions(userSessionConfig.cookieMaxAgeMs),
+    );
   }
 }
