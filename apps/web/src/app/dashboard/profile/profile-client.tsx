@@ -143,22 +143,18 @@ function questionnaireAutosaveFailureMessage(
     : `问卷自动保存失败，系统将在 ${Math.ceil(retryDelayMs / 1000)} 秒后自动重试。`;
 }
 
-function initiallyExpandedExcludedSchoolIds(
-  schoolOptions: HardMatchSchoolOption[],
+function activeExcludedGendersFor(
   hardMatchForm: HardMatchFormState,
-) {
-  return schoolOptions
-    .filter((school) => {
-      if (hardMatchForm.excludedPartnerSchools.includes(school.id)) {
-        return true;
-      }
+  schoolId: string,
+): readonly string[] {
+  if (hardMatchForm.excludedPartnerSchools.includes(schoolId)) {
+    return HARD_MATCH_GENDERS;
+  }
 
-      return schoolGenderExclusionFor(
-        hardMatchForm.excludedPartnerSchoolGenders,
-        school.id,
-      ).length > 0;
-    })
-    .map((school) => school.id);
+  return schoolGenderExclusionFor(
+    hardMatchForm.excludedPartnerSchoolGenders,
+    schoolId,
+  );
 }
 
 export function ProfileClient({
@@ -204,9 +200,6 @@ export function ProfileClient({
     Boolean(initialDraft),
   );
   const [activeTab, setActiveTab] = useState<ProfileTab>("self");
-  const [expandedExcludedSchoolIds, setExpandedExcludedSchoolIds] = useState<
-    string[]
-  >(() => initiallyExpandedExcludedSchoolIds(initialSchools, initialHardMatchForm));
   const questionnaireAutosaveReady = useRef(false);
   const questionnaireSaveAbortRef = useRef<AbortController | null>(null);
   const questionnaireSaveInFlightRef = useRef(false);
@@ -268,69 +261,24 @@ export function ProfileClient({
     }));
   }
 
-  function toggleExcludedSchoolExpansion(schoolId: string) {
-    setExpandedExcludedSchoolIds((current) =>
-      current.includes(schoolId)
-        ? current.filter((item) => item !== schoolId)
-        : [...current, schoolId],
-    );
-  }
-
-  function toggleExcludedPartnerSchool(schoolId: string) {
-    setExpandedExcludedSchoolIds((current) =>
-      current.includes(schoolId) ? current : [...current, schoolId],
-    );
-    setHardMatchForm((current) => {
-      const isExcluded = current.excludedPartnerSchools.includes(schoolId);
-
-      return {
-        ...current,
-        excludedPartnerSchools: isExcluded
-          ? current.excludedPartnerSchools.filter((item) => item !== schoolId)
-          : [...current.excludedPartnerSchools, schoolId],
-        excludedPartnerSchoolGenders: setSchoolGenderExclusion(
-          current.excludedPartnerSchoolGenders,
-          schoolId,
-          [],
-        ),
-      };
-    });
-  }
-
   function toggleExcludedPartnerSchoolGender(schoolId: string, gender: string) {
-    setExpandedExcludedSchoolIds((current) =>
-      current.includes(schoolId) ? current : [...current, schoolId],
-    );
     setHardMatchForm((current) => {
-      const currentGenders = schoolGenderExclusionFor(
-        current.excludedPartnerSchoolGenders,
-        schoolId,
+      const currentActive = activeExcludedGendersFor(current, schoolId);
+      const nextActive = toggleMultiSelectValue([...currentActive], gender);
+      const isNowFullyExcluded = nextActive.length === HARD_MATCH_GENDERS.length;
+      const baseSchools = current.excludedPartnerSchools.filter(
+        (item) => item !== schoolId,
       );
-      const nextGenders = toggleMultiSelectValue(currentGenders, gender);
-
-      if (nextGenders.length === HARD_MATCH_GENDERS.length) {
-        return {
-          ...current,
-          excludedPartnerSchools: current.excludedPartnerSchools.includes(schoolId)
-            ? current.excludedPartnerSchools
-            : [...current.excludedPartnerSchools, schoolId],
-          excludedPartnerSchoolGenders: setSchoolGenderExclusion(
-            current.excludedPartnerSchoolGenders,
-            schoolId,
-            [],
-          ),
-        };
-      }
 
       return {
         ...current,
-        excludedPartnerSchools: current.excludedPartnerSchools.filter(
-          (item) => item !== schoolId,
-        ),
+        excludedPartnerSchools: isNowFullyExcluded
+          ? [...baseSchools, schoolId]
+          : baseSchools,
         excludedPartnerSchoolGenders: setSchoolGenderExclusion(
           current.excludedPartnerSchoolGenders,
           schoolId,
-          nextGenders,
+          isNowFullyExcluded ? [] : nextActive,
         ),
       };
     });
@@ -1022,106 +970,78 @@ export function ProfileClient({
             </fieldset>
 
             <fieldset className="question-block">
-              <legend>按学校细分排除性别（可选）</legend>
+              <legend>按学校排除（可选）</legend>
               <p className="dashboard-muted">
-                点开学校后，可以只排除该校里的某些性别；勾选“整校排除”则排除该校所有人。
+                在每所学校上，勾选你不希望匹配的性别。三项全选即整校排除。
               </p>
               <div className="school-exclusion-list">
                 {schoolOptions.map((school, i) => {
-                  const excludedGenders = schoolGenderExclusionFor(
-                    hardMatchForm.excludedPartnerSchoolGenders,
+                  const activeGenders = activeExcludedGendersFor(
+                    hardMatchForm,
                     school.id,
                   );
-                  const isSchoolExcluded = hardMatchForm.excludedPartnerSchools.includes(
-                    school.id,
-                  );
-                  const isExpanded = expandedExcludedSchoolIds.includes(
-                    school.id,
-                  );
-                  const summary = isSchoolExcluded
-                    ? "整校排除"
-                    : excludedGenders.length > 0
-                      ? `已排除：${excludedGenders.join("、")}`
-                      : "未限制";
+                  const isFullyExcluded =
+                    activeGenders.length === HARD_MATCH_GENDERS.length;
+                  const isPartiallyExcluded =
+                    !isFullyExcluded && activeGenders.length > 0;
+                  const rowClass = isFullyExcluded
+                    ? "school-exclusion-row is-fully-excluded"
+                    : isPartiallyExcluded
+                      ? "school-exclusion-row is-partially-excluded"
+                      : "school-exclusion-row";
                   return (
-                    <section
-                      key={school.id}
-                      className={
-                        isSchoolExcluded || excludedGenders.length > 0
-                          ? "school-exclusion-card is-active"
-                          : "school-exclusion-card"
-                      }
-                    >
-                      <button
-                        type="button"
-                        className="school-exclusion-summary"
-                        aria-expanded={isExpanded}
-                        onClick={() => toggleExcludedSchoolExpansion(school.id)}
-                      >
-                        <span className="school-exclusion-title">
+                    <section key={school.id} className={rowClass}>
+                      <div className="school-exclusion-name">
+                        <span className="school-exclusion-name-text">
                           {school.name}
                         </span>
-                        <span className="school-exclusion-meta">
-                          {summary}
-                        </span>
-                      </button>
-                      {isExpanded ? (
-                        <div className="school-exclusion-panel">
-                          <label
-                            className={isSchoolExcluded ? "chip active" : "chip"}
-                          >
-                            <input
-                              checked={isSchoolExcluded}
-                              id={buildDashboardFieldId(
-                                "excluded-partner-school-all",
-                                i,
-                              )}
-                              name={`excludedPartnerSchoolAll-${school.id}`}
-                              type="checkbox"
-                              onChange={() =>
-                                toggleExcludedPartnerSchool(school.id)
+                        {isFullyExcluded ? (
+                          <span className="school-exclusion-status is-strong">
+                            整校排除
+                          </span>
+                        ) : isPartiallyExcluded ? (
+                          <span className="school-exclusion-status">
+                            已排除：{activeGenders.join("、")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div
+                        className="school-exclusion-genders"
+                        role="group"
+                        aria-label={`${school.name} 排除性别`}
+                      >
+                        {HARD_MATCH_GENDERS.map((gender, genderIndex) => {
+                          const active = activeGenders.includes(gender);
+                          return (
+                            <label
+                              key={gender}
+                              className={
+                                active
+                                  ? "school-exclusion-gender is-active"
+                                  : "school-exclusion-gender"
                               }
-                            />
-                            <span>整校排除</span>
-                          </label>
-                          <div className="chip-grid school-exclusion-genders">
-                            {HARD_MATCH_GENDERS.map((gender, genderIndex) => {
-                              const active = excludedGenders.includes(gender);
-                              return (
-                                <label
-                                  key={gender}
-                                  className={
-                                    active
-                                      ? "chip active"
-                                      : isSchoolExcluded
-                                        ? "chip is-disabled"
-                                        : "chip"
-                                  }
-                                >
-                                  <input
-                                    checked={active}
-                                    disabled={isSchoolExcluded}
-                                    id={buildDashboardFieldId(
-                                      "excluded-partner-school-gender",
-                                      i,
-                                      genderIndex,
-                                    )}
-                                    name={`excludedPartnerSchoolGender-${school.id}`}
-                                    type="checkbox"
-                                    onChange={() =>
-                                      toggleExcludedPartnerSchoolGender(
-                                        school.id,
-                                        gender,
-                                      )
-                                    }
-                                  />
-                                  <span>{gender}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : null}
+                            >
+                              <input
+                                checked={active}
+                                id={buildDashboardFieldId(
+                                  "excluded-partner-school-gender",
+                                  i,
+                                  genderIndex,
+                                )}
+                                name={`excludedPartnerSchoolGender-${school.id}`}
+                                type="checkbox"
+                                onChange={() =>
+                                  toggleExcludedPartnerSchoolGender(
+                                    school.id,
+                                    gender,
+                                  )
+                                }
+                              />
+                              <span>{gender}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </section>
                   );
                 })}
