@@ -211,7 +211,10 @@ export class DashboardSnapshotService {
       return;
     }
 
-    const pendingSync = this.syncCycleSnapshotsDirect(cycleId, this.prisma)
+    const pendingSync = this.prisma
+      .$transaction(async (tx) => {
+        await this.syncCycleSnapshotsDirect(cycleId, tx as SnapshotStoreClient);
+      })
       .catch((error) => {
         throw error;
       })
