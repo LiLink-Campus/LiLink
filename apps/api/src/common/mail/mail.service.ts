@@ -36,16 +36,82 @@ type VerificationCodeEmailInput = {
   code: string;
 };
 
+type OutboundEmailRecord = {
+  id: string;
+  dedupeKey: string;
+  recipientEmail: string;
+  subject: string;
+  html: string;
+  status: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'EXHAUSTED';
+  attempts: number;
+  maxAttempts: number;
+  lastAttemptAt: Date | null;
+  nextAttemptAt: Date | null;
+};
+
+const OUTBOUND_EMAIL_STALE_PROCESSING_MS = 10 * 60 * 1000;
+const OUTBOUND_EMAIL_SYNC_WAIT_TIMEOUT_MS = 15_000;
+const OUTBOUND_EMAIL_SYNC_WAIT_INTERVAL_MS = 50;
+
+class AsyncConcurrencyGate {
+  private activeCount = 0;
+  private readonly waitQueue: Array<() => void> = [];
+
+  constructor(private readonly maxConcurrency: number) {}
+
+  async run<T>(work: () => Promise<T>) {
+    await this.acquire();
+
+    try {
+      return await work();
+    } finally {
+      this.release();
+    }
+  }
+
+  private acquire() {
+    if (this.activeCount < this.maxConcurrency) {
+      this.activeCount += 1;
+      return Promise.resolve();
+    }
+
+    return new Promise<void>((resolve) => {
+      this.waitQueue.push(() => {
+        this.activeCount += 1;
+        resolve();
+      });
+    });
+  }
+
+  private release() {
+    this.activeCount -= 1;
+
+    const next = this.waitQueue.shift();
+    if (next) {
+      next();
+    }
+  }
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private isFlushing = false;
+  private readonly sendGate = new AsyncConcurrencyGate(
+    env.SMTP_SEND_CONCURRENCY,
+  );
 
   constructor(private readonly prisma: PrismaService) {}
   private readonly transporter = nodemailer.createTransport({
+    pool: true,
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     secure: env.SMTP_SECURE || env.SMTP_PORT === 465,
+    maxConnections: env.SMTP_MAX_CONNECTIONS,
+    maxMessages: env.SMTP_MAX_MESSAGES,
+    connectionTimeout: env.SMTP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: env.SMTP_GREETING_TIMEOUT_MS,
+    socketTimeout: env.SMTP_SOCKET_TIMEOUT_MS,
     auth:
       env.SMTP_USER && env.SMTP_PASS
         ? {
@@ -123,7 +189,9 @@ export class MailService {
 
     try {
       const now = new Date();
-      const staleProcessingThreshold = new Date(now.getTime() - 10 * 60 * 1000);
+      const staleProcessingThreshold = new Date(
+        now.getTime() - OUTBOUND_EMAIL_STALE_PROCESSING_MS,
+      );
       const queuedEmails = await this.prisma.outboundEmail.findMany({
         where: {
           ...(options.dedupeKeys
@@ -149,32 +217,48 @@ export class MailService {
         take: options.dedupeKeys?.length ?? options.limit ?? 10,
       });
 
-      for (const queuedEmail of queuedEmails) {
-        await this.processOutboundEmail(queuedEmail);
-      }
+      await Promise.all(
+        queuedEmails.map((queuedEmail) => this.processOutboundEmail(queuedEmail)),
+      );
     } finally {
       this.isFlushing = false;
     }
   }
 
-  private async processOutboundEmail(email: {
-    id: string;
-    dedupeKey: string;
-    recipientEmail: string;
-    subject: string;
-    html: string;
-    status: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'EXHAUSTED';
-    attempts: number;
-    maxAttempts: number;
-  }) {
+  async deliverQueuedEmailNow(dedupeKey: string) {
+    const email = await this.prisma.outboundEmail.findUnique({
+      where: { dedupeKey },
+    });
+
+    if (!email) {
+      return null;
+    }
+
+    if (email.status === 'SENT' || email.status === 'EXHAUSTED') {
+      return email;
+    }
+
+    const result = await this.processOutboundEmail(email);
+    if (result === 'claimed-by-another-worker') {
+      return this.waitForOutboundEmailCompletion(dedupeKey);
+    }
+
+    return this.prisma.outboundEmail.findUnique({
+      where: { dedupeKey },
+    });
+  }
+
+  private async processOutboundEmail(
+    email: OutboundEmailRecord,
+  ): Promise<'processed' | 'claimed-by-another-worker' | 'not-eligible'> {
     const claimedAt = new Date();
+    const claimWhere = this.buildClaimWhere(email, claimedAt);
+    if (!claimWhere) {
+      return 'not-eligible';
+    }
+
     const claimResult = await this.prisma.outboundEmail.updateMany({
-      where: {
-        id: email.id,
-        status: {
-          in: ['PENDING', 'FAILED', 'PROCESSING'],
-        },
-      },
+      where: claimWhere,
       data: {
         status: 'PROCESSING',
         attempts: { increment: 1 },
@@ -184,16 +268,18 @@ export class MailService {
     });
 
     if (claimResult.count === 0) {
-      return;
+      return 'claimed-by-another-worker';
     }
 
     try {
       const sentAt = new Date();
-      await this.transporter.sendMail({
-        from: env.SMTP_FROM,
-        to: email.recipientEmail,
-        subject: email.subject,
-        html: email.html,
+      await this.sendGate.run(async () => {
+        await this.transporter.sendMail({
+          from: env.SMTP_FROM,
+          to: email.recipientEmail,
+          subject: email.subject,
+          html: email.html,
+        });
       });
 
       await this.prisma.outboundEmail.update({
@@ -238,6 +324,8 @@ export class MailService {
         `Email delivery failed for ${email.dedupeKey}: ${errorMessage}`,
       );
     }
+
+    return 'processed';
   }
 
   private async syncVerificationCodeStatus(
@@ -256,6 +344,61 @@ export class MailService {
         deliveryDedupeKey: dedupeKey,
       },
       data,
+    });
+  }
+
+  private buildClaimWhere(email: OutboundEmailRecord, now: Date) {
+    if (email.status === 'PENDING') {
+      return {
+        id: email.id,
+        status: 'PENDING' as const,
+      };
+    }
+
+    if (email.status === 'FAILED') {
+      return {
+        id: email.id,
+        status: 'FAILED' as const,
+        nextAttemptAt: { lte: now },
+      };
+    }
+
+    if (email.status === 'PROCESSING') {
+      return {
+        id: email.id,
+        status: 'PROCESSING' as const,
+        lastAttemptAt: {
+          lt: new Date(now.getTime() - OUTBOUND_EMAIL_STALE_PROCESSING_MS),
+        },
+      };
+    }
+
+    return null;
+  }
+
+  private async waitForOutboundEmailCompletion(dedupeKey: string) {
+    const deadline = Date.now() + OUTBOUND_EMAIL_SYNC_WAIT_TIMEOUT_MS;
+
+    while (true) {
+      const email = await this.prisma.outboundEmail.findUnique({
+        where: { dedupeKey },
+      });
+
+      if (!email) {
+        return null;
+      }
+
+      if (email.status !== 'PROCESSING' || Date.now() >= deadline) {
+        return email;
+      }
+
+      await this.sleep(OUTBOUND_EMAIL_SYNC_WAIT_INTERVAL_MS);
+    }
+  }
+
+  private sleep(durationMs: number) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, durationMs);
     });
   }
 }
