@@ -16,15 +16,15 @@ type EligibleParticipantStub = {
     partnerLooks: string[];
     heightCm: number;
     partnerHeightMin: number;
-      partnerHeightMax: number;
-      oneLinerIntro: string;
-      school: string;
-      excludedPartnerSchools: string[];
-      excludedPartnerSchoolGenders?: Array<{
-        schoolId: string;
-        genders: string[];
-      }>;
-    };
+    partnerHeightMax: number;
+    oneLinerIntro: string;
+    school: string;
+    excludedPartnerSchools: string[];
+    excludedPartnerSchoolGenders?: Array<{
+      schoolId: string;
+      genders: string[];
+    }>;
+  };
   answers: Record<string, unknown>;
   intent: 'FRIEND' | 'DATE' | 'BOTH';
 };

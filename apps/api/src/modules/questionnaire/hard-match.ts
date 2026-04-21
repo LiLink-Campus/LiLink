@@ -61,8 +61,7 @@ const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
   [HARD_MATCH_KEYS.oneLinerIntro]: '一句话介绍',
   [HARD_MATCH_KEYS.school]: '你的学校',
   [HARD_MATCH_KEYS.excludedPartnerSchools]: '不希望对方的学校',
-  [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]:
-    '不希望对方的学校内性别',
+  [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: '不希望对方的学校内性别',
 };
 
 export type HardMatchAnswerRecord = {
@@ -79,8 +78,7 @@ export type HardMatchAnswerRecord = {
   [HARD_MATCH_KEYS.oneLinerIntro]: string;
   [HARD_MATCH_KEYS.school]: HardMatchSchoolId;
   [HARD_MATCH_KEYS.excludedPartnerSchools]: HardMatchSchoolId[];
-  [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]:
-    HardMatchSchoolGenderExclusion[];
+  [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: HardMatchSchoolGenderExclusion[];
 };
 
 export type HardMatchDraftForm = {
