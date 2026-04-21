@@ -304,6 +304,81 @@
   color: var(--accent-text);
 }
 
+.chip.is-disabled {
+  cursor: not-allowed;
+  color: var(--fg-secondary);
+  border-style: dashed;
+  opacity: 0.72;
+}
+
+.school-exclusion-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.school-exclusion-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg) 96%, var(--accent-soft) 4%);
+  overflow: hidden;
+}
+
+.school-exclusion-card.is-active {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border) 62%);
+  box-shadow: 0 10px 28px rgba(14, 24, 42, 0.05);
+}
+
+.school-exclusion-summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.school-exclusion-summary:hover {
+  background: color-mix(in srgb, var(--accent-soft) 42%, transparent);
+}
+
+.school-exclusion-title {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.school-exclusion-meta {
+  color: var(--fg-secondary);
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+
+.school-exclusion-panel {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.school-exclusion-genders {
+  gap: 0.6rem;
+}
+
+@media (max-width: 640px) {
+  .school-exclusion-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .school-exclusion-meta {
+    white-space: normal;
+  }
+}
+
 .reason-list {
   padding-left: 1.5rem;
   margin: 0.75rem 0;

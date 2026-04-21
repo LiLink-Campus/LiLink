@@ -28,6 +28,7 @@ const HARD_MATCH_LABELS: Record<string, string> = {
   [HARD_MATCH_KEYS.oneLinerIntro]: "一句话介绍",
   [HARD_MATCH_KEYS.school]: "你的学校",
   [HARD_MATCH_KEYS.excludedPartnerSchools]: "不希望对方的学校",
+  [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: "学校内排除的性别",
 };
 
 const HARD_MATCH_KEY_SET = new Set(Object.keys(HARD_MATCH_LABELS));
@@ -59,6 +60,35 @@ function formatAnswer(
         typeof item === "string" ? (schoolNameById[item] ?? item) : String(item),
       )
       .join("、");
+  }
+
+  if (
+    key === HARD_MATCH_KEYS.excludedPartnerSchoolGenders &&
+    Array.isArray(value)
+  ) {
+    return value
+      .map((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          return String(item);
+        }
+
+        const record = item as {
+          schoolId?: unknown;
+          genders?: unknown;
+        };
+        const schoolName =
+          typeof record.schoolId === "string"
+            ? (schoolNameById[record.schoolId] ?? record.schoolId)
+            : "未知学校";
+        const genders = Array.isArray(record.genders)
+          ? record.genders
+              .filter((gender): gender is string => typeof gender === "string")
+              .join("、")
+          : "";
+
+        return genders ? `${schoolName}（${genders}）` : schoolName;
+      })
+      .join("；");
   }
 
   if (Array.isArray(value)) return value.join("、");
