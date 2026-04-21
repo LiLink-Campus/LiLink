@@ -20,6 +20,56 @@ function rewriteSchoolId(
   return rewrittenSchoolIds?.[schoolId] ?? schoolId;
 }
 
+type SchoolPreferenceSyncOptions = {
+  allowedSchoolIds: readonly string[];
+  rewrittenSchoolIds?: Readonly<Record<string, string | null>>;
+};
+
+export function syncExcludedPartnerSchoolPreferences(
+  rawValues: {
+    excludedPartnerSchools: unknown;
+    excludedPartnerSchoolGenders: unknown;
+  },
+  options: SchoolPreferenceSyncOptions,
+) {
+  const excludedPartnerSchools = readTrimmedStringArray(
+    rawValues.excludedPartnerSchools,
+  )
+    .map((schoolId) => rewriteSchoolId(schoolId, options.rewrittenSchoolIds))
+    .filter(Boolean);
+  const rawExcludedPartnerSchoolGenders =
+    rawValues.excludedPartnerSchoolGenders;
+
+  const rewrittenExcludedPartnerSchoolGenders = Array.isArray(
+    rawExcludedPartnerSchoolGenders,
+  )
+    ? rawExcludedPartnerSchoolGenders.map((item: unknown) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          return item;
+        }
+
+        const record = item as Record<string, unknown>;
+        const schoolId =
+          typeof record.schoolId === 'string'
+            ? rewriteSchoolId(record.schoolId, options.rewrittenSchoolIds)
+            : record.schoolId;
+
+        return {
+          ...record,
+          schoolId,
+        };
+      })
+    : rawExcludedPartnerSchoolGenders;
+
+  return normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools,
+      excludedPartnerSchoolGenders: rewrittenExcludedPartnerSchoolGenders,
+    },
+    options.allowedSchoolIds,
+  );
+}
+
 export function syncQuestionnaireSchoolAnswers(
   rawAnswers: QuestionnaireAnswers,
   options: SyncQuestionnaireSchoolAnswersOptions,
@@ -46,41 +96,13 @@ export function syncQuestionnaireSchoolAnswers(
     delete nextAnswers[HARD_MATCH_KEYS.school];
   }
 
-  const excludedPartnerSchools = readTrimmedStringArray(
-    rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
-  )
-    .map((schoolId) => rewriteSchoolId(schoolId, options.rewrittenSchoolIds))
-    .filter(Boolean);
-  const rawExcludedPartnerSchoolGenders =
-    rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders];
-
-  const rewrittenExcludedPartnerSchoolGenders = Array.isArray(
-    rawExcludedPartnerSchoolGenders,
-  )
-    ? rawExcludedPartnerSchoolGenders.map((item: unknown) => {
-        if (!item || typeof item !== 'object' || Array.isArray(item)) {
-          return item;
-        }
-
-        const record = item as Record<string, unknown>;
-        const schoolId =
-          typeof record.schoolId === 'string'
-            ? rewriteSchoolId(record.schoolId, options.rewrittenSchoolIds)
-            : record.schoolId;
-
-        return {
-          ...record,
-          schoolId,
-        };
-      })
-    : rawExcludedPartnerSchoolGenders;
-
-  const excludedPartnerPreferences = normalizeExcludedPartnerPreferences(
+  const excludedPartnerPreferences = syncExcludedPartnerSchoolPreferences(
     {
-      excludedPartnerSchools,
-      excludedPartnerSchoolGenders: rewrittenExcludedPartnerSchoolGenders,
+      excludedPartnerSchools: rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
+      excludedPartnerSchoolGenders:
+        rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders],
     },
-    options.allowedSchoolIds,
+    options,
   );
 
   if (
