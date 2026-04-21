@@ -45,8 +45,9 @@ AGENTS.md
 postgres-data/
 mailpit-data/
 
-# Postgres dumps (pg_dump / scripts/backup-postgres.sh)
-backups/
+# Postgres dumps (pg_dump / scripts/backup-postgres.sh).
+# No trailing slash so it also ignores the symlink form (backups -> /mnt/data/backups).
+backups
 
 # TypeScript
 *.tsbuildinfo
