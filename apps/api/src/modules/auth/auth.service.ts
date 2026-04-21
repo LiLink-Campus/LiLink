@@ -250,9 +250,7 @@ export class AuthService {
       return emailCode;
     });
 
-    await this.mailService.flushQueuedEmails({
-      dedupeKeys: [deliveryDedupeKey],
-    });
+    await this.mailService.deliverQueuedEmailNow(deliveryDedupeKey);
 
     const deliveredCode = await this.prisma.emailCode.findUnique({
       where: { id: createdCode.id },

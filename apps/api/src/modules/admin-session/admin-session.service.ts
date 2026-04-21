@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { randomUUID } from 'crypto';
+import { adminSessionConfig } from '../../common/auth/session-config';
 import { env } from '../../config/env';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -53,7 +54,7 @@ export class AdminSessionService {
       },
       {
         secret: env.ADMIN_JWT_SECRET,
-        expiresIn: '12h',
+        expiresIn: adminSessionConfig.jwtExpiresIn,
       },
     );
 

@@ -137,7 +137,7 @@ describe('AuthService', () => {
       id: 'code-1',
       deliveryStatus: 'SENT',
     });
-    const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
+    const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
     const prisma = {
       emailCode: {
         findUnique,
@@ -173,7 +173,7 @@ describe('AuthService', () => {
             maxAttempts: 1,
           }),
         ),
-        flushQueuedEmails,
+        deliverQueuedEmailNow,
       } as never,
       {
         resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
@@ -218,13 +218,10 @@ describe('AuthService', () => {
     expect(outboundPayload?.data.recipientEmail).toBe('user@example.com');
     expect(outboundPayload?.data.maxAttempts).toBe(1);
 
-    expect(flushQueuedEmails).toHaveBeenCalledTimes(1);
-    const flushCalls = flushQueuedEmails.mock.calls as unknown as Array<
-      [{ dedupeKeys: string[] }]
-    >;
-    const flushPayload = flushCalls[0]?.[0];
-    expect(flushPayload?.dedupeKeys).toHaveLength(1);
-    expect(flushPayload?.dedupeKeys[0]).toMatch(/^verification-code:/);
+    expect(deliverQueuedEmailNow).toHaveBeenCalledTimes(1);
+    expect(deliverQueuedEmailNow.mock.calls[0]?.[0]).toMatch(
+      /^verification-code:/,
+    );
     expect(result).toMatchObject({
       email: 'user@example.com',
       school: { schoolId: 'school-1' },
@@ -235,7 +232,7 @@ describe('AuthService', () => {
     mockedArgon2.hash.mockResolvedValue('hashed-code');
 
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
-    const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
+    const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
     const prisma = {
       emailCode: {
         findUnique: jest.fn().mockResolvedValue({
@@ -276,7 +273,7 @@ describe('AuthService', () => {
             maxAttempts: 1,
           }),
         ),
-        flushQueuedEmails,
+        deliverQueuedEmailNow,
       } as never,
       {
         resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
@@ -300,7 +297,7 @@ describe('AuthService', () => {
     });
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     const outboundCreate = jest.fn().mockResolvedValue(undefined);
-    const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
+    const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
     const prisma = {
       user: {
         findUnique: jest.fn().mockResolvedValue({
@@ -346,7 +343,7 @@ describe('AuthService', () => {
             maxAttempts: 1,
           }),
         ),
-        flushQueuedEmails,
+        deliverQueuedEmailNow,
       } as never,
       {
         resolveByEmail,
@@ -365,7 +362,7 @@ describe('AuthService', () => {
 
   it('returns a neutral response for unknown password-reset emails without queuing mail', async () => {
     const buildVerificationCodeEmail = jest.fn();
-    const flushQueuedEmails = jest.fn();
+    const deliverQueuedEmailNow = jest.fn();
     const authService = new AuthService(
       {
         user: {
@@ -374,7 +371,7 @@ describe('AuthService', () => {
       } as never,
       {
         buildVerificationCodeEmail,
-        flushQueuedEmails,
+        deliverQueuedEmailNow,
       } as never,
       {} as never,
       {} as never,
@@ -387,7 +384,7 @@ describe('AuthService', () => {
     expect(result.email).toBe('missing@example.com');
     expect(result.expiresAt).toBeInstanceOf(Date);
     expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
-    expect(flushQueuedEmails).not.toHaveBeenCalled();
+    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
   });
 
   it('rejects passwords that exceed the configured maximum length', () => {

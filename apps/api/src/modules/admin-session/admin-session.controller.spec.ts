@@ -1,3 +1,4 @@
+import { adminSessionConfig } from '../../common/auth/session-config';
 import { env } from '../../config/env';
 import { AdminSessionController } from './admin-session.controller';
 
@@ -42,7 +43,7 @@ describe('AdminSessionController', () => {
         sameSite: 'lax',
         secure: env.APP_ENV === 'production',
         domain: env.COOKIE_DOMAIN || undefined,
-        maxAge: 1000 * 60 * 60 * 12,
+        maxAge: adminSessionConfig.cookieMaxAgeMs,
         path: '/',
       },
     );
