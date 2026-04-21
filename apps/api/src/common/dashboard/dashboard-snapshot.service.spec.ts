@@ -31,8 +31,8 @@ describe('DashboardSnapshotService', () => {
       },
     };
     const prisma = {
-      $transaction: jest.fn(async (callback: (store: typeof tx) => Promise<void>) =>
-        callback(tx),
+      $transaction: jest.fn(
+        async (callback: (store: typeof tx) => Promise<void>) => callback(tx),
       ),
     };
     const service = new DashboardSnapshotService(prisma as never);

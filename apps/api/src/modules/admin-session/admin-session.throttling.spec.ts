@@ -72,12 +72,10 @@ describe('AdminSession throttling', () => {
 
     try {
       const loginRequest = () =>
-        request(app.getHttpServer())
-          .post('/v1/admin-session/login')
-          .send({
-            email: 'admin@example.com',
-            password: 'password',
-          });
+        request(app.getHttpServer()).post('/v1/admin-session/login').send({
+          email: 'admin@example.com',
+          password: 'password',
+        });
 
       for (let index = 0; index < 10; index += 1) {
         await loginRequest().expect(201);
