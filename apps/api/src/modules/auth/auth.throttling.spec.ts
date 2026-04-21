@@ -137,9 +137,10 @@ async function createTestApp() {
     imports: [
       ThrottlerModule.forRoot({
         throttlers: [
+          // Kept in sync with AppModule's default bucket.
           {
             ttl: 60_000,
-            limit: 30,
+            limit: 1000,
           },
           authEmailThrottler,
         ],
