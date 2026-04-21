@@ -11,6 +11,13 @@ export interface Announcement {
  */
 export const announcements: Announcement[] = [
   {
+    id: "2026-04-21-school-gender-exclusion",
+    title: "新增按学校内性别排除，学校变更后草稿偏好也会自动同步",
+    content:
+      "现在你可以在「对方条件」里按学校分别勾选不希望匹配的性别，三项全选等同整校排除。我们也补上了学校合并或删除后的草稿同步逻辑，已保存但未正式提交的相关偏好不会再被静默丢失。",
+    date: "2026-04-21",
+  },
+  {
     id: "2026-04-19-friend-date-both",
     title: "新增 Friend / Date / Both，现已支持找朋友",
     content:
