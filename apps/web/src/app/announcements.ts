@@ -11,6 +11,13 @@ export interface Announcement {
  */
 export const announcements: Announcement[] = [
   {
+    id: "2026-04-22-eligible-schools-and-dashboard-perf",
+    title: "新增「支持的学校」总览，仪表盘加载更快",
+    content:
+      "页脚与注册页新增「支持的学校」入口，注册前即可查看完整的可注册邮箱后缀。同时我们优化了仪表盘的数据组装，打开匹配结果会比以前明显更快。",
+    date: "2026-04-22",
+  },
+  {
     id: "2026-04-21-school-gender-exclusion",
     title: "新增按学校内性别排除，学校变更后草稿偏好也会自动同步",
     content:
