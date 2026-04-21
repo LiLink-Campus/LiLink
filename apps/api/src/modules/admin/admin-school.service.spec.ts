@@ -11,6 +11,9 @@ describe('AdminSchoolService', () => {
     const auditService = {
       write: jest.fn().mockResolvedValue(undefined),
     };
+    const schoolResolverService = {
+      invalidateResolutionCache: jest.fn(),
+    };
     const prisma = {
       school: {
         create,
@@ -19,6 +22,8 @@ describe('AdminSchoolService', () => {
     const service = new AdminSchoolService(
       prisma as never,
       auditService as never,
+      undefined,
+      schoolResolverService as never,
     );
 
     await service.create(
@@ -51,6 +56,9 @@ describe('AdminSchoolService', () => {
         schoolId: 'school-1',
         slug: 'example-school',
       },
+    );
+    expect(schoolResolverService.invalidateResolutionCache).toHaveBeenCalledTimes(
+      1,
     );
   });
 
@@ -88,6 +96,9 @@ describe('AdminSchoolService', () => {
     const auditService = {
       write: jest.fn().mockResolvedValue(undefined),
     };
+    const schoolResolverService = {
+      invalidateResolutionCache: jest.fn(),
+    };
     const prisma = {
       school: {
         findUnique: jest.fn().mockResolvedValue({
@@ -107,6 +118,8 @@ describe('AdminSchoolService', () => {
     const service = new AdminSchoolService(
       prisma as never,
       auditService as never,
+      undefined,
+      schoolResolverService as never,
     );
 
     await service.update(
@@ -134,6 +147,9 @@ describe('AdminSchoolService', () => {
       },
       include: { domains: true },
     });
+    expect(schoolResolverService.invalidateResolutionCache).toHaveBeenCalledTimes(
+      1,
+    );
   });
 
   it('rewrites questionnaire school references when merging schools', async () => {
@@ -225,9 +241,14 @@ describe('AdminSchoolService', () => {
     const auditService = {
       write: jest.fn().mockResolvedValue(undefined),
     };
+    const schoolResolverService = {
+      invalidateResolutionCache: jest.fn(),
+    };
     const service = new AdminSchoolService(
       prisma as never,
       auditService as never,
+      undefined,
+      schoolResolverService as never,
     );
 
     await service.merge('school-source', 'school-target', 'admin-1');
@@ -271,6 +292,9 @@ describe('AdminSchoolService', () => {
         },
       },
     });
+    expect(schoolResolverService.invalidateResolutionCache).toHaveBeenCalledTimes(
+      1,
+    );
   });
 
   it('rewrites questionnaire draft exclusions when deleting schools', async () => {
@@ -347,9 +371,14 @@ describe('AdminSchoolService', () => {
     const auditService = {
       write: jest.fn().mockResolvedValue(undefined),
     };
+    const schoolResolverService = {
+      invalidateResolutionCache: jest.fn(),
+    };
     const service = new AdminSchoolService(
       prisma as never,
       auditService as never,
+      undefined,
+      schoolResolverService as never,
     );
 
     await service.delete('school-source', 'admin-1');
@@ -374,5 +403,8 @@ describe('AdminSchoolService', () => {
         },
       },
     });
+    expect(schoolResolverService.invalidateResolutionCache).toHaveBeenCalledTimes(
+      1,
+    );
   });
 });

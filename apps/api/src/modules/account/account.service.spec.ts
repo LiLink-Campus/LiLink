@@ -77,6 +77,95 @@ function buildHistoryMatchParticipant({
   };
 }
 
+function buildSnapshotMatchPayload(
+  matchParticipant: ReturnType<typeof buildHistoryMatchParticipant>,
+  options: { hideSensitiveFields?: boolean; reportStatus?: string | null } = {},
+) {
+  const hideSensitiveFields = options.hideSensitiveFields ?? false;
+
+  return {
+    id: matchParticipant.match.id,
+    score: matchParticipant.match.score,
+    reasons: hideSensitiveFields ? [] : matchParticipant.match.reasons,
+    introducedAt: matchParticipant.match.introducedAt?.toISOString() ?? null,
+    currentUserRequestedAt: matchParticipant.contactRequestedAt?.toISOString() ?? null,
+    reportStatus: options.reportStatus ?? null,
+    participants: hideSensitiveFields
+      ? []
+      : matchParticipant.match.participants.map((participant) => ({
+          userId: participant.userId,
+          displayName: participant.user.displayName,
+          introLine: participant.user.profile?.headline ?? null,
+          email: matchParticipant.match.introducedAt
+            ? participant.user.email
+            : null,
+          schoolName: participant.user.school?.name ?? null,
+          contactRequestedAt: participant.contactRequestedAt?.toISOString() ?? null,
+        })),
+  };
+}
+
+function buildDashboardSnapshotRecord({
+  cycle,
+  participationStatus,
+  matchParticipant,
+  blocks,
+}: {
+  cycle: { id: string; codename: string; revealAt: Date };
+  participationStatus: 'OPTED_IN' | 'OPTED_OUT';
+  matchParticipant?: ReturnType<typeof buildHistoryMatchParticipant> | null;
+  blocks: Array<{ blockerId: string; blockedId: string }>;
+}) {
+  if (!matchParticipant) {
+    return {
+      userId: 'user-1',
+      cycleId: cycle.id,
+      cycleRevealAt: cycle.revealAt,
+      cycleCodename: cycle.codename,
+      participationStatus,
+      result: participationStatus === 'OPTED_IN' ? 'UNMATCHED' : 'NOT_PARTICIPATED',
+      visibility: 'NOT_APPLICABLE',
+      limitedReason: null,
+      matchId: null,
+      matchPayload: null,
+    };
+  }
+
+  const counterpart =
+    matchParticipant.match.participants.find(
+      (participant) => participant.userId !== 'user-1',
+    ) ?? null;
+  const reportStatus =
+    matchParticipant.match.reports[0]?.status ?? null;
+  const limitedReason = reportStatus
+    ? 'REPORTED'
+    : counterpart &&
+        blocks.some(
+          (block) =>
+            (block.blockerId === 'user-1' && block.blockedId === counterpart.userId) ||
+            (block.blockedId === 'user-1' && block.blockerId === counterpart.userId),
+        )
+      ? 'BLOCKED'
+      : null;
+  const visibility = limitedReason ? 'LIMITED' : 'VISIBLE';
+
+  return {
+    userId: 'user-1',
+    cycleId: cycle.id,
+    cycleRevealAt: cycle.revealAt,
+    cycleCodename: cycle.codename,
+    participationStatus,
+    result: 'MATCHED',
+    visibility,
+    limitedReason,
+    matchId: matchParticipant.match.id,
+    matchPayload: buildSnapshotMatchPayload(matchParticipant, {
+      hideSensitiveFields: visibility === 'LIMITED',
+      reportStatus,
+    }),
+  };
+}
+
 function createDashboardPrismaMock({
   revealedCycles,
   recentParticipations = [],
@@ -85,7 +174,6 @@ function createDashboardPrismaMock({
   currentCycle = null,
   currentParticipation = null,
   lastRevealedParticipation = null,
-  matchedInLastRevealedRound = null,
 }: {
   revealedCycles: Array<{
     id: string;
@@ -121,8 +209,52 @@ function createDashboardPrismaMock({
       revealAt: Date;
     };
   } | null;
-  matchedInLastRevealedRound?: { id: string } | null;
 }) {
+  const matchParticipants = recentMatches as Array<
+    ReturnType<typeof buildHistoryMatchParticipant>
+  >;
+  const participationByCycleId = new Map(
+    recentParticipations.map((participation) => [
+      participation.cycleId,
+      participation.status,
+    ]),
+  );
+  const matchByCycleId = new Map(
+    matchParticipants.map((matchParticipant) => [
+      matchParticipant.cycleId,
+      matchParticipant,
+    ]),
+  );
+  const snapshotRecords = [
+    ...revealedCycles
+      .filter(
+        (cycle) => participationByCycleId.get(cycle.id) === 'OPTED_IN',
+      )
+      .map((cycle) =>
+        buildDashboardSnapshotRecord({
+          cycle,
+          participationStatus: participationByCycleId.get(cycle.id) ?? 'OPTED_OUT',
+          matchParticipant: matchByCycleId.get(cycle.id) ?? null,
+          blocks,
+        }),
+      ),
+    ...(lastRevealedParticipation &&
+    !revealedCycles.some((cycle) => cycle.id === lastRevealedParticipation.cycleId)
+      ? [
+          buildDashboardSnapshotRecord({
+            cycle: lastRevealedParticipation.cycle,
+            participationStatus: lastRevealedParticipation.status,
+            matchParticipant:
+              matchByCycleId.get(lastRevealedParticipation.cycleId) ?? null,
+            blocks,
+          }),
+        ]
+      : []),
+  ].sort(
+    (left, right) =>
+      right.cycleRevealAt.getTime() - left.cycleRevealAt.getTime(),
+  );
+
   return {
     userProfile: {
       findUnique: jest.fn().mockResolvedValue(null),
@@ -136,15 +268,22 @@ function createDashboardPrismaMock({
     },
     cycleParticipation: {
       findFirst: jest.fn().mockResolvedValue(lastRevealedParticipation),
-      findMany: jest.fn().mockResolvedValue(recentParticipations),
       findUnique: jest.fn().mockResolvedValue(currentParticipation),
     },
-    matchParticipant: {
-      findMany: jest.fn().mockResolvedValue(recentMatches),
-      findFirst: jest.fn().mockResolvedValue(matchedInLastRevealedRound),
-    },
-    block: {
-      findMany: jest.fn().mockResolvedValue(blocks),
+    userCycleDashboardSnapshot: {
+      findFirst: jest
+        .fn()
+        .mockImplementation(async () => snapshotRecords[0] ?? null),
+      findMany: jest.fn().mockImplementation(async (args?: { where?: { cycleId?: { in?: string[] } } }) => {
+        const cycleIds = args?.where?.cycleId?.in;
+        if (!cycleIds) {
+          return snapshotRecords;
+        }
+
+        return snapshotRecords.filter((snapshot) =>
+          cycleIds.includes(snapshot.cycleId),
+        );
+      }),
     },
   };
 }
@@ -1231,7 +1370,7 @@ describe('AccountService', () => {
     ]);
   });
 
-  it('queries match participants only for dashboard-visible revealed cycles', async () => {
+  it('queries dashboard snapshots only for dashboard-visible revealed cycles', async () => {
     const revealedCycles = [
       buildRevealedCycle('cycle-4', '第四轮', '2026-04-04T12:00:00.000Z'),
       buildRevealedCycle('cycle-3', '第三轮', '2026-04-03T12:00:00.000Z'),
@@ -1257,17 +1396,15 @@ describe('AccountService', () => {
 
     await service.getDashboard('user-1');
 
-    expect(prisma.matchParticipant.findMany).toHaveBeenCalledTimes(1);
-    const [query] = prisma.matchParticipant.findMany.mock.calls[0] as [
+    expect(prisma.userCycleDashboardSnapshot.findMany).toHaveBeenCalledTimes(1);
+    const [query] = prisma.userCycleDashboardSnapshot.findMany.mock.calls[0] as [
       Record<string, unknown>,
     ];
 
-    expect(query).toHaveProperty('select');
-    expect(query).not.toHaveProperty('include');
     expect(query.where).toEqual({
       userId: 'user-1',
       cycleId: {
-        in: ['cycle-4', 'cycle-3', 'cycle-2', 'cycle-1'],
+        in: ['cycle-4', 'cycle-3', 'cycle-2'],
       },
     });
   });
@@ -1635,7 +1772,23 @@ describe('AccountService', () => {
       auditLog: {
         create: auditLogCreate,
       },
-      $transaction: jest.fn().mockResolvedValue(undefined),
+      userCycleDashboardSnapshot: {
+        upsert: jest.fn().mockResolvedValue(undefined),
+      },
+      $transaction: jest.fn().mockImplementation(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            report: {
+              create: reportCreate,
+            },
+            block: {
+              upsert: blockUpsert,
+            },
+            auditLog: {
+              create: auditLogCreate,
+            },
+          }),
+      ),
     };
     const service = new AccountService(
       prisma as never,

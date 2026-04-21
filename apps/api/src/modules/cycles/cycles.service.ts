@@ -2,10 +2,12 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import blossom from 'edmonds-blossom-fixed';
 import { QuestionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
 import {
@@ -37,6 +39,13 @@ const MAX_MATCH_REASONS = 3;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const REVEAL_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
+type DashboardSnapshotPort = Pick<DashboardSnapshotService, 'syncCycleSnapshots'>;
+
+const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
+  async syncCycleSnapshots() {
+    return;
+  },
+};
 
 /**
  * Only ACTIVE users with a stored weekly intent may appear in matching /
@@ -265,7 +274,15 @@ function normalizePreparedQuestionAnswer(
 
 @Injectable()
 export class CyclesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly dashboardSnapshotService: DashboardSnapshotPort;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() dashboardSnapshotService?: DashboardSnapshotService,
+  ) {
+    this.dashboardSnapshotService =
+      dashboardSnapshotService ?? defaultDashboardSnapshotPort;
+  }
 
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
     const [cycleCandidate, questionnaire] = await Promise.all([
@@ -431,6 +448,8 @@ export class CyclesService {
             },
           },
         });
+
+        await this.dashboardSnapshotService.syncCycleSnapshots(cycle.id, tx);
       });
     } catch (error) {
       await this.resetCycleToOpen(cycle.id);

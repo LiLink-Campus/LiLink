@@ -49,4 +49,76 @@ describe('SchoolResolverService', () => {
       },
     });
   });
+
+  it('reuses the cached domain resolution inside the TTL window', async () => {
+    const prisma = {
+      schoolDomain: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            domain: 'school.edu',
+            schoolId: 'school-1',
+            school: {
+              name: 'School',
+              slug: 'school',
+              description: 'General domain',
+            },
+          },
+        ]),
+      },
+    };
+    const service = new SchoolResolverService(prisma as never);
+
+    await expect(service.resolveByEmail('student@school.edu')).resolves.toEqual({
+      schoolId: 'school-1',
+      matchedDomain: 'school.edu',
+      schoolName: 'School',
+      schoolSlug: 'school',
+      schoolDescription: 'General domain',
+    });
+    await expect(service.resolveByEmail('other@school.edu')).resolves.toEqual({
+      schoolId: 'school-1',
+      matchedDomain: 'school.edu',
+      schoolName: 'School',
+      schoolSlug: 'school',
+      schoolDescription: 'General domain',
+    });
+
+    expect(prisma.schoolDomain.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalidates cached resolutions after school domains change', async () => {
+    const findMany = jest
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          domain: 'school.edu',
+          schoolId: 'school-1',
+          school: {
+            name: 'School',
+            slug: 'school',
+            description: 'General domain',
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    const prisma = {
+      schoolDomain: {
+        findMany,
+      },
+    };
+    const service = new SchoolResolverService(prisma as never);
+
+    await expect(service.resolveByEmail('student@school.edu')).resolves.toEqual({
+      schoolId: 'school-1',
+      matchedDomain: 'school.edu',
+      schoolName: 'School',
+      schoolSlug: 'school',
+      schoolDescription: 'General domain',
+    });
+
+    service.invalidateResolutionCache();
+
+    await expect(service.resolveByEmail('student@school.edu')).resolves.toBeNull();
+    expect(findMany).toHaveBeenCalledTimes(2);
+  });
 });

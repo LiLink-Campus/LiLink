@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { DashboardSnapshotModule } from './common/dashboard/dashboard-snapshot.module';
 import { MailModule } from './common/mail/mail.module';
 import { SchoolModule } from './common/schools/school.module';
 import { HealthModule } from './modules/health/health.module';
@@ -41,6 +42,7 @@ import { authEmailThrottler } from './modules/auth/auth-throttle';
       ],
     }),
     PrismaModule,
+    DashboardSnapshotModule,
     MailModule,
     SchoolModule,
     HealthModule,
