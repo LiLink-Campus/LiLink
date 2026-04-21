@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
-import { Prisma, type QuestionType } from '@prisma/client';
+import {
+  Prisma,
+  type QuestionType,
+  type UserCycleDashboardSnapshot,
+  type WeeklyIntent as PrismaWeeklyIntent,
+} from '@prisma/client';
 import { isWeeklyIntent } from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -20,7 +25,6 @@ import {
   DashboardHistoryLimitedReason,
   DashboardHistoryResult,
   DashboardHistoryVisibility,
-  DashboardMatchResponseDto,
   DashboardResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
@@ -38,7 +42,19 @@ type DashboardCycleSummary = Prisma.MatchCycleGetPayload<{
   };
 }>;
 
-type DashboardSnapshotRecord = Prisma.UserCycleDashboardSnapshotGetPayload<{}>;
+type DashboardSnapshotRecord = UserCycleDashboardSnapshot;
+type CurrentParticipationSummary = {
+  status: 'OPTED_IN' | 'OPTED_OUT';
+  intent: PrismaWeeklyIntent | null;
+};
+type DashboardSnapshotStore = {
+  findFirst: (
+    args: Prisma.UserCycleDashboardSnapshotFindFirstArgs,
+  ) => Promise<DashboardSnapshotRecord | null>;
+  findMany: (
+    args: Prisma.UserCycleDashboardSnapshotFindManyArgs,
+  ) => Promise<DashboardSnapshotRecord[]>;
+};
 type DashboardSnapshotPort = Pick<
   DashboardSnapshotService,
   | 'ensureUserSnapshotCoverage'
@@ -67,21 +83,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
-  async ensureUserSnapshotCoverage() {
-    return;
+  ensureUserSnapshotCoverage() {
+    return Promise.resolve();
   },
   readDashboardMatchPayload(rawPayload: Prisma.JsonValue | null | undefined) {
     if (!isRecord(rawPayload)) {
       return null;
     }
 
-    return rawPayload as never;
+    return rawPayload as unknown as ReturnType<
+      DashboardSnapshotPort['readDashboardMatchPayload']
+    >;
   },
-  async syncMatchSnapshots() {
-    return;
+  syncMatchSnapshots() {
+    return Promise.resolve();
   },
-  async syncUserMatchSnapshots() {
-    return;
+  syncUserMatchSnapshots() {
+    return Promise.resolve();
   },
 };
 
@@ -100,14 +118,18 @@ export class AccountService {
   }
 
   async getDashboard(userId: string): Promise<DashboardResponseDto> {
-    const snapshotStore = (this.prisma as PrismaService & {
-      userCycleDashboardSnapshot?: {
-        findFirst: typeof this.prisma.userCycleDashboardSnapshot.findFirst;
-        findMany: typeof this.prisma.userCycleDashboardSnapshot.findMany;
-      };
-    }).userCycleDashboardSnapshot;
-    const [profile, questionnaire, cycle, revealedCycles, lastRevealedParticipation] =
-      await Promise.all([
+    const snapshotStore = (
+      this.prisma as PrismaService & {
+        userCycleDashboardSnapshot?: DashboardSnapshotStore;
+      }
+    ).userCycleDashboardSnapshot;
+    const [
+      profile,
+      questionnaire,
+      cycle,
+      revealedCycles,
+      lastRevealedParticipation,
+    ] = await Promise.all([
       this.prisma.userProfile.findUnique({
         where: { userId },
       }),
@@ -158,7 +180,7 @@ export class AccountService {
     });
 
     const [currentParticipation, latestSnapshot, recentSnapshots]: [
-      Prisma.CycleParticipationGetPayload<{}> | null,
+      CurrentParticipationSummary | null,
       DashboardSnapshotRecord | null,
       DashboardSnapshotRecord[],
     ] = await Promise.all([
@@ -170,6 +192,10 @@ export class AccountService {
                 userId,
               },
             },
+            select: {
+              status: true,
+              intent: true,
+            },
           })
         : Promise.resolve(null),
       snapshotStore
@@ -178,7 +204,7 @@ export class AccountService {
             orderBy: {
               cycleRevealAt: 'desc',
             },
-          }) as Promise<DashboardSnapshotRecord | null>
+          })
         : Promise.resolve(null),
       revealedCycleIds.length === 0 || !snapshotStore
         ? Promise.resolve<DashboardSnapshotRecord[]>([])
@@ -189,7 +215,7 @@ export class AccountService {
                 in: revealedCycleIds,
               },
             },
-          }) as Promise<DashboardSnapshotRecord[]>,
+          }),
     ]);
     const recentSnapshotByCycleId = new Map(
       recentSnapshots.map((snapshot) => [snapshot.cycleId, snapshot]),
@@ -216,7 +242,7 @@ export class AccountService {
         codename: latestSnapshot.cycleCodename,
         revealAt: latestSnapshot.cycleRevealAt.toISOString(),
         participationStatus: latestSnapshot.participationStatus,
-        matched: latestSnapshot.result === DashboardHistoryResult.MATCHED,
+        matched: latestSnapshot.result === 'MATCHED',
       };
     } else if (lastRevealedParticipation) {
       lastRevealedRound = {
@@ -283,7 +309,9 @@ export class AccountService {
       visibility:
         this.toDashboardHistoryVisibility(snapshot.visibility) ??
         DashboardHistoryVisibility.NOT_APPLICABLE,
-      limitedReason: this.toDashboardHistoryLimitedReason(snapshot.limitedReason),
+      limitedReason: this.toDashboardHistoryLimitedReason(
+        snapshot.limitedReason,
+      ),
       match: this.dashboardSnapshotService.readDashboardMatchPayload(
         snapshot.matchPayload,
       ),
@@ -291,7 +319,7 @@ export class AccountService {
   }
 
   private readLatestDashboardMatch(snapshot: DashboardSnapshotRecord | null) {
-    if (!snapshot || snapshot.result !== DashboardHistoryResult.MATCHED) {
+    if (!snapshot || snapshot.result !== 'MATCHED') {
       return null;
     }
 
@@ -300,11 +328,13 @@ export class AccountService {
     );
   }
 
-  private toDashboardHistoryResult(result: string): DashboardHistoryResult {
+  private toDashboardHistoryResult(
+    result: DashboardSnapshotRecord['result'],
+  ): DashboardHistoryResult {
     switch (result) {
-      case DashboardHistoryResult.MATCHED:
+      case 'MATCHED':
         return DashboardHistoryResult.MATCHED;
-      case DashboardHistoryResult.UNMATCHED:
+      case 'UNMATCHED':
         return DashboardHistoryResult.UNMATCHED;
       default:
         return DashboardHistoryResult.NOT_PARTICIPATED;
@@ -312,16 +342,16 @@ export class AccountService {
   }
 
   private toDashboardHistoryVisibility(
-    visibility: string | null | undefined,
+    visibility: DashboardSnapshotRecord['visibility'] | null | undefined,
   ): DashboardHistoryVisibility | null {
     if (visibility == null) {
       return null;
     }
 
     switch (visibility) {
-      case DashboardHistoryVisibility.VISIBLE:
+      case 'VISIBLE':
         return DashboardHistoryVisibility.VISIBLE;
-      case DashboardHistoryVisibility.LIMITED:
+      case 'LIMITED':
         return DashboardHistoryVisibility.LIMITED;
       default:
         return DashboardHistoryVisibility.NOT_APPLICABLE;
@@ -329,12 +359,12 @@ export class AccountService {
   }
 
   private toDashboardHistoryLimitedReason(
-    limitedReason: string | null | undefined,
+    limitedReason: DashboardSnapshotRecord['limitedReason'] | null | undefined,
   ): DashboardHistoryLimitedReason | null {
     switch (limitedReason) {
-      case DashboardHistoryLimitedReason.REPORTED:
+      case 'REPORTED':
         return DashboardHistoryLimitedReason.REPORTED;
-      case DashboardHistoryLimitedReason.BLOCKED:
+      case 'BLOCKED':
         return DashboardHistoryLimitedReason.BLOCKED;
       default:
         return null;

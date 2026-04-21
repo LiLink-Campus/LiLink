@@ -220,7 +220,9 @@ export class MailService {
       });
 
       await Promise.all(
-        queuedEmails.map((queuedEmail) => this.processOutboundEmail(queuedEmail)),
+        queuedEmails.map((queuedEmail) =>
+          this.processOutboundEmail(queuedEmail),
+        ),
       );
     } finally {
       this.isFlushing = false;

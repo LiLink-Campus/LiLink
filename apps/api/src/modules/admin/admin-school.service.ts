@@ -31,8 +31,8 @@ type SchoolResolverPort = Pick<
 >;
 
 const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
-  async syncUserMatchSnapshots() {
-    return;
+  syncUserMatchSnapshots() {
+    return Promise.resolve();
   },
 };
 
@@ -395,7 +395,10 @@ export class AdminSchoolService {
       rewrittenSchoolIds?: Readonly<Record<string, string | null>>;
     },
   ) {
-    if (!isRecord(rawDraftAnswers) || !isRecord(rawDraftAnswers.hardMatchForm)) {
+    if (
+      !isRecord(rawDraftAnswers) ||
+      !isRecord(rawDraftAnswers.hardMatchForm)
+    ) {
       return rawDraftAnswers;
     }
 
@@ -433,7 +436,8 @@ export class AdminSchoolService {
     }
 
     if (
-      syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders.length > 0 ||
+      syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders.length >
+        0 ||
       hasExcludedPartnerSchoolGenders
     ) {
       syncedHardMatchForm.excludedPartnerSchoolGenders =
@@ -448,12 +452,17 @@ export class AdminSchoolService {
     };
   }
 
-  private async loadSchoolUserIds(schoolId: string) {
-    const userStore = (this.prisma as PrismaService & {
-      user?: {
-        findMany: typeof this.prisma.user.findMany;
-      };
-    }).user;
+  private async loadSchoolUserIds(schoolId: string): Promise<string[]> {
+    const userStore = (
+      this.prisma as PrismaService & {
+        user?: {
+          findMany: (args: {
+            where: { schoolId: string };
+            select: { id: true };
+          }) => Promise<Array<{ id: string }>>;
+        };
+      }
+    ).user;
 
     if (!userStore) {
       return [];
@@ -464,7 +473,7 @@ export class AdminSchoolService {
       select: { id: true },
     });
 
-    return users.map((user: { id: string }) => user.id);
+    return users.map((user) => user.id);
   }
 
   private async syncSnapshotsForSchoolUsers(schoolId: string) {

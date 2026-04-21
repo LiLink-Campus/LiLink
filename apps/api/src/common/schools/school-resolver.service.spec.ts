@@ -68,13 +68,15 @@ describe('SchoolResolverService', () => {
     };
     const service = new SchoolResolverService(prisma as never);
 
-    await expect(service.resolveByEmail('student@school.edu')).resolves.toEqual({
-      schoolId: 'school-1',
-      matchedDomain: 'school.edu',
-      schoolName: 'School',
-      schoolSlug: 'school',
-      schoolDescription: 'General domain',
-    });
+    await expect(service.resolveByEmail('student@school.edu')).resolves.toEqual(
+      {
+        schoolId: 'school-1',
+        matchedDomain: 'school.edu',
+        schoolName: 'School',
+        schoolSlug: 'school',
+        schoolDescription: 'General domain',
+      },
+    );
     await expect(service.resolveByEmail('other@school.edu')).resolves.toEqual({
       schoolId: 'school-1',
       matchedDomain: 'school.edu',
@@ -108,17 +110,21 @@ describe('SchoolResolverService', () => {
     };
     const service = new SchoolResolverService(prisma as never);
 
-    await expect(service.resolveByEmail('student@school.edu')).resolves.toEqual({
-      schoolId: 'school-1',
-      matchedDomain: 'school.edu',
-      schoolName: 'School',
-      schoolSlug: 'school',
-      schoolDescription: 'General domain',
-    });
+    await expect(service.resolveByEmail('student@school.edu')).resolves.toEqual(
+      {
+        schoolId: 'school-1',
+        matchedDomain: 'school.edu',
+        schoolName: 'School',
+        schoolSlug: 'school',
+        schoolDescription: 'General domain',
+      },
+    );
 
     service.invalidateResolutionCache();
 
-    await expect(service.resolveByEmail('student@school.edu')).resolves.toBeNull();
+    await expect(
+      service.resolveByEmail('student@school.edu'),
+    ).resolves.toBeNull();
     expect(findMany).toHaveBeenCalledTimes(2);
   });
 });

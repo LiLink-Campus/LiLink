@@ -88,7 +88,8 @@ function buildSnapshotMatchPayload(
     score: matchParticipant.match.score,
     reasons: hideSensitiveFields ? [] : matchParticipant.match.reasons,
     introducedAt: matchParticipant.match.introducedAt?.toISOString() ?? null,
-    currentUserRequestedAt: matchParticipant.contactRequestedAt?.toISOString() ?? null,
+    currentUserRequestedAt:
+      matchParticipant.contactRequestedAt?.toISOString() ?? null,
     reportStatus: options.reportStatus ?? null,
     participants: hideSensitiveFields
       ? []
@@ -100,7 +101,8 @@ function buildSnapshotMatchPayload(
             ? participant.user.email
             : null,
           schoolName: participant.user.school?.name ?? null,
-          contactRequestedAt: participant.contactRequestedAt?.toISOString() ?? null,
+          contactRequestedAt:
+            participant.contactRequestedAt?.toISOString() ?? null,
         })),
   };
 }
@@ -123,7 +125,8 @@ function buildDashboardSnapshotRecord({
       cycleRevealAt: cycle.revealAt,
       cycleCodename: cycle.codename,
       participationStatus,
-      result: participationStatus === 'OPTED_IN' ? 'UNMATCHED' : 'NOT_PARTICIPATED',
+      result:
+        participationStatus === 'OPTED_IN' ? 'UNMATCHED' : 'NOT_PARTICIPATED',
       visibility: 'NOT_APPLICABLE',
       limitedReason: null,
       matchId: null,
@@ -135,15 +138,16 @@ function buildDashboardSnapshotRecord({
     matchParticipant.match.participants.find(
       (participant) => participant.userId !== 'user-1',
     ) ?? null;
-  const reportStatus =
-    matchParticipant.match.reports[0]?.status ?? null;
+  const reportStatus = matchParticipant.match.reports[0]?.status ?? null;
   const limitedReason = reportStatus
     ? 'REPORTED'
     : counterpart &&
         blocks.some(
           (block) =>
-            (block.blockerId === 'user-1' && block.blockedId === counterpart.userId) ||
-            (block.blockedId === 'user-1' && block.blockerId === counterpart.userId),
+            (block.blockerId === 'user-1' &&
+              block.blockedId === counterpart.userId) ||
+            (block.blockedId === 'user-1' &&
+              block.blockerId === counterpart.userId),
         )
       ? 'BLOCKED'
       : null;
@@ -227,19 +231,20 @@ function createDashboardPrismaMock({
   );
   const snapshotRecords = [
     ...revealedCycles
-      .filter(
-        (cycle) => participationByCycleId.get(cycle.id) === 'OPTED_IN',
-      )
+      .filter((cycle) => participationByCycleId.get(cycle.id) === 'OPTED_IN')
       .map((cycle) =>
         buildDashboardSnapshotRecord({
           cycle,
-          participationStatus: participationByCycleId.get(cycle.id) ?? 'OPTED_OUT',
+          participationStatus:
+            participationByCycleId.get(cycle.id) ?? 'OPTED_OUT',
           matchParticipant: matchByCycleId.get(cycle.id) ?? null,
           blocks,
         }),
       ),
     ...(lastRevealedParticipation &&
-    !revealedCycles.some((cycle) => cycle.id === lastRevealedParticipation.cycleId)
+    !revealedCycles.some(
+      (cycle) => cycle.id === lastRevealedParticipation.cycleId,
+    )
       ? [
           buildDashboardSnapshotRecord({
             cycle: lastRevealedParticipation.cycle,
@@ -271,19 +276,21 @@ function createDashboardPrismaMock({
       findUnique: jest.fn().mockResolvedValue(currentParticipation),
     },
     userCycleDashboardSnapshot: {
-      findFirst: jest
+      findFirst: jest.fn().mockImplementation(() => snapshotRecords[0] ?? null),
+      findMany: jest
         .fn()
-        .mockImplementation(async () => snapshotRecords[0] ?? null),
-      findMany: jest.fn().mockImplementation(async (args?: { where?: { cycleId?: { in?: string[] } } }) => {
-        const cycleIds = args?.where?.cycleId?.in;
-        if (!cycleIds) {
-          return snapshotRecords;
-        }
+        .mockImplementation(
+          (args?: { where?: { cycleId?: { in?: string[] } } }) => {
+            const cycleIds = args?.where?.cycleId?.in;
+            if (!cycleIds) {
+              return snapshotRecords;
+            }
 
-        return snapshotRecords.filter((snapshot) =>
-          cycleIds.includes(snapshot.cycleId),
-        );
-      }),
+            return snapshotRecords.filter((snapshot) =>
+              cycleIds.includes(snapshot.cycleId),
+            );
+          },
+        ),
     },
   };
 }
@@ -1397,9 +1404,8 @@ describe('AccountService', () => {
     await service.getDashboard('user-1');
 
     expect(prisma.userCycleDashboardSnapshot.findMany).toHaveBeenCalledTimes(1);
-    const [query] = prisma.userCycleDashboardSnapshot.findMany.mock.calls[0] as [
-      Record<string, unknown>,
-    ];
+    const [query] = prisma.userCycleDashboardSnapshot.findMany.mock
+      .calls[0] as [Record<string, unknown>];
 
     expect(query.where).toEqual({
       userId: 'user-1',
@@ -1775,20 +1781,22 @@ describe('AccountService', () => {
       userCycleDashboardSnapshot: {
         upsert: jest.fn().mockResolvedValue(undefined),
       },
-      $transaction: jest.fn().mockImplementation(
-        async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({
-            report: {
-              create: reportCreate,
-            },
-            block: {
-              upsert: blockUpsert,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback({
+              report: {
+                create: reportCreate,
+              },
+              block: {
+                upsert: blockUpsert,
+              },
+              auditLog: {
+                create: auditLogCreate,
+              },
+            }),
+        ),
     };
     const service = new AccountService(
       prisma as never,

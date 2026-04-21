@@ -6,12 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import {
-  createHmac,
-  randomInt,
-  randomUUID,
-  timingSafeEqual,
-} from 'crypto';
+import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -259,8 +254,7 @@ export class AuthService {
     void this.mailService
       .deliverQueuedEmailNow(deliveryDedupeKey)
       .catch((error: unknown) => {
-        const message =
-          error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(
           `Immediate delivery failed for ${deliveryDedupeKey}; cron will retry. Reason: ${message}`,
         );

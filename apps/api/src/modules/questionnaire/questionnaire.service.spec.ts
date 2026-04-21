@@ -190,9 +190,11 @@ describe('QuestionnaireService', () => {
         }),
       },
       school: {
-        findMany: jest.fn().mockResolvedValue([
-          { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
-        ]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          ]),
       },
     };
     const schoolAwareService = new QuestionnaireService(prisma as never);

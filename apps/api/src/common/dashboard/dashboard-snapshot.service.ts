@@ -75,7 +75,12 @@ const dashboardSnapshotMatchSelect = {
 
 type SnapshotStoreClient = Pick<
   PrismaService,
-  'block' | 'cycleParticipation' | 'match' | 'matchCycle' | 'matchParticipant' | 'userCycleDashboardSnapshot'
+  | 'block'
+  | 'cycleParticipation'
+  | 'match'
+  | 'matchCycle'
+  | 'matchParticipant'
+  | 'userCycleDashboardSnapshot'
 >;
 
 type SnapshotCycle = Prisma.MatchCycleGetPayload<{
@@ -148,8 +153,8 @@ export class DashboardSnapshotService {
       return;
     }
 
-    const existingSnapshots = await this.prisma.userCycleDashboardSnapshot.findMany(
-      {
+    const existingSnapshots =
+      await this.prisma.userCycleDashboardSnapshot.findMany({
         where: {
           userId: input.userId,
           cycleId: {
@@ -159,8 +164,7 @@ export class DashboardSnapshotService {
         select: {
           cycleId: true,
         },
-      },
-    );
+      });
     const existingSnapshotCycleIds = new Set(
       existingSnapshots.map((snapshot) => snapshot.cycleId),
     );
@@ -359,7 +363,10 @@ export class DashboardSnapshotService {
       }),
     ]);
     const participationByUserId = new Map(
-      participations.map((participation) => [participation.userId, participation]),
+      participations.map((participation) => [
+        participation.userId,
+        participation,
+      ]),
     );
     const blockedPairKeys = this.buildBlockedPairKeySet(blocks);
 
@@ -462,7 +469,9 @@ export class DashboardSnapshotService {
     const limitedReason = reportStatus
       ? 'REPORTED'
       : counterpart &&
-          input.blockedPairKeys.has(createPairKey(input.userId, counterpart.userId))
+          input.blockedPairKeys.has(
+            createPairKey(input.userId, counterpart.userId),
+          )
         ? 'BLOCKED'
         : null;
     const visibility =
@@ -523,7 +532,9 @@ export class DashboardSnapshotService {
             ),
             email: input.match.introducedAt ? participant.user.email : null,
             schoolName: participant.user.school?.name ?? null,
-            contactRequestedAt: this.toIsoString(participant.contactRequestedAt),
+            contactRequestedAt: this.toIsoString(
+              participant.contactRequestedAt,
+            ),
           })),
     };
   }
@@ -532,14 +543,18 @@ export class DashboardSnapshotService {
     participants: SnapshotMatch['participants'],
     userId: string,
   ) {
-    return participants.find((participant) => participant.userId !== userId) ?? null;
+    return (
+      participants.find((participant) => participant.userId !== userId) ?? null
+    );
   }
 
   private readLatestReportStatus(
     reports: SnapshotMatch['reports'],
     userId: string,
   ): ReportStatus | null {
-    return reports.find((report) => report.reporterId === userId)?.status ?? null;
+    return (
+      reports.find((report) => report.reporterId === userId)?.status ?? null
+    );
   }
 
   private normalizeMatchReasons(rawReasons: Prisma.JsonValue): string[] {
