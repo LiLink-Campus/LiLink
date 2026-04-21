@@ -7,6 +7,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { AdminGuard } from '../../common/auth/admin.guard';
 import type { AdminAuthenticatedRequest } from '../../common/auth/admin.guard';
@@ -18,12 +19,14 @@ import {
 import { env } from '../../config/env';
 import { AdminLoginDto } from './dto';
 import { AdminSessionService } from './admin-session.service';
+import { createAdminLoginThrottle } from './admin-session-throttle';
 
 @Controller('admin-session')
 export class AdminSessionController {
   constructor(private readonly adminSessionService: AdminSessionService) {}
 
   @Post('login')
+  @Throttle(createAdminLoginThrottle())
   async login(
     @Body() body: AdminLoginDto,
     @Res({ passthrough: true }) response: Response,
