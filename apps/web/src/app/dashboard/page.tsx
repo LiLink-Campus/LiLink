@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { loadDashboardCore } from "./_lib/bootstrap";
 import { WEEKLY_INTENT_LABELS } from "../../lib/weekly-intent";
+import { canEditCurrentCycleParticipation } from "./_lib/format";
 import type { DashboardPayload } from "./_lib/types";
 import "../protected.css";
 import "./dashboard.css";
@@ -26,6 +27,9 @@ function statusClass(tone: HubCardStatus["tone"]) {
 function intentStatus(dashboard: DashboardPayload): HubCardStatus {
   const cycle = dashboard.currentCycle;
   if (!cycle) return { label: "本轮未开放", tone: "default" };
+  if (!canEditCurrentCycleParticipation(cycle)) {
+    return { label: "本轮已锁定", tone: "default" };
+  }
   if (cycle.participationStatus === "OPTED_OUT") {
     return { label: "本轮未参与", tone: "default" };
   }
@@ -40,6 +44,9 @@ function intentStatus(dashboard: DashboardPayload): HubCardStatus {
 
 function matchStatus(dashboard: DashboardPayload): HubCardStatus {
   const currentCycle = dashboard.currentCycle;
+  const canEditParticipation = canEditCurrentCycleParticipation(currentCycle);
+  const currentCycleIsLocked =
+    currentCycle !== null && !canEditParticipation;
   const currentCycleIsStillOpen =
     currentCycle?.status === "OPEN" ||
     currentCycle?.status === "PREPARING" ||
@@ -56,9 +63,16 @@ function matchStatus(dashboard: DashboardPayload): HubCardStatus {
   if (
     currentCycle?.participationStatus === "OPTED_IN" &&
     !currentCycle.intent &&
-    currentCycleIsStillOpen
+    canEditParticipation
   ) {
     return { label: "待选本周意图", tone: "warn" };
+  }
+  if (
+    currentCycle?.participationStatus === "OPTED_IN" &&
+    !currentCycle.intent &&
+    currentCycleIsLocked
+  ) {
+    return { label: "本轮已锁定", tone: "default" };
   }
   if (
     currentCycle?.participationStatus === "OPTED_IN" &&
@@ -73,6 +87,9 @@ function matchStatus(dashboard: DashboardPayload): HubCardStatus {
     !dashboard.lastRevealedRound.matched
   ) {
     return { label: "本轮未匹配", tone: "default" };
+  }
+  if (currentCycleIsLocked) {
+    return { label: "本轮已锁定", tone: "default" };
   }
   return { label: "暂无匹配", tone: "default" };
 }

@@ -49,17 +49,19 @@ export type DashboardHistoryItem = {
   match: DashboardMatch | null;
 };
 
+export type DashboardCurrentCycle = {
+  id: string;
+  codename: string;
+  revealAt: string;
+  participationDeadline: string;
+  status: "DRAFT" | "OPEN" | "PREPARING" | "REVEAL_READY" | "REVEALED";
+  participationStatus: "OPTED_IN" | "OPTED_OUT";
+  intent: WeeklyIntent | null;
+};
+
 export type DashboardPayload = {
   questionnaireSubmittedAt: string | null;
-  currentCycle: {
-    id: string;
-    codename: string;
-    revealAt: string;
-    participationDeadline: string;
-    status: "DRAFT" | "OPEN" | "PREPARING" | "REVEAL_READY" | "REVEALED";
-    participationStatus: "OPTED_IN" | "OPTED_OUT";
-    intent: WeeklyIntent | null;
-  } | null;
+  currentCycle: DashboardCurrentCycle | null;
   lastRevealedRound: {
     cycleId: string;
     codename: string;

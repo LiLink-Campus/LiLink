@@ -7,7 +7,10 @@ import {
   WEEKLY_INTENT_VISUALS,
   type WeeklyIntent,
 } from "../../../lib/weekly-intent";
-import { formatCycleDeadline } from "../_lib/format";
+import {
+  canEditCurrentCycleParticipation,
+  formatCycleDeadline,
+} from "../_lib/format";
 import type { DashboardPayload } from "../_lib/types";
 
 type WeeklyIntentCardProps = {
@@ -28,13 +31,17 @@ export function WeeklyIntentCard({
   const cycle = dashboard?.currentCycle ?? null;
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
   const currentIntent = cycle?.intent ?? null;
+  const canEditParticipation = canEditCurrentCycleParticipation(cycle);
+  const currentCycleIsLocked = cycle !== null && !canEditParticipation;
   // Sticky carry-over normally preserves the previous intent for OPTED_IN
   // users. If this branch is hit, the participation is missing a usable value.
-  const hasMissingIntent = isOptedIn && !currentIntent;
+  const hasMissingIntent = isOptedIn && !currentIntent && canEditParticipation;
   const cardAccent = currentIntent
     ? WEEKLY_INTENT_VISUALS[currentIntent].accent
     : "var(--accent)";
-  const cardClassName = `weekly-intent-card${currentIntent ? " is-locked" : ""}`;
+  const cardClassName = `weekly-intent-card${
+    currentIntent || currentCycleIsLocked ? " is-locked" : ""
+  }`;
   const cardStyle = {
     "--intent-color": cardAccent,
   } as CSSProperties;
@@ -47,7 +54,9 @@ export function WeeklyIntentCard({
     tone: "off",
   };
   if (cycle) {
-    if (currentIntent) {
+    if (currentCycleIsLocked) {
+      statusPill = { label: "本轮已锁定", tone: "default" };
+    } else if (currentIntent) {
       statusPill = {
         label: `本周锁定：${WEEKLY_INTENT_LABELS[currentIntent].primary}`,
         tone: "default",
@@ -71,8 +80,9 @@ export function WeeklyIntentCard({
       <div className="weekly-intent-header">
         <h2 className="weekly-intent-title">本周你想找什么？</h2>
         <p className="weekly-intent-subtitle">
-          选择 Friend / Date / Both 之一作为本轮的硬约束 — BOTH 可与任意意图相容，FRIEND
-          与 DATE 互斥。默认沿用上一轮，也可在截止前改成别的。
+          {currentCycleIsLocked
+            ? "本轮报名已经截止。你仍可继续注册和填写问卷，但本轮不能参加、退出或修改意图。"
+            : "选择 Friend / Date / Both 之一作为本轮的硬约束 — BOTH 可与任意意图相容，FRIEND 与 DATE 互斥。默认沿用上一轮，也可在截止前改成别的。"}
         </p>
       </div>
 
@@ -90,7 +100,16 @@ export function WeeklyIntentCard({
         </li>
       </ul>
 
-      {hasMissingIntent ? (
+      {currentCycleIsLocked ? (
+        <div className="weekly-intent-callout" role="status">
+          <span className="weekly-intent-callout-icon" aria-hidden="true">
+            !
+          </span>
+          <span>
+            本轮已进入预生成或等待揭晓阶段。现在只能继续完善问卷资料，不能再参加本轮或调整本周意图。
+          </span>
+        </div>
+      ) : hasMissingIntent ? (
         <div className="weekly-intent-callout" role="status">
           <span className="weekly-intent-callout-icon" aria-hidden="true">
             !
@@ -126,10 +145,10 @@ export function WeeklyIntentCard({
                       : "weekly-intent-option"
                   }
                   style={optionStyle}
-                  disabled={saving}
+                  disabled={saving || currentCycleIsLocked}
                   aria-pressed={active}
                   onClick={() => {
-                    if (!active) onChoose(intent);
+                    if (!active && !currentCycleIsLocked) onChoose(intent);
                   }}
                 >
                   <div className="weekly-intent-option-head">
@@ -167,11 +186,13 @@ export function WeeklyIntentCard({
       {cycle ? (
         <div className="weekly-intent-footer">
           <p className="weekly-intent-footer-note">
-            {currentIntent
+            {currentCycleIsLocked
+              ? "本轮报名已锁定；你可以继续修改问卷资料，为下一轮开放时的报名和匹配做准备。"
+              : currentIntent
               ? "可在截止前随时更换；切换不同意图也算同一轮报名，不会重复占用名额。"
               : "选择任意一项后，本周即报名成功；BOTH 与所有人相容，是兜底选项。"}
           </p>
-          {isOptedIn ? (
+          {isOptedIn && !currentCycleIsLocked ? (
             <button
               type="button"
               className="button-secondary"
