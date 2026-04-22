@@ -361,6 +361,7 @@ model OutboundEmail {
   recipientEmail String
   subject        String
   html           String
+  text           String?
   status         OutboundEmailStatus @default(PENDING)
   attempts       Int                 @default(0)
   maxAttempts    Int                 @default(5)

@@ -27,6 +27,7 @@ function buildOutboundEmail(
     recipientEmail: string;
     subject: string;
     html: string;
+    text: string | null;
     status: OutboundEmailStatus;
     attempts: number;
     maxAttempts: number;
@@ -40,6 +41,7 @@ function buildOutboundEmail(
     recipientEmail: 'user@example.com',
     subject: 'Subject',
     html: '<p>Hello</p>',
+    text: null,
     status: 'PENDING' as OutboundEmailStatus,
     attempts: 0,
     maxAttempts: 3,
@@ -163,10 +165,44 @@ describe('MailService', () => {
     expect(built).toMatchObject({
       dedupeKey: 'verification-code:code-1',
       recipientEmail: 'user@example.com',
-      subject: 'LiLink verification code',
+      subject: 'LiLink 验证码 123456',
       maxAttempts: 3,
     });
     expect(built.html).toContain('123456');
+    expect(built.html).toContain('<!doctype html>');
+    expect(built.text).toContain('123456');
+    expect(built.text).toContain('LiLink 团队');
+  });
+
+  it('includes anti-spam transactional headers when sending', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      buildOutboundEmail({
+        text: 'Plain text body',
+      }),
+    ]);
+    const update = jest.fn().mockResolvedValue(undefined);
+    const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const service = createMailService({
+      emailCode: { updateMany: emailCodeUpdateMany },
+      outboundEmail: {
+        findMany,
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update,
+      },
+    });
+
+    sendMail.mockResolvedValueOnce(undefined);
+    await service.flushQueuedEmails();
+
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Plain text body',
+        headers: expect.objectContaining({
+          'Auto-Submitted': 'auto-generated',
+          'X-Auto-Response-Suppress': 'All',
+        }),
+      }),
+    );
   });
 
   it('configures the SMTP transporter to use pooled connections', () => {
