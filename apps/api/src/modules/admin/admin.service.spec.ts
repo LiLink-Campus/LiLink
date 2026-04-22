@@ -703,4 +703,80 @@ describe('AdminService', () => {
       },
     );
   });
+
+  it('rebuilds affected cycle snapshots after deleting test users', async () => {
+    const syncCycleSnapshots = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      user: {
+        findMany: jest.fn().mockResolvedValue([
+          { id: 'test-user-1', email: 'seed-1@example.com' },
+          { id: 'test-user-2', email: 'seed-2@example.com' },
+        ]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      matchParticipant: {
+        findMany: jest.fn().mockResolvedValue([{ matchId: 'match-1' }]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([{ cycleId: 'cycle-1' }]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      report: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      cycleParticipation: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      block: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      questionnaireResponse: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      userProfile: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      auditLog: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      $transaction: jest.fn().mockResolvedValue(undefined),
+    };
+    const adminAuditService = {
+      listAuditLogs: jest.fn(),
+      getRecentAuditLogsByCondition: jest.fn(),
+      write: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      adminAuditService as never,
+      {} as never,
+      {
+        syncCycleSnapshots,
+        syncMatchSnapshots: jest.fn(),
+        syncUserMatchSnapshots: jest.fn(),
+      } as never,
+    );
+
+    await expect(service.deleteAllTestUsers('admin-1')).resolves.toEqual({
+      ok: true,
+      deletedCount: 2,
+    });
+
+    expect(prisma.match.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['match-1'] } },
+      select: { cycleId: true },
+      distinct: ['cycleId'],
+    });
+    expect(syncCycleSnapshots).toHaveBeenCalledWith('cycle-1');
+    expect(adminAuditService.write).toHaveBeenCalledWith(
+      'admin-1',
+      'users.test_deleted',
+      {
+        count: 2,
+        emails: ['seed-1@example.com', 'seed-2@example.com'],
+      },
+    );
+  });
 });

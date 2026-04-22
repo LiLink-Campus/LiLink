@@ -1,5 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import { adminSessionConfig } from '../../common/auth/session-config';
+import { env } from '../../config/env';
 import { AdminSessionService } from './admin-session.service';
 
 jest.mock('argon2', () => ({
@@ -63,5 +65,16 @@ describe('AdminSessionService', () => {
         displayName: 'Ops',
       },
     });
+
+    expect(jwtService.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: 'admin-1',
+        email: 'admin@example.com',
+      }),
+      expect.objectContaining({
+        secret: env.ADMIN_JWT_SECRET,
+        expiresIn: adminSessionConfig.jwtExpiresIn,
+      }),
+    );
   });
 });

@@ -53,6 +53,7 @@ export default function RootLayout({
               <p>LiLink</p>
               <div>
                 <Link href="/about">关于</Link>
+                <Link href="/schools">支持的学校</Link>
                 <Link href="/terms">协议</Link>
                 <Link href="/privacy">隐私</Link>
                 <Link href="/faq">FAQ</Link>

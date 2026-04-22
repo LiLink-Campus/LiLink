@@ -3,10 +3,11 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import blossom from 'edmonds-blossom-fixed';
-import { QuestionType } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import { Prisma, QuestionType } from '@prisma/client';
+import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
 import {
@@ -47,6 +48,16 @@ const MATCH_NARRATIVE_MAX_CONCURRENCY = 3;
 const MATCH_NARRATIVE_DEFAULT_AFTER_MS = 60 * 60 * 1000;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
+type DashboardSnapshotPort = Pick<
+  DashboardSnapshotService,
+  'syncCycleSnapshots'
+>;
+
+const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
+  syncCycleSnapshots() {
+    return Promise.resolve();
+  },
+};
 
 /**
  * Only ACTIVE users with a stored weekly intent may appear in matching /
@@ -330,11 +341,17 @@ function normalizePreparedQuestionAnswer(
 @Injectable()
 export class CyclesService {
   private readonly logger = new Logger(CyclesService.name);
+  private readonly dashboardSnapshotService: DashboardSnapshotPort;
 
   constructor(
     private readonly prisma: PrismaService,
+    @Optional()
     private readonly matchNarrativeService: MatchNarrativeService = new MatchNarrativeService(),
-  ) {}
+    @Optional() dashboardSnapshotService?: DashboardSnapshotService,
+  ) {
+    this.dashboardSnapshotService =
+      dashboardSnapshotService ?? defaultDashboardSnapshotPort;
+  }
 
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
     if (!options.cycleId) {
@@ -712,6 +729,8 @@ export class CyclesService {
             },
           },
         });
+
+        await this.dashboardSnapshotService.syncCycleSnapshots(cycle.id, tx);
       });
 
       if (pendingNarrativeCount > 0) {
@@ -863,7 +882,7 @@ export class CyclesService {
               id: entry.matchId,
               OR: [
                 { reason: null },
-                { conversationTopics: null },
+                { conversationTopics: { equals: Prisma.AnyNull } },
                 { narrativeSource: null },
               ],
             },
@@ -2034,7 +2053,7 @@ export class CyclesService {
         cycleId,
         OR: [
           { reason: null },
-          { conversationTopics: null },
+          { conversationTopics: { equals: Prisma.AnyNull } },
           { narrativeSource: null },
         ],
       },
@@ -2047,7 +2066,7 @@ export class CyclesService {
         cycleId,
         OR: [
           { reason: null },
-          { conversationTopics: null },
+          { conversationTopics: { equals: Prisma.AnyNull } },
           { narrativeSource: null },
         ],
       },

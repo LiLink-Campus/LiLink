@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
+import { EligibleSchoolsPanel } from "../eligible-schools-panel";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -120,6 +121,7 @@ export default function RegisterPageClient() {
                 placeholder="your.name@school.edu"
               />
             </label>
+            <EligibleSchoolsPanel emailInput={email} variant="compact" />
             {resolvedSchool ? (
               <p className="form-success">
                 已识别学校：{resolvedSchool.schoolName}（@
@@ -130,6 +132,13 @@ export default function RegisterPageClient() {
             <button className="button-primary" disabled={pending} type="submit">
               {pending ? "发送中..." : "发送验证码"}
             </button>
+            <p className="auth-hint">
+              没找到你的学校？前往
+              {" "}
+              <Link href="/schools">完整学校列表</Link>
+              {" "}
+              查看，或在页脚联系我们补录。
+            </p>
           </form>
         ) : (
           <form className="auth-form" onSubmit={register}>
@@ -137,6 +146,9 @@ export default function RegisterPageClient() {
               <span>已发送到</span>
               <strong>{email}</strong>
             </div>
+            <p className="auth-hint">
+              几分钟内仍未收到？请检查邮箱的「垃圾邮件」或「拦截邮件」文件夹，部分学校邮箱会自动拦截首次发件人。
+            </p>
             {canRevealDevCode && devCode ? (
               <p className="dev-note">开发环境验证码：{devCode}</p>
             ) : null}

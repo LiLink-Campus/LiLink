@@ -1,7 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
-import { Prisma, type QuestionType } from '@prisma/client';
+import {
+  Prisma,
+  type QuestionType,
+  type UserCycleDashboardSnapshot,
+  type WeeklyIntent as PrismaWeeklyIntent,
+} from '@prisma/client';
 import { isWeeklyIntent } from '@lilink/shared';
+import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
@@ -19,7 +25,6 @@ import {
   DashboardHistoryLimitedReason,
   DashboardHistoryResult,
   DashboardHistoryVisibility,
-  DashboardMatchResponseDto,
   DashboardResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
@@ -37,69 +42,26 @@ type DashboardCycleSummary = Prisma.MatchCycleGetPayload<{
   };
 }>;
 
-type DashboardCycleParticipationSummary = Prisma.CycleParticipationGetPayload<{
-  select: {
-    cycleId: true;
-    status: true;
-  };
-}>;
-
-type DashboardMatchParticipant = Prisma.MatchParticipantGetPayload<{
-  select: {
-    id: true;
-    cycleId: true;
-    contactRequestedAt: true;
-    match: {
-      select: {
-        id: true;
-        score: true;
-        reasons: true;
-        reason: true;
-        conversationTopics: true;
-        introducedAt: true;
-        cycle: {
-          select: {
-            id: true;
-            codename: true;
-            revealAt: true;
-          };
-        };
-        reports: {
-          select: {
-            status: true;
-          };
-        };
-        participants: {
-          select: {
-            userId: true;
-            contactRequestedAt: true;
-            user: {
-              select: {
-                email: true;
-                displayName: true;
-                profile: {
-                  select: {
-                    headline: true;
-                  };
-                };
-                school: {
-                  select: {
-                    name: true;
-                  };
-                };
-                questionnaireResponse: {
-                  select: {
-                    answers: true;
-                  };
-                };
-              };
-            };
-          };
-        };
-      };
-    };
-  };
-}>;
+type DashboardSnapshotRecord = UserCycleDashboardSnapshot;
+type CurrentParticipationSummary = {
+  status: 'OPTED_IN' | 'OPTED_OUT';
+  intent: PrismaWeeklyIntent | null;
+};
+type DashboardSnapshotStore = {
+  findFirst: (
+    args: Prisma.UserCycleDashboardSnapshotFindFirstArgs,
+  ) => Promise<DashboardSnapshotRecord | null>;
+  findMany: (
+    args: Prisma.UserCycleDashboardSnapshotFindManyArgs,
+  ) => Promise<DashboardSnapshotRecord[]>;
+};
+type DashboardSnapshotPort = Pick<
+  DashboardSnapshotService,
+  | 'ensureUserSnapshotCoverage'
+  | 'readDashboardMatchPayload'
+  | 'syncMatchSnapshots'
+  | 'syncUserMatchSnapshots'
+>;
 
 type QuestionnaireDraftPayload = {
   softAnswers: Record<string, Prisma.InputJsonValue>;
@@ -120,15 +82,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
+  ensureUserSnapshotCoverage() {
+    return Promise.resolve();
+  },
+  readDashboardMatchPayload(rawPayload: Prisma.JsonValue | null | undefined) {
+    if (!isRecord(rawPayload)) {
+      return null;
+    }
+
+    return rawPayload as unknown as ReturnType<
+      DashboardSnapshotPort['readDashboardMatchPayload']
+    >;
+  },
+  syncMatchSnapshots() {
+    return Promise.resolve();
+  },
+  syncUserMatchSnapshots() {
+    return Promise.resolve();
+  },
+};
+
 @Injectable()
 export class AccountService {
+  private readonly dashboardSnapshotService: DashboardSnapshotPort;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly questionnaireService: QuestionnaireService,
-  ) {}
+    @Optional() dashboardSnapshotService?: DashboardSnapshotService,
+  ) {
+    this.dashboardSnapshotService =
+      dashboardSnapshotService ?? defaultDashboardSnapshotPort;
+  }
 
   async getDashboard(userId: string): Promise<DashboardResponseDto> {
+    const snapshotStore = (
+      this.prisma as PrismaService & {
+        userCycleDashboardSnapshot?: DashboardSnapshotStore;
+      }
+    ).userCycleDashboardSnapshot;
     const [
       profile,
       questionnaire,
@@ -164,7 +158,9 @@ export class AccountService {
         orderBy: {
           cycle: { revealAt: 'desc' },
         },
-        include: {
+        select: {
+          cycleId: true,
+          status: true,
           cycle: {
             select: {
               id: true,
@@ -177,19 +173,16 @@ export class AccountService {
     ]);
 
     const revealedCycleIds = revealedCycles.map((item) => item.id);
-    const dashboardMatchCycleIds = Array.from(
-      new Set([
-        ...revealedCycleIds,
-        ...(lastRevealedParticipation
-          ? [lastRevealedParticipation.cycleId]
-          : []),
-      ]),
-    );
+    await this.dashboardSnapshotService.ensureUserSnapshotCoverage({
+      userId,
+      latestParticipationCycleId: lastRevealedParticipation?.cycleId ?? null,
+      recentRevealedCycleIds: revealedCycleIds,
+    });
 
-    const [
-      currentParticipation,
-      recentCycleParticipations,
-      revealedMatchParticipants,
+    const [currentParticipation, latestSnapshot, recentSnapshots]: [
+      CurrentParticipationSummary | null,
+      DashboardSnapshotRecord | null,
+      DashboardSnapshotRecord[],
     ] = await Promise.all([
       cycle
         ? this.prisma.cycleParticipation.findUnique({
@@ -199,168 +192,41 @@ export class AccountService {
                 userId,
               },
             },
+            select: {
+              status: true,
+              intent: true,
+            },
           })
         : Promise.resolve(null),
-      revealedCycleIds.length === 0
-        ? Promise.resolve<DashboardCycleParticipationSummary[]>([])
-        : this.prisma.cycleParticipation.findMany({
+      snapshotStore
+        ? snapshotStore.findFirst({
+            where: { userId },
+            orderBy: {
+              cycleRevealAt: 'desc',
+            },
+          })
+        : Promise.resolve(null),
+      revealedCycleIds.length === 0 || !snapshotStore
+        ? Promise.resolve<DashboardSnapshotRecord[]>([])
+        : snapshotStore.findMany({
             where: {
               userId,
               cycleId: {
                 in: revealedCycleIds,
               },
             },
-            select: {
-              cycleId: true,
-              status: true,
-            },
-          }),
-      dashboardMatchCycleIds.length === 0
-        ? Promise.resolve<DashboardMatchParticipant[]>([])
-        : this.prisma.matchParticipant.findMany({
-            where: {
-              userId,
-              cycleId: {
-                in: dashboardMatchCycleIds,
-              },
-            },
-            select: {
-              id: true,
-              cycleId: true,
-              contactRequestedAt: true,
-              match: {
-                select: {
-                  id: true,
-                  score: true,
-                  reasons: true,
-                  reason: true,
-                  conversationTopics: true,
-                  introducedAt: true,
-                  cycle: {
-                    select: {
-                      id: true,
-                      codename: true,
-                      revealAt: true,
-                    },
-                  },
-                  reports: {
-                    where: { reporterId: userId },
-                    orderBy: { createdAt: 'desc' },
-                    take: 1,
-                    select: {
-                      status: true,
-                    },
-                  },
-                  participants: {
-                    select: {
-                      userId: true,
-                      contactRequestedAt: true,
-                      user: {
-                        select: {
-                          email: true,
-                          displayName: true,
-                          profile: {
-                            select: {
-                              headline: true,
-                            },
-                          },
-                          school: {
-                            select: {
-                              name: true,
-                            },
-                          },
-                          questionnaireResponse: {
-                            select: {
-                              answers: true,
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
           }),
     ]);
-
-    const allRevealedMatchParticipants = [...revealedMatchParticipants].sort(
-      (left, right) =>
-        right.match.cycle.revealAt.getTime() -
-        left.match.cycle.revealAt.getTime(),
+    const recentSnapshotByCycleId = new Map(
+      recentSnapshots.map((snapshot) => [snapshot.cycleId, snapshot]),
     );
-
-    const counterpartUserIds = allRevealedMatchParticipants
-      .map((participant) =>
-        this.findCounterpartParticipant(participant.match.participants, userId),
-      )
-      .filter((participant): participant is NonNullable<typeof participant> =>
-        Boolean(participant),
-      )
-      .map((participant) => participant.userId);
-
-    const blockedCounterpartIds = new Set(
-      counterpartUserIds.length === 0
-        ? []
-        : (
-            await this.prisma.block.findMany({
-              where: {
-                OR: [
-                  {
-                    blockerId: userId,
-                    blockedId: {
-                      in: counterpartUserIds,
-                    },
-                  },
-                  {
-                    blockedId: userId,
-                    blockerId: {
-                      in: counterpartUserIds,
-                    },
-                  },
-                ],
-              },
-            })
-          ).map((block) =>
-            block.blockerId === userId ? block.blockedId : block.blockerId,
-          ),
-    );
-
-    const recentParticipationByCycleId = new Map(
-      recentCycleParticipations.map((participation) => [
-        participation.cycleId,
-        participation,
-      ]),
-    );
-    const recentMatchParticipantByCycleId = new Map(
-      allRevealedMatchParticipants.map((participant) => [
-        participant.cycleId,
-        participant,
-      ]),
-    );
-
-    const recentMatchHistory = revealedCycles.map((revealedCycle) =>
-      this.buildDashboardHistoryItem({
-        userId,
-        cycle: revealedCycle,
-        participation: recentParticipationByCycleId.get(revealedCycle.id),
-        matchParticipant: recentMatchParticipantByCycleId.get(revealedCycle.id),
-        blockedCounterpartIds,
-      }),
-    );
-
-    const latestRevealedMatchParticipant = lastRevealedParticipation
-      ? (recentMatchParticipantByCycleId.get(
-          lastRevealedParticipation.cycleId,
-        ) ?? null)
-      : null;
-    const latestMatchVisibility = latestRevealedMatchParticipant
-      ? this.resolveDashboardMatchVisibility({
-          userId,
-          participant: latestRevealedMatchParticipant,
-          blockedCounterpartIds,
-        })
-      : null;
+    const recentMatchHistory = revealedCycles.map((revealedCycle) => {
+      const snapshot = recentSnapshotByCycleId.get(revealedCycle.id);
+      return snapshot
+        ? this.buildDashboardHistoryItemFromSnapshot(snapshot)
+        : this.buildDefaultDashboardHistoryItem(revealedCycle);
+    });
+    const latestMatch = this.readLatestDashboardMatch(latestSnapshot);
 
     let lastRevealedRound: {
       cycleId: string;
@@ -370,13 +236,21 @@ export class AccountService {
       matched: boolean;
     } | null = null;
 
-    if (lastRevealedParticipation) {
+    if (latestSnapshot) {
+      lastRevealedRound = {
+        cycleId: latestSnapshot.cycleId,
+        codename: latestSnapshot.cycleCodename,
+        revealAt: latestSnapshot.cycleRevealAt.toISOString(),
+        participationStatus: latestSnapshot.participationStatus,
+        matched: latestSnapshot.result === 'MATCHED',
+      };
+    } else if (lastRevealedParticipation) {
       lastRevealedRound = {
         cycleId: lastRevealedParticipation.cycle.id,
         codename: lastRevealedParticipation.cycle.codename,
         revealAt: lastRevealedParticipation.cycle.revealAt.toISOString(),
         participationStatus: lastRevealedParticipation.status,
-        matched: Boolean(latestRevealedMatchParticipant),
+        matched: false,
       };
     }
 
@@ -394,156 +268,64 @@ export class AccountService {
             intent: currentParticipation?.intent ?? null,
           }
         : null,
-      latestMatch: latestRevealedMatchParticipant
-        ? this.buildDashboardMatch(
-            latestRevealedMatchParticipant,
-            latestMatchVisibility?.visibility ===
-              DashboardHistoryVisibility.LIMITED,
-            latestMatchVisibility?.reportStatus ?? null,
-          )
-        : null,
-      latestMatchVisibility: latestMatchVisibility?.visibility ?? null,
-      latestMatchLimitedReason: latestMatchVisibility?.limitedReason ?? null,
+      latestMatch,
+      latestMatchVisibility:
+        latestMatch != null
+          ? this.toDashboardHistoryVisibility(latestSnapshot?.visibility)
+          : null,
+      latestMatchLimitedReason:
+        latestMatch != null
+          ? this.toDashboardHistoryLimitedReason(latestSnapshot?.limitedReason)
+          : null,
       lastRevealedRound,
       recentMatchHistory,
     };
   }
 
-  private buildDashboardHistoryItem({
-    userId,
-    cycle,
-    participation,
-    matchParticipant,
-    blockedCounterpartIds,
-  }: {
-    userId: string;
-    cycle: DashboardCycleSummary;
-    participation?: DashboardCycleParticipationSummary;
-    matchParticipant?: DashboardMatchParticipant;
-    blockedCounterpartIds: Set<string>;
-  }): DashboardHistoryItemResponseDto {
-    const participationStatus = participation?.status ?? 'OPTED_OUT';
-
-    if (matchParticipant) {
-      const { limitedReason, reportStatus, visibility } =
-        this.resolveDashboardMatchVisibility({
-          userId,
-          participant: matchParticipant,
-          blockedCounterpartIds,
-        });
-
-      return {
-        cycleId: cycle.id,
-        codename: cycle.codename,
-        revealAt: cycle.revealAt.toISOString(),
-        participationStatus,
-        result: DashboardHistoryResult.MATCHED,
-        visibility,
-        limitedReason,
-        match: this.buildDashboardMatch(
-          matchParticipant,
-          visibility === DashboardHistoryVisibility.LIMITED,
-          reportStatus,
-        ),
-      };
-    }
-
+  private buildDefaultDashboardHistoryItem(
+    cycle: DashboardCycleSummary,
+  ): DashboardHistoryItemResponseDto {
     return {
       cycleId: cycle.id,
       codename: cycle.codename,
       revealAt: cycle.revealAt.toISOString(),
-      participationStatus,
-      result:
-        participationStatus === 'OPTED_IN'
-          ? DashboardHistoryResult.UNMATCHED
-          : DashboardHistoryResult.NOT_PARTICIPATED,
+      participationStatus: 'OPTED_OUT',
+      result: DashboardHistoryResult.NOT_PARTICIPATED,
       visibility: DashboardHistoryVisibility.NOT_APPLICABLE,
       limitedReason: null,
       match: null,
     };
   }
 
-  private resolveDashboardMatchVisibility({
-    userId,
-    participant,
-    blockedCounterpartIds,
-  }: {
-    userId: string;
-    participant: DashboardMatchParticipant;
-    blockedCounterpartIds: Set<string>;
-  }) {
-    const reportStatus = participant.match.reports[0]?.status ?? null;
-    const counterpart = this.findCounterpartParticipant(
-      participant.match.participants,
-      userId,
-    );
-    const limitedReason = reportStatus
-      ? DashboardHistoryLimitedReason.REPORTED
-      : counterpart && blockedCounterpartIds.has(counterpart.userId)
-        ? DashboardHistoryLimitedReason.BLOCKED
-        : null;
-
+  private buildDashboardHistoryItemFromSnapshot(
+    snapshot: DashboardSnapshotRecord,
+  ): DashboardHistoryItemResponseDto {
     return {
-      reportStatus,
-      limitedReason,
-      visibility: limitedReason
-        ? DashboardHistoryVisibility.LIMITED
-        : DashboardHistoryVisibility.VISIBLE,
+      cycleId: snapshot.cycleId,
+      codename: snapshot.cycleCodename,
+      revealAt: snapshot.cycleRevealAt.toISOString(),
+      participationStatus: snapshot.participationStatus,
+      result: this.toDashboardHistoryResult(snapshot.result),
+      visibility:
+        this.toDashboardHistoryVisibility(snapshot.visibility) ??
+        DashboardHistoryVisibility.NOT_APPLICABLE,
+      limitedReason: this.toDashboardHistoryLimitedReason(
+        snapshot.limitedReason,
+      ),
+      match: this.dashboardSnapshotService.readDashboardMatchPayload(
+        snapshot.matchPayload,
+      ),
     };
   }
 
-  private buildDashboardMatch(
-    participant: DashboardMatchParticipant,
-    hideSensitiveFields: boolean,
-    reportStatus: string | null,
-  ): DashboardMatchResponseDto {
-    const normalizedReasons = this.normalizeMatchReasons(
-      participant.match.reasons,
-    );
-    const normalizedReason = this.normalizeMatchReason(
-      participant.match.reason,
-      normalizedReasons,
-    );
-    const normalizedConversationTopics = this.normalizeConversationTopics(
-      participant.match.conversationTopics,
-    );
+  private readLatestDashboardMatch(snapshot: DashboardSnapshotRecord | null) {
+    if (!snapshot || snapshot.result !== 'MATCHED') {
+      return null;
+    }
 
-    return {
-      id: participant.match.id,
-      score: participant.match.score,
-      reasons: hideSensitiveFields ? [] : normalizedReasons,
-      reason: hideSensitiveFields ? null : normalizedReason,
-      conversationTopics: hideSensitiveFields
-        ? []
-        : normalizedConversationTopics,
-      introducedAt: this.toIsoString(participant.match.introducedAt),
-      currentUserRequestedAt: this.toIsoString(participant.contactRequestedAt),
-      reportStatus,
-      participants: hideSensitiveFields
-        ? []
-        : participant.match.participants.map((matchParticipant) => ({
-            userId: matchParticipant.userId,
-            displayName: matchParticipant.user.displayName,
-            introLine: this.displayIntroLine(
-              matchParticipant.user.questionnaireResponse?.answers,
-              matchParticipant.user.profile?.headline,
-            ),
-            email: participant.match.introducedAt
-              ? matchParticipant.user.email
-              : null,
-            schoolName: matchParticipant.user.school?.name ?? null,
-            contactRequestedAt: this.toIsoString(
-              matchParticipant.contactRequestedAt,
-            ),
-          })),
-    };
-  }
-
-  private findCounterpartParticipant(
-    participants: DashboardMatchParticipant['match']['participants'],
-    userId: string,
-  ) {
-    return participants.find((item) => item.userId !== userId) ?? null;
+    return this.dashboardSnapshotService.readDashboardMatchPayload(
+      snapshot.matchPayload,
+    );
   }
 
   private normalizeMatchReasons(rawReasons: Prisma.JsonValue): string[] {
@@ -592,6 +374,49 @@ export class AccountService {
       '你最近在慢慢坚持的一件事是什么',
       '什么样的聊天节奏会让你觉得相处自然',
     ];
+  }
+
+  private toDashboardHistoryResult(
+    result: DashboardSnapshotRecord['result'],
+  ): DashboardHistoryResult {
+    switch (result) {
+      case 'MATCHED':
+        return DashboardHistoryResult.MATCHED;
+      case 'UNMATCHED':
+        return DashboardHistoryResult.UNMATCHED;
+      default:
+        return DashboardHistoryResult.NOT_PARTICIPATED;
+    }
+  }
+
+  private toDashboardHistoryVisibility(
+    visibility: DashboardSnapshotRecord['visibility'] | null | undefined,
+  ): DashboardHistoryVisibility | null {
+    if (visibility == null) {
+      return null;
+    }
+
+    switch (visibility) {
+      case 'VISIBLE':
+        return DashboardHistoryVisibility.VISIBLE;
+      case 'LIMITED':
+        return DashboardHistoryVisibility.LIMITED;
+      default:
+        return DashboardHistoryVisibility.NOT_APPLICABLE;
+    }
+  }
+
+  private toDashboardHistoryLimitedReason(
+    limitedReason: DashboardSnapshotRecord['limitedReason'] | null | undefined,
+  ): DashboardHistoryLimitedReason | null {
+    switch (limitedReason) {
+      case 'REPORTED':
+        return DashboardHistoryLimitedReason.REPORTED;
+      case 'BLOCKED':
+        return DashboardHistoryLimitedReason.BLOCKED;
+      default:
+        return null;
+    }
   }
 
   private toIsoString(value: Date | null | undefined): string | null {
@@ -689,6 +514,10 @@ export class AccountService {
           update: profileFields,
         })
       : await this.prisma.userProfile.findUnique({ where: { userId } });
+
+    if (displayName !== undefined || profileFields.headline !== undefined) {
+      await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+    }
 
     return profile;
   }
@@ -788,6 +617,8 @@ export class AccountService {
 
       await this.prisma.$transaction(submittedOperations);
 
+      await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+
       return {
         saveState: 'SUBMITTED' as const,
         questionnaireSubmittedAt: submittedAt.toISOString(),
@@ -821,6 +652,10 @@ export class AccountService {
             return tx.questionnaireResponse.upsert(draftUpsertArgs);
           })
         : await this.prisma.questionnaireResponse.upsert(draftUpsertArgs);
+
+      if (shouldUpdateDisplayName) {
+        await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+      }
 
       return {
         saveState: 'DRAFT' as const,
@@ -1101,6 +936,11 @@ export class AccountService {
       await tx.outboundEmail.createMany({
         data: queuedEmails,
       });
+
+      await this.dashboardSnapshotService.syncMatchSnapshots(
+        participant.match.id,
+        tx,
+      );
     });
 
     void this.mailService.flushQueuedEmails({
@@ -1163,8 +1003,8 @@ export class AccountService {
       throw new BadRequestException('This match has already been reported.');
     }
 
-    await this.prisma.$transaction([
-      this.prisma.report.create({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.report.create({
         data: {
           reporterId: userId,
           reportedUserId: counterpart.userId,
@@ -1173,8 +1013,8 @@ export class AccountService {
           details: input.details,
           createdBlock: true,
         },
-      }),
-      this.prisma.block.upsert({
+      });
+      await tx.block.upsert({
         where: {
           blockerId_blockedId: {
             blockerId: userId,
@@ -1186,8 +1026,8 @@ export class AccountService {
           blockerId: userId,
           blockedId: counterpart.userId,
         },
-      }),
-      this.prisma.auditLog.create({
+      });
+      await tx.auditLog.create({
         data: {
           actorId: userId,
           action: 'match.reported',
@@ -1197,8 +1037,9 @@ export class AccountService {
             reason: input.reason,
           },
         },
-      }),
-    ]);
+      });
+      await this.dashboardSnapshotService.syncMatchSnapshots(matchId, tx);
+    });
 
     return { ok: true };
   }
