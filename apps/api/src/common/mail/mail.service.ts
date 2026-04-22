@@ -42,12 +42,53 @@ type OutboundEmailRecord = {
   recipientEmail: string;
   subject: string;
   html: string;
+  text: string | null;
   status: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'EXHAUSTED';
   attempts: number;
   maxAttempts: number;
   lastAttemptAt: Date | null;
   nextAttemptAt: Date | null;
 };
+
+// Headers applied to every outbound message. They mark the mail as
+// auto-generated transactional traffic so receiving anti-spam systems are
+// less likely to bucket it with bulk/marketing or reply with auto-responses.
+const TRANSACTIONAL_EMAIL_HEADERS = {
+  'Auto-Submitted': 'auto-generated',
+  'X-Auto-Response-Suppress': 'All',
+  'X-Entity-Ref-ID': 'lilink-transactional',
+} as const;
+
+const HTML_DOCUMENT_STYLES = `
+  body{margin:0;padding:24px;background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;line-height:1.6;}
+  .card{max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;}
+  .brand{margin:0 0 16px;font-size:14px;color:#6e6e73;letter-spacing:1px;}
+  h1{margin:0 0 24px;font-size:18px;color:#1d1d1f;}
+  p{margin:0 0 16px;font-size:15px;color:#1d1d1f;}
+  .code{margin:0 0 24px;font-size:28px;font-weight:600;letter-spacing:6px;color:#1d1d1f;text-align:center;padding:16px;background:#f5f5f7;border-radius:8px;}
+  .note{font-size:14px;color:#3a3a3c;}
+  hr{margin:24px 0;border:none;border-top:1px solid #e5e5ea;}
+  .footer{margin:0;font-size:12px;color:#86868b;}
+  .footer a{color:#0071e3;text-decoration:none;}
+  ul{padding-left:20px;}
+`.replace(/\s+/g, ' ');
+
+function renderHtmlDocument(input: { title: string; body: string }) {
+  return [
+    '<!doctype html>',
+    '<html lang="zh-CN">',
+    '<head>',
+    '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width,initial-scale=1">',
+    `<title>${escapeHtml(input.title)}</title>`,
+    `<style>${HTML_DOCUMENT_STYLES}</style>`,
+    '</head>',
+    '<body>',
+    `<div class="card">${input.body}</div>`,
+    '</body>',
+    '</html>',
+  ].join('');
+}
 
 const OUTBOUND_EMAIL_STALE_PROCESSING_MS = 10 * 60 * 1000;
 const OUTBOUND_EMAIL_SYNC_WAIT_TIMEOUT_MS = 15_000;
@@ -122,11 +163,38 @@ export class MailService {
   });
 
   buildVerificationCodeEmail(input: VerificationCodeEmailInput) {
+    const subject = `LiLink 验证码 ${input.code}`;
+    const text = [
+      '你好，',
+      '',
+      `你正在使用 LiLink，本次操作的验证码是：${input.code}`,
+      '',
+      '验证码有效期 10 分钟，请勿向任何人透露。',
+      '如果这不是你本人的操作，请忽略本邮件，无需任何操作。',
+      '',
+      '— LiLink 团队',
+      'https://lilink.top',
+    ].join('\n');
+    const html = renderHtmlDocument({
+      title: subject,
+      body: [
+        '<p class="brand">LiLink</p>',
+        '<h1>你的验证码</h1>',
+        '<p>你正在使用 LiLink，本次操作的验证码是：</p>',
+        `<p class="code">${escapeHtml(input.code)}</p>`,
+        '<p class="note">验证码有效期 10 分钟，请勿向任何人透露。</p>',
+        '<p class="note">如果这不是你本人的操作，请忽略本邮件，无需任何操作。</p>',
+        '<hr>',
+        '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
+      ].join(''),
+    });
+
     return {
       dedupeKey: input.dedupeKey,
       recipientEmail: input.recipientEmail,
-      subject: 'LiLink verification code',
-      html: `<p>Your LiLink verification code is <strong>${input.code}</strong>. It expires in 10 minutes.</p>`,
+      subject,
+      html,
+      text,
       // Total retry budget ~3 min (60s + 120s back-off), well below the 10-min
       // verification-code TTL. Buffers transient SMTP/upstream hiccups.
       maxAttempts: 3,
@@ -136,40 +204,81 @@ export class MailService {
   buildIntroductionEmails(input: IntroductionEmailInput) {
     const requesterName = input.requester.displayName ?? 'LiLink 用户';
     const recipientName = input.recipient.displayName ?? 'LiLink 用户';
-    const escapedRequesterName = escapeHtml(requesterName);
-    const escapedRecipientName = escapeHtml(recipientName);
-    const reasons = input.reasons
+
+    return [
+      this.buildIntroductionEmail({
+        dedupeKey: `match-introduction:${input.matchId}:requester`,
+        recipientEmail: input.requester.email,
+        otherParty: input.recipient,
+        otherPartyDisplayName: recipientName,
+        leadingSentence: `你已成功请求联系 ${recipientName}。`,
+        reasons: input.reasons,
+      }),
+      this.buildIntroductionEmail({
+        dedupeKey: `match-introduction:${input.matchId}:recipient`,
+        recipientEmail: input.recipient.email,
+        otherParty: input.requester,
+        otherPartyDisplayName: requesterName,
+        leadingSentence: `${requesterName} 请求与你建立联系。`,
+        reasons: input.reasons,
+      }),
+    ];
+  }
+
+  private buildIntroductionEmail(input: {
+    dedupeKey: string;
+    recipientEmail: string;
+    otherParty: IntroductionEmailInput['requester'];
+    otherPartyDisplayName: string;
+    leadingSentence: string;
+    reasons: string[];
+  }) {
+    const subject = `LiLink 已为你引荐 ${input.otherPartyDisplayName}`;
+    const otherEmail = input.otherParty.email;
+    const otherSchool = input.otherParty.schoolName ?? '未填写';
+    const otherIntro = input.otherParty.introLine ?? '暂无';
+
+    const text = [
+      input.leadingSentence,
+      '',
+      `对方邮箱：${otherEmail}`,
+      `对方学校：${otherSchool}`,
+      `对方一句话介绍：${otherIntro}`,
+      '',
+      '本次匹配理由：',
+      ...input.reasons.map((reason) => `- ${reason}`),
+      '',
+      '— LiLink 团队',
+      'https://lilink.top',
+    ].join('\n');
+
+    const reasonsHtml = input.reasons
       .map((reason) => `<li>${escapeHtml(reason)}</li>`)
       .join('');
 
-    return [
-      {
-        dedupeKey: `match-introduction:${input.matchId}:requester`,
-        recipientEmail: input.requester.email,
-        subject: `LiLink 已为你引荐 ${recipientName}`,
-        html: `
-          <p>你已成功请求联系 <strong>${escapedRecipientName}</strong>。</p>
-          <p>对方邮箱：<strong>${escapeHtml(input.recipient.email)}</strong></p>
-          <p>对方学校：${escapeHtml(input.recipient.schoolName ?? '未填写')}</p>
-          <p>对方一句话介绍：${escapeHtml(input.recipient.introLine ?? '暂无')}</p>
-          <p>本次匹配理由：</p>
-          <ul>${reasons}</ul>
-        `,
-      },
-      {
-        dedupeKey: `match-introduction:${input.matchId}:recipient`,
-        recipientEmail: input.recipient.email,
-        subject: `LiLink 已为你引荐 ${requesterName}`,
-        html: `
-          <p><strong>${escapedRequesterName}</strong> 请求与你建立联系。</p>
-          <p>对方邮箱：<strong>${escapeHtml(input.requester.email)}</strong></p>
-          <p>对方学校：${escapeHtml(input.requester.schoolName ?? '未填写')}</p>
-          <p>对方一句话介绍：${escapeHtml(input.requester.introLine ?? '暂无')}</p>
-          <p>本次匹配理由：</p>
-          <ul>${reasons}</ul>
-        `,
-      },
-    ];
+    const html = renderHtmlDocument({
+      title: subject,
+      body: [
+        '<p class="brand">LiLink</p>',
+        `<h1>${escapeHtml(subject)}</h1>`,
+        `<p>${escapeHtml(input.leadingSentence)}</p>`,
+        `<p class="note">对方邮箱：<strong>${escapeHtml(otherEmail)}</strong></p>`,
+        `<p class="note">对方学校：${escapeHtml(otherSchool)}</p>`,
+        `<p class="note">对方一句话介绍：${escapeHtml(otherIntro)}</p>`,
+        '<p class="note">本次匹配理由：</p>',
+        `<ul class="note">${reasonsHtml}</ul>`,
+        '<hr>',
+        '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
+      ].join(''),
+    });
+
+    return {
+      dedupeKey: input.dedupeKey,
+      recipientEmail: input.recipientEmail,
+      subject,
+      html,
+      text,
+    };
   }
 
   @Cron(CronExpression.EVERY_30_SECONDS, {
@@ -283,6 +392,8 @@ export class MailService {
           to: email.recipientEmail,
           subject: email.subject,
           html: email.html,
+          text: email.text ?? undefined,
+          headers: { ...TRANSACTIONAL_EMAIL_HEADERS },
         });
       });
 
