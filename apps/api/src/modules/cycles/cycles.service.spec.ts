@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { QuestionType } from '@prisma/client';
+import { Prisma, QuestionType } from '@prisma/client';
 import { CyclesService } from './cycles.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 
@@ -20,6 +20,10 @@ type EligibleParticipantStub = {
     oneLinerIntro: string;
     school: string;
     excludedPartnerSchools: string[];
+    excludedPartnerSchoolGenders?: Array<{
+      schoolId: string;
+      genders: string[];
+    }>;
   };
   answers: Record<string, unknown>;
   intent: 'FRIEND' | 'DATE' | 'BOTH';
@@ -1086,7 +1090,11 @@ describe('CyclesService', () => {
     expect(matchUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'match-1',
-        OR: [{ reason: null }, { conversationTopics: null }, { narrativeSource: null }],
+        OR: [
+          { reason: null },
+          { conversationTopics: { equals: Prisma.AnyNull } },
+          { narrativeSource: null },
+        ],
       },
       data: {
         reason:
@@ -1205,7 +1213,11 @@ describe('CyclesService', () => {
     expect(matchUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'match-1',
-        OR: [{ reason: null }, { conversationTopics: null }, { narrativeSource: null }],
+        OR: [
+          { reason: null },
+          { conversationTopics: { equals: Prisma.AnyNull } },
+          { narrativeSource: null },
+        ],
       },
       data: {
         reason: defaultNarrative.reason,

@@ -3,17 +3,35 @@ jest.mock('argon2', () => ({
   verify: jest.fn(),
 }));
 
-import {
-  BadRequestException,
-  ServiceUnavailableException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { validateSync } from 'class-validator';
+import { createHmac } from 'crypto';
 import * as argon2 from 'argon2';
+import { env } from '../../config/env';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto';
 
 const mockedArgon2 = argon2 as jest.Mocked<typeof argon2>;
+const VERIFICATION_CODE_HMAC_CONTEXT = 'verification-code';
+
+function createVerificationCodeDigest(input: {
+  email: string;
+  purpose: 'register' | 'password_reset';
+  deliveryDedupeKey: string;
+  code: string;
+}) {
+  return createHmac('sha256', env.JWT_SECRET)
+    .update(VERIFICATION_CODE_HMAC_CONTEXT)
+    .update('\n')
+    .update(input.purpose)
+    .update('\n')
+    .update(input.email)
+    .update('\n')
+    .update(input.deliveryDedupeKey)
+    .update('\n')
+    .update(input.code)
+    .digest('hex');
+}
 
 type RegisterTransaction = {
   emailCode: {
@@ -123,9 +141,7 @@ describe('AuthService', () => {
     expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
   });
 
-  it('queues and flushes a verification email before returning success', async () => {
-    mockedArgon2.hash.mockResolvedValue('hashed-code');
-
+  it('queues a verification email and kicks off async delivery', async () => {
     const create = jest.fn().mockResolvedValue({
       id: 'code-1',
       email: 'user@example.com',
@@ -133,15 +149,8 @@ describe('AuthService', () => {
     });
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     const outboundCreate = jest.fn().mockResolvedValue(undefined);
-    const findUnique = jest.fn().mockResolvedValue({
-      id: 'code-1',
-      deliveryStatus: 'SENT',
-    });
-    const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
+    const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
     const prisma = {
-      emailCode: {
-        findUnique,
-      },
       $transaction: jest.fn(
         async (
           callback: (
@@ -157,6 +166,9 @@ describe('AuthService', () => {
           }),
       ),
     };
+    const resolveByEmail = jest
+      .fn()
+      .mockResolvedValue({ schoolId: 'school-1' });
     const authService = new AuthService(
       prisma as never,
       {
@@ -170,13 +182,13 @@ describe('AuthService', () => {
             recipientEmail: input.recipientEmail,
             subject: 'LiLink verification code',
             html: '<p>Code</p>',
-            maxAttempts: 1,
+            maxAttempts: 3,
           }),
         ),
-        flushQueuedEmails,
+        deliverQueuedEmailNow,
       } as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail,
       } as never,
       {} as never,
     );
@@ -216,33 +228,27 @@ describe('AuthService', () => {
     const outboundPayload = outboundCalls[0]?.[0];
     expect(outboundPayload?.data.dedupeKey).toMatch(/^verification-code:/);
     expect(outboundPayload?.data.recipientEmail).toBe('user@example.com');
-    expect(outboundPayload?.data.maxAttempts).toBe(1);
+    expect(outboundPayload?.data.maxAttempts).toBe(3);
 
-    expect(flushQueuedEmails).toHaveBeenCalledTimes(1);
-    const flushCalls = flushQueuedEmails.mock.calls as unknown as Array<
-      [{ dedupeKeys: string[] }]
-    >;
-    const flushPayload = flushCalls[0]?.[0];
-    expect(flushPayload?.dedupeKeys).toHaveLength(1);
-    expect(flushPayload?.dedupeKeys[0]).toMatch(/^verification-code:/);
+    expect(deliverQueuedEmailNow).toHaveBeenCalledTimes(1);
+    const [[deliveryDedupeKey]] = deliverQueuedEmailNow.mock.calls as [
+      [string],
+    ];
+    expect(deliveryDedupeKey).toMatch(/^verification-code:/);
+    expect(resolveByEmail).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       email: 'user@example.com',
       school: { schoolId: 'school-1' },
     });
   });
 
-  it('rejects requestCode when the verification email could not be delivered', async () => {
-    mockedArgon2.hash.mockResolvedValue('hashed-code');
-
+  it('swallows immediate-delivery failures so the request still succeeds', async () => {
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
-    const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
+    // Reject the immediate kick-off; cron should later retry via maxAttempts.
+    const deliverQueuedEmailNow = jest
+      .fn()
+      .mockRejectedValue(new Error('SMTP temporarily unavailable'));
     const prisma = {
-      emailCode: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'code-1',
-          deliveryStatus: 'FAILED',
-        }),
-      },
       $transaction: jest.fn(
         async (
           callback: (
@@ -273,10 +279,10 @@ describe('AuthService', () => {
             recipientEmail: input.recipientEmail,
             subject: 'LiLink verification code',
             html: '<p>Code</p>',
-            maxAttempts: 1,
+            maxAttempts: 3,
           }),
         ),
-        flushQueuedEmails,
+        deliverQueuedEmailNow,
       } as never,
       {
         resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
@@ -286,12 +292,15 @@ describe('AuthService', () => {
 
     await expect(
       authService.requestCode('user@example.com'),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    ).resolves.toMatchObject({ email: 'user@example.com' });
+
+    expect(deliverQueuedEmailNow).toHaveBeenCalledTimes(1);
+    // Allow the fire-and-forget `.catch` handler to run so the Logger is
+    // flushed before the test exits (prevents unhandled rejection warnings).
+    await new Promise((resolve) => setImmediate(resolve));
   });
 
   it('allows password reset for an existing user even when the email domain is no longer accepted', async () => {
-    mockedArgon2.hash.mockResolvedValue('hashed-code');
-
     const resolveByEmail = jest.fn();
     const create = jest.fn().mockResolvedValue({
       id: 'code-1',
@@ -300,7 +309,7 @@ describe('AuthService', () => {
     });
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     const outboundCreate = jest.fn().mockResolvedValue(undefined);
-    const flushQueuedEmails = jest.fn().mockResolvedValue(undefined);
+    const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
     const prisma = {
       user: {
         findUnique: jest.fn().mockResolvedValue({
@@ -343,10 +352,10 @@ describe('AuthService', () => {
             recipientEmail: input.recipientEmail,
             subject: 'LiLink verification code',
             html: '<p>Code</p>',
-            maxAttempts: 1,
+            maxAttempts: 3,
           }),
         ),
-        flushQueuedEmails,
+        deliverQueuedEmailNow,
       } as never,
       {
         resolveByEmail,
@@ -365,7 +374,7 @@ describe('AuthService', () => {
 
   it('returns a neutral response for unknown password-reset emails without queuing mail', async () => {
     const buildVerificationCodeEmail = jest.fn();
-    const flushQueuedEmails = jest.fn();
+    const deliverQueuedEmailNow = jest.fn();
     const authService = new AuthService(
       {
         user: {
@@ -374,7 +383,7 @@ describe('AuthService', () => {
       } as never,
       {
         buildVerificationCodeEmail,
-        flushQueuedEmails,
+        deliverQueuedEmailNow,
       } as never,
       {} as never,
       {} as never,
@@ -387,7 +396,7 @@ describe('AuthService', () => {
     expect(result.email).toBe('missing@example.com');
     expect(result.expiresAt).toBeInstanceOf(Date);
     expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
-    expect(flushQueuedEmails).not.toHaveBeenCalled();
+    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
   });
 
   it('rejects passwords that exceed the configured maximum length', () => {
@@ -409,7 +418,8 @@ describe('AuthService', () => {
   it('does not consume the verification code when the code is invalid', async () => {
     const emailCodeFindFirst = jest.fn().mockResolvedValue({
       id: 'code-1',
-      codeHash: 'hash',
+      codeHash: 'wrong-digest',
+      deliveryDedupeKey: 'verification-code:test',
     });
     const emailCodeUpdateMany = jest.fn();
     const userCreate = jest.fn();
@@ -450,8 +460,6 @@ describe('AuthService', () => {
       } as never,
     );
 
-    mockedArgon2.verify.mockResolvedValue(false);
-
     await expect(
       authService.register({
         email: 'user@example.com',
@@ -466,9 +474,16 @@ describe('AuthService', () => {
   });
 
   it('maps unique constraint failures to a friendly registration error', async () => {
+    const deliveryDedupeKey = 'verification-code:test';
     const emailCodeFindFirst = jest.fn().mockResolvedValue({
       id: 'code-1',
-      codeHash: 'hash',
+      codeHash: createVerificationCodeDigest({
+        email: 'user@example.com',
+        purpose: 'register',
+        deliveryDedupeKey,
+        code: '123456',
+      }),
+      deliveryDedupeKey,
     });
     const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const userCreate = jest.fn().mockRejectedValue({ code: 'P2002' });
@@ -508,8 +523,6 @@ describe('AuthService', () => {
         sign: jest.fn(),
       } as never,
     );
-
-    mockedArgon2.verify.mockResolvedValue(true);
     mockedArgon2.hash.mockResolvedValue('hashed-password');
 
     await expect(

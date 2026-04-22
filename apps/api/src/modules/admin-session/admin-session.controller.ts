@@ -7,18 +7,26 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { AdminGuard } from '../../common/auth/admin.guard';
 import type { AdminAuthenticatedRequest } from '../../common/auth/admin.guard';
+import {
+  adminSessionConfig,
+  createSessionClearCookieOptions,
+  createSessionCookieOptions,
+} from '../../common/auth/session-config';
 import { env } from '../../config/env';
 import { AdminLoginDto } from './dto';
 import { AdminSessionService } from './admin-session.service';
+import { createAdminLoginThrottle } from './admin-session-throttle';
 
 @Controller('admin-session')
 export class AdminSessionController {
   constructor(private readonly adminSessionService: AdminSessionService) {}
 
   @Post('login')
+  @Throttle(createAdminLoginThrottle())
   async login(
     @Body() body: AdminLoginDto,
     @Res({ passthrough: true }) response: Response,
@@ -28,14 +36,11 @@ export class AdminSessionController {
       body.password,
     );
 
-    response.cookie(env.ADMIN_COOKIE_NAME, payload.token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: env.APP_ENV === 'production',
-      domain: env.COOKIE_DOMAIN || undefined,
-      maxAge: 1000 * 60 * 60 * 12,
-      path: '/',
-    });
+    response.cookie(
+      env.ADMIN_COOKIE_NAME,
+      payload.token,
+      createSessionCookieOptions(adminSessionConfig.cookieMaxAgeMs),
+    );
 
     return {
       ok: true,
@@ -45,13 +50,10 @@ export class AdminSessionController {
 
   @Post('logout')
   logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie(env.ADMIN_COOKIE_NAME, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: env.APP_ENV === 'production',
-      domain: env.COOKIE_DOMAIN || undefined,
-      path: '/',
-    });
+    response.clearCookie(
+      env.ADMIN_COOKIE_NAME,
+      createSessionClearCookieOptions(),
+    );
 
     return { ok: true };
   }

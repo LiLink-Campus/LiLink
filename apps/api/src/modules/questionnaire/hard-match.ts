@@ -12,6 +12,7 @@ import {
   areHardMatchAnswersCompatible,
   hardMatchQuestionKeys,
   isHardMatchKey,
+  normalizeExcludedPartnerPreferences,
   normalizeBirthDate,
   normalizeOneLinerIntro,
   parseHardMatchAnswers,
@@ -24,6 +25,7 @@ import {
   type HardMatchKey,
   type HardMatchLooks,
   type HardMatchSchoolId,
+  type HardMatchSchoolGenderExclusion,
 } from '@lilink/shared';
 import { IncompleteQuestionnaireSubmissionException } from './incomplete-questionnaire-submission.exception';
 
@@ -59,6 +61,7 @@ const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
   [HARD_MATCH_KEYS.oneLinerIntro]: '一句话介绍',
   [HARD_MATCH_KEYS.school]: '你的学校',
   [HARD_MATCH_KEYS.excludedPartnerSchools]: '不希望对方的学校',
+  [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: '不希望对方的学校内性别',
 };
 
 export type HardMatchAnswerRecord = {
@@ -75,6 +78,7 @@ export type HardMatchAnswerRecord = {
   [HARD_MATCH_KEYS.oneLinerIntro]: string;
   [HARD_MATCH_KEYS.school]: HardMatchSchoolId;
   [HARD_MATCH_KEYS.excludedPartnerSchools]: HardMatchSchoolId[];
+  [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: HardMatchSchoolGenderExclusion[];
 };
 
 export type HardMatchDraftForm = {
@@ -92,6 +96,7 @@ export type HardMatchDraftForm = {
   partnerHeightMax: string;
   oneLinerIntro: string;
   excludedPartnerSchools: string[];
+  excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
 };
 
 export function createEmptyHardMatchDraftForm(): HardMatchDraftForm {
@@ -110,6 +115,7 @@ export function createEmptyHardMatchDraftForm(): HardMatchDraftForm {
     partnerHeightMax: String(HARD_MATCH_FORM_HEIGHT_MAX_CM),
     oneLinerIntro: '',
     excludedPartnerSchools: [],
+    excludedPartnerSchoolGenders: [],
   };
 }
 
@@ -166,6 +172,13 @@ export function sanitizeHardMatchDraftForm(
   }
 
   const form = rawForm as Record<string, unknown>;
+  const excludedPartnerPreferences = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools: form.excludedPartnerSchools,
+      excludedPartnerSchoolGenders: form.excludedPartnerSchoolGenders,
+    },
+    allowedSchoolIds,
+  );
 
   return {
     birthYear: readDigits(form.birthYear, 4),
@@ -206,10 +219,9 @@ export function sanitizeHardMatchDraftForm(
       String(HARD_MATCH_FORM_HEIGHT_MAX_CM),
     ),
     oneLinerIntro: normalizeOneLinerIntro(form.oneLinerIntro),
-    excludedPartnerSchools: readStringArray(
-      form.excludedPartnerSchools,
-      allowedSchoolIds,
-    ),
+    excludedPartnerSchools: excludedPartnerPreferences.excludedPartnerSchools,
+    excludedPartnerSchoolGenders:
+      excludedPartnerPreferences.excludedPartnerSchoolGenders,
   };
 }
 
@@ -231,6 +243,8 @@ export function buildHardMatchAnswerRecordFromDraftForm(
     [HARD_MATCH_KEYS.oneLinerIntro]: form.oneLinerIntro,
     [HARD_MATCH_KEYS.school]: schoolId,
     [HARD_MATCH_KEYS.excludedPartnerSchools]: form.excludedPartnerSchools,
+    [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]:
+      form.excludedPartnerSchoolGenders,
   };
 
   if (form.birthYear && form.birthMonth && form.birthDay) {
@@ -325,6 +339,8 @@ export function buildHardMatchAnswerRecordFromFormInput(
       [HARD_MATCH_KEYS.oneLinerIntro]: form.oneLinerIntro,
       [HARD_MATCH_KEYS.school]: schoolId,
       [HARD_MATCH_KEYS.excludedPartnerSchools]: form.excludedPartnerSchools,
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]:
+        form.excludedPartnerSchoolGenders,
     },
     allowedSchoolIds,
   );
@@ -411,6 +427,42 @@ function normalizeOptionalMultiChoice<T extends string>(
   }
 
   return readStringArray(value, allowedValues);
+}
+
+function normalizeExcludedPartnerSchoolGenderChoices(
+  value: unknown,
+  allowedSchoolIds: readonly string[],
+): HardMatchSchoolGenderExclusion[] {
+  if (value == null || (Array.isArray(value) && value.length === 0)) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw invalidFieldError(HARD_MATCH_KEYS.excludedPartnerSchoolGenders);
+  }
+
+  const normalizedEntries: HardMatchSchoolGenderExclusion[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw invalidFieldError(HARD_MATCH_KEYS.excludedPartnerSchoolGenders);
+    }
+
+    const schoolId = normalizeSingleChoice(
+      (item as Record<string, unknown>).schoolId,
+      HARD_MATCH_KEYS.excludedPartnerSchoolGenders,
+      allowedSchoolIds,
+    );
+    const genders = normalizeMultiChoice(
+      (item as Record<string, unknown>).genders,
+      HARD_MATCH_KEYS.excludedPartnerSchoolGenders,
+      HARD_MATCH_GENDERS,
+    );
+
+    normalizedEntries.push({ schoolId, genders });
+  }
+
+  return normalizedEntries;
 }
 
 function normalizeAge(value: unknown, key: HardMatchKey): number {
@@ -531,6 +583,21 @@ function normalizeHardMatchValues(
     );
   }
 
+  const excludedPartnerPreferences = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools: normalizeOptionalMultiChoice(
+        rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
+        HARD_MATCH_KEYS.excludedPartnerSchools,
+        allowedSchoolIds,
+      ),
+      excludedPartnerSchoolGenders: normalizeExcludedPartnerSchoolGenderChoices(
+        rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders],
+        allowedSchoolIds,
+      ),
+    },
+    allowedSchoolIds,
+  );
+
   return {
     birthDate: normalizeBirthDateValue(rawAnswers[HARD_MATCH_KEYS.birthDate]),
     partnerAgeMin,
@@ -567,11 +634,9 @@ function normalizeHardMatchValues(
       HARD_MATCH_KEYS.school,
       allowedSchoolIds,
     ),
-    excludedPartnerSchools: normalizeOptionalMultiChoice(
-      rawAnswers[HARD_MATCH_KEYS.excludedPartnerSchools],
-      HARD_MATCH_KEYS.excludedPartnerSchools,
-      allowedSchoolIds,
-    ),
+    excludedPartnerSchools: excludedPartnerPreferences.excludedPartnerSchools,
+    excludedPartnerSchoolGenders:
+      excludedPartnerPreferences.excludedPartnerSchoolGenders,
   };
 }
 
@@ -603,6 +668,8 @@ export function normalizeHardMatchAnswers(
     [HARD_MATCH_KEYS.school]: normalizedValues.school,
     [HARD_MATCH_KEYS.excludedPartnerSchools]:
       normalizedValues.excludedPartnerSchools,
+    [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]:
+      normalizedValues.excludedPartnerSchoolGenders,
   };
 }
 

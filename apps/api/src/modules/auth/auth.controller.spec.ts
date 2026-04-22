@@ -1,3 +1,5 @@
+import { userSessionConfig } from '../../common/auth/session-config';
+import { env } from '../../config/env';
 import { AuthController } from './auth.controller';
 
 describe('AuthController', () => {
@@ -31,7 +33,14 @@ describe('AuthController', () => {
         displayName: 'User',
       },
     });
-    expect(response.cookie).toHaveBeenCalled();
+    expect(response.cookie).toHaveBeenCalledWith(env.COOKIE_NAME, 'jwt-token', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: env.APP_ENV === 'production',
+      domain: env.COOKIE_DOMAIN || undefined,
+      maxAge: userSessionConfig.cookieMaxAgeMs,
+      path: '/',
+    });
   });
 
   it('strips the token from the register response body while still setting the cookie', async () => {

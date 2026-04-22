@@ -1,0 +1,13 @@
+[Unit]
+Description=Weekly Cloudflare IP allow-list refresh
+
+[Timer]
+# Run shortly after every boot so the firewall comes back up even if the
+# ipset was lost (ipset state is not persisted by default), then refresh
+# weekly so newly published Cloudflare ranges get picked up.
+OnBootSec=15s
+OnCalendar=weekly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

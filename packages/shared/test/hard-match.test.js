@@ -38,12 +38,19 @@ test("parseHardMatchAnswers normalizes valid records", () => {
     [HARD_MATCH_KEYS.oneLinerIntro]: "  喜欢电影   和徒步  ",
     [HARD_MATCH_KEYS.school]: "school-bupt",
     [HARD_MATCH_KEYS.excludedPartnerSchools]: ["school-cuc", "school-cuc"],
+    [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [
+      { schoolId: "school-bupt", genders: ["男", "男"] },
+      { schoolId: "school-uestc", genders: ["女", "非二元", "男"] },
+    ],
   });
 
   assert.ok(parsed);
   assert.equal(parsed.oneLinerIntro, "喜欢电影 和徒步");
   assert.equal(parsed.school, "school-bupt");
-  assert.deepEqual(parsed.excludedPartnerSchools, ["school-cuc"]);
+  assert.deepEqual(parsed.excludedPartnerSchools, ["school-cuc", "school-uestc"]);
+  assert.deepEqual(parsed.excludedPartnerSchoolGenders, [
+    { schoolId: "school-bupt", genders: ["男"] },
+  ]);
 });
 
 test("parseHardMatchAnswers rejects out-of-range and incomplete values", () => {
@@ -146,6 +153,30 @@ test("areHardMatchAnswersCompatible checks both directions", () => {
 
   assert.equal(
     areHardMatchAnswersCompatible(left, excluded, new Date("2026-04-11T00:00:00.000Z")),
+    false,
+  );
+
+  const excludedBySchoolGender = parseHardMatchAnswers({
+    [HARD_MATCH_KEYS.birthDate]: "2004-03-20",
+    [HARD_MATCH_KEYS.partnerAgeMin]: 20,
+    [HARD_MATCH_KEYS.partnerAgeMax]: 35,
+    [HARD_MATCH_KEYS.gender]: "女",
+    [HARD_MATCH_KEYS.partnerGenders]: ["男"],
+    [HARD_MATCH_KEYS.looks]: "小帅/美",
+    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美", "顶帅/美"],
+    [HARD_MATCH_KEYS.heightCm]: 165,
+    [HARD_MATCH_KEYS.partnerHeightMin]: 170,
+    [HARD_MATCH_KEYS.partnerHeightMax]: 185,
+    [HARD_MATCH_KEYS.oneLinerIntro]: "你好",
+    [HARD_MATCH_KEYS.school]: "school-cuc",
+    [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+    [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [
+      { schoolId: "school-bupt", genders: ["男"] },
+    ],
+  });
+
+  assert.equal(
+    areHardMatchAnswersCompatible(left, excludedBySchoolGender, new Date("2026-04-11T00:00:00.000Z")),
     false,
   );
 });

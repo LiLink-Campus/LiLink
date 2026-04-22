@@ -2,20 +2,62 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { isDeepStrictEqual } from 'node:util';
 import type { Prisma } from '@prisma/client';
+import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
+import {
+  syncExcludedPartnerSchoolPreferences,
+  syncQuestionnaireSchoolAnswers,
+} from '../questionnaire/questionnaire-school-sync';
 import { CreateSchoolDto, ListSchoolsQueryDto, UpdateSchoolDto } from './dto';
 import { AdminAuditService } from './admin-audit.service';
+import { SchoolResolverService } from '../../common/schools/school-resolver.service';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+type DashboardSnapshotPort = Pick<
+  DashboardSnapshotService,
+  'syncUserMatchSnapshots'
+>;
+
+type SchoolResolverPort = Pick<
+  SchoolResolverService,
+  'invalidateResolutionCache'
+>;
+
+const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
+  syncUserMatchSnapshots() {
+    return Promise.resolve();
+  },
+};
+
+const defaultSchoolResolverPort: SchoolResolverPort = {
+  invalidateResolutionCache() {
+    return;
+  },
+};
 
 @Injectable()
 export class AdminSchoolService {
+  private readonly dashboardSnapshotService: DashboardSnapshotPort;
+  private readonly schoolResolverService: SchoolResolverPort;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly adminAuditService: AdminAuditService,
-  ) {}
+    @Optional() dashboardSnapshotService?: DashboardSnapshotService,
+    @Optional() schoolResolverService?: SchoolResolverService,
+  ) {
+    this.dashboardSnapshotService =
+      dashboardSnapshotService ?? defaultDashboardSnapshotPort;
+    this.schoolResolverService =
+      schoolResolverService ?? defaultSchoolResolverPort;
+  }
 
   async list(query: ListSchoolsQueryDto = {}) {
     if (!this.hasListQuery(query)) {
@@ -96,6 +138,7 @@ export class AdminSchoolService {
       schoolId: school.id,
       slug: school.slug,
     });
+    this.schoolResolverService.invalidateResolutionCache();
 
     return school;
   }
@@ -137,6 +180,9 @@ export class AdminSchoolService {
       schoolId: updatedSchool.id,
       slug: updatedSchool.slug,
     });
+    this.schoolResolverService.invalidateResolutionCache();
+
+    await this.syncSnapshotsForSchoolUsers(updatedSchool.id);
 
     return updatedSchool;
   }
@@ -162,6 +208,8 @@ export class AdminSchoolService {
 
     if (!source) throw new NotFoundException('Source school not found.');
     if (!target) throw new NotFoundException('Target school not found.');
+
+    const affectedUserIds = await this.loadSchoolUserIds(sourceSchoolId);
 
     await this.prisma.$transaction(async (tx) => {
       const remainingSchools = await tx.school.findMany({
@@ -198,6 +246,9 @@ export class AdminSchoolService {
       movedUserCount: source._count.users,
       movedDomainCount: source.domains.length,
     });
+    this.schoolResolverService.invalidateResolutionCache();
+
+    await this.syncSnapshotsForUserIds(affectedUserIds);
 
     return { ok: true, movedUsers: source._count.users };
   }
@@ -210,6 +261,8 @@ export class AdminSchoolService {
     if (!school) {
       throw new NotFoundException('School not found.');
     }
+
+    const affectedUserIds = await this.loadSchoolUserIds(schoolId);
 
     await this.prisma.$transaction(async (tx) => {
       const remainingSchools = await tx.school.findMany({
@@ -233,6 +286,8 @@ export class AdminSchoolService {
       schoolId,
       slug: school.slug,
     });
+    this.schoolResolverService.invalidateResolutionCache();
+    await this.syncSnapshotsForUserIds(affectedUserIds);
     return { ok: true };
   }
 
@@ -290,6 +345,7 @@ export class AdminSchoolService {
       select: {
         id: true,
         answers: true,
+        draftAnswers: true,
         user: {
           select: {
             schoolId: true,
@@ -305,17 +361,129 @@ export class AdminSchoolService {
         allowedSchoolIds: options.allowedSchoolIds,
         rewrittenSchoolIds: options.rewrittenSchoolIds,
       });
+      const syncedDraftAnswers = this.syncQuestionnaireDraftAnswers(
+        response.draftAnswers,
+        options,
+      );
 
-      if (isDeepStrictEqual(rawAnswers, syncedAnswers)) {
+      if (
+        isDeepStrictEqual(rawAnswers, syncedAnswers) &&
+        isDeepStrictEqual(response.draftAnswers, syncedDraftAnswers)
+      ) {
         continue;
+      }
+
+      const data: Record<string, Prisma.InputJsonValue> = {};
+      if (!isDeepStrictEqual(rawAnswers, syncedAnswers)) {
+        data.answers = syncedAnswers as Prisma.InputJsonValue;
+      }
+      if (!isDeepStrictEqual(response.draftAnswers, syncedDraftAnswers)) {
+        data.draftAnswers = syncedDraftAnswers as Prisma.InputJsonValue;
       }
 
       await tx.questionnaireResponse.update({
         where: { id: response.id },
-        data: {
-          answers: syncedAnswers as Prisma.InputJsonValue,
-        },
+        data,
       });
+    }
+  }
+
+  private syncQuestionnaireDraftAnswers(
+    rawDraftAnswers: Prisma.JsonValue | null,
+    options: {
+      allowedSchoolIds: readonly string[];
+      rewrittenSchoolIds?: Readonly<Record<string, string | null>>;
+    },
+  ) {
+    if (
+      !isRecord(rawDraftAnswers) ||
+      !isRecord(rawDraftAnswers.hardMatchForm)
+    ) {
+      return rawDraftAnswers;
+    }
+
+    const hardMatchForm = rawDraftAnswers.hardMatchForm;
+    const hasExcludedPartnerSchools = Object.prototype.hasOwnProperty.call(
+      hardMatchForm,
+      'excludedPartnerSchools',
+    );
+    const hasExcludedPartnerSchoolGenders =
+      Object.prototype.hasOwnProperty.call(
+        hardMatchForm,
+        'excludedPartnerSchoolGenders',
+      );
+    const syncedExcludedPartnerPreferences =
+      syncExcludedPartnerSchoolPreferences(
+        {
+          excludedPartnerSchools: hardMatchForm.excludedPartnerSchools,
+          excludedPartnerSchoolGenders:
+            hardMatchForm.excludedPartnerSchoolGenders,
+        },
+        options,
+      );
+    const syncedHardMatchForm: Record<string, Prisma.InputJsonValue> = {
+      ...(hardMatchForm as Record<string, Prisma.InputJsonValue>),
+    };
+
+    if (
+      syncedExcludedPartnerPreferences.excludedPartnerSchools.length > 0 ||
+      hasExcludedPartnerSchools
+    ) {
+      syncedHardMatchForm.excludedPartnerSchools =
+        syncedExcludedPartnerPreferences.excludedPartnerSchools;
+    } else {
+      delete syncedHardMatchForm.excludedPartnerSchools;
+    }
+
+    if (
+      syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders.length >
+        0 ||
+      hasExcludedPartnerSchoolGenders
+    ) {
+      syncedHardMatchForm.excludedPartnerSchoolGenders =
+        syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders as Prisma.InputJsonValue;
+    } else {
+      delete syncedHardMatchForm.excludedPartnerSchoolGenders;
+    }
+
+    return {
+      ...(rawDraftAnswers as Record<string, Prisma.InputJsonValue>),
+      hardMatchForm: syncedHardMatchForm,
+    };
+  }
+
+  private async loadSchoolUserIds(schoolId: string): Promise<string[]> {
+    const userStore = (
+      this.prisma as PrismaService & {
+        user?: {
+          findMany: (args: {
+            where: { schoolId: string };
+            select: { id: true };
+          }) => Promise<Array<{ id: string }>>;
+        };
+      }
+    ).user;
+
+    if (!userStore) {
+      return [];
+    }
+
+    const users = await userStore.findMany({
+      where: { schoolId },
+      select: { id: true },
+    });
+
+    return users.map((user) => user.id);
+  }
+
+  private async syncSnapshotsForSchoolUsers(schoolId: string) {
+    const userIds = await this.loadSchoolUserIds(schoolId);
+    await this.syncSnapshotsForUserIds(userIds);
+  }
+
+  private async syncSnapshotsForUserIds(userIds: string[]) {
+    for (const userId of userIds) {
+      await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
     }
   }
 }

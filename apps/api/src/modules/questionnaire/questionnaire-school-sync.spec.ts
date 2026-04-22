@@ -29,4 +29,48 @@ describe('questionnaire-school-sync', () => {
       ],
     });
   });
+
+  it('rewrites school-specific gender exclusions during a merge', () => {
+    expect(
+      syncQuestionnaireSchoolAnswers(
+        {
+          [HARD_MATCH_KEYS.school]: 'school-source',
+          [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [
+            {
+              schoolId: 'school-source',
+              genders: ['男'],
+            },
+            {
+              schoolId: 'school-third',
+              genders: ['女'],
+            },
+            {
+              schoolId: 'school-dropped',
+              genders: ['非二元'],
+            },
+          ],
+        },
+        {
+          currentSchoolId: 'school-target',
+          allowedSchoolIds: ['school-target', 'school-third'],
+          rewrittenSchoolIds: {
+            'school-source': 'school-target',
+            'school-dropped': null,
+          },
+        },
+      ),
+    ).toEqual({
+      [HARD_MATCH_KEYS.school]: 'school-target',
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [
+        {
+          schoolId: 'school-target',
+          genders: ['男'],
+        },
+        {
+          schoolId: 'school-third',
+          genders: ['女'],
+        },
+      ],
+    });
+  });
 });

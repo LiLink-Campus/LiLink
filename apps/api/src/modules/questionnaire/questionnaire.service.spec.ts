@@ -73,6 +73,7 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
           [HARD_MATCH_KEYS.school]: 'school-bupt',
           [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
+          [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
           pace: 'Fast',
           values: ['Humor', 'humor', 'Curiosity'],
         },
@@ -92,6 +93,7 @@ describe('QuestionnaireService', () => {
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
       [HARD_MATCH_KEYS.school]: 'school-bupt',
       [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
       pace: 'fast',
       values: ['humor', 'curiosity'],
     });
@@ -174,6 +176,46 @@ describe('QuestionnaireService', () => {
     );
   });
 
+  it('reuses the cached questionnaire payload within the TTL window', async () => {
+    const prisma = {
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          title: 'Current',
+          description: null,
+          isCurrent: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          questions: [],
+        }),
+      },
+      school: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          ]),
+      },
+    };
+    const schoolAwareService = new QuestionnaireService(prisma as never);
+
+    await expect(schoolAwareService.getCurrentVersion()).resolves.toMatchObject(
+      {
+        id: 'version-1',
+        schools: [{ id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' }],
+      },
+    );
+    await expect(schoolAwareService.getCurrentVersion()).resolves.toMatchObject(
+      {
+        id: 'version-1',
+        schools: [{ id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' }],
+      },
+    );
+
+    expect(prisma.questionnaireVersion.findFirst).toHaveBeenCalledTimes(1);
+    expect(prisma.school.findMany).toHaveBeenCalledTimes(1);
+  });
+
   it('drops stale saved answers whose options no longer exist', () => {
     expect(
       service.sanitizeStoredAnswers(
@@ -241,6 +283,7 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
           [HARD_MATCH_KEYS.school]: 'school-bupt',
           [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+          [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
           values: ['Curiosity', 'Stability', 'Humor'],
         },
         allowedSchoolIds,
@@ -279,6 +322,7 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
           [HARD_MATCH_KEYS.school]: 'school-bupt',
           [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+          [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
           values: ['Curiosity', 'Stability'],
         },
         allowedSchoolIds,

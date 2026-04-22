@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { env } from '../../config/env';
+import { userSessionConfig } from '../../common/auth/session-config';
 
 @Module({
   imports: [
@@ -10,7 +11,7 @@ import { env } from '../../config/env';
       global: true,
       secret: env.JWT_SECRET,
       signOptions: {
-        expiresIn: '14d',
+        expiresIn: userSessionConfig.jwtExpiresIn,
       },
     }),
   ],

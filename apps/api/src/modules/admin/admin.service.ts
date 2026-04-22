@@ -2,9 +2,11 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, UserStatus } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
 import { CyclesService } from '../cycles/cycles.service';
@@ -105,14 +107,37 @@ const MATCHABLE_CYCLE_PARTICIPATION_WHERE = {
   },
 } satisfies Prisma.CycleParticipationWhereInput;
 
+type DashboardSnapshotPort = Pick<
+  DashboardSnapshotService,
+  'syncCycleSnapshots' | 'syncMatchSnapshots' | 'syncUserMatchSnapshots'
+>;
+
+const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
+  syncCycleSnapshots() {
+    return Promise.resolve();
+  },
+  syncMatchSnapshots() {
+    return Promise.resolve();
+  },
+  syncUserMatchSnapshots() {
+    return Promise.resolve();
+  },
+};
+
 @Injectable()
 export class AdminService {
+  private readonly dashboardSnapshotService: DashboardSnapshotPort;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cyclesService: CyclesService,
     private readonly adminAuditService: AdminAuditService,
     private readonly adminSchoolService: AdminSchoolService,
-  ) {}
+    @Optional() dashboardSnapshotService?: DashboardSnapshotService,
+  ) {
+    this.dashboardSnapshotService =
+      dashboardSnapshotService ?? defaultDashboardSnapshotPort;
+  }
 
   async getDashboard() {
     const [
@@ -1198,6 +1223,17 @@ export class AdminService {
 
     await this.prisma.$transaction(operations);
 
+    const affectedMatchIds = Array.from(
+      new Set(
+        reports
+          .map((report) => report.matchId)
+          .filter((matchId): matchId is string => Boolean(matchId)),
+      ),
+    );
+    for (const matchId of affectedMatchIds) {
+      await this.dashboardSnapshotService.syncMatchSnapshots(matchId);
+    }
+
     return {
       ok: true,
       processed: reports.length,
@@ -1249,6 +1285,10 @@ export class AdminService {
     }
 
     await this.prisma.$transaction(operations);
+
+    if (report.matchId) {
+      await this.dashboardSnapshotService.syncMatchSnapshots(report.matchId);
+    }
 
     return { ok: true };
   }
@@ -1368,6 +1408,14 @@ export class AdminService {
       userId,
       fields: Object.keys(updateData),
     });
+
+    if (
+      input.displayName !== undefined ||
+      input.email !== undefined ||
+      input.schoolId !== undefined
+    ) {
+      await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+    }
 
     return updatedUser;
   }
@@ -1514,6 +1562,13 @@ export class AdminService {
         distinct: ['matchId'],
       })
     ).map((p) => p.matchId);
+    const affectedCycleIds = (
+      await this.prisma.match.findMany({
+        where: { id: { in: affectedMatchIds } },
+        select: { cycleId: true },
+        distinct: ['cycleId'],
+      })
+    ).map((match) => match.cycleId);
 
     await this.prisma.$transaction([
       this.prisma.report.deleteMany({
@@ -1548,6 +1603,10 @@ export class AdminService {
       this.prisma.auditLog.deleteMany({ where: { actorId: { in: userIds } } }),
       this.prisma.user.deleteMany({ where: { id: { in: userIds } } }),
     ]);
+
+    for (const cycleId of affectedCycleIds) {
+      await this.dashboardSnapshotService.syncCycleSnapshots(cycleId);
+    }
 
     await this.adminAuditService.write(adminActorId, 'users.test_deleted', {
       count: testUsers.length,
