@@ -146,6 +146,9 @@ export default function RegisterPageClient() {
               <span>已发送到</span>
               <strong>{email}</strong>
             </div>
+            <p className="auth-hint">
+              几分钟内仍未收到？请检查邮箱的「垃圾邮件」或「拦截邮件」文件夹，部分学校邮箱会自动拦截首次发件人。
+            </p>
             {canRevealDevCode && devCode ? (
               <p className="dev-note">开发环境验证码：{devCode}</p>
             ) : null}
