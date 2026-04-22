@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh Cloudflare IP allow-list and reapply edge firewall
+Documentation=https://github.com/nanzhi84/LiLink
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/admin/lilink/scripts/firewall/sync-cloudflare-ips.sh
+ExecStart=/home/admin/lilink/scripts/firewall/apply-cf-firewall.sh
+TimeoutStartSec=120
+StandardOutput=journal
+StandardError=journal
