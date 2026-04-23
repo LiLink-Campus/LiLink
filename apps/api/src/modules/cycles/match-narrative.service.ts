@@ -14,6 +14,7 @@ const MATCH_REASON_TARGET_MAX_LENGTH = 140;
 const MATCH_REASON_MAX_LENGTH = 180;
 const MATCH_TOPIC_MAX_LENGTH = 24;
 const SAFE_ERROR_DETAIL_MAX_LENGTH = 180;
+const DEEPSEEK_TEMPERATURE = 0.9;
 const DEFAULT_MATCH_REASON =
   '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，这意味着彼此在建立信任、理解边界和推进交流时，更容易形成自然、清楚而持续的互动基础，也更容易把后续相处落到舒服、平衡且可继续发展的日常节奏里。';
 const DEFAULT_CONVERSATION_TOPICS = [
@@ -115,6 +116,29 @@ function uniqueNonEmpty(values: string[]) {
 
 function joinSentences(sentences: string[]) {
   return compactWhitespace(sentences.filter(Boolean).join(' '));
+}
+
+function stableSelectionIndex(seed: string, candidateCount: number) {
+  if (candidateCount <= 1) {
+    return 0;
+  }
+
+  let hash = 0;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 33 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  return hash % candidateCount;
+}
+
+function pickStableVariant(candidates: string[], seedParts: string[]) {
+  if (candidates.length === 0) {
+    return '';
+  }
+
+  const seed = seedParts.join('|');
+  return candidates[stableSelectionIndex(seed, candidates.length)] ?? '';
 }
 
 function trimReasonToMaxLength(reason: string) {
@@ -246,7 +270,7 @@ export class MatchNarrativeService {
           signal: AbortSignal.timeout(DEEPSEEK_TIMEOUT_MS),
           body: JSON.stringify({
             model: DEEPSEEK_MODEL,
-            temperature: 0.7,
+            temperature: DEEPSEEK_TEMPERATURE,
             max_tokens: 700,
             response_format: { type: 'json_object' },
             messages: [
@@ -259,6 +283,9 @@ export class MatchNarrativeService {
                   'The "reason" field must be one anonymized natural paragraph instead of a list.',
                   'Write "reason" in about 100 to 140 Chinese characters, and never return fewer than 100 Chinese characters.',
                   'Keep "reason" detailed enough to explain the match, but still compact enough for the reveal screen.',
+                  'Make the writing feel warm, observant, and human instead of corporate or template-like.',
+                  'Vary sentence openings, rhythm, and phrasing across matches; avoid repetitive stock transitions.',
+                  'Focus on the one or two strongest compatibility angles instead of mechanically listing every overlap.',
                   'The "conversationTopics" field must contain exactly three concise conversation starters.',
                   'Each conversation topic must stay short and generic.',
                   'Base the writing strictly on the provided questionnaire structure, shared signals, and self introductions.',
@@ -379,12 +406,35 @@ export class MatchNarrativeService {
   private buildRulesFallbackNarrative(
     input: MatchNarrativeInput,
   ): MatchNarrativeResult {
+    const strongestSharedLabels = input.sharedSignals
+      .flatMap((signal) => signal.sharedLabels)
+      .filter(Boolean)
+      .slice(0, 3);
+    const reasonSeedParts = [
+      input.intentPair.join('-'),
+      ...input.heuristicReasons,
+      ...strongestSharedLabels,
+    ];
     const seedSentences = uniqueNonEmpty([
       ...input.heuristicReasons.map(ensureSentence),
       this.buildIntroSentence(input),
       this.buildSharedSignalsSentence(input),
-      '从现有信息看，这种一致更像是相处方式和关系期待上的长期相容，而不只是某一个兴趣点的偶然重合，因此更容易在建立信任、安排日常陪伴和推进交流时保持稳定。',
-      '如果后续聊天继续围绕这些共同在意的方向展开，你们通常会更容易理解彼此的表达方式，也更容易把互动推进到自然、舒服而不过度暴露隐私的节奏里。',
+      pickStableVariant(
+        [
+          '从现有信息看，这种一致更像是相处方式和关系期待上的长期相容，而不只是某一个兴趣点的偶然重合，因此更容易在建立信任、安排日常陪伴和推进交流时保持稳定。',
+          '这类重合并不是表面兴趣凑巧相同，更像是相处时会自然站到差不多的频道上，所以后续推进关系时往往没那么费力。',
+          '这些共识背后反映出的，其实是你们对关系边界、交流方式和日常节奏的判断比较接近，这会让相处更容易稳下来。',
+        ],
+        reasonSeedParts,
+      ),
+      pickStableVariant(
+        [
+          '如果后续聊天继续围绕这些共同在意的方向展开，你们通常会更容易理解彼此的表达方式，也更容易把互动推进到自然、舒服而不过度暴露隐私的节奏里。',
+          '只要后续交流还沿着这些共同关注的点慢慢展开，你们大多会比较容易接住对方的表达，也更容易把关系推进到舒服的步调里。',
+          '后面如果从这些相近的判断和偏好聊开，彼此通常更容易接得住话，也更容易把互动落到轻松但持续的日常里。',
+        ],
+        [...reasonSeedParts, 'closer'],
+      ),
     ]).filter(Boolean);
     let reason = '';
 
@@ -423,7 +473,14 @@ export class MatchNarrativeService {
       return '';
     }
 
-    return '你们的自我介绍都比较具体，说明表达方式偏坦诚，也比较容易从日常兴趣切入聊天。';
+    return pickStableVariant(
+      [
+        '你们的自我介绍都比较具体，说明表达方式偏坦诚，也比较容易从日常兴趣切入聊天。',
+        '从自我介绍里能看出来，你们都不是特别敷衍的人，通常更愿意把自己真实的一面慢慢讲出来。',
+        '你们在自我介绍里的表达都比较有画面感，这通常意味着聊天时更容易自然地展开，而不是只能停留在客套层面。',
+      ],
+      [input.participantA.intro, input.participantB.intro],
+    );
   }
 
   private buildSharedSignalsSentence(input: MatchNarrativeInput) {
@@ -433,10 +490,24 @@ export class MatchNarrativeService {
       .slice(0, 2);
 
     if (primarySignals.length === 0) {
-      return '你们在多项价值判断和关系偏好上的方向比较接近，因此相互理解和持续交流的空间会更大。';
+      return pickStableVariant(
+        [
+          '你们在多项价值判断和关系偏好上的方向比较接近，因此相互理解和持续交流的空间会更大。',
+          '即使不看特别具体的细节，你们在关系里的判断方向也比较一致，这会让相处时的误读少一些。',
+          '整体看下来，你们对于亲密关系里什么重要、什么舒服，判断都比较靠近，这种靠近通常比表面共同点更有用。',
+        ],
+        [input.intentPair.join('-'), String(input.score)],
+      );
     }
 
-    return `你们都比较看重${primarySignals.join('和')}这类核心感受，这意味着在建立信任、理解边界和确认相处节奏时，更容易形成稳定而清楚的共识。`;
+    return pickStableVariant(
+      [
+        `你们都比较看重${primarySignals.join('和')}这类核心感受，这意味着在建立信任、理解边界和确认相处节奏时，更容易形成稳定而清楚的共识。`,
+        `你们都把${primarySignals.join('和')}放在更靠前的位置，所以很多关于关系怎么往前走的判断，往往更容易站到同一边。`,
+        `在你们都在意的东西里，${primarySignals.join('和')}很靠前，这会让很多相处上的分寸感更容易自然对齐。`,
+      ],
+      primarySignals,
+    );
   }
 
   private buildFallbackTopics(input: MatchNarrativeInput) {

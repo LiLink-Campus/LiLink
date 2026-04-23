@@ -723,12 +723,18 @@ export class AccountService {
 
   async setParticipation(userId: string, input: ToggleParticipationDto) {
     const cycle = await this.prisma.matchCycle.findFirst({
-      where: { status: { in: ['OPEN', 'REVEAL_READY'] } },
+      where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
       orderBy: { revealAt: 'asc' },
     });
 
     if (!cycle) {
       throw new NotFoundException('No active cycle is currently available.');
+    }
+
+    if (cycle.status !== 'OPEN') {
+      throw new BadRequestException(
+        'Participation can no longer be changed for the current cycle.',
+      );
     }
 
     if (new Date() >= cycle.participationDeadline) {
