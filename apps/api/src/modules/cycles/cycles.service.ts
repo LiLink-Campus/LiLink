@@ -817,32 +817,14 @@ export class CyclesService {
 
     if (pendingMatches.length === 0) {
       if (totalMatchCount === 0) {
-        const reopenedCycle = await this.prisma.matchCycle.updateMany({
-          where: {
-            id: cycle.id,
-            status: 'PREPARING',
-          },
-          data: {
-            status: 'OPEN',
-          },
-        });
-
-        if (reopenedCycle.count === 0) {
-          return {
-            ok: true,
-            cycleId: cycle.id,
-            state: 'SKIPPED',
-            createdMatches: 0,
-            unmatchedCount: 0,
-            message: 'Cycle state changed before preparation could restart.',
-          };
-        }
-
-        return this.prepareCycle({
+        return {
+          ok: true,
           cycleId: cycle.id,
-          force: options.force,
-          adminActorId: options.adminActorId,
-        });
+          state: 'PENDING',
+          createdMatches: 0,
+          unmatchedCount,
+          message: 'Cycle is still being prepared.',
+        };
       }
 
       return this.finalizePreparedCycle({

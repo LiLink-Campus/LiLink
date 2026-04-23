@@ -1467,8 +1467,7 @@ describe('CyclesService', () => {
     expect(fallbackPreparedCall).toBeDefined();
   });
 
-  it('restarts matching when a manually-set PREPARING cycle has no generated matches yet', async () => {
-    const reopenPreparingCycle = jest.fn().mockResolvedValue({ count: 1 });
+  it('keeps waiting when a PREPARING cycle has not persisted matches yet', async () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
@@ -1484,7 +1483,6 @@ describe('CyclesService', () => {
           updatedAt: new Date('2026-04-20T12:10:00.000Z'),
           participations: [],
         }),
-        updateMany: reopenPreparingCycle,
       },
       cycleParticipation,
       questionnaireVersion: {
@@ -1508,53 +1506,40 @@ describe('CyclesService', () => {
         buildDefaultNarrative: jest.fn(),
       } as never,
     );
-    const privateService = service as unknown as {
-      prepareCycle: (options: {
-        cycleId: string;
-        force?: boolean;
-        adminActorId?: string;
-      }) => Promise<{
-        ok: true;
-        cycleId: string;
-        state: 'PREPARED';
-        createdMatches: number;
-        unmatchedCount: number;
-        message: string;
-      }>;
-    };
-    const prepareCycleSpy = jest
-      .spyOn(privateService, 'prepareCycle')
-      .mockResolvedValue({
-        ok: true,
-        cycleId: 'cycle-1',
-        state: 'PREPARED',
-        createdMatches: 1,
-        unmatchedCount: 0,
-        message: 'Cycle is prepared and waiting for reveal.',
-      });
 
     await expect(
       service.runRevealCycle({ cycleId: 'cycle-1' }),
     ).resolves.toMatchObject({
       ok: true,
       cycleId: 'cycle-1',
-      state: 'PREPARED',
-      createdMatches: 1,
+      state: 'PENDING',
+      createdMatches: 0,
+      message: 'Cycle is still being prepared.',
     });
 
-    expect(reopenPreparingCycle).toHaveBeenCalledWith({
+    expect(prisma.match.findMany).toHaveBeenCalledWith({
       where: {
-        id: 'cycle-1',
-        status: 'PREPARING',
+        cycleId: 'cycle-1',
+        OR: [
+          { reason: null },
+          { conversationTopics: { equals: Prisma.AnyNull } },
+          { narrativeSource: null },
+        ],
       },
-      data: {
-        status: 'OPEN',
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        score: true,
+        reasons: true,
+        createdAt: true,
+        participants: {
+          select: {
+            userId: true,
+            position: true,
+          },
+          orderBy: { position: 'asc' },
+        },
       },
-    });
-    expect(prepareCycleSpy).toHaveBeenCalledWith({
-      cycleId: 'cycle-1',
-      force: undefined,
-      adminActorId: undefined,
     });
   });
 

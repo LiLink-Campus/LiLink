@@ -28,6 +28,7 @@ const dashboardSnapshotMatchSelect = {
   reasons: true,
   reason: true,
   conversationTopics: true,
+  revealedAt: true,
   introducedAt: true,
   cycle: {
     select: {
