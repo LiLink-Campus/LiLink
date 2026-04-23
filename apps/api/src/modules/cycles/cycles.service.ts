@@ -725,7 +725,8 @@ export class CyclesService {
               unmatchedCount,
               pendingNarrativeCount,
               forced: options.force ?? false,
-              message: 'Cycle created matches and is waiting for pending narratives.',
+              message:
+                'Cycle created matches and is waiting for pending narratives.',
             },
           },
         });
@@ -1101,7 +1102,9 @@ export class CyclesService {
           return {
             matchId: pendingMatch.id,
             narrative:
-              await this.matchNarrativeService.generateNarrative(narrativeInput),
+              await this.matchNarrativeService.generateNarrative(
+                narrativeInput,
+              ),
           } satisfies NarrativeAttemptResult;
         } catch (error) {
           this.logger.warn(
@@ -1738,7 +1741,12 @@ export class CyclesService {
       return null;
     }
 
-    const rescoredPair = this.scorePair(left, right, preparedQuestions, revealAt);
+    const rescoredPair = this.scorePair(
+      left,
+      right,
+      preparedQuestions,
+      revealAt,
+    );
 
     return {
       score: match.score,
@@ -1749,7 +1757,10 @@ export class CyclesService {
       ),
       participantA: {
         intro: left.introLine ?? '',
-        questionnaire: this.buildNarrativeQuestionnaire(left, preparedQuestions),
+        questionnaire: this.buildNarrativeQuestionnaire(
+          left,
+          preparedQuestions,
+        ),
       },
       participantB: {
         intro: right.introLine ?? '',

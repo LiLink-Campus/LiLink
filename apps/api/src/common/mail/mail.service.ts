@@ -245,7 +245,9 @@ export class MailService {
     const topics = input.conversationTopics
       .filter((topic) => topic.trim().length > 0)
       .map((topic) => topic.trim());
-    const topicsHtml = topics.map((topic) => `<li>${escapeHtml(topic)}</li>`).join('');
+    const topicsHtml = topics
+      .map((topic) => `<li>${escapeHtml(topic)}</li>`)
+      .join('');
 
     const text = [
       input.leadingSentence,

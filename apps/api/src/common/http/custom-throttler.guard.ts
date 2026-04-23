@@ -13,6 +13,8 @@ import { getRealClientIp } from './client-ip';
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
   protected getTracker(req: Record<string, unknown>): Promise<string> {
-    return Promise.resolve(getRealClientIp(req as Parameters<typeof getRealClientIp>[0]));
+    return Promise.resolve(
+      getRealClientIp(req as Parameters<typeof getRealClientIp>[0]),
+    );
   }
 }

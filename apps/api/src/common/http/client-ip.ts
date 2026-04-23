@@ -73,8 +73,12 @@ export function getRealClientIp(request: ClientIpRequest): string {
     return headerValue;
   }
 
-  if (Array.isArray(request.ips) && request.ips.length > 0) {
-    return request.ips[0];
+  const forwardedIps = request.ips;
+  if (forwardedIps && forwardedIps.length > 0) {
+    const firstForwardedIp = forwardedIps[0];
+    if (typeof firstForwardedIp === 'string' && firstForwardedIp.length > 0) {
+      return firstForwardedIp;
+    }
   }
 
   if (request.ip) {

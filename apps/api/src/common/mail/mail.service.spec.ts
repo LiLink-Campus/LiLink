@@ -201,13 +201,20 @@ describe('MailService', () => {
     sendMail.mockResolvedValueOnce(undefined);
     await service.flushQueuedEmails();
 
-    expect(sendMail).toHaveBeenCalledWith(
+    const [[sentMessage]] = sendMail.mock.calls as [
+      [
+        {
+          text?: string;
+          headers?: Record<string, string>;
+        },
+      ],
+    ];
+
+    expect(sentMessage.text).toBe('Plain text body');
+    expect(sentMessage.headers).toEqual(
       expect.objectContaining({
-        text: 'Plain text body',
-        headers: expect.objectContaining({
-          'Auto-Submitted': 'auto-generated',
-          'X-Auto-Response-Suppress': 'All',
-        }),
+        'Auto-Submitted': 'auto-generated',
+        'X-Auto-Response-Suppress': 'All',
       }),
     );
   });

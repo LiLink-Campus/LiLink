@@ -522,11 +522,19 @@ describe('CyclesService', () => {
       },
     });
     expect(matchCreate).toHaveBeenCalledTimes(1);
-    expect(auditLogCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        action: 'cycle.prepared',
-      }),
-    });
+    const auditLogCalls = auditLogCreate.mock.calls as Array<
+      [
+        {
+          data: {
+            action: string;
+          };
+        },
+      ]
+    >;
+    const preparedAuditCall = auditLogCalls.find(
+      ([call]) => call.data.action === 'cycle.prepared',
+    );
+    expect(preparedAuditCall).toBeDefined();
     expect(auditLogCreate).toHaveBeenCalledWith({
       data: {
         adminActorId: undefined,
@@ -1036,26 +1044,24 @@ describe('CyclesService', () => {
       },
       match: {
         findMany: jest.fn().mockResolvedValue([pendingMatch]),
-        count: jest
-          .fn()
-          .mockResolvedValueOnce(1)
-          .mockResolvedValueOnce(0),
+        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
       },
       auditLog: {
         create: auditLogCreate,
       },
-      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
-        callback({
-          match: {
-            updateMany: matchUpdateMany,
-          },
-          matchCycle: {
-            updateMany: matchCycleUpdateMany,
-          },
-          auditLog: {
-            create: auditLogCreate,
-          },
-        }),
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            match: {
+              updateMany: matchUpdateMany,
+            },
+            matchCycle: {
+              updateMany: matchCycleUpdateMany,
+            },
+            auditLog: {
+              create: auditLogCreate,
+            },
+          }),
       ),
     };
     const matchNarrativeService = {
@@ -1121,7 +1127,9 @@ describe('CyclesService', () => {
       },
     ]);
 
-    await expect(service.runRevealCycle({ cycleId: 'cycle-1' })).resolves.toMatchObject({
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
       ok: true,
       cycleId: 'cycle-1',
       state: 'PREPARED',
@@ -1155,11 +1163,19 @@ describe('CyclesService', () => {
         status: 'REVEAL_READY',
       },
     });
-    expect(auditLogCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        action: 'cycle.prepared',
-      }),
-    });
+    const preparedAuditLogCalls = auditLogCreate.mock.calls as Array<
+      [
+        {
+          data: {
+            action: string;
+          };
+        },
+      ]
+    >;
+    const finalizedPreparedCall = preparedAuditLogCalls.find(
+      ([call]) => call.data.action === 'cycle.prepared',
+    );
+    expect(finalizedPreparedCall).toBeDefined();
   });
 
   it('uses the default narrative after one hour instead of retrying forever', async () => {
@@ -1203,26 +1219,24 @@ describe('CyclesService', () => {
             ],
           },
         ]),
-        count: jest
-          .fn()
-          .mockResolvedValueOnce(1)
-          .mockResolvedValueOnce(0),
+        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
       },
       auditLog: {
         create: auditLogCreate,
       },
-      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
-        callback({
-          match: {
-            updateMany: matchUpdateMany,
-          },
-          matchCycle: {
-            updateMany: matchCycleUpdateMany,
-          },
-          auditLog: {
-            create: auditLogCreate,
-          },
-        }),
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            match: {
+              updateMany: matchUpdateMany,
+            },
+            matchCycle: {
+              updateMany: matchCycleUpdateMany,
+            },
+            auditLog: {
+              create: auditLogCreate,
+            },
+          }),
       ),
     };
     const defaultNarrative = {
@@ -1244,7 +1258,9 @@ describe('CyclesService', () => {
       matchNarrativeService as never,
     );
 
-    await expect(service.runRevealCycle({ cycleId: 'cycle-1' })).resolves.toMatchObject({
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
       ok: true,
       cycleId: 'cycle-1',
       state: 'PREPARED',
@@ -1252,7 +1268,9 @@ describe('CyclesService', () => {
     });
 
     expect(matchNarrativeService.generateNarrative).not.toHaveBeenCalled();
-    expect(matchNarrativeService.buildDefaultNarrative).toHaveBeenCalledTimes(1);
+    expect(matchNarrativeService.buildDefaultNarrative).toHaveBeenCalledTimes(
+      1,
+    );
     expect(matchUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'match-1',
@@ -1310,19 +1328,20 @@ describe('CyclesService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
       },
-      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
-        callback({
-          cycleParticipation,
-          match: {
-            create: matchCreate,
-          },
-          matchCycle: {
-            update: finalizePreparation,
-          },
-          auditLog: {
-            create: auditLogCreate,
-          },
-        }),
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            cycleParticipation,
+            match: {
+              create: matchCreate,
+            },
+            matchCycle: {
+              update: finalizePreparation,
+            },
+            auditLog: {
+              create: auditLogCreate,
+            },
+          }),
       ),
     };
     const matchNarrativeService = {
@@ -1406,25 +1425,46 @@ describe('CyclesService', () => {
     });
 
     expect(matchNarrativeService.generateNarrative).toHaveBeenCalledTimes(1);
-    expect(matchNarrativeService.buildDefaultNarrative).toHaveBeenCalledTimes(1);
-    expect(matchCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        reason: defaultNarrative.reason,
-        conversationTopics: defaultNarrative.conversationTopics,
-        narrativeSource: 'RULES_FALLBACK',
-      }),
-    });
+    expect(matchNarrativeService.buildDefaultNarrative).toHaveBeenCalledTimes(
+      1,
+    );
+    const matchCreateCalls = matchCreate.mock.calls as Array<
+      [
+        {
+          data: {
+            reason: string;
+            conversationTopics: string[];
+            narrativeSource: string;
+          };
+        },
+      ]
+    >;
+    expect(matchCreateCalls[0]?.[0].data.reason).toBe(defaultNarrative.reason);
+    expect(matchCreateCalls[0]?.[0].data.conversationTopics).toEqual(
+      defaultNarrative.conversationTopics,
+    );
+    expect(matchCreateCalls[0]?.[0].data.narrativeSource).toBe(
+      'RULES_FALLBACK',
+    );
     expect(finalizePreparation).toHaveBeenCalledWith({
       where: { id: 'cycle-1' },
       data: {
         status: 'REVEAL_READY',
       },
     });
-    expect(auditLogCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        action: 'cycle.prepared',
-      }),
-    });
+    const fallbackAuditLogCalls = auditLogCreate.mock.calls as Array<
+      [
+        {
+          data: {
+            action: string;
+          };
+        },
+      ]
+    >;
+    const fallbackPreparedCall = fallbackAuditLogCalls.find(
+      ([call]) => call.data.action === 'cycle.prepared',
+    );
+    expect(fallbackPreparedCall).toBeDefined();
   });
 
   it('restarts matching when a manually-set PREPARING cycle has no generated matches yet', async () => {
@@ -1454,10 +1494,11 @@ describe('CyclesService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(0),
       },
-      $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
-        callback({
-          cycleParticipation,
-        }),
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            cycleParticipation,
+          }),
       ),
     };
     const service = new CyclesService(
@@ -1492,7 +1533,9 @@ describe('CyclesService', () => {
         message: 'Cycle is prepared and waiting for reveal.',
       });
 
-    await expect(service.runRevealCycle({ cycleId: 'cycle-1' })).resolves.toMatchObject({
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
       ok: true,
       cycleId: 'cycle-1',
       state: 'PREPARED',
