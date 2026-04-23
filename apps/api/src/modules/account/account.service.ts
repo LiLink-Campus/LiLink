@@ -173,6 +173,16 @@ export class AccountService {
     ]);
 
     const revealedCycleIds = revealedCycles.map((item) => item.id);
+    const latestSnapshotCandidateCycleIds = Array.from(
+      new Set(
+        [
+          ...revealedCycleIds,
+          ...(lastRevealedParticipation?.cycleId
+            ? [lastRevealedParticipation.cycleId]
+            : []),
+        ].filter(Boolean),
+      ),
+    );
     await this.dashboardSnapshotService.ensureUserSnapshotCoverage({
       userId,
       latestParticipationCycleId: lastRevealedParticipation?.cycleId ?? null,
@@ -198,14 +208,19 @@ export class AccountService {
             },
           })
         : Promise.resolve(null),
-      snapshotStore
-        ? snapshotStore.findFirst({
-            where: { userId },
+      latestSnapshotCandidateCycleIds.length === 0 || !snapshotStore
+        ? Promise.resolve<DashboardSnapshotRecord | null>(null)
+        : snapshotStore.findFirst({
+            where: {
+              userId,
+              cycleId: {
+                in: latestSnapshotCandidateCycleIds,
+              },
+            },
             orderBy: {
               cycleRevealAt: 'desc',
             },
-          })
-        : Promise.resolve(null),
+          }),
       revealedCycleIds.length === 0 || !snapshotStore
         ? Promise.resolve<DashboardSnapshotRecord[]>([])
         : snapshotStore.findMany({
@@ -214,6 +229,9 @@ export class AccountService {
               cycleId: {
                 in: revealedCycleIds,
               },
+            },
+            orderBy: {
+              cycleRevealAt: 'desc',
             },
           }),
     ]);

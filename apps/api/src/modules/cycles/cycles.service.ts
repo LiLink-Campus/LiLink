@@ -1995,6 +1995,9 @@ export class CyclesService {
       this.prisma.match.deleteMany({
         where: { cycleId },
       }),
+      this.prisma.userCycleDashboardSnapshot.deleteMany({
+        where: { cycleId },
+      }),
       this.prisma.matchCycle.update({
         where: { id: cycleId },
         data: { status: 'OPEN' },
