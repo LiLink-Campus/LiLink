@@ -659,26 +659,18 @@ export class CyclesService {
     const unmatchedCount = participants.length - selectedPairs.length * 2;
 
     try {
-      const resolvedNarratives = await this.generateNarrativesForPairs(
-        selectedPairs,
-        preparedQuestions,
-      );
-      const pendingNarrativeCount = resolvedNarratives.filter(
-        (narrative) => narrative == null,
-      ).length;
+      const createdMatchIds = await this.prisma.$transaction(async (tx) => {
+        const matchIds: string[] = [];
 
-      await this.prisma.$transaction(async (tx) => {
         for (const [pairIndex, pair] of selectedPairs.entries()) {
-          const narrative = resolvedNarratives[pairIndex];
-
-          await tx.match.create({
+          const match = await tx.match.create({
             data: {
               cycleId: cycle.id,
               score: pair.score,
               reasons: pair.reasons,
-              reason: narrative?.reason ?? null,
-              conversationTopics: narrative?.conversationTopics ?? null,
-              narrativeSource: narrative?.source ?? null,
+              reason: null,
+              conversationTopics: Prisma.DbNull,
+              narrativeSource: null,
               revealedAt: null,
               participants: {
                 create: [
@@ -696,9 +688,10 @@ export class CyclesService {
               },
             },
           });
+          matchIds[pairIndex] = match.id;
         }
 
-        if (pendingNarrativeCount === 0) {
+        if (selectedPairs.length === 0) {
           const finalizedCycle = await tx.matchCycle.updateMany({
             where: {
               id: cycle.id,
@@ -726,9 +719,58 @@ export class CyclesService {
               },
             },
           });
-          return;
+
+          return matchIds;
         }
 
+        return matchIds;
+      });
+
+      if (selectedPairs.length === 0) {
+        return {
+          ok: true,
+          cycleId: cycle.id,
+          state: 'PREPARED',
+          createdMatches: 0,
+          unmatchedCount,
+          message: preparationMessage,
+        };
+      }
+
+      const resolvedNarratives = await this.generateNarrativesForPairs(
+        selectedPairs,
+        preparedQuestions,
+      );
+      const completedNarratives = resolvedNarratives
+        .map((narrative, pairIndex) => {
+          const matchId = createdMatchIds[pairIndex];
+          return matchId && narrative ? { matchId, narrative } : null;
+        })
+        .filter(
+          (
+            entry,
+          ): entry is { matchId: string; narrative: MatchNarrativeResult } =>
+            entry !== null,
+        );
+
+      if (completedNarratives.length > 0) {
+        await this.updateMatchNarratives(completedNarratives);
+      }
+
+      const pendingNarrativeCount = await this.countPendingNarratives(cycle.id);
+
+      if (pendingNarrativeCount === 0) {
+        return this.finalizePreparedCycle({
+          cycleId: cycle.id,
+          adminActorId: options.adminActorId,
+          force: options.force,
+          createdMatches: selectedPairs.length,
+          unmatchedCount,
+          message: preparationMessage,
+        });
+      }
+
+      await this.prisma.$transaction(async (tx) => {
         await tx.auditLog.create({
           data: {
             adminActorId: options.adminActorId,
@@ -748,16 +790,14 @@ export class CyclesService {
         await this.dashboardSnapshotService.syncCycleSnapshots(cycle.id, tx);
       });
 
-      if (pendingNarrativeCount > 0) {
-        return {
-          ok: true,
-          cycleId: cycle.id,
-          state: 'PENDING',
-          createdMatches: selectedPairs.length,
-          unmatchedCount,
-          message: `Cycle created ${selectedPairs.length} match(es) and is still generating ${pendingNarrativeCount} narrative(s).`,
-        };
-      }
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'PENDING',
+        createdMatches: selectedPairs.length,
+        unmatchedCount,
+        message: `Cycle created ${selectedPairs.length} match(es) and is still generating ${pendingNarrativeCount} narrative(s).`,
+      };
     } catch (error) {
       await this.revertPreparationClaimIfEmpty(cycle.id);
 
@@ -775,14 +815,6 @@ export class CyclesService {
       throw error;
     }
 
-    return {
-      ok: true,
-      cycleId: cycle.id,
-      state: 'PREPARED',
-      createdMatches: selectedPairs.length,
-      unmatchedCount,
-      message: preparationMessage,
-    };
   }
 
   private async continuePreparingCycle(options: {
@@ -894,25 +926,7 @@ export class CyclesService {
     );
 
     if (completedNarratives.length > 0) {
-      await this.prisma.$transaction(async (tx) => {
-        for (const entry of completedNarratives) {
-          await tx.match.updateMany({
-            where: {
-              id: entry.matchId,
-              OR: [
-                { reason: null },
-                { conversationTopics: { equals: Prisma.AnyNull } },
-                { narrativeSource: null },
-              ],
-            },
-            data: {
-              reason: entry.narrative.reason,
-              conversationTopics: entry.narrative.conversationTopics,
-              narrativeSource: entry.narrative.source,
-            },
-          });
-        }
-      });
+      await this.updateMatchNarratives(completedNarratives);
     }
 
     const remainingPendingCount = await this.countPendingNarratives(cycle.id);
@@ -1140,6 +1154,33 @@ export class CyclesService {
         }
       },
     );
+  }
+
+  private async updateMatchNarratives(
+    completedNarratives: Array<{
+      matchId: string;
+      narrative: MatchNarrativeResult;
+    }>,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      for (const entry of completedNarratives) {
+        await tx.match.updateMany({
+          where: {
+            id: entry.matchId,
+            OR: [
+              { reason: null },
+              { conversationTopics: { equals: Prisma.AnyNull } },
+              { narrativeSource: null },
+            ],
+          },
+          data: {
+            reason: entry.narrative.reason,
+            conversationTopics: entry.narrative.conversationTopics,
+            narrativeSource: entry.narrative.source,
+          },
+        });
+      }
+    });
   }
 
   private async mapWithNarrativeConcurrency<Item, Result>(

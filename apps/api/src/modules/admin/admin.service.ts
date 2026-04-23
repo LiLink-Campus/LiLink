@@ -560,7 +560,28 @@ export class AdminService {
       );
     }
 
+    if (!input.cycleId && input.status === 'REVEALED') {
+      throw new BadRequestException(
+        'REVEALED status must be set by running the cycle reveal flow.',
+      );
+    }
+
     if (input.cycleId) {
+      const existingCycle = await this.prisma.matchCycle.findUnique({
+        where: { id: input.cycleId },
+        select: { status: true },
+      });
+
+      if (!existingCycle) {
+        throw new NotFoundException('Cycle not found.');
+      }
+
+      if (input.status === 'REVEALED' && existingCycle.status !== 'REVEALED') {
+        throw new BadRequestException(
+          'REVEALED status must be set by running the cycle reveal flow.',
+        );
+      }
+
       const cycle = await this.prisma.matchCycle.update({
         where: { id: input.cycleId },
         data: {
