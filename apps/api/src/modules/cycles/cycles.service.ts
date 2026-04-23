@@ -46,6 +46,7 @@ const MULTI_SELECT_OVERLAP_BONUS = 3;
 const MAX_MATCH_REASONS = 3;
 const MATCH_NARRATIVE_MAX_CONCURRENCY = 3;
 const MATCH_NARRATIVE_DEFAULT_AFTER_MS = 60 * 60 * 1000;
+const PREPARATION_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 type DashboardSnapshotPort = Pick<
@@ -842,6 +843,16 @@ export class CyclesService {
 
     if (pendingMatches.length === 0) {
       if (totalMatchCount === 0) {
+        const recoveredPreparation = await this.recoverStaleEmptyPreparation(
+          cycle,
+          options,
+          unmatchedCount,
+        );
+
+        if (recoveredPreparation) {
+          return recoveredPreparation;
+        }
+
         return {
           ok: true,
           cycleId: cycle.id,
@@ -2030,6 +2041,63 @@ export class CyclesService {
         status: 'OPEN',
       },
     });
+  }
+
+  private async recoverStaleEmptyPreparation(
+    cycle: {
+      id: string;
+      participationDeadline: Date;
+      updatedAt: Date;
+    },
+    options: {
+      cycleId: string;
+      force?: boolean;
+      adminActorId?: string;
+    },
+    unmatchedCount: number,
+  ): Promise<CyclePreparationResult | null> {
+    if (!this.isStalePreparationClaim(cycle.updatedAt)) {
+      return null;
+    }
+
+    const recoveredCycle = await this.prisma.matchCycle.updateMany({
+      where: {
+        id: cycle.id,
+        status: 'PREPARING',
+        updatedAt: cycle.updatedAt,
+      },
+      data: {
+        status: 'OPEN',
+      },
+    });
+
+    if (recoveredCycle.count === 0) {
+      return null;
+    }
+
+    if (!options.force && cycle.participationDeadline > new Date()) {
+      return {
+        ok: true,
+        cycleId: cycle.id,
+        state: 'SKIPPED',
+        createdMatches: 0,
+        unmatchedCount,
+        message:
+          'Stale empty preparation was reset; participation deadline has not been reached yet.',
+      };
+    }
+
+    return this.prepareCycle({
+      cycleId: cycle.id,
+      force: options.force,
+      adminActorId: options.adminActorId,
+    });
+  }
+
+  private isStalePreparationClaim(updatedAt: Date) {
+    return (
+      Date.now() - updatedAt.getTime() >= PREPARATION_RECOVERY_THRESHOLD_MS
+    );
   }
 
   private async finalizePreparedCycle(options: {

@@ -1616,7 +1616,7 @@ describe('CyclesService', () => {
     expect(auditLogCreate).not.toHaveBeenCalled();
   });
 
-  it('keeps waiting when a PREPARING cycle has not persisted matches yet', async () => {
+  it('keeps waiting when a fresh PREPARING cycle has not persisted matches yet', async () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
@@ -1629,7 +1629,7 @@ describe('CyclesService', () => {
           participationDeadline: new Date(Date.now() - 2 * 60_000),
           revealAt: new Date(Date.now() + 60_000),
           createdAt: new Date('2026-04-20T12:00:00.000Z'),
-          updatedAt: new Date('2026-04-20T12:10:00.000Z'),
+          updatedAt: new Date(Date.now() - 60_000),
           participations: [],
         }),
       },
@@ -1689,6 +1689,78 @@ describe('CyclesService', () => {
           orderBy: { position: 'asc' },
         },
       },
+    });
+  });
+
+  it('recovers stale empty PREPARING cycles and reruns preparation', async () => {
+    const staleUpdatedAt = new Date(Date.now() - 11 * 60_000);
+    const recoveredPreparationResult = {
+      ok: true as const,
+      cycleId: 'cycle-1',
+      state: 'PREPARED' as const,
+      createdMatches: 1,
+      unmatchedCount: 0,
+      message: 'Cycle is prepared and waiting for reveal.',
+    };
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
+    const resetStalePreparation = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'PREPARING',
+          participationDeadline: new Date(Date.now() - 2 * 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: staleUpdatedAt,
+          participations: [],
+        }),
+        updateMany: resetStalePreparation,
+      },
+      cycleParticipation,
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+    };
+    const service = new CyclesService(
+      prisma as never,
+      {
+        generateNarrative: jest.fn(),
+        buildDefaultNarrative: jest.fn(),
+      } as never,
+    );
+    const prepareCycleSpy = jest
+      .spyOn(service as never, 'prepareCycle')
+      .mockResolvedValue(recoveredPreparationResult as never);
+
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toEqual(recoveredPreparationResult);
+
+    expect(resetStalePreparation).toHaveBeenCalledWith({
+      where: {
+        id: 'cycle-1',
+        status: 'PREPARING',
+        updatedAt: staleUpdatedAt,
+      },
+      data: {
+        status: 'OPEN',
+      },
+    });
+    expect(prepareCycleSpy).toHaveBeenCalledWith({
+      cycleId: 'cycle-1',
+      force: undefined,
+      adminActorId: undefined,
     });
   });
 

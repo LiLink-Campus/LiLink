@@ -554,6 +554,12 @@ export class AdminService {
   }
 
   async upsertCycle(input: UpsertCycleDto, adminActorId: string) {
+    if ((input.status as string) === 'PREPARING') {
+      throw new BadRequestException(
+        'PREPARING is an internal cycle state and cannot be set manually.',
+      );
+    }
+
     if (input.cycleId) {
       const cycle = await this.prisma.matchCycle.update({
         where: { id: input.cycleId },

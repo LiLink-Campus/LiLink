@@ -1461,12 +1461,14 @@ describe('AccountService', () => {
 
     await service.getDashboard('user-1');
 
-    expect(prisma.userCycleDashboardSnapshot.findFirst).toHaveBeenCalledTimes(1);
-    const [latestSnapshotQuery] = prisma.userCycleDashboardSnapshot.findFirst.mock
-      .calls[0] as [Record<string, unknown>];
+    expect(prisma.userCycleDashboardSnapshot.findFirst).toHaveBeenCalledTimes(
+      1,
+    );
+    const [latestSnapshotQuery] = prisma.userCycleDashboardSnapshot.findFirst
+      .mock.calls[0] as [Record<string, unknown>];
     expect(prisma.userCycleDashboardSnapshot.findMany).toHaveBeenCalledTimes(1);
-    const [recentSnapshotsQuery] = prisma.userCycleDashboardSnapshot.findMany.mock
-      .calls[0] as [Record<string, unknown>];
+    const [recentSnapshotsQuery] = prisma.userCycleDashboardSnapshot.findMany
+      .mock.calls[0] as [Record<string, unknown>];
 
     expect(latestSnapshotQuery.where).toEqual({
       userId: 'user-1',

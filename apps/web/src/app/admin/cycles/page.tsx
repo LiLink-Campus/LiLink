@@ -31,6 +31,12 @@ const CYCLE_STATUS_LABELS: Record<"ALL" | AdminCycle["status"], string> = {
   REVEAL_READY: "待揭晓",
   REVEALED: "已揭晓",
 };
+const EDITABLE_CYCLE_STATUSES = [
+  "DRAFT",
+  "OPEN",
+  "REVEAL_READY",
+  "REVEALED",
+] as const;
 
 const PARTICIPATION_STATUS_LABELS: Record<"OPTED_IN" | "OPTED_OUT", string> = {
   OPTED_IN: "已参加",
@@ -357,9 +363,15 @@ export default function AdminCyclesPage() {
 
   async function saveCycle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending("save");
     setActionError(null);
     setActionMessage(null);
+
+    if (cycleForm.status === "PREPARING") {
+      setActionError("PREPARING 是系统内部状态，不能通过后台表单手动保存。");
+      return;
+    }
+
+    setPending("save");
 
     try {
       const saved = await fetchApi<AdminCycle>("/admin/cycles", {
@@ -630,11 +642,16 @@ export default function AdminCyclesPage() {
             <label>
               <span>状态</span>
               <select value={cycleForm.status} onChange={(e) => setCycleForm((f) => ({ ...f, status: e.target.value as AdminCycle["status"] }))}>
-                <option value="DRAFT">草稿</option>
-                <option value="OPEN">开放报名</option>
-                <option value="PREPARING">预生成中</option>
-                <option value="REVEAL_READY">待揭晓</option>
-                <option value="REVEALED">已揭晓</option>
+                {cycleForm.status === "PREPARING" ? (
+                  <option value="PREPARING" disabled>
+                    预生成中（系统状态）
+                  </option>
+                ) : null}
+                {EDITABLE_CYCLE_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {CYCLE_STATUS_LABELS[status]}
+                  </option>
+                ))}
               </select>
             </label>
             <label>

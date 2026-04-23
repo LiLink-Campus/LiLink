@@ -132,8 +132,8 @@ export class UpsertCycleDto {
   @IsDateString()
   revealAt!: string;
 
-  @IsIn(['DRAFT', 'OPEN', 'PREPARING', 'REVEAL_READY', 'REVEALED'])
-  status!: 'DRAFT' | 'OPEN' | 'PREPARING' | 'REVEAL_READY' | 'REVEALED';
+  @IsIn(['DRAFT', 'OPEN', 'REVEAL_READY', 'REVEALED'])
+  status!: 'DRAFT' | 'OPEN' | 'REVEAL_READY' | 'REVEALED';
 
   @IsOptional()
   @IsString()

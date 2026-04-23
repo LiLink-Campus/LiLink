@@ -295,6 +295,40 @@ describe('AdminService', () => {
     );
   });
 
+  it('rejects manually setting the internal PREPARING cycle status', async () => {
+    const prisma = {
+      matchCycle: {
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.upsertCycle(
+        {
+          codename: 'Round 2',
+          participationDeadline: '2026-04-30T12:00:00.000Z',
+          revealAt: '2026-05-01T12:00:00.000Z',
+          status: 'PREPARING' as never,
+        },
+        'admin-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.matchCycle.create).not.toHaveBeenCalled();
+    expect(prisma.matchCycle.update).not.toHaveBeenCalled();
+  });
+
   it('loads cycle detail without backfilling participation rows', async () => {
     const prisma = {
       matchCycle: {
