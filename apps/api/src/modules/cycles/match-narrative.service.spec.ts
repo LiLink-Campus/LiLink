@@ -121,9 +121,12 @@ describe('MatchNarrativeService', () => {
     expect(fetchPayload.headers?.Authorization).toBe(
       'Bearer test-deepseek-key',
     );
-    expect(requestBody.temperature).toBe(0.7);
+    expect(requestBody.temperature).toBe(0.9);
     expect(systemMessage).toContain(
       'Write "reason" in about 100 to 140 Chinese characters, and never return fewer than 100 Chinese characters.',
+    );
+    expect(systemMessage).toContain(
+      'Make the writing feel warm, observant, and human instead of corporate or template-like.',
     );
     expect(systemMessage).toContain(
       'Treat self introductions as private background context only.',

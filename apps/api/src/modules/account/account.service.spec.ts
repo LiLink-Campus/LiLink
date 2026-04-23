@@ -315,6 +315,7 @@ describe('AccountService', () => {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'cycle-1',
+          status: 'OPEN',
           participationDeadline: new Date(Date.now() - 60_000),
         }),
       },
@@ -336,6 +337,7 @@ describe('AccountService', () => {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'cycle-1',
+          status: 'OPEN',
           participationDeadline: new Date(Date.now() + 60_000),
         }),
       },
@@ -365,6 +367,7 @@ describe('AccountService', () => {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'cycle-1',
+          status: 'OPEN',
           participationDeadline: new Date(Date.now() + 60_000),
         }),
       },
@@ -396,6 +399,7 @@ describe('AccountService', () => {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'cycle-1',
+          status: 'OPEN',
           participationDeadline: new Date(Date.now() + 60_000),
         }),
       },
@@ -429,6 +433,7 @@ describe('AccountService', () => {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'cycle-1',
+          status: 'OPEN',
           participationDeadline: new Date(Date.now() + 60_000),
         }),
       },
@@ -486,6 +491,7 @@ describe('AccountService', () => {
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'cycle-1',
+          status: 'OPEN',
           participationDeadline: new Date(Date.now() + 60_000),
         }),
       },
@@ -518,6 +524,48 @@ describe('AccountService', () => {
         }) as object,
       }),
     );
+  });
+
+  it('rejects participation changes once the current cycle is preparing', async () => {
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'PREPARING',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects participation changes once the current cycle is reveal-ready', async () => {
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'REVEAL_READY',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: false }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('filters stale questionnaire answers down to the current questionnaire keys', async () => {

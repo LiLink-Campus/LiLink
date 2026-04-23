@@ -1503,15 +1503,17 @@ export class CyclesService {
             ? labelForQuestionValue(leftAnswer, question.normalizedOptions)
             : '';
 
-        sharedSignals.push({
-          questionKey: question.key,
-          prompt: question.prompt,
-          type: 'EXACT_MATCH',
-          weight,
-          sharedLabels: matchedLabel ? [matchedLabel] : [],
-          leftAnswerLabels: matchedLabel ? [matchedLabel] : [],
-          rightAnswerLabels: matchedLabel ? [matchedLabel] : [],
-        });
+        if (this.canUseQuestionForNarrative(question.key)) {
+          sharedSignals.push({
+            questionKey: question.key,
+            prompt: question.prompt,
+            type: 'EXACT_MATCH',
+            weight,
+            sharedLabels: matchedLabel ? [matchedLabel] : [],
+            leftAnswerLabels: matchedLabel ? [matchedLabel] : [],
+            rightAnswerLabels: matchedLabel ? [matchedLabel] : [],
+          });
+        }
         reasons.push(
           ...this.buildReasonMessages(question, leftAnswer, rightAnswer, order),
         );
@@ -1526,21 +1528,23 @@ export class CyclesService {
 
         if (overlap.length > 0) {
           rawScore += overlap.length * weight * MULTI_SELECT_OVERLAP_BONUS;
-          sharedSignals.push({
-            questionKey: question.key,
-            prompt: question.prompt,
-            type: 'MULTI_OVERLAP',
-            weight,
-            sharedLabels: overlap.map((value) =>
-              labelForQuestionValue(value, question.normalizedOptions),
-            ),
-            leftAnswerLabels: leftOptions.map((value) =>
-              labelForQuestionValue(value, question.normalizedOptions),
-            ),
-            rightAnswerLabels: rightOptions.map((value) =>
-              labelForQuestionValue(value, question.normalizedOptions),
-            ),
-          });
+          if (this.canUseQuestionForNarrative(question.key)) {
+            sharedSignals.push({
+              questionKey: question.key,
+              prompt: question.prompt,
+              type: 'MULTI_OVERLAP',
+              weight,
+              sharedLabels: overlap.map((value) =>
+                labelForQuestionValue(value, question.normalizedOptions),
+              ),
+              leftAnswerLabels: leftOptions.map((value) =>
+                labelForQuestionValue(value, question.normalizedOptions),
+              ),
+              rightAnswerLabels: rightOptions.map((value) =>
+                labelForQuestionValue(value, question.normalizedOptions),
+              ),
+            });
+          }
           reasons.push(
             ...this.buildReasonMessages(
               question,
@@ -1671,6 +1675,16 @@ export class CyclesService {
       );
   }
 
+  private canUseQuestionForNarrative(questionKey: string) {
+    return !isHardMatchKey(questionKey);
+  }
+
+  private filterNarrativeSignals(signals: MatchNarrativeSignal[]) {
+    return signals.filter((signal) =>
+      this.canUseQuestionForNarrative(signal.questionKey),
+    );
+  }
+
   private buildNarrativeInput(
     pair: CandidatePair,
     preparedQuestions: PreparedQuestion[],
@@ -1686,7 +1700,7 @@ export class CyclesService {
       score: pair.score,
       intentPair: [leftIntent, rightIntent],
       heuristicReasons: pair.reasons,
-      sharedSignals: pair.sharedSignals ?? [],
+      sharedSignals: this.filterNarrativeSignals(pair.sharedSignals ?? []),
       participantA: {
         intro: pair.left.introLine ?? '',
         questionnaire: this.buildNarrativeQuestionnaire(
@@ -1730,7 +1744,9 @@ export class CyclesService {
       score: match.score,
       intentPair: [left.intent, right.intent],
       heuristicReasons: this.normalizeStoredReasons(match.reasons),
-      sharedSignals: rescoredPair?.sharedSignals ?? [],
+      sharedSignals: this.filterNarrativeSignals(
+        rescoredPair?.sharedSignals ?? [],
+      ),
       participantA: {
         intro: left.introLine ?? '',
         questionnaire: this.buildNarrativeQuestionnaire(left, preparedQuestions),

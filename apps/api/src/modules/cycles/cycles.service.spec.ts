@@ -727,6 +727,49 @@ describe('CyclesService', () => {
     ]);
   });
 
+  it('keeps hard-match fields out of DeepSeek narrative shared signals', () => {
+    const service = new CyclesService({} as never);
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const result = scorePair(
+      createBroadParticipant('user-1', {
+        relationship_intent: 'serious',
+        hard_school: SCHOOL_BUPT,
+      }),
+      createBroadParticipant('user-2', {
+        relationship_intent: 'serious',
+        hard_school: SCHOOL_BUPT,
+      }),
+      [
+        {
+          key: 'relationship_intent',
+          prompt: 'Intent',
+          type: QuestionType.SINGLE_SELECT,
+          weight: 3,
+          options: RELATIONSHIP_QUESTION.options,
+          reasonRules: [],
+        },
+        {
+          key: 'hard_school',
+          prompt: 'School',
+          type: QuestionType.SINGLE_SELECT,
+          weight: 1,
+          options: [{ value: SCHOOL_BUPT, label: '北京邮电大学' }],
+          reasonRules: [],
+        },
+      ],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(result?.sharedSignals).toEqual([
+      expect.objectContaining({
+        questionKey: 'relationship_intent',
+      }),
+    ]);
+  });
+
   it('ignores questionnaire drafts that were never formally submitted', () => {
     const service = new CyclesService({} as never);
     const toEligibleParticipants = (
