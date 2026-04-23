@@ -814,7 +814,6 @@ export class CyclesService {
 
       throw error;
     }
-
   }
 
   private async continuePreparingCycle(options: {

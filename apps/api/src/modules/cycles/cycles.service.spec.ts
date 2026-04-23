@@ -1348,12 +1348,10 @@ describe('CyclesService', () => {
     };
     let matchWasCreatedBeforeNarrative = false;
     const matchNarrativeService = {
-      generateNarrative: jest
-        .fn()
-        .mockImplementation(async () => {
-          matchWasCreatedBeforeNarrative = matchCreate.mock.calls.length === 1;
-          throw new Error('DeepSeek is unavailable.');
-        }),
+      generateNarrative: jest.fn().mockImplementation(() => {
+        matchWasCreatedBeforeNarrative = matchCreate.mock.calls.length === 1;
+        return Promise.reject(new Error('DeepSeek is unavailable.'));
+      }),
       buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
     };
     const service = new CyclesService(
