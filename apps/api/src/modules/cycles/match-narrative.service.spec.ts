@@ -178,4 +178,39 @@ describe('MatchNarrativeService', () => {
     expect(loggedOutput).toContain('api key: [redacted]');
     expect(loggedOutput).not.toContain('****4595');
   });
+
+  it('keeps fallback conversation topics within the public length limit', async () => {
+    env.DEEPSEEK_API_KEY = '';
+
+    const service = new MatchNarrativeService();
+    const result = await service.generateNarrative({
+      ...createNarrativeInput(),
+      sharedSignals: [
+        {
+          questionKey: 'outing_spend_style',
+          prompt: '一起出去玩时，花钱方式你更倾向哪一种？',
+          type: 'EXACT_MATCH',
+          weight: 2,
+          sharedLabels: ['不太希望总是只有我出钱（不强求对方全包）'],
+          leftAnswerLabels: ['不太希望总是只有我出钱（不强求对方全包）'],
+          rightAnswerLabels: ['不太希望总是只有我出钱（不强求对方全包）'],
+        },
+        {
+          questionKey: 'small_happiness',
+          prompt: '你最容易在哪 3 种小事里感到关系感？',
+          type: 'MULTI_OVERLAP',
+          weight: 1,
+          sharedLabels: ['临时起意的小冒险'],
+          leftAnswerLabels: ['临时起意的小冒险'],
+          rightAnswerLabels: ['临时起意的小冒险'],
+        },
+      ],
+    });
+
+    expect(result.source).toBe('RULES_FALLBACK');
+    expect(result.conversationTopics).toHaveLength(3);
+    expect(result.conversationTopics.every((topic) => topic.length <= 24)).toBe(
+      true,
+    );
+  });
 });

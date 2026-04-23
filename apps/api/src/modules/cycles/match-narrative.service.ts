@@ -110,6 +110,17 @@ function normalizeTopic(value: string) {
   );
 }
 
+function normalizeTopicWithinLimit(value: string) {
+  const normalizedTopic = normalizeTopic(value);
+  if (!normalizedTopic) {
+    return null;
+  }
+
+  return normalizedTopic.length <= MATCH_TOPIC_MAX_LENGTH
+    ? normalizedTopic
+    : null;
+}
+
 function uniqueNonEmpty(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
@@ -363,7 +374,9 @@ export class MatchNarrativeService {
         }
 
         const normalizedTopics = uniqueNonEmpty(
-          validatedNarrative.data.conversationTopics.map(normalizeTopic),
+          validatedNarrative.data.conversationTopics
+            .map(normalizeTopicWithinLimit)
+            .filter((topic): topic is string => topic !== null),
         ).slice(0, 3);
 
         if (normalizedTopics.length < 3) {
@@ -522,8 +535,8 @@ export class MatchNarrativeService {
       '你最近在慢慢坚持的一件事是什么',
       '什么样的聊天节奏会让你觉得相处自然',
     ])
-      .map(normalizeTopic)
-      .filter(Boolean);
+      .map(normalizeTopicWithinLimit)
+      .filter((topic): topic is string => topic !== null);
 
     return topics.slice(0, 3);
   }

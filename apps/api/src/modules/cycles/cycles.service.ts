@@ -172,6 +172,12 @@ type NarrativeAttemptResult = {
   narrative: MatchNarrativeResult | null;
 };
 
+class PreparationClaimLostError extends Error {
+  constructor() {
+    super('Cycle state changed before preparation finished.');
+  }
+}
+
 /**
  * Blossom maximizes the sum of edge weights. To maximize matching cardinality
  * first and total raw score second, shift each edge by a prefix derived from
@@ -692,12 +698,19 @@ export class CyclesService {
         }
 
         if (pendingNarrativeCount === 0) {
-          await tx.matchCycle.update({
-            where: { id: cycle.id },
+          const finalizedCycle = await tx.matchCycle.updateMany({
+            where: {
+              id: cycle.id,
+              status: 'PREPARING',
+            },
             data: {
               status: 'REVEAL_READY',
             },
           });
+
+          if (finalizedCycle.count === 0) {
+            throw new PreparationClaimLostError();
+          }
 
           await tx.auditLog.create({
             data: {
@@ -746,6 +759,18 @@ export class CyclesService {
       }
     } catch (error) {
       await this.revertPreparationClaimIfEmpty(cycle.id);
+
+      if (error instanceof PreparationClaimLostError) {
+        return {
+          ok: true,
+          cycleId: cycle.id,
+          state: 'SKIPPED',
+          createdMatches: 0,
+          unmatchedCount: 0,
+          message: error.message,
+        };
+      }
+
       throw error;
     }
 
