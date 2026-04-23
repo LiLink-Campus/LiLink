@@ -1693,6 +1693,7 @@ describe('CyclesService', () => {
     const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
     const claimReveal = jest.fn().mockResolvedValue({ count: 1 });
     const matchDeleteMany = jest.fn().mockResolvedValue({ count: 2 });
+    const snapshotDeleteMany = jest.fn().mockResolvedValue({ count: 2 });
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
     const revealMatchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
@@ -1741,6 +1742,9 @@ describe('CyclesService', () => {
       match: {
         deleteMany: matchDeleteMany,
         create: matchCreate,
+      },
+      userCycleDashboardSnapshot: {
+        deleteMany: snapshotDeleteMany,
       },
       auditLog: {
         create: auditLogCreate,
@@ -1836,6 +1840,9 @@ describe('CyclesService', () => {
     });
 
     expect(matchDeleteMany).toHaveBeenCalledWith({
+      where: { cycleId: 'cycle-1' },
+    });
+    expect(snapshotDeleteMany).toHaveBeenCalledWith({
       where: { cycleId: 'cycle-1' },
     });
   });

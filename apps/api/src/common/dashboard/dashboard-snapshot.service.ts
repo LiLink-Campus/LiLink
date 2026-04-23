@@ -277,7 +277,14 @@ export class DashboardSnapshotService {
       select: dashboardSnapshotCycleSelect,
     });
 
-    if (!cycle || cycle.status !== 'REVEALED') {
+    if (!cycle) {
+      return;
+    }
+
+    if (cycle.status !== 'REVEALED') {
+      await store.userCycleDashboardSnapshot.deleteMany({
+        where: { cycleId },
+      });
       return;
     }
 
@@ -343,6 +350,18 @@ export class DashboardSnapshotService {
     }
 
     const userIds = match.participants.map((participant) => participant.userId);
+    if (match.revealedAt == null) {
+      await store.userCycleDashboardSnapshot.deleteMany({
+        where: {
+          cycleId: match.cycleId,
+          userId: {
+            in: userIds,
+          },
+        },
+      });
+      return;
+    }
+
     const [participations, blocks] = await Promise.all([
       store.cycleParticipation.findMany({
         where: {

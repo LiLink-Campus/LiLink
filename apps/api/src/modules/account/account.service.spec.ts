@@ -208,7 +208,7 @@ function createDashboardPrismaMock({
     codename: string;
     revealAt: Date;
     participationDeadline: Date;
-    status: 'DRAFT' | 'OPEN' | 'REVEAL_READY' | 'REVEALED';
+    status: 'DRAFT' | 'OPEN' | 'PREPARING' | 'REVEAL_READY' | 'REVEALED';
   } | null;
   currentParticipation?: {
     status: 'OPTED_IN' | 'OPTED_OUT';
@@ -1435,7 +1435,7 @@ describe('AccountService', () => {
     ]);
   });
 
-  it('queries dashboard snapshots only for dashboard-visible revealed cycles', async () => {
+  it('queries latest and recent dashboard snapshots only from revealed candidate cycles', async () => {
     const revealedCycles = [
       buildRevealedCycle('cycle-4', '第四轮', '2026-04-04T12:00:00.000Z'),
       buildRevealedCycle('cycle-3', '第三轮', '2026-04-03T12:00:00.000Z'),
@@ -1461,11 +1461,20 @@ describe('AccountService', () => {
 
     await service.getDashboard('user-1');
 
+    expect(prisma.userCycleDashboardSnapshot.findFirst).toHaveBeenCalledTimes(1);
+    const [latestSnapshotQuery] = prisma.userCycleDashboardSnapshot.findFirst.mock
+      .calls[0] as [Record<string, unknown>];
     expect(prisma.userCycleDashboardSnapshot.findMany).toHaveBeenCalledTimes(1);
-    const [query] = prisma.userCycleDashboardSnapshot.findMany.mock
+    const [recentSnapshotsQuery] = prisma.userCycleDashboardSnapshot.findMany.mock
       .calls[0] as [Record<string, unknown>];
 
-    expect(query.where).toEqual({
+    expect(latestSnapshotQuery.where).toEqual({
+      userId: 'user-1',
+      cycleId: {
+        in: ['cycle-4', 'cycle-3', 'cycle-2', 'cycle-1'],
+      },
+    });
+    expect(recentSnapshotsQuery.where).toEqual({
       userId: 'user-1',
       cycleId: {
         in: ['cycle-4', 'cycle-3', 'cycle-2'],
