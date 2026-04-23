@@ -1291,6 +1291,7 @@ describe('CyclesService', () => {
   it('falls back immediately when narrative generation fails during preparation', async () => {
     const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
+    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
     const finalizePreparationClaim = jest.fn().mockResolvedValue({ count: 1 });
     const cycleParticipation = {
@@ -1334,6 +1335,7 @@ describe('CyclesService', () => {
             cycleParticipation,
             match: {
               create: matchCreate,
+              updateMany: matchUpdateMany,
             },
             matchCycle: {
               updateMany: finalizePreparationClaim,
@@ -1344,10 +1346,14 @@ describe('CyclesService', () => {
           }),
       ),
     };
+    let matchWasCreatedBeforeNarrative = false;
     const matchNarrativeService = {
       generateNarrative: jest
         .fn()
-        .mockRejectedValue(new Error('DeepSeek is unavailable.')),
+        .mockImplementation(async () => {
+          matchWasCreatedBeforeNarrative = matchCreate.mock.calls.length === 1;
+          throw new Error('DeepSeek is unavailable.');
+        }),
       buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
     };
     const service = new CyclesService(
@@ -1428,24 +1434,38 @@ describe('CyclesService', () => {
     expect(matchNarrativeService.buildDefaultNarrative).toHaveBeenCalledTimes(
       1,
     );
+    expect(matchWasCreatedBeforeNarrative).toBe(true);
     const matchCreateCalls = matchCreate.mock.calls as Array<
       [
         {
           data: {
-            reason: string;
-            conversationTopics: string[];
-            narrativeSource: string;
+            reason: string | null;
+            conversationTopics: string[] | typeof Prisma.DbNull;
+            narrativeSource: string | null;
           };
         },
       ]
     >;
-    expect(matchCreateCalls[0]?.[0].data.reason).toBe(defaultNarrative.reason);
-    expect(matchCreateCalls[0]?.[0].data.conversationTopics).toEqual(
-      defaultNarrative.conversationTopics,
+    expect(matchCreateCalls[0]?.[0].data.reason).toBeNull();
+    expect(matchCreateCalls[0]?.[0].data.conversationTopics).toBe(
+      Prisma.DbNull,
     );
-    expect(matchCreateCalls[0]?.[0].data.narrativeSource).toBe(
-      'RULES_FALLBACK',
-    );
+    expect(matchCreateCalls[0]?.[0].data.narrativeSource).toBeNull();
+    expect(matchUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'match-1',
+        OR: [
+          { reason: null },
+          { conversationTopics: { equals: Prisma.AnyNull } },
+          { narrativeSource: null },
+        ],
+      },
+      data: {
+        reason: defaultNarrative.reason,
+        conversationTopics: defaultNarrative.conversationTopics,
+        narrativeSource: 'RULES_FALLBACK',
+      },
+    });
     expect(finalizePreparationClaim).toHaveBeenCalledWith({
       where: {
         id: 'cycle-1',
@@ -1470,10 +1490,11 @@ describe('CyclesService', () => {
     expect(fallbackPreparedCall).toBeDefined();
   });
 
-  it('drops a finished preparation attempt when the cycle state changed mid-flight', async () => {
+  it('does not write a prepared audit when the final preparation claim is lost', async () => {
     const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
     const finalizePreparationClaim = jest.fn().mockResolvedValue({ count: 0 });
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
+    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
@@ -1510,6 +1531,7 @@ describe('CyclesService', () => {
             cycleParticipation,
             match: {
               create: matchCreate,
+              updateMany: matchUpdateMany,
             },
             matchCycle: {
               updateMany: finalizePreparationClaim,
@@ -1599,9 +1621,9 @@ describe('CyclesService', () => {
     ).resolves.toMatchObject({
       ok: true,
       cycleId: 'cycle-1',
-      state: 'SKIPPED',
-      createdMatches: 0,
-      message: 'Cycle state changed before preparation finished.',
+      state: 'PREPARED',
+      createdMatches: 1,
+      message: 'Cycle is already prepared and waiting for reveal.',
     });
 
     expect(finalizePreparationClaim).toHaveBeenCalledWith({

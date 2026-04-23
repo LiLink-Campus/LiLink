@@ -35,7 +35,6 @@ const EDITABLE_CYCLE_STATUSES = [
   "DRAFT",
   "OPEN",
   "REVEAL_READY",
-  "REVEALED",
 ] as const;
 
 const PARTICIPATION_STATUS_LABELS: Record<"OPTED_IN" | "OPTED_OUT", string> = {
@@ -176,6 +175,8 @@ export default function AdminCyclesPage() {
   }, [cycles, selectedCycleId]);
 
   const selectedCycle = cycles.find((cycle) => cycle.id === selectedCycleId) ?? null;
+  const isSystemLockedCycleStatus =
+    cycleForm.status === "PREPARING" || cycleForm.status === "REVEALED";
 
   useEffect(() => {
     if (!selectedCycle) {
@@ -368,6 +369,11 @@ export default function AdminCyclesPage() {
 
     if (cycleForm.status === "PREPARING") {
       setActionError("PREPARING 是系统内部状态，不能通过后台表单手动保存。");
+      return;
+    }
+
+    if (cycleForm.status === "REVEALED" && selectedCycle?.status !== "REVEALED") {
+      setActionError("REVEALED 必须通过执行轮次来设置，不能通过后台表单手动保存。");
       return;
     }
 
@@ -641,10 +647,19 @@ export default function AdminCyclesPage() {
             </div>
             <label>
               <span>状态</span>
-              <select value={cycleForm.status} onChange={(e) => setCycleForm((f) => ({ ...f, status: e.target.value as AdminCycle["status"] }))}>
+              <select
+                value={cycleForm.status}
+                disabled={isSystemLockedCycleStatus}
+                onChange={(e) => setCycleForm((f) => ({ ...f, status: e.target.value as AdminCycle["status"] }))}
+              >
                 {cycleForm.status === "PREPARING" ? (
                   <option value="PREPARING" disabled>
                     预生成中（系统状态）
+                  </option>
+                ) : null}
+                {cycleForm.status === "REVEALED" ? (
+                  <option value="REVEALED" disabled>
+                    已揭晓（系统状态）
                   </option>
                 ) : null}
                 {EDITABLE_CYCLE_STATUSES.map((status) => (
