@@ -12,19 +12,11 @@ export function preloadMonorepoEnvIntoProcess(): void {
   const repoRoot = join(apiPackageRoot, '..', '..');
   const rootPath = join(repoRoot, '.env');
   const apiPath = join(apiPackageRoot, '.env');
-  const mergedEnv: Record<string, string> = {};
-
   if (existsSync(rootPath)) {
-    loadDotenv({ path: rootPath, processEnv: mergedEnv });
+    loadDotenv({ path: rootPath });
   }
   if (existsSync(apiPath)) {
-    loadDotenv({ path: apiPath, processEnv: mergedEnv, override: true });
-  }
-
-  for (const [key, value] of Object.entries(mergedEnv)) {
-    if (process.env[key] === undefined) {
-      process.env[key] = value;
-    }
+    loadDotenv({ path: apiPath, override: true });
   }
 }
 

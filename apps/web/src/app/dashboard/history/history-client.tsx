@@ -177,7 +177,7 @@ export function HistoryClient({
                             {rowConversationTopics.length > 0 ? (
                               <>
                                 <p
-                                  className="eyebrow"
+                                  className="eyebrow conversation-topic-heading"
                                   style={{
                                     marginTop: "0.85rem",
                                     marginBottom: "0.35rem",
@@ -186,7 +186,7 @@ export function HistoryClient({
                                   聊天话题
                                 </p>
                                 <ul
-                                  className="reason-list"
+                                  className="conversation-topic-list"
                                   style={{ marginTop: 0 }}
                                 >
                                   {rowConversationTopics.map((topic, topicIndex) => (
