@@ -124,7 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div>
+      <div className="app-content">
         <header className="app-header">
           <BrandMark href="/dashboard" variant="compact" showTagline={false} />
           <div className="app-header-actions">
