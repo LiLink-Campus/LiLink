@@ -39,12 +39,14 @@ export const ReportForm = forwardRef<HTMLElement, ReportFormProps>(
     return (
       <section
         ref={ref}
-        className="content-panel dashboard-panel-wide"
+        className="app-card"
         id={REPORT_FORM_SECTION_ID}
       >
-        <p className="eyebrow">举报匹配</p>
-        <h2>提交举报</h2>
-        <p className="dashboard-muted">
+        <div className="app-card-head">
+          <h2>提交举报</h2>
+          <span className="app-card-status is-warn">举报匹配</span>
+        </div>
+        <p className="app-card-muted">
           请确认你要举报的是当前选中的这条匹配记录；提交后系统将按规则处理并可能限制相关展示。
         </p>
         <div className="report-form">

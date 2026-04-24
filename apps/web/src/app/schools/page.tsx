@@ -1,12 +1,16 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getEligibleSchools } from "../../lib/public-server-api";
+import {
+  CampusLineart,
+  GrassRowIllustration,
+} from "../dashboard/_components/illustrations";
 import { EligibleSchoolsPanel } from "../eligible-schools-panel";
 
 export const metadata: Metadata = {
   title: "支持的学校 | LiLink",
   description:
-    "LiLink 当前接受注册的学校邮箱后缀列表，实时同步自园区白名单配置。",
+    "LiLink 当前接受注册的学校邮箱后缀列表，实时同步自合作高校白名单配置。",
 };
 
 export const revalidate = 30;
@@ -16,18 +20,20 @@ export default async function SchoolsPage() {
 
   return (
     <main>
-      <section className="page-hero page-hero-compact">
-        <div className="page-hero-content">
+      <section className="page-hero page-hero-compact is-narrow">
+        <div className="page-hero-illustration is-wide" aria-hidden="true">
+          <CampusLineart />
+        </div>
+        <div className="page-hero-content animate-in">
           <p className="eyebrow">Eligible schools</p>
           <h1>当前支持的学校</h1>
           <p>
-            LiLink 仅接受园区白名单学校的邮箱注册。下方列表实时同步自后台配置，
-            如果你的学校尚未上线，欢迎在页脚联系我们补录。
+            LiLink 仅接受合作高校的学校邮箱注册。下方列表实时同步自后台配置，如果你的学校尚未上线，欢迎在页脚联系我们补录。
           </p>
         </div>
       </section>
 
-      <section className="page-shell prose-shell schools-page">
+      <section className="page-shell prose-shell">
         <EligibleSchoolsPanel
           variant="full"
           collapsible={false}
@@ -53,6 +59,12 @@ export default async function SchoolsPage() {
             </Link>
           </div>
         </div>
+      </section>
+
+      <section className="home-grass-line" aria-hidden="true">
+        <GrassRowIllustration />
+        <span>好的关系，源于尊重与真诚</span>
+        <GrassRowIllustration />
       </section>
     </main>
   );

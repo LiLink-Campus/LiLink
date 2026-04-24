@@ -15,8 +15,8 @@ export default function GlobalError({
           justifyContent: "center",
           minHeight: "100vh",
           fontFamily: "system-ui, sans-serif",
-          background: "#fdf8f0",
-          color: "#1a1210",
+          background: "#f4f1ea",
+          color: "#18241d",
           textAlign: "center",
           padding: "2rem",
         }}
@@ -25,14 +25,14 @@ export default function GlobalError({
           <h1 style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>
             出了点问题
           </h1>
-          <p style={{ color: "#8c7a6b", marginBottom: "1.5rem" }}>
+          <p style={{ color: "#5a6760", marginBottom: "1.5rem" }}>
             页面加载时发生了意外错误。
           </p>
           <button
             onClick={reset}
             style={{
               padding: "0.7rem 1.5rem",
-              background: "#8b3a4a",
+              background: "#2f5b43",
               color: "white",
               border: "none",
               borderRadius: "999px",

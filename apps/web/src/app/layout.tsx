@@ -1,19 +1,25 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { resolveApiOriginForPreconnect } from "../lib/public-server-api";
 import { AuthSessionProvider } from "./auth-session";
-import { SiteNav } from "./site-nav";
 import { AnnouncementDialog } from "./announcement-dialog";
+import { PublicChrome } from "./public-chrome";
 import "./globals.css";
 
 const apiPreconnectOrigin = resolveApiOriginForPreconnect();
 
 export const metadata: Metadata = {
-  title: "LiLink | 黎安国际教育创新区交友平台",
+  title: "LiLink · 校园里的，认真相遇",
   description:
-    "LiLink 是面向黎安国际教育创新区的交友匹配平台，不做无限滑动，每周一个轮次，认真匹配。",
+    "LiLink 是面向高校学生的匹配平台。基于深度问卷的匹配算法，每周一次轮次，认真对待每一份期待。",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f4f1ea",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -37,29 +43,7 @@ export default function RootLayout({
       </head>
       <body>
         <AuthSessionProvider>
-          <div className="site-frame">
-            <header className="site-header">
-              <Link className="brand-mark" href="/">
-                <span className="brand-badge">Li</span>
-                <span>
-                  <strong>LiLink</strong>
-                  <small>黎安国际教育创新区</small>
-                </span>
-              </Link>
-              <SiteNav />
-            </header>
-            {children}
-            <footer className="site-footer">
-              <p>LiLink</p>
-              <div>
-                <Link href="/about">关于</Link>
-                <Link href="/schools">支持的学校</Link>
-                <Link href="/terms">协议</Link>
-                <Link href="/privacy">隐私</Link>
-                <Link href="/faq">FAQ</Link>
-              </div>
-            </footer>
-          </div>
+          <PublicChrome>{children}</PublicChrome>
         </AuthSessionProvider>
         <AnnouncementDialog />
         <Analytics />

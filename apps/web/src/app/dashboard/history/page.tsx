@@ -1,9 +1,10 @@
-import { loadDashboardCore } from "../_lib/bootstrap";
-import "../../protected.css";
-import "../dashboard.css";
-import { HistoryClient } from "./history-client";
+import { redirect } from "next/navigation";
 
-export default async function DashboardHistoryPage() {
-  const { user, dashboard } = await loadDashboardCore();
-  return <HistoryClient initialUser={user} initialDashboard={dashboard} />;
+/**
+ * Legacy deep link: history is now the second section of /dashboard/match.
+ * Keep the route alive so external links (notification emails, bookmarks)
+ * land on the right place after the merge.
+ */
+export default function DashboardHistoryPage() {
+  redirect("/dashboard/match");
 }
