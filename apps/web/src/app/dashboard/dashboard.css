@@ -9,6 +9,11 @@
   background: var(--bg);
 }
 
+.app-content {
+  min-width: 0;
+  width: 100%;
+}
+
 .app-main {
   padding: clamp(1rem, 3vw, 1.75rem) clamp(1rem, 4vw, 2.5rem) calc(var(--tabbar-height) + 2rem);
   display: flex;
@@ -1161,6 +1166,8 @@
   padding: 1rem 1.1rem 1.2rem;
   margin: 0;
   background: var(--bg-tinted);
+  min-width: 0;
+  min-inline-size: 0;
 }
 
 .question-block legend {
@@ -1191,6 +1198,12 @@
   margin: 0 0 0.85rem;
   font-size: 0.95rem;
   color: var(--fg);
+}
+
+.question-block-title > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .app-q-num {
@@ -1358,6 +1371,13 @@
   justify-content: space-between;
   gap: 0.6rem;
   padding-bottom: 0.5rem;
+}
+
+.app-q-toolbar .app-muted {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .app-muted {
