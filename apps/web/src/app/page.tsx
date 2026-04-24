@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { getLandingPayload } from "../lib/public-server-api";
+import {
+  CampusLineart,
+  CoffeeCupsIllustration,
+  GrassRowIllustration,
+  ThreeChairsIllustration,
+} from "./dashboard/_components/illustrations";
 import { HeroRevealCountdown } from "./hero-reveal-countdown";
+import { ModeSelectCard } from "./mode-select-card";
 
 export const revalidate = 60;
 
@@ -24,38 +31,34 @@ export default async function Home() {
   const landing = await getLandingPayload().catch(() => null);
   const matchesDelivered = landing?.stats.matchesDelivered ?? 0;
   const matchesLabelIsNarrative = landing != null && matchesDelivered <= 0;
+  const registeredDisplay = landing
+    ? landing.stats.registeredUsers + HOMEPAGE_REGISTERED_COUNT_PAD
+    : null;
 
   return (
-    <main>
-      <section className="hero-section">
-        <div className="orb orb-one" />
-        <div className="orb orb-two" />
-        <div className="orb orb-three" />
-
-        <div className="hero-content">
-          <p className="eyebrow">Li&apos;an International Education Innovation Zone</p>
-          <h1>
+    <main className="home-page">
+      <section className="home-hero">
+        <div className="home-hero-content animate-in">
+          <p className="eyebrow">LiLink · 校园里的，认真相遇</p>
+          <h1 className="text-balance">
             让相遇这件事
             <br />
-            值得被认真对待
+            值得<em>被认真对待</em>
           </h1>
-          <p className="hero-description">
-            基于心理学量表的深度问卷，结合匹配算法
+          <p className="home-hero-tagline">
+            在校园里，真诚认识，慢慢走近。
             <br />
-            每周为你寻找一个在核心价值观、
-            生活方式与情感风格上真正契合的人
-            <br />
-            不做无限滑动，不做社交广场，只做一次值得期待的匹配
+            基于深度问卷与算法，每周认真为你寻找一个真正合拍的同学。
           </p>
-          <div className="hero-actions">
+          <div className="home-hero-actions">
             <Link className="button-primary" href="/dashboard">
-              开始匹配
+              开始匹配 →
             </Link>
             <Link className="button-secondary" href="/about">
               了解机制
             </Link>
           </div>
-          <div className="hero-meta">
+          <div className="home-hero-meta">
             <span>{landing ? "下次揭晓" : "状态提醒"}</span>
             <HeroRevealCountdown
               offline={landing == null}
@@ -69,25 +72,48 @@ export default async function Home() {
           </div>
         </div>
 
-        <div className="hero-card">
-          <small>LiLink weekly reveal</small>
-          <strong>{landing?.tagline ?? "当前无法连接平台数据接口。"}</strong>
-          <p>
-            {landing
-              ? "园区限定、学校白名单、每周一个轮次。把相遇从高频刷屏，拉回到节制与期待。"
-              : "请稍后重试。如果这是部署环境，请检查前端 API 地址、后端服务和跨域配置。"}
-          </p>
+        <div className="home-hero-illustration" aria-hidden="true">
+          <CampusLineart />
+        </div>
+      </section>
+
+      <section className="home-mode-section">
+        <div className="section-heading">
+          <p className="eyebrow">Choose a mode</p>
+          <h2>选择一种相遇方式</h2>
+        </div>
+        <div className="home-mode-grid">
+          <ModeSelectCard
+            title="1v1 匹配"
+            tagline="每周一位新同学，轻松慢相处。"
+            status={{ label: "进行中", tone: "active" }}
+            illustration={<CoffeeCupsIllustration className="mode-illu-svg" />}
+            footerLine={
+              registeredDisplay != null ? (
+                <>
+                  当前已有 <strong>{registeredDisplay}+</strong> 位同学加入本周
+                </>
+              ) : (
+                "每周一位新同学，轻松慢相处"
+              )
+            }
+            cta={{ href: "/dashboard", label: "开始匹配 →" }}
+          />
+          <ModeSelectCard
+            title="多人局"
+            tagline="多人匹配，更多可能。"
+            status={{ label: "即将开放", tone: "upcoming" }}
+            illustration={<ThreeChairsIllustration className="mode-illu-svg" />}
+            footerLine="多人组队的匹配算法正在打磨"
+            disabledCtaLabel="即将开放"
+          />
         </div>
       </section>
 
       <section className="stats-strip">
         <div>
           <span>注册用户</span>
-          <strong>
-            {landing
-              ? `${landing.stats.registeredUsers + HOMEPAGE_REGISTERED_COUNT_PAD}+`
-              : "—"}
-          </strong>
+          <strong>{landing ? `${registeredDisplay}+` : "—"}</strong>
         </div>
         <div>
           <span>已完成问卷</span>
@@ -108,13 +134,13 @@ export default async function Home() {
             {landing == null
               ? "—"
               : matchesLabelIsNarrative
-                ? "正在准备进行首轮匹配"
+                ? "正在准备首轮匹配"
                 : matchesDelivered + HOMEPAGE_MATCHES_DELIVERED_DISPLAY_OFFSET}
           </strong>
         </div>
       </section>
 
-      <section className="story-section">
+      <section className="section">
         <div className="section-heading">
           <p className="eyebrow">How it works</p>
           <h2>一份经过认真计算的相遇</h2>
@@ -123,22 +149,30 @@ export default async function Home() {
           <article>
             <span>01</span>
             <h3>学校邮箱验证</h3>
-            <p>仅接受园区白名单学校邮箱注册。在讨论匹配之前，先确认彼此属于同一个社区。</p>
+            <p>
+              仅接受合作高校的学校邮箱注册。在讨论匹配之前，先确认彼此都是高校学生。
+            </p>
           </article>
           <article>
             <span>02</span>
             <h3>完成深度问卷</h3>
-            <p>{"基于心理学量表的深度问卷，覆盖价值观、人生轨迹、生活颗粒度、情感风格等维度，作为匹配算法的精确输入。"}</p>
+            <p>
+              基于心理学量表的深度问卷，覆盖价值观、人生轨迹、生活颗粒度、情感风格等维度，作为匹配算法的精确输入。
+            </p>
           </article>
           <article>
             <span>03</span>
             <h3>每周决定是否参与</h3>
-            <p>{"你不用永远在线。只在你愿意的那一周打开参与开关，把主动权留给自己。"}</p>
+            <p>
+              你不用永远在线。只在你愿意的那一周打开参与开关，把主动权留给自己。
+            </p>
           </article>
           <article>
             <span>04</span>
             <h3>收到一份匹配与理由</h3>
-            <p>不堆列表，不做广场。平台只给你一个对象、一段经过计算的匹配理由，以及心动的可能。</p>
+            <p>
+              不堆列表，不做广场。平台只给你一个对象、一段经过计算的匹配理由，以及心动的可能。
+            </p>
           </article>
         </div>
       </section>
@@ -146,13 +180,21 @@ export default async function Home() {
       <section className="statement-section">
         <div className="statement-block">
           <p className="eyebrow">Our philosophy</p>
-          <h2>
+          <h2 className="text-balance">
             在覆盖广度与心灵深度之间
             <br />
             我们选择后者
           </h2>
-          <p>提高配对率或许只需算法的让步，但我们更希望认真对待每一份期待。在黎安，同一园区的自然流动不需要噱头。无论同校还是跨校，重要的是让每一个「匹配成功」都真正具备心动的可能。</p>
+          <p>
+            提高配对率或许只需算法的让步，但我们更希望认真对待每一份期待。校园本就是同温层，自然流动不需要噱头：无论同校、跨校还是跨园区，重要的是让每一个「匹配成功」都真正具备心动的可能。
+          </p>
         </div>
+      </section>
+
+      <section className="home-grass-line" aria-hidden="true">
+        <GrassRowIllustration />
+        <span>好的关系，源于尊重与真诚</span>
+        <GrassRowIllustration />
       </section>
     </main>
   );

@@ -9,7 +9,7 @@ import { fetchApi } from "../lib/api";
 const PUBLIC_NAV_ITEMS = [
   { href: "/about", label: "关于" },
   { href: "/faq", label: "FAQ" },
-  { href: "/terms", label: "协议" },
+  { href: "/schools", label: "支持的学校" },
 ];
 
 export function SiteNav() {
@@ -18,17 +18,19 @@ export function SiteNav() {
   const { user, setUser } = useAuthSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const onAdminPath = pathname.startsWith("/admin");
+  const onDashboardPath = pathname.startsWith("/dashboard");
   const authenticatedUser = onAdminPath ? null : user;
 
-  if (pathname.startsWith("/admin")) {
+  if (onAdminPath || onDashboardPath) {
     return null;
   }
 
-  async function handleLogout() {
-    await fetchApi("/auth/logout", {
-      method: "POST",
-    });
+  function closeMenu() {
+    setMenuOpen(false);
+  }
 
+  async function handleLogout() {
+    await fetchApi("/auth/logout", { method: "POST" });
     setUser(null);
     setMenuOpen(false);
     router.push("/");
@@ -48,20 +50,16 @@ export function SiteNav() {
         <span />
         <span />
       </button>
-      <nav className="site-nav">
+      <nav className="site-nav" aria-label="主导航">
         {PUBLIC_NAV_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setMenuOpen(false)}
-          >
+          <Link key={item.href} href={item.href} onClick={closeMenu}>
             {item.label}
           </Link>
         ))}
         <div className="site-nav-auth-cluster">
           {authenticatedUser ? (
             <>
-              <Link href="/dashboard" onClick={() => setMenuOpen(false)}>
+              <Link href="/dashboard" onClick={closeMenu}>
                 我的匹配
               </Link>
               <button
@@ -74,13 +72,13 @@ export function SiteNav() {
             </>
           ) : (
             <>
-              <Link href="/login" onClick={() => setMenuOpen(false)}>
+              <Link href="/login" onClick={closeMenu}>
                 登录
               </Link>
               <Link
-                className="button-ghost"
+                className="button-primary"
                 href="/register"
-                onClick={() => setMenuOpen(false)}
+                onClick={closeMenu}
               >
                 立即加入
               </Link>

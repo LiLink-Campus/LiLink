@@ -29,7 +29,7 @@ import {
   type HardMatchFormState,
   type HardMatchSchoolOption,
 } from "../../../lib/hard-match";
-import { SubPageNav } from "../_components/SubPageNav";
+import { ValuePicker, type ValuePickerOption } from "../_components/ValuePicker";
 import { buildDashboardFieldId } from "../_lib/format";
 import {
   getQuestionnaireIncompleteMessage,
@@ -40,6 +40,19 @@ import type {
   Question,
   SavedQuestionnairePayload,
 } from "../_lib/types";
+
+function numericOptions(
+  values: ReadonlyArray<number | string>,
+  formatter?: (value: number | string) => string,
+): ValuePickerOption[] {
+  return values.map((raw) => {
+    const valueText = String(raw);
+    return {
+      value: valueText,
+      label: formatter ? formatter(raw) : valueText,
+    };
+  });
+}
 
 type ProfileTab = "self" | "partner" | "values";
 
@@ -554,13 +567,11 @@ export function ProfileClient({
         : { label: "已保存 · 完整", tone: "on" };
 
   return (
-    <main className="page-shell dashboard-page">
-      <SubPageNav />
-
-      <header className="content-panel dashboard-panel-wide dashboard-panel-tight">
-        <p className="eyebrow">问卷资料</p>
+    <div className="app-page-shell">
+      <header className="app-page-header">
+        <p className="eyebrow">Profile</p>
         <h1>客观条件与价值观</h1>
-        <p className="dashboard-lede">
+        <p>
           {hasSavedQuestionnaire
             ? hasQuestionnaireDraft
               ? "你有一份未完成草稿；当前匹配仍按最近一次正式保存的完整问卷计算。补全后系统会自动切换到最新版本。"
@@ -570,22 +581,21 @@ export function ProfileClient({
         <span
           className={
             profileStatus.tone === "on"
-              ? "dashboard-hub-card-status is-on"
-              : "dashboard-hub-card-status is-warn"
+              ? "app-card-status is-on"
+              : "app-card-status is-warn"
           }
-          style={{ marginTop: "0.55rem" }}
         >
           {profileStatus.label}
         </span>
-        <p className="dashboard-muted">{questionnaireStatus}</p>
+        <p className="app-muted">{questionnaireStatus}</p>
         {questionnaireSaveError ? (
           <p className="form-error">{questionnaireSaveError}</p>
         ) : null}
       </header>
 
-      <section className="content-panel dashboard-panel-wide">
-        <div className="dashboard-questionnaire-toolbar">
-          <p className="dashboard-muted" style={{ margin: 0 }}>
+      <section className="app-card">
+        <div className="app-q-toolbar">
+          <p className="app-muted">
             系统会在你停止输入片刻后自动保存当前编辑内容。
           </p>
           {questionnaireSaveError ? (
@@ -606,15 +616,15 @@ export function ProfileClient({
           </p>
         ) : null}
 
-        <nav aria-label="问卷分组" className="dashboard-section-tabs">
+        <nav aria-label="问卷分组" className="app-section-tabs">
           {PROFILE_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               className={
                 tab.id === activeTab
-                  ? "dashboard-section-tab is-active"
-                  : "dashboard-section-tab"
+                  ? "app-section-tab is-active"
+                  : "app-section-tab"
               }
               aria-pressed={tab.id === activeTab}
               onClick={() => setActiveTab(tab.id)}
@@ -626,9 +636,9 @@ export function ProfileClient({
 
         {/* ── 关于你 ── */}
         {activeTab === "self" && (
-        <div className="dash-q-group">
-          <div className="dash-q-group-header">
-            <span className="dash-q-group-icon dash-q-group-icon-self">
+        <div className="app-q-group">
+          <div className="app-q-group-header">
+            <span className="app-q-group-icon app-q-group-icon-self">
               我
             </span>
             <div>
@@ -642,66 +652,45 @@ export function ProfileClient({
               <div className="form-grid birth-date-grid">
                 <label>
                   <span>年份</span>
-                  <select
+                  <ValuePicker
                     id={buildDashboardFieldId("birth-year")}
                     name="birthYear"
                     value={hardMatchForm.birthYear}
-                    onChange={(e) =>
-                      setHardMatchForm((f) => ({
-                        ...f,
-                        birthYear: e.target.value,
-                      }))
+                    options={numericOptions(BIRTH_YEAR_OPTIONS, (y) => `${y} 年`)}
+                    placeholder="请选择"
+                    sheetTitle="选择出生年份"
+                    onChange={(next) =>
+                      setHardMatchForm((f) => ({ ...f, birthYear: next }))
                     }
-                  >
-                    <option value="">请选择</option>
-                    {BIRTH_YEAR_OPTIONS.map((y) => (
-                      <option key={y} value={String(y)}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>月份</span>
-                  <select
+                  <ValuePicker
                     id={buildDashboardFieldId("birth-month")}
                     name="birthMonth"
                     value={hardMatchForm.birthMonth}
-                    onChange={(e) =>
-                      setHardMatchForm((f) => ({
-                        ...f,
-                        birthMonth: e.target.value,
-                      }))
+                    options={numericOptions(MONTH_OPTIONS, (m) => `${m} 月`)}
+                    placeholder="请选择"
+                    sheetTitle="选择出生月份"
+                    onChange={(next) =>
+                      setHardMatchForm((f) => ({ ...f, birthMonth: next }))
                     }
-                  >
-                    <option value="">请选择</option>
-                    {MONTH_OPTIONS.map((m) => (
-                      <option key={m} value={String(m)}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>日期</span>
-                  <select
+                  <ValuePicker
                     id={buildDashboardFieldId("birth-day")}
                     name="birthDay"
                     value={hardMatchForm.birthDay}
-                    onChange={(e) =>
-                      setHardMatchForm((f) => ({
-                        ...f,
-                        birthDay: e.target.value,
-                      }))
+                    options={numericOptions(birthDayOptions, (d) => `${d} 日`)}
+                    placeholder="请选择"
+                    sheetTitle="选择出生日期"
+                    onChange={(next) =>
+                      setHardMatchForm((f) => ({ ...f, birthDay: next }))
                     }
-                  >
-                    <option value="">请选择</option>
-                    {birthDayOptions.map((d) => (
-                      <option key={d} value={String(d)}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
               </div>
             </fieldset>
@@ -748,30 +737,24 @@ export function ProfileClient({
 
             <fieldset className="question-block">
               <legend>身高（厘米）</legend>
-              <select
+              <ValuePicker
                 id={buildDashboardFieldId("height-cm")}
                 name="heightCm"
                 value={hardMatchForm.heightCm}
-                onChange={(e) =>
-                  setHardMatchForm((f) => ({
-                    ...f,
-                    heightCm: e.target.value,
-                  }))
+                options={numericOptions(HEIGHT_OPTIONS)}
+                suffix="cm"
+                placeholder="请选择身高"
+                sheetTitle="选择你的身高"
+                onChange={(next) =>
+                  setHardMatchForm((f) => ({ ...f, heightCm: next }))
                 }
-              >
-                <option value="">请选择</option>
-                {HEIGHT_OPTIONS.map((h) => (
-                  <option key={h} value={String(h)}>
-                    {h} cm
-                  </option>
-                ))}
-              </select>
+              />
             </fieldset>
 
             <fieldset className="question-block">
               <legend>昵称</legend>
               <label className="dash-one-liner-label">
-                <span className="dashboard-muted">
+                <span className="app-muted">
                   昵称，引荐后会发给对方邮件，可以是真名也可以不是。
                 </span>
                 <input
@@ -789,7 +772,7 @@ export function ProfileClient({
             <fieldset className="question-block">
               <legend>一句话介绍</legend>
               <label className="dash-one-liner-label">
-                <span className="dashboard-muted">
+                <span className="app-muted">
                   用一两句话介绍你的兴趣或期待；引荐邮件中会展示给对方。请勿填写隐私敏感信息。
                 </span>
                 <textarea
@@ -814,9 +797,9 @@ export function ProfileClient({
 
         {/* ── 对方条件 ── */}
         {activeTab === "partner" && (
-        <div className="dash-q-group">
-          <div className="dash-q-group-header">
-            <span className="dash-q-group-icon dash-q-group-icon-partner">
+        <div className="app-q-group">
+          <div className="app-q-group-header">
+            <span className="app-q-group-icon app-q-group-icon-partner">
               TA
             </span>
             <div>
@@ -830,43 +813,33 @@ export function ProfileClient({
               <div className="form-grid">
                 <label>
                   <span>年龄下限</span>
-                  <select
+                  <ValuePicker
                     id={buildDashboardFieldId("partner-age-min")}
                     name="partnerAgeMin"
                     value={hardMatchForm.partnerAgeMin}
-                    onChange={(e) =>
-                      setHardMatchForm((f) => ({
-                        ...f,
-                        partnerAgeMin: e.target.value,
-                      }))
+                    options={numericOptions(AGE_OPTIONS)}
+                    suffix="岁"
+                    placeholder="请选择"
+                    sheetTitle="希望对方年龄下限"
+                    onChange={(next) =>
+                      setHardMatchForm((f) => ({ ...f, partnerAgeMin: next }))
                     }
-                  >
-                    {AGE_OPTIONS.map((a) => (
-                      <option key={a} value={String(a)}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>年龄上限</span>
-                  <select
+                  <ValuePicker
                     id={buildDashboardFieldId("partner-age-max")}
                     name="partnerAgeMax"
                     value={hardMatchForm.partnerAgeMax}
-                    onChange={(e) =>
-                      setHardMatchForm((f) => ({
-                        ...f,
-                        partnerAgeMax: e.target.value,
-                      }))
+                    options={numericOptions(AGE_OPTIONS)}
+                    suffix="岁"
+                    placeholder="请选择"
+                    sheetTitle="希望对方年龄上限"
+                    onChange={(next) =>
+                      setHardMatchForm((f) => ({ ...f, partnerAgeMax: next }))
                     }
-                  >
-                    {AGE_OPTIONS.map((a) => (
-                      <option key={a} value={String(a)}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
               </div>
             </fieldset>
@@ -928,50 +901,46 @@ export function ProfileClient({
               <div className="form-grid">
                 <label>
                   <span>身高下限</span>
-                  <select
+                  <ValuePicker
                     id={buildDashboardFieldId("partner-height-min")}
                     name="partnerHeightMin"
                     value={hardMatchForm.partnerHeightMin}
-                    onChange={(e) =>
+                    options={numericOptions(HEIGHT_OPTIONS)}
+                    suffix="cm"
+                    placeholder="请选择"
+                    sheetTitle="希望对方身高下限"
+                    onChange={(next) =>
                       setHardMatchForm((f) => ({
                         ...f,
-                        partnerHeightMin: e.target.value,
+                        partnerHeightMin: next,
                       }))
                     }
-                  >
-                    {HEIGHT_OPTIONS.map((h) => (
-                      <option key={h} value={String(h)}>
-                        {h} cm
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>身高上限</span>
-                  <select
+                  <ValuePicker
                     id={buildDashboardFieldId("partner-height-max")}
                     name="partnerHeightMax"
                     value={hardMatchForm.partnerHeightMax}
-                    onChange={(e) =>
+                    options={numericOptions(HEIGHT_OPTIONS)}
+                    suffix="cm"
+                    placeholder="请选择"
+                    sheetTitle="希望对方身高上限"
+                    onChange={(next) =>
                       setHardMatchForm((f) => ({
                         ...f,
-                        partnerHeightMax: e.target.value,
+                        partnerHeightMax: next,
                       }))
                     }
-                  >
-                    {HEIGHT_OPTIONS.map((h) => (
-                      <option key={h} value={String(h)}>
-                        {h} cm
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
               </div>
             </fieldset>
 
             <fieldset className="question-block">
               <legend>按学校排除（可选）</legend>
-              <p className="dashboard-muted">
+              <p className="app-muted">
                 在每所学校上，勾选你不希望匹配的性别。三项全选即整校排除。
               </p>
               <div className="school-exclusion-list">
@@ -992,7 +961,10 @@ export function ProfileClient({
                   return (
                     <section key={school.id} className={rowClass}>
                       <div className="school-exclusion-name">
-                        <span className="school-exclusion-name-text">
+                        <span
+                          className="school-exclusion-name-text"
+                          title={school.name}
+                        >
                           {school.name}
                         </span>
                         {isFullyExcluded ? (
@@ -1053,9 +1025,9 @@ export function ProfileClient({
 
         {/* ── 价值观问卷 ── */}
         {activeTab === "values" && questions.length > 0 && (
-          <div className="dash-q-group">
-            <div className="dash-q-group-header">
-              <span className="dash-q-group-icon dash-q-group-icon-values">
+          <div className="app-q-group">
+            <div className="app-q-group-header">
+              <span className="app-q-group-icon app-q-group-icon-values">
                 Q
               </span>
               <div>
@@ -1071,7 +1043,7 @@ export function ProfileClient({
                     aria-hidden="true"
                     className="question-block-title"
                   >
-                    <span className="dash-q-num">{questionIndex + 1}</span>
+                    <span className="app-q-num">{questionIndex + 1}</span>
                     <span>{question.prompt}</span>
                   </div>
                 );
@@ -1092,7 +1064,7 @@ export function ProfileClient({
                       </legend>
                       {questionTitle}
                       {selectionLimit != null ? (
-                        <p className="dashboard-muted">
+                        <p className="app-muted">
                           本题最多选择 {selectionLimit} 项。
                         </p>
                       ) : null}
@@ -1194,6 +1166,6 @@ export function ProfileClient({
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }

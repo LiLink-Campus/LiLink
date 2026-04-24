@@ -4,7 +4,9 @@ export default function TermsPage() {
       <section className="content-panel">
         <p className="eyebrow">Terms</p>
         <h1>用户协议</h1>
-        <p>LiLink 面向黎安国际教育创新区校内社区提供匹配服务。注册和使用平台前，你需要确认自己使用真实、有效的学校邮箱，并对提交信息的真实性负责。</p>
+        <p>
+          LiLink 面向校园社区提供匹配服务。注册和使用平台前，你需要确认自己使用真实、有效的学校邮箱，并对提交信息的真实性负责。
+        </p>
         <p>
           当前不向用户收取服务费用；LiLink 以公益为导向运营，欢迎自愿赞助以支持可持续维护。
         </p>

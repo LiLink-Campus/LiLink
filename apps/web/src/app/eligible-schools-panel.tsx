@@ -212,7 +212,7 @@ export function EligibleSchoolsPanel({
         ref={isMatched ? matchedCardRef : undefined}
       >
         <div className="schools-card-header">
-          <h3>{school.name}</h3>
+          <h3 title={school.name}>{school.name}</h3>
           {isMatched ? (
             <span className="schools-card-badge">本邮箱可用</span>
           ) : null}
@@ -301,15 +301,14 @@ export function EligibleSchoolsPanel({
 
   if (variant === "full") {
     return (
-      <section className="schools-panel schools-panel--full">
-        <header className="schools-panel-header">
-          <div>
-            <p className="eyebrow">Eligible schools</p>
-            <h2 id={headingId}>当前可注册的学校邮箱后缀</h2>
-            <p className="schools-panel-desc">
-              LiLink 仅接受园区白名单学校的邮箱注册。下方列表实时同步自后台配置；如果你的学校不在其中，欢迎通过页脚联系我们补录。
-            </p>
-          </div>
+      <section
+        className="schools-panel schools-panel--full"
+        aria-labelledby={headingId}
+      >
+        <header className="schools-panel-header schools-panel-header--summary">
+          <span id={headingId} className="schools-panel-summary-label">
+            合作高校与邮箱后缀
+          </span>
           {renderSummaryBadge()}
         </header>
         {renderMatchBanner()}

@@ -1,6 +1,4 @@
 import { loadDashboardProfile } from "../_lib/bootstrap";
-import "../../protected.css";
-import "../dashboard.css";
 import { ProfileClient } from "./profile-client";
 
 export default async function DashboardProfilePage() {
