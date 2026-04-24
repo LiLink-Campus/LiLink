@@ -25,13 +25,22 @@ function formatRemainingParts(ms: number) {
   return { days, hours, minutes, seconds };
 }
 
+let currentClockSnapshot: number | null = null;
+
 function subscribeToClock(onStoreChange: () => void) {
-  const id = window.setInterval(onStoreChange, 1000);
+  currentClockSnapshot = Date.now();
+  const id = window.setInterval(() => {
+    currentClockSnapshot = Date.now();
+    onStoreChange();
+  }, 1000);
   return () => window.clearInterval(id);
 }
 
 function getClientNowMs() {
-  return Date.now();
+  if (currentClockSnapshot == null) {
+    currentClockSnapshot = Date.now();
+  }
+  return currentClockSnapshot;
 }
 
 function getServerNowMs() {

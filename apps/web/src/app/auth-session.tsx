@@ -3,12 +3,16 @@
 import { usePathname } from "next/navigation";
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { fetchAuthMeDeduped, type AuthMePayload } from "../lib/api";
+
+const AUTH_SESSION_REFRESH_TTL_MS = 60_000;
 
 type AuthSessionContextValue = {
   user: AuthMePayload | null;
@@ -25,28 +29,49 @@ export function AuthSessionProvider({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [user, setUser] = useState<AuthMePayload | null>(null);
+  const [user, setUserState] = useState<AuthMePayload | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const hydratedRef = useRef(false);
+  const lastRefreshAtRef = useRef(0);
 
   const onAdminPath = pathname.startsWith("/admin");
+  const onDashboardPath = pathname.startsWith("/dashboard");
 
-  async function refreshUser() {
+  const setUser = useCallback((nextUser: AuthMePayload | null) => {
+    setUserState(nextUser);
+    hydratedRef.current = true;
+    setHydrated(true);
+    lastRefreshAtRef.current = Date.now();
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    const now = Date.now();
+    if (
+      hydratedRef.current &&
+      now - lastRefreshAtRef.current < AUTH_SESSION_REFRESH_TTL_MS
+    ) {
+      return;
+    }
+
+    lastRefreshAtRef.current = now;
     try {
       const nextUser = await fetchAuthMeDeduped();
-      setUser(nextUser);
+      setUserState(nextUser);
     } finally {
+      hydratedRef.current = true;
       setHydrated(true);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    if (onAdminPath) {
+    if (onAdminPath || onDashboardPath) {
+      hydratedRef.current = true;
       setHydrated(true);
       return;
     }
 
     void refreshUser();
-  }, [onAdminPath, pathname]);
+  }, [onAdminPath, onDashboardPath, pathname, refreshUser]);
 
   useEffect(() => {
     if (onAdminPath) {
@@ -70,7 +95,7 @@ export function AuthSessionProvider({
       window.removeEventListener("focus", refreshOnFocus);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, [onAdminPath, pathname]);
+  }, [onAdminPath, refreshUser]);
 
   const value = useMemo<AuthSessionContextValue>(
     () => ({
@@ -79,7 +104,7 @@ export function AuthSessionProvider({
       setUser,
       refreshUser,
     }),
-    [hydrated, user],
+    [hydrated, refreshUser, setUser, user],
   );
 
   return (

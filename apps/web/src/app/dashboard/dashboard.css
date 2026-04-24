@@ -25,6 +25,72 @@
   gap: clamp(1rem, 2.5vw, 1.5rem);
 }
 
+.app-loading-shell {
+  min-height: 60vh;
+}
+
+.app-loading-status {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: 0.92rem;
+}
+
+.app-loading-card {
+  min-height: 12rem;
+}
+
+.app-loading-line,
+.app-loading-pill,
+.app-loading-block {
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    90deg,
+    var(--bg-soft) 0%,
+    var(--bg-elevated) 45%,
+    var(--bg-soft) 90%
+  );
+  background-size: 220% 100%;
+  animation: app-loading-shimmer 1.35s linear infinite;
+}
+
+.app-loading-line {
+  height: 0.85rem;
+  width: min(100%, 20rem);
+}
+
+.app-loading-line.is-short {
+  width: min(60%, 12rem);
+}
+
+.app-loading-line.is-title {
+  height: 1.8rem;
+  width: min(80%, 26rem);
+  border-radius: var(--radius-md);
+}
+
+.app-loading-pill {
+  height: 2rem;
+  width: 8rem;
+}
+
+.app-loading-block {
+  height: 7rem;
+  border-radius: var(--radius-md);
+}
+
+@keyframes app-loading-shimmer {
+  from { background-position: 120% 0; }
+  to   { background-position: -120% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-loading-line,
+  .app-loading-pill,
+  .app-loading-block {
+    animation: none;
+  }
+}
+
 /* Reading-focused detail pages (e.g. match detail + history). Single column,
    max-width tuned for comfortable Chinese line length on desktop. */
 .app-page-shell-narrow {
@@ -265,6 +331,10 @@
   font-size: 0.72rem;
   font-weight: 500;
   transition: color 0.18s, background 0.18s;
+  min-width: 0;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app-tab svg {
@@ -279,6 +349,19 @@
 .app-tab.is-active {
   color: var(--primary);
   background: var(--primary-tint);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .app-header,
+  .app-tabbar {
+    background: var(--bg-elevated);
+    backdrop-filter: none;
+  }
+  .picker-trigger,
+  .report-form select,
+  .report-form textarea {
+    font-size: 1rem;
+  }
 }
 
 /* ── Sidebar (desktop) ────────────────────────────────────── */
@@ -935,6 +1018,7 @@
   color: var(--fg-secondary);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  touch-action: manipulation;
 }
 
 .app-section-tab.is-active {
@@ -1070,6 +1154,7 @@
   font-size: 0.88rem;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
+  touch-action: manipulation;
 }
 
 .option-list label:has(input:checked) {
@@ -1134,6 +1219,7 @@
   font-size: 0.88rem;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
+  touch-action: manipulation;
 }
 
 .chip input {
@@ -1158,6 +1244,30 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.dash-one-liner-label input,
+.dash-one-liner-label textarea {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.55;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--fg);
+}
+
+.dash-one-liner-label input:focus,
+.dash-one-liner-label textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(47, 91, 67, 0.12);
+}
+
+.dash-one-liner-label textarea {
+  resize: vertical;
 }
 
 .app-q-toolbar {
@@ -1272,6 +1382,7 @@
   font-size: 0.8rem;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
+  touch-action: manipulation;
 }
 
 .school-exclusion-gender input {
@@ -1315,6 +1426,7 @@
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   min-height: 2.95rem;
+  touch-action: manipulation;
 }
 
 .picker-trigger:hover:not(:disabled) {

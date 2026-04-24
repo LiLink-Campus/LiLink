@@ -96,7 +96,7 @@ export function CampusLineart({ className }: IllustrationProps) {
       className={className}
       aria-hidden="true"
       role="img"
-      preserveAspectRatio="xMidYEnd meet"
+      preserveAspectRatio="xMidYMax meet"
     >
       <g {...stroke} strokeWidth={1.1}>
         {/* Far trees */}

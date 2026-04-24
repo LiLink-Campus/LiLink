@@ -29,6 +29,7 @@ import {
   type HardMatchFormState,
   type HardMatchSchoolOption,
 } from "../../../lib/hard-match";
+import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { ValuePicker, type ValuePickerOption } from "../_components/ValuePicker";
 import { buildDashboardFieldId } from "../_lib/format";
 import {
@@ -53,6 +54,17 @@ function numericOptions(
     };
   });
 }
+
+const BIRTH_YEAR_VALUE_OPTIONS = numericOptions(
+  BIRTH_YEAR_OPTIONS,
+  (year) => `${year} 年`,
+);
+const MONTH_VALUE_OPTIONS = numericOptions(
+  MONTH_OPTIONS,
+  (month) => `${month} 月`,
+);
+const AGE_VALUE_OPTIONS = numericOptions(AGE_OPTIONS);
+const HEIGHT_VALUE_OPTIONS = numericOptions(HEIGHT_OPTIONS);
 
 type ProfileTab = "self" | "partner" | "values";
 
@@ -183,6 +195,8 @@ export function ProfileClient({
   initialSchools: HardMatchSchoolOption[];
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
+  useDashboardSessionSeed(initialUser);
+
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;
   const initialSubmittedAnswers = initialSavedQuestionnaire?.answers;
   const initialHardMatchForm =
@@ -656,7 +670,7 @@ export function ProfileClient({
                     id={buildDashboardFieldId("birth-year")}
                     name="birthYear"
                     value={hardMatchForm.birthYear}
-                    options={numericOptions(BIRTH_YEAR_OPTIONS, (y) => `${y} 年`)}
+                    options={BIRTH_YEAR_VALUE_OPTIONS}
                     placeholder="请选择"
                     sheetTitle="选择出生年份"
                     onChange={(next) =>
@@ -670,7 +684,7 @@ export function ProfileClient({
                     id={buildDashboardFieldId("birth-month")}
                     name="birthMonth"
                     value={hardMatchForm.birthMonth}
-                    options={numericOptions(MONTH_OPTIONS, (m) => `${m} 月`)}
+                    options={MONTH_VALUE_OPTIONS}
                     placeholder="请选择"
                     sheetTitle="选择出生月份"
                     onChange={(next) =>
@@ -741,7 +755,7 @@ export function ProfileClient({
                 id={buildDashboardFieldId("height-cm")}
                 name="heightCm"
                 value={hardMatchForm.heightCm}
-                options={numericOptions(HEIGHT_OPTIONS)}
+                options={HEIGHT_VALUE_OPTIONS}
                 suffix="cm"
                 placeholder="请选择身高"
                 sheetTitle="选择你的身高"
@@ -817,7 +831,7 @@ export function ProfileClient({
                     id={buildDashboardFieldId("partner-age-min")}
                     name="partnerAgeMin"
                     value={hardMatchForm.partnerAgeMin}
-                    options={numericOptions(AGE_OPTIONS)}
+                    options={AGE_VALUE_OPTIONS}
                     suffix="岁"
                     placeholder="请选择"
                     sheetTitle="希望对方年龄下限"
@@ -832,7 +846,7 @@ export function ProfileClient({
                     id={buildDashboardFieldId("partner-age-max")}
                     name="partnerAgeMax"
                     value={hardMatchForm.partnerAgeMax}
-                    options={numericOptions(AGE_OPTIONS)}
+                    options={AGE_VALUE_OPTIONS}
                     suffix="岁"
                     placeholder="请选择"
                     sheetTitle="希望对方年龄上限"
@@ -905,7 +919,7 @@ export function ProfileClient({
                     id={buildDashboardFieldId("partner-height-min")}
                     name="partnerHeightMin"
                     value={hardMatchForm.partnerHeightMin}
-                    options={numericOptions(HEIGHT_OPTIONS)}
+                    options={HEIGHT_VALUE_OPTIONS}
                     suffix="cm"
                     placeholder="请选择"
                     sheetTitle="希望对方身高下限"
@@ -923,7 +937,7 @@ export function ProfileClient({
                     id={buildDashboardFieldId("partner-height-max")}
                     name="partnerHeightMax"
                     value={hardMatchForm.partnerHeightMax}
-                    options={numericOptions(HEIGHT_OPTIONS)}
+                    options={HEIGHT_VALUE_OPTIONS}
                     suffix="cm"
                     placeholder="请选择"
                     sheetTitle="希望对方身高上限"
