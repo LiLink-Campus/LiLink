@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { fetchApi, type AuthMePayload } from "../../../lib/api";
 import { useAuthSession } from "../../auth-session";
+import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { ArrowRightIcon, LogoutIcon } from "../_components/icons";
 import { GrassRowIllustration } from "../_components/illustrations";
 import type { DashboardPayload } from "../_lib/types";
@@ -17,6 +18,7 @@ export function MeClient({
   initialDashboard: DashboardPayload;
 }) {
   const router = useRouter();
+  useDashboardSessionSeed(initialUser);
   const { setUser } = useAuthSession();
   const [pending, setPending] = useState(false);
   const hasSavedQuestionnaire = Boolean(

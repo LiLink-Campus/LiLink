@@ -1,6 +1,7 @@
 "use client";
 
 import type { AuthMePayload } from "../../../lib/api";
+import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { MatchHistoryList } from "../_components/MatchHistoryList";
 import { ReportForm } from "../_components/ReportForm";
 import { useMatchActions } from "../_components/useMatchActions";
@@ -20,6 +21,8 @@ export function MatchClient({
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
 }) {
+  useDashboardSessionSeed(initialUser);
+
   const {
     dashboard,
     error,

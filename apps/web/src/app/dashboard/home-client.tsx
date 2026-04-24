@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchApi, type AuthMePayload } from "../../lib/api";
 import {
   WEEKLY_INTENT_LABELS,
@@ -22,10 +22,13 @@ import {
   ThreeChairsIllustration,
   WheatSprigIllustration,
 } from "./_components/illustrations";
+import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
 import { canEditCurrentCycleParticipation } from "./_lib/format";
 import type { DashboardPayload } from "./_lib/types";
 
 type HomeMode = "ONE_ON_ONE" | "GROUP";
+
+const HOME_VISIBLE_REFRESH_TTL_MS = 30_000;
 
 function formatRevealLabel(iso: string | null | undefined) {
   if (!iso) return "暂无开放轮次";
@@ -67,6 +70,8 @@ export function HomeClient({
   questionnaireSubmitted: boolean;
 }) {
   const router = useRouter();
+  const lastVisibleRefreshAtRef = useRef(Date.now());
+  useDashboardSessionSeed(initialUser);
   const [dashboard, setDashboard] = useState<DashboardPayload>(initialDashboard);
   const [mode, setMode] = useState<HomeMode>("ONE_ON_ONE");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -76,6 +81,7 @@ export function HomeClient({
 
   useEffect(() => {
     setDashboard(initialDashboard);
+    lastVisibleRefreshAtRef.current = Date.now();
   }, [initialDashboard]);
 
   // The dashboard summary (questionnaire progress, latest match, current
@@ -83,13 +89,23 @@ export function HomeClient({
   // tab/page (e.g. after editing the questionnaire), refresh the RSC tree so
   // the percentage and match preview reflect the latest server state.
   useEffect(() => {
+    function refreshIfStale() {
+      const now = Date.now();
+      if (now - lastVisibleRefreshAtRef.current < HOME_VISIBLE_REFRESH_TTL_MS) {
+        return;
+      }
+
+      lastVisibleRefreshAtRef.current = now;
+      router.refresh();
+    }
+
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
-        router.refresh();
+        refreshIfStale();
       }
     }
     function handleFocus() {
-      router.refresh();
+      refreshIfStale();
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", handleFocus);

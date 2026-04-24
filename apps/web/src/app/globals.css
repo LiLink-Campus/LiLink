@@ -437,6 +437,9 @@ p:last-child {
   transition: transform 0.12s ease, background 0.18s, color 0.18s, box-shadow 0.18s, border-color 0.18s;
   text-decoration: none;
   white-space: nowrap;
+  max-width: 100%;
+  text-align: center;
+  touch-action: manipulation;
 }
 
 .button-primary {
@@ -2123,15 +2126,36 @@ p:last-child {
   border-radius: var(--radius-lg);
 }
 
+.schools-cta > * {
+  min-width: 0;
+}
+
+.schools-cta h2,
+.schools-cta p {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
 .schools-cta-actions {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
 }
 
+.schools-cta-actions .button-primary,
+.schools-cta-actions .button-secondary {
+  width: 100%;
+  white-space: normal;
+}
+
 @media (max-width: 760px) {
   .schools-cta {
     grid-template-columns: 1fr;
+    align-items: stretch;
+    padding: clamp(1.15rem, 5vw, 1.45rem);
+  }
+  .schools-cta h2 {
+    font-size: clamp(1.3rem, 8vw, 1.75rem);
   }
 }
 
@@ -2140,9 +2164,19 @@ p:last-child {
 .announcement-dialog {
   border: none;
   padding: 0;
-  border-radius: var(--radius-lg);
   background: transparent;
-  max-width: min(92vw, 28rem);
+  border-radius: var(--radius-lg);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  width: min(calc(100vw - 2rem), 32rem);
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
+  margin: 0;
+  overflow: visible;
+  transform: translate(-50%, -50%);
 }
 
 .announcement-dialog::backdrop {
@@ -2158,6 +2192,8 @@ p:last-child {
   flex-direction: column;
   gap: 0.85rem;
   box-shadow: var(--shadow-lg);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
 }
 
 .announcement-dialog-header {
@@ -2198,6 +2234,21 @@ p:last-child {
 .announcement-dismiss {
   align-self: flex-end;
   padding: 0.55rem 1.1rem;
+}
+
+@media (max-width: 480px) {
+  .announcement-dialog {
+    width: calc(100vw - 1.5rem);
+  }
+  .announcement-dialog-inner {
+    padding: 1.15rem;
+  }
+  .announcement-dialog-header {
+    align-items: flex-start;
+  }
+  .announcement-dismiss {
+    align-self: stretch;
+  }
 }
 
 /* ── Utility helpers ──────────────────────────────────────── */
