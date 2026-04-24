@@ -27,8 +27,8 @@ export const WEEKLY_INTENT_VISUALS: Record<WeeklyIntent, WeeklyIntentVisual> = {
   DATE: {
     glyph: "D",
     accentGradient:
-      "linear-gradient(135deg, #ff5d8f 0%, #ff7aa6 55%, #ffb1c5 100%)",
-    accent: "#ff5d8f",
+      "linear-gradient(135deg, #8b3a4a 0%, #b15c6a 55%, #d68a92 100%)",
+    accent: "#8b3a4a",
   },
   BOTH: {
     glyph: "B",
