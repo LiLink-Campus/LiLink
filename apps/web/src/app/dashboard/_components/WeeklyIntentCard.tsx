@@ -123,7 +123,7 @@ export function WeeklyIntentCard({
       ) : null}
 
       {!cycle ? (
-        <p className="dashboard-muted" style={{ margin: 0 }}>
+        <p className="app-muted">
           当前没有开放中的轮次；下一轮上线后再回到这里设置本周意图。
         </p>
       ) : (

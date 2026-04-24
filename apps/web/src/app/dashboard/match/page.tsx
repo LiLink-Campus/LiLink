@@ -1,6 +1,4 @@
 import { loadDashboardCore } from "../_lib/bootstrap";
-import "../../protected.css";
-import "../dashboard.css";
 import { MatchClient } from "./match-client";
 
 export default async function DashboardMatchPage() {

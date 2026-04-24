@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
+import {
+  GrassRowIllustration,
+  OliveSprigIllustration,
+} from "../dashboard/_components/illustrations";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -77,7 +81,9 @@ export default function ForgotPasswordPageClient() {
       window.location.href = "/dashboard";
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error ? caughtError.message : "重置失败，请重试。",
+        caughtError instanceof Error
+          ? caughtError.message
+          : "重置失败，请重试。",
       );
     } finally {
       setPending(false);
@@ -85,16 +91,17 @@ export default function ForgotPasswordPageClient() {
   }
 
   return (
-    <main className="page-shell prose-shell">
-      <section className="content-panel auth-panel">
-        <p className="eyebrow">
-          重置密码 &middot; 第 {step} 步（共 2 步）
-        </p>
+    <main className="page-shell prose-shell auth-shell">
+      <section className="content-panel auth-panel animate-in">
+        <div className="auth-panel-mark" aria-hidden="true">
+          <OliveSprigIllustration />
+        </div>
+        <p className="eyebrow">Reset password · Step {step} / 2</p>
         <h1>重置密码</h1>
         {step === 1 ? (
-          <p>输入你的学校邮箱，我们会发送验证码来验证你的身份</p>
+          <p>输入你的学校邮箱，我们会发送验证码来验证你的身份。</p>
         ) : (
-          <p>请输入验证码并设置新密码</p>
+          <p>请输入验证码并设置新密码。</p>
         )}
 
         {step === 1 ? (
@@ -104,14 +111,19 @@ export default function ForgotPasswordPageClient() {
               <input
                 required
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="your.name@school.edu"
               />
             </label>
             {error ? <p className="form-error">{error}</p> : null}
-            <button className="button-primary" disabled={pending} type="submit">
-              {pending ? "发送中..." : "发送验证码"}
+            <button
+              className="button-primary button-block"
+              disabled={pending}
+              type="submit"
+            >
+              {pending ? "发送中…" : "发送验证码"}
             </button>
           </form>
         ) : (
@@ -183,7 +195,7 @@ export default function ForgotPasswordPageClient() {
                 }
                 type="submit"
               >
-                {pending ? "重置中..." : "重置密码"}
+                {pending ? "重置中…" : "重置密码"}
               </button>
             </div>
           </form>
@@ -193,6 +205,9 @@ export default function ForgotPasswordPageClient() {
           想起密码了？<Link href="/login">返回登录</Link>
         </p>
       </section>
+      <div className="auth-grass-line" aria-hidden="true">
+        <GrassRowIllustration />
+      </div>
     </main>
   );
 }

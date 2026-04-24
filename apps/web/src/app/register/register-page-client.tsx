@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
+import {
+  GrassRowIllustration,
+  OliveSprigIllustration,
+} from "../dashboard/_components/illustrations";
 import { EligibleSchoolsPanel } from "../eligible-schools-panel";
 
 const PASSWORD_MIN_LENGTH = 8;
@@ -69,14 +73,24 @@ export default function RegisterPageClient() {
 
   async function register(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
     setError(null);
+
+    if (!acceptedTerms) {
+      setError("请先勾选并同意用户协议和隐私政策。");
+      return;
+    }
+
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setError(`密码至少 ${PASSWORD_MIN_LENGTH} 位，请重新输入。`);
+      return;
+    }
 
     if (password !== passwordConfirm) {
       setError("两次输入的密码不一致，请重新确认。");
-      setPending(false);
       return;
     }
+
+    setPending(true);
 
     try {
       await fetchApi("/auth/register", {
@@ -94,7 +108,9 @@ export default function RegisterPageClient() {
       window.location.href = "/dashboard";
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error ? caughtError.message : "注册失败，请重试。",
+        caughtError instanceof Error
+          ? caughtError.message
+          : "注册失败，请重试。",
       );
     } finally {
       setPending(false);
@@ -102,12 +118,18 @@ export default function RegisterPageClient() {
   }
 
   return (
-    <main className="page-shell prose-shell">
-      <section className="content-panel auth-panel">
-        <p className="eyebrow">Register &middot; Step {step} of 2</p>
-        <h1>先验证身份</h1>
-        <h1>再进入匹配</h1>
-        <p>LiLink 只接受园区白名单学校邮箱。输入邮箱，我们来验证你的身份</p>
+    <main className="page-shell prose-shell auth-shell">
+      <section className="content-panel auth-panel animate-in">
+        <div className="auth-panel-mark" aria-hidden="true">
+          <OliveSprigIllustration />
+        </div>
+        <p className="eyebrow">Register · Step {step} / 2</p>
+        <h1>{step === 1 ? "先验证身份" : "完善你的账号"}</h1>
+        <p>
+          {step === 1
+            ? "LiLink 仅接受合作高校的学校邮箱。输入邮箱，我们来验证你的身份。"
+            : "设置一个昵称和密码，准备好就可以参加下一轮匹配。"}
+        </p>
 
         {step === 1 ? (
           <form className="auth-form" onSubmit={requestCode}>
@@ -116,6 +138,7 @@ export default function RegisterPageClient() {
               <input
                 required
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="your.name@school.edu"
@@ -129,8 +152,12 @@ export default function RegisterPageClient() {
               </p>
             ) : null}
             {error ? <p className="form-error">{error}</p> : null}
-            <button className="button-primary" disabled={pending} type="submit">
-              {pending ? "发送中..." : "发送验证码"}
+            <button
+              className="button-primary button-block"
+              disabled={pending}
+              type="submit"
+            >
+              {pending ? "发送中…" : "发送验证码"}
             </button>
             <p className="auth-hint">
               没找到你的学校？前往
@@ -159,6 +186,7 @@ export default function RegisterPageClient() {
                 value={code}
                 maxLength={VERIFICATION_CODE_LENGTH}
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 onChange={(event) => setCode(event.target.value)}
                 placeholder="6 位验证码"
               />
@@ -174,7 +202,7 @@ export default function RegisterPageClient() {
               />
             </label>
             <label>
-              <span>真实姓名（可选，可空白）</span>
+              <span>真实姓名（可选）</span>
               <input
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
@@ -186,6 +214,7 @@ export default function RegisterPageClient() {
               <input
                 required
                 type="password"
+                autoComplete="new-password"
                 value={password}
                 minLength={PASSWORD_MIN_LENGTH}
                 maxLength={PASSWORD_MAX_LENGTH}
@@ -198,6 +227,7 @@ export default function RegisterPageClient() {
               <input
                 required
                 type="password"
+                autoComplete="new-password"
                 value={passwordConfirm}
                 minLength={PASSWORD_MIN_LENGTH}
                 maxLength={PASSWORD_MAX_LENGTH}
@@ -205,20 +235,13 @@ export default function RegisterPageClient() {
                 placeholder="再次输入密码"
               />
             </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "0.65rem",
-              }}
-            >
+            <label className="terms-checkbox-label">
               <input
                 checked={acceptedTerms}
                 type="checkbox"
                 onChange={(event) => setAcceptedTerms(event.target.checked)}
-                style={{ width: "auto", marginTop: "0.2rem" }}
               />
-              <span style={{ lineHeight: 1.6 }}>
+              <span>
                 我已阅读并同意 <Link href="/terms">用户协议</Link> 和{" "}
                 <Link href="/privacy">隐私政策</Link>。
               </span>
@@ -235,15 +258,10 @@ export default function RegisterPageClient() {
               </button>
               <button
                 className="button-primary"
-                disabled={
-                  pending ||
-                  !acceptedTerms ||
-                  password !== passwordConfirm ||
-                  password.length < PASSWORD_MIN_LENGTH
-                }
+                disabled={pending}
                 type="submit"
               >
-                {pending ? "创建中..." : "创建账号"}
+                {pending ? "创建中…" : "创建账号"}
               </button>
             </div>
           </form>
@@ -253,6 +271,9 @@ export default function RegisterPageClient() {
           已有账号？<Link href="/login">立即登录</Link>
         </p>
       </section>
+      <div className="auth-grass-line" aria-hidden="true">
+        <GrassRowIllustration />
+      </div>
     </main>
   );
 }

@@ -28,7 +28,7 @@ export const announcements: Announcement[] = [
     id: "2026-04-19-friend-date-both",
     title: "新增 Friend / Date / Both，现已支持找朋友",
     content:
-      "LiLink 前端已完成一轮更新升级，新增 Friend、Date、Both 三种选项。现在除了约会，你也可以在 LiLink 里找朋友了。",
+      "前端已完成一轮更新升级，新增 Friend、Date、Both 三种选项。现在除了约会，你也可以在 LiLink 里找朋友了。",
     date: "2026-04-19",
   },
   {

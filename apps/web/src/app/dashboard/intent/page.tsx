@@ -1,9 +1,10 @@
-import { loadDashboardCore } from "../_lib/bootstrap";
-import "../../protected.css";
-import "../dashboard.css";
-import { IntentClient } from "./intent-client";
+import { redirect } from "next/navigation";
 
-export default async function DashboardIntentPage() {
-  const { dashboard } = await loadDashboardCore();
-  return <IntentClient initialDashboard={dashboard} />;
+/**
+ * Legacy deep link: weekly intent now lives on /dashboard via the
+ * participation toggle + bottom sheet. Keep the route alive so old
+ * links land on the new home hub.
+ */
+export default function DashboardIntentPage() {
+  redirect("/dashboard");
 }
