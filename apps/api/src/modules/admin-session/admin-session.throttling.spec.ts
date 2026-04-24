@@ -71,8 +71,9 @@ describe('AdminSession throttling', () => {
     await app.init();
 
     try {
+      const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
       const loginRequest = () =>
-        request(app.getHttpServer()).post('/v1/admin-session/login').send({
+        request(httpServer).post('/v1/admin-session/login').send({
           email: 'admin@example.com',
           password: 'password',
         });
