@@ -104,34 +104,43 @@ export function MatchHistoryList({
                           对方介绍：{counterpart.introLine}
                         </p>
                       ) : null}
-                      {rowReason ? (
-                        <p className="app-card-muted">{rowReason}</p>
-                      ) : rowReasons.length > 0 ? (
-                        <ul className="reason-list">
-                          {rowReasons.map((reason, ri) => (
-                            <li
-                              key={`${item.cycleId}-${ri}-${reason.slice(0, 32)}`}
-                            >
-                              {reason}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      {rowConversationTopics.length > 0 ? (
-                        <>
-                          <p className="eyebrow conversation-topic-heading">
-                            聊天话题
-                          </p>
-                          <ul className="conversation-topic-list">
-                            {rowConversationTopics.map((topic, topicIndex) => (
-                              <li
-                                key={`${item.cycleId}-${topicIndex}-${topic.slice(0, 32)}`}
-                              >
-                                {topic}
-                              </li>
-                            ))}
-                          </ul>
-                        </>
+                      {rowReason ||
+                      rowReasons.length > 0 ||
+                      rowConversationTopics.length > 0 ? (
+                        <div className="match-explanation">
+                          <p className="eyebrow">匹配理由</p>
+                          {rowReason ? (
+                            <p className="match-reason-summary">{rowReason}</p>
+                          ) : rowReasons.length > 0 ? (
+                            <ul className="reason-list">
+                              {rowReasons.map((reason, ri) => (
+                                <li
+                                  key={`${item.cycleId}-${ri}-${reason.slice(0, 32)}`}
+                                >
+                                  {reason}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {rowConversationTopics.length > 0 ? (
+                            <>
+                              <p className="eyebrow conversation-topic-heading">
+                                聊天话题
+                              </p>
+                              <ul className="conversation-topic-list">
+                                {rowConversationTopics.map(
+                                  (topic, topicIndex) => (
+                                    <li
+                                      key={`${item.cycleId}-${topicIndex}-${topic.slice(0, 32)}`}
+                                    >
+                                      {topic}
+                                    </li>
+                                  ),
+                                )}
+                              </ul>
+                            </>
+                          ) : null}
+                        </div>
                       ) : null}
                       <div className="auth-actions">
                         {introducedRow ? (

@@ -537,6 +537,7 @@
 .app-card-status {
   display: inline-flex;
   align-items: center;
+  align-self: flex-start;
   gap: 0.35rem;
   padding: 0.3rem 0.7rem;
   border-radius: var(--radius-pill);
@@ -544,6 +545,8 @@
   font-weight: 500;
   background: var(--bg-soft);
   color: var(--fg-secondary);
+  width: fit-content;
+  max-width: 100%;
   white-space: nowrap;
 }
 
@@ -949,6 +952,53 @@
   margin: 0;
 }
 
+.match-explanation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.2rem;
+  padding: 0.9rem 1rem;
+  background: color-mix(in srgb, var(--primary-tint) 48%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 14%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.match-explanation > .eyebrow {
+  margin: 0;
+  color: var(--primary);
+}
+
+.match-reason-summary {
+  margin: 0;
+  color: var(--fg);
+  font-size: 0.98rem;
+  line-height: 1.85;
+}
+
+.match-explanation .reason-list {
+  gap: 0.55rem;
+  color: var(--fg);
+}
+
+.match-explanation .reason-list li {
+  padding-left: 1.8rem;
+}
+
+.match-explanation .reason-list li::before {
+  background: var(--primary);
+  color: var(--fg-onPrimary);
+  box-shadow: 0 0 0 4px rgba(139, 58, 74, 0.08);
+}
+
+.match-explanation .conversation-topic-heading {
+  margin-top: 0.25rem;
+  color: var(--accent);
+}
+
+.match-explanation .conversation-topic-list li {
+  background: var(--bg-elevated);
+}
+
 /* ── History list ────────────────────────────────────────── */
 
 .app-history-list {
@@ -995,6 +1045,37 @@
   gap: 0.55rem;
   padding-top: 0.6rem;
   border-top: 1px dashed var(--border-strong);
+}
+
+@media (max-width: 760px) {
+  .app-card-status {
+    font-size: 0.88rem;
+  }
+
+  .app-tab,
+  .app-section-tab,
+  .option-list label,
+  .chip,
+  .school-exclusion-gender,
+  .picker-trigger,
+  .picker-option,
+  .picker-sheet-cancel,
+  .report-form select,
+  .report-form textarea {
+    font-size: 1rem;
+  }
+
+  .app-tab {
+    line-height: 1.25;
+  }
+
+  .app-tabbar {
+    gap: 0.2rem;
+  }
+
+  .app-tab.is-active {
+    padding-inline: 0.35rem;
+  }
 }
 
 /* ── Profile / questionnaire ─────────────────────────────── */
