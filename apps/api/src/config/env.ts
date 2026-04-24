@@ -37,6 +37,7 @@ const envSchema = z.object({
   SMTP_PASS: z.string().default(''),
   SMTP_FROM: z.string().min(1, 'SMTP_FROM is required.'),
   DEEPSEEK_API_KEY: z.string().default(''),
+  DEEPSEEK_MODEL: z.string().trim().min(1).default('deepseek-v4-flash'),
   SMTP_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(100).default(10),
   SMTP_MAX_MESSAGES: z.coerce.number().int().min(1).max(1000).default(100),
   SMTP_CONNECTION_TIMEOUT_MS: z.coerce

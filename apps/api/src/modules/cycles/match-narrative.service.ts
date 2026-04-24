@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { env } from '../../config/env';
 
 const DEEPSEEK_ENDPOINT = 'https://api.deepseek.com/chat/completions';
-const DEEPSEEK_MODEL = 'deepseek-chat';
 const DEEPSEEK_MAX_ATTEMPTS = 5;
 const DEEPSEEK_TIMEOUT_MS = 20_000;
 const RETRYABLE_STATUS_CODES = new Set([429, 500, 503]);
@@ -280,7 +279,8 @@ export class MatchNarrativeService {
           },
           signal: AbortSignal.timeout(DEEPSEEK_TIMEOUT_MS),
           body: JSON.stringify({
-            model: DEEPSEEK_MODEL,
+            model: env.DEEPSEEK_MODEL,
+            thinking: { type: 'disabled' },
             temperature: DEEPSEEK_TEMPERATURE,
             max_tokens: 700,
             response_format: { type: 'json_object' },

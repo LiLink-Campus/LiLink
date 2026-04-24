@@ -54,6 +54,7 @@ function createNarrativeInput(): MatchNarrativeInput {
 
 describe('MatchNarrativeService', () => {
   const originalApiKey = env.DEEPSEEK_API_KEY;
+  const originalModel = env.DEEPSEEK_MODEL;
   const fetchMock = jest.fn();
   const detailedReason = [
     '你们都把真诚和稳定放在很重要的位置，也都希望关系里的沟通清楚、节奏自然。',
@@ -67,11 +68,13 @@ describe('MatchNarrativeService', () => {
 
   beforeEach(() => {
     env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    env.DEEPSEEK_MODEL = 'deepseek-v4-flash';
     fetchMock.mockReset();
   });
 
   afterAll(() => {
     env.DEEPSEEK_API_KEY = originalApiKey;
+    env.DEEPSEEK_MODEL = originalModel;
   });
 
   it('asks DeepSeek for a detailed and anonymized reason', async () => {
@@ -113,6 +116,8 @@ describe('MatchNarrativeService', () => {
       headers?: Record<string, string>;
     };
     const requestBody = JSON.parse(fetchPayload.body ?? '{}') as {
+      model: string;
+      thinking: { type: string };
       temperature: number;
       messages: Array<{ role: string; content: string }>;
     };
@@ -121,6 +126,8 @@ describe('MatchNarrativeService', () => {
     expect(fetchPayload.headers?.Authorization).toBe(
       'Bearer test-deepseek-key',
     );
+    expect(requestBody.model).toBe('deepseek-v4-flash');
+    expect(requestBody.thinking).toEqual({ type: 'disabled' });
     expect(requestBody.temperature).toBe(0.9);
     expect(systemMessage).toContain(
       'Write "reason" in about 100 to 140 Chinese characters, and never return fewer than 100 Chinese characters.',
