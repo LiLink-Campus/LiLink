@@ -174,11 +174,11 @@ export default function RegisterPageClient() {
               />
             </label>
             <label>
-              <span>真实姓名（可选）</span>
+              <span>真实姓名（可选，可空白）</span>
               <input
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
-                placeholder="只在必要场景用于核验"
+                placeholder="可留空；仅在必要场景用于核验"
               />
             </label>
             <label>
