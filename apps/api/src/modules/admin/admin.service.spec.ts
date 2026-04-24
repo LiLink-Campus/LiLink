@@ -363,6 +363,80 @@ describe('AdminService', () => {
     expect(prisma.matchCycle.update).not.toHaveBeenCalled();
   });
 
+  it('rejects creating a reveal-ready cycle from the admin form', async () => {
+    const prisma = {
+      matchCycle: {
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.upsertCycle(
+        {
+          codename: 'Round 2',
+          participationDeadline: '2026-04-30T12:00:00.000Z',
+          revealAt: '2026-05-01T12:00:00.000Z',
+          status: 'REVEAL_READY',
+        },
+        'admin-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.matchCycle.create).not.toHaveBeenCalled();
+    expect(prisma.matchCycle.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects manually marking an open cycle as reveal-ready from the admin form', async () => {
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'OPEN' }),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.upsertCycle(
+        {
+          cycleId: 'cycle-1',
+          codename: 'Round 2',
+          participationDeadline: '2026-04-30T12:00:00.000Z',
+          revealAt: '2026-05-01T12:00:00.000Z',
+          status: 'REVEAL_READY',
+        },
+        'admin-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.matchCycle.findUnique).toHaveBeenCalledWith({
+      where: { id: 'cycle-1' },
+      select: { status: true },
+    });
+    expect(prisma.matchCycle.create).not.toHaveBeenCalled();
+    expect(prisma.matchCycle.update).not.toHaveBeenCalled();
+  });
+
   it('rejects manually revealing an unrevealed cycle from the admin form', async () => {
     const prisma = {
       matchCycle: {
@@ -401,6 +475,137 @@ describe('AdminService', () => {
     });
     expect(prisma.matchCycle.create).not.toHaveBeenCalled();
     expect(prisma.matchCycle.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      currentStatus: 'REVEAL_READY',
+      requestedStatus: 'OPEN',
+    },
+    {
+      currentStatus: 'REVEALED',
+      requestedStatus: 'DRAFT',
+    },
+  ] as const)(
+    'rejects reopening a $currentStatus cycle as $requestedStatus from the admin form',
+    async ({ currentStatus, requestedStatus }) => {
+      const prisma = {
+        matchCycle: {
+          findUnique: jest.fn().mockResolvedValue({ status: currentStatus }),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
+      };
+      const service = new AdminService(
+        prisma as never,
+        { runRevealCycle: jest.fn() } as never,
+        {
+          listAuditLogs: jest.fn(),
+          getRecentAuditLogsByCondition: jest.fn(),
+          write: jest.fn(),
+        } as never,
+        {} as never,
+      );
+
+      await expect(
+        service.upsertCycle(
+          {
+            cycleId: 'cycle-1',
+            codename: 'Round 2',
+            participationDeadline: '2026-04-30T12:00:00.000Z',
+            revealAt: '2026-05-01T12:00:00.000Z',
+            status: requestedStatus,
+          },
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.matchCycle.findUnique).toHaveBeenCalledWith({
+        where: { id: 'cycle-1' },
+        select: { status: true },
+      });
+      expect(prisma.matchCycle.create).not.toHaveBeenCalled();
+      expect(prisma.matchCycle.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('allows saving an already reveal-ready cycle without changing preparation state', async () => {
+    const adminAuditService = {
+      listAuditLogs: jest.fn(),
+      getRecentAuditLogsByCondition: jest.fn(),
+      write: jest.fn(),
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({ status: 'REVEAL_READY' }),
+        update: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          codename: 'Round 2',
+          participationDeadline: new Date('2026-04-30T12:00:00.000Z'),
+          revealAt: new Date('2026-05-01T12:00:00.000Z'),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          status: 'REVEAL_READY',
+          notes: 'updated notes',
+        }),
+      },
+      cycleParticipation: {
+        findMany: jest.fn().mockResolvedValue([]),
+        createMany: jest.fn(),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        Promise.resolve(
+          callback({
+            cycleParticipation: {
+              findMany: jest.fn().mockResolvedValue([]),
+              createMany: jest.fn(),
+            },
+          }),
+        ),
+      ),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      adminAuditService as never,
+      {} as never,
+    );
+
+    await expect(
+      service.upsertCycle(
+        {
+          cycleId: 'cycle-1',
+          codename: 'Round 2',
+          participationDeadline: '2026-04-30T12:00:00.000Z',
+          revealAt: '2026-05-01T12:00:00.000Z',
+          status: 'REVEAL_READY',
+          notes: 'updated notes',
+        },
+        'admin-1',
+      ),
+    ).resolves.toMatchObject({
+      id: 'cycle-1',
+      status: 'REVEAL_READY',
+      notes: 'updated notes',
+    });
+
+    expect(prisma.matchCycle.update).toHaveBeenCalledWith({
+      where: { id: 'cycle-1' },
+      data: {
+        codename: 'Round 2',
+        participationDeadline: new Date('2026-04-30T12:00:00.000Z'),
+        revealAt: new Date('2026-05-01T12:00:00.000Z'),
+        status: 'REVEAL_READY',
+        notes: 'updated notes',
+      },
+    });
+    expect(adminAuditService.write).toHaveBeenCalledWith(
+      'admin-1',
+      'cycle.updated',
+      {
+        cycleId: 'cycle-1',
+        status: 'REVEAL_READY',
+      },
+    );
   });
 
   it('allows saving an already revealed cycle without changing reveal state', async () => {

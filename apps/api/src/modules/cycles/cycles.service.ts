@@ -607,6 +607,7 @@ export class CyclesService {
       };
     }
 
+    const claimUpdatedAt = new Date();
     const claimResult = await this.prisma.matchCycle.updateMany({
       where: {
         id: cycle.id,
@@ -614,6 +615,7 @@ export class CyclesService {
       },
       data: {
         status: 'PREPARING',
+        updatedAt: claimUpdatedAt,
       },
     });
 
@@ -628,38 +630,53 @@ export class CyclesService {
       };
     }
 
-    const optedInCount = cycle.participations.length;
-    const participants = this.toEligibleParticipants(cycle.participations);
-    const preparedQuestions = prepareQuestions(questionnaire.questions);
-
-    let selectedPairs: CandidatePair[] = [];
-    let preparationMessage = 'Cycle is prepared and waiting for reveal.';
-
-    if (participants.length < 2) {
-      preparationMessage = `${buildInsufficientParticipantsMessage(
-        optedInCount,
-        participants.length,
-      )} The cycle has been prepared and will reveal zero matches.`;
-    } else {
-      const calculatedPairs = await this.calculatePairs(
-        participants,
-        questionnaire.questions,
-        cycle.revealAt,
-        cycle.id,
-      );
-
-      selectedPairs = calculatedPairs.selectedPairs;
-
-      if (selectedPairs.length === 0) {
-        preparationMessage =
-          'No compatible pairs were found for this cycle. The cycle has been prepared and will reveal zero matches.';
-      }
-    }
-
-    const unmatchedCount = participants.length - selectedPairs.length * 2;
-
     try {
+      const optedInCount = cycle.participations.length;
+      const participants = this.toEligibleParticipants(cycle.participations);
+      const preparedQuestions = prepareQuestions(questionnaire.questions);
+
+      let selectedPairs: CandidatePair[] = [];
+      let preparationMessage = 'Cycle is prepared and waiting for reveal.';
+
+      if (participants.length < 2) {
+        preparationMessage = `${buildInsufficientParticipantsMessage(
+          optedInCount,
+          participants.length,
+        )} The cycle has been prepared and will reveal zero matches.`;
+      } else {
+        const calculatedPairs = await this.calculatePairs(
+          participants,
+          questionnaire.questions,
+          cycle.revealAt,
+          cycle.id,
+        );
+
+        selectedPairs = calculatedPairs.selectedPairs;
+
+        if (selectedPairs.length === 0) {
+          preparationMessage =
+            'No compatible pairs were found for this cycle. The cycle has been prepared and will reveal zero matches.';
+        }
+      }
+
+      const unmatchedCount = participants.length - selectedPairs.length * 2;
+
       const createdMatchIds = await this.prisma.$transaction(async (tx) => {
+        const activeClaim = await tx.matchCycle.updateMany({
+          where: {
+            id: cycle.id,
+            status: 'PREPARING',
+            updatedAt: claimUpdatedAt,
+          },
+          data: {
+            updatedAt: claimUpdatedAt,
+          },
+        });
+
+        if (activeClaim.count === 0) {
+          throw new PreparationClaimLostError();
+        }
+
         const matchIds: string[] = [];
 
         for (const [pairIndex, pair] of selectedPairs.entries()) {
@@ -696,6 +713,7 @@ export class CyclesService {
             where: {
               id: cycle.id,
               status: 'PREPARING',
+              updatedAt: claimUpdatedAt,
             },
             data: {
               status: 'REVEAL_READY',
@@ -762,6 +780,7 @@ export class CyclesService {
       if (pendingNarrativeCount === 0) {
         return this.finalizePreparedCycle({
           cycleId: cycle.id,
+          claimUpdatedAt,
           adminActorId: options.adminActorId,
           force: options.force,
           createdMatches: selectedPairs.length,
@@ -799,7 +818,7 @@ export class CyclesService {
         message: `Cycle created ${selectedPairs.length} match(es) and is still generating ${pendingNarrativeCount} narrative(s).`,
       };
     } catch (error) {
-      await this.revertPreparationClaimIfEmpty(cycle.id);
+      await this.revertPreparationClaimIfEmpty(cycle.id, claimUpdatedAt);
 
       if (error instanceof PreparationClaimLostError) {
         return {
@@ -896,6 +915,7 @@ export class CyclesService {
 
       return this.finalizePreparedCycle({
         cycleId: cycle.id,
+        claimUpdatedAt: cycle.updatedAt,
         adminActorId: options.adminActorId,
         force: options.force,
         createdMatches: totalMatchCount,
@@ -933,6 +953,7 @@ export class CyclesService {
     if (remainingPendingCount === 0) {
       return this.finalizePreparedCycle({
         cycleId: cycle.id,
+        claimUpdatedAt: cycle.updatedAt,
         adminActorId: options.adminActorId,
         force: options.force,
         createdMatches: totalMatchCount,
@@ -2063,19 +2084,16 @@ export class CyclesService {
     ]);
   }
 
-  private async revertPreparationClaimIfEmpty(cycleId: string) {
-    const createdMatchCount = await this.prisma.match.count({
-      where: { cycleId },
-    });
-
-    if (createdMatchCount > 0) {
-      return;
-    }
-
+  private async revertPreparationClaimIfEmpty(
+    cycleId: string,
+    claimUpdatedAt?: Date,
+  ) {
     await this.prisma.matchCycle.updateMany({
       where: {
         id: cycleId,
         status: 'PREPARING',
+        matches: { none: {} },
+        ...(claimUpdatedAt ? { updatedAt: claimUpdatedAt } : {}),
       },
       data: {
         status: 'OPEN',
@@ -2142,6 +2160,7 @@ export class CyclesService {
 
   private async finalizePreparedCycle(options: {
     cycleId: string;
+    claimUpdatedAt?: Date;
     adminActorId?: string;
     force?: boolean;
     createdMatches: number;
@@ -2153,6 +2172,9 @@ export class CyclesService {
         where: {
           id: options.cycleId,
           status: 'PREPARING',
+          ...(options.claimUpdatedAt
+            ? { updatedAt: options.claimUpdatedAt }
+            : {}),
         },
         data: {
           status: 'REVEAL_READY',

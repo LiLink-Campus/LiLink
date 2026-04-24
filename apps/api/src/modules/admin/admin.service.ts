@@ -41,6 +41,14 @@ const adminSchoolNameSelect = {
   name: true,
 } satisfies Prisma.SchoolSelect;
 
+const lockedCycleStatuses = ['REVEAL_READY', 'REVEALED'] as const;
+
+function isLockedCycleStatus(status: string) {
+  return lockedCycleStatuses.includes(
+    status as (typeof lockedCycleStatuses)[number],
+  );
+}
+
 const adminUserProfileSelect = {
   fullName: true,
   headline: true,
@@ -560,6 +568,12 @@ export class AdminService {
       );
     }
 
+    if (!input.cycleId && input.status === 'REVEAL_READY') {
+      throw new BadRequestException(
+        'REVEAL_READY status must be set by running the cycle preparation flow.',
+      );
+    }
+
     if (!input.cycleId && input.status === 'REVEALED') {
       throw new BadRequestException(
         'REVEALED status must be set by running the cycle reveal flow.',
@@ -576,9 +590,27 @@ export class AdminService {
         throw new NotFoundException('Cycle not found.');
       }
 
+      if (
+        isLockedCycleStatus(existingCycle.status) &&
+        input.status !== existingCycle.status
+      ) {
+        throw new BadRequestException(
+          'Prepared or revealed cycles cannot be reopened from the admin form.',
+        );
+      }
+
       if (input.status === 'REVEALED' && existingCycle.status !== 'REVEALED') {
         throw new BadRequestException(
           'REVEALED status must be set by running the cycle reveal flow.',
+        );
+      }
+
+      if (
+        input.status === 'REVEAL_READY' &&
+        existingCycle.status !== 'REVEAL_READY'
+      ) {
+        throw new BadRequestException(
+          'REVEAL_READY status must be set by running the cycle preparation flow.',
         );
       }
 
