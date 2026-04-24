@@ -146,7 +146,7 @@ export function MatchClient({
               </p>
             ) : null}
 
-            <div>
+            <div className="match-explanation">
               <p className="eyebrow">匹配理由</p>
               {introduced ? (
                 <p className="app-card-muted">
@@ -158,7 +158,7 @@ export function MatchClient({
                 </p>
               )}
               {latestMatchReason ? (
-                <p className="app-card-muted">{latestMatchReason}</p>
+                <p className="match-reason-summary">{latestMatchReason}</p>
               ) : latestMatchReasons.length > 0 ? (
                 <ul className="reason-list">
                   {latestMatchReasons.map((reason, index) => (

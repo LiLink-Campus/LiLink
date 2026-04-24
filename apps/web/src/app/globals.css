@@ -97,6 +97,8 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   scroll-behavior: smooth;
   text-rendering: optimizeLegibility;
 }
@@ -396,11 +398,17 @@ p:last-child {
     background: var(--bg-elevated);
     border-bottom: 1px solid var(--border);
     box-shadow: var(--shadow-md);
-    transform: translateY(-110%);
-    transition: transform 0.28s ease;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-0.75rem);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    visibility: hidden;
   }
   .site-nav-shell.open .site-nav {
+    opacity: 1;
+    pointer-events: auto;
     transform: translateY(0);
+    visibility: visible;
   }
   .site-nav a,
   .site-nav-action {
