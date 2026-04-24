@@ -519,6 +519,7 @@ describe('CyclesService', () => {
       },
       data: {
         status: 'PREPARING',
+        updatedAt: expect.any(Date) as unknown as Date,
       },
     });
     expect(matchCreate).toHaveBeenCalledTimes(1);
@@ -1158,6 +1159,7 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
+        updatedAt: expect.any(Date) as unknown as Date,
       },
       data: {
         status: 'REVEAL_READY',
@@ -1468,6 +1470,7 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
+        updatedAt: expect.any(Date) as unknown as Date,
       },
       data: {
         status: 'REVEAL_READY',
@@ -1490,7 +1493,10 @@ describe('CyclesService', () => {
 
   it('does not write a prepared audit when the final preparation claim is lost', async () => {
     const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
-    const finalizePreparationClaim = jest.fn().mockResolvedValue({ count: 0 });
+    const finalizePreparationClaim = jest
+      .fn()
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
     const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
@@ -1628,12 +1634,195 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
+        updatedAt: expect.any(Date) as unknown as Date,
       },
       data: {
         status: 'REVEAL_READY',
       },
     });
     expect(auditLogCreate).not.toHaveBeenCalled();
+  });
+
+  it('reverts an empty preparation claim when pair calculation fails', async () => {
+    const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() - 2 * 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
+          participations: [],
+        }),
+        updateMany: matchCycleUpdateMany,
+      },
+      cycleParticipation,
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({ cycleParticipation }),
+      ),
+    };
+    const service = new CyclesService(
+      prisma as never,
+      {
+        generateNarrative: jest.fn(),
+        buildDefaultNarrative: jest.fn(),
+      } as never,
+    );
+    const testHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'toEligibleParticipants' | 'calculatePairs'
+    >;
+    jest
+      .spyOn(testHarness, 'toEligibleParticipants')
+      .mockReturnValue([
+        createBroadParticipant('user-1', {}),
+        createBroadParticipant('user-2', {}),
+      ]);
+    jest
+      .spyOn(testHarness, 'calculatePairs')
+      .mockRejectedValue(new BadRequestException('Invalid score config.'));
+
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(matchCycleUpdateMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: 'cycle-1',
+        status: 'OPEN',
+      },
+      data: {
+        status: 'PREPARING',
+        updatedAt: expect.any(Date) as unknown as Date,
+      },
+    });
+    expect(matchCycleUpdateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: 'cycle-1',
+        status: 'PREPARING',
+        matches: { none: {} },
+        updatedAt: expect.any(Date) as unknown as Date,
+      },
+      data: {
+        status: 'OPEN',
+      },
+    });
+  });
+
+  it('does not create matches after the preparation claim is lost', async () => {
+    const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
+    const activePreparationClaim = jest.fn().mockResolvedValue({ count: 0 });
+    const matchCreate = jest.fn();
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() - 2 * 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
+          participations: [],
+        }),
+        updateMany: claimPreparation,
+      },
+      cycleParticipation,
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            cycleParticipation,
+            match: {
+              create: matchCreate,
+            },
+            matchCycle: {
+              updateMany: activePreparationClaim,
+            },
+          }),
+      ),
+    };
+    const service = new CyclesService(
+      prisma as never,
+      {
+        generateNarrative: jest.fn(),
+        buildDefaultNarrative: jest.fn(),
+      } as never,
+    );
+    const testHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'toEligibleParticipants' | 'calculatePairs'
+    >;
+    jest
+      .spyOn(testHarness, 'toEligibleParticipants')
+      .mockReturnValue([
+        createBroadParticipant('user-1', {}),
+        createBroadParticipant('user-2', {}),
+      ]);
+    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
+      candidates: [],
+      selectedPairs: [
+        {
+          left: { id: 'user-1' },
+          right: { id: 'user-2' },
+          score: 88,
+          reasons: ['reason'],
+        },
+      ],
+    });
+
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'SKIPPED',
+      message: 'Cycle state changed before preparation finished.',
+    });
+
+    expect(activePreparationClaim).toHaveBeenCalledWith({
+      where: {
+        id: 'cycle-1',
+        status: 'PREPARING',
+        updatedAt: expect.any(Date) as unknown as Date,
+      },
+      data: {
+        updatedAt: expect.any(Date) as unknown as Date,
+      },
+    });
+    expect(matchCreate).not.toHaveBeenCalled();
+    expect(claimPreparation).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: 'cycle-1',
+        status: 'PREPARING',
+        matches: { none: {} },
+        updatedAt: expect.any(Date) as unknown as Date,
+      },
+      data: {
+        status: 'OPEN',
+      },
+    });
   });
 
   it('keeps waiting when a fresh PREPARING cycle has not persisted matches yet', async () => {
