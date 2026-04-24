@@ -74,6 +74,10 @@ export function HomeClient({
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    setDashboard(initialDashboard);
+  }, [initialDashboard]);
+
   // The dashboard summary (questionnaire progress, latest match, current
   // cycle) is rendered server-side. When the user comes back from another
   // tab/page (e.g. after editing the questionnaire), refresh the RSC tree so
