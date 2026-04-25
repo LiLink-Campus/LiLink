@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { OutboundEmailMessageCategory } from '@prisma/client';
 import nodemailer from 'nodemailer';
 import { env } from '../../config/env';
 import { PrismaService } from '../prisma/prisma.service';
@@ -44,6 +45,7 @@ type OutboundEmailRecord = {
   subject: string;
   html: string;
   text: string | null;
+  messageCategory: OutboundEmailMessageCategory;
   status: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'EXHAUSTED';
   attempts: number;
   maxAttempts: number;
@@ -59,6 +61,34 @@ const TRANSACTIONAL_EMAIL_HEADERS = {
   'X-Auto-Response-Suppress': 'All',
   'X-Entity-Ref-ID': 'lilink-transactional',
 } as const;
+
+function resolveSmtpFromForCategory(
+  category: OutboundEmailMessageCategory,
+): string {
+  if (category === OutboundEmailMessageCategory.BULK) {
+    return env.SMTP_FROM_BULK.trim() || env.SMTP_FROM;
+  }
+  return env.SMTP_FROM_TRANSACTIONAL.trim() || env.SMTP_FROM;
+}
+
+function buildSendHeaders(
+  category: OutboundEmailMessageCategory,
+): Record<string, string> {
+  if (category === OutboundEmailMessageCategory.BULK) {
+    const headers: Record<string, string> = {
+      'Content-Language': 'zh-CN',
+      'X-Entity-Ref-ID': 'lilink-bulk',
+    };
+    if (env.MAIL_LIST_UNSUBSCRIBE_URL.length > 0) {
+      headers['List-Unsubscribe'] = `<${env.MAIL_LIST_UNSUBSCRIBE_URL}>`;
+    }
+    return headers;
+  }
+  return {
+    ...TRANSACTIONAL_EMAIL_HEADERS,
+    'Content-Language': 'zh-CN',
+  };
+}
 
 const HTML_DOCUMENT_STYLES = `
   body{margin:0;padding:24px;background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;line-height:1.6;}
@@ -173,6 +203,8 @@ export class MailService {
       '验证码有效期 10 分钟，请勿向任何人透露。',
       '如果这不是你本人的操作，请忽略本邮件，无需任何操作。',
       '',
+      '此邮件由 LiLink 系统自动发送，请勿直接回复。',
+      '',
       '— LiLink 团队',
       'https://lilink.top',
     ].join('\n');
@@ -185,6 +217,7 @@ export class MailService {
         `<p class="code">${escapeHtml(input.code)}</p>`,
         '<p class="note">验证码有效期 10 分钟，请勿向任何人透露。</p>',
         '<p class="note">如果这不是你本人的操作，请忽略本邮件，无需任何操作。</p>',
+        '<p class="footer">此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
         '<hr>',
         '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
       ].join(''),
@@ -196,6 +229,7 @@ export class MailService {
       subject,
       html,
       text,
+      messageCategory: OutboundEmailMessageCategory.TRANSACTIONAL,
       // Total retry budget ~3 min (60s + 120s back-off), well below the 10-min
       // verification-code TTL. Buffers transient SMTP/upstream hiccups.
       maxAttempts: 3,
@@ -262,6 +296,8 @@ export class MailService {
       '可以从这些话题开始聊天：',
       ...topics.map((topic) => `- ${topic}`),
       '',
+      '此邮件由 LiLink 系统自动发送，请勿直接回复。',
+      '',
       '— LiLink 团队',
       'https://lilink.top',
     ].join('\n');
@@ -279,6 +315,7 @@ export class MailService {
         `<p class="note">${escapedReason}</p>`,
         '<p class="note">可以从这些话题开始聊天：</p>',
         `<ul class="note">${topicsHtml}</ul>`,
+        '<p class="footer">此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
         '<hr>',
         '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
       ].join(''),
@@ -290,6 +327,31 @@ export class MailService {
       subject,
       html,
       text,
+      messageCategory: OutboundEmailMessageCategory.TRANSACTIONAL,
+    };
+  }
+
+  /**
+   * Queue payload for optional / marketing / list mail. Use a separate From
+   * (SMTP_FROM_BULK) when configured so transactional reputation stays isolated.
+   * Set MAIL_LIST_UNSUBSCRIBE_URL for List-Unsubscribe on bulk sends.
+   */
+  buildBulkEmail(input: {
+    dedupeKey: string;
+    recipientEmail: string;
+    subject: string;
+    html: string;
+    text: string | null;
+    maxAttempts?: number;
+  }) {
+    return {
+      dedupeKey: input.dedupeKey,
+      recipientEmail: input.recipientEmail,
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+      messageCategory: OutboundEmailMessageCategory.BULK,
+      maxAttempts: input.maxAttempts ?? 5,
     };
   }
 
@@ -397,15 +459,24 @@ export class MailService {
     }
 
     try {
+      if (
+        email.messageCategory === OutboundEmailMessageCategory.BULK &&
+        env.MAIL_LIST_UNSUBSCRIBE_URL.length === 0
+      ) {
+        this.logger.warn(
+          `Bulk email ${email.dedupeKey} has no MAIL_LIST_UNSUBSCRIBE_URL; add one for better list compliance.`,
+        );
+      }
       const sentAt = new Date();
+      const from = resolveSmtpFromForCategory(email.messageCategory);
       await this.sendGate.run(async () => {
         await this.transporter.sendMail({
-          from: env.SMTP_FROM,
+          from,
           to: email.recipientEmail,
           subject: email.subject,
           html: email.html,
           text: email.text ?? undefined,
-          headers: { ...TRANSACTIONAL_EMAIL_HEADERS },
+          headers: buildSendHeaders(email.messageCategory),
         });
       });
 
