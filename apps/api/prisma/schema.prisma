@@ -364,22 +364,28 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 }
 
+enum OutboundEmailMessageCategory {
+  TRANSACTIONAL
+  BULK
+}
+
 model OutboundEmail {
-  id             String              @id @default(cuid())
-  dedupeKey      String              @unique
-  recipientEmail String
-  subject        String
-  html           String
-  text           String?
-  status         OutboundEmailStatus @default(PENDING)
-  attempts       Int                 @default(0)
-  maxAttempts    Int                 @default(5)
-  lastAttemptAt  DateTime?
-  nextAttemptAt  DateTime?
-  sentAt         DateTime?
-  errorMessage   String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id              String                       @id @default(cuid())
+  dedupeKey       String                       @unique
+  recipientEmail  String
+  subject         String
+  html            String
+  text            String?
+  messageCategory OutboundEmailMessageCategory @default(TRANSACTIONAL)
+  status          OutboundEmailStatus          @default(PENDING)
+  attempts        Int                          @default(0)
+  maxAttempts     Int                          @default(5)
+  lastAttemptAt   DateTime?
+  nextAttemptAt   DateTime?
+  sentAt          DateTime?
+  errorMessage    String?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
 
   @@index([status, nextAttemptAt, createdAt])
 }

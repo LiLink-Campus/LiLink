@@ -36,6 +36,18 @@ const envSchema = z.object({
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
   SMTP_FROM: z.string().min(1, 'SMTP_FROM is required.'),
+  // Optional split From identities on the same SMTP account (e.g. noreply@ for OTP vs notify@ for bulk). Falls back to SMTP_FROM when empty.
+  SMTP_FROM_TRANSACTIONAL: z.string().default(''),
+  SMTP_FROM_BULK: z.string().default(''),
+  // HTTPS URL for one-click or browser unsubscribe; used only when messageCategory is BULK.
+  MAIL_LIST_UNSUBSCRIBE_URL: z
+    .string()
+    .default('')
+    .transform((v) => v.trim())
+    .refine(
+      (s) => s.length === 0 || /^https?:\/\//i.test(s),
+      'MAIL_LIST_UNSUBSCRIBE_URL must be empty or an http(s) URL.',
+    ),
   DEEPSEEK_API_KEY: z.string().default(''),
   DEEPSEEK_MODEL: z.string().trim().min(1).default('deepseek-v4-flash'),
   SMTP_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(100).default(10),

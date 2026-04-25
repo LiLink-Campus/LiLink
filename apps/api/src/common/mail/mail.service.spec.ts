@@ -28,6 +28,7 @@ function buildOutboundEmail(
     subject: string;
     html: string;
     text: string | null;
+    messageCategory: 'TRANSACTIONAL' | 'BULK';
     status: OutboundEmailStatus;
     attempts: number;
     maxAttempts: number;
@@ -42,6 +43,7 @@ function buildOutboundEmail(
     subject: 'Subject',
     html: '<p>Hello</p>',
     text: null,
+    messageCategory: 'TRANSACTIONAL' as const,
     status: 'PENDING' as OutboundEmailStatus,
     attempts: 0,
     maxAttempts: 3,
@@ -215,6 +217,7 @@ describe('MailService', () => {
       expect.objectContaining({
         'Auto-Submitted': 'auto-generated',
         'X-Auto-Response-Suppress': 'All',
+        'Content-Language': 'zh-CN',
       }),
     );
   });
