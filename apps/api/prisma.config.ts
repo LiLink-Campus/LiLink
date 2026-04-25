@@ -3,11 +3,10 @@ import { join } from "path";
 import { config as loadEnv } from "dotenv";
 import { defineConfig } from "prisma/config";
 
-// Match apps/api `preloadMonorepoEnvIntoProcess`: repo-root .env then apps/api/.env (override).
-// Default `dotenv/config` only reads CWD `.env`, so `npx prisma migrate deploy` from apps/api
-// missed DATABASE_URL when it lived only in the monorepo root `.env`.
+// Match scripts/load-env.mjs: repo-root .env then apps/api/.env (override).
+// prisma.config.ts lives in apps/api, so the monorepo root is two levels up, not one (../ is apps/, not the repo).
 const apiRoot = __dirname;
-const repoRoot = join(apiRoot, "..");
+const repoRoot = join(apiRoot, "..", "..");
 for (const entry of [
   { path: join(repoRoot, ".env"), override: false },
   { path: join(apiRoot, ".env"), override: true },
