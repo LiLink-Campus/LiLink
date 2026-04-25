@@ -12,7 +12,6 @@ import { fetchApi, type AuthMePayload } from "../../../lib/api";
 import { useAuthSession } from "../../auth-session";
 import { BrandMark } from "../../brand-mark";
 import {
-  BellIcon,
   HeartIcon,
   HomeIcon,
   LogoutIcon,
@@ -128,15 +127,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="app-header">
           <BrandMark href="/dashboard" variant="compact" showTagline={false} />
           <div className="app-header-actions">
-            <button
-              type="button"
-              className="app-header-icon-button"
-              aria-label="通知（即将开放）"
-              title="通知（即将开放）"
-              onClick={() => router.push("/dashboard/me")}
-            >
-              <BellIcon />
-            </button>
             <button
               ref={triggerRef}
               type="button"

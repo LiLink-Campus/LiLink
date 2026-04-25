@@ -173,10 +173,41 @@
   padding: 0 0.5rem 1rem;
   border-bottom: 1px solid var(--border);
   margin-bottom: 0.75rem;
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.admin-sidebar-brand:hover {
+  color: var(--fg);
+}
+
+.admin-brand-glyph {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.7rem;
+}
+
+.admin-brand-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .admin-sidebar-brand strong {
+  display: block;
   font-size: 0.92rem;
+  line-height: 1.15;
+}
+
+.admin-sidebar-brand small {
+  display: block;
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-sidebar-nav {

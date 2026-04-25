@@ -96,13 +96,20 @@ function AdminSidebar() {
 
   return (
     <aside className="admin-sidebar">
-      <div className="admin-sidebar-brand">
-        <span className="brand-badge" style={{ width: "2rem", height: "2rem", fontSize: "0.75rem" }}>Li</span>
-        <div>
+      <Link
+        href="/admin"
+        className="admin-sidebar-brand"
+        aria-label="LiLink 后台首页"
+      >
+        <span className="brand-glyph admin-brand-glyph" aria-hidden="true">
+          <span className="brand-glyph-text">Li</span>
+          <span className="brand-glyph-sparkle" />
+        </span>
+        <span className="admin-brand-copy">
           <strong>LiLink 后台</strong>
-          <p>{admin?.displayName ?? admin?.email ?? "管理员"}</p>
-        </div>
-      </div>
+          <small>{admin?.displayName ?? admin?.email ?? "管理员"}</small>
+        </span>
+      </Link>
       <nav className="admin-sidebar-nav">
         {NAV_ITEMS.map((item) => (
           <Link
