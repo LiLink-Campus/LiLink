@@ -27,8 +27,8 @@ const envSchema = z.object({
   COOKIE_NAME: z.string().default('lilink_token'),
   ADMIN_COOKIE_NAME: z.string().default('lilink_admin_token'),
   COOKIE_DOMAIN: z.string().optional(),
-  SMTP_HOST: z.string().default('localhost'),
-  SMTP_PORT: z.coerce.number().int().default(1025),
+  SMTP_HOST: z.string().default('127.0.0.1'),
+  SMTP_PORT: z.coerce.number().int().default(2525),
   SMTP_SECURE: z
     .enum(['true', 'false'])
     .optional()

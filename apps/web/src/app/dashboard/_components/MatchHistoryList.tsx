@@ -4,10 +4,9 @@ import {
   REPORT_FORM_SECTION_ID,
   formatCycleRevealAt,
   limitedHistoryExplanation,
-  normalizeConversationTopics,
-  normalizeMatchReasons,
   reportHandlingChipLabel,
 } from "../_lib/format";
+import { MatchExplanation } from "./MatchExplanation";
 import type {
   DashboardHistoryItem,
 } from "../_lib/types";
@@ -79,11 +78,6 @@ export function MatchHistoryList({
                     hm.participants.find((p) => p.userId !== currentUserId) ??
                     null;
                   const introducedRow = Boolean(hm.introducedAt);
-                  const rowReasons = normalizeMatchReasons(hm.reasons);
-                  const rowReason = hm.reason?.trim() ?? "";
-                  const rowConversationTopics = normalizeConversationTopics(
-                    hm.conversationTopics,
-                  );
                   return (
                     <>
                       <span className="app-match-score">
@@ -104,44 +98,11 @@ export function MatchHistoryList({
                           对方介绍：{counterpart.introLine}
                         </p>
                       ) : null}
-                      {rowReason ||
-                      rowReasons.length > 0 ||
-                      rowConversationTopics.length > 0 ? (
-                        <div className="match-explanation">
-                          <p className="eyebrow">匹配理由</p>
-                          {rowReason ? (
-                            <p className="match-reason-summary">{rowReason}</p>
-                          ) : rowReasons.length > 0 ? (
-                            <ul className="reason-list">
-                              {rowReasons.map((reason, ri) => (
-                                <li
-                                  key={`${item.cycleId}-${ri}-${reason.slice(0, 32)}`}
-                                >
-                                  {reason}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                          {rowConversationTopics.length > 0 ? (
-                            <>
-                              <p className="eyebrow conversation-topic-heading">
-                                聊天话题
-                              </p>
-                              <ul className="conversation-topic-list">
-                                {rowConversationTopics.map(
-                                  (topic, topicIndex) => (
-                                    <li
-                                      key={`${item.cycleId}-${topicIndex}-${topic.slice(0, 32)}`}
-                                    >
-                                      {topic}
-                                    </li>
-                                  ),
-                                )}
-                              </ul>
-                            </>
-                          ) : null}
-                        </div>
-                      ) : null}
+                      <MatchExplanation
+                        reason={hm.reason}
+                        reasons={hm.reasons}
+                        conversationTopics={hm.conversationTopics}
+                      />
                       <div className="auth-actions">
                         {introducedRow ? (
                           <span className="domain-chip">已引荐</span>

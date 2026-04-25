@@ -29,7 +29,7 @@ services:
     container_name: lilink-mailpit
     restart: unless-stopped
     ports:
-      - "1025:1025"
+      - "127.0.0.1:2525:1025"
       - "8025:8025"
 
   api:

@@ -2,14 +2,13 @@
 
 import type { AuthMePayload } from "../../../lib/api";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
+import { MatchExplanation } from "../_components/MatchExplanation";
 import { MatchHistoryList } from "../_components/MatchHistoryList";
 import { ReportForm } from "../_components/ReportForm";
 import { useMatchActions } from "../_components/useMatchActions";
 import {
   canEditCurrentCycleParticipation,
   REPORT_FORM_SECTION_ID,
-  normalizeConversationTopics,
-  normalizeMatchReasons,
   reportHandlingChipLabel,
 } from "../_lib/format";
 import type { DashboardPayload } from "../_lib/types";
@@ -53,12 +52,6 @@ export function MatchClient({
         null
       : null;
 
-  const latestMatchReasons = normalizeMatchReasons(latestMatch?.reasons);
-  const latestMatchReason = latestMatch?.reason?.trim() ?? "";
-  const latestConversationTopics = normalizeConversationTopics(
-    latestMatch?.conversationTopics,
-  );
-
   const introduced = Boolean(latestMatch?.introducedAt);
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
   const currentCycle = dashboard?.currentCycle ?? null;
@@ -69,7 +62,18 @@ export function MatchClient({
     !currentCycle.intent &&
     canEditParticipation;
 
-  const recentHistory = dashboard?.recentMatchHistory ?? [];
+  const currentDisplayedCycleId = dashboard?.lastRevealedRound?.cycleId ?? null;
+  const recentHistory = (dashboard?.recentMatchHistory ?? [])
+    .filter((item) => {
+      if (currentDisplayedCycleId && item.cycleId === currentDisplayedCycleId) {
+        return false;
+      }
+      if (latestMatch && item.match?.id === latestMatch.id) {
+        return false;
+      }
+      return true;
+    })
+    .slice(0, 2);
 
   return (
     <div className="app-page-shell app-page-shell-narrow">
@@ -146,41 +150,17 @@ export function MatchClient({
               </p>
             ) : null}
 
-            <div className="match-explanation">
-              <p className="eyebrow">匹配理由</p>
-              {introduced ? (
-                <p className="app-card-muted">
-                  以下内容与发至你邮箱的引荐邮件中的一致。
-                </p>
-              ) : (
-                <p className="app-card-muted">
-                  系统根据问卷与客观条件生成；点击「双方引荐联系」后，相同说明也会出现在通知邮件里。
-                </p>
-              )}
-              {latestMatchReason ? (
-                <p className="match-reason-summary">{latestMatchReason}</p>
-              ) : latestMatchReasons.length > 0 ? (
-                <ul className="reason-list">
-                  {latestMatchReasons.map((reason, index) => (
-                    <li key={`${index}-${reason.slice(0, 48)}`}>{reason}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="app-card-muted">暂无匹配理由条目。</p>
-              )}
-              {latestConversationTopics.length > 0 ? (
-                <>
-                  <p className="eyebrow conversation-topic-heading">
-                    聊天话题
-                  </p>
-                  <ul className="conversation-topic-list">
-                    {latestConversationTopics.map((topic, index) => (
-                      <li key={`${index}-${topic.slice(0, 48)}`}>{topic}</li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-            </div>
+            <MatchExplanation
+              note={
+                introduced
+                  ? "以下内容与发至你邮箱的引荐邮件中的一致。"
+                  : "系统根据问卷与客观条件生成；点击「双方引荐联系」后，相同说明也会出现在通知邮件里。"
+              }
+              reason={latestMatch.reason}
+              reasons={latestMatch.reasons}
+              conversationTopics={latestMatch.conversationTopics}
+              emptyReasonFallback="暂无匹配理由条目。"
+            />
 
             <div className="auth-actions">
               {introduced ? (

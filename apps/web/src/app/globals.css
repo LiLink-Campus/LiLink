@@ -1135,11 +1135,22 @@ p:last-child {
 
 /* Story / How-it-works grid */
 
-.story-grid,
-.about-grid {
+.story-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 761px) {
+  .about-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
 }
 
 .story-grid article,
@@ -2331,27 +2342,23 @@ p:last-child {
   line-height: 1;
 }
 
-/* ── Conversation topics (chip-style tags) ────────────────── */
+/* ── Conversation topics ──────────────────────────────────── */
 
 .conversation-topic-list {
-  list-style: none;
+  list-style: disc;
+  list-style-position: outside;
   margin: 0;
-  padding: 0;
+  padding-left: 1.2rem;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--fg);
+  font-size: 0.95rem;
+  line-height: 1.65;
 }
 
 .conversation-topic-list li {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.35rem 0.75rem;
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-radius: var(--radius-pill);
-  font-size: 0.85rem;
-  font-weight: 500;
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  padding-left: 0.15rem;
 }
 
 .conversation-topic-heading {

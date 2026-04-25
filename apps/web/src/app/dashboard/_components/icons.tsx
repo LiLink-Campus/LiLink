@@ -126,6 +126,25 @@ export function CheckCircleIcon({ className }: IconProps) {
   );
 }
 
+export function MessageCircleIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className} aria-hidden="true">
+      <path d="M5 16.5a7.5 7.5 0 1 1 3 2.4L4 20l1-3.5z" />
+      <path d="M8.5 11.5h.01" />
+      <path d="M12 11.5h.01" />
+      <path d="M15.5 11.5h.01" />
+    </svg>
+  );
+}
+
+export function ShieldIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className} aria-hidden="true">
+      <path d="M12 3.5 19 6v5.5c0 4.2-2.8 7.2-7 9-4.2-1.8-7-4.8-7-9V6l7-2.5z" />
+    </svg>
+  );
+}
+
 export function PeopleIcon({ className }: IconProps) {
   return (
     <svg {...baseProps} className={className} aria-hidden="true">
