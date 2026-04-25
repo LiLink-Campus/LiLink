@@ -1919,7 +1919,7 @@ p:last-child {
   }
 
   .schools-toggle-meta {
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 }
 
