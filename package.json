@@ -28,6 +28,7 @@
     "db:bootstrap": "npm run db:bootstrap --workspace api",
     "db:generate": "npm run prisma:generate --workspace api",
     "db:migrate": "npm run prisma:migrate --workspace api",
+    "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace api",
     "db:seed": "npm run prisma:seed --workspace api",
     "db:ensure-participants": "npm run ensure-cycle-participants --workspace api",
     "db:seed-defaults": "npm run prisma:seed-defaults --workspace api",

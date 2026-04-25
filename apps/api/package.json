@@ -21,6 +21,7 @@
     "lint": "npm run prepare:prisma && eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "npm run build:shared && ts-node prisma/seed.ts",
     "prisma:seed-defaults": "node scripts/seed-defaults.mjs",
     "prisma:seed:default": "npm run build:shared && cross-env SEED_SCOPE=default ts-node prisma/seed.ts",
