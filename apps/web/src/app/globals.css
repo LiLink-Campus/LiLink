@@ -1857,6 +1857,7 @@ p:last-child {
   width: 100%;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
   padding: 0.85rem 1rem;
   background: var(--primary-tint);
   border: 1px dashed var(--primary-soft);
@@ -1867,6 +1868,7 @@ p:last-child {
 
 .schools-toggle-label {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 0.1rem;
 }
@@ -1884,8 +1886,18 @@ p:last-child {
 
 .schools-toggle-meta {
   display: flex;
+  min-width: 0;
+  flex-shrink: 1;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.6rem;
+}
+
+.schools-toggle-meta .schools-summary-count {
+  max-width: 100%;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
 }
 
 .schools-toggle-chevron {
@@ -1893,6 +1905,22 @@ p:last-child {
   color: var(--primary);
   width: 1.4rem;
   text-align: center;
+}
+
+@media (max-width: 480px) {
+  .schools-toggle {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .schools-toggle-label,
+  .schools-toggle-meta {
+    flex: 1 1 100%;
+  }
+
+  .schools-toggle-meta {
+    justify-content: space-between;
+  }
 }
 
 .schools-match-banner {
