@@ -9,15 +9,23 @@ import type { Request } from 'express';
 import { env } from '../../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 
+type AuthenticatedUser = {
+  sub: string;
+  email: string;
+  displayName: string | null;
+};
+
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    sub: string;
-    email: string;
-  };
+  user?: AuthenticatedUser;
 }
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+  private readonly pendingUserLoads = new Map<
+    string,
+    Promise<AuthenticatedUser>
+  >();
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
@@ -51,11 +59,32 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Authentication token is invalid.');
     }
 
+    request.user = await this.loadActiveUser(payload.sub);
+
+    return true;
+  }
+
+  private async loadActiveUser(userId: string) {
+    const pendingLoad = this.pendingUserLoads.get(userId);
+    if (pendingLoad) {
+      return pendingLoad;
+    }
+
+    const nextLoad = this.findActiveUser(userId).finally(() => {
+      this.pendingUserLoads.delete(userId);
+    });
+    this.pendingUserLoads.set(userId, nextLoad);
+
+    return nextLoad;
+  }
+
+  private async findActiveUser(userId: string): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
+      where: { id: userId },
       select: {
         id: true,
         email: true,
+        displayName: true,
         status: true,
       },
     });
@@ -68,11 +97,10 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Account is not active.');
     }
 
-    request.user = {
+    return {
       sub: user.id,
       email: user.email,
+      displayName: user.displayName,
     };
-
-    return true;
   }
 }

@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
@@ -23,6 +23,8 @@ type VerificationCodePurpose = 'register' | 'password_reset';
 
 const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
 const VERIFICATION_CODE_HMAC_CONTEXT = 'verification-code';
+const REGISTRATION_CAPACITY_LOCK_KEY = 120_404_260;
+const MAX_REGISTRATIONS_SETTING_KEY = 'max_registrations';
 
 @Injectable()
 export class AuthService {
@@ -47,9 +49,17 @@ export class AuthService {
   async register(input: RegisterDto) {
     const normalizedEmail = input.email.trim().toLowerCase();
     const school = await this.resolveAllowedSchool(normalizedEmail);
-    await this.assertRegistrationCapacity();
+    await this.assertRegistrationCapacityPreflight(this.prisma);
+    await this.assertVerificationCodeIsValid(
+      this.prisma,
+      normalizedEmail,
+      'register',
+      input.code,
+    );
+    const passwordHash = await argon2.hash(input.password);
 
     const user = await this.prisma.$transaction(async (tx) => {
+      await this.assertRegistrationCapacity(tx);
       await this.consumeVerificationCode(
         tx,
         normalizedEmail,
@@ -61,7 +71,7 @@ export class AuthService {
         return await tx.user.create({
           data: {
             email: normalizedEmail,
-            passwordHash: await argon2.hash(input.password),
+            passwordHash,
             status: 'ACTIVE',
             displayName: input.displayName,
             schoolId: school?.schoolId,
@@ -273,7 +283,46 @@ export class AuthService {
     purpose: VerificationCodePurpose,
     code: string,
   ) {
-    const latestCode = await tx.emailCode.findFirst({
+    const latestCode = this.assertVerificationCodeMatches(
+      await this.findLatestVerificationCode(tx, email, purpose),
+      email,
+      purpose,
+      code,
+    );
+
+    const consumed = await tx.emailCode.updateMany({
+      where: { id: latestCode.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+
+    if (consumed.count === 0) {
+      throw new BadRequestException(
+        'Verification code is invalid. Please request a new one.',
+      );
+    }
+  }
+
+  private async assertVerificationCodeIsValid(
+    store: Pick<TransactionClient, 'emailCode'>,
+    email: string,
+    purpose: VerificationCodePurpose,
+    code: string,
+  ) {
+    const latestCode = await this.findLatestVerificationCode(
+      store,
+      email,
+      purpose,
+    );
+
+    this.assertVerificationCodeMatches(latestCode, email, purpose, code);
+  }
+
+  private findLatestVerificationCode(
+    store: Pick<TransactionClient, 'emailCode'>,
+    email: string,
+    purpose: VerificationCodePurpose,
+  ) {
+    return store.emailCode.findFirst({
       where: {
         email,
         purpose,
@@ -283,7 +332,14 @@ export class AuthService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
 
+  private assertVerificationCodeMatches(
+    latestCode: Awaited<ReturnType<AuthService['findLatestVerificationCode']>>,
+    email: string,
+    purpose: VerificationCodePurpose,
+    code: string,
+  ) {
     if (!latestCode) {
       throw new BadRequestException('No valid verification code was found.');
     }
@@ -300,16 +356,7 @@ export class AuthService {
       );
     }
 
-    const consumed = await tx.emailCode.updateMany({
-      where: { id: latestCode.id, consumedAt: null },
-      data: { consumedAt: new Date() },
-    });
-
-    if (consumed.count === 0) {
-      throw new BadRequestException(
-        'Verification code is invalid. Please request a new one.',
-      );
-    }
+    return latestCode;
   }
 
   private async resolveAllowedSchool(email: string) {
@@ -389,20 +436,47 @@ export class AuthService {
     };
   }
 
-  private async assertRegistrationCapacity() {
-    const setting = await this.prisma.systemSetting.findUnique({
-      where: { key: 'max_registrations' },
-    });
-
-    const limit = Number(setting?.value ?? '0');
+  private async assertRegistrationCapacity(tx: TransactionClient) {
+    const limit = await this.getRegistrationCapacityLimit(tx);
     if (limit <= 0) return;
 
-    const currentCount = await this.prisma.user.count();
-    if (currentCount >= limit) {
-      throw new BadRequestException(
-        `本轮内测名额仅限 ${limit} 人，目前已满。请等待下一轮开放。`,
-      );
-    }
+    await tx.$queryRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(${REGISTRATION_CAPACITY_LOCK_KEY})`,
+    );
+
+    const currentCount = await tx.user.count();
+    this.assertRegistrationCapacityHasSpace(currentCount, limit);
+  }
+
+  private async assertRegistrationCapacityPreflight(
+    store: Pick<TransactionClient, 'systemSetting' | 'user'>,
+  ) {
+    const limit = await this.getRegistrationCapacityLimit(store);
+    if (limit <= 0) return;
+
+    const currentCount = await store.user.count();
+    this.assertRegistrationCapacityHasSpace(currentCount, limit);
+  }
+
+  private async getRegistrationCapacityLimit(
+    store: Pick<TransactionClient, 'systemSetting'>,
+  ) {
+    const setting = await store.systemSetting.findUnique({
+      where: { key: MAX_REGISTRATIONS_SETTING_KEY },
+    });
+
+    return Number(setting?.value ?? '0');
+  }
+
+  private assertRegistrationCapacityHasSpace(
+    currentCount: number,
+    limit: number,
+  ) {
+    if (currentCount < limit) return;
+
+    throw new BadRequestException(
+      `本轮内测名额仅限 ${limit} 人，目前已满。请等待下一轮开放。`,
+    );
   }
 
   private isUniqueConstraintError(error: unknown) {

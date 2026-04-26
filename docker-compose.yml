@@ -49,7 +49,7 @@ services:
       APP_ENV: production
       PORT: 4000
       CLIENT_ORIGIN: ${CLIENT_ORIGIN}
-      DATABASE_URL: postgresql://lilink:${DB_PASSWORD}@postgres:5432/lilink?schema=public
+      DATABASE_URL: "postgresql://lilink:${DB_PASSWORD}@postgres:5432/lilink?schema=public&connection_limit=${DATABASE_CONNECTION_LIMIT:-20}&pool_timeout=${DATABASE_POOL_TIMEOUT_SECONDS:-10}"
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
       COOKIE_NAME: lilink_token
