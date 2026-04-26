@@ -34,11 +34,16 @@ function createVerificationCodeDigest(input: {
 }
 
 type RegisterTransaction = {
+  $queryRaw: jest.Mock;
   emailCode: {
     findFirst: jest.Mock;
     updateMany: jest.Mock;
   };
+  systemSetting: {
+    findUnique: jest.Mock;
+  };
   user: {
+    count: jest.Mock;
     create: jest.Mock;
   };
 };
@@ -424,11 +429,16 @@ describe('AuthService', () => {
     const emailCodeUpdateMany = jest.fn();
     const userCreate = jest.fn();
     const tx: RegisterTransaction = {
+      $queryRaw: jest.fn(),
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
       },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       user: {
+        count: jest.fn().mockResolvedValue(0),
         create: userCreate,
       },
     };
@@ -436,12 +446,11 @@ describe('AuthService', () => {
       emailCode: {
         findFirst: emailCodeFindFirst,
       },
-      user: {
-        create: userCreate,
-        count: jest.fn().mockResolvedValue(0),
-      },
       systemSetting: {
         findUnique: jest.fn().mockResolvedValue(null),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(0),
       },
       $transaction: jest.fn(
         async (
@@ -469,8 +478,10 @@ describe('AuthService', () => {
         acceptedTerms: true,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(emailCodeUpdateMany).not.toHaveBeenCalled();
     expect(userCreate).not.toHaveBeenCalled();
+    expect(mockedArgon2.hash).not.toHaveBeenCalled();
   });
 
   it('maps unique constraint failures to a friendly registration error', async () => {
@@ -488,11 +499,16 @@ describe('AuthService', () => {
     const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const userCreate = jest.fn().mockRejectedValue({ code: 'P2002' });
     const tx: RegisterTransaction = {
+      $queryRaw: jest.fn(),
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
       },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
       user: {
+        count: jest.fn().mockResolvedValue(0),
         create: userCreate,
       },
     };
@@ -500,12 +516,11 @@ describe('AuthService', () => {
       emailCode: {
         findFirst: emailCodeFindFirst,
       },
-      user: {
-        create: userCreate,
-        count: jest.fn().mockResolvedValue(0),
-      },
       systemSetting: {
         findUnique: jest.fn().mockResolvedValue(null),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(0),
       },
       $transaction: jest.fn(
         async (
@@ -544,6 +559,120 @@ describe('AuthService', () => {
         },
       }),
     );
+  });
+
+  it('rejects full registration capacity before code validation or password hashing', async () => {
+    const emailCodeFindFirst = jest.fn();
+    const prisma = {
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue({ value: '1' }),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(1),
+      },
+      $transaction: jest.fn(),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+      } as never,
+      {
+        sign: jest.fn(),
+      } as never,
+    );
+
+    await expect(
+      authService.register({
+        email: 'user@example.com',
+        code: '123456',
+        password: 'Password123',
+        displayName: 'User',
+        acceptedTerms: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(emailCodeFindFirst).not.toHaveBeenCalled();
+    expect(mockedArgon2.hash).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('serializes registration capacity checks inside the registration transaction', async () => {
+    const deliveryDedupeKey = 'verification-code:test';
+    const emailCodeFindFirst = jest.fn().mockResolvedValue({
+      id: 'code-1',
+      codeHash: createVerificationCodeDigest({
+        email: 'user@example.com',
+        purpose: 'register',
+        deliveryDedupeKey,
+        code: '123456',
+      }),
+      deliveryDedupeKey,
+    });
+    const emailCodeUpdateMany = jest.fn();
+    const userCreate = jest.fn();
+    const queryRaw = jest.fn();
+    const tx: RegisterTransaction = {
+      $queryRaw: queryRaw,
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+        updateMany: emailCodeUpdateMany,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue({ value: '1' }),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(1),
+        create: userCreate,
+      },
+    };
+    const prisma = {
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue({ value: '1' }),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      $transaction: jest.fn(
+        async (
+          callback: (transaction: RegisterTransaction) => Promise<unknown>,
+        ) => callback(tx),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+      } as never,
+      {
+        sign: jest.fn(),
+      } as never,
+    );
+    mockedArgon2.hash.mockResolvedValue('hashed-password');
+
+    await expect(
+      authService.register({
+        email: 'user@example.com',
+        code: '123456',
+        password: 'Password123',
+        displayName: 'User',
+        acceptedTerms: true,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(tx.user.count).toHaveBeenCalledTimes(1);
+    expect(emailCodeFindFirst).toHaveBeenCalledTimes(1);
+    expect(emailCodeUpdateMany).not.toHaveBeenCalled();
+    expect(userCreate).not.toHaveBeenCalled();
   });
 
   it('rejects password reset for suspended users before consuming the code or updating the password', async () => {

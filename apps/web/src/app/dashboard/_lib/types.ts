@@ -60,6 +60,11 @@ export type DashboardCurrentCycle = {
 };
 
 export type DashboardPayload = {
+  user?: {
+    id: string;
+    email: string;
+    displayName: string | null;
+  };
   questionnaireSubmittedAt: string | null;
   currentCycle: DashboardCurrentCycle | null;
   lastRevealedRound: {
@@ -73,6 +78,15 @@ export type DashboardPayload = {
   latestMatchVisibility: "VISIBLE" | "LIMITED" | null;
   latestMatchLimitedReason: "REPORTED" | "BLOCKED" | null;
   recentMatchHistory: DashboardHistoryItem[];
+};
+
+export type DashboardBootstrapPayload = {
+  user: {
+    id: string;
+    email: string;
+    displayName: string | null;
+  };
+  dashboard: DashboardPayload;
 };
 
 export type QuestionnairePayload = {

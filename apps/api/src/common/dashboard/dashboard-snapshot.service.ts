@@ -132,7 +132,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 @Injectable()
 export class DashboardSnapshotService {
   private readonly inFlightCycleSyncs = new Map<string, Promise<void>>();
+  private readonly inFlightCycleRebuilds = new Map<string, Promise<void>>();
   private readonly inFlightMatchSyncs = new Map<string, Promise<void>>();
+  private readonly inFlightUserCycleSyncs = new Map<string, Promise<void>>();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -198,7 +200,10 @@ export class DashboardSnapshotService {
     );
 
     for (const cycleId of cycleIdsToSync) {
-      await this.syncCycleSnapshots(cycleId);
+      await this.syncUserCycleSnapshot({
+        userId: input.userId,
+        cycleId,
+      });
     }
   }
 
@@ -208,21 +213,69 @@ export class DashboardSnapshotService {
       return;
     }
 
-    const existingSync = this.inFlightCycleSyncs.get(cycleId);
+    const existingSync = this.inFlightCycleRebuilds.get(cycleId);
     if (existingSync) {
       await existingSync;
       return;
     }
 
-    const pendingSync = this.prisma
-      .$transaction(async (tx) => {
+    const pendingSync = this.enqueueCycleSnapshotSync(cycleId, () =>
+      this.prisma.$transaction(async (tx) => {
         await this.syncCycleSnapshotsDirect(cycleId, tx as SnapshotStoreClient);
-      })
-      .catch((error) => {
-        throw error;
-      })
+      }),
+    ).finally(() => {
+      if (this.inFlightCycleRebuilds.get(cycleId) === pendingSync) {
+        this.inFlightCycleRebuilds.delete(cycleId);
+      }
+    });
+    this.inFlightCycleRebuilds.set(cycleId, pendingSync);
+
+    await pendingSync;
+  }
+
+  async syncUserCycleSnapshot(
+    input: { userId: string; cycleId: string },
+    store?: SnapshotStoreClient,
+  ) {
+    if (store) {
+      await this.syncUserCycleSnapshotDirect(input, store);
+      return;
+    }
+
+    const syncKey = `${input.userId}::${input.cycleId}`;
+    const existingSync = this.inFlightUserCycleSyncs.get(syncKey);
+    if (existingSync) {
+      await existingSync;
+      return;
+    }
+
+    const pendingSync = this.enqueueCycleSnapshotSync(input.cycleId, () =>
+      this.prisma.$transaction(async (tx) => {
+        await this.syncUserCycleSnapshotDirect(
+          input,
+          tx as SnapshotStoreClient,
+        );
+      }),
+    ).finally(() => {
+      this.inFlightUserCycleSyncs.delete(syncKey);
+    });
+    this.inFlightUserCycleSyncs.set(syncKey, pendingSync);
+
+    await pendingSync;
+  }
+
+  private async enqueueCycleSnapshotSync(
+    cycleId: string,
+    operation: () => Promise<void>,
+  ) {
+    const previousSync = this.inFlightCycleSyncs.get(cycleId);
+    const pendingSync = (previousSync ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(operation)
       .finally(() => {
-        this.inFlightCycleSyncs.delete(cycleId);
+        if (this.inFlightCycleSyncs.get(cycleId) === pendingSync) {
+          this.inFlightCycleSyncs.delete(cycleId);
+        }
       });
     this.inFlightCycleSyncs.set(cycleId, pendingSync);
 
@@ -330,11 +383,110 @@ export class DashboardSnapshotService {
       blocks,
     });
 
-    for (const snapshot of snapshots) {
-      await store.userCycleDashboardSnapshot.create({
-        data: snapshot,
+    if (snapshots.length > 0) {
+      await store.userCycleDashboardSnapshot.createMany({
+        data: snapshots,
+        skipDuplicates: true,
       });
     }
+  }
+
+  private async syncUserCycleSnapshotDirect(
+    input: { userId: string; cycleId: string },
+    store: SnapshotStoreClient,
+  ) {
+    const cycle = await store.matchCycle.findUnique({
+      where: { id: input.cycleId },
+      select: dashboardSnapshotCycleSelect,
+    });
+
+    if (!cycle) {
+      return;
+    }
+
+    if (cycle.status !== 'REVEALED') {
+      await store.userCycleDashboardSnapshot.deleteMany({
+        where: {
+          userId: input.userId,
+          cycleId: input.cycleId,
+        },
+      });
+      return;
+    }
+
+    const participation = await store.cycleParticipation.findUnique({
+      where: {
+        cycleId_userId: {
+          userId: input.userId,
+          cycleId: input.cycleId,
+        },
+      },
+      select: {
+        userId: true,
+        status: true,
+      },
+    });
+
+    if (!participation) {
+      await store.userCycleDashboardSnapshot.deleteMany({
+        where: {
+          userId: input.userId,
+          cycleId: input.cycleId,
+        },
+      });
+      return;
+    }
+
+    const match = await store.match.findFirst({
+      where: {
+        cycleId: input.cycleId,
+        participants: {
+          some: { userId: input.userId },
+        },
+      },
+      select: dashboardSnapshotMatchSelect,
+    });
+    const counterpart = match
+      ? this.findCounterpartParticipant(match.participants, input.userId)
+      : null;
+    const blocks = counterpart
+      ? await store.block.findMany({
+          where: {
+            OR: [
+              {
+                blockerId: input.userId,
+                blockedId: counterpart.userId,
+              },
+              {
+                blockerId: counterpart.userId,
+                blockedId: input.userId,
+              },
+            ],
+          },
+          select: {
+            blockerId: true,
+            blockedId: true,
+          },
+        })
+      : [];
+    const snapshot = this.buildSnapshotPayload({
+      userId: input.userId,
+      cycle,
+      participationStatus: participation.status,
+      match,
+      blockedPairKeys: this.buildBlockedPairKeySet(blocks),
+    });
+
+    await store.userCycleDashboardSnapshot.upsert({
+      where: {
+        userId_cycleId: {
+          userId: input.userId,
+          cycleId: input.cycleId,
+        },
+      },
+      update: snapshot,
+      create: snapshot,
+    });
   }
 
   private async syncMatchSnapshotsDirect(
