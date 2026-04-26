@@ -58,7 +58,7 @@ type CyclesServiceTestHarness = {
     rawScore: number;
     score: number;
     reasons: string[];
-    sharedSignals: unknown[];
+    sharedSignals?: unknown[];
   } | null;
   toEligibleParticipants: (
     participations: unknown[],
@@ -2090,7 +2090,10 @@ describe('CyclesService', () => {
       .mockImplementation(() => undefined);
 
     jest
-      .spyOn(service as never, 'prepareCycle')
+      .spyOn(
+        service as unknown as { prepareCycle: () => Promise<unknown> },
+        'prepareCycle',
+      )
       .mockRejectedValue(new Error('boom'));
 
     await expect(service.runAutomationTick()).resolves.toEqual({
@@ -2370,7 +2373,7 @@ describe('CyclesService', () => {
     });
   });
 
-  it('prioritizes maximum match coverage before total score', async () => {
+  it('maximizes matched users once hard constraints have been applied', async () => {
     const prisma = {
       block: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -2437,23 +2440,21 @@ describe('CyclesService', () => {
         score: pair.score,
         reasons: pair.reasons,
       })),
-    ).toEqual(
-      expect.arrayContaining([
-        {
-          pairKey: 'user-a::user-c',
-          score: 60,
-          reasons: ['ac'],
-        },
-        {
-          pairKey: 'user-b::user-d',
-          score: 60,
-          reasons: ['bd'],
-        },
-      ]),
-    );
+    ).toEqual([
+      {
+        pairKey: 'user-a::user-c',
+        score: 60,
+        reasons: ['ac'],
+      },
+      {
+        pairKey: 'user-b::user-d',
+        score: 60,
+        reasons: ['bd'],
+      },
+    ]);
   });
 
-  it('prefers two lower-scoring pairs over one higher-scoring pair when questions are empty', async () => {
+  it('does not accept a higher-scoring pair when that leaves fewer users matched', async () => {
     const prisma = {
       block: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -2518,7 +2519,186 @@ describe('CyclesService', () => {
       result.selectedPairs.map((pair) =>
         [pair.left.id, pair.right.id].sort().join('::'),
       ),
-    ).toEqual(expect.arrayContaining(['user-a::user-c', 'user-b::user-d']));
+    ).toEqual(['user-a::user-c', 'user-b::user-d']);
+  });
+
+  it('maximizes raw compatibility when display scores tie', async () => {
+    const prisma = {
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new CyclesService(prisma as never);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'scorePair'
+    >;
+    const participants = [
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+      createBroadParticipant('user-c', {}),
+      createBroadParticipant('user-d', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'scorePair')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<
+            string,
+            { rawScore: number; score: number; reasons: string[] }
+          > = {
+            'user-a::user-b': {
+              rawScore: 100,
+              score: 90,
+              reasons: ['ab'],
+            },
+            'user-c::user-d': {
+              rawScore: 100,
+              score: 90,
+              reasons: ['cd'],
+            },
+            'user-a::user-c': {
+              rawScore: 101,
+              score: 90.1,
+              reasons: ['ac'],
+            },
+            'user-b::user-d': {
+              rawScore: 98,
+              score: 89.9,
+              reasons: ['bd'],
+            },
+          };
+
+          return scoreByPairKey[pairKey] ?? null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(result.selectedPairs).toHaveLength(2);
+    expect(
+      result.selectedPairs.map((pair) =>
+        [pair.left.id, pair.right.id].sort().join('::'),
+      ),
+    ).toEqual(['user-a::user-b', 'user-c::user-d']);
+  });
+
+  it('samples spread-out candidates beyond the local scan window', async () => {
+    const prisma = {
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new CyclesService(prisma as never);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'scorePair'
+    >;
+    const participants = Array.from({ length: 260 }, (_, index) =>
+      createBroadParticipant(`user-${String(index).padStart(3, '0')}`, {}),
+    );
+
+    jest
+      .spyOn(scorePairHarness, 'scorePair')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          if (pairKey !== 'user-000::user-129') {
+            return null;
+          }
+
+          return {
+            rawScore: 100,
+            score: 100,
+            reasons: ['spread'],
+            sharedSignals: [],
+          };
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(result.selectedPairs).toHaveLength(1);
+    expect(
+      result.selectedPairs.map((pair) =>
+        [pair.left.id, pair.right.id].sort().join('::'),
+      ),
+    ).toEqual(['user-000::user-129']);
+  });
+
+  it('scores the only compatible pair even when it would be missed by bounded sampling', async () => {
+    const prisma = {
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const service = new CyclesService(prisma as never);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'scorePair'
+    >;
+    const participants = Array.from({ length: 260 }, (_, index) =>
+      createBroadParticipant(`user-${String(index).padStart(3, '0')}`, {}),
+    );
+
+    jest
+      .spyOn(scorePairHarness, 'scorePair')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          if (pairKey !== 'user-000::user-017') {
+            return null;
+          }
+
+          return {
+            rawScore: 100,
+            score: 100,
+            reasons: ['only-compatible'],
+            sharedSignals: [],
+          };
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(result.selectedPairs).toHaveLength(1);
+    expect(
+      result.selectedPairs.map((pair) =>
+        [pair.left.id, pair.right.id].sort().join('::'),
+      ),
+    ).toEqual(['user-000::user-017']);
   });
 
   it('falls back to the next valid candidate when the top-scoring pair already exists in history', async () => {

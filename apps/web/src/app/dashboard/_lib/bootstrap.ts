@@ -3,9 +3,8 @@ import {
   fetchUserApiServer,
   hasUserSessionCookie,
 } from "../../../lib/server-api";
-import type { AuthMePayload } from "../../../lib/api";
 import type {
-  DashboardPayload,
+  DashboardBootstrapPayload,
   QuestionnairePayload,
   SavedQuestionnairePayload,
 } from "./types";
@@ -28,10 +27,8 @@ export async function loadDashboardCore() {
   await ensureDashboardSession();
 
   try {
-    const [user, dashboard] = await Promise.all([
-      fetchUserApiServer<AuthMePayload>("/auth/me"),
-      fetchUserApiServer<DashboardPayload>("/me/dashboard"),
-    ]);
+    const { user, dashboard } =
+      await fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap");
     return { user, dashboard };
   } catch {
     redirect("/login");
@@ -47,16 +44,20 @@ export async function loadDashboardHome() {
   await ensureDashboardSession();
 
   try {
-    const [user, dashboard, questionnaire, savedQuestionnaire] =
+    const [bootstrap, questionnaire, savedQuestionnaire] =
       await Promise.all([
-        fetchUserApiServer<AuthMePayload>("/auth/me"),
-        fetchUserApiServer<DashboardPayload>("/me/dashboard"),
+        fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
         fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
         fetchUserApiServer<SavedQuestionnairePayload>(
           "/me/questionnaire",
         ).catch(() => null),
       ]);
-    return { user, dashboard, questionnaire, savedQuestionnaire };
+    return {
+      user: bootstrap.user,
+      dashboard: bootstrap.dashboard,
+      questionnaire,
+      savedQuestionnaire,
+    };
   } catch {
     redirect("/login");
   }
@@ -70,16 +71,20 @@ export async function loadDashboardProfile() {
   await ensureDashboardSession();
 
   try {
-    const [user, dashboard, questionnaire, savedQuestionnaire] =
+    const [bootstrap, questionnaire, savedQuestionnaire] =
       await Promise.all([
-        fetchUserApiServer<AuthMePayload>("/auth/me"),
-        fetchUserApiServer<DashboardPayload>("/me/dashboard"),
+        fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
         fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
         fetchUserApiServer<SavedQuestionnairePayload>(
           "/me/questionnaire",
         ).catch(() => null),
       ]);
-    return { user, dashboard, questionnaire, savedQuestionnaire };
+    return {
+      user: bootstrap.user,
+      dashboard: bootstrap.dashboard,
+      questionnaire,
+      savedQuestionnaire,
+    };
   } catch {
     redirect("/login");
   }
