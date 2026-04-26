@@ -1,6 +1,33 @@
 import { AccountController } from './account.controller';
 
 describe('AccountController', () => {
+  it('returns the signed-in user and dashboard in one bootstrap payload', async () => {
+    const dashboard = { currentCycle: null };
+    const accountService = {
+      getDashboard: jest.fn().mockResolvedValue(dashboard),
+    };
+    const accountController = new AccountController(accountService as never);
+
+    await expect(
+      accountController.getDashboardBootstrap({
+        user: {
+          sub: 'user-1',
+          email: 'user@example.com',
+          displayName: 'User',
+        },
+      } as never),
+    ).resolves.toEqual({
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'User',
+      },
+      dashboard,
+    });
+
+    expect(accountService.getDashboard).toHaveBeenCalledWith('user-1');
+  });
+
   it('forwards the contact request to the account service for the signed-in user', async () => {
     const accountService = {
       requestContact: jest.fn().mockResolvedValue({ ok: true }),

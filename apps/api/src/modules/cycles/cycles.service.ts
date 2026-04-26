@@ -135,11 +135,6 @@ type RunRevealCycleOptions = {
   adminActorId?: string;
 };
 
-type MatchScoreBounds = {
-  min: number;
-  max: number;
-};
-
 type CyclePreparationResult = {
   ok: true;
   cycleId: string;
@@ -173,36 +168,15 @@ type NarrativeAttemptResult = {
   narrative: MatchNarrativeResult | null;
 };
 
+type MatchScoreBounds = {
+  min: number;
+  max: number;
+};
+
 class PreparationClaimLostError extends Error {
   constructor() {
     super('Cycle state changed before preparation finished.');
   }
-}
-
-/**
- * Blossom maximizes the sum of edge weights. To maximize matching cardinality
- * first and total raw score second, shift each edge by a prefix derived from
- * score bounds so that one extra matched pair always outweighs any raw-score
- * tradeoff among feasible matchings.
- */
-function lexicographicMatchingEdgeWeight(
-  rawScore: number,
-  participantCount: number,
-  scoreBounds: MatchScoreBounds,
-): number {
-  const maxPairs = Math.floor(participantCount / 2);
-  if (maxPairs <= 0) {
-    return rawScore;
-  }
-
-  let lexPrefix =
-    (maxPairs - 1) * scoreBounds.max - maxPairs * scoreBounds.min + 1;
-
-  if (lexPrefix < 1) {
-    lexPrefix = maxPairs * scoreBounds.max + 1;
-  }
-
-  return lexPrefix + rawScore;
 }
 
 function buildInsufficientParticipantsMessage(
@@ -1449,6 +1423,12 @@ export class CyclesService {
     const preparedQuestions = prepareQuestions(questions);
     const scoreBounds = this.calculateMatchScoreBounds(preparedQuestions);
     const participantIds = participants.map((participant) => participant.id);
+    if (participants.length < 2) {
+      return {
+        candidates: [],
+        selectedPairs: [],
+      };
+    }
 
     const [blocks, historicalPairKeys] = await Promise.all([
       this.prisma.block.findMany({
@@ -1468,63 +1448,127 @@ export class CyclesService {
       ),
     );
 
-    const candidates: CandidatePair[] = [];
+    const candidateByPairKey = new Map<string, CandidatePair>();
+    const participantCount = participants.length;
 
     for (let leftIndex = 0; leftIndex < participants.length; leftIndex += 1) {
-      for (
-        let rightIndex = leftIndex + 1;
-        rightIndex < participants.length;
-        rightIndex += 1
-      ) {
+      for (const rightIndex of this.buildCandidatePartnerIndexes(
+        leftIndex,
+        participantCount,
+      )) {
         const left = participants[leftIndex];
         const right = participants[rightIndex];
-        const pairKey = this.createPairKey(left.id, right.id);
-
-        if (blockedPairKeys.has(pairKey) || historicalPairKeys.has(pairKey)) {
-          continue;
-        }
-
-        const scored = this.scorePair(
+        const candidateResult = this.buildCandidatePair({
           left,
           right,
           preparedQuestions,
           revealAt,
           scoreBounds,
-        );
-        if (!scored) {
+          blockedPairKeys,
+          historicalPairKeys,
+        });
+        if (
+          !candidateResult ||
+          candidateByPairKey.has(candidateResult.pairKey)
+        ) {
           continue;
         }
 
-        candidates.push({
-          left,
-          right,
-          rawScore: scored.rawScore,
-          score: scored.score,
-          reasons: scored.reasons,
-          sharedSignals: scored.sharedSignals,
-        });
+        candidateByPairKey.set(
+          candidateResult.pairKey,
+          candidateResult.candidate,
+        );
       }
     }
 
-    candidates.sort((first, second) => {
-      if (second.score !== first.score) {
-        return second.score - first.score;
-      }
-
-      return this.createPairKey(first.left.id, first.right.id).localeCompare(
-        this.createPairKey(second.left.id, second.right.id),
-      );
-    });
-    const selectedPairs = this.selectOptimalDisjointPairs(
-      candidates,
+    const candidates = [...candidateByPairKey.values()].sort((first, second) =>
+      this.compareCandidatePairs(first, second),
+    );
+    const selectedPairs = this.selectMaximumCardinalityPairs(
       participants,
-      scoreBounds,
+      candidates,
+    );
+
+    this.logger.log(
+      `Cycle ${currentCycleId ?? 'preview'} matching considered ${participants.length} participant(s), kept ${candidates.length} candidate pair(s), selected ${selectedPairs.length} pair(s).`,
     );
 
     return {
       candidates,
       selectedPairs,
     };
+  }
+
+  private buildCandidatePair(input: {
+    left: EligibleParticipant;
+    right: EligibleParticipant;
+    preparedQuestions: PreparedQuestion[];
+    revealAt: Date;
+    scoreBounds: MatchScoreBounds;
+    blockedPairKeys: Set<string>;
+    historicalPairKeys: Set<string>;
+  }): { pairKey: string; candidate: CandidatePair } | null {
+    const pairKey = this.createPairKey(input.left.id, input.right.id);
+
+    if (
+      input.blockedPairKeys.has(pairKey) ||
+      input.historicalPairKeys.has(pairKey)
+    ) {
+      return null;
+    }
+
+    const scored = this.scorePair(
+      input.left,
+      input.right,
+      input.preparedQuestions,
+      input.revealAt,
+      input.scoreBounds,
+    );
+    if (!scored) {
+      return null;
+    }
+
+    return {
+      pairKey,
+      candidate: {
+        left: input.left,
+        right: input.right,
+        rawScore: scored.rawScore,
+        score: scored.score,
+        reasons: scored.reasons,
+        sharedSignals: scored.sharedSignals,
+      },
+    };
+  }
+
+  private buildCandidatePartnerIndexes(
+    leftIndex: number,
+    participantCount: number,
+  ) {
+    const indexes: number[] = [];
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < participantCount;
+      rightIndex += 1
+    ) {
+      indexes.push(rightIndex);
+    }
+
+    return indexes;
+  }
+
+  private compareCandidatePairs(first: CandidatePair, second: CandidatePair) {
+    if (second.score !== first.score) {
+      return second.score - first.score;
+    }
+
+    if (second.rawScore !== first.rawScore) {
+      return second.rawScore - first.rawScore;
+    }
+
+    return this.createPairKey(first.left.id, first.right.id).localeCompare(
+      this.createPairKey(second.left.id, second.right.id),
+    );
   }
 
   private scorePair(
@@ -1906,10 +1950,9 @@ export class CyclesService {
     );
   }
 
-  private selectOptimalDisjointPairs(
-    candidates: CandidatePair[],
+  private selectMaximumCardinalityPairs(
     participants: EligibleParticipant[],
-    scoreBounds: MatchScoreBounds,
+    candidates: CandidatePair[],
   ) {
     if (candidates.length === 0) {
       return [];
@@ -1918,71 +1961,35 @@ export class CyclesService {
     const participantIndexById = new Map(
       participants.map((participant, index) => [participant.id, index]),
     );
-    const candidateByPairKey = new Map(
-      candidates.map((candidate) => [
-        this.createPairKey(candidate.left.id, candidate.right.id),
-        candidate,
-      ]),
-    );
-    const edges: Array<[number, number, number]> = candidates.map(
-      (candidate) => {
-        const leftIndex = participantIndexById.get(candidate.left.id);
-        const rightIndex = participantIndexById.get(candidate.right.id);
+    const candidateByVertexPair = new Map<string, CandidatePair>();
+    const edges: [number, number, number][] = [];
 
-        if (leftIndex == null || rightIndex == null) {
-          throw new BadRequestException(
-            'Candidate pair contains a participant outside the current cycle.',
-          );
-        }
+    for (const candidate of candidates) {
+      const leftIndex = participantIndexById.get(candidate.left.id);
+      const rightIndex = participantIndexById.get(candidate.right.id);
+      if (leftIndex == null || rightIndex == null) continue;
 
-        const blossomWeight = lexicographicMatchingEdgeWeight(
-          candidate.rawScore,
-          participants.length,
-          scoreBounds,
-        );
+      const [firstIndex, secondIndex] =
+        leftIndex < rightIndex
+          ? [leftIndex, rightIndex]
+          : [rightIndex, leftIndex];
+      const vertexPairKey = `${firstIndex}::${secondIndex}`;
 
-        return [leftIndex, rightIndex, blossomWeight];
-      },
-    );
-    const mateByIndex = blossom(edges, true);
-
-    const selectedPairs: CandidatePair[] = [];
-
-    for (let leftIndex = 0; leftIndex < mateByIndex.length; leftIndex += 1) {
-      const rightIndex = mateByIndex[leftIndex];
-      if (
-        !Number.isInteger(rightIndex) ||
-        rightIndex < 0 ||
-        rightIndex <= leftIndex
-      ) {
-        continue;
-      }
-
-      const left = participants[leftIndex];
-      const right = participants[rightIndex];
-      if (!left || !right) {
-        continue;
-      }
-
-      const candidate = candidateByPairKey.get(
-        this.createPairKey(left.id, right.id),
-      );
-      if (candidate) {
-        selectedPairs.push(candidate);
-      }
+      candidateByVertexPair.set(vertexPairKey, candidate);
+      edges.push([firstIndex, secondIndex, candidate.rawScore]);
     }
 
-    selectedPairs.sort((first, second) => {
-      if (second.score !== first.score) {
-        return second.score - first.score;
-      }
+    const matchedVertices = blossom(edges, true);
+    return matchedVertices
+      .map((rightIndex, leftIndex) => {
+        if (rightIndex <= leftIndex) {
+          return null;
+        }
 
-      return this.createPairKey(first.left.id, first.right.id).localeCompare(
-        this.createPairKey(second.left.id, second.right.id),
-      );
-    });
-
-    return selectedPairs;
+        return candidateByVertexPair.get(`${leftIndex}::${rightIndex}`) ?? null;
+      })
+      .filter((candidate): candidate is CandidatePair => candidate !== null)
+      .sort((first, second) => this.compareCandidatePairs(first, second));
   }
 
   private calculateMatchScoreBounds(

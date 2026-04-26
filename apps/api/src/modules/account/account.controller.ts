@@ -35,6 +35,22 @@ export class AccountController {
     return this.accountService.getDashboard(request.user!.sub);
   }
 
+  @Get('bootstrap')
+  async getDashboardBootstrap(@Req() request: AuthenticatedRequest) {
+    const dashboard = await this.accountService.getDashboard(
+      request.user!.sub,
+    );
+
+    return {
+      user: {
+        id: request.user!.sub,
+        email: request.user!.email,
+        displayName: request.user!.displayName,
+      },
+      dashboard,
+    };
+  }
+
   @Get('profile')
   getProfile(@Req() request: AuthenticatedRequest) {
     return this.accountService.getProfile(request.user!.sub);
