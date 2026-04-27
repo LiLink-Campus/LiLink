@@ -37,9 +37,7 @@ export class AccountController {
 
   @Get('bootstrap')
   async getDashboardBootstrap(@Req() request: AuthenticatedRequest) {
-    const dashboard = await this.accountService.getDashboard(
-      request.user!.sub,
-    );
+    const dashboard = await this.accountService.getDashboard(request.user!.sub);
 
     return {
       user: {
