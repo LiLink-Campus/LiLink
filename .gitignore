@@ -37,7 +37,7 @@ apps/api/prisma/*.db
 Thumbs.db
 .idea/
 .vscode/
-AGENTS.md
+AGENTS.override.md
 *.swp
 .eslintcache
 
