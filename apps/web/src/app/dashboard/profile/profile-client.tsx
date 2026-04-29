@@ -77,6 +77,7 @@ const NATIONALITY_VALUE_OPTIONS = HARD_MATCH_NATIONALITIES.map((value) => ({
   value,
   label: value,
 }));
+const MULTI_CHOICE_PREVIEW_LIMIT = 4;
 
 type ProfileTab = "self" | "partner" | "values";
 
@@ -105,6 +106,18 @@ type QuestionnaireAutosaveState =
   | "draft-saved"
   | "submitted"
   | "error";
+
+type MultiChoiceSummaryPickerProps = {
+  id: string;
+  name: string;
+  title: string;
+  values: string[];
+  options: readonly string[];
+  onChange: (next: string[]) => void;
+  emptyLabel?: string;
+  searchPlaceholder?: string;
+  allowEmpty?: boolean;
+};
 
 const QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS = [1500, 3000, 5000, 10000];
 const QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS =
@@ -191,6 +204,188 @@ function activeExcludedGendersFor(
   return schoolGenderExclusionFor(
     hardMatchForm.excludedPartnerSchoolGenders,
     schoolId,
+  );
+}
+
+function MultiChoiceSummaryPicker({
+  id,
+  name,
+  title,
+  values,
+  options,
+  onChange,
+  emptyLabel = "未选择",
+  searchPlaceholder = "搜索",
+  allowEmpty = false,
+}: MultiChoiceSummaryPickerProps) {
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [search, setSearch] = useState("");
+  const hasSelectedValues = values.length > 0;
+  const previewValues = values.slice(0, MULTI_CHOICE_PREVIEW_LIMIT);
+  const hiddenSelectedCount = Math.max(
+    0,
+    values.length - MULTI_CHOICE_PREVIEW_LIMIT,
+  );
+  const filteredOptions = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    if (!query) return options;
+    return options.filter((option) =>
+      option.toLocaleLowerCase().includes(query),
+    );
+  }, [options, search]);
+
+  function openDialog() {
+    const dialog = dialogRef.current;
+    if (!dialog || dialog.open) return;
+    dialog.showModal();
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
+  }
+
+  function closeDialog() {
+    dialogRef.current?.close();
+  }
+
+  function clearSelection() {
+    if (!allowEmpty) return;
+    onChange([]);
+  }
+
+  function toggleOption(option: string) {
+    if (values.includes(option)) {
+      const next = values.filter((value) => value !== option);
+      if (!allowEmpty && next.length === 0) return;
+      onChange(next);
+      return;
+    }
+
+    const nextValues = new Set([...values, option]);
+    onChange(options.filter((value) => nextValues.has(value)));
+  }
+
+  return (
+    <div className="multi-choice-picker">
+      <div className="multi-choice-summary">
+        <div className="multi-choice-copy">
+          <span className="multi-choice-count">
+            {hasSelectedValues ? `已选 ${values.length} 项` : emptyLabel}
+          </span>
+          <div className="multi-choice-preview">
+            {hasSelectedValues ? (
+              <>
+                {previewValues.map((value) => (
+                  <span key={value} className="multi-choice-preview-chip">
+                    {value}
+                  </span>
+                ))}
+                {hiddenSelectedCount > 0 ? (
+                  <span className="multi-choice-more">
+                    +{hiddenSelectedCount}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <span className="multi-choice-empty">{emptyLabel}</span>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="multi-choice-trigger"
+          aria-haspopup="dialog"
+          onClick={openDialog}
+        >
+          选择
+        </button>
+      </div>
+
+      <dialog
+        ref={dialogRef}
+        className="multi-choice-dialog"
+        aria-labelledby={`${id}-dialog-title`}
+        onClose={() => setSearch("")}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            closeDialog();
+          }
+        }}
+      >
+        <div className="multi-choice-dialog-inner">
+          <div className="multi-choice-dialog-head">
+            <h4 id={`${id}-dialog-title`}>{title}</h4>
+            <button
+              type="button"
+              className="multi-choice-dialog-close"
+              aria-label="关闭"
+              onClick={closeDialog}
+            >
+              ×
+            </button>
+          </div>
+
+          <input
+            ref={searchInputRef}
+            type="search"
+            className="multi-choice-search"
+            value={search}
+            placeholder={searchPlaceholder}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+
+          {allowEmpty ? (
+            <button
+              type="button"
+              className={
+                hasSelectedValues
+                  ? "multi-choice-clear"
+                  : "multi-choice-clear is-active"
+              }
+              onClick={clearSelection}
+            >
+              {emptyLabel}
+            </button>
+          ) : null}
+
+          <div className="multi-choice-dialog-options">
+            {filteredOptions.map((option, index) => {
+              const active = values.includes(option);
+              return (
+                <label
+                  key={option}
+                  className={
+                    active
+                      ? "multi-choice-dialog-option is-active"
+                      : "multi-choice-dialog-option"
+                  }
+                >
+                  <input
+                    id={`${id}-${index}`}
+                    name={name}
+                    type="checkbox"
+                    checked={active}
+                    onChange={() => toggleOption(option)}
+                  />
+                  <span>{option}</span>
+                </label>
+              );
+            })}
+          </div>
+
+          <div className="multi-choice-dialog-footer">
+            <span>
+              {hasSelectedValues ? `已选 ${values.length} 项` : emptyLabel}
+            </span>
+            <button
+              type="button"
+              className="multi-choice-done"
+              onClick={closeDialog}
+            >
+              完成
+            </button>
+          </div>
+        </div>
+      </dialog>
+    </div>
   );
 }
 
@@ -291,12 +486,7 @@ export function ProfileClient({
   }
 
   function toggleHardSelection(
-    field:
-      | "partnerGenders"
-      | "partnerLooks"
-      | "languages"
-      | "partnerNationalities"
-      | "partnerLanguages",
+    field: "partnerGenders" | "partnerLooks",
     nextValue: string,
   ) {
     setHardMatchForm((current) => ({
@@ -762,28 +952,18 @@ export function ProfileClient({
 
               <fieldset className="question-block">
                 <legend>语言（可多选）</legend>
-                <div className="chip-grid">
-                  {HARD_MATCH_LANGUAGES.map((language, i) => {
-                    const active = hardMatchForm.languages.includes(language);
-                    return (
-                      <label
-                        key={language}
-                        className={active ? "chip active" : "chip"}
-                      >
-                        <input
-                          checked={active}
-                          id={buildDashboardFieldId("languages", i)}
-                          name="languages"
-                          type="checkbox"
-                          onChange={() =>
-                            toggleHardSelection("languages", language)
-                          }
-                        />
-                        <span>{language}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <MultiChoiceSummaryPicker
+                  id={buildDashboardFieldId("languages")}
+                  name="languages"
+                  title="选择语言"
+                  values={hardMatchForm.languages}
+                  options={HARD_MATCH_LANGUAGES}
+                  emptyLabel="请选择至少一种"
+                  searchPlaceholder="搜索语言"
+                  onChange={(next) =>
+                    setHardMatchForm((f) => ({ ...f, languages: next }))
+                  }
+                />
               </fieldset>
 
               <fieldset className="question-block">
@@ -958,107 +1138,42 @@ export function ProfileClient({
 
               <fieldset className="question-block">
                 <legend>希望对方的国籍</legend>
-                <p className="app-muted">
-                  默认不限；只有选择具体国籍时才会作为硬性条件。
-                </p>
-                <div className="chip-grid">
-                  <label
-                    className={
-                      hardMatchForm.partnerNationalities.length === 0
-                        ? "chip active"
-                        : "chip"
-                    }
-                  >
-                    <input
-                      checked={hardMatchForm.partnerNationalities.length === 0}
-                      id={buildDashboardFieldId("partner-nationalities-any")}
-                      name="partnerNationalities"
-                      type="checkbox"
-                      onChange={() =>
-                        setHardMatchForm((f) => ({
-                          ...f,
-                          partnerNationalities: [],
-                        }))
-                      }
-                    />
-                    <span>不限</span>
-                  </label>
-                  {HARD_MATCH_NATIONALITIES.map((nationality, i) => {
-                    const active =
-                      hardMatchForm.partnerNationalities.includes(nationality);
-                    return (
-                      <label
-                        key={nationality}
-                        className={active ? "chip active" : "chip"}
-                      >
-                        <input
-                          checked={active}
-                          id={buildDashboardFieldId("partner-nationalities", i)}
-                          name="partnerNationalities"
-                          type="checkbox"
-                          onChange={() =>
-                            toggleHardSelection(
-                              "partnerNationalities",
-                              nationality,
-                            )
-                          }
-                        />
-                        <span>{nationality}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <MultiChoiceSummaryPicker
+                  id={buildDashboardFieldId("partner-nationalities")}
+                  name="partnerNationalities"
+                  title="选择希望对方的国籍"
+                  values={hardMatchForm.partnerNationalities}
+                  options={HARD_MATCH_NATIONALITIES}
+                  emptyLabel="不限"
+                  searchPlaceholder="搜索国籍"
+                  allowEmpty
+                  onChange={(next) =>
+                    setHardMatchForm((f) => ({
+                      ...f,
+                      partnerNationalities: next,
+                    }))
+                  }
+                />
               </fieldset>
 
               <fieldset className="question-block">
                 <legend>希望对方的语言</legend>
-                <p className="app-muted">
-                  默认不限；选择具体语言时，对方会任意命中其中一种即可。
-                </p>
-                <div className="chip-grid">
-                  <label
-                    className={
-                      hardMatchForm.partnerLanguages.length === 0
-                        ? "chip active"
-                        : "chip"
-                    }
-                  >
-                    <input
-                      checked={hardMatchForm.partnerLanguages.length === 0}
-                      id={buildDashboardFieldId("partner-languages-any")}
-                      name="partnerLanguages"
-                      type="checkbox"
-                      onChange={() =>
-                        setHardMatchForm((f) => ({
-                          ...f,
-                          partnerLanguages: [],
-                        }))
-                      }
-                    />
-                    <span>不限</span>
-                  </label>
-                  {HARD_MATCH_LANGUAGES.map((language, i) => {
-                    const active =
-                      hardMatchForm.partnerLanguages.includes(language);
-                    return (
-                      <label
-                        key={language}
-                        className={active ? "chip active" : "chip"}
-                      >
-                        <input
-                          checked={active}
-                          id={buildDashboardFieldId("partner-languages", i)}
-                          name="partnerLanguages"
-                          type="checkbox"
-                          onChange={() =>
-                            toggleHardSelection("partnerLanguages", language)
-                          }
-                        />
-                        <span>{language}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <MultiChoiceSummaryPicker
+                  id={buildDashboardFieldId("partner-languages")}
+                  name="partnerLanguages"
+                  title="选择希望对方的语言"
+                  values={hardMatchForm.partnerLanguages}
+                  options={HARD_MATCH_LANGUAGES}
+                  emptyLabel="不限"
+                  searchPlaceholder="搜索语言"
+                  allowEmpty
+                  onChange={(next) =>
+                    setHardMatchForm((f) => ({
+                      ...f,
+                      partnerLanguages: next,
+                    }))
+                  }
+                />
               </fieldset>
 
               <fieldset className="question-block">
