@@ -1617,6 +1617,7 @@
 .multi-choice-dialog {
   width: min(42rem, calc(100vw - 2rem));
   max-height: min(44rem, calc(100dvh - 2rem));
+  margin: auto;
   padding: 0;
   border: none;
   background: transparent;
