@@ -1,12 +1,120 @@
 export const HARD_MATCH_GENDERS = ["男", "女", "非二元"] as const;
 export const HARD_MATCH_LOOKS = ["普通人", "小帅/美", "顶帅/美"] as const;
+export const HARD_MATCH_NATIONALITIES = [
+  "中国",
+  "美国",
+  "加拿大",
+  "英国",
+  "法国",
+  "德国",
+  "意大利",
+  "西班牙",
+  "葡萄牙",
+  "荷兰",
+  "比利时",
+  "瑞士",
+  "瑞典",
+  "挪威",
+  "丹麦",
+  "芬兰",
+  "爱尔兰",
+  "奥地利",
+  "波兰",
+  "捷克",
+  "俄罗斯",
+  "乌克兰",
+  "土耳其",
+  "日本",
+  "韩国",
+  "新加坡",
+  "马来西亚",
+  "泰国",
+  "越南",
+  "印度尼西亚",
+  "菲律宾",
+  "印度",
+  "巴基斯坦",
+  "孟加拉国",
+  "尼泊尔",
+  "斯里兰卡",
+  "澳大利亚",
+  "新西兰",
+  "巴西",
+  "阿根廷",
+  "墨西哥",
+  "智利",
+  "哥伦比亚",
+  "秘鲁",
+  "南非",
+  "埃及",
+  "摩洛哥",
+  "阿联酋",
+  "沙特阿拉伯",
+  "以色列",
+] as const;
+export const HARD_MATCH_LANGUAGES = [
+  "中文",
+  "粤语",
+  "英语",
+  "日语",
+  "韩语",
+  "法语",
+  "德语",
+  "西班牙语",
+  "葡萄牙语",
+  "意大利语",
+  "荷兰语",
+  "俄语",
+  "乌克兰语",
+  "波兰语",
+  "捷克语",
+  "瑞典语",
+  "挪威语",
+  "丹麦语",
+  "芬兰语",
+  "希腊语",
+  "土耳其语",
+  "阿拉伯语",
+  "希伯来语",
+  "印地语",
+  "乌尔都语",
+  "孟加拉语",
+  "泰米尔语",
+  "泰卢固语",
+  "马拉地语",
+  "旁遮普语",
+  "古吉拉特语",
+  "尼泊尔语",
+  "僧伽罗语",
+  "泰语",
+  "越南语",
+  "印度尼西亚语",
+  "马来语",
+  "菲律宾语",
+  "缅甸语",
+  "高棉语",
+  "老挝语",
+  "波斯语",
+  "库尔德语",
+  "斯瓦希里语",
+  "阿姆哈拉语",
+  "豪萨语",
+  "祖鲁语",
+  "南非荷兰语",
+  "罗马尼亚语",
+  "匈牙利语",
+] as const;
 
 export const HARD_MATCH_HEIGHT_MIN_CM = 120;
 export const HARD_MATCH_HEIGHT_MAX_CM = 230;
 export const HARD_MATCH_FORM_HEIGHT_MAX_CM = 220;
+export const HARD_MATCH_WEIGHT_MIN_KG = 30;
+export const HARD_MATCH_WEIGHT_MAX_KG = 300;
 export const HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH = 200;
 export const HARD_MATCH_AGE_MIN = 1;
 export const HARD_MATCH_AGE_MAX = 100;
+export const HARD_MATCH_DEFAULT_NATIONALITY = "中国";
+export const HARD_MATCH_DEFAULT_LANGUAGE = "中文";
 
 export const HARD_MATCH_KEYS = {
   birthDate: "hard_birth_date",
@@ -14,11 +122,18 @@ export const HARD_MATCH_KEYS = {
   partnerAgeMax: "hard_partner_age_max",
   gender: "hard_gender",
   partnerGenders: "hard_partner_genders",
+  nationality: "hard_nationality",
+  partnerNationalities: "hard_partner_nationalities",
+  languages: "hard_languages",
+  partnerLanguages: "hard_partner_languages",
   looks: "hard_looks",
   partnerLooks: "hard_partner_looks",
   heightCm: "hard_height_cm",
   partnerHeightMin: "hard_partner_height_min",
   partnerHeightMax: "hard_partner_height_max",
+  weightKg: "hard_weight_kg",
+  partnerWeightMin: "hard_partner_weight_min",
+  partnerWeightMax: "hard_partner_weight_max",
   oneLinerIntro: "hard_one_liner_intro",
   school: "hard_school",
   excludedPartnerSchools: "hard_excluded_partner_schools",
@@ -27,6 +142,8 @@ export const HARD_MATCH_KEYS = {
 
 export type HardMatchGender = (typeof HARD_MATCH_GENDERS)[number];
 export type HardMatchLooks = (typeof HARD_MATCH_LOOKS)[number];
+export type HardMatchNationality = (typeof HARD_MATCH_NATIONALITIES)[number];
+export type HardMatchLanguage = (typeof HARD_MATCH_LANGUAGES)[number];
 export type HardMatchSchoolId = string;
 export type HardMatchSchoolGenderExclusion = {
   schoolId: HardMatchSchoolId;
@@ -41,11 +158,18 @@ export type HardMatchAnswers = {
   partnerAgeMax: number;
   gender: HardMatchGender;
   partnerGenders: HardMatchGender[];
+  nationality: HardMatchNationality;
+  partnerNationalities: HardMatchNationality[];
+  languages: HardMatchLanguage[];
+  partnerLanguages: HardMatchLanguage[];
   looks: HardMatchLooks;
   partnerLooks: HardMatchLooks[];
   heightCm: number;
   partnerHeightMin: number;
   partnerHeightMax: number;
+  weightKg: number | null;
+  partnerWeightMin: number | null;
+  partnerWeightMax: number | null;
   oneLinerIntro: string;
   school: HardMatchSchoolId;
   excludedPartnerSchools: HardMatchSchoolId[];
@@ -61,6 +185,10 @@ function buildSequentialNumberOptions(min: number, max: number) {
 export const HEIGHT_OPTIONS = buildSequentialNumberOptions(
   HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_FORM_HEIGHT_MAX_CM,
+);
+export const WEIGHT_OPTIONS = buildSequentialNumberOptions(
+  HARD_MATCH_WEIGHT_MIN_KG,
+  HARD_MATCH_WEIGHT_MAX_KG,
 );
 export const AGE_OPTIONS = buildSequentialNumberOptions(
   HARD_MATCH_AGE_MIN,
@@ -214,7 +342,9 @@ export function normalizeExcludedPartnerPreferences(
   const excludedPartnerSchools: HardMatchSchoolId[] = [];
   const excludedSchoolIdSet = new Set<string>();
 
-  for (const schoolId of readTrimmedStringArray(rawValues.excludedPartnerSchools)) {
+  for (const schoolId of readTrimmedStringArray(
+    rawValues.excludedPartnerSchools,
+  )) {
     if (allowedSchoolIdSet && !allowedSchoolIdSet.has(schoolId)) {
       continue;
     }
@@ -254,7 +384,8 @@ export function normalizeExcludedPartnerPreferences(
       }
 
       const accumulatedGenders =
-        partialSchoolGenderSelections.get(schoolId) ?? new Set<HardMatchGender>();
+        partialSchoolGenderSelections.get(schoolId) ??
+        new Set<HardMatchGender>();
       for (const gender of genders) {
         accumulatedGenders.add(gender);
       }
@@ -269,7 +400,9 @@ export function normalizeExcludedPartnerPreferences(
     }
   }
 
-  const excludedPartnerSchoolGenders = [...partialSchoolGenderSelections.entries()]
+  const excludedPartnerSchoolGenders = [
+    ...partialSchoolGenderSelections.entries(),
+  ]
     .filter(([schoolId]) => !excludedSchoolIdSet.has(schoolId))
     .map(([schoolId, genders]) => ({
       schoolId,
@@ -282,11 +415,7 @@ export function normalizeExcludedPartnerPreferences(
   };
 }
 
-export function readIntegerInRange(
-  value: unknown,
-  min: number,
-  max: number,
-) {
+export function readIntegerInRange(value: unknown, min: number, max: number) {
   if (typeof value !== "number" || !Number.isInteger(value)) {
     return null;
   }
@@ -296,6 +425,19 @@ export function readIntegerInRange(
   }
 
   return value;
+}
+
+export function readNullableIntegerInRange(
+  value: unknown,
+  min: number,
+  max: number,
+) {
+  if (value == null) {
+    return null;
+  }
+
+  const normalizedValue = readIntegerInRange(value, min, max);
+  return normalizedValue == null ? undefined : normalizedValue;
 }
 
 export function readHeightValue(value: unknown, fallback = "") {
@@ -345,6 +487,30 @@ export function readQuestionnaireOneLiner(rawAnswers: unknown) {
   return normalizedValue.length > 0 ? normalizedValue : null;
 }
 
+function readDefaultedSingleChoice<T extends string>(
+  value: unknown,
+  allowedValues: readonly T[],
+  defaultValue: T,
+) {
+  if (value == null) {
+    return defaultValue;
+  }
+
+  return readSingleChoice(value, allowedValues);
+}
+
+function readDefaultedStringArray<T extends string>(
+  value: unknown,
+  allowedValues: readonly T[],
+  defaultValues: readonly T[],
+) {
+  if (value == null) {
+    return [...defaultValues];
+  }
+
+  return readStringArray(value, allowedValues);
+}
+
 export function parseHardMatchAnswers(
   rawAnswers: Record<string, unknown>,
 ): HardMatchAnswers | null {
@@ -390,6 +556,39 @@ export function parseHardMatchAnswers(
     rawAnswers[HARD_MATCH_KEYS.partnerLooks],
     HARD_MATCH_LOOKS,
   );
+  const nationality = readDefaultedSingleChoice(
+    rawAnswers[HARD_MATCH_KEYS.nationality],
+    HARD_MATCH_NATIONALITIES,
+    HARD_MATCH_DEFAULT_NATIONALITY,
+  );
+  const partnerNationalities = readStringArray(
+    rawAnswers[HARD_MATCH_KEYS.partnerNationalities],
+    HARD_MATCH_NATIONALITIES,
+  );
+  const languages = readDefaultedStringArray(
+    rawAnswers[HARD_MATCH_KEYS.languages],
+    HARD_MATCH_LANGUAGES,
+    [HARD_MATCH_DEFAULT_LANGUAGE],
+  );
+  const partnerLanguages = readStringArray(
+    rawAnswers[HARD_MATCH_KEYS.partnerLanguages],
+    HARD_MATCH_LANGUAGES,
+  );
+  const weightKg = readNullableIntegerInRange(
+    rawAnswers[HARD_MATCH_KEYS.weightKg],
+    HARD_MATCH_WEIGHT_MIN_KG,
+    HARD_MATCH_WEIGHT_MAX_KG,
+  );
+  const partnerWeightMin = readNullableIntegerInRange(
+    rawAnswers[HARD_MATCH_KEYS.partnerWeightMin],
+    HARD_MATCH_WEIGHT_MIN_KG,
+    HARD_MATCH_WEIGHT_MAX_KG,
+  );
+  const partnerWeightMax = readNullableIntegerInRange(
+    rawAnswers[HARD_MATCH_KEYS.partnerWeightMax],
+    HARD_MATCH_WEIGHT_MIN_KG,
+    HARD_MATCH_WEIGHT_MAX_KG,
+  );
   const oneLinerIntro = normalizeOneLinerIntro(
     rawAnswers[HARD_MATCH_KEYS.oneLinerIntro],
   );
@@ -408,17 +607,31 @@ export function parseHardMatchAnswers(
     partnerHeightMax == null ||
     birthDate == null ||
     gender == null ||
+    nationality == null ||
     looks == null ||
-    school == null
+    school == null ||
+    weightKg === undefined ||
+    partnerWeightMin === undefined ||
+    partnerWeightMax === undefined
   ) {
     return null;
   }
 
-  if (partnerAgeMin > partnerAgeMax || partnerHeightMin > partnerHeightMax) {
+  if (
+    partnerAgeMin > partnerAgeMax ||
+    partnerHeightMin > partnerHeightMax ||
+    (partnerWeightMin != null &&
+      partnerWeightMax != null &&
+      partnerWeightMin > partnerWeightMax)
+  ) {
     return null;
   }
 
-  if (partnerGenders.length === 0 || partnerLooks.length === 0) {
+  if (
+    partnerGenders.length === 0 ||
+    partnerLooks.length === 0 ||
+    languages.length === 0
+  ) {
     return null;
   }
 
@@ -435,11 +648,18 @@ export function parseHardMatchAnswers(
     partnerAgeMax,
     gender,
     partnerGenders,
+    nationality,
+    partnerNationalities,
+    languages,
+    partnerLanguages,
     looks,
     partnerLooks,
     heightCm,
     partnerHeightMin,
     partnerHeightMax,
+    weightKg,
+    partnerWeightMin,
+    partnerWeightMax,
     oneLinerIntro,
     school,
     excludedPartnerSchools: excludedPartnerPreferences.excludedPartnerSchools,
@@ -467,6 +687,51 @@ function multiPreferenceMatches<T extends string>(
     allOptionsSelected(selectedValues, universe) ||
     selectedValues.includes(candidateValue)
   );
+}
+
+function optionalMultiPreferenceMatches<T extends string>(
+  selectedValues: readonly T[] | null | undefined,
+  candidateValue: T,
+  universe: readonly T[],
+) {
+  return (
+    !selectedValues ||
+    selectedValues.length === 0 ||
+    multiPreferenceMatches(selectedValues, candidateValue, universe)
+  );
+}
+
+function optionalLanguagePreferenceMatches(
+  selectedValues: readonly HardMatchLanguage[] | null | undefined,
+  candidateValues: readonly HardMatchLanguage[],
+) {
+  return (
+    !selectedValues ||
+    selectedValues.length === 0 ||
+    candidateValues.some((candidateValue) =>
+      selectedValues.includes(candidateValue),
+    )
+  );
+}
+
+function optionalRangePreferenceMatches(
+  candidateValue: number | null,
+  selectedMinimum: number | null,
+  selectedMaximum: number | null,
+) {
+  if (candidateValue == null) {
+    return true;
+  }
+
+  if (selectedMinimum != null && candidateValue < selectedMinimum) {
+    return false;
+  }
+
+  if (selectedMaximum != null && candidateValue > selectedMaximum) {
+    return false;
+  }
+
+  return true;
 }
 
 function schoolGenderExclusionMatches(
@@ -505,6 +770,18 @@ export function areHardMatchAnswersCompatible(
   right: HardMatchAnswers,
   revealAt: Date,
 ) {
+  const leftNationality =
+    left.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
+  const rightNationality =
+    right.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
+  const defaultLanguages: readonly HardMatchLanguage[] = [
+    HARD_MATCH_DEFAULT_LANGUAGE,
+  ];
+  const leftLanguages: readonly HardMatchLanguage[] =
+    left.languages?.length ? left.languages : defaultLanguages;
+  const rightLanguages: readonly HardMatchLanguage[] =
+    right.languages?.length ? right.languages : defaultLanguages;
+
   const leftAge = calculateAgeOnDate(left.birthDate, revealAt);
   const rightAge = calculateAgeOnDate(right.birthDate, revealAt);
 
@@ -533,6 +810,31 @@ export function areHardMatchAnswersCompatible(
   }
 
   if (
+    !optionalMultiPreferenceMatches(
+      left.partnerNationalities,
+      rightNationality,
+      HARD_MATCH_NATIONALITIES,
+    ) ||
+    !optionalMultiPreferenceMatches(
+      right.partnerNationalities,
+      leftNationality,
+      HARD_MATCH_NATIONALITIES,
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !optionalLanguagePreferenceMatches(
+      left.partnerLanguages,
+      rightLanguages,
+    ) ||
+    !optionalLanguagePreferenceMatches(right.partnerLanguages, leftLanguages)
+  ) {
+    return false;
+  }
+
+  if (
     !multiPreferenceMatches(left.partnerLooks, right.looks, HARD_MATCH_LOOKS) ||
     !multiPreferenceMatches(right.partnerLooks, left.looks, HARD_MATCH_LOOKS)
   ) {
@@ -544,6 +846,21 @@ export function areHardMatchAnswersCompatible(
     left.heightCm > right.partnerHeightMax ||
     right.heightCm < left.partnerHeightMin ||
     right.heightCm > left.partnerHeightMax
+  ) {
+    return false;
+  }
+
+  if (
+    !optionalRangePreferenceMatches(
+      left.weightKg,
+      right.partnerWeightMin,
+      right.partnerWeightMax,
+    ) ||
+    !optionalRangePreferenceMatches(
+      right.weightKg,
+      left.partnerWeightMin,
+      left.partnerWeightMax,
+    )
   ) {
     return false;
   }

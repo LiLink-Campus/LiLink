@@ -1,13 +1,7 @@
 "use client";
 
 import { takeNextAutosaveQueueItem } from "@lilink/shared";
-import {
-  useEffect,
-  useEffectEvent,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   fetchApi,
   isApiRequestError,
@@ -17,10 +11,13 @@ import {
   AGE_OPTIONS,
   BIRTH_YEAR_OPTIONS,
   HARD_MATCH_GENDERS,
+  HARD_MATCH_LANGUAGES,
   HARD_MATCH_LOOKS,
+  HARD_MATCH_NATIONALITIES,
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
   HEIGHT_OPTIONS,
   MONTH_OPTIONS,
+  WEIGHT_OPTIONS,
   buildDayOptions,
   hardMatchFormFromAnswers,
   schoolGenderExclusionFor,
@@ -30,7 +27,10 @@ import {
   type HardMatchSchoolOption,
 } from "../../../lib/hard-match";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
-import { ValuePicker, type ValuePickerOption } from "../_components/ValuePicker";
+import {
+  ValuePicker,
+  type ValuePickerOption,
+} from "../_components/ValuePicker";
 import { buildDashboardFieldId } from "../_lib/format";
 import {
   getQuestionnaireIncompleteMessage,
@@ -65,6 +65,18 @@ const MONTH_VALUE_OPTIONS = numericOptions(
 );
 const AGE_VALUE_OPTIONS = numericOptions(AGE_OPTIONS);
 const HEIGHT_VALUE_OPTIONS = numericOptions(HEIGHT_OPTIONS);
+const WEIGHT_VALUE_OPTIONS = [
+  { value: "", label: "不填写" },
+  ...numericOptions(WEIGHT_OPTIONS, (weight) => `${weight} kg`),
+];
+const PARTNER_WEIGHT_VALUE_OPTIONS = [
+  { value: "", label: "不限" },
+  ...numericOptions(WEIGHT_OPTIONS, (weight) => `${weight} kg`),
+];
+const NATIONALITY_VALUE_OPTIONS = HARD_MATCH_NATIONALITIES.map((value) => ({
+  value,
+  label: value,
+}));
 
 type ProfileTab = "self" | "partner" | "values";
 
@@ -279,7 +291,12 @@ export function ProfileClient({
   }
 
   function toggleHardSelection(
-    field: "partnerGenders" | "partnerLooks",
+    field:
+      | "partnerGenders"
+      | "partnerLooks"
+      | "languages"
+      | "partnerNationalities"
+      | "partnerLanguages",
     nextValue: string,
   ) {
     setHardMatchForm((current) => ({
@@ -292,7 +309,8 @@ export function ProfileClient({
     setHardMatchForm((current) => {
       const currentActive = activeExcludedGendersFor(current, schoolId);
       const nextActive = toggleMultiSelectValue([...currentActive], gender);
-      const isNowFullyExcluded = nextActive.length === HARD_MATCH_GENDERS.length;
+      const isNowFullyExcluded =
+        nextActive.length === HARD_MATCH_GENDERS.length;
       const baseSchools = current.excludedPartnerSchools.filter(
         (item) => item !== schoolId,
       );
@@ -362,10 +380,7 @@ export function ProfileClient({
           result.saveState === "SUBMITTED" ? "submitted" : "draft-saved",
         );
       } catch (caughtError) {
-        if (
-          caughtError instanceof Error &&
-          caughtError.name === "AbortError"
-        ) {
+        if (caughtError instanceof Error && caughtError.name === "AbortError") {
           return;
         }
 
@@ -650,391 +665,593 @@ export function ProfileClient({
 
         {/* ── 关于你 ── */}
         {activeTab === "self" && (
-        <div className="app-q-group">
-          <div className="app-q-group-header">
-            <span className="app-q-group-icon app-q-group-icon-self">
-              我
-            </span>
-            <div>
-              <h3>关于你</h3>
-              <p>你的基本客观信息</p>
-            </div>
-          </div>
-          <div className="question-list">
-            <fieldset className="question-block">
-              <legend>出生日期</legend>
-              <div className="form-grid birth-date-grid">
-                <label>
-                  <span>年份</span>
-                  <ValuePicker
-                    id={buildDashboardFieldId("birth-year")}
-                    name="birthYear"
-                    value={hardMatchForm.birthYear}
-                    options={BIRTH_YEAR_VALUE_OPTIONS}
-                    placeholder="请选择"
-                    sheetTitle="选择出生年份"
-                    onChange={(next) =>
-                      setHardMatchForm((f) => ({ ...f, birthYear: next }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>月份</span>
-                  <ValuePicker
-                    id={buildDashboardFieldId("birth-month")}
-                    name="birthMonth"
-                    value={hardMatchForm.birthMonth}
-                    options={MONTH_VALUE_OPTIONS}
-                    placeholder="请选择"
-                    sheetTitle="选择出生月份"
-                    onChange={(next) =>
-                      setHardMatchForm((f) => ({ ...f, birthMonth: next }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>日期</span>
-                  <ValuePicker
-                    id={buildDashboardFieldId("birth-day")}
-                    name="birthDay"
-                    value={hardMatchForm.birthDay}
-                    options={numericOptions(birthDayOptions, (d) => `${d} 日`)}
-                    placeholder="请选择"
-                    sheetTitle="选择出生日期"
-                    onChange={(next) =>
-                      setHardMatchForm((f) => ({ ...f, birthDay: next }))
-                    }
-                  />
-                </label>
+          <div className="app-q-group">
+            <div className="app-q-group-header">
+              <span className="app-q-group-icon app-q-group-icon-self">我</span>
+              <div>
+                <h3>关于你</h3>
+                <p>你的基本客观信息</p>
               </div>
-            </fieldset>
-
-            <fieldset className="question-block">
-              <legend>性别</legend>
-              <div className="option-list">
-                {HARD_MATCH_GENDERS.map((g, i) => (
-                  <label key={g}>
-                    <input
-                      checked={hardMatchForm.gender === g}
-                      id={buildDashboardFieldId("gender", i)}
-                      type="radio"
-                      name="gender"
-                      onChange={() =>
-                        setHardMatchForm((f) => ({ ...f, gender: g }))
+            </div>
+            <div className="question-list">
+              <fieldset className="question-block">
+                <legend>出生日期</legend>
+                <div className="form-grid birth-date-grid">
+                  <label>
+                    <span>年份</span>
+                    <ValuePicker
+                      id={buildDashboardFieldId("birth-year")}
+                      name="birthYear"
+                      value={hardMatchForm.birthYear}
+                      options={BIRTH_YEAR_VALUE_OPTIONS}
+                      placeholder="请选择"
+                      sheetTitle="选择出生年份"
+                      onChange={(next) =>
+                        setHardMatchForm((f) => ({ ...f, birthYear: next }))
                       }
                     />
-                    <span>{g}</span>
                   </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="question-block">
-              <legend>颜值自评</legend>
-              <div className="option-list">
-                {HARD_MATCH_LOOKS.map((l, i) => (
-                  <label key={l}>
-                    <input
-                      checked={hardMatchForm.looks === l}
-                      id={buildDashboardFieldId("looks", i)}
-                      type="radio"
-                      name="looks"
-                      onChange={() =>
-                        setHardMatchForm((f) => ({ ...f, looks: l }))
+                  <label>
+                    <span>月份</span>
+                    <ValuePicker
+                      id={buildDashboardFieldId("birth-month")}
+                      name="birthMonth"
+                      value={hardMatchForm.birthMonth}
+                      options={MONTH_VALUE_OPTIONS}
+                      placeholder="请选择"
+                      sheetTitle="选择出生月份"
+                      onChange={(next) =>
+                        setHardMatchForm((f) => ({ ...f, birthMonth: next }))
                       }
                     />
-                    <span>{l}</span>
                   </label>
-                ))}
-              </div>
-            </fieldset>
+                  <label>
+                    <span>日期</span>
+                    <ValuePicker
+                      id={buildDashboardFieldId("birth-day")}
+                      name="birthDay"
+                      value={hardMatchForm.birthDay}
+                      options={numericOptions(
+                        birthDayOptions,
+                        (d) => `${d} 日`,
+                      )}
+                      placeholder="请选择"
+                      sheetTitle="选择出生日期"
+                      onChange={(next) =>
+                        setHardMatchForm((f) => ({ ...f, birthDay: next }))
+                      }
+                    />
+                  </label>
+                </div>
+              </fieldset>
 
-            <fieldset className="question-block">
-              <legend>身高（厘米）</legend>
-              <ValuePicker
-                id={buildDashboardFieldId("height-cm")}
-                name="heightCm"
-                value={hardMatchForm.heightCm}
-                options={HEIGHT_VALUE_OPTIONS}
-                suffix="cm"
-                placeholder="请选择身高"
-                sheetTitle="选择你的身高"
-                onChange={(next) =>
-                  setHardMatchForm((f) => ({ ...f, heightCm: next }))
-                }
-              />
-            </fieldset>
-
-            <fieldset className="question-block">
-              <legend>昵称</legend>
-              <label className="dash-one-liner-label">
-                <span className="app-muted">
-                  昵称，引荐后会发给对方邮件，可以是真名也可以不是。
-                </span>
-                <input
-                  id={buildDashboardFieldId("display-name")}
-                  name="displayName"
-                  type="text"
-                  maxLength={30}
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="输入你的昵称"
-                />
-              </label>
-            </fieldset>
-
-            <fieldset className="question-block">
-              <legend>一句话介绍</legend>
-              <label className="dash-one-liner-label">
-                <span className="app-muted">
-                  用一两句话介绍你的兴趣或期待；引荐邮件中会展示给对方。请勿填写隐私敏感信息。
-                </span>
-                <textarea
-                  id={buildDashboardFieldId("one-liner-intro")}
-                  name="oneLinerIntro"
-                  rows={3}
-                  maxLength={HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}
-                  value={hardMatchForm.oneLinerIntro}
-                  onChange={(e) =>
-                    setHardMatchForm((f) => ({
-                      ...f,
-                      oneLinerIntro: e.target.value,
-                    }))
-                  }
-                  placeholder="例如：喜欢徒步和电影，希望认识聊得来的朋友。"
-                />
-              </label>
-            </fieldset>
-          </div>
-        </div>
-        )}
-
-        {/* ── 对方条件 ── */}
-        {activeTab === "partner" && (
-        <div className="app-q-group">
-          <div className="app-q-group-header">
-            <span className="app-q-group-icon app-q-group-icon-partner">
-              TA
-            </span>
-            <div>
-              <h3>对方条件</h3>
-              <p>你希望匹配对象满足的条件</p>
-            </div>
-          </div>
-          <div className="question-list">
-            <fieldset className="question-block">
-              <legend>希望对方的年龄范围</legend>
-              <div className="form-grid">
-                <label>
-                  <span>年龄下限</span>
-                  <ValuePicker
-                    id={buildDashboardFieldId("partner-age-min")}
-                    name="partnerAgeMin"
-                    value={hardMatchForm.partnerAgeMin}
-                    options={AGE_VALUE_OPTIONS}
-                    suffix="岁"
-                    placeholder="请选择"
-                    sheetTitle="希望对方年龄下限"
-                    onChange={(next) =>
-                      setHardMatchForm((f) => ({ ...f, partnerAgeMin: next }))
-                    }
-                  />
-                </label>
-                <label>
-                  <span>年龄上限</span>
-                  <ValuePicker
-                    id={buildDashboardFieldId("partner-age-max")}
-                    name="partnerAgeMax"
-                    value={hardMatchForm.partnerAgeMax}
-                    options={AGE_VALUE_OPTIONS}
-                    suffix="岁"
-                    placeholder="请选择"
-                    sheetTitle="希望对方年龄上限"
-                    onChange={(next) =>
-                      setHardMatchForm((f) => ({ ...f, partnerAgeMax: next }))
-                    }
-                  />
-                </label>
-              </div>
-            </fieldset>
-
-            <fieldset className="question-block">
-              <legend>希望对方的性别（可多选）</legend>
-              <div className="chip-grid">
-                {HARD_MATCH_GENDERS.map((g, i) => {
-                  const active = hardMatchForm.partnerGenders.includes(g);
-                  return (
-                    <label
-                      key={g}
-                      className={active ? "chip active" : "chip"}
-                    >
+              <fieldset className="question-block">
+                <legend>性别</legend>
+                <div className="option-list">
+                  {HARD_MATCH_GENDERS.map((g, i) => (
+                    <label key={g}>
                       <input
-                        checked={active}
-                        id={buildDashboardFieldId("partner-genders", i)}
-                        name="partnerGenders"
-                        type="checkbox"
+                        checked={hardMatchForm.gender === g}
+                        id={buildDashboardFieldId("gender", i)}
+                        type="radio"
+                        name="gender"
                         onChange={() =>
-                          toggleHardSelection("partnerGenders", g)
+                          setHardMatchForm((f) => ({ ...f, gender: g }))
                         }
                       />
                       <span>{g}</span>
                     </label>
-                  );
-                })}
-              </div>
-            </fieldset>
+                  ))}
+                </div>
+              </fieldset>
 
-            <fieldset className="question-block">
-              <legend>希望对方的颜值（可多选）</legend>
-              <div className="chip-grid">
-                {HARD_MATCH_LOOKS.map((l, i) => {
-                  const active = hardMatchForm.partnerLooks.includes(l);
-                  return (
-                    <label
-                      key={l}
-                      className={active ? "chip active" : "chip"}
-                    >
+              <fieldset className="question-block">
+                <legend>国籍</legend>
+                <ValuePicker
+                  id={buildDashboardFieldId("nationality")}
+                  name="nationality"
+                  value={hardMatchForm.nationality}
+                  options={NATIONALITY_VALUE_OPTIONS}
+                  placeholder="请选择国籍"
+                  sheetTitle="选择你的国籍"
+                  onChange={(next) =>
+                    setHardMatchForm((f) => ({ ...f, nationality: next }))
+                  }
+                />
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>语言（可多选）</legend>
+                <div className="chip-grid">
+                  {HARD_MATCH_LANGUAGES.map((language, i) => {
+                    const active = hardMatchForm.languages.includes(language);
+                    return (
+                      <label
+                        key={language}
+                        className={active ? "chip active" : "chip"}
+                      >
+                        <input
+                          checked={active}
+                          id={buildDashboardFieldId("languages", i)}
+                          name="languages"
+                          type="checkbox"
+                          onChange={() =>
+                            toggleHardSelection("languages", language)
+                          }
+                        />
+                        <span>{language}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>颜值自评</legend>
+                <div className="option-list">
+                  {HARD_MATCH_LOOKS.map((l, i) => (
+                    <label key={l}>
                       <input
-                        checked={active}
-                        id={buildDashboardFieldId("partner-looks", i)}
-                        name="partnerLooks"
-                        type="checkbox"
+                        checked={hardMatchForm.looks === l}
+                        id={buildDashboardFieldId("looks", i)}
+                        type="radio"
+                        name="looks"
                         onChange={() =>
-                          toggleHardSelection("partnerLooks", l)
+                          setHardMatchForm((f) => ({ ...f, looks: l }))
                         }
                       />
                       <span>{l}</span>
                     </label>
-                  );
-                })}
-              </div>
-            </fieldset>
+                  ))}
+                </div>
+              </fieldset>
 
-            <fieldset className="question-block">
-              <legend>希望对方的身高范围（厘米）</legend>
-              <div className="form-grid">
-                <label>
-                  <span>身高下限</span>
-                  <ValuePicker
-                    id={buildDashboardFieldId("partner-height-min")}
-                    name="partnerHeightMin"
-                    value={hardMatchForm.partnerHeightMin}
-                    options={HEIGHT_VALUE_OPTIONS}
-                    suffix="cm"
-                    placeholder="请选择"
-                    sheetTitle="希望对方身高下限"
-                    onChange={(next) =>
-                      setHardMatchForm((f) => ({
-                        ...f,
-                        partnerHeightMin: next,
-                      }))
-                    }
+              <fieldset className="question-block">
+                <legend>身高（厘米）</legend>
+                <ValuePicker
+                  id={buildDashboardFieldId("height-cm")}
+                  name="heightCm"
+                  value={hardMatchForm.heightCm}
+                  options={HEIGHT_VALUE_OPTIONS}
+                  suffix="cm"
+                  placeholder="请选择身高"
+                  sheetTitle="选择你的身高"
+                  onChange={(next) =>
+                    setHardMatchForm((f) => ({ ...f, heightCm: next }))
+                  }
+                />
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>体重（公斤）</legend>
+                <ValuePicker
+                  id={buildDashboardFieldId("weight-kg")}
+                  name="weightKg"
+                  value={hardMatchForm.weightKg}
+                  options={WEIGHT_VALUE_OPTIONS}
+                  placeholder="不填写"
+                  sheetTitle="选择你的体重"
+                  onChange={(next) =>
+                    setHardMatchForm((f) => ({ ...f, weightKg: next }))
+                  }
+                />
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>昵称</legend>
+                <label className="dash-one-liner-label">
+                  <span className="app-muted">
+                    昵称，引荐后会发给对方邮件，可以是真名也可以不是。
+                  </span>
+                  <input
+                    id={buildDashboardFieldId("display-name")}
+                    name="displayName"
+                    type="text"
+                    maxLength={30}
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="输入你的昵称"
                   />
                 </label>
-                <label>
-                  <span>身高上限</span>
-                  <ValuePicker
-                    id={buildDashboardFieldId("partner-height-max")}
-                    name="partnerHeightMax"
-                    value={hardMatchForm.partnerHeightMax}
-                    options={HEIGHT_VALUE_OPTIONS}
-                    suffix="cm"
-                    placeholder="请选择"
-                    sheetTitle="希望对方身高上限"
-                    onChange={(next) =>
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>一句话介绍</legend>
+                <label className="dash-one-liner-label">
+                  <span className="app-muted">
+                    用一两句话介绍你的兴趣或期待；引荐邮件中会展示给对方。请勿填写隐私敏感信息。
+                  </span>
+                  <textarea
+                    id={buildDashboardFieldId("one-liner-intro")}
+                    name="oneLinerIntro"
+                    rows={3}
+                    maxLength={HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}
+                    value={hardMatchForm.oneLinerIntro}
+                    onChange={(e) =>
                       setHardMatchForm((f) => ({
                         ...f,
-                        partnerHeightMax: next,
+                        oneLinerIntro: e.target.value,
                       }))
                     }
+                    placeholder="例如：喜欢徒步和电影，希望认识聊得来的朋友。"
                   />
                 </label>
-              </div>
-            </fieldset>
-
-            <fieldset className="question-block">
-              <legend>按学校排除（可选）</legend>
-              <p className="app-muted">
-                在每所学校上，勾选你不希望匹配的性别。三项全选即整校排除。
-              </p>
-              <div className="school-exclusion-list">
-                {schoolOptions.map((school, i) => {
-                  const activeGenders = activeExcludedGendersFor(
-                    hardMatchForm,
-                    school.id,
-                  );
-                  const isFullyExcluded =
-                    activeGenders.length === HARD_MATCH_GENDERS.length;
-                  const isPartiallyExcluded =
-                    !isFullyExcluded && activeGenders.length > 0;
-                  const rowClass = isFullyExcluded
-                    ? "school-exclusion-row is-fully-excluded"
-                    : isPartiallyExcluded
-                      ? "school-exclusion-row is-partially-excluded"
-                      : "school-exclusion-row";
-                  return (
-                    <section key={school.id} className={rowClass}>
-                      <div className="school-exclusion-name">
-                        <span
-                          className="school-exclusion-name-text"
-                          title={school.name}
-                        >
-                          {school.name}
-                        </span>
-                        {isFullyExcluded ? (
-                          <span className="school-exclusion-status is-strong">
-                            整校排除
-                          </span>
-                        ) : isPartiallyExcluded ? (
-                          <span className="school-exclusion-status">
-                            已排除：{activeGenders.join("、")}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div
-                        className="school-exclusion-genders"
-                        role="group"
-                        aria-label={`${school.name} 排除性别`}
-                      >
-                        {HARD_MATCH_GENDERS.map((gender, genderIndex) => {
-                          const active = activeGenders.includes(gender);
-                          return (
-                            <label
-                              key={gender}
-                              className={
-                                active
-                                  ? "school-exclusion-gender is-active"
-                                  : "school-exclusion-gender"
-                              }
-                            >
-                              <input
-                                checked={active}
-                                id={buildDashboardFieldId(
-                                  "excluded-partner-school-gender",
-                                  i,
-                                  genderIndex,
-                                )}
-                                name={`excludedPartnerSchoolGender-${school.id}`}
-                                type="checkbox"
-                                onChange={() =>
-                                  toggleExcludedPartnerSchoolGender(
-                                    school.id,
-                                    gender,
-                                  )
-                                }
-                              />
-                              <span>{gender}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-              </div>
-            </fieldset>
+              </fieldset>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ── 对方条件 ── */}
+        {activeTab === "partner" && (
+          <div className="app-q-group">
+            <div className="app-q-group-header">
+              <span className="app-q-group-icon app-q-group-icon-partner">
+                TA
+              </span>
+              <div>
+                <h3>对方条件</h3>
+                <p>你希望匹配对象满足的条件</p>
+              </div>
+            </div>
+            <div className="question-list">
+              <fieldset className="question-block">
+                <legend>希望对方的年龄范围</legend>
+                <div className="form-grid">
+                  <label>
+                    <span>年龄下限</span>
+                    <ValuePicker
+                      id={buildDashboardFieldId("partner-age-min")}
+                      name="partnerAgeMin"
+                      value={hardMatchForm.partnerAgeMin}
+                      options={AGE_VALUE_OPTIONS}
+                      suffix="岁"
+                      placeholder="请选择"
+                      sheetTitle="希望对方年龄下限"
+                      onChange={(next) =>
+                        setHardMatchForm((f) => ({ ...f, partnerAgeMin: next }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>年龄上限</span>
+                    <ValuePicker
+                      id={buildDashboardFieldId("partner-age-max")}
+                      name="partnerAgeMax"
+                      value={hardMatchForm.partnerAgeMax}
+                      options={AGE_VALUE_OPTIONS}
+                      suffix="岁"
+                      placeholder="请选择"
+                      sheetTitle="希望对方年龄上限"
+                      onChange={(next) =>
+                        setHardMatchForm((f) => ({ ...f, partnerAgeMax: next }))
+                      }
+                    />
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>希望对方的性别（可多选）</legend>
+                <div className="chip-grid">
+                  {HARD_MATCH_GENDERS.map((g, i) => {
+                    const active = hardMatchForm.partnerGenders.includes(g);
+                    return (
+                      <label
+                        key={g}
+                        className={active ? "chip active" : "chip"}
+                      >
+                        <input
+                          checked={active}
+                          id={buildDashboardFieldId("partner-genders", i)}
+                          name="partnerGenders"
+                          type="checkbox"
+                          onChange={() =>
+                            toggleHardSelection("partnerGenders", g)
+                          }
+                        />
+                        <span>{g}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>希望对方的国籍</legend>
+                <p className="app-muted">
+                  默认不限；只有选择具体国籍时才会作为硬性条件。
+                </p>
+                <div className="chip-grid">
+                  <label
+                    className={
+                      hardMatchForm.partnerNationalities.length === 0
+                        ? "chip active"
+                        : "chip"
+                    }
+                  >
+                    <input
+                      checked={hardMatchForm.partnerNationalities.length === 0}
+                      id={buildDashboardFieldId("partner-nationalities-any")}
+                      name="partnerNationalities"
+                      type="checkbox"
+                      onChange={() =>
+                        setHardMatchForm((f) => ({
+                          ...f,
+                          partnerNationalities: [],
+                        }))
+                      }
+                    />
+                    <span>不限</span>
+                  </label>
+                  {HARD_MATCH_NATIONALITIES.map((nationality, i) => {
+                    const active =
+                      hardMatchForm.partnerNationalities.includes(nationality);
+                    return (
+                      <label
+                        key={nationality}
+                        className={active ? "chip active" : "chip"}
+                      >
+                        <input
+                          checked={active}
+                          id={buildDashboardFieldId("partner-nationalities", i)}
+                          name="partnerNationalities"
+                          type="checkbox"
+                          onChange={() =>
+                            toggleHardSelection(
+                              "partnerNationalities",
+                              nationality,
+                            )
+                          }
+                        />
+                        <span>{nationality}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>希望对方的语言</legend>
+                <p className="app-muted">
+                  默认不限；选择具体语言时，对方会任意命中其中一种即可。
+                </p>
+                <div className="chip-grid">
+                  <label
+                    className={
+                      hardMatchForm.partnerLanguages.length === 0
+                        ? "chip active"
+                        : "chip"
+                    }
+                  >
+                    <input
+                      checked={hardMatchForm.partnerLanguages.length === 0}
+                      id={buildDashboardFieldId("partner-languages-any")}
+                      name="partnerLanguages"
+                      type="checkbox"
+                      onChange={() =>
+                        setHardMatchForm((f) => ({
+                          ...f,
+                          partnerLanguages: [],
+                        }))
+                      }
+                    />
+                    <span>不限</span>
+                  </label>
+                  {HARD_MATCH_LANGUAGES.map((language, i) => {
+                    const active =
+                      hardMatchForm.partnerLanguages.includes(language);
+                    return (
+                      <label
+                        key={language}
+                        className={active ? "chip active" : "chip"}
+                      >
+                        <input
+                          checked={active}
+                          id={buildDashboardFieldId("partner-languages", i)}
+                          name="partnerLanguages"
+                          type="checkbox"
+                          onChange={() =>
+                            toggleHardSelection("partnerLanguages", language)
+                          }
+                        />
+                        <span>{language}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>希望对方的颜值（可多选）</legend>
+                <div className="chip-grid">
+                  {HARD_MATCH_LOOKS.map((l, i) => {
+                    const active = hardMatchForm.partnerLooks.includes(l);
+                    return (
+                      <label
+                        key={l}
+                        className={active ? "chip active" : "chip"}
+                      >
+                        <input
+                          checked={active}
+                          id={buildDashboardFieldId("partner-looks", i)}
+                          name="partnerLooks"
+                          type="checkbox"
+                          onChange={() =>
+                            toggleHardSelection("partnerLooks", l)
+                          }
+                        />
+                        <span>{l}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>希望对方的身高范围（厘米）</legend>
+                <div className="form-grid">
+                  <label>
+                    <span>身高下限</span>
+                    <ValuePicker
+                      id={buildDashboardFieldId("partner-height-min")}
+                      name="partnerHeightMin"
+                      value={hardMatchForm.partnerHeightMin}
+                      options={HEIGHT_VALUE_OPTIONS}
+                      suffix="cm"
+                      placeholder="请选择"
+                      sheetTitle="希望对方身高下限"
+                      onChange={(next) =>
+                        setHardMatchForm((f) => ({
+                          ...f,
+                          partnerHeightMin: next,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>身高上限</span>
+                    <ValuePicker
+                      id={buildDashboardFieldId("partner-height-max")}
+                      name="partnerHeightMax"
+                      value={hardMatchForm.partnerHeightMax}
+                      options={HEIGHT_VALUE_OPTIONS}
+                      suffix="cm"
+                      placeholder="请选择"
+                      sheetTitle="希望对方身高上限"
+                      onChange={(next) =>
+                        setHardMatchForm((f) => ({
+                          ...f,
+                          partnerHeightMax: next,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>希望对方的体重范围（公斤）</legend>
+                <div className="form-grid">
+                  <label>
+                    <span>体重下限</span>
+                    <ValuePicker
+                      id={buildDashboardFieldId("partner-weight-min")}
+                      name="partnerWeightMin"
+                      value={hardMatchForm.partnerWeightMin}
+                      options={PARTNER_WEIGHT_VALUE_OPTIONS}
+                      placeholder="不限"
+                      sheetTitle="希望对方体重下限"
+                      onChange={(next) =>
+                        setHardMatchForm((f) => ({
+                          ...f,
+                          partnerWeightMin: next,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>体重上限</span>
+                    <ValuePicker
+                      id={buildDashboardFieldId("partner-weight-max")}
+                      name="partnerWeightMax"
+                      value={hardMatchForm.partnerWeightMax}
+                      options={PARTNER_WEIGHT_VALUE_OPTIONS}
+                      placeholder="不限"
+                      sheetTitle="希望对方体重上限"
+                      onChange={(next) =>
+                        setHardMatchForm((f) => ({
+                          ...f,
+                          partnerWeightMax: next,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset className="question-block">
+                <legend>按学校排除（可选）</legend>
+                <p className="app-muted">
+                  在每所学校上，勾选你不希望匹配的性别。三项全选即整校排除。
+                </p>
+                <div className="school-exclusion-list">
+                  {schoolOptions.map((school, i) => {
+                    const activeGenders = activeExcludedGendersFor(
+                      hardMatchForm,
+                      school.id,
+                    );
+                    const isFullyExcluded =
+                      activeGenders.length === HARD_MATCH_GENDERS.length;
+                    const isPartiallyExcluded =
+                      !isFullyExcluded && activeGenders.length > 0;
+                    const rowClass = isFullyExcluded
+                      ? "school-exclusion-row is-fully-excluded"
+                      : isPartiallyExcluded
+                        ? "school-exclusion-row is-partially-excluded"
+                        : "school-exclusion-row";
+                    return (
+                      <section key={school.id} className={rowClass}>
+                        <div className="school-exclusion-name">
+                          <span
+                            className="school-exclusion-name-text"
+                            title={school.name}
+                          >
+                            {school.name}
+                          </span>
+                          {isFullyExcluded ? (
+                            <span className="school-exclusion-status is-strong">
+                              整校排除
+                            </span>
+                          ) : isPartiallyExcluded ? (
+                            <span className="school-exclusion-status">
+                              已排除：{activeGenders.join("、")}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div
+                          className="school-exclusion-genders"
+                          role="group"
+                          aria-label={`${school.name} 排除性别`}
+                        >
+                          {HARD_MATCH_GENDERS.map((gender, genderIndex) => {
+                            const active = activeGenders.includes(gender);
+                            return (
+                              <label
+                                key={gender}
+                                className={
+                                  active
+                                    ? "school-exclusion-gender is-active"
+                                    : "school-exclusion-gender"
+                                }
+                              >
+                                <input
+                                  checked={active}
+                                  id={buildDashboardFieldId(
+                                    "excluded-partner-school-gender",
+                                    i,
+                                    genderIndex,
+                                  )}
+                                  name={`excludedPartnerSchoolGender-${school.id}`}
+                                  type="checkbox"
+                                  onChange={() =>
+                                    toggleExcludedPartnerSchoolGender(
+                                      school.id,
+                                      gender,
+                                    )
+                                  }
+                                />
+                                <span>{gender}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            </div>
+          </div>
         )}
 
         {/* ── 价值观问卷 ── */}
@@ -1053,10 +1270,7 @@ export function ProfileClient({
               {questions.map((question, questionIndex) => {
                 const value = answers[question.key];
                 const questionTitle = (
-                  <div
-                    aria-hidden="true"
-                    className="question-block-title"
-                  >
+                  <div aria-hidden="true" className="question-block-title">
                     <span className="app-q-num">{questionIndex + 1}</span>
                     <span>{question.prompt}</span>
                   </div>
@@ -1066,13 +1280,9 @@ export function ProfileClient({
                   const selected = Array.isArray(value) ? value : [];
                   const selectionLimit = question.selectionLimit ?? null;
                   const reachedSelectionLimit =
-                    selectionLimit != null &&
-                    selected.length >= selectionLimit;
+                    selectionLimit != null && selected.length >= selectionLimit;
                   return (
-                    <fieldset
-                      key={question.id}
-                      className="question-block"
-                    >
+                    <fieldset key={question.id} className="question-block">
                       <legend className="question-block-legend">
                         {question.prompt}
                       </legend>
@@ -1092,9 +1302,7 @@ export function ProfileClient({
                             >
                               <input
                                 checked={active}
-                                disabled={
-                                  !active && reachedSelectionLimit
-                                }
+                                disabled={!active && reachedSelectionLimit}
                                 id={buildDashboardFieldId(
                                   "question",
                                   question.id,
@@ -1127,10 +1335,7 @@ export function ProfileClient({
 
                                     return {
                                       ...current,
-                                      [question.key]: [
-                                        ...cur,
-                                        option.value,
-                                      ],
+                                      [question.key]: [...cur, option.value],
                                     };
                                   })
                                 }

@@ -723,7 +723,9 @@ export class AccountService {
     );
 
     for (const hardMatchKey of hardMatchQuestionKeys()) {
-      if (schoolAwareAnswers[hardMatchKey] != null) {
+      if (
+        Object.prototype.hasOwnProperty.call(schoolAwareAnswers, hardMatchKey)
+      ) {
         filteredAnswers[hardMatchKey] = schoolAwareAnswers[hardMatchKey];
       }
     }

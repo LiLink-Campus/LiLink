@@ -23,6 +23,7 @@ const HARD_MATCH_REQUIRED_FIELDS = [
   "birthMonth",
   "birthDay",
   "gender",
+  "nationality",
   "looks",
   "heightCm",
   "partnerAgeMin",
@@ -32,6 +33,7 @@ const HARD_MATCH_REQUIRED_FIELDS = [
 ] as const;
 
 const HARD_MATCH_REQUIRED_LIST_FIELDS = [
+  "languages",
   "partnerGenders",
   "partnerLooks",
 ] as const;
@@ -106,10 +108,7 @@ export function computeQuestionnaireProgress(args: {
     args.savedQuestionnaire,
     args.fallbackDisplayName,
   );
-  const hardRatio = hardMatchCompletion(
-    args.savedQuestionnaire,
-    args.schools,
-  );
+  const hardRatio = hardMatchCompletion(args.savedQuestionnaire, args.schools);
   const softRatio = softQuestionCompletion(
     args.questions,
     args.savedQuestionnaire,

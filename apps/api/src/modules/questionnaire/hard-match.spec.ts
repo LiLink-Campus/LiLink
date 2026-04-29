@@ -20,11 +20,18 @@ describe('hard-match helpers', () => {
     [HARD_MATCH_KEYS.partnerAgeMax]: 30,
     [HARD_MATCH_KEYS.gender]: '男',
     [HARD_MATCH_KEYS.partnerGenders]: [...HARD_MATCH_GENDERS],
+    [HARD_MATCH_KEYS.nationality]: '中国',
+    [HARD_MATCH_KEYS.partnerNationalities]: [],
+    [HARD_MATCH_KEYS.languages]: ['中文'],
+    [HARD_MATCH_KEYS.partnerLanguages]: [],
     [HARD_MATCH_KEYS.looks]: '普通人',
     [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
     [HARD_MATCH_KEYS.heightCm]: 175,
     [HARD_MATCH_KEYS.partnerHeightMin]: 150,
     [HARD_MATCH_KEYS.partnerHeightMax]: 190,
+    [HARD_MATCH_KEYS.weightKg]: null,
+    [HARD_MATCH_KEYS.partnerWeightMin]: null,
+    [HARD_MATCH_KEYS.partnerWeightMax]: null,
     [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
     [HARD_MATCH_KEYS.school]: 'school-bupt',
     [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
@@ -38,15 +45,44 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.partnerAgeMax]: 30,
       [HARD_MATCH_KEYS.gender]: '男',
       [HARD_MATCH_KEYS.partnerGenders]: ['男', '女', '非二元'],
+      [HARD_MATCH_KEYS.nationality]: '中国',
+      [HARD_MATCH_KEYS.partnerNationalities]: [],
+      [HARD_MATCH_KEYS.languages]: ['中文'],
+      [HARD_MATCH_KEYS.partnerLanguages]: [],
       [HARD_MATCH_KEYS.looks]: '普通人',
       [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美', '顶帅/美'],
       [HARD_MATCH_KEYS.heightCm]: 175,
       [HARD_MATCH_KEYS.partnerHeightMin]: 150,
       [HARD_MATCH_KEYS.partnerHeightMax]: 190,
+      [HARD_MATCH_KEYS.weightKg]: null,
+      [HARD_MATCH_KEYS.partnerWeightMin]: null,
+      [HARD_MATCH_KEYS.partnerWeightMax]: null,
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步，期待认真相处。',
       [HARD_MATCH_KEYS.school]: 'school-bupt',
       [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+    });
+  });
+
+  it('defaults missing nationality, language, and weight values for legacy hard-match answers', () => {
+    const legacyAnswers: Record<string, unknown> = { ...validAnswers };
+    delete legacyAnswers[HARD_MATCH_KEYS.nationality];
+    delete legacyAnswers[HARD_MATCH_KEYS.partnerNationalities];
+    delete legacyAnswers[HARD_MATCH_KEYS.languages];
+    delete legacyAnswers[HARD_MATCH_KEYS.partnerLanguages];
+    delete legacyAnswers[HARD_MATCH_KEYS.weightKg];
+    delete legacyAnswers[HARD_MATCH_KEYS.partnerWeightMin];
+    delete legacyAnswers[HARD_MATCH_KEYS.partnerWeightMax];
+
+    expect(normalizeHardMatchAnswers(legacyAnswers, allowedSchoolIds)).toEqual({
+      ...normalizeHardMatchAnswers(validAnswers, allowedSchoolIds),
+      [HARD_MATCH_KEYS.nationality]: '中国',
+      [HARD_MATCH_KEYS.partnerNationalities]: [],
+      [HARD_MATCH_KEYS.languages]: ['中文'],
+      [HARD_MATCH_KEYS.partnerLanguages]: [],
+      [HARD_MATCH_KEYS.weightKg]: null,
+      [HARD_MATCH_KEYS.partnerWeightMin]: null,
+      [HARD_MATCH_KEYS.partnerWeightMax]: null,
     });
   });
 
@@ -144,6 +180,72 @@ describe('hard-match helpers', () => {
       areHardMatchAnswersCompatible(
         left,
         tooTallRight,
+        new Date('2026-05-20T00:00:00.000Z'),
+      ),
+    ).toBe(false);
+  });
+
+  it('applies nationality, language, and nullable weight filters', () => {
+    const left = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.nationality]: '中国',
+      [HARD_MATCH_KEYS.partnerNationalities]: ['法国'],
+      [HARD_MATCH_KEYS.languages]: ['中文', '英语'],
+      [HARD_MATCH_KEYS.partnerLanguages]: ['法语'],
+      [HARD_MATCH_KEYS.weightKg]: null,
+      [HARD_MATCH_KEYS.partnerWeightMin]: 50,
+      [HARD_MATCH_KEYS.partnerWeightMax]: 80,
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+    })!;
+    const rightAnswers = {
+      ...validAnswers,
+      [HARD_MATCH_KEYS.gender]: '女',
+      [HARD_MATCH_KEYS.partnerGenders]: ['男'],
+      [HARD_MATCH_KEYS.nationality]: '法国',
+      [HARD_MATCH_KEYS.partnerNationalities]: ['中国'],
+      [HARD_MATCH_KEYS.languages]: ['法语', '英语'],
+      [HARD_MATCH_KEYS.partnerLanguages]: ['中文'],
+      [HARD_MATCH_KEYS.weightKg]: 65,
+      [HARD_MATCH_KEYS.partnerWeightMin]: 60,
+      [HARD_MATCH_KEYS.partnerWeightMax]: 70,
+      [HARD_MATCH_KEYS.heightCm]: 165,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 160,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 180,
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+    } as const;
+    const right = tryReadHardMatchAnswers(rightAnswers)!;
+
+    expect(
+      areHardMatchAnswersCompatible(
+        left,
+        right,
+        new Date('2026-05-20T00:00:00.000Z'),
+      ),
+    ).toBe(true);
+
+    const languageMismatch = tryReadHardMatchAnswers({
+      ...rightAnswers,
+      [HARD_MATCH_KEYS.languages]: ['德语'],
+    })!;
+
+    expect(
+      areHardMatchAnswersCompatible(
+        left,
+        languageMismatch,
+        new Date('2026-05-20T00:00:00.000Z'),
+      ),
+    ).toBe(false);
+
+    const weightMismatch = tryReadHardMatchAnswers({
+      ...rightAnswers,
+      [HARD_MATCH_KEYS.weightKg]: 95,
+    })!;
+
+    expect(
+      areHardMatchAnswersCompatible(
+        left,
+        weightMismatch,
         new Date('2026-05-20T00:00:00.000Z'),
       ),
     ).toBe(false);
