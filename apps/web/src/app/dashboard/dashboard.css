@@ -1706,7 +1706,7 @@
 .multi-choice-dialog-options {
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.2rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(7.45rem, 1fr));
   gap: 0.45rem;
   padding: 0 1rem 1rem;
   overflow-y: auto;
@@ -1725,7 +1725,7 @@
   border-radius: var(--radius-pill);
   background: var(--bg-tinted);
   color: var(--fg);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   line-height: 1.2;
   cursor: pointer;
 }
@@ -1740,7 +1740,9 @@
 
 .multi-choice-dialog-option span {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .multi-choice-dialog-option:hover,
