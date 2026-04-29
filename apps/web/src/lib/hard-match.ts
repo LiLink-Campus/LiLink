@@ -1,18 +1,26 @@
 import {
   AGE_OPTIONS,
   BIRTH_YEAR_OPTIONS,
+  HARD_MATCH_DEFAULT_LANGUAGE,
+  HARD_MATCH_DEFAULT_NATIONALITY,
   HARD_MATCH_FORM_HEIGHT_MAX_CM,
   HARD_MATCH_GENDERS,
   HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_KEYS,
+  HARD_MATCH_LANGUAGES,
   HARD_MATCH_LOOKS,
+  HARD_MATCH_NATIONALITIES,
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
+  HARD_MATCH_WEIGHT_MAX_KG,
+  HARD_MATCH_WEIGHT_MIN_KG,
   HEIGHT_OPTIONS,
   MONTH_OPTIONS,
+  WEIGHT_OPTIONS,
   buildDayOptions,
   normalizeExcludedPartnerPreferences,
   normalizeOneLinerIntro,
   readHeightValue,
+  readIntegerInRange,
   readSingleChoice,
   readStringArray,
   splitBirthDate,
@@ -24,10 +32,15 @@ export {
   BIRTH_YEAR_OPTIONS,
   HARD_MATCH_GENDERS,
   HARD_MATCH_KEYS,
+  HARD_MATCH_LANGUAGES,
   HARD_MATCH_LOOKS,
+  HARD_MATCH_NATIONALITIES,
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
+  HARD_MATCH_WEIGHT_MAX_KG,
+  HARD_MATCH_WEIGHT_MIN_KG,
   HEIGHT_OPTIONS,
   MONTH_OPTIONS,
+  WEIGHT_OPTIONS,
   buildDayOptions,
 };
 
@@ -46,11 +59,18 @@ export type HardMatchFormState = {
   partnerAgeMax: string;
   gender: string;
   partnerGenders: string[];
+  nationality: string;
+  partnerNationalities: string[];
+  languages: string[];
+  partnerLanguages: string[];
   looks: string;
   partnerLooks: string[];
   heightCm: string;
   partnerHeightMin: string;
   partnerHeightMax: string;
+  weightKg: string;
+  partnerWeightMin: string;
+  partnerWeightMax: string;
   oneLinerIntro: string;
   excludedPartnerSchools: string[];
   excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
@@ -65,15 +85,57 @@ export function createEmptyHardMatchForm(): HardMatchFormState {
     partnerAgeMax: "100",
     gender: "",
     partnerGenders: [],
+    nationality: HARD_MATCH_DEFAULT_NATIONALITY,
+    partnerNationalities: [],
+    languages: [HARD_MATCH_DEFAULT_LANGUAGE],
+    partnerLanguages: [],
     looks: "",
     partnerLooks: [],
     heightCm: "",
     partnerHeightMin: String(HARD_MATCH_HEIGHT_MIN_CM),
     partnerHeightMax: String(HARD_MATCH_FORM_HEIGHT_MAX_CM),
+    weightKg: "",
+    partnerWeightMin: "",
+    partnerWeightMax: "",
     oneLinerIntro: "",
     excludedPartnerSchools: [],
     excludedPartnerSchoolGenders: [],
   };
+}
+
+function readWeightValue(value: unknown) {
+  const normalizedValue = readIntegerInRange(
+    value,
+    HARD_MATCH_WEIGHT_MIN_KG,
+    HARD_MATCH_WEIGHT_MAX_KG,
+  );
+
+  return normalizedValue == null ? "" : String(normalizedValue);
+}
+
+function readStringArrayWithDefault<T extends string>(
+  value: unknown,
+  allowedValues: readonly T[],
+  defaultValues: readonly T[],
+) {
+  const normalizedValues = readStringArray(value, allowedValues);
+  return normalizedValues.length > 0 ? normalizedValues : [...defaultValues];
+}
+
+function optionalNumberFromText(value: string): number | null {
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return null;
+  }
+
+  return /^\d+$/.test(trimmedValue) ? Number(trimmedValue) : Number.NaN;
+}
+
+function weightValueIsOutOfRange(value: number | null) {
+  return (
+    value != null &&
+    (value < HARD_MATCH_WEIGHT_MIN_KG || value > HARD_MATCH_WEIGHT_MAX_KG)
+  );
 }
 
 export function hardMatchFormFromAnswers(
@@ -105,18 +167,38 @@ export function hardMatchFormFromAnswers(
         ? savedAnswers[HARD_MATCH_KEYS.partnerAgeMax]
         : 100,
     ),
-    gender: readSingleChoice(
-      savedAnswers?.[HARD_MATCH_KEYS.gender],
-      HARD_MATCH_GENDERS,
-    ) ?? "",
+    gender:
+      readSingleChoice(
+        savedAnswers?.[HARD_MATCH_KEYS.gender],
+        HARD_MATCH_GENDERS,
+      ) ?? "",
     partnerGenders: readStringArray(
       savedAnswers?.[HARD_MATCH_KEYS.partnerGenders],
       HARD_MATCH_GENDERS,
     ),
-    looks: readSingleChoice(
-      savedAnswers?.[HARD_MATCH_KEYS.looks],
-      HARD_MATCH_LOOKS,
-    ) ?? "",
+    nationality:
+      readSingleChoice(
+        savedAnswers?.[HARD_MATCH_KEYS.nationality],
+        HARD_MATCH_NATIONALITIES,
+      ) ?? HARD_MATCH_DEFAULT_NATIONALITY,
+    partnerNationalities: readStringArray(
+      savedAnswers?.[HARD_MATCH_KEYS.partnerNationalities],
+      HARD_MATCH_NATIONALITIES,
+    ),
+    languages: readStringArrayWithDefault(
+      savedAnswers?.[HARD_MATCH_KEYS.languages],
+      HARD_MATCH_LANGUAGES,
+      [HARD_MATCH_DEFAULT_LANGUAGE],
+    ),
+    partnerLanguages: readStringArray(
+      savedAnswers?.[HARD_MATCH_KEYS.partnerLanguages],
+      HARD_MATCH_LANGUAGES,
+    ),
+    looks:
+      readSingleChoice(
+        savedAnswers?.[HARD_MATCH_KEYS.looks],
+        HARD_MATCH_LOOKS,
+      ) ?? "",
     partnerLooks: readStringArray(
       savedAnswers?.[HARD_MATCH_KEYS.partnerLooks],
       HARD_MATCH_LOOKS,
@@ -129,6 +211,13 @@ export function hardMatchFormFromAnswers(
     partnerHeightMax: readHeightValue(
       savedAnswers?.[HARD_MATCH_KEYS.partnerHeightMax],
       String(HARD_MATCH_FORM_HEIGHT_MAX_CM),
+    ),
+    weightKg: readWeightValue(savedAnswers?.[HARD_MATCH_KEYS.weightKg]),
+    partnerWeightMin: readWeightValue(
+      savedAnswers?.[HARD_MATCH_KEYS.partnerWeightMin],
+    ),
+    partnerWeightMax: readWeightValue(
+      savedAnswers?.[HARD_MATCH_KEYS.partnerWeightMax],
     ),
     oneLinerIntro: normalizeOneLinerIntro(
       savedAnswers?.[HARD_MATCH_KEYS.oneLinerIntro],
@@ -161,7 +250,9 @@ export function setSchoolGenderExclusion(
   genders: string[],
 ): HardMatchSchoolGenderExclusion[] {
   const normalizedGenders = readStringArray(genders, HARD_MATCH_GENDERS);
-  const nextExclusions = exclusions.filter((entry) => entry.schoolId !== schoolId);
+  const nextExclusions = exclusions.filter(
+    (entry) => entry.schoolId !== schoolId,
+  );
 
   if (normalizedGenders.length === 0) {
     return nextExclusions;
@@ -183,6 +274,7 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     !formState.birthYear ||
     !formState.birthMonth ||
     !formState.birthDay ||
+    !formState.nationality ||
     !formState.gender ||
     !formState.looks ||
     !formState.heightCm
@@ -192,9 +284,10 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
 
   if (
     formState.partnerGenders.length === 0 ||
-    formState.partnerLooks.length === 0
+    formState.partnerLooks.length === 0 ||
+    formState.languages.length === 0
   ) {
-    throw new Error("希望对方的条件为多选题，至少要选一项。");
+    throw new Error("多选题至少要选一项。");
   }
 
   const oneLinerIntro = normalizeOneLinerIntro(formState.oneLinerIntro);
@@ -223,6 +316,34 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     throw new Error("希望对方身高下限不能大于上限。");
   }
 
+  const weightKg = optionalNumberFromText(formState.weightKg);
+  const partnerWeightMin = optionalNumberFromText(formState.partnerWeightMin);
+  const partnerWeightMax = optionalNumberFromText(formState.partnerWeightMax);
+
+  if (
+    Number.isNaN(weightKg) ||
+    weightValueIsOutOfRange(weightKg)
+  ) {
+    throw new Error("体重需要在 30-300 kg 之间。");
+  }
+
+  if (
+    Number.isNaN(partnerWeightMin) ||
+    Number.isNaN(partnerWeightMax) ||
+    weightValueIsOutOfRange(partnerWeightMin) ||
+    weightValueIsOutOfRange(partnerWeightMax)
+  ) {
+    throw new Error("希望对方体重需要在 30-300 kg 之间。");
+  }
+
+  if (
+    partnerWeightMin != null &&
+    partnerWeightMax != null &&
+    partnerWeightMin > partnerWeightMax
+  ) {
+    throw new Error("希望对方体重下限不能大于上限。");
+  }
+
   const excludedPartnerPreferences = normalizeExcludedPartnerPreferences({
     excludedPartnerSchools: formState.excludedPartnerSchools,
     excludedPartnerSchoolGenders: formState.excludedPartnerSchoolGenders,
@@ -235,11 +356,18 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     [HARD_MATCH_KEYS.partnerAgeMax]: partnerAgeMax,
     [HARD_MATCH_KEYS.gender]: formState.gender,
     [HARD_MATCH_KEYS.partnerGenders]: formState.partnerGenders,
+    [HARD_MATCH_KEYS.nationality]: formState.nationality,
+    [HARD_MATCH_KEYS.partnerNationalities]: formState.partnerNationalities,
+    [HARD_MATCH_KEYS.languages]: formState.languages,
+    [HARD_MATCH_KEYS.partnerLanguages]: formState.partnerLanguages,
     [HARD_MATCH_KEYS.looks]: formState.looks,
     [HARD_MATCH_KEYS.partnerLooks]: formState.partnerLooks,
     [HARD_MATCH_KEYS.heightCm]: heightCm,
     [HARD_MATCH_KEYS.partnerHeightMin]: partnerHeightMin,
     [HARD_MATCH_KEYS.partnerHeightMax]: partnerHeightMax,
+    [HARD_MATCH_KEYS.weightKg]: weightKg,
+    [HARD_MATCH_KEYS.partnerWeightMin]: partnerWeightMin,
+    [HARD_MATCH_KEYS.partnerWeightMax]: partnerWeightMax,
     [HARD_MATCH_KEYS.oneLinerIntro]: oneLinerIntro,
     [HARD_MATCH_KEYS.excludedPartnerSchools]:
       excludedPartnerPreferences.excludedPartnerSchools,

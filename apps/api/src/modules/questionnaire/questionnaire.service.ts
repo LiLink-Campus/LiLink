@@ -30,6 +30,8 @@ type QuestionnaireSchoolOption = {
   name: string;
 };
 
+type QuestionnaireAnswerValue = Prisma.InputJsonValue | null;
+
 type CurrentQuestionnairePayload = {
   id: string;
   title: string;
@@ -165,7 +167,7 @@ export class QuestionnaireService {
       }
     }
 
-    const normalizedAnswers: Record<string, Prisma.InputJsonValue> = {
+    const normalizedAnswers: Record<string, QuestionnaireAnswerValue> = {
       ...normalizeHardMatchAnswers(rawAnswers, allowedSchoolIds),
     };
 

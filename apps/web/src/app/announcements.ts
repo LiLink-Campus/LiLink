@@ -11,6 +11,13 @@ export interface Announcement {
  */
 export const announcements: Announcement[] = [
   {
+    id: "2026-04-29-nationality-language-weight-matching",
+    title: "新增国籍、语言和体重匹配项",
+    content:
+      "基本信息新增国籍、语言、体重，并在「我」和「希望 TA」两侧继续按双向硬性条件匹配。希望对方国籍、语言可多选或留空不限；体重未填写时按不限处理，范围支持 30-300 kg。",
+    date: "2026-04-29",
+  },
+  {
     id: "2026-04-22-eligible-schools-and-concurrency-perf",
     title: "新增「支持的学校」总览，并发性能优化",
     content:
