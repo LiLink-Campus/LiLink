@@ -2,9 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { resolveApiOriginForPreconnect } from "../lib/public-server-api";
+import { getRequestLocale } from "../lib/locale";
 import { AuthSessionProvider } from "./auth-session";
 import { AnnouncementDialog } from "./announcement-dialog";
 import { PublicChrome } from "./public-chrome";
+import { LocaleProvider } from "./locale-context";
 import "./globals.css";
 
 const apiPreconnectOrigin = resolveApiOriginForPreconnect();
@@ -22,14 +24,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getRequestLocale();
+
   return (
     <html
-      lang="zh-CN"
+      lang={locale}
       data-scroll-behavior="smooth"
     >
       <head>
@@ -42,9 +46,11 @@ export default function RootLayout({
         ) : null}
       </head>
       <body>
-        <AuthSessionProvider>
-          <PublicChrome>{children}</PublicChrome>
-        </AuthSessionProvider>
+        <LocaleProvider initialLocale={locale}>
+          <AuthSessionProvider>
+            <PublicChrome>{children}</PublicChrome>
+          </AuthSessionProvider>
+        </LocaleProvider>
         <AnnouncementDialog />
         <Analytics />
         <SpeedInsights />

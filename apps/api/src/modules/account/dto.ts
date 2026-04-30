@@ -13,7 +13,12 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { WEEKLY_INTENTS, type WeeklyIntent } from '@lilink/shared';
+import {
+  SUPPORTED_LOCALES,
+  WEEKLY_INTENTS,
+  type SupportedLocale,
+  type WeeklyIntent,
+} from '@lilink/shared';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -113,6 +118,11 @@ export class ToggleParticipationDto {
   @ValidateIf((dto: ToggleParticipationDto) => dto.optIn === true)
   @IsIn(WEEKLY_INTENTS as unknown as string[])
   intent?: WeeklyIntent;
+}
+
+export class UpdateLocaleDto {
+  @IsIn(SUPPORTED_LOCALES as unknown as string[])
+  locale!: SupportedLocale;
 }
 
 export class ReportMatchDto {

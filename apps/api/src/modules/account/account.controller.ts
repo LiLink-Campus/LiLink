@@ -17,6 +17,7 @@ import {
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
+  UpdateLocaleDto,
   UpdateProfileDto,
 } from './dto';
 
@@ -37,14 +38,13 @@ export class AccountController {
 
   @Get('bootstrap')
   async getDashboardBootstrap(@Req() request: AuthenticatedRequest) {
-    const dashboard = await this.accountService.getDashboard(request.user!.sub);
+    const [dashboard, user] = await Promise.all([
+      this.accountService.getDashboard(request.user!.sub),
+      this.accountService.getUserSummary(request.user!.sub),
+    ]);
 
     return {
-      user: {
-        id: request.user!.sub,
-        email: request.user!.email,
-        displayName: request.user!.displayName,
-      },
+      user,
       dashboard,
     };
   }
@@ -60,6 +60,14 @@ export class AccountController {
     @Body() body: UpdateProfileDto,
   ) {
     return this.accountService.updateProfile(request.user!.sub, body);
+  }
+
+  @Put('locale')
+  updateLocale(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: UpdateLocaleDto,
+  ) {
+    return this.accountService.updateLocale(request.user!.sub, body);
   }
 
   @Get('questionnaire')

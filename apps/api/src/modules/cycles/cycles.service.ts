@@ -10,6 +10,7 @@ import { Prisma, QuestionType } from '@prisma/client';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
+import { env } from '../../config/env';
 import {
   HARD_MATCH_KEYS,
   HardMatchAnswers,
@@ -334,6 +335,10 @@ export class CyclesService {
       dashboardSnapshotService ?? defaultDashboardSnapshotPort;
   }
 
+  private narrativeGenerationEnabled() {
+    return env.MATCH_NARRATIVE_GENERATION_ENABLED;
+  }
+
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
     if (!options.cycleId) {
       return this.runAutomationTick();
@@ -634,6 +639,7 @@ export class CyclesService {
       }
 
       const unmatchedCount = participants.length - selectedPairs.length * 2;
+      const narrativeGenerationEnabled = this.narrativeGenerationEnabled();
 
       const createdMatchIds = await this.prisma.$transaction(async (tx) => {
         const activeClaim = await tx.matchCycle.updateMany({
@@ -660,8 +666,10 @@ export class CyclesService {
               score: pair.score,
               reasons: pair.reasons,
               reason: null,
-              conversationTopics: Prisma.DbNull,
-              narrativeSource: null,
+              conversationTopics: narrativeGenerationEnabled
+                ? Prisma.DbNull
+                : [],
+              narrativeSource: narrativeGenerationEnabled ? null : 'DISABLED',
               revealedAt: null,
               participants: {
                 create: [
@@ -727,6 +735,18 @@ export class CyclesService {
           unmatchedCount,
           message: preparationMessage,
         };
+      }
+
+      if (!narrativeGenerationEnabled) {
+        return this.finalizePreparedCycle({
+          cycleId: cycle.id,
+          claimUpdatedAt,
+          adminActorId: options.adminActorId,
+          force: options.force,
+          createdMatches: selectedPairs.length,
+          unmatchedCount,
+          message: preparationMessage,
+        });
       }
 
       const resolvedNarratives = await this.generateNarrativesForPairs(
@@ -864,6 +884,39 @@ export class CyclesService {
       0,
       cycle.participations.length - totalMatchCount * 2,
     );
+
+    if (!this.narrativeGenerationEnabled() && pendingMatches.length === 0) {
+      if (totalMatchCount === 0) {
+        const recoveredPreparation = await this.recoverStaleEmptyPreparation(
+          cycle,
+          options,
+          unmatchedCount,
+        );
+
+        if (recoveredPreparation) {
+          return recoveredPreparation;
+        }
+
+        return {
+          ok: true,
+          cycleId: cycle.id,
+          state: 'PENDING',
+          createdMatches: 0,
+          unmatchedCount,
+          message: 'Cycle is still being prepared.',
+        };
+      }
+
+      return this.finalizePreparedCycle({
+        cycleId: cycle.id,
+        claimUpdatedAt: cycle.updatedAt,
+        adminActorId: options.adminActorId,
+        force: options.force,
+        createdMatches: totalMatchCount,
+        unmatchedCount,
+        message: 'Cycle is prepared and waiting for reveal.',
+      });
+    }
 
     if (pendingMatches.length === 0) {
       if (totalMatchCount === 0) {
@@ -1161,11 +1214,7 @@ export class CyclesService {
         await tx.match.updateMany({
           where: {
             id: entry.matchId,
-            OR: [
-              { reason: null },
-              { conversationTopics: { equals: Prisma.AnyNull } },
-              { narrativeSource: null },
-            ],
+            narrativeSource: null,
           },
           data: {
             reason: entry.narrative.reason,
@@ -2225,11 +2274,7 @@ export class CyclesService {
     return this.prisma.match.count({
       where: {
         cycleId,
-        OR: [
-          { reason: null },
-          { conversationTopics: { equals: Prisma.AnyNull } },
-          { narrativeSource: null },
-        ],
+        narrativeSource: null,
       },
     });
   }
@@ -2238,11 +2283,7 @@ export class CyclesService {
     return this.prisma.match.findMany({
       where: {
         cycleId,
-        OR: [
-          { reason: null },
-          { conversationTopics: { equals: Prisma.AnyNull } },
-          { narrativeSource: null },
-        ],
+        narrativeSource: null,
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
