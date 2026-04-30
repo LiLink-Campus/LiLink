@@ -2,6 +2,7 @@ import {
   getHardMatchFormSaveErrorMessage,
   type HardMatchFormState,
 } from "../../../lib/hard-match";
+import type { SupportedLocale } from "@lilink/shared";
 import type { Question } from "./types";
 
 export function keepCurrentQuestionAnswers(
@@ -79,13 +80,16 @@ export function getQuestionnaireIncompleteMessage(
   answers: Record<string, unknown>,
   hardMatchForm: HardMatchFormState,
   displayNameForNickname: string,
+  locale: SupportedLocale = "zh-CN",
 ) {
   const trimmedNickname = displayNameForNickname.trim();
   if (trimmedNickname.length < 2) {
-    return "昵称至少填写 2 个字。";
+    return locale === "zh-CN"
+      ? "昵称至少填写 2 个字。"
+      : "Display name must contain at least 2 characters.";
   }
 
-  const hardMessage = getHardMatchFormSaveErrorMessage(hardMatchForm);
+  const hardMessage = getHardMatchFormSaveErrorMessage(hardMatchForm, locale);
   if (hardMessage) {
     return hardMessage;
   }
@@ -99,8 +103,12 @@ export function getQuestionnaireIncompleteMessage(
   }
 
   if (incompleteSoft.length === 1) {
-    return `价值观问卷「${incompleteSoft[0].prompt}」尚未填写。`;
+    return locale === "zh-CN"
+      ? `价值观问卷「${incompleteSoft[0].prompt}」尚未填写。`
+      : `Question "${incompleteSoft[0].prompt}" is not answered yet.`;
   }
 
-  return `价值观问卷还有 ${incompleteSoft.length} 道必答题未完成。`;
+  return locale === "zh-CN"
+    ? `价值观问卷还有 ${incompleteSoft.length} 道必答题未完成。`
+    : `${incompleteSoft.length} required questionnaire questions are still incomplete.`;
 }

@@ -1,4 +1,5 @@
 import { SchoolResolverService } from './school-resolver.service';
+import { PUBLIC_SUPPORTED_SCHOOL_SLUGS } from '@lilink/shared';
 
 describe('SchoolResolverService', () => {
   it('queries candidate suffixes and picks the most specific domain match', async () => {
@@ -6,20 +7,20 @@ describe('SchoolResolverService', () => {
       schoolDomain: {
         findMany: jest.fn().mockResolvedValue([
           {
-            domain: 'school.edu',
+            domain: 'edu.cn',
             schoolId: 'school-1',
             school: {
-              name: 'School',
-              slug: 'school',
+              name: '中国传媒大学海南国际学院',
+              slug: 'cuc-hainan-international',
               description: 'General domain',
             },
           },
           {
-            domain: 'cs.school.edu',
+            domain: 'bupt.edu.cn',
             schoolId: 'school-2',
             school: {
-              name: 'CS School',
-              slug: 'cs-school',
+              name: '北京邮电大学玛丽女王海南学院',
+              slug: 'bupt-qmul-hainan',
               description: 'Specific domain',
             },
           },
@@ -29,19 +30,27 @@ describe('SchoolResolverService', () => {
     const service = new SchoolResolverService(prisma as never);
 
     await expect(
-      service.resolveByEmail('student@mail.cs.school.edu'),
+      service.resolveByEmail('student@mail.bupt.edu.cn'),
     ).resolves.toEqual({
       schoolId: 'school-2',
-      matchedDomain: 'cs.school.edu',
-      schoolName: 'CS School',
-      schoolSlug: 'cs-school',
-      schoolDescription: 'Specific domain',
+      matchedDomain: 'bupt.edu.cn',
+      schoolName: '北京邮电大学',
+      schoolSlug: 'bupt-qmul-hainan',
+      schoolDescription: '黎安试验区中外合作办学机构',
+      schoolNativeName: '北京邮电大学',
+      schoolEnglishName: 'Beijing University of Posts and Telecommunications',
+      schoolNativeBaseName: '北京邮电大学',
+      schoolEnglishBaseName:
+        'Beijing University of Posts and Telecommunications',
     });
 
     expect(prisma.schoolDomain.findMany).toHaveBeenCalledWith({
       where: {
         domain: {
-          in: ['mail.cs.school.edu', 'cs.school.edu', 'school.edu', 'edu'],
+          in: ['mail.bupt.edu.cn', 'bupt.edu.cn', 'edu.cn', 'cn'],
+        },
+        school: {
+          slug: { in: [...PUBLIC_SUPPORTED_SCHOOL_SLUGS] },
         },
       },
       include: {
@@ -58,8 +67,8 @@ describe('SchoolResolverService', () => {
             domain: 'school.edu',
             schoolId: 'school-1',
             school: {
-              name: 'School',
-              slug: 'school',
+              name: '中国传媒大学海南国际学院',
+              slug: 'cuc-hainan-international',
               description: 'General domain',
             },
           },
@@ -72,17 +81,25 @@ describe('SchoolResolverService', () => {
       {
         schoolId: 'school-1',
         matchedDomain: 'school.edu',
-        schoolName: 'School',
-        schoolSlug: 'school',
-        schoolDescription: 'General domain',
+        schoolName: '中国传媒大学',
+        schoolSlug: 'cuc-hainan-international',
+        schoolDescription: '黎安试验区合作高校',
+        schoolNativeName: '中国传媒大学',
+        schoolEnglishName: 'Communication University of China',
+        schoolNativeBaseName: '中国传媒大学',
+        schoolEnglishBaseName: 'Communication University of China',
       },
     );
     await expect(service.resolveByEmail('other@school.edu')).resolves.toEqual({
       schoolId: 'school-1',
       matchedDomain: 'school.edu',
-      schoolName: 'School',
-      schoolSlug: 'school',
-      schoolDescription: 'General domain',
+      schoolName: '中国传媒大学',
+      schoolSlug: 'cuc-hainan-international',
+      schoolDescription: '黎安试验区合作高校',
+      schoolNativeName: '中国传媒大学',
+      schoolEnglishName: 'Communication University of China',
+      schoolNativeBaseName: '中国传媒大学',
+      schoolEnglishBaseName: 'Communication University of China',
     });
 
     expect(prisma.schoolDomain.findMany).toHaveBeenCalledTimes(1);
@@ -96,8 +113,8 @@ describe('SchoolResolverService', () => {
           domain: 'school.edu',
           schoolId: 'school-1',
           school: {
-            name: 'School',
-            slug: 'school',
+            name: '中国传媒大学海南国际学院',
+            slug: 'cuc-hainan-international',
             description: 'General domain',
           },
         },
@@ -114,9 +131,13 @@ describe('SchoolResolverService', () => {
       {
         schoolId: 'school-1',
         matchedDomain: 'school.edu',
-        schoolName: 'School',
-        schoolSlug: 'school',
-        schoolDescription: 'General domain',
+        schoolName: '中国传媒大学',
+        schoolSlug: 'cuc-hainan-international',
+        schoolDescription: '黎安试验区合作高校',
+        schoolNativeName: '中国传媒大学',
+        schoolEnglishName: 'Communication University of China',
+        schoolNativeBaseName: '中国传媒大学',
+        schoolEnglishBaseName: 'Communication University of China',
       },
     );
 

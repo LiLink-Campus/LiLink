@@ -8,7 +8,7 @@ type ModeSelectCardProps = {
   tagline: string;
   /** Footer line — e.g. participant counts or waitlist hint. */
   footerLine?: ReactNode;
-  /** Status chip at top-right ("进行中" / "即将开放"). */
+  /** Status chip at top-right. */
   status?: { label: string; tone?: "active" | "upcoming" };
   /** Hand-drawn illustration shown on the left of the card. */
   illustration: ReactNode;
@@ -20,8 +20,8 @@ type ModeSelectCardProps = {
 
 /**
  * Storybook-style mode selection card used on the marketing home and on
- * the dashboard mode picker. Mirrors the "选择一种相遇方式" cards from
- * the LiLink reference design.
+ * the dashboard mode picker. Mirrors the mode cards from the LiLink
+ * reference design.
  */
 export function ModeSelectCard({
   title,
@@ -32,9 +32,10 @@ export function ModeSelectCard({
   cta,
   disabledCtaLabel,
 }: ModeSelectCardProps) {
-  const toneClass = status?.tone === "upcoming"
-    ? "mode-card-status is-upcoming"
-    : "mode-card-status";
+  const toneClass =
+    status?.tone === "upcoming"
+      ? "mode-card-status is-upcoming"
+      : "mode-card-status";
 
   return (
     <article

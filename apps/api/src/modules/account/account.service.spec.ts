@@ -1806,12 +1806,14 @@ describe('AccountService', () => {
       requester: {
         email: 'user-1@example.com',
         displayName: 'User 1',
+        preferredLocale: undefined,
         schoolName: 'School A',
         introLine: '喜欢读书和散步，也愿意认真沟通。',
       },
       recipient: {
         email: 'user-2@example.com',
         displayName: 'User 2',
+        preferredLocale: undefined,
         schoolName: 'School B',
         introLine: '平时爱看展，也很看重稳定陪伴。',
       },
@@ -1830,7 +1832,7 @@ describe('AccountService', () => {
     });
   });
 
-  it('falls back to legacy reasons and default topics when narrative fields are missing', async () => {
+  it('falls back to legacy reasons and leaves missing topics to the mail renderer', async () => {
     const queuedEmails = [
       {
         dedupeKey: 'match-introduction:match-1:requester',
@@ -1919,11 +1921,7 @@ describe('AccountService', () => {
     expect(mailService.buildIntroductionEmails).toHaveBeenCalledWith(
       expect.objectContaining({
         reason: '你们都重视稳定。 你们都偏好真诚沟通。',
-        conversationTopics: [
-          '最近一次让你觉得很放松的周末通常怎么过',
-          '你最近在慢慢坚持的一件事是什么',
-          '什么样的聊天节奏会让你觉得相处自然',
-        ],
+        conversationTopics: [],
       }),
     );
   });

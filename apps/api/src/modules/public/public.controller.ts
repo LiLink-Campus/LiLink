@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Headers } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { createPublicReadThrottle } from '../../common/http/public-read-throttle';
 import { PublicService } from './public.service';
@@ -9,13 +9,13 @@ export class PublicController {
 
   @Get('landing')
   @Throttle(createPublicReadThrottle())
-  getLanding() {
-    return this.publicService.getLandingPayload();
+  getLanding(@Headers('x-locale') locale?: string) {
+    return this.publicService.getLandingPayload(locale);
   }
 
   @Get('schools')
   @Throttle(createPublicReadThrottle())
-  getSchools() {
-    return this.publicService.getEligibleSchools();
+  getSchools(@Headers('x-locale') locale?: string) {
+    return this.publicService.getEligibleSchools(locale);
   }
 }

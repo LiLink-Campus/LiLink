@@ -1,4 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import {
+  DEFAULT_LOCALE,
+  PUBLIC_SUPPORTED_SCHOOL_SLUGS,
+  localizePublicSupportedSchool,
+  normalizeLocale,
+  publicSupportedSchoolSortIndex,
+  type SupportedLocale,
+} from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type LandingPayload = {
@@ -17,8 +25,13 @@ type LandingPayload = {
 };
 
 type EligibleSchool = {
+  slug: string;
   name: string;
-  description: string | null;
+  nativeName: string;
+  englishName: string;
+  baseName: string;
+  nativeBaseName: string;
+  englishBaseName: string;
   domains: string[];
 };
 
@@ -41,78 +54,95 @@ type CachedEligibleSchoolsPayload = {
 
 const LANDING_PAYLOAD_CACHE_TTL_MS = 30 * 1000;
 const ELIGIBLE_SCHOOLS_CACHE_TTL_MS = 30 * 1000;
+const LANDING_TAGLINE_BY_LOCALE: Record<SupportedLocale, string> = {
+  'zh-CN': '在黎安，遇见真正同频的人。',
+  'en-US': 'Meet someone genuinely compatible on LiLink.',
+};
 
 @Injectable()
 export class PublicService {
-  private cachedLandingPayload: CachedLandingPayload | null = null;
-  private landingPayloadInFlight: Promise<LandingPayload> | null = null;
-  private cachedEligibleSchools: CachedEligibleSchoolsPayload | null = null;
-  private eligibleSchoolsInFlight: Promise<EligibleSchoolsPayload> | null =
-    null;
+  private cachedLandingPayload: Partial<
+    Record<SupportedLocale, CachedLandingPayload>
+  > = {};
+  private landingPayloadInFlight: Partial<
+    Record<SupportedLocale, Promise<LandingPayload>>
+  > = {};
+  private cachedEligibleSchools: Partial<
+    Record<SupportedLocale, CachedEligibleSchoolsPayload>
+  > = {};
+  private eligibleSchoolsInFlight: Partial<
+    Record<SupportedLocale, Promise<EligibleSchoolsPayload>>
+  > = {};
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async getLandingPayload() {
-    const cachedPayload = this.readCachedLandingPayload();
+  async getLandingPayload(locale: unknown = DEFAULT_LOCALE) {
+    const normalizedLocale = normalizeLocale(locale);
+    const cachedPayload = this.readCachedLandingPayload(normalizedLocale);
     if (cachedPayload) {
       return cachedPayload;
     }
 
-    if (this.landingPayloadInFlight) {
-      return this.landingPayloadInFlight;
+    if (this.landingPayloadInFlight[normalizedLocale]) {
+      return this.landingPayloadInFlight[normalizedLocale];
     }
 
-    this.landingPayloadInFlight = this.loadLandingPayload().finally(() => {
-      this.landingPayloadInFlight = null;
+    const inFlight = this.loadLandingPayload(normalizedLocale).finally(() => {
+      delete this.landingPayloadInFlight[normalizedLocale];
     });
+    this.landingPayloadInFlight[normalizedLocale] = inFlight;
 
-    return this.landingPayloadInFlight;
+    return inFlight;
   }
 
-  async getEligibleSchools() {
-    const cachedPayload = this.readCachedEligibleSchools();
+  async getEligibleSchools(locale: unknown = DEFAULT_LOCALE) {
+    const normalizedLocale = normalizeLocale(locale);
+    const cachedPayload = this.readCachedEligibleSchools(normalizedLocale);
     if (cachedPayload) {
       return cachedPayload;
     }
 
-    if (this.eligibleSchoolsInFlight) {
-      return this.eligibleSchoolsInFlight;
+    if (this.eligibleSchoolsInFlight[normalizedLocale]) {
+      return this.eligibleSchoolsInFlight[normalizedLocale];
     }
 
-    this.eligibleSchoolsInFlight = this.loadEligibleSchools().finally(() => {
-      this.eligibleSchoolsInFlight = null;
+    const inFlight = this.loadEligibleSchools(normalizedLocale).finally(() => {
+      delete this.eligibleSchoolsInFlight[normalizedLocale];
     });
+    this.eligibleSchoolsInFlight[normalizedLocale] = inFlight;
 
-    return this.eligibleSchoolsInFlight;
+    return inFlight;
   }
 
-  private readCachedLandingPayload() {
-    if (!this.cachedLandingPayload) {
+  private readCachedLandingPayload(locale: SupportedLocale) {
+    const cachedPayload = this.cachedLandingPayload[locale];
+    if (!cachedPayload) {
       return null;
     }
 
-    if (this.cachedLandingPayload.expiresAt <= Date.now()) {
-      this.cachedLandingPayload = null;
+    if (cachedPayload.expiresAt <= Date.now()) {
+      delete this.cachedLandingPayload[locale];
       return null;
     }
 
-    return this.cachedLandingPayload.value;
+    return cachedPayload.value;
   }
 
-  private readCachedEligibleSchools() {
-    if (!this.cachedEligibleSchools) {
+  private readCachedEligibleSchools(locale: SupportedLocale) {
+    const cachedSchools = this.cachedEligibleSchools[locale];
+    if (!cachedSchools) {
       return null;
     }
 
-    if (this.cachedEligibleSchools.expiresAt <= Date.now()) {
-      this.cachedEligibleSchools = null;
+    if (cachedSchools.expiresAt <= Date.now()) {
+      delete this.cachedEligibleSchools[locale];
       return null;
     }
 
-    return this.cachedEligibleSchools.value;
+    return cachedSchools.value;
   }
 
-  private async loadLandingPayload() {
+  private async loadLandingPayload(locale: SupportedLocale) {
     const [userCount, completedProfiles, matchCount, currentCycle] =
       await Promise.all([
         this.prisma.user.count({ where: { status: 'ACTIVE' } }),
@@ -132,7 +162,7 @@ export class PublicService {
 
     const landingPayload = {
       brand: 'LiLink',
-      tagline: '在黎安，遇见真正同频的人。',
+      tagline: LANDING_TAGLINE_BY_LOCALE[locale],
       stats: {
         registeredUsers: userCount,
         completedQuestionnaires: completedProfiles,
@@ -147,7 +177,7 @@ export class PublicService {
         : null,
     } satisfies LandingPayload;
 
-    this.cachedLandingPayload = {
+    this.cachedLandingPayload[locale] = {
       expiresAt: Date.now() + LANDING_PAYLOAD_CACHE_TTL_MS,
       value: landingPayload,
     };
@@ -155,14 +185,14 @@ export class PublicService {
     return landingPayload;
   }
 
-  private async loadEligibleSchools() {
+  private async loadEligibleSchools(locale: SupportedLocale) {
     const schools = await this.prisma.school.findMany({
       where: {
+        slug: { in: [...PUBLIC_SUPPORTED_SCHOOL_SLUGS] },
         domains: { some: {} },
       },
       select: {
-        name: true,
-        description: true,
+        slug: true,
         domains: {
           select: { domain: true },
           orderBy: { domain: 'asc' },
@@ -171,11 +201,34 @@ export class PublicService {
       orderBy: { name: 'asc' },
     });
 
-    const eligibleSchools: EligibleSchool[] = schools.map((school) => ({
-      name: school.name,
-      description: school.description,
-      domains: school.domains.map((entry) => entry.domain),
-    }));
+    const eligibleSchools: EligibleSchool[] = schools
+      .flatMap((school): EligibleSchool[] => {
+        const localizedSchool = localizePublicSupportedSchool(
+          school.slug,
+          locale,
+        );
+        if (!localizedSchool) {
+          return [];
+        }
+
+        return [
+          {
+            slug: localizedSchool.slug,
+            name: localizedSchool.name,
+            nativeName: localizedSchool.nativeName,
+            englishName: localizedSchool.englishName,
+            baseName: localizedSchool.baseName,
+            nativeBaseName: localizedSchool.nativeBaseName,
+            englishBaseName: localizedSchool.englishBaseName,
+            domains: school.domains.map((entry) => entry.domain),
+          },
+        ];
+      })
+      .sort(
+        (left, right) =>
+          publicSupportedSchoolSortIndex(left.slug) -
+          publicSupportedSchoolSortIndex(right.slug),
+      );
 
     const totalDomainCount = eligibleSchools.reduce(
       (count, school) => count + school.domains.length,
@@ -189,7 +242,7 @@ export class PublicService {
       generatedAt: new Date(),
     };
 
-    this.cachedEligibleSchools = {
+    this.cachedEligibleSchools[locale] = {
       expiresAt: Date.now() + ELIGIBLE_SCHOOLS_CACHE_TTL_MS,
       value: payload,
     };

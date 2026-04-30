@@ -3,10 +3,12 @@
 import { useEffect } from "react";
 import {
   WEEKLY_INTENTS,
-  WEEKLY_INTENT_LABELS,
+  WEEKLY_INTENT_MATCHING_RULE_COPY,
   WEEKLY_INTENT_VISUALS,
+  weeklyIntentLabelsFor,
   type WeeklyIntent,
 } from "../../../lib/weekly-intent";
+import { useLocale } from "../../locale-context";
 
 type IntentSheetProps = {
   open: boolean;
@@ -28,6 +30,8 @@ export function IntentSheet({
   onChoose,
   onClose,
 }: IntentSheetProps) {
+  const { locale } = useLocale();
+
   useEffect(() => {
     if (!open) {
       return;
@@ -57,7 +61,7 @@ export function IntentSheet({
       <button
         type="button"
         className="intent-sheet-backdrop"
-        aria-label="关闭意图选择"
+        aria-label={locale === "zh-CN" ? "关闭意图选择" : "Close intent picker"}
         disabled={saving}
         onClick={onClose}
       />
@@ -68,14 +72,20 @@ export function IntentSheet({
         aria-labelledby="intent-sheet-title"
       >
         <div className="intent-sheet-handle" aria-hidden="true" />
-        <p className="eyebrow">本周匹配意图</p>
-        <h2 id="intent-sheet-title">选一个本周想找的方向</h2>
+        <p className="eyebrow">
+          {locale === "zh-CN" ? "本周匹配意图" : "Weekly match intent"}
+        </p>
+        <h2 id="intent-sheet-title">
+          {locale === "zh-CN"
+            ? "选一个本周想找的方向"
+            : "Choose what you are looking for this week"}
+        </h2>
         <p className="app-muted">
-          BOTH 与所有意图相容；FRIEND 与 DATE 互斥。可在截止前再改一次。
+          {WEEKLY_INTENT_MATCHING_RULE_COPY[locale]}
         </p>
         <ul className="intent-sheet-options">
           {WEEKLY_INTENTS.map((intent) => {
-            const meta = WEEKLY_INTENT_LABELS[intent];
+            const meta = weeklyIntentLabelsFor(intent, locale);
             const visual = WEEKLY_INTENT_VISUALS[intent];
             const active = currentIntent === intent;
             return (
@@ -127,7 +137,7 @@ export function IntentSheet({
           disabled={saving}
           onClick={onClose}
         >
-          取消
+          {locale === "zh-CN" ? "取消" : "Cancel"}
         </button>
       </div>
     </div>

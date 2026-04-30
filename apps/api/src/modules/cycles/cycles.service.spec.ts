@@ -172,8 +172,7 @@ const originalNarrativeGenerationEnabled =
 
 describe('CyclesService', () => {
   afterEach(() => {
-    env.MATCH_NARRATIVE_GENERATION_ENABLED =
-      originalNarrativeGenerationEnabled;
+    env.MATCH_NARRATIVE_GENERATION_ENABLED = originalNarrativeGenerationEnabled;
     clearStickyParticipationCache();
   });
 
@@ -1628,7 +1627,7 @@ describe('CyclesService', () => {
           reason: null,
           conversationTopics: [],
           narrativeSource: 'DISABLED',
-        }),
+        }) as object,
       }),
     );
     expect(finalizePreparationClaim).toHaveBeenCalledWith({

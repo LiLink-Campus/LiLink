@@ -1,4 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import {
+  PUBLIC_SUPPORTED_SCHOOL_SLUGS,
+  isPublicSupportedSchoolSlug,
+  localizePublicSupportedSchool,
+} from '@lilink/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
 type SchoolResolution = {
@@ -7,6 +12,10 @@ type SchoolResolution = {
   schoolName: string;
   schoolSlug: string;
   schoolDescription: string | null;
+  schoolNativeName: string;
+  schoolEnglishName: string;
+  schoolNativeBaseName: string;
+  schoolEnglishBaseName: string;
 };
 
 type CachedSchoolResolution = {
@@ -92,6 +101,9 @@ export class SchoolResolverService {
         domain: {
           in: candidateDomains,
         },
+        school: {
+          slug: { in: [...PUBLIC_SUPPORTED_SCHOOL_SLUGS] },
+        },
       },
       include: {
         school: true,
@@ -99,6 +111,7 @@ export class SchoolResolverService {
     });
 
     const match = [...domains]
+      .filter((item) => isPublicSupportedSchoolSlug(item.school.slug))
       .sort((left, right) => right.domain.length - left.domain.length)
       .find(
         (item) =>
@@ -106,15 +119,25 @@ export class SchoolResolverService {
           emailDomain.endsWith(`.${item.domain}`),
       );
 
-    const resolution = match
-      ? {
-          schoolId: match.schoolId,
-          matchedDomain: match.domain,
-          schoolName: match.school.name,
-          schoolSlug: match.school.slug,
-          schoolDescription: match.school.description,
-        }
+    const localizedSchool = match
+      ? localizePublicSupportedSchool(match.school.slug)
       : null;
+
+    const resolution =
+      match && localizedSchool
+        ? {
+            schoolId: match.schoolId,
+            matchedDomain: match.domain,
+            schoolName: localizedSchool.nativeName,
+            schoolSlug: match.school.slug,
+            schoolDescription:
+              localizedSchool.description ?? match.school.description,
+            schoolNativeName: localizedSchool.nativeName,
+            schoolEnglishName: localizedSchool.englishName,
+            schoolNativeBaseName: localizedSchool.nativeBaseName,
+            schoolEnglishBaseName: localizedSchool.englishBaseName,
+          }
+        : null;
 
     if (cacheEpoch === this.cacheEpoch) {
       this.resolutionCache.set(emailDomain, {

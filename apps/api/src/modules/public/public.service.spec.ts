@@ -1,4 +1,5 @@
 import { PublicService } from './public.service';
+import { PUBLIC_SUPPORTED_SCHOOL_SLUGS } from '@lilink/shared';
 
 describe('PublicService', () => {
   it('counts only revealed matches for the landing stats', async () => {
@@ -83,12 +84,11 @@ describe('PublicService', () => {
   });
 
   describe('getEligibleSchools', () => {
-    it('returns schools with their domains and aggregated counts', async () => {
+    it('returns schools with their domains', async () => {
       const findMany = jest.fn<
         Promise<
           Array<{
-            name: string;
-            description: string | null;
+            slug: string;
             domains: Array<{ domain: string }>;
           }>
         >,
@@ -96,14 +96,16 @@ describe('PublicService', () => {
       >();
       findMany.mockResolvedValue([
         {
-          name: '复旦大学',
-          description: 'fudan',
-          domains: [{ domain: 'fudan.edu.cn' }, { domain: 'm.fudan.edu.cn' }],
+          slug: 'cuc-hainan-international',
+          domains: [{ domain: 'cuc.edu.cn' }, { domain: 'coventry.ac.uk' }],
         },
         {
-          name: '上海交通大学',
-          description: null,
-          domains: [{ domain: 'sjtu.edu.cn' }],
+          slug: 'bupt-qmul-hainan',
+          domains: [{ domain: 'bupt.edu.cn' }],
+        },
+        {
+          slug: 'unsupported-school',
+          domains: [{ domain: 'unsupported.edu.cn' }],
         },
       ]);
       const prisma = { school: { findMany } };
@@ -115,14 +117,24 @@ describe('PublicService', () => {
       expect(payload.totalDomainCount).toBe(3);
       expect(payload.schools).toEqual([
         {
-          name: '复旦大学',
-          description: 'fudan',
-          domains: ['fudan.edu.cn', 'm.fudan.edu.cn'],
+          slug: 'bupt-qmul-hainan',
+          name: '北京邮电大学',
+          nativeName: '北京邮电大学',
+          englishName: 'Beijing University of Posts and Telecommunications',
+          baseName: '北京邮电大学',
+          nativeBaseName: '北京邮电大学',
+          englishBaseName: 'Beijing University of Posts and Telecommunications',
+          domains: ['bupt.edu.cn'],
         },
         {
-          name: '上海交通大学',
-          description: null,
-          domains: ['sjtu.edu.cn'],
+          slug: 'cuc-hainan-international',
+          name: '中国传媒大学',
+          nativeName: '中国传媒大学',
+          englishName: 'Communication University of China',
+          baseName: '中国传媒大学',
+          nativeBaseName: '中国传媒大学',
+          englishBaseName: 'Communication University of China',
+          domains: ['cuc.edu.cn', 'coventry.ac.uk'],
         },
       ]);
       expect(payload.generatedAt).toBeInstanceOf(Date);
@@ -130,15 +142,40 @@ describe('PublicService', () => {
       // Schools without any domain are excluded so the public list never shows
       // an entry that users cannot actually use to register.
       const findManyArgs = findMany.mock.calls[0][0];
-      expect(findManyArgs.where).toEqual({ domains: { some: {} } });
+      expect(findManyArgs.where).toEqual({
+        slug: { in: [...PUBLIC_SUPPORTED_SCHOOL_SLUGS] },
+        domains: { some: {} },
+      });
+      expect(findManyArgs.select).not.toHaveProperty('_count');
+      expect(findManyArgs.select).not.toHaveProperty('description');
+    });
+
+    it('localizes school display names per request locale', async () => {
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          slug: 'bupt-qmul-hainan',
+          domains: [{ domain: 'bupt.edu.cn' }],
+        },
+      ]);
+      const prisma = { school: { findMany } };
+      const service = new PublicService(prisma as never);
+
+      await expect(service.getEligibleSchools('en-US')).resolves.toMatchObject({
+        schools: [
+          {
+            name: 'Beijing University of Posts and Telecommunications',
+            baseName: 'Beijing University of Posts and Telecommunications',
+            nativeName: '北京邮电大学',
+          },
+        ],
+      });
     });
 
     it('reuses the cached eligible schools payload within the TTL window', async () => {
       const findMany = jest.fn().mockResolvedValue([
         {
-          name: '复旦大学',
-          description: null,
-          domains: [{ domain: 'fudan.edu.cn' }],
+          slug: 'bupt-qmul-hainan',
+          domains: [{ domain: 'bupt.edu.cn' }],
         },
       ]);
       const prisma = { school: { findMany } };

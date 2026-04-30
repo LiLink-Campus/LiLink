@@ -10,6 +10,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useLocale } from "../../locale-context";
 
 export type ValuePickerOption = {
   value: string;
@@ -85,6 +86,9 @@ export function ValuePicker({
   triggerClassName,
   popoverMinWidth,
 }: ValuePickerProps) {
+  const { locale } = useLocale();
+  const resolvedPlaceholder =
+    placeholder === "请选择" && locale === "en-US" ? "Select" : placeholder;
   const reactId = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -164,7 +168,7 @@ export function ValuePicker({
     ? suffix
       ? `${selectedOption.label} ${suffix}`
       : selectedOption.label
-    : placeholder;
+    : resolvedPlaceholder;
   const isPlaceholder = !selectedOption;
 
   function renderOptionList(idPrefix: string) {
@@ -209,7 +213,7 @@ export function ValuePicker({
     );
   }
 
-  const labelHeading = ariaLabel ?? sheetTitle ?? placeholder;
+  const labelHeading = ariaLabel ?? sheetTitle ?? resolvedPlaceholder;
 
   return (
     <div className="picker-root">
@@ -260,7 +264,7 @@ export function ValuePicker({
           <button
             type="button"
             className="picker-sheet-backdrop"
-            aria-label="关闭选择器"
+            aria-label={locale === "zh-CN" ? "关闭选择器" : "Close picker"}
             onClick={closePicker}
           />
           <div
@@ -277,7 +281,7 @@ export function ValuePicker({
                 className="picker-sheet-cancel"
                 onClick={closePicker}
               >
-                取消
+                {locale === "zh-CN" ? "取消" : "Cancel"}
               </button>
               <p id={`${reactId}-label`} className="picker-sheet-title">
                 {sheetTitle ?? labelHeading}

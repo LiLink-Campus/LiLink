@@ -6,7 +6,11 @@ import {
   type UserCycleDashboardSnapshot,
   type WeeklyIntent as PrismaWeeklyIntent,
 } from '@prisma/client';
-import { isWeeklyIntent, normalizeLocale } from '@lilink/shared';
+import {
+  isWeeklyIntent,
+  localizePublicSupportedSchool,
+  normalizeLocale,
+} from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -425,14 +429,6 @@ export class AccountService {
       (item): item is string =>
         typeof item === 'string' && item.trim().length > 0,
     );
-  }
-
-  private defaultConversationTopics() {
-    return [
-      '最近一次让你觉得很放松的周末通常怎么过',
-      '你最近在慢慢坚持的一件事是什么',
-      '什么样的聊天节奏会让你觉得相处自然',
-    ];
   }
 
   private toDashboardHistoryResult(
@@ -958,7 +954,11 @@ export class AccountService {
       requester: {
         email: requester!.user.email,
         displayName: requester!.user.displayName,
-        schoolName: requester!.user.school?.name ?? null,
+        preferredLocale: requester!.user.preferredLocale,
+        schoolName: this.displaySchoolName(
+          requester!.user.school,
+          requester!.user.preferredLocale,
+        ),
         introLine: this.displayIntroLine(
           requester!.user.questionnaireResponse?.answers,
           requester!.user.profile?.headline,
@@ -967,21 +967,21 @@ export class AccountService {
       recipient: {
         email: counterpart.user.email,
         displayName: counterpart.user.displayName,
-        schoolName: counterpart.user.school?.name ?? null,
+        preferredLocale: counterpart.user.preferredLocale,
+        schoolName: this.displaySchoolName(
+          counterpart.user.school,
+          counterpart.user.preferredLocale,
+        ),
         introLine: this.displayIntroLine(
           counterpart.user.questionnaireResponse?.answers,
           counterpart.user.profile?.headline,
         ),
       },
-      reason:
-        this.normalizeMatchReason(
-          participant.match.reason,
-          this.normalizeMatchReasons(participant.match.reasons),
-        ) ?? '你们在多项关系判断与日常偏好上呈现出稳定的相容趋势。',
-      conversationTopics:
-        conversationTopics.length > 0
-          ? conversationTopics
-          : this.defaultConversationTopics(),
+      reason: this.normalizeMatchReason(
+        participant.match.reason,
+        this.normalizeMatchReasons(participant.match.reasons),
+      ),
+      conversationTopics,
     });
 
     await this.prisma.$transaction(async (tx) => {
@@ -1133,6 +1133,19 @@ export class AccountService {
 
     const trimmedHeadline = profileHeadline?.trim();
     return trimmedHeadline ? trimmedHeadline : null;
+  }
+
+  private displaySchoolName(
+    school: { name: string; slug: string } | null,
+    locale: unknown,
+  ) {
+    if (!school) {
+      return null;
+    }
+
+    return (
+      localizePublicSupportedSchool(school.slug, locale)?.name ?? school.name
+    );
   }
 
   private async createAuditLog(

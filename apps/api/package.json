@@ -7,7 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "admin:create": "node scripts/create-admin.mjs",
-    "prepare:prisma": "prisma generate",
+    "prepare:prisma": "prisma generate --schema=prisma/schema.prisma",
     "build:shared": "npm run build:shared --prefix ../..",
     "build": "npm run prepare:prisma && nest build",
     "db:bootstrap": "node scripts/bootstrap-db.mjs",
@@ -19,7 +19,7 @@
     "start:debug": "npm run prepare:prisma && nest start --debug --watch",
     "start:prod": "node dist/src/main.js",
     "lint": "npm run prepare:prisma && eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "prisma:generate": "prisma generate",
+    "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "npm run build:shared && ts-node prisma/seed.ts",

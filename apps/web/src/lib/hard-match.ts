@@ -17,6 +17,10 @@ import {
   MONTH_OPTIONS,
   WEIGHT_OPTIONS,
   buildDayOptions,
+  hardMatchGenderLabel,
+  hardMatchLanguageLabel,
+  hardMatchLooksLabel,
+  hardMatchNationalityLabel,
   normalizeExcludedPartnerPreferences,
   normalizeOneLinerIntro,
   readHeightValue,
@@ -25,6 +29,7 @@ import {
   readStringArray,
   splitBirthDate,
   type HardMatchSchoolGenderExclusion,
+  type SupportedLocale,
 } from "@lilink/shared";
 
 export {
@@ -42,6 +47,10 @@ export {
   MONTH_OPTIONS,
   WEIGHT_OPTIONS,
   buildDayOptions,
+  hardMatchGenderLabel,
+  hardMatchLanguageLabel,
+  hardMatchLooksLabel,
+  hardMatchNationalityLabel,
 };
 
 export type HardMatchSchoolOption = {
@@ -376,16 +385,84 @@ export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
   };
 }
 
+const HARD_MATCH_FORM_ERROR_COPY = {
+  "zh-CN": {
+    incomplete: "请先完成所有硬性条件题目。",
+    multiRequired: "希望对方的条件为多选题，至少要选一项。",
+    introRequired: "请填写一句话介绍。",
+    introTooLong: (max: number) => `一句话介绍请不要超过 ${max} 字。`,
+    ageRange: "希望对方年龄下限不能大于上限。",
+    heightRange: "希望对方身高下限不能大于上限。",
+    ownWeightRange: "体重需要在 30-300 kg 之间。",
+    partnerWeightRange: "希望对方体重需要在 30-300 kg 之间。",
+    partnerWeightOrder: "希望对方体重下限不能大于上限。",
+  },
+  "en-US": {
+    incomplete: "Please complete all hard-preference questions first.",
+    multiRequired:
+      "Partner preferences are multi-select fields. Choose at least one option.",
+    introRequired: "Please add a one-line intro.",
+    introTooLong: (max: number) =>
+      `One-line intro must be no longer than ${max} characters.`,
+    ageRange: "Partner age minimum cannot be greater than maximum.",
+    heightRange: "Partner height minimum cannot be greater than maximum.",
+    ownWeightRange: "Weight must be between 30 and 300 kg.",
+    partnerWeightRange: "Preferred partner weight must be between 30 and 300 kg.",
+    partnerWeightOrder: "Partner weight minimum cannot be greater than maximum.",
+  },
+} as const;
+
+function localizeHardMatchSaveError(
+  message: string,
+  locale: SupportedLocale,
+) {
+  const copy = HARD_MATCH_FORM_ERROR_COPY[locale];
+  if (message === HARD_MATCH_FORM_ERROR_COPY["zh-CN"].incomplete) {
+    return copy.incomplete;
+  }
+  if (message === HARD_MATCH_FORM_ERROR_COPY["zh-CN"].multiRequired) {
+    return copy.multiRequired;
+  }
+  if (message === HARD_MATCH_FORM_ERROR_COPY["zh-CN"].introRequired) {
+    return copy.introRequired;
+  }
+  if (
+    message ===
+    HARD_MATCH_FORM_ERROR_COPY["zh-CN"].introTooLong(
+      HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
+    )
+  ) {
+    return copy.introTooLong(HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH);
+  }
+  if (message === HARD_MATCH_FORM_ERROR_COPY["zh-CN"].ageRange) {
+    return copy.ageRange;
+  }
+  if (message === HARD_MATCH_FORM_ERROR_COPY["zh-CN"].heightRange) {
+    return copy.heightRange;
+  }
+  if (message === HARD_MATCH_FORM_ERROR_COPY["zh-CN"].ownWeightRange) {
+    return copy.ownWeightRange;
+  }
+  if (message === HARD_MATCH_FORM_ERROR_COPY["zh-CN"].partnerWeightRange) {
+    return copy.partnerWeightRange;
+  }
+  if (message === HARD_MATCH_FORM_ERROR_COPY["zh-CN"].partnerWeightOrder) {
+    return copy.partnerWeightOrder;
+  }
+  return message;
+}
+
 /** Returns a user-facing message when hard-match fields fail save validation; otherwise null. */
 export function getHardMatchFormSaveErrorMessage(
   formState: HardMatchFormState,
+  locale: SupportedLocale = "zh-CN",
 ): string | null {
   try {
     buildHardMatchAnswerRecord(formState);
     return null;
   } catch (error) {
     return error instanceof Error
-      ? error.message
-      : "请先完成所有硬性条件题目。";
+      ? localizeHardMatchSaveError(error.message, locale)
+      : HARD_MATCH_FORM_ERROR_COPY[locale].incomplete;
   }
 }

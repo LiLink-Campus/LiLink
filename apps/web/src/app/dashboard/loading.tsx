@@ -3,13 +3,13 @@ export default function DashboardLoading() {
     <div
       className="app-page-shell app-loading-shell"
       aria-busy="true"
-      aria-label="正在加载 Dashboard"
+      aria-label="Loading Dashboard"
     >
       <section className="app-page-header">
         <div className="app-loading-pill" />
         <div className="app-loading-line is-title" />
         <div className="app-loading-line" />
-        <p className="app-loading-status">正在加载…</p>
+        <p className="app-loading-status">Loading...</p>
       </section>
 
       <section className="app-card-grid">

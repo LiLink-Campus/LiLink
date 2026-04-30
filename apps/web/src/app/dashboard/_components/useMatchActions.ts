@@ -8,6 +8,7 @@ import {
 } from "../_lib/dashboard-mutations";
 import { DEFAULT_REPORT_REASON } from "../_lib/format";
 import type { DashboardPayload } from "../_lib/types";
+import { useLocale } from "../../locale-context";
 
 type SavingKey = null | "contact" | "report";
 
@@ -25,6 +26,30 @@ export function useMatchActions({
   initialDashboard,
   currentUserId,
 }: UseMatchActionsOptions) {
+  const { locale } = useLocale();
+  const copy =
+    locale === "zh-CN"
+      ? {
+          contactSent: "已向双方发送引荐邮件。",
+          contactRefreshFailed:
+            "引荐已提交，但页面刷新失败。请稍后手动刷新查看最新状态。",
+          contactFailed: "引荐发送失败。",
+          reportSent: "举报已提交，系统已将该对象从你后续轮次里隔离。",
+          reportRefreshFailed:
+            "举报已提交，但页面刷新失败。请稍后手动刷新查看最新状态。",
+          reportFailed: "举报提交失败。",
+        }
+      : {
+          contactSent: "Introduction emails have been sent to both sides.",
+          contactRefreshFailed:
+            "Introduction was submitted, but the page could not refresh. Refresh later to see the latest status.",
+          contactFailed: "Could not send the introduction.",
+          reportSent:
+            "Report submitted. This person has been isolated from your future rounds.",
+          reportRefreshFailed:
+            "Report was submitted, but the page could not refresh. Refresh later to see the latest status.",
+          reportFailed: "Could not submit the report.",
+        };
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(
     initialDashboard,
   );
@@ -106,13 +131,11 @@ export function useMatchActions({
       setDashboard((current) =>
         applyContactSuccessToDashboard(current, matchId, currentUserId),
       );
-      setSavedMessage("已向双方发送引荐邮件。");
-      await refreshDashboardAfterMutation(
-        "引荐已提交，但页面刷新失败。请稍后手动刷新查看最新状态。",
-      );
+      setSavedMessage(copy.contactSent);
+      await refreshDashboardAfterMutation(copy.contactRefreshFailed);
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error ? caughtError.message : "引荐发送失败。",
+        caughtError instanceof Error ? caughtError.message : copy.contactFailed,
       );
     } finally {
       setSaving(null);
@@ -137,13 +160,11 @@ export function useMatchActions({
       });
       setDashboard((current) => applyReportSuccessToDashboard(current, matchId));
       closeReportForm();
-      setSavedMessage("举报已提交，系统已将该对象从你后续轮次里隔离。");
-      await refreshDashboardAfterMutation(
-        "举报已提交，但页面刷新失败。请稍后手动刷新查看最新状态。",
-      );
+      setSavedMessage(copy.reportSent);
+      await refreshDashboardAfterMutation(copy.reportRefreshFailed);
     } catch (caughtError) {
       setError(
-        caughtError instanceof Error ? caughtError.message : "举报提交失败。",
+        caughtError instanceof Error ? caughtError.message : copy.reportFailed,
       );
     } finally {
       setSaving(null);

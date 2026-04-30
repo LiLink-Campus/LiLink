@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { announcements } from "./announcements";
+import { useLocale } from "./locale-context";
 
 const SEEN_KEY = "lilink_seen_announcement";
 
 export function AnnouncementDialog() {
+  const pathname = usePathname();
+  const { locale } = useLocale();
+  const displayLocale = pathname.startsWith("/admin") ? "zh-CN" : locale;
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const latest = announcements[0];
@@ -35,19 +40,21 @@ export function AnnouncementDialog() {
     >
       <div className="announcement-dialog-inner">
         <div className="announcement-dialog-header">
-          <span className="announcement-badge">更新公告</span>
+          <span className="announcement-badge">
+            {displayLocale === "zh-CN" ? "更新公告" : "Update"}
+          </span>
           <time className="announcement-date">{latest.date}</time>
         </div>
         <h2 id="announcement-title" className="announcement-title">
-          {latest.title}
+          {latest.title[displayLocale]}
         </h2>
-        <p className="announcement-body">{latest.content}</p>
+        <p className="announcement-body">{latest.content[displayLocale]}</p>
         <button
           className="button-primary announcement-dismiss"
           onClick={dismiss}
           type="button"
         >
-          知道了
+          {displayLocale === "zh-CN" ? "知道了" : "Got it"}
         </button>
       </div>
     </dialog>

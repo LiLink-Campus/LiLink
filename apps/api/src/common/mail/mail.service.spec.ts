@@ -183,6 +183,59 @@ describe('MailService', () => {
     expect(built.text).toContain('LiLink 团队');
   });
 
+  it('builds an English verification email when requested', () => {
+    const service = createMailService();
+
+    const built = service.buildVerificationCodeEmail({
+      dedupeKey: 'verification-code:code-1',
+      recipientEmail: 'user@example.com',
+      code: '123456',
+      locale: 'en-US',
+    });
+
+    expect(built).toMatchObject({
+      subject: 'Your LiLink verification code: 123456',
+      maxAttempts: 3,
+    });
+    expect(built.html).toContain('<html lang="en-US">');
+    expect(built.text).toContain('LiLink Team');
+    expect(built.text).toContain('123456');
+  });
+
+  it('localizes introduction emails per recipient while preserving stored reasons', () => {
+    const service = createMailService();
+
+    const [requesterEmail, recipientEmail] = service.buildIntroductionEmails({
+      matchId: 'match-1',
+      requester: {
+        email: 'requester@example.com',
+        displayName: 'User 1',
+        preferredLocale: 'zh-CN',
+      },
+      recipient: {
+        email: 'recipient@example.com',
+        displayName: 'User 2',
+        preferredLocale: 'en-US',
+      },
+      reason: 'stored reason paragraph',
+      conversationTopics: [],
+    });
+
+    expect(requesterEmail.subject).toBe('LiLink 已为你引荐 User 2');
+    expect(requesterEmail.html).toContain('<html lang="zh-CN">');
+    expect(requesterEmail.text).toContain('stored reason paragraph');
+    expect(requesterEmail.text).toContain(
+      '最近一次让你觉得很放松的周末通常怎么过',
+    );
+
+    expect(recipientEmail.subject).toBe('LiLink introduced you to User 1');
+    expect(recipientEmail.html).toContain('<html lang="en-US">');
+    expect(recipientEmail.text).toContain('stored reason paragraph');
+    expect(recipientEmail.text).toContain(
+      'How do you usually spend a relaxing weekend?',
+    );
+  });
+
   it('includes anti-spam transactional headers when sending', async () => {
     const findMany = jest.fn().mockResolvedValue([
       buildOutboundEmail({

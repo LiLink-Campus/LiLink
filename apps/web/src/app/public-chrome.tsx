@@ -5,6 +5,24 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { BrandMark } from "./brand-mark";
 import { SiteNav } from "./site-nav";
+import { useLocale } from "./locale-context";
+
+const FOOTER_COPY = {
+  "zh-CN": {
+    tagline: "校园里的，认真相遇",
+    about: "关于",
+    schools: "支持的学校",
+    terms: "协议",
+    privacy: "隐私",
+  },
+  "en-US": {
+    tagline: "Intentional campus matching",
+    about: "About",
+    schools: "Schools",
+    terms: "Terms",
+    privacy: "Privacy",
+  },
+} as const;
 
 /**
  * Renders the public marketing chrome (site-header + footer) only on
@@ -13,6 +31,8 @@ import { SiteNav } from "./site-nav";
  */
 export function PublicChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { locale } = useLocale();
+  const copy = FOOTER_COPY[locale];
   const isAppShell =
     pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
 
@@ -23,20 +43,24 @@ export function PublicChrome({ children }: { children: ReactNode }) {
   return (
     <div className="site-frame">
       <header className="site-header">
-        <BrandMark href="/" />
+        <BrandMark
+          href="/"
+          tagline={copy.tagline}
+          ariaLabel={locale === "zh-CN" ? "LiLink 首页" : "LiLink home"}
+        />
         <SiteNav />
       </header>
       {children}
       <footer className="site-footer">
         <p>
           LiLink
-          <small>校园里的，认真相遇</small>
+          <small>{copy.tagline}</small>
         </p>
         <div>
-          <Link href="/about">关于</Link>
-          <Link href="/schools">支持的学校</Link>
-          <Link href="/terms">协议</Link>
-          <Link href="/privacy">隐私</Link>
+          <Link href="/about">{copy.about}</Link>
+          <Link href="/schools">{copy.schools}</Link>
+          <Link href="/terms">{copy.terms}</Link>
+          <Link href="/privacy">{copy.privacy}</Link>
           <Link href="/faq">FAQ</Link>
         </div>
       </footer>

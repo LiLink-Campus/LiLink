@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { apiBaseUrl } from "./api-base-url";
+import { LOCALE_COOKIE_NAME, normalizeLocale } from "@lilink/shared";
 
 const USER_COOKIE_NAME = process.env.COOKIE_NAME?.trim() || "lilink_token";
 const ADMIN_COOKIE_NAME =
@@ -10,12 +11,19 @@ const ADMIN_COOKIE_NAME =
 
 type ServerFetchOptions = RequestInit & {
   cookieNames?: string[];
+  includeLocale?: boolean;
 };
 
-function parseFailedResponseBody(text: string, status: number): string {
+function parseFailedResponseBody(
+  text: string,
+  status: number,
+  locale: ReturnType<typeof normalizeLocale>,
+): string {
   const trimmed = text.trim();
   if (!trimmed) {
-    return `请求失败（${status}）`;
+    return locale === "en-US"
+      ? `Request failed (${status})`
+      : `请求失败（${status}）`;
   }
 
   try {
@@ -28,7 +36,7 @@ function parseFailedResponseBody(text: string, status: number): string {
         (item): item is string => typeof item === "string",
       );
       if (parts.length > 0) {
-        return parts.join("；");
+        return parts.join(locale === "en-US" ? "; " : "；");
       }
     }
   } catch {
@@ -36,6 +44,11 @@ function parseFailedResponseBody(text: string, status: number): string {
   }
 
   return trimmed;
+}
+
+async function readRequestLocale() {
+  const cookieStore = await cookies();
+  return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
 }
 
 async function buildForwardedCookieHeader(cookieNames: string[]) {
@@ -57,6 +70,7 @@ async function fetchApiServer<T>(
   path: string,
   options: ServerFetchOptions,
 ): Promise<T> {
+  const locale = await readRequestLocale();
   const cookieHeader = await buildForwardedCookieHeader(
     options.cookieNames ?? [],
   );
@@ -65,6 +79,7 @@ async function fetchApiServer<T>(
     headers: {
       Accept: "application/json",
       ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.includeLocale ? { "x-locale": locale } : {}),
       ...(cookieHeader ? { Cookie: cookieHeader } : {}),
       ...(options.headers ?? {}),
     },
@@ -73,7 +88,7 @@ async function fetchApiServer<T>(
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(parseFailedResponseBody(body, response.status));
+    throw new Error(parseFailedResponseBody(body, response.status, locale));
   }
 
   return response.json() as Promise<T>;
@@ -91,6 +106,7 @@ export function fetchUserApiServer<T>(path: string, options: RequestInit = {}) {
   return fetchApiServer<T>(path, {
     ...options,
     cookieNames: [USER_COOKIE_NAME],
+    includeLocale: true,
   });
 }
 

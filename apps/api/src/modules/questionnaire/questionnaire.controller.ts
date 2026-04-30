@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Headers } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { normalizeLocale } from '@lilink/shared';
 import { createPublicReadThrottle } from '../../common/http/public-read-throttle';
 import { QuestionnaireService } from './questionnaire.service';
 
@@ -9,7 +10,7 @@ export class QuestionnaireController {
 
   @Get('current')
   @Throttle(createPublicReadThrottle())
-  getCurrent() {
-    return this.questionnaireService.getCurrentVersion();
+  getCurrent(@Headers('x-locale') locale?: string) {
+    return this.questionnaireService.getCurrentVersion(normalizeLocale(locale));
   }
 }

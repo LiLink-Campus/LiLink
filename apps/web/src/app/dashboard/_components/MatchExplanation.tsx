@@ -153,7 +153,15 @@ function compactReasonText(value: string) {
     .trim();
 }
 
-function highlightBody(reason: string) {
+function highlightBody(
+  reason: string,
+  locale: SupportedLocale,
+  highlightTitle: string,
+) {
+  if (locale === "en-US") {
+    return `${highlightTitle} appears in your structured questionnaire overlap.`;
+  }
+
   const body = compactReasonText(reason)
     .replace(/^你们/, "")
     .replace(/都更接受\s+/g, "都更接受")
@@ -184,7 +192,7 @@ function buildReasonHighlights(reasons: string[], locale: SupportedLocale) {
 
     return {
       title,
-      body: highlightBody(reason),
+      body: highlightBody(reason, locale, title),
       icon: meta.icon,
       tone: meta.tone,
     };

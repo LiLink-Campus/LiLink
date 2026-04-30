@@ -1,8 +1,14 @@
 import { apiBaseUrl } from "./api-base-url";
+import { readClientLocale } from "./i18n";
 
 export type EligibleSchool = {
+  slug?: string;
   name: string;
-  description: string | null;
+  nativeName?: string;
+  englishName?: string;
+  baseName?: string;
+  nativeBaseName?: string;
+  englishBaseName?: string;
   domains: string[];
 };
 
@@ -52,8 +58,9 @@ export function findMatchingSchool(
 }
 
 export async function fetchEligibleSchools(): Promise<EligibleSchoolsPayload> {
+  const locale = readClientLocale();
   const response = await fetch(`${apiBaseUrl}/public/schools`, {
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", "x-locale": locale },
     cache: "no-store",
   });
 

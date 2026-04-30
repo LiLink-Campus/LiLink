@@ -6,8 +6,8 @@
    Mobile-first. Single source of truth for colors, type, spacing,
    radii, shadows. Page-level CSS lives next to its component.
 
-   Primary palette is LiLink's wine-red "黎安" identity (#8b3a4a)
-   layered with warm coral / cream / gold accents.
+   Primary palette is LiLink's wine-red identity (#8b3a4a), layered
+   with warm coral / cream / gold accents.
    ────────────────────────────────────────────────────────────── */
 
 :root {
@@ -251,6 +251,7 @@ p:last-child {
   gap: 0.7rem;
   text-decoration: none;
   color: var(--fg);
+  flex: 0 0 auto;
 }
 
 .brand-glyph {
@@ -340,10 +341,69 @@ p:last-child {
   background: var(--primary-tint);
 }
 
+.locale-switcher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  padding: 0.35rem 0.1rem;
+  border-radius: var(--radius-xs);
+  color: var(--fg-secondary);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  box-shadow: none;
+  transition: color 0.18s, opacity 0.18s;
+}
+
+.locale-switcher:hover:not(:disabled) {
+  color: var(--primary-ink);
+  background: transparent;
+}
+
+.locale-switcher-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.72;
+  transition: opacity 0.18s;
+}
+
+.locale-switcher:hover:not(:disabled) .locale-switcher-icon {
+  opacity: 0.92;
+}
+
+.locale-switcher:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .site-nav-auth-cluster {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  flex: 0 0 auto;
+}
+
+.site-nav-divider {
+  width: 1px;
+  min-width: 1px;
+  height: 1.35rem;
+  margin: 0 0.25rem;
+  background: var(--border-strong);
+  opacity: 0.8;
+  flex: 0 0 1px;
 }
 
 .site-nav-toggle {
@@ -416,12 +476,63 @@ p:last-child {
     border-radius: var(--radius-md);
     font-size: 1rem;
   }
+  .locale-switcher {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0.85rem 0.9rem;
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+  }
+  .site-nav-divider {
+    display: none;
+  }
   .site-nav-auth-cluster {
     flex-direction: column;
     align-items: stretch;
     margin-top: 0.4rem;
     border-top: 1px solid var(--border);
     padding-top: 0.4rem;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 900px) {
+  .site-header {
+    gap: 0.65rem;
+    padding-inline: clamp(0.85rem, 2.25vw, 1.35rem);
+  }
+
+  .brand-mark {
+    gap: 0.55rem;
+  }
+
+  .brand-glyph {
+    width: 2.15rem;
+    height: 2.15rem;
+  }
+
+  .brand-text strong {
+    font-size: 0.98rem;
+  }
+
+  .brand-text small {
+    font-size: 0.64rem;
+  }
+
+  .site-nav {
+    gap: 0.12rem;
+  }
+
+  .site-nav a,
+  .site-nav-action {
+    padding-inline: 0.52rem;
+  }
+
+  .site-nav-auth-cluster {
+    gap: 0.28rem;
+  }
+
+  .site-nav-divider {
+    margin-inline: 0.15rem;
   }
 }
 
@@ -2022,6 +2133,11 @@ p:last-child {
   gap: 0.75rem;
 }
 
+.schools-panel--full .schools-grid {
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
 .schools-card {
   background: var(--bg-tinted);
   border: 1px solid var(--border);
@@ -2032,10 +2148,25 @@ p:last-child {
   gap: 0.55rem;
 }
 
+.schools-panel--full .schools-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.62fr);
+  align-items: center;
+  gap: 0.85rem 1.1rem;
+  padding: 1.05rem 1.25rem;
+  background: var(--bg-elevated);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-xs);
+}
+
 .schools-card--matched {
   border-color: var(--primary);
   background: var(--primary-tint);
   box-shadow: 0 0 0 4px rgba(47, 91, 67, 0.08);
+}
+
+.schools-card-main {
+  min-width: 0;
 }
 
 .schools-card-header {
@@ -2052,9 +2183,7 @@ p:last-child {
   line-height: 1.45;
   flex: 1 1 auto;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .schools-card {
@@ -2069,12 +2198,6 @@ p:last-child {
   border-radius: var(--radius-pill);
 }
 
-.schools-card-desc {
-  font-size: 0.85rem;
-  color: var(--fg-secondary);
-  margin: 0;
-}
-
 .schools-domain-grid {
   list-style: none;
   margin: 0;
@@ -2083,6 +2206,10 @@ p:last-child {
   flex-wrap: wrap;
   gap: 0.3rem;
   align-items: center;
+}
+
+.schools-panel--full .schools-domain-grid {
+  justify-content: flex-end;
 }
 
 .schools-domain-chip {
@@ -2097,6 +2224,15 @@ p:last-child {
   color: var(--fg-secondary);
   font-family: var(--font-body);
   letter-spacing: 0.01em;
+}
+
+.schools-panel--full .schools-domain-chip {
+  padding: 0.46rem 0.9rem;
+  background: #f8e8ee;
+  border-color: transparent;
+  color: var(--primary-ink);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .schools-domain-chip--matched {
@@ -2120,6 +2256,21 @@ p:last-child {
 .schools-domain-sep {
   color: var(--fg-muted);
   font-size: 0.75rem;
+}
+
+@media (max-width: 860px) {
+  .schools-panel--full .schools-card {
+    grid-template-columns: 1fr;
+  }
+  .schools-panel--full .schools-domain-grid {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .schools-panel--full .schools-card {
+    padding: 0.95rem;
+  }
 }
 
 .schools-skeleton {

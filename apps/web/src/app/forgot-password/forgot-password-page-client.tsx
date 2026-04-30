@@ -7,10 +7,69 @@ import {
   GrassRowIllustration,
   OliveSprigIllustration,
 } from "../dashboard/_components/illustrations";
+import { useLocale } from "../locale-context";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 const VERIFICATION_CODE_LENGTH = 6;
+const FORGOT_PASSWORD_COPY = {
+  "zh-CN": {
+    sendFallback: "验证码发送失败，请稍后再试。",
+    passwordMismatch: "两次输入的密码不一致，请重新确认。",
+    resetFallback: "重置失败，请重试。",
+    step: (step: number) => `Reset password · Step ${step} / 2`,
+    title: "重置密码",
+    introOne: "输入你的学校邮箱，我们会发送验证码来验证你的身份。",
+    introTwo: "请输入验证码并设置新密码。",
+    email: "学校邮箱",
+    sending: "发送中…",
+    sendCode: "发送验证码",
+    sentTo: "已发送到",
+    spamHint:
+      "几分钟内仍未收到？请检查邮箱的「垃圾邮件」或「拦截邮件」文件夹，部分学校邮箱会自动拦截首次发件人。",
+    devCode: "开发环境验证码：",
+    code: "验证码",
+    codePlaceholder: "6 位验证码",
+    newPassword: "新密码",
+    passwordPlaceholder: (min: number) => `至少 ${min} 位，含字母和数字`,
+    confirmPassword: "确认新密码",
+    confirmPasswordPlaceholder: "再次输入新密码",
+    back: "重新输入邮箱",
+    resetting: "重置中…",
+    reset: "重置密码",
+    remembered: "想起密码了？",
+    login: "返回登录",
+  },
+  "en-US": {
+    sendFallback: "Verification code could not be sent. Please try again.",
+    passwordMismatch: "The two passwords do not match.",
+    resetFallback: "Password reset failed. Please try again.",
+    step: (step: number) => `Reset password · Step ${step} / 2`,
+    title: "Reset password",
+    introOne:
+      "Enter your school email and we will send a code to verify your identity.",
+    introTwo: "Enter the code and set a new password.",
+    email: "School email",
+    sending: "Sending...",
+    sendCode: "Send code",
+    sentTo: "Sent to",
+    spamHint:
+      "Still no email after a few minutes? Check your spam or blocked-mail folder. Some school mail systems block first-time senders.",
+    devCode: "Development code: ",
+    code: "Code",
+    codePlaceholder: "6-digit code",
+    newPassword: "New password",
+    passwordPlaceholder: (min: number) =>
+      `At least ${min} characters with letters and numbers`,
+    confirmPassword: "Confirm new password",
+    confirmPasswordPlaceholder: "Enter the new password again",
+    back: "Change email",
+    resetting: "Resetting...",
+    reset: "Reset password",
+    remembered: "Remembered it?",
+    login: "Back to login",
+  },
+} as const;
 
 type CodeResponse = {
   email: string;
@@ -19,6 +78,8 @@ type CodeResponse = {
 };
 
 export default function ForgotPasswordPageClient() {
+  const { locale } = useLocale();
+  const copy = FORGOT_PASSWORD_COPY[locale];
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -54,7 +115,7 @@ export default function ForgotPasswordPageClient() {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "验证码发送失败，请稍后再试。",
+          : copy.sendFallback,
       );
     } finally {
       setPending(false);
@@ -67,7 +128,7 @@ export default function ForgotPasswordPageClient() {
     setError(null);
 
     if (newPassword !== passwordConfirm) {
-      setError("两次输入的密码不一致，请重新确认。");
+      setError(copy.passwordMismatch);
       setPending(false);
       return;
     }
@@ -83,7 +144,7 @@ export default function ForgotPasswordPageClient() {
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "重置失败，请重试。",
+          : copy.resetFallback,
       );
     } finally {
       setPending(false);
@@ -96,18 +157,18 @@ export default function ForgotPasswordPageClient() {
         <div className="auth-panel-mark" aria-hidden="true">
           <OliveSprigIllustration />
         </div>
-        <p className="eyebrow">Reset password · Step {step} / 2</p>
-        <h1>重置密码</h1>
+        <p className="eyebrow">{copy.step(step)}</p>
+        <h1>{copy.title}</h1>
         {step === 1 ? (
-          <p>输入你的学校邮箱，我们会发送验证码来验证你的身份。</p>
+          <p>{copy.introOne}</p>
         ) : (
-          <p>请输入验证码并设置新密码。</p>
+          <p>{copy.introTwo}</p>
         )}
 
         {step === 1 ? (
           <form className="auth-form" onSubmit={requestCode}>
             <label>
-              <span>学校邮箱</span>
+              <span>{copy.email}</span>
               <input
                 required
                 type="email"
@@ -123,23 +184,24 @@ export default function ForgotPasswordPageClient() {
               disabled={pending}
               type="submit"
             >
-              {pending ? "发送中…" : "发送验证码"}
+              {pending ? copy.sending : copy.sendCode}
             </button>
           </form>
         ) : (
           <form className="auth-form" onSubmit={resetPassword}>
             <div className="dev-inline">
-              <span>已发送到</span>
+              <span>{copy.sentTo}</span>
               <strong>{email}</strong>
             </div>
-            <p className="auth-hint">
-              几分钟内仍未收到？请检查邮箱的「垃圾邮件」或「拦截邮件」文件夹，部分学校邮箱会自动拦截首次发件人。
-            </p>
+            <p className="auth-hint">{copy.spamHint}</p>
             {canRevealDevCode && devCode ? (
-              <p className="dev-note">开发环境验证码：{devCode}</p>
+              <p className="dev-note">
+                {copy.devCode}
+                {devCode}
+              </p>
             ) : null}
             <label>
-              <span>验证码</span>
+              <span>{copy.code}</span>
               <input
                 required
                 value={code}
@@ -147,11 +209,11 @@ export default function ForgotPasswordPageClient() {
                 autoComplete="one-time-code"
                 inputMode="numeric"
                 onChange={(event) => setCode(event.target.value)}
-                placeholder="6 位验证码"
+                placeholder={copy.codePlaceholder}
               />
             </label>
             <label>
-              <span>新密码</span>
+              <span>{copy.newPassword}</span>
               <input
                 required
                 type="password"
@@ -160,11 +222,11 @@ export default function ForgotPasswordPageClient() {
                 maxLength={PASSWORD_MAX_LENGTH}
                 autoComplete="new-password"
                 onChange={(event) => setNewPassword(event.target.value)}
-                placeholder={`至少 ${PASSWORD_MIN_LENGTH} 位，含字母和数字`}
+                placeholder={copy.passwordPlaceholder(PASSWORD_MIN_LENGTH)}
               />
             </label>
             <label>
-              <span>确认新密码</span>
+              <span>{copy.confirmPassword}</span>
               <input
                 required
                 type="password"
@@ -173,7 +235,7 @@ export default function ForgotPasswordPageClient() {
                 maxLength={PASSWORD_MAX_LENGTH}
                 autoComplete="new-password"
                 onChange={(event) => setPasswordConfirm(event.target.value)}
-                placeholder="再次输入新密码"
+                placeholder={copy.confirmPasswordPlaceholder}
               />
             </label>
             {error ? <p className="form-error">{error}</p> : null}
@@ -184,7 +246,7 @@ export default function ForgotPasswordPageClient() {
                 type="button"
                 onClick={() => setStep(1)}
               >
-                重新输入邮箱
+                {copy.back}
               </button>
               <button
                 className="button-primary"
@@ -195,14 +257,14 @@ export default function ForgotPasswordPageClient() {
                 }
                 type="submit"
               >
-                {pending ? "重置中…" : "重置密码"}
+                {pending ? copy.resetting : copy.reset}
               </button>
             </div>
           </form>
         )}
 
         <p className="auth-hint">
-          想起密码了？<Link href="/login">返回登录</Link>
+          {copy.remembered} <Link href="/login">{copy.login}</Link>
         </p>
       </section>
       <div className="auth-grass-line" aria-hidden="true">

@@ -8,7 +8,13 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { DEFAULT_LOCALE, normalizeLocale } from '@lilink/shared';
+import {
+  DEFAULT_LOCALE,
+  isSupportedLocale,
+  localizePublicSupportedSchool,
+  normalizeLocale,
+  type SupportedLocale,
+} from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
@@ -21,6 +27,9 @@ type TransactionClient = Omit<
 >;
 
 type VerificationCodePurpose = 'register' | 'password_reset';
+type ResolvedSchool = NonNullable<
+  Awaited<ReturnType<SchoolResolverService['resolveByEmail']>>
+>;
 
 const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
 const VERIFICATION_CODE_HMAC_CONTEXT = 'verification-code';
@@ -38,19 +47,31 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async requestCode(email: string) {
+  async requestCode(email: string, locale: unknown = DEFAULT_LOCALE) {
     const normalizedEmail = email.trim().toLowerCase();
-    const school = await this.resolveAllowedSchool(normalizedEmail);
+    const preferredLocale = normalizeLocale(locale);
+    const school = this.localizeResolvedSchool(
+      await this.resolveAllowedSchool(normalizedEmail),
+      preferredLocale,
+    );
 
-    const result = await this.sendVerificationCode(normalizedEmail, 'register');
+    const result = await this.sendVerificationCode(
+      normalizedEmail,
+      'register',
+      preferredLocale,
+    );
 
     return { ...result, school };
   }
 
-  async register(input: RegisterDto) {
+  async register(input: RegisterDto, locale: unknown = DEFAULT_LOCALE) {
     const normalizedEmail = input.email.trim().toLowerCase();
+    const preferredLocale = normalizeLocale(locale);
     const school = await this.resolveAllowedSchool(normalizedEmail);
-    await this.assertRegistrationCapacityPreflight(this.prisma);
+    await this.assertRegistrationCapacityPreflight(
+      this.prisma,
+      preferredLocale,
+    );
     await this.assertVerificationCodeIsValid(
       this.prisma,
       normalizedEmail,
@@ -60,7 +81,7 @@ export class AuthService {
     const passwordHash = await argon2.hash(input.password);
 
     const user = await this.prisma.$transaction(async (tx) => {
-      await this.assertRegistrationCapacity(tx);
+      await this.assertRegistrationCapacity(tx, preferredLocale);
       await this.consumeVerificationCode(
         tx,
         normalizedEmail,
@@ -76,6 +97,7 @@ export class AuthService {
             status: 'ACTIVE',
             displayName: input.displayName,
             schoolId: school?.schoolId,
+            preferredLocale,
             acceptedTermsAt: input.acceptedTerms ? new Date() : null,
             profile: {
               create: {
@@ -101,7 +123,10 @@ export class AuthService {
     );
   }
 
-  async requestPasswordResetCode(email: string) {
+  async requestPasswordResetCode(
+    email: string,
+    locale: unknown = DEFAULT_LOCALE,
+  ) {
     const normalizedEmail = email.trim().toLowerCase();
 
     const user = await this.prisma.user.findUnique({
@@ -117,7 +142,11 @@ export class AuthService {
 
     // Defer status enforcement to resetPassword so this request step stays
     // indistinguishable across existing accounts.
-    return this.sendVerificationCode(normalizedEmail, 'password_reset');
+    return this.sendVerificationCode(
+      normalizedEmail,
+      'password_reset',
+      this.resolveEmailLocale(user.preferredLocale, locale),
+    );
   }
 
   async resetPassword(input: ResetPasswordDto) {
@@ -230,6 +259,7 @@ export class AuthService {
   private async sendVerificationCode(
     email: string,
     purpose: VerificationCodePurpose,
+    locale: SupportedLocale,
   ) {
     const code = String(randomInt(100000, 999999));
     const expiresAt = new Date(Date.now() + VERIFICATION_CODE_TTL_MS);
@@ -244,6 +274,7 @@ export class AuthService {
       dedupeKey: deliveryDedupeKey,
       recipientEmail: email,
       code,
+      locale,
     });
 
     await this.prisma.$transaction(async (tx) => {
@@ -387,6 +418,34 @@ export class AuthService {
     return resolvedSchool;
   }
 
+  private localizeResolvedSchool(
+    school: ResolvedSchool,
+    locale: SupportedLocale,
+  ) {
+    if (!school.schoolSlug) {
+      return school;
+    }
+
+    const localizedSchool = localizePublicSupportedSchool(
+      school.schoolSlug,
+      locale,
+    );
+    if (!localizedSchool) {
+      return school;
+    }
+
+    return {
+      ...school,
+      schoolName: localizedSchool.name,
+      schoolNativeName: localizedSchool.nativeName,
+      schoolEnglishName: localizedSchool.englishName,
+      schoolBaseName: localizedSchool.baseName,
+      schoolNativeBaseName: localizedSchool.nativeBaseName,
+      schoolEnglishBaseName: localizedSchool.englishBaseName,
+      schoolDescription: localizedSchool.description,
+    };
+  }
+
   private createVerificationCodeDigest(input: {
     email: string;
     purpose: VerificationCodePurpose;
@@ -454,7 +513,19 @@ export class AuthService {
     };
   }
 
-  private async assertRegistrationCapacity(tx: TransactionClient) {
+  private resolveEmailLocale(
+    preferredLocale: unknown,
+    requestLocale: unknown,
+  ): SupportedLocale {
+    return isSupportedLocale(preferredLocale)
+      ? preferredLocale
+      : normalizeLocale(requestLocale);
+  }
+
+  private async assertRegistrationCapacity(
+    tx: TransactionClient,
+    locale: SupportedLocale,
+  ) {
     const limit = await this.getRegistrationCapacityLimit(tx);
     if (limit <= 0) return;
 
@@ -463,17 +534,18 @@ export class AuthService {
     );
 
     const currentCount = await tx.user.count();
-    this.assertRegistrationCapacityHasSpace(currentCount, limit);
+    this.assertRegistrationCapacityHasSpace(currentCount, limit, locale);
   }
 
   private async assertRegistrationCapacityPreflight(
     store: Pick<TransactionClient, 'systemSetting' | 'user'>,
+    locale: SupportedLocale,
   ) {
     const limit = await this.getRegistrationCapacityLimit(store);
     if (limit <= 0) return;
 
     const currentCount = await store.user.count();
-    this.assertRegistrationCapacityHasSpace(currentCount, limit);
+    this.assertRegistrationCapacityHasSpace(currentCount, limit, locale);
   }
 
   private async getRegistrationCapacityLimit(
@@ -489,12 +561,19 @@ export class AuthService {
   private assertRegistrationCapacityHasSpace(
     currentCount: number,
     limit: number,
+    locale: SupportedLocale,
   ) {
     if (currentCount < limit) return;
 
     throw new BadRequestException(
-      `本轮内测名额仅限 ${limit} 人，目前已满。请等待下一轮开放。`,
+      this.registrationCapacityMessage(limit, locale),
     );
+  }
+
+  private registrationCapacityMessage(limit: number, locale: SupportedLocale) {
+    return locale === 'en-US'
+      ? `This beta round is limited to ${limit} people and is currently full. Please wait for the next opening.`
+      : `本轮内测名额仅限 ${limit} 人，目前已满。请等待下一轮开放。`;
   }
 
   private isUniqueConstraintError(error: unknown) {

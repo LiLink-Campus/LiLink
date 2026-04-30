@@ -1,11 +1,21 @@
 import {
   WEEKLY_INTENTS,
   WEEKLY_INTENT_LABELS,
+  WEEKLY_INTENT_LONG_MATCHING_RULE_COPY,
+  WEEKLY_INTENT_MATCHING_RULE_COPY,
   isWeeklyIntent,
+  weeklyIntentLabelsFor,
   type WeeklyIntent,
 } from "@lilink/shared";
 
-export { WEEKLY_INTENTS, WEEKLY_INTENT_LABELS, isWeeklyIntent };
+export {
+  WEEKLY_INTENTS,
+  WEEKLY_INTENT_LABELS,
+  WEEKLY_INTENT_LONG_MATCHING_RULE_COPY,
+  WEEKLY_INTENT_MATCHING_RULE_COPY,
+  isWeeklyIntent,
+  weeklyIntentLabelsFor,
+};
 export type { WeeklyIntent };
 
 type WeeklyIntentVisual = {

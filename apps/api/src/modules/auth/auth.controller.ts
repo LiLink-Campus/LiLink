@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Post,
   Req,
   Res,
@@ -33,8 +34,11 @@ export class AuthController {
 
   @Post('request-code')
   @Throttle(createPublicAuthThrottle('requestCode'))
-  requestCode(@Body() body: RequestCodeDto) {
-    return this.authService.requestCode(body.email);
+  requestCode(
+    @Body() body: RequestCodeDto,
+    @Headers('x-locale') locale?: string,
+  ) {
+    return this.authService.requestCode(body.email, locale);
   }
 
   @Post('register')
@@ -42,16 +46,20 @@ export class AuthController {
   async register(
     @Body() body: RegisterDto,
     @Res({ passthrough: true }) response: Response,
+    @Headers('x-locale') locale?: string,
   ) {
-    const { token, ...payload } = await this.authService.register(body);
+    const { token, ...payload } = await this.authService.register(body, locale);
     this.attachAuthCookie(response, token);
     return payload;
   }
 
   @Post('request-password-reset-code')
   @Throttle(createPublicAuthThrottle('requestPasswordResetCode'))
-  requestPasswordResetCode(@Body() body: RequestPasswordResetCodeDto) {
-    return this.authService.requestPasswordResetCode(body.email);
+  requestPasswordResetCode(
+    @Body() body: RequestPasswordResetCodeDto,
+    @Headers('x-locale') locale?: string,
+  ) {
+    return this.authService.requestPasswordResetCode(body.email, locale);
   }
 
   @Post('reset-password')

@@ -1,5 +1,6 @@
 import { apiBaseUrl } from "./api-base-url";
 import type { SupportedLocale } from "@lilink/shared";
+import { readClientLocale } from "./i18n";
 
 const API_ERROR_EN_TO_ZH: Record<string, string> = {
   "This email domain is not currently accepted.":
@@ -36,27 +37,38 @@ export function isApiRequestError(error: unknown): error is ApiRequestError {
   return error instanceof ApiRequestError;
 }
 
-function userFacingApiMessage(raw: string): string {
+function userFacingApiMessage(raw: string, locale: SupportedLocale): string {
   const trimmed = raw.trim();
+  if (locale === "en-US") {
+    return trimmed;
+  }
   return API_ERROR_EN_TO_ZH[trimmed] ?? trimmed;
 }
 
-function parseFailedResponseBody(text: string, status: number): string {
+function parseFailedResponseBody(
+  text: string,
+  status: number,
+  locale: SupportedLocale,
+): string {
   const trimmed = text.trim();
   if (!trimmed) {
-    return `请求失败（${status}）`;
+    return locale === "en-US"
+      ? `Request failed (${status})`
+      : `请求失败（${status}）`;
   }
   try {
     const parsed = JSON.parse(trimmed) as { message?: unknown };
     if (typeof parsed.message === "string") {
-      return userFacingApiMessage(parsed.message);
+      return userFacingApiMessage(parsed.message, locale);
     }
     if (Array.isArray(parsed.message)) {
       const parts = parsed.message.filter(
         (item): item is string => typeof item === "string",
       );
       if (parts.length > 0) {
-        return parts.map(userFacingApiMessage).join("；");
+        return parts
+          .map((part) => userFacingApiMessage(part, locale))
+          .join(locale === "en-US" ? "; " : "；");
       }
     }
   } catch {
@@ -69,10 +81,12 @@ export async function fetchApi<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
+  const locale = readClientLocale();
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      "x-locale": locale,
       ...(init?.headers ?? {}),
     },
     credentials: "include",
@@ -82,7 +96,7 @@ export async function fetchApi<T>(
   if (!response.ok) {
     const body = await response.text();
     throw new ApiRequestError(
-      parseFailedResponseBody(body, response.status),
+      parseFailedResponseBody(body, response.status, locale),
       response.status,
     );
   }

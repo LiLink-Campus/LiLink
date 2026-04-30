@@ -11,11 +11,20 @@ import "./globals.css";
 
 const apiPreconnectOrigin = resolveApiOriginForPreconnect();
 
-export const metadata: Metadata = {
-  title: "LiLink · 校园里的，认真相遇",
-  description:
-    "LiLink 是面向高校学生的匹配平台。基于深度问卷的匹配算法，每周一次轮次，认真对待每一份期待。",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  return locale === "zh-CN"
+    ? {
+        title: "LiLink · 校园里的，认真相遇",
+        description:
+          "LiLink 是面向高校学生的匹配平台。基于深度问卷的匹配算法，每周一次轮次，认真对待每一份期待。",
+      }
+    : {
+        title: "LiLink · Intentional campus matching",
+        description:
+          "LiLink is a matching platform for university students, using a deep questionnaire and weekly rounds to make one careful match at a time.",
+      };
+}
 
 export const viewport: Viewport = {
   themeColor: "#f4f1ea",
@@ -50,8 +59,8 @@ export default async function RootLayout({
           <AuthSessionProvider>
             <PublicChrome>{children}</PublicChrome>
           </AuthSessionProvider>
+          <AnnouncementDialog />
         </LocaleProvider>
-        <AnnouncementDialog />
         <Analytics />
         <SpeedInsights />
       </body>

@@ -163,8 +163,16 @@ describe('QuestionnaireService', () => {
       },
       school: {
         findMany: jest.fn().mockResolvedValue([
-          { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
-          { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+          {
+            id: 'school-bupt',
+            slug: 'bupt-qmul-hainan',
+            name: '北京邮电大学玛丽女王海南学院',
+          },
+          {
+            id: 'school-cuc',
+            slug: 'cuc-hainan-international',
+            name: '中国传媒大学海南国际学院',
+          },
         ]),
       },
     };
@@ -174,8 +182,16 @@ describe('QuestionnaireService', () => {
       {
         id: 'version-1',
         schools: [
-          { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
-          { id: 'school-cuc', name: '中国传媒大学海南国际学院' },
+          {
+            id: 'school-bupt',
+            slug: 'bupt-qmul-hainan',
+            name: '北京邮电大学',
+          },
+          {
+            id: 'school-cuc',
+            slug: 'cuc-hainan-international',
+            name: '中国传媒大学',
+          },
         ],
         questions: [
           {
@@ -204,11 +220,13 @@ describe('QuestionnaireService', () => {
         }),
       },
       school: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
-          ]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'school-bupt',
+            slug: 'bupt-qmul-hainan',
+            name: '北京邮电大学玛丽女王海南学院',
+          },
+        ]),
       },
     };
     const schoolAwareService = new QuestionnaireService(prisma as never);
@@ -216,13 +234,17 @@ describe('QuestionnaireService', () => {
     await expect(schoolAwareService.getCurrentVersion()).resolves.toMatchObject(
       {
         id: 'version-1',
-        schools: [{ id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' }],
+        schools: [
+          { id: 'school-bupt', slug: 'bupt-qmul-hainan', name: '北京邮电大学' },
+        ],
       },
     );
     await expect(schoolAwareService.getCurrentVersion()).resolves.toMatchObject(
       {
         id: 'version-1',
-        schools: [{ id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' }],
+        schools: [
+          { id: 'school-bupt', slug: 'bupt-qmul-hainan', name: '北京邮电大学' },
+        ],
       },
     );
 

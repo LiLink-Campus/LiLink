@@ -8,6 +8,8 @@ const {
   splitBirthDate,
   areHardMatchAnswersCompatible,
   calculateAgeOnDate,
+  hardMatchLanguageLabel,
+  hardMatchNationalityLabel,
   readQuestionnaireOneLiner,
 } = require("../dist");
 
@@ -24,6 +26,13 @@ test("splitBirthDate safely handles malformed input", () => {
     birthMonth: "",
     birthDay: "",
   });
+});
+
+test("hard match nationality and language labels localize new profile options", () => {
+  assert.equal(hardMatchNationalityLabel("中国", "en-US"), "China");
+  assert.equal(hardMatchNationalityLabel("法国", "en-US"), "France");
+  assert.equal(hardMatchLanguageLabel("中文", "en-US"), "Chinese");
+  assert.equal(hardMatchLanguageLabel("法语", "en-US"), "French");
 });
 
 test("parseHardMatchAnswers normalizes valid records", () => {

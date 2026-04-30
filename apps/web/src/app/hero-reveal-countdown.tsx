@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { useLocale } from "./locale-context";
 
 type HeroRevealCountdownProps = {
   /** ISO timestamp for the next reveal; null means not configured */
@@ -52,6 +53,7 @@ export function HeroRevealCountdown({
   offline,
   serverFallbackLabel,
 }: HeroRevealCountdownProps) {
+  const { locale } = useLocale();
   const nowMs = useSyncExternalStore(
     subscribeToClock,
     getClientNowMs,
@@ -69,7 +71,7 @@ export function HeroRevealCountdown({
   if (!revealAt) {
     return (
       <div className="hero-reveal-countdown hero-reveal-countdown--static">
-        轮次时间待配置
+        {locale === "zh-CN" ? "轮次时间待配置" : "Round time is not configured"}
       </div>
     );
   }
@@ -94,7 +96,7 @@ export function HeroRevealCountdown({
   if (parts == null) {
     return (
       <div className="hero-reveal-countdown hero-reveal-countdown--static">
-        本期已揭晓
+        {locale === "zh-CN" ? "本期已揭晓" : "This round has been revealed"}
       </div>
     );
   }
@@ -103,16 +105,20 @@ export function HeroRevealCountdown({
     <div
       className="hero-reveal-countdown"
       aria-live="polite"
-      aria-label="距离下次揭晓的剩余时间"
+      aria-label={
+        locale === "zh-CN"
+          ? "距离下次揭晓的剩余时间"
+          : "Time remaining until the next reveal"
+      }
     >
       <span className="countdown-num">{parts.days}</span>
-      <span className="countdown-unit">天</span>
+      <span className="countdown-unit">{locale === "zh-CN" ? "天" : "d"}</span>
       <span className="countdown-num">{pad2(parts.hours)}</span>
-      <span className="countdown-unit">时</span>
+      <span className="countdown-unit">{locale === "zh-CN" ? "时" : "h"}</span>
       <span className="countdown-num">{pad2(parts.minutes)}</span>
-      <span className="countdown-unit">分</span>
+      <span className="countdown-unit">{locale === "zh-CN" ? "分" : "m"}</span>
       <span className="countdown-num">{pad2(parts.seconds)}</span>
-      <span className="countdown-unit">秒</span>
+      <span className="countdown-unit">{locale === "zh-CN" ? "秒" : "s"}</span>
     </div>
   );
 }

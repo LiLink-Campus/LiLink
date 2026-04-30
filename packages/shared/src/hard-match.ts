@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE, type SupportedLocale } from "./locale";
+
 export const HARD_MATCH_GENDERS = ["男", "女", "非二元"] as const;
 export const HARD_MATCH_LOOKS = ["普通人", "小帅/美", "顶帅/美"] as const;
 export const HARD_MATCH_NATIONALITIES = [
@@ -175,6 +177,182 @@ export type HardMatchAnswers = {
   excludedPartnerSchools: HardMatchSchoolId[];
   excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
 };
+
+export const HARD_MATCH_GENDER_LABELS_BY_LOCALE: Record<
+  HardMatchGender,
+  Record<SupportedLocale, string>
+> = {
+  男: {
+    "zh-CN": "男",
+    "en-US": "Male",
+  },
+  女: {
+    "zh-CN": "女",
+    "en-US": "Female",
+  },
+  非二元: {
+    "zh-CN": "非二元",
+    "en-US": "Non-binary",
+  },
+};
+
+export const HARD_MATCH_LOOKS_LABELS_BY_LOCALE: Record<
+  HardMatchLooks,
+  Record<SupportedLocale, string>
+> = {
+  普通人: {
+    "zh-CN": "普通人",
+    "en-US": "Average",
+  },
+  "小帅/美": {
+    "zh-CN": "小帅/美",
+    "en-US": "Attractive",
+  },
+  "顶帅/美": {
+    "zh-CN": "顶帅/美",
+    "en-US": "Very attractive",
+  },
+};
+
+export const HARD_MATCH_NATIONALITY_LABELS_BY_LOCALE: Record<
+  HardMatchNationality,
+  Record<SupportedLocale, string>
+> = {
+  中国: { "zh-CN": "中国", "en-US": "China" },
+  美国: { "zh-CN": "美国", "en-US": "United States" },
+  加拿大: { "zh-CN": "加拿大", "en-US": "Canada" },
+  英国: { "zh-CN": "英国", "en-US": "United Kingdom" },
+  法国: { "zh-CN": "法国", "en-US": "France" },
+  德国: { "zh-CN": "德国", "en-US": "Germany" },
+  意大利: { "zh-CN": "意大利", "en-US": "Italy" },
+  西班牙: { "zh-CN": "西班牙", "en-US": "Spain" },
+  葡萄牙: { "zh-CN": "葡萄牙", "en-US": "Portugal" },
+  荷兰: { "zh-CN": "荷兰", "en-US": "Netherlands" },
+  比利时: { "zh-CN": "比利时", "en-US": "Belgium" },
+  瑞士: { "zh-CN": "瑞士", "en-US": "Switzerland" },
+  瑞典: { "zh-CN": "瑞典", "en-US": "Sweden" },
+  挪威: { "zh-CN": "挪威", "en-US": "Norway" },
+  丹麦: { "zh-CN": "丹麦", "en-US": "Denmark" },
+  芬兰: { "zh-CN": "芬兰", "en-US": "Finland" },
+  爱尔兰: { "zh-CN": "爱尔兰", "en-US": "Ireland" },
+  奥地利: { "zh-CN": "奥地利", "en-US": "Austria" },
+  波兰: { "zh-CN": "波兰", "en-US": "Poland" },
+  捷克: { "zh-CN": "捷克", "en-US": "Czechia" },
+  俄罗斯: { "zh-CN": "俄罗斯", "en-US": "Russia" },
+  乌克兰: { "zh-CN": "乌克兰", "en-US": "Ukraine" },
+  土耳其: { "zh-CN": "土耳其", "en-US": "Turkey" },
+  日本: { "zh-CN": "日本", "en-US": "Japan" },
+  韩国: { "zh-CN": "韩国", "en-US": "South Korea" },
+  新加坡: { "zh-CN": "新加坡", "en-US": "Singapore" },
+  马来西亚: { "zh-CN": "马来西亚", "en-US": "Malaysia" },
+  泰国: { "zh-CN": "泰国", "en-US": "Thailand" },
+  越南: { "zh-CN": "越南", "en-US": "Vietnam" },
+  印度尼西亚: { "zh-CN": "印度尼西亚", "en-US": "Indonesia" },
+  菲律宾: { "zh-CN": "菲律宾", "en-US": "Philippines" },
+  印度: { "zh-CN": "印度", "en-US": "India" },
+  巴基斯坦: { "zh-CN": "巴基斯坦", "en-US": "Pakistan" },
+  孟加拉国: { "zh-CN": "孟加拉国", "en-US": "Bangladesh" },
+  尼泊尔: { "zh-CN": "尼泊尔", "en-US": "Nepal" },
+  斯里兰卡: { "zh-CN": "斯里兰卡", "en-US": "Sri Lanka" },
+  澳大利亚: { "zh-CN": "澳大利亚", "en-US": "Australia" },
+  新西兰: { "zh-CN": "新西兰", "en-US": "New Zealand" },
+  巴西: { "zh-CN": "巴西", "en-US": "Brazil" },
+  阿根廷: { "zh-CN": "阿根廷", "en-US": "Argentina" },
+  墨西哥: { "zh-CN": "墨西哥", "en-US": "Mexico" },
+  智利: { "zh-CN": "智利", "en-US": "Chile" },
+  哥伦比亚: { "zh-CN": "哥伦比亚", "en-US": "Colombia" },
+  秘鲁: { "zh-CN": "秘鲁", "en-US": "Peru" },
+  南非: { "zh-CN": "南非", "en-US": "South Africa" },
+  埃及: { "zh-CN": "埃及", "en-US": "Egypt" },
+  摩洛哥: { "zh-CN": "摩洛哥", "en-US": "Morocco" },
+  阿联酋: { "zh-CN": "阿联酋", "en-US": "United Arab Emirates" },
+  沙特阿拉伯: { "zh-CN": "沙特阿拉伯", "en-US": "Saudi Arabia" },
+  以色列: { "zh-CN": "以色列", "en-US": "Israel" },
+};
+
+export const HARD_MATCH_LANGUAGE_LABELS_BY_LOCALE: Record<
+  HardMatchLanguage,
+  Record<SupportedLocale, string>
+> = {
+  中文: { "zh-CN": "中文", "en-US": "Chinese" },
+  粤语: { "zh-CN": "粤语", "en-US": "Cantonese" },
+  英语: { "zh-CN": "英语", "en-US": "English" },
+  日语: { "zh-CN": "日语", "en-US": "Japanese" },
+  韩语: { "zh-CN": "韩语", "en-US": "Korean" },
+  法语: { "zh-CN": "法语", "en-US": "French" },
+  德语: { "zh-CN": "德语", "en-US": "German" },
+  西班牙语: { "zh-CN": "西班牙语", "en-US": "Spanish" },
+  葡萄牙语: { "zh-CN": "葡萄牙语", "en-US": "Portuguese" },
+  意大利语: { "zh-CN": "意大利语", "en-US": "Italian" },
+  荷兰语: { "zh-CN": "荷兰语", "en-US": "Dutch" },
+  俄语: { "zh-CN": "俄语", "en-US": "Russian" },
+  乌克兰语: { "zh-CN": "乌克兰语", "en-US": "Ukrainian" },
+  波兰语: { "zh-CN": "波兰语", "en-US": "Polish" },
+  捷克语: { "zh-CN": "捷克语", "en-US": "Czech" },
+  瑞典语: { "zh-CN": "瑞典语", "en-US": "Swedish" },
+  挪威语: { "zh-CN": "挪威语", "en-US": "Norwegian" },
+  丹麦语: { "zh-CN": "丹麦语", "en-US": "Danish" },
+  芬兰语: { "zh-CN": "芬兰语", "en-US": "Finnish" },
+  希腊语: { "zh-CN": "希腊语", "en-US": "Greek" },
+  土耳其语: { "zh-CN": "土耳其语", "en-US": "Turkish" },
+  阿拉伯语: { "zh-CN": "阿拉伯语", "en-US": "Arabic" },
+  希伯来语: { "zh-CN": "希伯来语", "en-US": "Hebrew" },
+  印地语: { "zh-CN": "印地语", "en-US": "Hindi" },
+  乌尔都语: { "zh-CN": "乌尔都语", "en-US": "Urdu" },
+  孟加拉语: { "zh-CN": "孟加拉语", "en-US": "Bengali" },
+  泰米尔语: { "zh-CN": "泰米尔语", "en-US": "Tamil" },
+  泰卢固语: { "zh-CN": "泰卢固语", "en-US": "Telugu" },
+  马拉地语: { "zh-CN": "马拉地语", "en-US": "Marathi" },
+  旁遮普语: { "zh-CN": "旁遮普语", "en-US": "Punjabi" },
+  古吉拉特语: { "zh-CN": "古吉拉特语", "en-US": "Gujarati" },
+  尼泊尔语: { "zh-CN": "尼泊尔语", "en-US": "Nepali" },
+  僧伽罗语: { "zh-CN": "僧伽罗语", "en-US": "Sinhala" },
+  泰语: { "zh-CN": "泰语", "en-US": "Thai" },
+  越南语: { "zh-CN": "越南语", "en-US": "Vietnamese" },
+  印度尼西亚语: { "zh-CN": "印度尼西亚语", "en-US": "Indonesian" },
+  马来语: { "zh-CN": "马来语", "en-US": "Malay" },
+  菲律宾语: { "zh-CN": "菲律宾语", "en-US": "Filipino" },
+  缅甸语: { "zh-CN": "缅甸语", "en-US": "Burmese" },
+  高棉语: { "zh-CN": "高棉语", "en-US": "Khmer" },
+  老挝语: { "zh-CN": "老挝语", "en-US": "Lao" },
+  波斯语: { "zh-CN": "波斯语", "en-US": "Persian" },
+  库尔德语: { "zh-CN": "库尔德语", "en-US": "Kurdish" },
+  斯瓦希里语: { "zh-CN": "斯瓦希里语", "en-US": "Swahili" },
+  阿姆哈拉语: { "zh-CN": "阿姆哈拉语", "en-US": "Amharic" },
+  豪萨语: { "zh-CN": "豪萨语", "en-US": "Hausa" },
+  祖鲁语: { "zh-CN": "祖鲁语", "en-US": "Zulu" },
+  南非荷兰语: { "zh-CN": "南非荷兰语", "en-US": "Afrikaans" },
+  罗马尼亚语: { "zh-CN": "罗马尼亚语", "en-US": "Romanian" },
+  匈牙利语: { "zh-CN": "匈牙利语", "en-US": "Hungarian" },
+};
+
+export function hardMatchGenderLabel(
+  gender: HardMatchGender,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
+  return HARD_MATCH_GENDER_LABELS_BY_LOCALE[gender][locale];
+}
+
+export function hardMatchLooksLabel(
+  looks: HardMatchLooks,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
+  return HARD_MATCH_LOOKS_LABELS_BY_LOCALE[looks][locale];
+}
+
+export function hardMatchNationalityLabel(
+  nationality: HardMatchNationality,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
+  return HARD_MATCH_NATIONALITY_LABELS_BY_LOCALE[nationality][locale];
+}
+
+export function hardMatchLanguageLabel(
+  language: HardMatchLanguage,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
+  return HARD_MATCH_LANGUAGE_LABELS_BY_LOCALE[language][locale];
+}
 
 const HARD_MATCH_KEY_SET = new Set<string>(Object.values(HARD_MATCH_KEYS));
 

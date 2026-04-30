@@ -4,6 +4,8 @@ type BrandMarkProps = {
   href?: string;
   variant?: "default" | "compact" | "stacked";
   showTagline?: boolean;
+  tagline?: string;
+  ariaLabel?: string;
 };
 
 /**
@@ -15,6 +17,8 @@ export function BrandMark({
   href = "/",
   variant = "default",
   showTagline = true,
+  tagline = "校园里的，认真相遇",
+  ariaLabel = "LiLink 首页",
 }: BrandMarkProps) {
   const className =
     variant === "compact"
@@ -24,14 +28,14 @@ export function BrandMark({
         : "brand-mark";
 
   return (
-    <Link href={href} className={className} aria-label="LiLink 首页">
+    <Link href={href} className={className} aria-label={ariaLabel}>
       <span className="brand-glyph" aria-hidden="true">
         <span className="brand-glyph-text">Li</span>
         <span className="brand-glyph-sparkle" />
       </span>
       <span className="brand-text">
         <strong>LiLink</strong>
-        {showTagline ? <small>校园里的，认真相遇</small> : null}
+        {showTagline ? <small>{tagline}</small> : null}
       </span>
     </Link>
   );

@@ -3,8 +3,15 @@ import { AccountController } from './account.controller';
 describe('AccountController', () => {
   it('returns the signed-in user and dashboard in one bootstrap payload', async () => {
     const dashboard = { currentCycle: null };
+    const user = {
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      preferredLocale: 'zh-CN',
+    };
     const accountService = {
       getDashboard: jest.fn().mockResolvedValue(dashboard),
+      getUserSummary: jest.fn().mockResolvedValue(user),
     };
     const accountController = new AccountController(accountService as never);
 
@@ -17,15 +24,12 @@ describe('AccountController', () => {
         },
       } as never),
     ).resolves.toEqual({
-      user: {
-        id: 'user-1',
-        email: 'user@example.com',
-        displayName: 'User',
-      },
+      user,
       dashboard,
     });
 
     expect(accountService.getDashboard).toHaveBeenCalledWith('user-1');
+    expect(accountService.getUserSummary).toHaveBeenCalledWith('user-1');
   });
 
   it('forwards the contact request to the account service for the signed-in user', async () => {

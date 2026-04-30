@@ -1,13 +1,40 @@
 "use client";
 
+import type { SupportedLocale } from "@lilink/shared";
+import { readClientLocale, textForLocale } from "../lib/i18n";
+
+type GlobalErrorCopy = {
+  title: string;
+  body: string;
+  retry: string;
+};
+
+const GLOBAL_ERROR_COPY = {
+  "zh-CN": {
+    title: "出了点问题",
+    body: "页面加载时发生了意外错误。",
+    retry: "重试",
+  },
+  "en-US": {
+    title: "Something went wrong",
+    body: "An unexpected error occurred while loading the page.",
+    retry: "Try again",
+  },
+} satisfies Record<SupportedLocale, GlobalErrorCopy>;
+
 export default function GlobalError({
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const isAdminRoute =
+    typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
+  const locale = isAdminRoute ? "zh-CN" : readClientLocale();
+  const copy = textForLocale(locale, GLOBAL_ERROR_COPY);
+
   return (
-    <html lang="zh-CN">
+    <html lang={locale}>
       <body
         style={{
           display: "flex",
@@ -23,10 +50,10 @@ export default function GlobalError({
       >
         <div>
           <h1 style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>
-            出了点问题
+            {copy.title}
           </h1>
           <p style={{ color: "#5a6760", marginBottom: "1.5rem" }}>
-            页面加载时发生了意外错误。
+            {copy.body}
           </p>
           <button
             onClick={reset}
@@ -40,7 +67,7 @@ export default function GlobalError({
               fontSize: "0.95rem",
             }}
           >
-            重试
+            {copy.retry}
           </button>
         </div>
       </body>

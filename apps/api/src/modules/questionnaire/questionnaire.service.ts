@@ -5,9 +5,17 @@ import {
 } from '@nestjs/common';
 import { QuestionType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import {
+  DEFAULT_LOCALE,
+  PUBLIC_SUPPORTED_SCHOOL_SLUGS,
+  localizePublicSupportedSchool,
+  publicSupportedSchoolSortIndex,
+  type SupportedLocale,
+} from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { hardMatchQuestionKeys, normalizeHardMatchAnswers } from './hard-match';
 import { IncompleteQuestionnaireSubmissionException } from './incomplete-questionnaire-submission.exception';
+import { localizeQuestionnaire } from './questionnaire-i18n';
 import {
   normalizeQuestionAnswer,
   normalizeQuestionOptions,
@@ -27,6 +35,7 @@ type QuestionnaireQuestion = {
 
 type QuestionnaireSchoolOption = {
   id: string;
+  slug: string;
   name: string;
 };
 
@@ -71,14 +80,16 @@ export class QuestionnaireService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async getCurrentVersion() {
+  async getCurrentVersion(locale: SupportedLocale = DEFAULT_LOCALE) {
     const cachedQuestionnaire = this.readCachedCurrentQuestionnaire();
     if (cachedQuestionnaire) {
-      return cachedQuestionnaire;
+      return this.localizeCurrentQuestionnaire(cachedQuestionnaire, locale);
     }
 
     if (this.currentQuestionnaireInFlight) {
-      return this.currentQuestionnaireInFlight;
+      return this.currentQuestionnaireInFlight.then((questionnaire) =>
+        this.localizeCurrentQuestionnaire(questionnaire, locale),
+      );
     }
 
     this.currentQuestionnaireInFlight = this.loadCurrentVersion().finally(
@@ -87,7 +98,9 @@ export class QuestionnaireService {
       },
     );
 
-    return this.currentQuestionnaireInFlight;
+    return this.currentQuestionnaireInFlight.then((questionnaire) =>
+      this.localizeCurrentQuestionnaire(questionnaire, locale),
+    );
   }
 
   private readCachedCurrentQuestionnaire() {
@@ -114,8 +127,12 @@ export class QuestionnaireService {
         },
       }),
       this.prisma.school.findMany({
+        where: {
+          slug: { in: [...PUBLIC_SUPPORTED_SCHOOL_SLUGS] },
+        },
         select: {
           id: true,
+          slug: true,
           name: true,
         },
         orderBy: { name: 'asc' },
@@ -135,7 +152,20 @@ export class QuestionnaireService {
         options: normalizeQuestionOptions(question.options),
         reasonRules: normalizeQuestionReasonRules(question.reasonRules),
       })),
-      schools,
+      schools: schools
+        .map((school) => {
+          const localizedSchool = localizePublicSupportedSchool(school.slug);
+          return {
+            id: school.id,
+            slug: school.slug,
+            name: localizedSchool?.baseName ?? school.name,
+          };
+        })
+        .sort(
+          (left, right) =>
+            publicSupportedSchoolSortIndex(left.slug) -
+            publicSupportedSchoolSortIndex(right.slug),
+        ),
     } satisfies CurrentQuestionnairePayload;
 
     this.cachedCurrentQuestionnaire = {
@@ -228,12 +258,49 @@ export class QuestionnaireService {
   }
 
   listSchoolOptions(): Promise<QuestionnaireSchoolOption[]> {
-    return this.prisma.school.findMany({
-      select: {
-        id: true,
-        name: true,
-      },
-      orderBy: { name: 'asc' },
-    });
+    return this.prisma.school
+      .findMany({
+        where: {
+          slug: { in: [...PUBLIC_SUPPORTED_SCHOOL_SLUGS] },
+        },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+        },
+        orderBy: { name: 'asc' },
+      })
+      .then((schools) =>
+        schools
+          .map((school) => ({
+            id: school.id,
+            slug: school.slug,
+            name:
+              localizePublicSupportedSchool(school.slug)?.baseName ??
+              school.name,
+          }))
+          .sort(
+            (left, right) =>
+              publicSupportedSchoolSortIndex(left.slug) -
+              publicSupportedSchoolSortIndex(right.slug),
+          ),
+      );
+  }
+
+  private localizeCurrentQuestionnaire(
+    questionnaire: CurrentQuestionnairePayload,
+    locale: SupportedLocale,
+  ) {
+    const localizedQuestionnaire = localizeQuestionnaire(questionnaire, locale);
+
+    return {
+      ...localizedQuestionnaire,
+      schools: localizedQuestionnaire.schools.map((school) => ({
+        ...school,
+        name:
+          localizePublicSupportedSchool(school.slug, locale)?.baseName ??
+          school.name,
+      })),
+    };
   }
 }
