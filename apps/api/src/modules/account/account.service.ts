@@ -6,7 +6,7 @@ import {
   type UserCycleDashboardSnapshot,
   type WeeklyIntent as PrismaWeeklyIntent,
 } from '@prisma/client';
-import { isWeeklyIntent } from '@lilink/shared';
+import { isWeeklyIntent, normalizeLocale } from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -30,6 +30,7 @@ import {
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
+  UpdateLocaleDto,
   UpdateProfileDto,
 } from './dto';
 
@@ -116,6 +117,45 @@ export class AccountService {
   ) {
     this.dashboardSnapshotService =
       dashboardSnapshotService ?? defaultDashboardSnapshotPort;
+  }
+
+  async getUserSummary(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        preferredLocale: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return {
+      ...user,
+      preferredLocale: normalizeLocale(user.preferredLocale),
+    };
+  }
+
+  async updateLocale(userId: string, input: UpdateLocaleDto) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { preferredLocale: input.locale },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        preferredLocale: true,
+      },
+    });
+
+    return {
+      ...user,
+      preferredLocale: normalizeLocale(user.preferredLocale),
+    };
   }
 
   async getDashboard(userId: string): Promise<DashboardResponseDto> {

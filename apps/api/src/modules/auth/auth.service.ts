@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { DEFAULT_LOCALE, normalizeLocale } from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
@@ -92,7 +93,12 @@ export class AuthService {
       }
     });
 
-    return this.issueAuthPayload(user.id, user.email, user.displayName);
+    return this.issueAuthPayload(
+      user.id,
+      user.email,
+      user.displayName,
+      user.preferredLocale,
+    );
   }
 
   async requestPasswordResetCode(email: string) {
@@ -152,7 +158,12 @@ export class AuthService {
       });
     });
 
-    return this.issueAuthPayload(user.id, user.email, user.displayName);
+    return this.issueAuthPayload(
+      user.id,
+      user.email,
+      user.displayName,
+      user.preferredLocale,
+    );
   }
 
   async login(input: LoginDto) {
@@ -176,7 +187,12 @@ export class AuthService {
       throw new UnauthorizedException('Email or password is incorrect.');
     }
 
-    return this.issueAuthPayload(user.id, user.email, user.displayName);
+    return this.issueAuthPayload(
+      user.id,
+      user.email,
+      user.displayName,
+      user.preferredLocale,
+    );
   }
 
   async getMe(userId: string) {
@@ -419,6 +435,7 @@ export class AuthService {
     userId: string,
     email: string,
     displayName: string | null,
+    preferredLocale: unknown = DEFAULT_LOCALE,
   ) {
     const token = this.jwtService.sign({
       sub: userId,
@@ -432,6 +449,7 @@ export class AuthService {
         id: userId,
         email,
         displayName,
+        preferredLocale: normalizeLocale(preferredLocale),
       },
     };
   }
