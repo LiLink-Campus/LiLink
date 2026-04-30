@@ -49,6 +49,7 @@ export default async function RootLayout({
   return (
     <html
       lang={initialLocale}
+      data-locale={initialLocale}
       data-scroll-behavior="smooth"
     >
       <head>
