@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { DEFAULT_LOCALE, LOCALE_COOKIE_NAME } from "@lilink/shared";
 import { resolveApiOriginForPreconnect } from "../lib/api-preconnect";
+import { getRequestLocale } from "../lib/locale";
 import { AuthSessionProvider } from "./auth-session";
 import { AnnouncementDialog } from "./announcement-dialog";
 import { PublicChrome } from "./public-chrome";
@@ -38,14 +39,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialLocale = await getRequestLocale();
+
   return (
     <html
-      lang={DEFAULT_LOCALE}
+      lang={initialLocale}
       data-scroll-behavior="smooth"
     >
       <head>
@@ -60,7 +63,7 @@ export default function RootLayout({
       </head>
       <body>
         <AuthSessionProvider>
-          <LocaleProvider initialLocale={DEFAULT_LOCALE}>
+          <LocaleProvider initialLocale={initialLocale}>
             <PublicChrome>{children}</PublicChrome>
             <AnnouncementDialog />
           </LocaleProvider>
