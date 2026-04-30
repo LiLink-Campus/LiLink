@@ -174,22 +174,24 @@ describe('AuthService', () => {
     const resolveByEmail = jest
       .fn()
       .mockResolvedValue({ schoolId: 'school-1' });
+    const buildVerificationCodeEmail = jest.fn(
+      (input: {
+        dedupeKey: string;
+        recipientEmail: string;
+        code: string;
+        locale: string;
+      }) => ({
+        dedupeKey: input.dedupeKey,
+        recipientEmail: input.recipientEmail,
+        subject: 'LiLink verification code',
+        html: '<p>Code</p>',
+        maxAttempts: 3,
+      }),
+    );
     const authService = new AuthService(
       prisma as never,
       {
-        buildVerificationCodeEmail: jest.fn(
-          (input: {
-            dedupeKey: string;
-            recipientEmail: string;
-            code: string;
-          }) => ({
-            dedupeKey: input.dedupeKey,
-            recipientEmail: input.recipientEmail,
-            subject: 'LiLink verification code',
-            html: '<p>Code</p>',
-            maxAttempts: 3,
-          }),
-        ),
+        buildVerificationCodeEmail,
         deliverQueuedEmailNow,
       } as never,
       {
@@ -198,7 +200,7 @@ describe('AuthService', () => {
       {} as never,
     );
 
-    const result = await authService.requestCode('user@example.com');
+    const result = await authService.requestCode('user@example.com', 'en-US');
 
     expect(create).toHaveBeenCalledTimes(1);
     const createCalls = create.mock.calls as unknown as Array<
@@ -234,6 +236,9 @@ describe('AuthService', () => {
     expect(outboundPayload?.data.dedupeKey).toMatch(/^verification-code:/);
     expect(outboundPayload?.data.recipientEmail).toBe('user@example.com');
     expect(outboundPayload?.data.maxAttempts).toBe(3);
+    expect(buildVerificationCodeEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'en-US' }) as object,
+    );
 
     expect(deliverQueuedEmailNow).toHaveBeenCalledTimes(1);
     const [[deliveryDedupeKey]] = deliverQueuedEmailNow.mock.calls as [

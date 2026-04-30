@@ -189,6 +189,12 @@ export function EligibleSchoolsPanel({
     filteredSchools.length - visibleSchools.length,
   );
 
+  function displaySchoolName(school: EligibleSchool) {
+    return locale === "en-US"
+      ? (school.englishName ?? school.name)
+      : (school.nativeName ?? school.name);
+  }
+
   function renderSummaryBadge() {
     if (dataState.status === "loading") {
       return <span className="schools-summary-count">{copy.loading}</span>;
@@ -222,7 +228,7 @@ export function EligibleSchoolsPanel({
           <div>
             <strong>
               {copy.recognized}
-              {matchResult.school.name}
+              {displaySchoolName(matchResult.school)}
             </strong>
             <span>
               {copy.matchedPrefix}
@@ -262,10 +268,7 @@ export function EligibleSchoolsPanel({
         matchResult.school.slug === school.slug) ||
         matchResult.school.name === school.name);
     const trimmedQuery = searchTerm.trim().toLowerCase();
-    const primaryName =
-      locale === "en-US"
-        ? (school.englishName ?? school.name)
-        : (school.nativeName ?? school.name);
+    const primaryName = displaySchoolName(school);
     const schoolKey = school.slug ?? school.name;
 
     const className = [

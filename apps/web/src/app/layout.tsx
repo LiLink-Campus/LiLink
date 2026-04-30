@@ -3,7 +3,6 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { DEFAULT_LOCALE, LOCALE_COOKIE_NAME } from "@lilink/shared";
 import { resolveApiOriginForPreconnect } from "../lib/api-preconnect";
-import { getRequestLocale } from "../lib/locale";
 import { AuthSessionProvider } from "./auth-session";
 import { AnnouncementDialog } from "./announcement-dialog";
 import { PublicChrome } from "./public-chrome";
@@ -39,18 +38,19 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const initialLocale = await getRequestLocale();
+  const initialLocale = DEFAULT_LOCALE;
 
   return (
     <html
       lang={initialLocale}
       data-locale={initialLocale}
       data-scroll-behavior="smooth"
+      suppressHydrationWarning
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: localeBootstrapScript }} />

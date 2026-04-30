@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { getRequestLocale } from "../../lib/locale";
 import {
   CampusLineart,
   GrassRowIllustration,
   WheatSprigIllustration,
 } from "../dashboard/_components/illustrations";
-
-export const dynamic = "force-dynamic";
+import { LocalizedText } from "../localized-text";
 
 const ABOUT_COPY = {
   "zh-CN": {
@@ -85,18 +83,24 @@ const ABOUT_COPY = {
   },
 } as const;
 
-export default async function AboutPage() {
-  const locale = await getRequestLocale();
-  const copy = ABOUT_COPY[locale];
+function aboutText(key: keyof (typeof ABOUT_COPY)["zh-CN"]) {
+  return (
+    <LocalizedText
+      zh={ABOUT_COPY["zh-CN"][key]}
+      en={ABOUT_COPY["en-US"][key]}
+    />
+  );
+}
 
+export default function AboutPage() {
   return (
     <main>
       <section className="page-hero with-illustration">
         <div className="page-hero-content animate-in">
           <p className="eyebrow">About LiLink</p>
-          <h1 className="text-balance">{copy.title}</h1>
-          <p>{copy.introOne}</p>
-          <p>{copy.introTwo}</p>
+          <h1 className="text-balance">{aboutText("title")}</h1>
+          <p>{aboutText("introOne")}</p>
+          <p>{aboutText("introTwo")}</p>
         </div>
         <div className="page-hero-illustration" aria-hidden="true">
           <CampusLineart />
@@ -105,31 +109,31 @@ export default async function AboutPage() {
 
       <section className="about-philosophy">
         <blockquote className="about-quote">
-          <p>{copy.quote}</p>
-          <cite>{copy.team}</cite>
+          <p>{aboutText("quote")}</p>
+          <cite>{aboutText("team")}</cite>
         </blockquote>
       </section>
 
       <section className="about-features">
         <div className="section-heading">
           <p className="eyebrow">What makes us different</p>
-          <h2>{copy.differentHeading}</h2>
+          <h2>{aboutText("differentHeading")}</h2>
         </div>
         <div className="about-grid">
           <article className="about-card">
             <div className="about-card-icon">01</div>
-            <h3>{copy.noSquareTitle}</h3>
-            <p>{copy.noSquareBody}</p>
+            <h3>{aboutText("noSquareTitle")}</h3>
+            <p>{aboutText("noSquareBody")}</p>
           </article>
           <article className="about-card">
             <div className="about-card-icon">02</div>
-            <h3>{copy.noSwipeTitle}</h3>
-            <p>{copy.noSwipeBody}</p>
+            <h3>{aboutText("noSwipeTitle")}</h3>
+            <p>{aboutText("noSwipeBody")}</p>
           </article>
           <article className="about-card">
             <div className="about-card-icon">03</div>
-            <h3>{copy.noGimmickTitle}</h3>
-            <p>{copy.noGimmickBody}</p>
+            <h3>{aboutText("noGimmickTitle")}</h3>
+            <p>{aboutText("noGimmickBody")}</p>
           </article>
         </div>
       </section>
@@ -137,35 +141,35 @@ export default async function AboutPage() {
       <section className="about-mechanism">
         <div className="section-heading">
           <p className="eyebrow">How it works</p>
-          <h2>{copy.pathHeading}</h2>
+          <h2>{aboutText("pathHeading")}</h2>
         </div>
         <div className="about-steps">
           <div className="about-step">
             <div className="about-step-num">1</div>
             <div>
-              <h3>{copy.schoolTitle}</h3>
-              <p>{copy.schoolBody}</p>
+              <h3>{aboutText("schoolTitle")}</h3>
+              <p>{aboutText("schoolBody")}</p>
             </div>
           </div>
           <div className="about-step">
             <div className="about-step-num">2</div>
             <div>
-              <h3>{copy.questionnaireTitle}</h3>
-              <p>{copy.questionnaireBody}</p>
+              <h3>{aboutText("questionnaireTitle")}</h3>
+              <p>{aboutText("questionnaireBody")}</p>
             </div>
           </div>
           <div className="about-step">
             <div className="about-step-num">3</div>
             <div>
-              <h3>{copy.weeklyTitle}</h3>
-              <p>{copy.weeklyBody}</p>
+              <h3>{aboutText("weeklyTitle")}</h3>
+              <p>{aboutText("weeklyBody")}</p>
             </div>
           </div>
           <div className="about-step">
             <div className="about-step-num">4</div>
             <div>
-              <h3>{copy.resultTitle}</h3>
-              <p>{copy.resultBody}</p>
+              <h3>{aboutText("resultTitle")}</h3>
+              <p>{aboutText("resultBody")}</p>
             </div>
           </div>
         </div>
@@ -176,20 +180,20 @@ export default async function AboutPage() {
           <WheatSprigIllustration />
         </div>
         <h2>
-          {copy.ctaTitle}
+          {aboutText("ctaTitle")}
           <span className="optical-punct">
-            {locale === "zh-CN" ? "？" : "?"}
+            <LocalizedText zh="？" en="?" />
           </span>
         </h2>
-        <p>{copy.ctaBody}</p>
+        <p>{aboutText("ctaBody")}</p>
         <Link className="button-primary" href="/dashboard">
-          {copy.cta}
+          {aboutText("cta")}
         </Link>
       </section>
 
       <section className="home-grass-line" aria-hidden="true">
         <GrassRowIllustration />
-        <span>{copy.grass}</span>
+        <span>{aboutText("grass")}</span>
         <GrassRowIllustration />
       </section>
     </main>

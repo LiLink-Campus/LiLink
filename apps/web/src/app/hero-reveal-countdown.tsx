@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useSyncExternalStore } from "react";
 import { useLocale } from "./locale-context";
 
@@ -9,7 +10,7 @@ type HeroRevealCountdownProps = {
   /** When true, show offline message instead of countdown */
   offline: boolean;
   /** Matches server-rendered text before hydration tick starts */
-  serverFallbackLabel: string;
+  serverFallbackLabel: ReactNode;
 };
 
 function pad2(n: number) {

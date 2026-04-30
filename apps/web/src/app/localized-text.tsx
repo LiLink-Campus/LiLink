@@ -13,3 +13,12 @@ export function LocalizedText({ zh, en }: LocalizedTextProps) {
     </>
   );
 }
+
+export function LocalizedBlock({ zh, en }: LocalizedTextProps) {
+  return (
+    <>
+      <div className="locale-block locale-block-zh">{zh}</div>
+      <div className="locale-block locale-block-en">{en}</div>
+    </>
+  );
+}

@@ -1,31 +1,11 @@
 import "server-only";
 
-import { LOCALE_COOKIE_NAME, normalizeLocale } from "@lilink/shared";
-import { cookies } from "next/headers";
+import { DEFAULT_LOCALE, normalizeLocale } from "@lilink/shared";
 import { apiBaseUrl } from "./api-base-url";
 import type { EligibleSchoolsPayload } from "./eligible-schools";
 import type { LandingPayload } from "./landing-payload";
 
-function isMissingRequestContextError(error: unknown) {
-  return (
-    error instanceof Error &&
-    error.message.includes("Expected workStore to be initialized")
-  );
-}
-
-async function readRequestLocale() {
-  try {
-    const cookieStore = await cookies();
-    return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
-  } catch (error) {
-    // Build-time prerender paths do not have an incoming request to read from.
-    if (isMissingRequestContextError(error)) {
-      return normalizeLocale(null);
-    }
-
-    throw error;
-  }
-}
+const PUBLIC_SERVER_LOCALE = DEFAULT_LOCALE;
 
 function parseFailedResponseBody(
   text: string,
@@ -60,7 +40,7 @@ function parseFailedResponseBody(
 }
 
 export async function getLandingPayload() {
-  const locale = await readRequestLocale();
+  const locale = PUBLIC_SERVER_LOCALE;
   const response = await fetch(`${apiBaseUrl}/public/landing`, {
     headers: { Accept: "application/json", "x-locale": locale },
     next: { revalidate: 60 },
@@ -75,10 +55,10 @@ export async function getLandingPayload() {
 }
 
 export async function getEligibleSchools() {
-  const locale = await readRequestLocale();
+  const locale = PUBLIC_SERVER_LOCALE;
   const response = await fetch(`${apiBaseUrl}/public/schools`, {
     headers: { Accept: "application/json", "x-locale": locale },
-    cache: "no-store",
+    next: { revalidate: 3600 },
   });
 
   if (!response.ok) {

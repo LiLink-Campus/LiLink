@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getLandingPayload } from "../lib/public-server-api";
-import { getRequestLocale } from "../lib/locale";
 import {
   CampusLineart,
   CoffeeCupsIllustration,
@@ -8,9 +7,9 @@ import {
   ThreeChairsIllustration,
 } from "./dashboard/_components/illustrations";
 import { HeroRevealCountdown } from "./hero-reveal-countdown";
+import { LocalizedText } from "./localized-text";
 import { ModeSelectCard } from "./mode-select-card";
 
-export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 const HOMEPAGE_REGISTERED_COUNT_PAD = 50;
@@ -125,51 +124,57 @@ function formatDateLabel(value: string | null, locale: keyof typeof HOME_COPY) {
   }).format(new Date(value));
 }
 
+function homeText(key: keyof (typeof HOME_COPY)["zh-CN"]) {
+  return (
+    <LocalizedText zh={HOME_COPY["zh-CN"][key]} en={HOME_COPY["en-US"][key]} />
+  );
+}
+
 export default async function Home() {
-  const locale = await getRequestLocale();
-  const copy = HOME_COPY[locale];
   const landing = await getLandingPayload().catch(() => null);
   const matchesDelivered = landing?.stats.matchesDelivered ?? 0;
   const matchesLabelIsNarrative = landing != null && matchesDelivered <= 0;
   const registeredDisplay = landing
     ? landing.stats.registeredUsers + HOMEPAGE_REGISTERED_COUNT_PAD
     : null;
+  const revealAt = landing?.currentCycle?.revealAt ?? null;
+  const zhRevealFallback = landing
+    ? formatDateLabel(revealAt, "zh-CN")
+    : HOME_COPY["zh-CN"].offline;
+  const enRevealFallback = landing
+    ? formatDateLabel(revealAt, "en-US")
+    : HOME_COPY["en-US"].offline;
 
   return (
     <main className="home-page">
       <section className="home-hero">
         <div className="home-hero-content animate-in">
-          <p className="eyebrow">{copy.eyebrow}</p>
+          <p className="eyebrow">{homeText("eyebrow")}</p>
           <h1 className="text-balance">
-            {copy.titleStart}
+            {homeText("titleStart")}
             <br />
-            <em>{copy.titleEmphasis}</em>
+            <em>{homeText("titleEmphasis")}</em>
           </h1>
           <p className="home-hero-tagline">
-            {copy.taglineOne}
+            {homeText("taglineOne")}
             <br />
-            {copy.taglineTwo}
+            {homeText("taglineTwo")}
           </p>
           <div className="home-hero-actions">
             <Link className="button-primary" href="/dashboard">
-              {copy.start}
+              {homeText("start")}
             </Link>
             <Link className="button-secondary" href="/about">
-              {copy.mechanism}
+              {homeText("mechanism")}
             </Link>
           </div>
           <div className="home-hero-meta">
-            <span>{landing ? copy.nextReveal : copy.status}</span>
+            <span>{landing ? homeText("nextReveal") : homeText("status")}</span>
             <HeroRevealCountdown
               offline={landing == null}
-              revealAt={landing?.currentCycle?.revealAt ?? null}
+              revealAt={revealAt}
               serverFallbackLabel={
-                landing
-                  ? formatDateLabel(
-                      landing.currentCycle?.revealAt ?? null,
-                      locale,
-                    )
-                  : copy.offline
+                <LocalizedText zh={zhRevealFallback} en={enRevealFallback} />
               }
             />
           </div>
@@ -183,44 +188,51 @@ export default async function Home() {
       <section className="home-mode-section">
         <div className="section-heading">
           <p className="eyebrow">Choose a mode</p>
-          <h2>{copy.modeHeading}</h2>
+          <h2>{homeText("modeHeading")}</h2>
         </div>
         <div className="home-mode-grid">
           <ModeSelectCard
-            title={copy.oneOnOneTitle}
-            tagline={copy.oneOnOneTagline}
-            status={{ label: copy.active, tone: "active" }}
+            title={homeText("oneOnOneTitle")}
+            tagline={homeText("oneOnOneTagline")}
+            status={{ label: homeText("active"), tone: "active" }}
             illustration={<CoffeeCupsIllustration className="mode-illu-svg" />}
             footerLine={
               registeredDisplay != null ? (
                 <>
-                  {copy.joinedPrefix}{" "}
-                  <strong>{registeredDisplay}+</strong> {copy.joinedSuffix}
+                  <span className="locale-text locale-text-zh">
+                    {HOME_COPY["zh-CN"].joinedPrefix}{" "}
+                    <strong>{registeredDisplay}+</strong>{" "}
+                    {HOME_COPY["zh-CN"].joinedSuffix}
+                  </span>
+                  <span className="locale-text locale-text-en">
+                    <strong>{registeredDisplay}+</strong>{" "}
+                    {HOME_COPY["en-US"].joinedSuffix}
+                  </span>
                 </>
               ) : (
-                copy.oneOnOneFooter
+                homeText("oneOnOneFooter")
               )
             }
-            cta={{ href: "/dashboard", label: copy.start }}
+            cta={{ href: "/dashboard", label: homeText("start") }}
           />
           <ModeSelectCard
-            title={copy.groupTitle}
-            tagline={copy.groupTagline}
-            status={{ label: copy.upcoming, tone: "upcoming" }}
+            title={homeText("groupTitle")}
+            tagline={homeText("groupTagline")}
+            status={{ label: homeText("upcoming"), tone: "upcoming" }}
             illustration={<ThreeChairsIllustration className="mode-illu-svg" />}
-            footerLine={copy.groupFooter}
-            disabledCtaLabel={copy.upcoming}
+            footerLine={homeText("groupFooter")}
+            disabledCtaLabel={homeText("upcoming")}
           />
         </div>
       </section>
 
       <section className="stats-strip">
         <div>
-          <span>{copy.registeredUsers}</span>
+          <span>{homeText("registeredUsers")}</span>
           <strong>{landing ? `${registeredDisplay}+` : "—"}</strong>
         </div>
         <div>
-          <span>{copy.completedQuestionnaires}</span>
+          <span>{homeText("completedQuestionnaires")}</span>
           <strong>
             {landing
               ? landing.stats.completedQuestionnaires +
@@ -229,7 +241,7 @@ export default async function Home() {
           </strong>
         </div>
         <div>
-          <span>{copy.deliveredMatches}</span>
+          <span>{homeText("deliveredMatches")}</span>
           <strong
             className={
               matchesLabelIsNarrative ? "stats-strip-note" : undefined
@@ -238,7 +250,7 @@ export default async function Home() {
             {landing == null
               ? "—"
               : matchesLabelIsNarrative
-                ? copy.preparingFirstRound
+                ? homeText("preparingFirstRound")
                 : matchesDelivered + HOMEPAGE_MATCHES_DELIVERED_DISPLAY_OFFSET}
           </strong>
         </div>
@@ -247,28 +259,28 @@ export default async function Home() {
       <section className="section">
         <div className="section-heading">
           <p className="eyebrow">How it works</p>
-          <h2>{copy.howItWorksHeading}</h2>
+          <h2>{homeText("howItWorksHeading")}</h2>
         </div>
         <div className="story-grid">
           <article>
             <span>01</span>
-            <h3>{copy.schoolTitle}</h3>
-            <p>{copy.schoolBody}</p>
+            <h3>{homeText("schoolTitle")}</h3>
+            <p>{homeText("schoolBody")}</p>
           </article>
           <article>
             <span>02</span>
-            <h3>{copy.questionnaireTitle}</h3>
-            <p>{copy.questionnaireBody}</p>
+            <h3>{homeText("questionnaireTitle")}</h3>
+            <p>{homeText("questionnaireBody")}</p>
           </article>
           <article>
             <span>03</span>
-            <h3>{copy.weeklyTitle}</h3>
-            <p>{copy.weeklyBody}</p>
+            <h3>{homeText("weeklyTitle")}</h3>
+            <p>{homeText("weeklyBody")}</p>
           </article>
           <article>
             <span>04</span>
-            <h3>{copy.resultTitle}</h3>
-            <p>{copy.resultBody}</p>
+            <h3>{homeText("resultTitle")}</h3>
+            <p>{homeText("resultBody")}</p>
           </article>
         </div>
       </section>
@@ -277,17 +289,17 @@ export default async function Home() {
         <div className="statement-block">
           <p className="eyebrow">Our philosophy</p>
           <h2 className="text-balance">
-            {copy.philosophyLineOne}
+            {homeText("philosophyLineOne")}
             <br />
-            {copy.philosophyLineTwo}
+            {homeText("philosophyLineTwo")}
           </h2>
-          <p>{copy.philosophyBody}</p>
+          <p>{homeText("philosophyBody")}</p>
         </div>
       </section>
 
       <section className="home-grass-line" aria-hidden="true">
         <GrassRowIllustration />
-        <span>{copy.grass}</span>
+        <span>{homeText("grass")}</span>
         <GrassRowIllustration />
       </section>
     </main>

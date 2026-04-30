@@ -83,12 +83,36 @@
   display: none;
 }
 
+.locale-block-en {
+  display: none;
+}
+
+.locale-flex-en {
+  display: none;
+}
+
 html[lang="en-US"] .locale-text-zh {
+  display: none;
+}
+
+html[lang="en-US"] .locale-block-zh {
+  display: none;
+}
+
+html[lang="en-US"] .locale-flex-zh {
   display: none;
 }
 
 html[lang="en-US"] .locale-text-en {
   display: inline;
+}
+
+html[lang="en-US"] .locale-block-en {
+  display: block;
+}
+
+html[lang="en-US"] .locale-flex-en {
+  display: flex;
 }
 
 @theme inline {

@@ -3,19 +3,19 @@ import type { ReactNode } from "react";
 
 type ModeSelectCardProps = {
   /** Title shown on the card. */
-  title: string;
+  title: ReactNode;
   /** Short tagline shown beneath the title. */
-  tagline: string;
+  tagline: ReactNode;
   /** Footer line — e.g. participant counts or waitlist hint. */
   footerLine?: ReactNode;
   /** Status chip at top-right. */
-  status?: { label: string; tone?: "active" | "upcoming" };
+  status?: { label: ReactNode; tone?: "active" | "upcoming" };
   /** Hand-drawn illustration shown on the left of the card. */
   illustration: ReactNode;
   /** Primary call-to-action: link target + label. Falls back to disabled. */
-  cta?: { href: string; label: string };
+  cta?: { href: string; label: ReactNode };
   /** When set, render a disabled badge button instead of a CTA. */
-  disabledCtaLabel?: string;
+  disabledCtaLabel?: ReactNode;
 };
 
 /**

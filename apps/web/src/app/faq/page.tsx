@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { getRequestLocale } from "../../lib/locale";
 import {
   GrassRowIllustration,
   TeaTimeIllustration,
 } from "../dashboard/_components/illustrations";
-
-export const dynamic = "force-dynamic";
+import { LocalizedText } from "../localized-text";
 
 type FaqItem = {
   question: string;
@@ -124,25 +122,48 @@ function buildFaqs(locale: "zh-CN" | "en-US"): FaqItem[] {
   ];
 }
 
-export default async function FaqPage() {
-  const locale = await getRequestLocale();
-  const faqs = buildFaqs(locale);
-  const copy =
-    locale === "zh-CN"
-      ? {
-          title: "常见问题",
-          intro: "关于 LiLink 的机制、隐私与运作方式。",
-          missing: "没有找到你的问题？",
-          more: "了解更多关于 LiLink",
-          grass: "好的关系，源于尊重与真诚",
-        }
-      : {
-          title: "FAQ",
-          intro: "How LiLink works, handles privacy, and manages safety.",
-          missing: "Did not find your question?",
-          more: "Learn more about LiLink",
-          grass: "Good relationships start with respect and sincerity",
-        };
+const FAQ_PAGE_COPY = {
+  "zh-CN": {
+    title: "常见问题",
+    intro: "关于 LiLink 的机制、隐私与运作方式。",
+    missing: "没有找到你的问题？",
+    more: "了解更多关于 LiLink",
+    grass: "好的关系，源于尊重与真诚",
+  },
+  "en-US": {
+    title: "FAQ",
+    intro: "How LiLink works, handles privacy, and manages safety.",
+    missing: "Did not find your question?",
+    more: "Learn more about LiLink",
+    grass: "Good relationships start with respect and sincerity",
+  },
+} as const;
+
+function faqText(key: keyof (typeof FAQ_PAGE_COPY)["zh-CN"]) {
+  return (
+    <LocalizedText
+      zh={FAQ_PAGE_COPY["zh-CN"][key]}
+      en={FAQ_PAGE_COPY["en-US"][key]}
+    />
+  );
+}
+
+function FaqList({ items }: { items: FaqItem[] }) {
+  return (
+    <>
+      {items.map((item) => (
+        <details key={item.question} className="faq-item">
+          <summary>{item.question}</summary>
+          <div className="faq-answer">{item.answer}</div>
+        </details>
+      ))}
+    </>
+  );
+}
+
+export default function FaqPage() {
+  const zhFaqs = buildFaqs("zh-CN");
+  const enFaqs = buildFaqs("en-US");
 
   return (
     <main>
@@ -152,32 +173,30 @@ export default async function FaqPage() {
         </div>
         <div className="page-hero-content animate-in">
           <p className="eyebrow">FAQ</p>
-          <h1>{copy.title}</h1>
-          <p>{copy.intro}</p>
+          <h1>{faqText("title")}</h1>
+          <p>{faqText("intro")}</p>
         </div>
       </section>
 
       <section className="faq-section">
-        <div className="faq-list">
-          {faqs.map((item) => (
-            <details key={item.question} className="faq-item">
-              <summary>{item.question}</summary>
-              <div className="faq-answer">{item.answer}</div>
-            </details>
-          ))}
+        <div className="faq-list locale-flex locale-flex-zh">
+          <FaqList items={zhFaqs} />
+        </div>
+        <div className="faq-list locale-flex locale-flex-en">
+          <FaqList items={enFaqs} />
         </div>
 
         <div className="faq-cta">
-          <p>{copy.missing}</p>
+          <p>{faqText("missing")}</p>
           <Link className="button-ghost" href="/about">
-            {copy.more}
+            {faqText("more")}
           </Link>
         </div>
       </section>
 
       <section className="home-grass-line" aria-hidden="true">
         <GrassRowIllustration />
-        <span>{copy.grass}</span>
+        <span>{faqText("grass")}</span>
         <GrassRowIllustration />
       </section>
     </main>
