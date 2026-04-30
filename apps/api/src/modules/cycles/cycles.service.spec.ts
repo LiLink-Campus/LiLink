@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { Prisma, QuestionType } from '@prisma/client';
 import { CyclesService } from './cycles.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
+import { env } from '../../config/env';
 
 type EligibleParticipantStub = {
   id: string;
@@ -166,8 +167,13 @@ const VALUE_QUESTION = {
   ],
 };
 
+const originalNarrativeGenerationEnabled =
+  env.MATCH_NARRATIVE_GENERATION_ENABLED;
+
 describe('CyclesService', () => {
   afterEach(() => {
+    env.MATCH_NARRATIVE_GENERATION_ENABLED =
+      originalNarrativeGenerationEnabled;
     clearStickyParticipationCache();
   });
 
@@ -1006,6 +1012,8 @@ describe('CyclesService', () => {
   });
 
   it('fills pending narratives while a cycle stays in PREPARING', async () => {
+    env.MATCH_NARRATIVE_GENERATION_ENABLED = false;
+
     const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
@@ -1142,11 +1150,7 @@ describe('CyclesService', () => {
     expect(matchUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'match-1',
-        OR: [
-          { reason: null },
-          { conversationTopics: { equals: Prisma.AnyNull } },
-          { narrativeSource: null },
-        ],
+        narrativeSource: null,
       },
       data: {
         reason:
@@ -1276,11 +1280,7 @@ describe('CyclesService', () => {
     expect(matchUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'match-1',
-        OR: [
-          { reason: null },
-          { conversationTopics: { equals: Prisma.AnyNull } },
-          { narrativeSource: null },
-        ],
+        narrativeSource: null,
       },
       data: {
         reason: defaultNarrative.reason,
@@ -1454,11 +1454,7 @@ describe('CyclesService', () => {
     expect(matchUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'match-1',
-        OR: [
-          { reason: null },
-          { conversationTopics: { equals: Prisma.AnyNull } },
-          { narrativeSource: null },
-        ],
+        narrativeSource: null,
       },
       data: {
         reason: defaultNarrative.reason,
@@ -1489,6 +1485,162 @@ describe('CyclesService', () => {
       ([call]) => call.data.action === 'cycle.prepared',
     );
     expect(fallbackPreparedCall).toBeDefined();
+  });
+
+  it('skips narrative generation when match narratives are disabled', async () => {
+    env.MATCH_NARRATIVE_GENERATION_ENABLED = false;
+
+    const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
+    const finalizePreparationClaim = jest.fn().mockResolvedValue({ count: 1 });
+    const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
+    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() - 2 * 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
+          participations: [],
+        }),
+        updateMany: claimPreparation,
+        update: jest.fn(),
+      },
+      cycleParticipation,
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            cycleParticipation,
+            match: {
+              create: matchCreate,
+              updateMany: matchUpdateMany,
+            },
+            matchCycle: {
+              updateMany: finalizePreparationClaim,
+            },
+            auditLog: {
+              create: auditLogCreate,
+            },
+          }),
+      ),
+    };
+    const matchNarrativeService = {
+      generateNarrative: jest.fn(),
+      buildDefaultNarrative: jest.fn(),
+    };
+    const service = new CyclesService(
+      prisma as never,
+      matchNarrativeService as never,
+    );
+    const testHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'toEligibleParticipants' | 'calculatePairs'
+    >;
+
+    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
+      {
+        id: 'user-1',
+        displayName: 'A',
+        hardMatchAnswers: {
+          birthDate: '2000-05-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 165,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢徒步。',
+          school: SCHOOL_BUPT,
+          excludedPartnerSchools: [],
+        },
+        answers: {},
+        intent: 'BOTH',
+      },
+      {
+        id: 'user-2',
+        displayName: 'B',
+        hardMatchAnswers: {
+          birthDate: '1999-07-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '男',
+          partnerGenders: ['女'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 178,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢阅读。',
+          school: SCHOOL_CUC,
+          excludedPartnerSchools: [],
+        },
+        answers: {},
+        intent: 'BOTH',
+      },
+    ]);
+    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
+      candidates: [],
+      selectedPairs: [
+        {
+          left: { id: 'user-1' },
+          right: { id: 'user-2' },
+          score: 88,
+          reasons: ['reason'],
+        },
+      ],
+    });
+
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'PREPARED',
+      createdMatches: 1,
+    });
+
+    expect(matchNarrativeService.generateNarrative).not.toHaveBeenCalled();
+    expect(matchNarrativeService.buildDefaultNarrative).not.toHaveBeenCalled();
+    expect(matchUpdateMany).not.toHaveBeenCalled();
+    expect(matchCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reason: null,
+          conversationTopics: [],
+          narrativeSource: 'DISABLED',
+        }),
+      }),
+    );
+    expect(finalizePreparationClaim).toHaveBeenCalledWith({
+      where: {
+        id: 'cycle-1',
+        status: 'PREPARING',
+        updatedAt: expect.any(Date) as unknown as Date,
+      },
+      data: {
+        status: 'REVEAL_READY',
+      },
+    });
   });
 
   it('does not write a prepared audit when the final preparation claim is lost', async () => {
@@ -1878,11 +2030,7 @@ describe('CyclesService', () => {
     expect(prisma.match.findMany).toHaveBeenCalledWith({
       where: {
         cycleId: 'cycle-1',
-        OR: [
-          { reason: null },
-          { conversationTopics: { equals: Prisma.AnyNull } },
-          { narrativeSource: null },
-        ],
+        narrativeSource: null,
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
