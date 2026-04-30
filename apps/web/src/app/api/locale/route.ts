@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   LOCALE_COOKIE_NAME,
   isSupportedLocale,
+  type SupportedLocale,
 } from "@lilink/shared";
 import {
   fetchUserApiServer,
@@ -13,6 +14,22 @@ const LOCALE_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 type LocaleRequestBody = {
   locale?: unknown;
 };
+
+async function persistLocaleForAuthenticatedUser(locale: SupportedLocale) {
+  if (!(await hasUserSessionCookie())) {
+    return false;
+  }
+
+  try {
+    await fetchUserApiServer("/me/locale", {
+      method: "PUT",
+      body: JSON.stringify({ locale }),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function PUT(request: Request) {
   const body = (await request.json().catch(() => null)) as
@@ -27,22 +44,11 @@ export async function PUT(request: Request) {
     );
   }
 
-  if (await hasUserSessionCookie()) {
-    try {
-      await fetchUserApiServer("/me/locale", {
-        method: "PUT",
-        body: JSON.stringify({ locale }),
-      });
-    } catch {
-      return NextResponse.json(
-        { message: "Failed to persist locale." },
-        { status: 502 },
-      );
-    }
-  }
+  const persisted = await persistLocaleForAuthenticatedUser(locale);
 
   const response = NextResponse.json({
     locale,
+    persisted,
   });
 
   response.cookies.set(LOCALE_COOKIE_NAME, locale, {
