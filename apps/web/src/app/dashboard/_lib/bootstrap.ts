@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import {
   fetchUserApiServer,
+  fetchUserApiServerWithLocale,
   hasUserSessionCookie,
 } from "../../../lib/server-api";
 import type {
@@ -44,14 +45,19 @@ export async function loadDashboardHome() {
   await ensureDashboardSession();
 
   try {
-    const [bootstrap, questionnaire, savedQuestionnaire] =
-      await Promise.all([
-        fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
-        fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
-        fetchUserApiServer<SavedQuestionnairePayload>(
-          "/me/questionnaire",
-        ).catch(() => null),
-      ]);
+    const bootstrap =
+      await fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap");
+    const preferredLocale = bootstrap.user.preferredLocale;
+    const [questionnaire, savedQuestionnaire] = await Promise.all([
+      fetchUserApiServerWithLocale<QuestionnairePayload>(
+        "/questionnaire/current",
+        preferredLocale,
+      ),
+      fetchUserApiServerWithLocale<SavedQuestionnairePayload>(
+        "/me/questionnaire",
+        preferredLocale,
+      ).catch(() => null),
+    ]);
     return {
       user: bootstrap.user,
       dashboard: bootstrap.dashboard,
@@ -71,14 +77,19 @@ export async function loadDashboardProfile() {
   await ensureDashboardSession();
 
   try {
-    const [bootstrap, questionnaire, savedQuestionnaire] =
-      await Promise.all([
-        fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
-        fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
-        fetchUserApiServer<SavedQuestionnairePayload>(
-          "/me/questionnaire",
-        ).catch(() => null),
-      ]);
+    const bootstrap =
+      await fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap");
+    const preferredLocale = bootstrap.user.preferredLocale;
+    const [questionnaire, savedQuestionnaire] = await Promise.all([
+      fetchUserApiServerWithLocale<QuestionnairePayload>(
+        "/questionnaire/current",
+        preferredLocale,
+      ),
+      fetchUserApiServerWithLocale<SavedQuestionnairePayload>(
+        "/me/questionnaire",
+        preferredLocale,
+      ).catch(() => null),
+    ]);
     return {
       user: bootstrap.user,
       dashboard: bootstrap.dashboard,

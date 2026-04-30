@@ -7,19 +7,13 @@ import { useAuthSession } from "./auth-session";
 import { fetchApi } from "../lib/api";
 import { LanguageSwitcher } from "./language-switcher";
 import { useLocale } from "./locale-context";
+import { LocalizedText } from "./localized-text";
 
-const PUBLIC_NAV_ITEMS = {
-  "zh-CN": [
-    { href: "/about", label: "关于" },
-    { href: "/faq", label: "FAQ" },
-    { href: "/schools", label: "支持的学校" },
-  ],
-  "en-US": [
-    { href: "/about", label: "About" },
-    { href: "/faq", label: "FAQ" },
-    { href: "/schools", label: "Schools" },
-  ],
-} as const;
+const PUBLIC_NAV_ITEMS = [
+  { href: "/about", zh: "关于", en: "About" },
+  { href: "/faq", zh: "FAQ", en: "FAQ" },
+  { href: "/schools", zh: "支持的学校", en: "Schools" },
+] as const;
 
 export function SiteNav() {
   const pathname = usePathname();
@@ -72,36 +66,36 @@ export function SiteNav() {
         className="site-nav"
         aria-label={locale === "zh-CN" ? "主导航" : "Primary navigation"}
       >
-        {PUBLIC_NAV_ITEMS[locale].map((item) => (
+        {PUBLIC_NAV_ITEMS.map((item) => (
           <Link key={item.href} href={item.href} onClick={closeMenu}>
-            {item.label}
+            <LocalizedText zh={item.zh} en={item.en} />
           </Link>
         ))}
         <div className="site-nav-auth-cluster">
           {authenticatedUser ? (
             <>
               <Link href="/dashboard" onClick={closeMenu}>
-                {locale === "zh-CN" ? "我的匹配" : "Dashboard"}
+                <LocalizedText zh="我的匹配" en="Dashboard" />
               </Link>
               <button
                 type="button"
                 className="site-nav-action"
                 onClick={() => void handleLogout()}
               >
-                {locale === "zh-CN" ? "退出" : "Log out"}
+                <LocalizedText zh="退出" en="Log out" />
               </button>
             </>
           ) : (
             <>
               <Link href="/login" onClick={closeMenu}>
-                {locale === "zh-CN" ? "登录" : "Log in"}
+                <LocalizedText zh="登录" en="Log in" />
               </Link>
               <Link
                 className="button-primary"
                 href="/register"
                 onClick={closeMenu}
               >
-                {locale === "zh-CN" ? "立即加入" : "Join now"}
+                <LocalizedText zh="立即加入" en="Join now" />
               </Link>
             </>
           )}

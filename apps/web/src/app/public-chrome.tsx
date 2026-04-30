@@ -5,24 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { BrandMark } from "./brand-mark";
 import { SiteNav } from "./site-nav";
-import { useLocale } from "./locale-context";
-
-const FOOTER_COPY = {
-  "zh-CN": {
-    tagline: "校园里的，认真相遇",
-    about: "关于",
-    schools: "支持的学校",
-    terms: "协议",
-    privacy: "隐私",
-  },
-  "en-US": {
-    tagline: "Intentional campus matching",
-    about: "About",
-    schools: "Schools",
-    terms: "Terms",
-    privacy: "Privacy",
-  },
-} as const;
+import { LocalizedText } from "./localized-text";
 
 /**
  * Renders the public marketing chrome (site-header + footer) only on
@@ -31,8 +14,6 @@ const FOOTER_COPY = {
  */
 export function PublicChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { locale } = useLocale();
-  const copy = FOOTER_COPY[locale];
   const isAppShell =
     pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
 
@@ -45,8 +26,13 @@ export function PublicChrome({ children }: { children: ReactNode }) {
       <header className="site-header">
         <BrandMark
           href="/"
-          tagline={copy.tagline}
-          ariaLabel={locale === "zh-CN" ? "LiLink 首页" : "LiLink home"}
+          tagline={
+            <LocalizedText
+              zh="校园里的，认真相遇"
+              en="Intentional campus matching"
+            />
+          }
+          ariaLabel="LiLink home"
         />
         <SiteNav />
       </header>
@@ -54,13 +40,26 @@ export function PublicChrome({ children }: { children: ReactNode }) {
       <footer className="site-footer">
         <p>
           LiLink
-          <small>{copy.tagline}</small>
+          <small>
+            <LocalizedText
+              zh="校园里的，认真相遇"
+              en="Intentional campus matching"
+            />
+          </small>
         </p>
         <div>
-          <Link href="/about">{copy.about}</Link>
-          <Link href="/schools">{copy.schools}</Link>
-          <Link href="/terms">{copy.terms}</Link>
-          <Link href="/privacy">{copy.privacy}</Link>
+          <Link href="/about">
+            <LocalizedText zh="关于" en="About" />
+          </Link>
+          <Link href="/schools">
+            <LocalizedText zh="支持的学校" en="Schools" />
+          </Link>
+          <Link href="/terms">
+            <LocalizedText zh="协议" en="Terms" />
+          </Link>
+          <Link href="/privacy">
+            <LocalizedText zh="隐私" en="Privacy" />
+          </Link>
           <Link href="/faq">FAQ</Link>
         </div>
       </footer>

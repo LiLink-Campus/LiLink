@@ -948,6 +948,8 @@ export class AccountService {
     const conversationTopics = this.normalizeConversationTopics(
       participant.match.conversationTopics,
     );
+    const requesterLocale = normalizeLocale(requester!.user.preferredLocale);
+    const counterpartLocale = normalizeLocale(counterpart.user.preferredLocale);
 
     const queuedEmails = this.mailService.buildIntroductionEmails({
       matchId: participant.match.id,
@@ -957,7 +959,7 @@ export class AccountService {
         preferredLocale: requester!.user.preferredLocale,
         schoolName: this.displaySchoolName(
           requester!.user.school,
-          requester!.user.preferredLocale,
+          counterpartLocale,
         ),
         introLine: this.displayIntroLine(
           requester!.user.questionnaireResponse?.answers,
@@ -970,7 +972,7 @@ export class AccountService {
         preferredLocale: counterpart.user.preferredLocale,
         schoolName: this.displaySchoolName(
           counterpart.user.school,
-          counterpart.user.preferredLocale,
+          requesterLocale,
         ),
         introLine: this.displayIntroLine(
           counterpart.user.questionnaireResponse?.answers,

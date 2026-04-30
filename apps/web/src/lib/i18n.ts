@@ -27,9 +27,17 @@ export function readClientLocale(): SupportedLocale {
     return DEFAULT_LOCALE;
   }
 
-  return normalizeLocale(
-    decodeURIComponent(cookie.split("=").slice(1).join("=")),
-  );
+  try {
+    return normalizeLocale(
+      decodeURIComponent(cookie.split("=").slice(1).join("=")),
+    );
+  } catch (error) {
+    if (error instanceof URIError) {
+      return DEFAULT_LOCALE;
+    }
+
+    throw error;
+  }
 }
 
 export function localeHeader(): Record<string, string> {

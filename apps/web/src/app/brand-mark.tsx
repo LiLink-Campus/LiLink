@@ -1,10 +1,11 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 type BrandMarkProps = {
   href?: string;
   variant?: "default" | "compact" | "stacked";
   showTagline?: boolean;
-  tagline?: string;
+  tagline?: ReactNode;
   ariaLabel?: string;
 };
 

@@ -1743,8 +1743,12 @@ describe('AccountService', () => {
                 user: {
                   email: 'user-1@example.com',
                   displayName: 'User 1',
+                  preferredLocale: 'en-US',
                   profile: { headline: 'hello' },
-                  school: { name: 'School A' },
+                  school: {
+                    name: 'School A',
+                    slug: 'bupt-qmul-hainan',
+                  },
                   questionnaireResponse: {
                     answers: {
                       [HARD_MATCH_KEYS.oneLinerIntro]:
@@ -1758,8 +1762,12 @@ describe('AccountService', () => {
                 user: {
                   email: 'user-2@example.com',
                   displayName: 'User 2',
+                  preferredLocale: 'zh-CN',
                   profile: { headline: 'world' },
-                  school: { name: 'School B' },
+                  school: {
+                    name: 'School B',
+                    slug: 'uestc-glasgow-hainan',
+                  },
                   questionnaireResponse: {
                     answers: {
                       [HARD_MATCH_KEYS.oneLinerIntro]:
@@ -1806,15 +1814,15 @@ describe('AccountService', () => {
       requester: {
         email: 'user-1@example.com',
         displayName: 'User 1',
-        preferredLocale: undefined,
-        schoolName: 'School A',
+        preferredLocale: 'en-US',
+        schoolName: '北京邮电大学',
         introLine: '喜欢读书和散步，也愿意认真沟通。',
       },
       recipient: {
         email: 'user-2@example.com',
         displayName: 'User 2',
-        preferredLocale: undefined,
-        schoolName: 'School B',
+        preferredLocale: 'zh-CN',
+        schoolName: 'University of Electronic Science and Technology of China',
         introLine: '平时爱看展，也很看重稳定陪伴。',
       },
       reason:

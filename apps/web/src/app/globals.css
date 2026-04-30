@@ -79,6 +79,18 @@
   --appbar-height: 3.75rem;
 }
 
+.locale-text-en {
+  display: none;
+}
+
+html[lang="en-US"] .locale-text-zh {
+  display: none;
+}
+
+html[lang="en-US"] .locale-text-en {
+  display: inline;
+}
+
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--fg);

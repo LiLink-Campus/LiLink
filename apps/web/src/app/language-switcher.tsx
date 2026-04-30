@@ -3,13 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { useLocale } from "./locale-context";
+import { LocalizedText } from "./localized-text";
 
 export function LanguageSwitcher() {
   const router = useRouter();
   const { locale, setLocale } = useLocale();
   const [pending, startTransition] = useTransition();
   const nextLocale = locale === "zh-CN" ? "en-US" : "zh-CN";
-  const targetLabel = locale === "zh-CN" ? "EN" : "中文";
 
   async function handleClick() {
     await setLocale(nextLocale);
@@ -37,7 +37,9 @@ export function LanguageSwitcher() {
         <path d="M12 3.5c2.1 2.1 3.2 5 3.2 8.5s-1.1 6.4-3.2 8.5" />
         <path d="M12 3.5C9.9 5.6 8.8 8.5 8.8 12s1.1 6.4 3.2 8.5" />
       </svg>
-      <span>{targetLabel}</span>
+      <span>
+        <LocalizedText zh="EN" en="中文" />
+      </span>
     </button>
   );
 }

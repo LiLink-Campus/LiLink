@@ -6,7 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
 } from "react";
 import {
   DEFAULT_LOCALE,
@@ -21,6 +21,25 @@ type LocaleContextValue = {
 };
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
+const localeListeners = new Set<() => void>();
+let localeOverride: SupportedLocale | null = null;
+
+function subscribeLocale(listener: () => void) {
+  localeListeners.add(listener);
+  return () => {
+    localeListeners.delete(listener);
+  };
+}
+
+function readLocaleSnapshot() {
+  return localeOverride ?? readClientLocale();
+}
+
+function emitLocaleChange() {
+  for (const listener of localeListeners) {
+    listener();
+  }
+}
 
 export function LocaleProvider({
   children,
@@ -29,15 +48,20 @@ export function LocaleProvider({
   children: React.ReactNode;
   initialLocale: SupportedLocale;
 }) {
-  const [locale, setLocaleState] = useState<SupportedLocale>(
-    isSupportedLocale(initialLocale) ? initialLocale : DEFAULT_LOCALE,
+  const serverLocale = useMemo(
+    () => (isSupportedLocale(initialLocale) ? initialLocale : DEFAULT_LOCALE),
+    [initialLocale],
+  );
+  const locale = useSyncExternalStore(
+    subscribeLocale,
+    readLocaleSnapshot,
+    () => serverLocale,
   );
 
   useEffect(() => {
-    const clientLocale = readClientLocale();
-    document.documentElement.lang = clientLocale;
-    setLocaleState(clientLocale);
-  }, []);
+    document.documentElement.lang = locale;
+    document.documentElement.dataset.locale = locale;
+  }, [locale]);
 
   const setLocale = useCallback(async (nextLocale: SupportedLocale) => {
     if (!isSupportedLocale(nextLocale)) {
@@ -54,8 +78,10 @@ export function LocaleProvider({
       throw new Error("Failed to update locale.");
     }
 
-    setLocaleState(nextLocale);
+    localeOverride = nextLocale;
     document.documentElement.lang = nextLocale;
+    document.documentElement.dataset.locale = nextLocale;
+    emitLocaleChange();
   }, []);
 
   const value = useMemo<LocaleContextValue>(

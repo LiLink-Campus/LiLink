@@ -3,7 +3,11 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { apiBaseUrl } from "./api-base-url";
-import { LOCALE_COOKIE_NAME, normalizeLocale } from "@lilink/shared";
+import {
+  LOCALE_COOKIE_NAME,
+  normalizeLocale,
+  type SupportedLocale,
+} from "@lilink/shared";
 
 const USER_COOKIE_NAME = process.env.COOKIE_NAME?.trim() || "lilink_token";
 const ADMIN_COOKIE_NAME =
@@ -12,6 +16,7 @@ const ADMIN_COOKIE_NAME =
 type ServerFetchOptions = RequestInit & {
   cookieNames?: string[];
   includeLocale?: boolean;
+  locale?: SupportedLocale;
 };
 
 function isMissingRequestContextError(error: unknown) {
@@ -97,20 +102,24 @@ async function fetchApiServer<T>(
   path: string,
   options: ServerFetchOptions,
 ): Promise<T> {
-  const locale = await readRequestLocale();
-  const cookieHeader = await buildForwardedCookieHeader(
-    options.cookieNames ?? [],
-  );
+  const {
+    cookieNames = [],
+    includeLocale,
+    locale: explicitLocale,
+    ...fetchOptions
+  } = options;
+  const locale = explicitLocale ?? (await readRequestLocale());
+  const cookieHeader = await buildForwardedCookieHeader(cookieNames);
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...options,
+    ...fetchOptions,
     headers: {
       Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(options.includeLocale ? { "x-locale": locale } : {}),
+      ...(fetchOptions.body ? { "Content-Type": "application/json" } : {}),
+      ...(includeLocale ? { "x-locale": locale } : {}),
       ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-      ...(options.headers ?? {}),
+      ...(fetchOptions.headers ?? {}),
     },
-    cache: options.cache ?? "no-store",
+    cache: fetchOptions.cache ?? "no-store",
   });
 
   if (!response.ok) {
@@ -150,6 +159,19 @@ export function fetchUserApiServer<T>(path: string, options: RequestInit = {}) {
     ...options,
     cookieNames: [USER_COOKIE_NAME],
     includeLocale: true,
+  });
+}
+
+export function fetchUserApiServerWithLocale<T>(
+  path: string,
+  locale: SupportedLocale,
+  options: RequestInit = {},
+) {
+  return fetchApiServer<T>(path, {
+    ...options,
+    cookieNames: [USER_COOKIE_NAME],
+    includeLocale: true,
+    locale,
   });
 }
 
