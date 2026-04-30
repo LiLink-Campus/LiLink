@@ -885,7 +885,7 @@ export class CyclesService {
       cycle.participations.length - totalMatchCount * 2,
     );
 
-    if (!this.narrativeGenerationEnabled() && pendingMatches.length === 0) {
+    if (!this.narrativeGenerationEnabled()) {
       if (totalMatchCount === 0) {
         const recoveredPreparation = await this.recoverStaleEmptyPreparation(
           cycle,
@@ -906,6 +906,8 @@ export class CyclesService {
           message: 'Cycle is still being prepared.',
         };
       }
+
+      await this.disablePendingNarratives(cycle.id);
 
       return this.finalizePreparedCycle({
         cycleId: cycle.id,
@@ -2268,6 +2270,19 @@ export class CyclesService {
         ? options.message
         : 'Cycle is already prepared and waiting for reveal.',
     };
+  }
+
+  private async disablePendingNarratives(cycleId: string) {
+    await this.prisma.match.updateMany({
+      where: {
+        cycleId,
+        narrativeSource: null,
+      },
+      data: {
+        conversationTopics: [],
+        narrativeSource: 'DISABLED',
+      },
+    });
   }
 
   private countPendingNarratives(cycleId: string) {

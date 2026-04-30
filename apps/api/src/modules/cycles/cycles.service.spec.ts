@@ -1011,7 +1011,7 @@ describe('CyclesService', () => {
     ]);
   });
 
-  it('fills pending narratives while a cycle stays in PREPARING', async () => {
+  it('disables pending narratives while a cycle stays in PREPARING', async () => {
     env.MATCH_NARRATIVE_GENERATION_ENABLED = false;
 
     const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -1053,6 +1053,7 @@ describe('CyclesService', () => {
       },
       match: {
         findMany: jest.fn().mockResolvedValue([pendingMatch]),
+        updateMany: matchUpdateMany,
         count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
       },
       auditLog: {
@@ -1145,18 +1146,16 @@ describe('CyclesService', () => {
       createdMatches: 1,
     });
 
-    expect(matchNarrativeService.generateNarrative).toHaveBeenCalledTimes(1);
+    expect(matchNarrativeService.generateNarrative).not.toHaveBeenCalled();
     expect(matchNarrativeService.buildDefaultNarrative).not.toHaveBeenCalled();
     expect(matchUpdateMany).toHaveBeenCalledWith({
       where: {
-        id: 'match-1',
+        cycleId: 'cycle-1',
         narrativeSource: null,
       },
       data: {
-        reason:
-          '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
-        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
-        narrativeSource: 'DEEPSEEK',
+        conversationTopics: [],
+        narrativeSource: 'DISABLED',
       },
     });
     expect(matchCycleUpdateMany).toHaveBeenCalledWith({
