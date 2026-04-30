@@ -24,6 +24,7 @@ const HARD_MATCH_REQUIRED_FIELDS = [
   "birthDay",
   "gender",
   "nationality",
+  "oneLinerIntro",
   "looks",
   "heightCm",
   "partnerAgeMin",

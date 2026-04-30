@@ -4,7 +4,9 @@ import {
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
   areHardMatchAnswersCompatible,
+  createEmptyHardMatchDraftForm,
   normalizeHardMatchAnswers,
+  sanitizeHardMatchDraftForm,
   tryReadHardMatchAnswers,
 } from './hard-match';
 
@@ -83,6 +85,35 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.weightKg]: null,
       [HARD_MATCH_KEYS.partnerWeightMin]: null,
       [HARD_MATCH_KEYS.partnerWeightMax]: null,
+    });
+  });
+
+  it('clears invalid numeric draft text instead of truncating it', () => {
+    const emptyDraft = createEmptyHardMatchDraftForm();
+
+    expect(
+      sanitizeHardMatchDraftForm(
+        {
+          partnerAgeMin: '18abc',
+          partnerAgeMax: '30.5',
+          heightCm: '175cm',
+          partnerHeightMin: '150kg',
+          partnerHeightMax: '190.5',
+          weightKg: '65kg',
+          partnerWeightMin: '50abc',
+          partnerWeightMax: '80.5',
+        },
+        allowedSchoolIds,
+      ),
+    ).toMatchObject({
+      partnerAgeMin: emptyDraft.partnerAgeMin,
+      partnerAgeMax: emptyDraft.partnerAgeMax,
+      heightCm: emptyDraft.heightCm,
+      partnerHeightMin: emptyDraft.partnerHeightMin,
+      partnerHeightMax: emptyDraft.partnerHeightMax,
+      weightKg: '',
+      partnerWeightMin: '',
+      partnerWeightMax: '',
     });
   });
 

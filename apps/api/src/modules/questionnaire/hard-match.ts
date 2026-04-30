@@ -198,6 +198,10 @@ function readAllowedNumberString(
     return fallbackValue;
   }
 
+  if (!/^\d+$/.test(trimmedValue)) {
+    return fallbackValue;
+  }
+
   const normalizedValue = readIntegerInRange(
     Number.parseInt(trimmedValue, 10),
     minimumValue,
@@ -218,6 +222,10 @@ function readOptionalNumberString(
 
   const trimmedValue = value.trim();
   if (trimmedValue.length === 0) {
+    return '';
+  }
+
+  if (!/^\d+$/.test(trimmedValue)) {
     return '';
   }
 
