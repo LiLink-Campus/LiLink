@@ -15,6 +15,7 @@ import {
   buildHardMatchAnswerRecordFromFormInput,
   type HardMatchDraftForm,
   hardMatchQuestionKeys,
+  normalizeHardMatchAnswers,
   readQuestionnaireOneLiner,
   sanitizeHardMatchDraftForm,
 } from '../questionnaire/hard-match';
@@ -722,11 +723,22 @@ export class AccountService {
       schoolAwareAnswers,
     );
 
-    for (const hardMatchKey of hardMatchQuestionKeys()) {
-      if (
-        Object.prototype.hasOwnProperty.call(schoolAwareAnswers, hardMatchKey)
-      ) {
-        filteredAnswers[hardMatchKey] = schoolAwareAnswers[hardMatchKey];
+    try {
+      Object.assign(
+        filteredAnswers,
+        normalizeHardMatchAnswers(schoolAwareAnswers, allowedSchoolIds),
+      );
+    } catch (error) {
+      if (!(error instanceof BadRequestException)) {
+        throw error;
+      }
+
+      for (const hardMatchKey of hardMatchQuestionKeys()) {
+        if (
+          Object.prototype.hasOwnProperty.call(schoolAwareAnswers, hardMatchKey)
+        ) {
+          filteredAnswers[hardMatchKey] = schoolAwareAnswers[hardMatchKey];
+        }
       }
     }
 
