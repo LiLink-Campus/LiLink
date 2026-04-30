@@ -6,9 +6,25 @@ import { apiBaseUrl } from "./api-base-url";
 import type { EligibleSchoolsPayload } from "./eligible-schools";
 import type { LandingPayload } from "./landing-payload";
 
+function isMissingRequestContextError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes("Expected workStore to be initialized")
+  );
+}
+
 async function readRequestLocale() {
-  const cookieStore = await cookies();
-  return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+  try {
+    const cookieStore = await cookies();
+    return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+  } catch (error) {
+    // Build-time prerender paths do not have an incoming request to read from.
+    if (isMissingRequestContextError(error)) {
+      return normalizeLocale(null);
+    }
+
+    throw error;
+  }
 }
 
 function parseFailedResponseBody(
@@ -41,14 +57,6 @@ function parseFailedResponseBody(
   }
 
   return trimmed;
-}
-
-export function resolveApiOriginForPreconnect(): string | null {
-  try {
-    return new URL(apiBaseUrl).origin;
-  } catch {
-    return null;
-  }
 }
 
 export async function getLandingPayload() {

@@ -1,5 +1,7 @@
 import { getRequestLocale } from "../../lib/locale";
 
+export const dynamic = "force-dynamic";
+
 export default async function TermsPage() {
   const locale = await getRequestLocale();
   const copy =

@@ -28,10 +28,17 @@ export async function PUT(request: Request) {
   }
 
   if (await hasUserSessionCookie()) {
-    await fetchUserApiServer("/me/locale", {
-      method: "PUT",
-      body: JSON.stringify({ locale }),
-    }).catch(() => null);
+    try {
+      await fetchUserApiServer("/me/locale", {
+        method: "PUT",
+        body: JSON.stringify({ locale }),
+      });
+    } catch {
+      return NextResponse.json(
+        { message: "Failed to persist locale." },
+        { status: 502 },
+      );
+    }
   }
 
   const response = NextResponse.json({

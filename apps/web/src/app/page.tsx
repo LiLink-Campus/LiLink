@@ -10,6 +10,7 @@ import {
 import { HeroRevealCountdown } from "./hero-reveal-countdown";
 import { ModeSelectCard } from "./mode-select-card";
 
+export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 const HOMEPAGE_REGISTERED_COUNT_PAD = 50;

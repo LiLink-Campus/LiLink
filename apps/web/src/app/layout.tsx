@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { resolveApiOriginForPreconnect } from "../lib/public-server-api";
-import { getRequestLocale } from "../lib/locale";
+import { DEFAULT_LOCALE } from "@lilink/shared";
+import { resolveApiOriginForPreconnect } from "../lib/api-preconnect";
 import { AuthSessionProvider } from "./auth-session";
 import { AnnouncementDialog } from "./announcement-dialog";
 import { PublicChrome } from "./public-chrome";
@@ -11,20 +11,11 @@ import "./globals.css";
 
 const apiPreconnectOrigin = resolveApiOriginForPreconnect();
 
-export async function generateMetadata(): Promise<Metadata> {
-  const locale = await getRequestLocale();
-  return locale === "zh-CN"
-    ? {
-        title: "LiLink · 校园里的，认真相遇",
-        description:
-          "LiLink 是面向高校学生的匹配平台。基于深度问卷的匹配算法，每周一次轮次，认真对待每一份期待。",
-      }
-    : {
-        title: "LiLink · Intentional campus matching",
-        description:
-          "LiLink is a matching platform for university students, using a deep questionnaire and weekly rounds to make one careful match at a time.",
-      };
-}
+export const metadata: Metadata = {
+  title: "LiLink · 校园里的，认真相遇",
+  description:
+    "LiLink 是面向高校学生的匹配平台。基于深度问卷的匹配算法，每周一次轮次，认真对待每一份期待。",
+};
 
 export const viewport: Viewport = {
   themeColor: "#f4f1ea",
@@ -33,16 +24,14 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const locale = await getRequestLocale();
-
   return (
     <html
-      lang={locale}
+      lang={DEFAULT_LOCALE}
       data-scroll-behavior="smooth"
     >
       <head>
@@ -55,12 +44,12 @@ export default async function RootLayout({
         ) : null}
       </head>
       <body>
-        <LocaleProvider initialLocale={locale}>
-          <AuthSessionProvider>
+        <AuthSessionProvider>
+          <LocaleProvider initialLocale={DEFAULT_LOCALE}>
             <PublicChrome>{children}</PublicChrome>
-          </AuthSessionProvider>
-          <AnnouncementDialog />
-        </LocaleProvider>
+            <AnnouncementDialog />
+          </LocaleProvider>
+        </AuthSessionProvider>
         <Analytics />
         <SpeedInsights />
       </body>

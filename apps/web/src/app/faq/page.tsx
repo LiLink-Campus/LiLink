@@ -5,6 +5,8 @@ import {
   TeaTimeIllustration,
 } from "../dashboard/_components/illustrations";
 
+export const dynamic = "force-dynamic";
+
 type FaqItem = {
   question: string;
   answer: React.ReactNode;

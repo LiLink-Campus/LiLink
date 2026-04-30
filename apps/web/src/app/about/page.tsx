@@ -6,6 +6,8 @@ import {
   WheatSprigIllustration,
 } from "../dashboard/_components/illustrations";
 
+export const dynamic = "force-dynamic";
+
 const ABOUT_COPY = {
   "zh-CN": {
     title: "与其无数次擦肩，不如一次认真的匹配",

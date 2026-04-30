@@ -11,7 +11,23 @@ import {
 export type { SupportedLocale };
 export { DEFAULT_LOCALE, LOCALE_COOKIE_NAME };
 
+function isMissingRequestContextError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes("Expected workStore to be initialized")
+  );
+}
+
 export async function getRequestLocale() {
-  const cookieStore = await cookies();
-  return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+  try {
+    const cookieStore = await cookies();
+    return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+  } catch (error) {
+    // Build-time prerender paths do not have an incoming request to read from.
+    if (isMissingRequestContextError(error)) {
+      return DEFAULT_LOCALE;
+    }
+
+    throw error;
+  }
 }

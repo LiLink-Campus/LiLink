@@ -8,6 +8,8 @@ import {
 } from "../dashboard/_components/illustrations";
 import { EligibleSchoolsPanel } from "../eligible-schools-panel";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   return locale === "zh-CN"

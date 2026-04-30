@@ -14,6 +14,13 @@ type ServerFetchOptions = RequestInit & {
   includeLocale?: boolean;
 };
 
+function isMissingRequestContextError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes("Expected workStore to be initialized")
+  );
+}
+
 function parseFailedResponseBody(
   text: string,
   status: number,
@@ -47,12 +54,32 @@ function parseFailedResponseBody(
 }
 
 async function readRequestLocale() {
-  const cookieStore = await cookies();
-  return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+  try {
+    const cookieStore = await cookies();
+    return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+  } catch (error) {
+    // Build-time prerender paths do not have an incoming request to read from.
+    if (isMissingRequestContextError(error)) {
+      return normalizeLocale(null);
+    }
+
+    throw error;
+  }
 }
 
 async function buildForwardedCookieHeader(cookieNames: string[]) {
-  const cookieStore = await cookies();
+  let cookieStore: Awaited<ReturnType<typeof cookies>>;
+  try {
+    cookieStore = await cookies();
+  } catch (error) {
+    // Build-time prerender paths should behave as unauthenticated requests.
+    if (isMissingRequestContextError(error)) {
+      return "";
+    }
+
+    throw error;
+  }
+
   const forwardedCookies = cookieNames
     .map((name) => {
       const value = cookieStore.get(name)?.value;
@@ -95,11 +122,27 @@ async function fetchApiServer<T>(
 }
 
 export function hasUserSessionCookie() {
-  return cookies().then((cookieStore) => cookieStore.has(USER_COOKIE_NAME));
+  return cookies()
+    .then((cookieStore) => cookieStore.has(USER_COOKIE_NAME))
+    .catch((error: unknown) => {
+      if (isMissingRequestContextError(error)) {
+        return false;
+      }
+
+      throw error;
+    });
 }
 
 export function hasAdminSessionCookie() {
-  return cookies().then((cookieStore) => cookieStore.has(ADMIN_COOKIE_NAME));
+  return cookies()
+    .then((cookieStore) => cookieStore.has(ADMIN_COOKIE_NAME))
+    .catch((error: unknown) => {
+      if (isMissingRequestContextError(error)) {
+        return false;
+      }
+
+      throw error;
+    });
 }
 
 export function fetchUserApiServer<T>(path: string, options: RequestInit = {}) {

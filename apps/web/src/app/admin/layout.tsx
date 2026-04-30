@@ -7,6 +7,8 @@ import type { AdminIdentity } from "./admin-context";
 import "../protected.css";
 import "./admin.css";
 
+export const dynamic = "force-dynamic";
+
 async function getInitialAdmin() {
   const hasSessionCookie = await hasAdminSessionCookie();
   if (!hasSessionCookie) {

@@ -29,7 +29,8 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const isAdminRoute =
-    typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/admin");
   const locale = isAdminRoute ? "zh-CN" : readClientLocale();
   const copy = textForLocale(locale, GLOBAL_ERROR_COPY);
 

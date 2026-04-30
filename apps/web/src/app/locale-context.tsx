@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -12,6 +13,7 @@ import {
   isSupportedLocale,
   type SupportedLocale,
 } from "@lilink/shared";
+import { readClientLocale } from "../lib/i18n";
 
 type LocaleContextValue = {
   locale: SupportedLocale;
@@ -31,6 +33,12 @@ export function LocaleProvider({
     isSupportedLocale(initialLocale) ? initialLocale : DEFAULT_LOCALE,
   );
 
+  useEffect(() => {
+    const clientLocale = readClientLocale();
+    document.documentElement.lang = clientLocale;
+    setLocaleState(clientLocale);
+  }, []);
+
   const setLocale = useCallback(async (nextLocale: SupportedLocale) => {
     if (!isSupportedLocale(nextLocale)) {
       throw new Error(`Unsupported locale: ${String(nextLocale)}`);
@@ -47,6 +55,7 @@ export function LocaleProvider({
     }
 
     setLocaleState(nextLocale);
+    document.documentElement.lang = nextLocale;
   }, []);
 
   const value = useMemo<LocaleContextValue>(
