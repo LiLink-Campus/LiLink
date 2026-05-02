@@ -770,17 +770,17 @@ export function areHardMatchAnswersCompatible(
   right: HardMatchAnswers,
   revealAt: Date,
 ) {
-  const leftNationality =
-    left.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
-  const rightNationality =
-    right.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
+  const leftNationality = left.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
+  const rightNationality = right.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
   const defaultLanguages: readonly HardMatchLanguage[] = [
     HARD_MATCH_DEFAULT_LANGUAGE,
   ];
-  const leftLanguages: readonly HardMatchLanguage[] =
-    left.languages?.length ? left.languages : defaultLanguages;
-  const rightLanguages: readonly HardMatchLanguage[] =
-    right.languages?.length ? right.languages : defaultLanguages;
+  const leftLanguages: readonly HardMatchLanguage[] = left.languages?.length
+    ? left.languages
+    : defaultLanguages;
+  const rightLanguages: readonly HardMatchLanguage[] = right.languages?.length
+    ? right.languages
+    : defaultLanguages;
 
   const leftAge = calculateAgeOnDate(left.birthDate, revealAt);
   const rightAge = calculateAgeOnDate(right.birthDate, revealAt);
@@ -825,18 +825,8 @@ export function areHardMatchAnswersCompatible(
   }
 
   if (
-    !optionalLanguagePreferenceMatches(
-      left.partnerLanguages,
-      rightLanguages,
-    ) ||
+    !optionalLanguagePreferenceMatches(left.partnerLanguages, rightLanguages) ||
     !optionalLanguagePreferenceMatches(right.partnerLanguages, leftLanguages)
-  ) {
-    return false;
-  }
-
-  if (
-    !multiPreferenceMatches(left.partnerLooks, right.looks, HARD_MATCH_LOOKS) ||
-    !multiPreferenceMatches(right.partnerLooks, left.looks, HARD_MATCH_LOOKS)
   ) {
     return false;
   }
