@@ -931,10 +931,29 @@ describe('AdminService', () => {
         },
       ],
     };
+    type CreateQuestionnaireVersionArgs = {
+      data: {
+        title: string;
+        isCurrent: boolean;
+        questions: {
+          create: Array<{
+            key: string;
+            prompt: string;
+            weight: number;
+          }>;
+        };
+      };
+    };
+    const createQuestionnaireVersion = jest
+      .fn<Promise<typeof createdVersion>, [CreateQuestionnaireVersionArgs]>()
+      .mockResolvedValue(createdVersion);
+    const updateQuestionnaireVersions = jest
+      .fn<Promise<{ count: number }>, [unknown]>()
+      .mockResolvedValue({ count: 1 });
     const tx = {
       questionnaireVersion: {
-        create: jest.fn().mockResolvedValue(createdVersion),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        create: createQuestionnaireVersion,
+        updateMany: updateQuestionnaireVersions,
       },
     };
     const prisma = {
@@ -994,24 +1013,16 @@ describe('AdminService', () => {
       key: 'pace',
       prompt: 'New Pace',
     });
-    expect(tx.questionnaireVersion.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          title: 'Current',
-          isCurrent: true,
-          questions: {
-            create: [
-              expect.objectContaining({
-                key: 'pace',
-                prompt: 'New Pace',
-                weight: 2,
-              }),
-            ],
-          },
-        }),
-      }),
-    );
-    expect(tx.questionnaireVersion.updateMany).toHaveBeenCalledWith({
+    const createArgs = createQuestionnaireVersion.mock.calls[0]?.[0];
+    expect(createArgs?.data.title).toBe('Current');
+    expect(createArgs?.data.isCurrent).toBe(true);
+    expect(createArgs?.data.questions.create).toHaveLength(1);
+    expect(createArgs?.data.questions.create[0]).toMatchObject({
+      key: 'pace',
+      prompt: 'New Pace',
+      weight: 2,
+    });
+    expect(updateQuestionnaireVersions).toHaveBeenCalledWith({
       where: {
         id: { not: 'version-new' },
         isCurrent: true,
