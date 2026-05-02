@@ -1162,7 +1162,7 @@ describe('CyclesService', () => {
     });
   });
 
-  it('scores stored answers with their submitted questionnaire version', async () => {
+  it('scores stored answers with their submitted questionnaire version and global bounds', async () => {
     const prisma = createPairCalculationPrisma();
     const service = new CyclesService(prisma as never);
     const calculatePairs = (
@@ -1196,7 +1196,7 @@ describe('CyclesService', () => {
 
     const result = await calculatePairs(
       participants,
-      [currentValueQuestion],
+      [currentValueQuestion, RELATIONSHIP_QUESTION],
       new Date('2026-04-10T00:00:00.000Z'),
       undefined,
       new Map([['version-old', [oldValueQuestion]]]),
@@ -1205,7 +1205,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-1' },
       right: { id: 'user-2' },
-      score: 100,
+      score: 80,
       reasons: ['你们都把 真诚、稳定 放在重要位置。'],
     });
   });

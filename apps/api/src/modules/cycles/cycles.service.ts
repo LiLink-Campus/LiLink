@@ -1741,7 +1741,7 @@ export class CyclesService {
       input.right,
       input.fallbackQuestions,
       input.revealAt,
-      undefined,
+      input.scoreBounds,
       pairQuestionSet,
     );
     if (!scored) {

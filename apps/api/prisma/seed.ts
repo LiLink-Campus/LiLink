@@ -25,8 +25,24 @@ function createOptions(labels: readonly string[]) {
   }));
 }
 
+function canonicalizeJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => canonicalizeJson(entry));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+        .map(([key, entry]) => [key, canonicalizeJson(entry)]),
+    );
+  }
+
+  return value ?? null;
+}
+
 function canonicalJson(value: unknown) {
-  return JSON.stringify(value ?? null);
+  return JSON.stringify(canonicalizeJson(value));
 }
 
 function exactMatchRule(template: string, priority: number) {
