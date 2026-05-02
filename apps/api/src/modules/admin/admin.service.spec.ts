@@ -919,6 +919,117 @@ describe('AdminService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('creates a new questionnaire version when updating a question', async () => {
+    const createdVersion = {
+      id: 'version-new',
+      questions: [
+        {
+          id: 'question-new',
+          key: 'pace',
+          prompt: 'New Pace',
+          type: 'SINGLE_SELECT',
+        },
+      ],
+    };
+    const tx = {
+      questionnaireVersion: {
+        create: jest.fn().mockResolvedValue(createdVersion),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma = {
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'version-old',
+          title: 'Current',
+          description: null,
+          questions: [
+            {
+              id: 'question-old',
+              key: 'pace',
+              prompt: 'Old Pace',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'slow', label: 'Slow' }],
+              reasonRules: [],
+              order: 1,
+              weight: 1,
+            },
+          ],
+        }),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        Promise.resolve(callback(tx)),
+      ),
+    };
+    const audit = {
+      listAuditLogs: jest.fn(),
+      getRecentAuditLogsByCondition: jest.fn(),
+      write: jest.fn(),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      audit as never,
+      {} as never,
+    );
+
+    await expect(
+      service.upsertQuestion(
+        {
+          questionId: 'question-old',
+          key: 'pace',
+          prompt: 'New Pace',
+          type: 'SINGLE_SELECT',
+          options: [{ label: 'Slow' }, { label: 'Fast' }],
+          order: 1,
+          weight: 2,
+        },
+        'admin-1',
+      ),
+    ).resolves.toMatchObject({
+      id: 'question-new',
+      key: 'pace',
+      prompt: 'New Pace',
+    });
+    expect(tx.questionnaireVersion.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          title: 'Current',
+          isCurrent: true,
+          questions: {
+            create: [
+              expect.objectContaining({
+                key: 'pace',
+                prompt: 'New Pace',
+                weight: 2,
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+    expect(tx.questionnaireVersion.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { not: 'version-new' },
+        isCurrent: true,
+      },
+      data: {
+        isCurrent: false,
+      },
+    });
+    expect(audit.write).toHaveBeenCalledWith(
+      'admin-1',
+      'question.updated',
+      expect.objectContaining({
+        questionId: 'question-new',
+        key: 'pace',
+      }),
+    );
+  });
+
   it('rejects setting a selection limit on a non-multi-select question', async () => {
     const service = new AdminService(
       {

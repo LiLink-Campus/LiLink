@@ -216,6 +216,36 @@ describe('hard-match helpers', () => {
     ).toBe(false);
   });
 
+  it('does not treat looks preferences as hard filters', () => {
+    const left = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.looks]: '普通人',
+      [HARD_MATCH_KEYS.partnerLooks]: ['普通人'],
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+    })!;
+    const right = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.gender]: '女',
+      [HARD_MATCH_KEYS.partnerGenders]: ['男'],
+      [HARD_MATCH_KEYS.looks]: '顶帅/美',
+      [HARD_MATCH_KEYS.partnerLooks]: ['顶帅/美'],
+      [HARD_MATCH_KEYS.heightCm]: 165,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 160,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 180,
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+    })!;
+
+    expect(
+      areHardMatchAnswersCompatible(
+        left,
+        right,
+        new Date('2026-05-20T00:00:00.000Z'),
+      ),
+    ).toBe(true);
+  });
+
   it('applies nationality, language, and nullable weight filters', () => {
     const left = tryReadHardMatchAnswers({
       ...validAnswers,
