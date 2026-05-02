@@ -25,6 +25,10 @@ function createOptions(labels: readonly string[]) {
   }));
 }
 
+function canonicalJson(value: unknown) {
+  return JSON.stringify(value ?? null);
+}
+
 function exactMatchRule(template: string, priority: number) {
   return [
     {
@@ -251,10 +255,7 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 3,
     weight: 3,
     options: DEFINE_RELATIONSHIP_TIMING_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们对“什么时候确认关系”的想法比较接近。',
-      3,
-    ),
+    reasonRules: exactMatchRule('你们对“什么时候确认关系”的想法比较接近。', 3),
   },
   {
     key: 'contact_frequency',
@@ -299,10 +300,7 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 7,
     weight: 4,
     options: REPAIR_STYLE_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们对冲突后的修复方式比较一致。',
-      4,
-    ),
+    reasonRules: exactMatchRule('你们对冲突后的修复方式比较一致。', 4),
   },
   {
     key: 'apology_expectation',
@@ -332,10 +330,7 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 10,
     weight: 2,
     options: CAREER_RELATIONSHIP_BALANCE_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们对当前阶段重心的判断接近。',
-      2,
-    ),
+    reasonRules: exactMatchRule('你们对当前阶段重心的判断接近。', 2),
   },
   {
     key: 'social_energy',
@@ -368,10 +363,7 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 13,
     weight: 2,
     options: SCALE_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们对亲密和个人空间的边界感比较接近。',
-      2,
-    ),
+    reasonRules: exactMatchRule('你们对亲密和个人空间的边界感比较接近。', 2),
   },
   {
     key: 'novelty_need',
@@ -380,10 +372,7 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 14,
     weight: 2,
     options: SCALE_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们对关系中新鲜感的偏好比较接近。',
-      2,
-    ),
+    reasonRules: exactMatchRule('你们对关系中新鲜感的偏好比较接近。', 2),
   },
   {
     key: 'values',
@@ -393,10 +382,7 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 4,
     options: VALUE_POOL,
     selectionLimit: 4,
-    reasonRules: multiOverlapRule(
-      '你们都把 {{labels_2}} 放在重要位置。',
-      4,
-    ),
+    reasonRules: multiOverlapRule('你们都把 {{labels_2}} 放在重要位置。', 4),
   },
   {
     key: 'green_flags',
@@ -406,10 +392,7 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 3,
     options: GREEN_FLAG_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule(
-      '你们都会被 {{labels_2}} 这类特质打动。',
-      3,
-    ),
+    reasonRules: multiOverlapRule('你们都会被 {{labels_2}} 这类特质打动。', 3),
   },
   {
     key: 'red_flag_sensitivity',
@@ -458,10 +441,7 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 2,
     options: IDEAL_DATE_STYLE_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule(
-      '你们都偏好 {{labels_2}} 这类约会方式。',
-      2,
-    ),
+    reasonRules: multiOverlapRule('你们都偏好 {{labels_2}} 这类约会方式。', 2),
   },
   {
     key: 'shared_growth_topics',
@@ -471,10 +451,7 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 2,
     options: SHARED_GROWTH_TOPIC_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule(
-      '你们都愿意一起投入 {{labels_2}}。',
-      2,
-    ),
+    reasonRules: multiOverlapRule('你们都愿意一起投入 {{labels_2}}。', 2),
   },
   {
     key: 'future_picture',
@@ -517,36 +494,119 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
   },
 ];
 
+function seededQuestionMatchesDefinition(
+  existingQuestion: {
+    key: string;
+    prompt: string;
+    type: QuestionType;
+    order: number;
+    weight: number;
+    required: boolean;
+    selectionLimit: number | null;
+    options: Prisma.JsonValue | null;
+    reasonRules: Prisma.JsonValue | null;
+  },
+  definition: QuestionnaireSeedQuestion,
+) {
+  return (
+    existingQuestion.key === definition.key &&
+    existingQuestion.prompt === definition.prompt &&
+    existingQuestion.type === definition.type &&
+    existingQuestion.order === definition.order &&
+    existingQuestion.weight === definition.weight &&
+    existingQuestion.required === true &&
+    existingQuestion.selectionLimit === (definition.selectionLimit ?? null) &&
+    canonicalJson(existingQuestion.options) ===
+      canonicalJson(createOptions(definition.options)) &&
+    canonicalJson(existingQuestion.reasonRules) ===
+      canonicalJson(definition.reasonRules)
+  );
+}
+
+function seededQuestionnaireMatchesDefinitions(
+  existingQuestions: Array<{
+    key: string;
+    prompt: string;
+    type: QuestionType;
+    order: number;
+    weight: number;
+    required: boolean;
+    selectionLimit: number | null;
+    options: Prisma.JsonValue | null;
+    reasonRules: Prisma.JsonValue | null;
+  }>,
+) {
+  if (existingQuestions.length !== QUESTIONNAIRE_DEFINITIONS.length) {
+    return false;
+  }
+
+  const definitionsByKey = new Map(
+    QUESTIONNAIRE_DEFINITIONS.map((definition) => [definition.key, definition]),
+  );
+
+  return existingQuestions.every((question) => {
+    const definition = definitionsByKey.get(question.key);
+    return definition
+      ? seededQuestionMatchesDefinition(question, definition)
+      : false;
+  });
+}
+
+async function createSeededQuestionnaireVersion() {
+  const version = await prisma.questionnaireVersion.create({
+    data: {
+      title: 'LiLink Core Compatibility Survey',
+      description: 'A relationship-oriented compatibility questionnaire.',
+      isCurrent: true,
+      questions: {
+        create: QUESTIONNAIRE_DEFINITIONS.map((question) => ({
+          key: question.key,
+          prompt: question.prompt,
+          type: question.type,
+          order: question.order,
+          weight: question.weight,
+          required: true,
+          selectionLimit: question.selectionLimit ?? null,
+          options: createOptions(question.options),
+          reasonRules: question.reasonRules,
+        })),
+      },
+    },
+  });
+
+  await prisma.questionnaireVersion.updateMany({
+    where: {
+      id: {
+        not: version.id,
+      },
+    },
+    data: {
+      isCurrent: false,
+    },
+  });
+
+  return version;
+}
+
 async function ensureCurrentQuestionnaireVersion() {
   const existingVersion = await prisma.questionnaireVersion.findFirst({
     where: { isCurrent: true },
+    include: {
+      questions: {
+        orderBy: { order: 'asc' },
+      },
+    },
   });
 
-  const version =
-    existingVersion ??
-    (await prisma.questionnaireVersion.create({
-      data: {
-        title: 'LiLink Core Compatibility Survey',
-        description: 'A relationship-oriented compatibility questionnaire.',
-        isCurrent: true,
-      },
-    }));
-
-  if (!existingVersion) {
-    await prisma.questionnaireVersion.updateMany({
-      where: {
-        id: {
-          not: version.id,
-        },
-      },
-      data: {
-        isCurrent: false,
-      },
-    });
+  if (
+    !existingVersion ||
+    !seededQuestionnaireMatchesDefinitions(existingVersion.questions)
+  ) {
+    return createSeededQuestionnaireVersion();
   }
 
-  await prisma.questionnaireVersion.update({
-    where: { id: version.id },
+  const version = await prisma.questionnaireVersion.update({
+    where: { id: existingVersion.id },
     data: {
       title: 'LiLink Core Compatibility Survey',
       description: 'A relationship-oriented compatibility questionnaire.',
@@ -554,41 +614,14 @@ async function ensureCurrentQuestionnaireVersion() {
     },
   });
 
-  for (const question of QUESTIONNAIRE_DEFINITIONS) {
-    await prisma.question.upsert({
-      where: { key: question.key },
-      update: {
-        versionId: version.id,
-        prompt: question.prompt,
-        type: question.type,
-        order: question.order,
-        weight: question.weight,
-        required: true,
-        selectionLimit: question.selectionLimit ?? null,
-        options: createOptions(question.options),
-        reasonRules: question.reasonRules,
-      },
-      create: {
-        versionId: version.id,
-        key: question.key,
-        prompt: question.prompt,
-        type: question.type,
-        order: question.order,
-        weight: question.weight,
-        required: true,
-        selectionLimit: question.selectionLimit ?? null,
-        options: createOptions(question.options),
-        reasonRules: question.reasonRules,
-      },
-    });
-  }
-
-  await prisma.question.deleteMany({
+  await prisma.questionnaireVersion.updateMany({
     where: {
-      versionId: version.id,
-      key: {
-        notIn: QUESTIONNAIRE_DEFINITIONS.map((question) => question.key),
+      id: {
+        not: version.id,
       },
+    },
+    data: {
+      isCurrent: false,
     },
   });
 
@@ -684,28 +717,28 @@ async function seedSchoolsAndDomains() {
 
 /** Schools + current questionnaire version only (no users, cycles, or responses). */
 async function seedDefaultRepositoryData() {
-    await seedSchoolsAndDomains();
+  await seedSchoolsAndDomains();
   await ensureCurrentQuestionnaireVersion();
 }
 
 function seedScope(): 'full' | 'default' {
-    const raw = process.env.SEED_SCOPE?.trim().toLowerCase();
-    if (raw === 'default' || raw === 'repo') {
-        return 'default';
-    }
-    return 'full';
+  const raw = process.env.SEED_SCOPE?.trim().toLowerCase();
+  if (raw === 'default' || raw === 'repo') {
+    return 'default';
+  }
+  return 'full';
 }
 
 async function main() {
-    const scope = seedScope();
+  const scope = seedScope();
 
-    await seedDefaultRepositoryData();
-    if (scope === 'default') {
-        console.log(
-            '[seed] SEED_SCOPE=default: schools + questionnaire only; skipped match cycle and users.',
-        );
-        return;
-    }
+  await seedDefaultRepositoryData();
+  if (scope === 'default') {
+    console.log(
+      '[seed] SEED_SCOPE=default: schools + questionnaire only; skipped match cycle and users.',
+    );
+    return;
+  }
 
   const now = new Date();
   const revealAt = new Date(now);
@@ -1155,7 +1188,9 @@ async function seedMatchDemoAccounts(prisma: PrismaClient) {
   });
 
   if (!version) {
-    console.warn('[seed] Skipping match demo users: no current questionnaire version.');
+    console.warn(
+      '[seed] Skipping match demo users: no current questionnaire version.',
+    );
     return;
   }
 
@@ -1343,7 +1378,9 @@ async function seedMatchDemoAccounts(prisma: PrismaClient) {
   console.log(
     '    opted in vs out; ACTIVE vs PENDING; with or without schoolId (see bulkScenarioAt in prisma/seed.ts).',
   );
-  console.log('  Login at /login with email + password (no email code for these users).');
+  console.log(
+    '  Login at /login with email + password (no email code for these users).',
+  );
   console.log('');
 }
 

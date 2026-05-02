@@ -192,7 +192,7 @@ model Question {
   id          String               @id @default(cuid())
   versionId   String
   version     QuestionnaireVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  key         String               @unique
+  key         String
   prompt      String
   description String?
   type        QuestionType
@@ -204,6 +204,7 @@ model Question {
   reasonRules Json?
 
   @@index([versionId, order])
+  @@unique([versionId, key])
 }
 
 model QuestionnaireResponse {
