@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   Optional,
@@ -946,46 +947,57 @@ export class AdminService {
     currentVersion: CurrentQuestionnaireForMutation,
     questions: QuestionnaireRevisionQuestion[],
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      const createdVersion = await tx.questionnaireVersion.create({
-        data: {
-          title: currentVersion.title,
-          description: currentVersion.description,
-          isCurrent: true,
-          questions: {
-            create: questions.map((question) => ({
-              key: question.key,
-              prompt: question.prompt,
-              description: question.description,
-              type: question.type,
-              required: question.required,
-              selectionLimit: question.selectionLimit,
-              options: question.options,
-              reasonRules: question.reasonRules,
-              order: question.order,
-              weight: question.weight,
-            })),
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.questionnaireVersion.updateMany({
+          where: {
+            id: currentVersion.id,
+            isCurrent: true,
           },
-        },
-        include: {
-          questions: {
-            orderBy: { order: 'asc' },
+          data: {
+            isCurrent: false,
           },
-        },
-      });
+        });
 
-      await tx.questionnaireVersion.updateMany({
-        where: {
-          id: { not: createdVersion.id },
-          isCurrent: true,
-        },
-        data: {
-          isCurrent: false,
-        },
+        return tx.questionnaireVersion.create({
+          data: {
+            title: currentVersion.title,
+            description: currentVersion.description,
+            isCurrent: true,
+            questions: {
+              create: questions.map((question) => ({
+                key: question.key,
+                prompt: question.prompt,
+                description: question.description,
+                type: question.type,
+                required: question.required,
+                selectionLimit: question.selectionLimit,
+                options: question.options,
+                reasonRules: question.reasonRules,
+                order: question.order,
+                weight: question.weight,
+              })),
+            },
+          },
+          include: {
+            questions: {
+              orderBy: { order: 'asc' },
+            },
+          },
+        });
       });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Questionnaire was updated concurrently. Please retry.',
+        );
+      }
 
-      return createdVersion;
-    });
+      throw error;
+    }
   }
 
   async getQuestions() {
@@ -1148,6 +1160,16 @@ export class AdminService {
     const currentQuestionsById = new Map(
       version.questions.map((question) => [question.id, question]),
     );
+    const uniqueQuestionIds = new Set(input.questionIds);
+
+    if (
+      input.questionIds.length !== version.questions.length ||
+      uniqueQuestionIds.size !== version.questions.length
+    ) {
+      throw new BadRequestException(
+        'Question order must include every current question exactly once.',
+      );
+    }
 
     if (
       input.questionIds.some(
@@ -1157,14 +1179,11 @@ export class AdminService {
       throw new NotFoundException('Some questions were not found.');
     }
 
-    const orderByQuestionId = new Map(
-      input.questionIds.map((questionId, index) => [questionId, index + 1]),
-    );
     await this.createQuestionnaireRevision(
       version,
-      version.questions.map((question) => ({
-        ...this.cloneQuestionForRevision(question),
-        order: orderByQuestionId.get(question.id) ?? question.order,
+      input.questionIds.map((questionId, index) => ({
+        ...this.cloneQuestionForRevision(currentQuestionsById.get(questionId)!),
+        order: index + 1,
       })),
     );
 
