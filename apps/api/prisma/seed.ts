@@ -569,39 +569,35 @@ function seededQuestionnaireMatchesDefinitions(
 }
 
 async function createSeededQuestionnaireVersion() {
-  const version = await prisma.questionnaireVersion.create({
-    data: {
-      title: 'LiLink Core Compatibility Survey',
-      description: 'A relationship-oriented compatibility questionnaire.',
-      isCurrent: true,
-      questions: {
-        create: QUESTIONNAIRE_DEFINITIONS.map((question) => ({
-          key: question.key,
-          prompt: question.prompt,
-          type: question.type,
-          order: question.order,
-          weight: question.weight,
-          required: true,
-          selectionLimit: question.selectionLimit ?? null,
-          options: createOptions(question.options),
-          reasonRules: question.reasonRules,
-        })),
+  return prisma.$transaction(async (tx) => {
+    await tx.questionnaireVersion.updateMany({
+      where: { isCurrent: true },
+      data: {
+        isCurrent: false,
       },
-    },
-  });
+    });
 
-  await prisma.questionnaireVersion.updateMany({
-    where: {
-      id: {
-        not: version.id,
+    return tx.questionnaireVersion.create({
+      data: {
+        title: 'LiLink Core Compatibility Survey',
+        description: 'A relationship-oriented compatibility questionnaire.',
+        isCurrent: true,
+        questions: {
+          create: QUESTIONNAIRE_DEFINITIONS.map((question) => ({
+            key: question.key,
+            prompt: question.prompt,
+            type: question.type,
+            order: question.order,
+            weight: question.weight,
+            required: true,
+            selectionLimit: question.selectionLimit ?? null,
+            options: createOptions(question.options),
+            reasonRules: question.reasonRules,
+          })),
+        },
       },
-    },
-    data: {
-      isCurrent: false,
-    },
+    });
   });
-
-  return version;
 }
 
 async function ensureCurrentQuestionnaireVersion() {

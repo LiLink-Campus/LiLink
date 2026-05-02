@@ -1013,6 +1013,19 @@ describe('AdminService', () => {
       key: 'pace',
       prompt: 'New Pace',
     });
+    expect(updateQuestionnaireVersions).toHaveBeenCalledWith({
+      where: {
+        id: 'version-old',
+        isCurrent: true,
+      },
+      data: {
+        isCurrent: false,
+      },
+    });
+    expect(
+      updateQuestionnaireVersions.mock.invocationCallOrder[0],
+    ).toBeLessThan(createQuestionnaireVersion.mock.invocationCallOrder[0]);
+
     const createArgs = createQuestionnaireVersion.mock.calls[0]?.[0];
     expect(createArgs?.data.title).toBe('Current');
     expect(createArgs?.data.isCurrent).toBe(true);
@@ -1022,15 +1035,6 @@ describe('AdminService', () => {
       prompt: 'New Pace',
       weight: 2,
     });
-    expect(updateQuestionnaireVersions).toHaveBeenCalledWith({
-      where: {
-        id: { not: 'version-new' },
-        isCurrent: true,
-      },
-      data: {
-        isCurrent: false,
-      },
-    });
     expect(audit.write).toHaveBeenCalledWith(
       'admin-1',
       'question.updated',
@@ -1039,6 +1043,69 @@ describe('AdminService', () => {
         key: 'pace',
       }),
     );
+  });
+
+  it.each([
+    { caseName: 'omits a current question', questionIds: ['question-1'] },
+    {
+      caseName: 'contains duplicate question ids',
+      questionIds: ['question-1', 'question-1'],
+    },
+  ])('rejects a question reorder that $caseName', async ({ questionIds }) => {
+    const prisma = {
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          title: 'Current',
+          description: null,
+          questions: [
+            {
+              id: 'question-1',
+              key: 'pace',
+              prompt: 'Pace',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [],
+              reasonRules: [],
+              order: 1,
+              weight: 1,
+            },
+            {
+              id: 'question-2',
+              key: 'values',
+              prompt: 'Values',
+              description: null,
+              type: 'MULTI_SELECT',
+              required: true,
+              selectionLimit: 2,
+              options: [],
+              reasonRules: [],
+              order: 2,
+              weight: 1,
+            },
+          ],
+        }),
+      },
+      $transaction: jest.fn(),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.reorderQuestions({ questionIds }, 'admin-1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejects setting a selection limit on a non-multi-select question', async () => {

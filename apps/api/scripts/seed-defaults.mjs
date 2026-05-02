@@ -365,7 +365,7 @@ async function seedQuestionnaire() {
   for (const q of QUESTIONNAIRE_DEFINITIONS) {
     const optionsPayload = createOptions(q.options);
     await prisma.question.upsert({
-      where: { key: q.key },
+      where: { versionId_key: { versionId: version.id, key: q.key } },
       update: {
         versionId: version.id,
         prompt: q.prompt,
