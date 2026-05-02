@@ -6,6 +6,7 @@ import { clearStickyParticipationCache } from '../../common/participation/sticky
 type EligibleParticipantStub = {
   id: string;
   displayName: string | null;
+  questionnaireVersionId?: string | null;
   hardMatchAnswers: {
     birthDate: string;
     partnerAgeMin: number;
@@ -46,12 +47,9 @@ type CyclesServiceTestHarness = {
       prompt: string;
       type: QuestionType;
       weight: number;
+      selectionLimit?: number | null;
       options: Array<{ value: string; label: string }>;
-      reasonRules: Array<{
-        type: 'EXACT_MATCH';
-        template: string;
-        priority: number;
-      }>;
+      reasonRules: unknown[];
     }>,
     revealAt: Date,
   ) => {
@@ -68,6 +66,7 @@ type CyclesServiceTestHarness = {
     questions: unknown[],
     revealAt: Date,
     currentCycleId?: string,
+    questionnairesByVersionId?: Map<string, unknown[]>,
   ) => Promise<{
     candidates: CandidatePairStub[];
     selectedPairs: CandidatePairStub[];
@@ -204,6 +203,27 @@ const VALUE_QUESTION = {
       priority: 2,
       minOverlap: 1,
       maxLabels: 2,
+    },
+  ],
+};
+
+const SCALE_QUESTION = {
+  key: 'openness',
+  prompt: 'Openness',
+  type: QuestionType.SCALE,
+  weight: 2,
+  options: [
+    { value: 'very_unlike', label: '非常不像我' },
+    { value: 'unlike', label: '比较不像我' },
+    { value: 'depends', label: '看情况' },
+    { value: 'like', label: '比较像我' },
+    { value: 'very_like', label: '非常像我' },
+  ],
+  reasonRules: [
+    {
+      type: 'EXACT_MATCH' as const,
+      template: '你们在开放度上都选择了 {{answer_label}}。',
+      priority: 2,
     },
   ],
 };
@@ -1035,7 +1055,7 @@ describe('CyclesService', () => {
     );
 
     expect(result).toMatchObject({
-      rawScore: 66,
+      rawScore: 69,
       score: 100,
       reasons: ['你们对进入关系的期待很一致。'],
     });
@@ -1045,6 +1065,149 @@ describe('CyclesService', () => {
         type: 'EXACT_MATCH',
       }),
     ]);
+  });
+
+  it('normalizes multi-select scoring so broad selections are not rewarded', () => {
+    const service = new CyclesService({} as never);
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const focusedMatch = scorePair(
+      createBroadParticipant('user-1', {
+        values: ['honesty'],
+      }),
+      createBroadParticipant('user-2', {
+        values: ['honesty'],
+      }),
+      [VALUE_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+    const broadMatch = scorePair(
+      createBroadParticipant('user-1', {
+        values: ['honesty', 'stability', 'humor', 'growth'],
+      }),
+      createBroadParticipant('user-2', {
+        values: ['honesty'],
+      }),
+      [VALUE_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(focusedMatch).toMatchObject({
+      rawScore: 57,
+      score: 100,
+    });
+    expect(broadMatch).toMatchObject({
+      rawScore: 52.5,
+      score: 85,
+    });
+  });
+
+  it('gives adjacent scale answers partial credit', () => {
+    const service = new CyclesService({} as never);
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const adjacentMatch = scorePair(
+      createBroadParticipant('user-1', {
+        openness: 'like',
+      }),
+      createBroadParticipant('user-2', {
+        openness: 'very_like',
+      }),
+      [SCALE_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+    const oppositeMatch = scorePair(
+      createBroadParticipant('user-1', {
+        openness: 'very_unlike',
+      }),
+      createBroadParticipant('user-2', {
+        openness: 'very_like',
+      }),
+      [SCALE_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(adjacentMatch).toMatchObject({
+      rawScore: 60,
+      score: 94,
+    });
+    expect(oppositeMatch).toMatchObject({
+      rawScore: 51,
+      score: 76,
+    });
+  });
+
+  it('keeps looks preferences out of hard filtering', () => {
+    const service = new CyclesService({} as never);
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const left = createBroadParticipant('user-1', {});
+    const right = createBroadParticipant('user-2', {});
+    left.hardMatchAnswers.looks = '普通人';
+    left.hardMatchAnswers.partnerLooks = ['普通人'];
+    right.hardMatchAnswers.looks = '顶帅/美';
+    right.hardMatchAnswers.partnerLooks = ['顶帅/美'];
+
+    expect(
+      scorePair(left, right, [], new Date('2026-04-10T00:00:00.000Z')),
+    ).toMatchObject({
+      rawScore: 48,
+      score: 70,
+    });
+  });
+
+  it('scores stored answers with their submitted questionnaire version and global bounds', async () => {
+    const prisma = createPairCalculationPrisma();
+    const service = new CyclesService(prisma as never);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const currentValueQuestion = {
+      ...VALUE_QUESTION,
+      selectionLimit: 2,
+    };
+    const oldValueQuestion = {
+      ...VALUE_QUESTION,
+      description: null,
+      selectionLimit: null,
+      normalizedOptions: VALUE_QUESTION.options,
+      normalizedReasonRules: VALUE_QUESTION.reasonRules,
+    };
+    const participants = [
+      {
+        ...createBroadParticipant('user-1', {
+          values: ['honesty', 'stability', 'humor'],
+        }),
+        questionnaireVersionId: 'version-old',
+      },
+      {
+        ...createBroadParticipant('user-2', {
+          values: ['honesty', 'stability', 'humor'],
+        }),
+        questionnaireVersionId: 'version-old',
+      },
+    ];
+
+    const result = await calculatePairs(
+      participants,
+      [currentValueQuestion, RELATIONSHIP_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+      undefined,
+      new Map([['version-old', [oldValueQuestion]]]),
+    );
+
+    expect(result.selectedPairs[0]).toMatchObject({
+      left: { id: 'user-1' },
+      right: { id: 'user-2' },
+      score: 80,
+      reasons: ['你们都把 真诚、稳定 放在重要位置。'],
+    });
   });
 
   it('fills pending narratives while a cycle stays in PREPARING', async () => {
@@ -2384,7 +2547,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-a' },
       right: { id: 'user-b' },
-      score: 91.4,
+      score: 100,
       reasons: [
         '你们对进入关系的期待很一致。',
         '你们都把 真诚、稳定 放在重要位置。',
@@ -2393,7 +2556,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[1]).toMatchObject({
       left: { id: 'user-c' },
       right: { id: 'user-d' },
-      score: 91.4,
+      score: 100,
       reasons: [
         '你们对进入关系的期待很一致。',
         '你们都把 幽默感、上进 放在重要位置。',
@@ -3064,7 +3227,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-b' },
       right: { id: 'user-c' },
-      score: 87.1,
+      score: 95.6,
       reasons: ['你们对进入关系的期待很一致。', '你们都把 真诚 放在重要位置。'],
     });
   });
