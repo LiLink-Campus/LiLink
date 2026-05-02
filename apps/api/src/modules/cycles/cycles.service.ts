@@ -49,6 +49,8 @@ const MATCH_NARRATIVE_DEFAULT_AFTER_MS = 60 * 60 * 1000;
 const PREPARATION_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
+const PRIORITY_UNMATCHED_STREAK_THRESHOLD = 3;
+const PRE_PRIORITY_UNMATCHED_STREAK_BONUS = 2;
 type DashboardSnapshotPort = Pick<
   DashboardSnapshotService,
   'syncCycleSnapshots'
@@ -104,8 +106,15 @@ type CandidatePair = {
   right: EligibleParticipant;
   rawScore: number;
   score: number;
+  matchingWeight: number;
   reasons: string[];
   sharedSignals: MatchNarrativeSignal[];
+};
+
+type RetentionWeightTiers = {
+  priorityUser: number;
+  priorityStreak: number;
+  matchedUser: number;
 };
 
 type QuestionnaireQuestion = {
@@ -1348,6 +1357,94 @@ export class CyclesService {
       .then((matches) => this.buildHistoricalPairKeySet(matches));
   }
 
+  private async loadUnmatchedStreaks(
+    participantIds: string[],
+    beforeRevealAt: Date,
+    currentCycleId?: string,
+  ) {
+    if (participantIds.length === 0) {
+      return new Map<string, number>();
+    }
+
+    const participations = await this.prisma.cycleParticipation.findMany({
+      where: {
+        userId: { in: participantIds },
+        status: 'OPTED_IN',
+        intent: { not: null },
+        ...(currentCycleId ? { cycleId: { not: currentCycleId } } : {}),
+        cycle: {
+          status: 'REVEALED',
+          revealAt: { lt: beforeRevealAt },
+        },
+      },
+      select: {
+        userId: true,
+        cycleId: true,
+        updatedAt: true,
+        cycle: {
+          select: {
+            revealAt: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: [
+        { userId: 'asc' },
+        { cycle: { revealAt: 'desc' } },
+        { cycle: { createdAt: 'desc' } },
+        { updatedAt: 'desc' },
+      ],
+    });
+    const cycleIds = Array.from(
+      new Set(participations.map((participation) => participation.cycleId)),
+    );
+    const matchedParticipations =
+      cycleIds.length === 0
+        ? []
+        : await this.prisma.matchParticipant.findMany({
+            where: {
+              userId: { in: participantIds },
+              cycleId: { in: cycleIds },
+            },
+            select: {
+              userId: true,
+              cycleId: true,
+            },
+          });
+    const matchedParticipationKeys = new Set(
+      matchedParticipations.map(
+        (participant) => `${participant.userId}::${participant.cycleId}`,
+      ),
+    );
+    const participationsByUserId = new Map<string, typeof participations>();
+
+    for (const participation of participations) {
+      const userParticipations =
+        participationsByUserId.get(participation.userId) ?? [];
+      userParticipations.push(participation);
+      participationsByUserId.set(participation.userId, userParticipations);
+    }
+
+    return new Map(
+      participantIds.map((participantId) => {
+        const userParticipations =
+          participationsByUserId.get(participantId) ?? [];
+        let streak = 0;
+
+        for (const participation of userParticipations) {
+          const participationKey = `${participation.userId}::${participation.cycleId}`;
+          if (matchedParticipationKeys.has(participationKey)) {
+            break;
+          }
+
+          streak += 1;
+        }
+
+        return [participantId, streak];
+      }),
+    );
+  }
+
   private loadCycleForProcessing(cycleId: string) {
     return this.prisma.matchCycle.findUnique({
       where: { id: cycleId },
@@ -1430,7 +1527,7 @@ export class CyclesService {
       };
     }
 
-    const [blocks, historicalPairKeys] = await Promise.all([
+    const [blocks, historicalPairKeys, unmatchedStreaks] = await Promise.all([
       this.prisma.block.findMany({
         where: {
           OR: [
@@ -1440,7 +1537,13 @@ export class CyclesService {
         },
       }),
       this.loadHistoricalPairKeys(participantIds, currentCycleId),
+      this.loadUnmatchedStreaks(participantIds, revealAt, currentCycleId),
     ]);
+    const retentionWeightTiers = this.buildRetentionWeightTiers(
+      participants.length,
+      scoreBounds,
+      unmatchedStreaks,
+    );
 
     const blockedPairKeys = new Set(
       blocks.map((block) =>
@@ -1466,6 +1569,8 @@ export class CyclesService {
           scoreBounds,
           blockedPairKeys,
           historicalPairKeys,
+          unmatchedStreaks,
+          retentionWeightTiers,
         });
         if (
           !candidateResult ||
@@ -1484,7 +1589,7 @@ export class CyclesService {
     const candidates = [...candidateByPairKey.values()].sort((first, second) =>
       this.compareCandidatePairs(first, second),
     );
-    const selectedPairs = this.selectMaximumCardinalityPairs(
+    const selectedPairs = this.selectRetentionPriorityPairs(
       participants,
       candidates,
     );
@@ -1507,6 +1612,8 @@ export class CyclesService {
     scoreBounds: MatchScoreBounds;
     blockedPairKeys: Set<string>;
     historicalPairKeys: Set<string>;
+    unmatchedStreaks: Map<string, number>;
+    retentionWeightTiers: RetentionWeightTiers;
   }): { pairKey: string; candidate: CandidatePair } | null {
     const pairKey = this.createPairKey(input.left.id, input.right.id);
 
@@ -1528,6 +1635,10 @@ export class CyclesService {
       return null;
     }
 
+    const leftUnmatchedStreak = input.unmatchedStreaks.get(input.left.id) ?? 0;
+    const rightUnmatchedStreak =
+      input.unmatchedStreaks.get(input.right.id) ?? 0;
+
     return {
       pairKey,
       candidate: {
@@ -1535,6 +1646,12 @@ export class CyclesService {
         right: input.right,
         rawScore: scored.rawScore,
         score: scored.score,
+        matchingWeight: this.calculateRetentionMatchingWeight({
+          rawScore: scored.rawScore,
+          leftUnmatchedStreak,
+          rightUnmatchedStreak,
+          tiers: input.retentionWeightTiers,
+        }),
         reasons: scored.reasons,
         sharedSignals: scored.sharedSignals,
       },
@@ -1569,6 +1686,80 @@ export class CyclesService {
     return this.createPairKey(first.left.id, first.right.id).localeCompare(
       this.createPairKey(second.left.id, second.right.id),
     );
+  }
+
+  private buildRetentionWeightTiers(
+    participantCount: number,
+    scoreBounds: MatchScoreBounds,
+    unmatchedStreaks: Map<string, number>,
+  ): RetentionWeightTiers {
+    const maxPairCount = Math.max(1, Math.floor(participantCount / 2));
+    const maxPrePriorityBonusTotal =
+      maxPairCount *
+      2 *
+      (PRIORITY_UNMATCHED_STREAK_THRESHOLD - 1) *
+      PRE_PRIORITY_UNMATCHED_STREAK_BONUS;
+    const maxCompatibilityTotal =
+      maxPairCount *
+        Math.max(1, Math.ceil(scoreBounds.max), NORMALIZED_SCORE_MAX) +
+      maxPrePriorityBonusTotal;
+    const matchedUser = maxCompatibilityTotal + 1;
+    const maxMatchedUserTotal = maxPairCount * 2 * matchedUser;
+    const priorityStreak = maxMatchedUserTotal + maxCompatibilityTotal + 1;
+    const maxPriorityStreak = Math.max(
+      0,
+      ...[...unmatchedStreaks.values()].filter(
+        (streak) => streak >= PRIORITY_UNMATCHED_STREAK_THRESHOLD,
+      ),
+    );
+    const maxPriorityStreakTotal =
+      maxPairCount * 2 * maxPriorityStreak * priorityStreak;
+    const priorityUser =
+      maxPriorityStreakTotal + maxMatchedUserTotal + maxCompatibilityTotal + 1;
+
+    return {
+      priorityUser,
+      priorityStreak,
+      matchedUser,
+    };
+  }
+
+  private calculateRetentionMatchingWeight(input: {
+    rawScore: number;
+    leftUnmatchedStreak: number;
+    rightUnmatchedStreak: number;
+    tiers: RetentionWeightTiers;
+  }) {
+    const leftPriorityStreak = this.toPriorityStreak(input.leftUnmatchedStreak);
+    const rightPriorityStreak = this.toPriorityStreak(
+      input.rightUnmatchedStreak,
+    );
+    const priorityUserCount =
+      (leftPriorityStreak > 0 ? 1 : 0) + (rightPriorityStreak > 0 ? 1 : 0);
+    const priorityStreakTotal = leftPriorityStreak + rightPriorityStreak;
+    const regularStreakTotal =
+      this.toRegularStreak(input.leftUnmatchedStreak) +
+      this.toRegularStreak(input.rightUnmatchedStreak);
+
+    return (
+      priorityUserCount * input.tiers.priorityUser +
+      priorityStreakTotal * input.tiers.priorityStreak +
+      2 * input.tiers.matchedUser +
+      regularStreakTotal * PRE_PRIORITY_UNMATCHED_STREAK_BONUS +
+      input.rawScore
+    );
+  }
+
+  private toPriorityStreak(unmatchedStreak: number) {
+    return unmatchedStreak >= PRIORITY_UNMATCHED_STREAK_THRESHOLD
+      ? unmatchedStreak
+      : 0;
+  }
+
+  private toRegularStreak(unmatchedStreak: number) {
+    return unmatchedStreak < PRIORITY_UNMATCHED_STREAK_THRESHOLD
+      ? unmatchedStreak
+      : 0;
   }
 
   private scorePair(
@@ -1950,7 +2141,7 @@ export class CyclesService {
     );
   }
 
-  private selectMaximumCardinalityPairs(
+  private selectRetentionPriorityPairs(
     participants: EligibleParticipant[],
     candidates: CandidatePair[],
   ) {
@@ -1976,10 +2167,10 @@ export class CyclesService {
       const vertexPairKey = `${firstIndex}::${secondIndex}`;
 
       candidateByVertexPair.set(vertexPairKey, candidate);
-      edges.push([firstIndex, secondIndex, candidate.rawScore]);
+      edges.push([firstIndex, secondIndex, candidate.matchingWeight]);
     }
 
-    const matchedVertices = blossom(edges, true);
+    const matchedVertices = blossom(edges);
     return matchedVertices
       .map((rightIndex, leftIndex) => {
         if (rightIndex <= leftIndex) {
