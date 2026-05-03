@@ -54,16 +54,6 @@ const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const PRIORITY_UNMATCHED_STREAK_THRESHOLD = 3;
 const PRE_PRIORITY_UNMATCHED_STREAK_BONUS = 2;
-type DashboardSnapshotPort = Pick<
-  DashboardSnapshotService,
-  'syncCycleSnapshots'
->;
-
-const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
-  syncCycleSnapshots() {
-    return Promise.resolve();
-  },
-};
 
 /**
  * Only ACTIVE users with a stored weekly intent may appear in matching /
@@ -358,17 +348,13 @@ function normalizePreparedQuestionAnswer(
 @Injectable()
 export class CyclesService {
   private readonly logger = new Logger(CyclesService.name);
-  private readonly dashboardSnapshotService: DashboardSnapshotPort;
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly dashboardSnapshotService: DashboardSnapshotService,
     @Optional()
     private readonly matchNarrativeService: MatchNarrativeService = new MatchNarrativeService(),
-    @Optional() dashboardSnapshotService?: DashboardSnapshotService,
-  ) {
-    this.dashboardSnapshotService =
-      dashboardSnapshotService ?? defaultDashboardSnapshotPort;
-  }
+  ) {}
 
   private narrativeGenerationEnabled() {
     return env.MATCH_NARRATIVE_GENERATION_ENABLED;
@@ -1135,6 +1121,8 @@ export class CyclesService {
           },
         },
       });
+
+      await this.dashboardSnapshotService.syncCycleSnapshots(cycle.id, tx);
 
       return revealedMatches.count;
     });

@@ -1,8 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
+import { MODULE_METADATA } from '@nestjs/common/constants';
 import { Prisma, QuestionType } from '@prisma/client';
+import { DashboardSnapshotModule } from '../../common/dashboard/dashboard-snapshot.module';
 import { CyclesService } from './cycles.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 import { env } from '../../config/env';
+import { CyclesModule } from './cycles.module';
 
 type EligibleParticipantStub = {
   id: string;
@@ -232,11 +235,132 @@ const SCALE_QUESTION = {
 const originalNarrativeGenerationEnabled =
   env.MATCH_NARRATIVE_GENERATION_ENABLED;
 
+function createDashboardSnapshotServiceMock() {
+  return {
+    syncCycleSnapshots: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createCyclesService(
+  prisma: unknown,
+  matchNarrativeService?: unknown,
+  dashboardSnapshotService = createDashboardSnapshotServiceMock(),
+) {
+  return new CyclesService(
+    prisma as never,
+    dashboardSnapshotService as never,
+    matchNarrativeService as never,
+  );
+}
+
 describe('CyclesService', () => {
   afterEach(() => {
     env.MATCH_NARRATIVE_GENERATION_ENABLED =
       originalNarrativeGenerationEnabled;
     clearStickyParticipationCache();
+  });
+
+  it('declares dashboard snapshot sync as a module dependency', () => {
+    const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, CyclesModule);
+
+    expect(imports).toContain(DashboardSnapshotModule);
+  });
+
+  it('syncs dashboard snapshots when preparation waits for pending narratives', async () => {
+    env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
+
+    const tx = {
+      match: {
+        create: jest.fn().mockResolvedValue({ id: 'match-1' }),
+      },
+      matchCycle: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() - 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
+          participations: [],
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      cycleParticipation: {
+        findMany: jest.fn().mockResolvedValue([]),
+        createMany: jest.fn(),
+      },
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+      match: {
+        count: jest.fn().mockResolvedValue(1),
+      },
+      $transaction: jest.fn(
+        async (callback: (transaction: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
+    };
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
+    const service = createCyclesService(
+      prisma,
+      {
+        generateNarrative: jest.fn(),
+        buildDefaultNarrative: jest.fn(),
+      },
+      dashboardSnapshotService,
+    );
+    const testHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      | 'toEligibleParticipants'
+      | 'calculatePairs'
+      | 'generateNarrativesForPairs'
+    >;
+
+    jest
+      .spyOn(testHarness, 'toEligibleParticipants')
+      .mockReturnValue([
+        createBroadParticipant('user-1', {}),
+        createBroadParticipant('user-2', {}),
+      ]);
+    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
+      candidates: [],
+      selectedPairs: [
+        {
+          left: { id: 'user-1' },
+          right: { id: 'user-2' },
+          score: 88,
+          reasons: ['reason'],
+        },
+      ],
+    });
+    jest
+      .spyOn(testHarness, 'generateNarrativesForPairs')
+      .mockResolvedValue([null]);
+
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'PENDING',
+      createdMatches: 1,
+    });
+
+    expect(dashboardSnapshotService.syncCycleSnapshots).toHaveBeenCalledWith(
+      'cycle-1',
+      tx,
+    );
   });
 
   it('rejects preparing a cycle before participation deadline by default', async () => {
@@ -269,7 +393,7 @@ describe('CyclesService', () => {
         Promise.resolve(fn({ cycleParticipation })),
       ),
     };
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
 
     await expect(
       service.runRevealCycle({ cycleId: 'cycle-1' }),
@@ -284,6 +408,19 @@ describe('CyclesService', () => {
     const revealClaim = jest.fn().mockResolvedValue({ count: 1 });
     const revealMatchUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const revealTx = {
+      cycleParticipation,
+      match: {
+        updateMany: revealMatchUpdateMany,
+      },
+      matchCycle: {
+        update: jest.fn().mockResolvedValue({ id: 'cycle-1' }),
+        updateMany: revealClaim,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
     const prisma = {
       matchCycle: {
         findUnique: jest
@@ -322,24 +459,15 @@ describe('CyclesService', () => {
         }),
       },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
-        Promise.resolve(
-          fn({
-            cycleParticipation,
-            match: {
-              updateMany: revealMatchUpdateMany,
-            },
-            matchCycle: {
-              update: jest.fn().mockResolvedValue({ id: 'cycle-1' }),
-              updateMany: revealClaim,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
-        ),
+        Promise.resolve(fn(revealTx)),
       ),
     };
-    const service = new CyclesService(prisma as never);
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
+    const service = createCyclesService(
+      prisma,
+      undefined,
+      dashboardSnapshotService,
+    );
 
     await expect(
       service.runRevealCycle({ cycleId: 'cycle-1', force: true }),
@@ -349,6 +477,57 @@ describe('CyclesService', () => {
       state: 'REVEALED',
       createdMatches: 0,
     });
+    expect(dashboardSnapshotService.syncCycleSnapshots).toHaveBeenCalledWith(
+      'cycle-1',
+      revealTx,
+    );
+  });
+
+  it('does not sync dashboard snapshots when reveal claim is lost', async () => {
+    const revealClaim = jest.fn().mockResolvedValue({ count: 0 });
+    const revealMatchUpdateMany = jest.fn();
+    const auditLogCreate = jest.fn();
+    const revealTx = {
+      match: {
+        updateMany: revealMatchUpdateMany,
+      },
+      matchCycle: {
+        updateMany: revealClaim,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'REVEAL_READY',
+          revealAt: new Date(Date.now() - 60_000),
+        }),
+      },
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
+        Promise.resolve(fn(revealTx)),
+      ),
+    };
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
+    const service = createCyclesService(
+      prisma,
+      undefined,
+      dashboardSnapshotService,
+    );
+
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'SKIPPED',
+      createdMatches: 0,
+    });
+    expect(revealMatchUpdateMany).not.toHaveBeenCalled();
+    expect(auditLogCreate).not.toHaveBeenCalled();
+    expect(dashboardSnapshotService.syncCycleSnapshots).not.toHaveBeenCalled();
   });
 
   it('backfills sticky participation records before running an existing open cycle', async () => {
@@ -463,6 +642,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn().mockResolvedValue({
           reason:
@@ -642,7 +822,7 @@ describe('CyclesService', () => {
         }),
       },
     };
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
 
     await expect(service.previewCycle('cycle-1')).resolves.toMatchObject({
       cycleId: 'cycle-1',
@@ -654,7 +834,7 @@ describe('CyclesService', () => {
   });
 
   it('injects the current school id when building eligible participants', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const toEligibleParticipants = (
       service as unknown as Pick<
         CyclesServiceTestHarness,
@@ -730,7 +910,7 @@ describe('CyclesService', () => {
   });
 
   it('keeps hard-match fields out of DeepSeek narrative questionnaire input', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const buildNarrativeQuestionnaire = (
       service as unknown as Pick<
         CyclesServiceTestHarness,
@@ -805,7 +985,7 @@ describe('CyclesService', () => {
   });
 
   it('keeps hard-match fields out of DeepSeek narrative shared signals', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const scorePair = (
       service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
     ).scorePair.bind(service);
@@ -848,7 +1028,7 @@ describe('CyclesService', () => {
   });
 
   it('ignores questionnaire drafts that were never formally submitted', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const toEligibleParticipants = (
       service as unknown as Pick<
         CyclesServiceTestHarness,
@@ -887,7 +1067,7 @@ describe('CyclesService', () => {
   });
 
   it('drops participants whose weekly intent is missing or invalid', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const toEligibleParticipants = (
       service as unknown as Pick<
         CyclesServiceTestHarness,
@@ -956,7 +1136,7 @@ describe('CyclesService', () => {
   });
 
   it('blocks pairing when weekly intents are incompatible (FRIEND vs DATE)', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const scorePair = (
       service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
     ).scorePair.bind(service);
@@ -986,7 +1166,7 @@ describe('CyclesService', () => {
   });
 
   it('builds reasons from configured question templates instead of hard-coded keys', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const scorePair = (
       service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
     ).scorePair.bind(service);
@@ -1074,7 +1254,7 @@ describe('CyclesService', () => {
   });
 
   it('normalizes multi-select scoring so broad selections are not rewarded', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const scorePair = (
       service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
     ).scorePair.bind(service);
@@ -1111,7 +1291,7 @@ describe('CyclesService', () => {
   });
 
   it('gives adjacent scale answers partial credit', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const scorePair = (
       service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
     ).scorePair.bind(service);
@@ -1148,7 +1328,7 @@ describe('CyclesService', () => {
   });
 
   it('keeps looks preferences out of hard filtering', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const scorePair = (
       service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
     ).scorePair.bind(service);
@@ -1170,7 +1350,7 @@ describe('CyclesService', () => {
 
   it('scores stored answers with their submitted questionnaire version and global bounds', async () => {
     const prisma = createPairCalculationPrisma();
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -1287,10 +1467,7 @@ describe('CyclesService', () => {
       }),
       buildDefaultNarrative: jest.fn(),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants'
@@ -1461,10 +1638,7 @@ describe('CyclesService', () => {
       }),
       buildDefaultNarrative: jest.fn(),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants'
@@ -1638,10 +1812,7 @@ describe('CyclesService', () => {
       generateNarrative: jest.fn(),
       buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
 
     await expect(
       service.runRevealCycle({ cycleId: 'cycle-1' }),
@@ -1737,10 +1908,7 @@ describe('CyclesService', () => {
       }),
       buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -1926,10 +2094,7 @@ describe('CyclesService', () => {
       generateNarrative: jest.fn(),
       buildDefaultNarrative: jest.fn(),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -2088,10 +2253,7 @@ describe('CyclesService', () => {
       }),
       buildDefaultNarrative: jest.fn(),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -2209,6 +2371,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
         buildDefaultNarrative: jest.fn(),
@@ -2298,6 +2461,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
         buildDefaultNarrative: jest.fn(),
@@ -2392,6 +2556,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
         buildDefaultNarrative: jest.fn(),
@@ -2472,6 +2637,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
         buildDefaultNarrative: jest.fn(),
@@ -2509,6 +2675,7 @@ describe('CyclesService', () => {
         questionnaireVersion: {},
         $transaction: jest.fn(),
       } as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
       } as never,
@@ -2606,7 +2773,7 @@ describe('CyclesService', () => {
           .mockResolvedValueOnce([]),
       },
     };
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const loggerSpy = jest
       .spyOn(
         (
@@ -2719,7 +2886,7 @@ describe('CyclesService', () => {
         });
       }),
     };
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -2797,7 +2964,7 @@ describe('CyclesService', () => {
   it('ignores matches from the current cycle when loading historical pair exclusions', async () => {
     const prisma = createPairCalculationPrisma();
     const matchFindMany = prisma.match.findMany;
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2837,7 +3004,7 @@ describe('CyclesService', () => {
 
   it('selects the highest-scoring disjoint pairs from an overlapping candidate pool', async () => {
     const prisma = createPairCalculationPrisma();
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2890,7 +3057,7 @@ describe('CyclesService', () => {
 
   it('maximizes matched users once hard constraints have been applied', async () => {
     const prisma = createPairCalculationPrisma();
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2964,7 +3131,7 @@ describe('CyclesService', () => {
 
   it('does not accept a higher-scoring pair when that leaves fewer users matched', async () => {
     const prisma = createPairCalculationPrisma();
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -3043,7 +3210,7 @@ describe('CyclesService', () => {
         ),
       ],
     });
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -3129,7 +3296,7 @@ describe('CyclesService', () => {
         },
       ],
     });
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -3214,7 +3381,7 @@ describe('CyclesService', () => {
         },
       ],
     });
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -3270,7 +3437,7 @@ describe('CyclesService', () => {
 
   it('maximizes raw compatibility when display scores tie', async () => {
     const prisma = createPairCalculationPrisma();
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -3336,7 +3503,7 @@ describe('CyclesService', () => {
 
   it('samples spread-out candidates beyond the local scan window', async () => {
     const prisma = createPairCalculationPrisma();
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -3382,7 +3549,7 @@ describe('CyclesService', () => {
 
   it('scores the only compatible pair even when it would be missed by bounded sampling', async () => {
     const prisma = createPairCalculationPrisma();
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -3434,7 +3601,7 @@ describe('CyclesService', () => {
         },
       ],
     });
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -3520,7 +3687,7 @@ describe('CyclesService', () => {
         },
       ],
     });
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
