@@ -8,7 +8,11 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { DEFAULT_LOCALE, normalizeLocale } from '@lilink/shared';
+import {
+  DEFAULT_LOCALE,
+  normalizeLocale,
+  type SupportedLocale,
+} from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
@@ -52,7 +56,7 @@ export class AuthService {
     return { ...result, school };
   }
 
-  async register(input: RegisterDto) {
+  async register(input: RegisterDto, localeCookie?: SupportedLocale | null) {
     const normalizedEmail = input.email.trim().toLowerCase();
     const school = await this.resolveAllowedSchool(normalizedEmail);
     await this.assertRegistrationCapacityPreflight(this.prisma);
@@ -103,6 +107,7 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
+      localeCookie,
     );
   }
 
@@ -125,7 +130,10 @@ export class AuthService {
     return this.sendVerificationCode(normalizedEmail, 'password_reset');
   }
 
-  async resetPassword(input: ResetPasswordDto) {
+  async resetPassword(
+    input: ResetPasswordDto,
+    localeCookie?: SupportedLocale | null,
+  ) {
     const normalizedEmail = input.email.trim().toLowerCase();
     const existingUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -168,10 +176,11 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
+      localeCookie,
     );
   }
 
-  async login(input: LoginDto) {
+  async login(input: LoginDto, localeCookie?: SupportedLocale | null) {
     const normalizedEmail = input.email.trim().toLowerCase();
 
     const user = await this.prisma.user.findUnique({
@@ -197,6 +206,7 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
+      localeCookie,
     );
   }
 
@@ -443,6 +453,7 @@ export class AuthService {
     email: string,
     displayName: string | null,
     preferredLocale: unknown = DEFAULT_LOCALE,
+    localeCookie?: SupportedLocale | null,
   ) {
     const token = this.jwtService.sign({
       sub: userId,
@@ -456,7 +467,7 @@ export class AuthService {
         id: userId,
         email,
         displayName,
-        preferredLocale: normalizeLocale(preferredLocale),
+        preferredLocale: localeCookie ?? normalizeLocale(preferredLocale),
       },
     };
   }
