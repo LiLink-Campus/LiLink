@@ -493,6 +493,21 @@ export class AccountService {
     return (currentDisplayName?.trim() ?? '') !== nextDisplayName;
   }
 
+  private normalizeQuestionnaireDisplayName(value: unknown) {
+    return typeof value === 'string' ? value.trim() : undefined;
+  }
+
+  private resolveQuestionnaireSubmissionDisplayName(
+    requestedDisplayName: string | undefined,
+    currentDisplayName: string | null | undefined,
+  ) {
+    if (requestedDisplayName !== undefined && requestedDisplayName.length >= 2) {
+      return requestedDisplayName;
+    }
+
+    return currentDisplayName?.trim() ?? '';
+  }
+
   private assertKnownQuestionnaireKeys(
     questions: Array<{ key: string }>,
     rawAnswers: Record<string, unknown>,
@@ -616,14 +631,22 @@ export class AccountService {
       input,
       allowedSchoolIds,
     );
-    const trimmedDisplayName = draftPayload.displayName;
-    const shouldUpdateDisplayName = this.hasDisplayNameChange(
-      user.displayName,
-      trimmedDisplayName,
+    const requestedDisplayName = this.normalizeQuestionnaireDisplayName(
+      input.displayName,
     );
+    const submissionDisplayName =
+      this.resolveQuestionnaireSubmissionDisplayName(
+        requestedDisplayName,
+        user.displayName,
+      );
+    const displayNameUpdate =
+      requestedDisplayName !== undefined &&
+      this.hasDisplayNameChange(user.displayName, requestedDisplayName)
+        ? requestedDisplayName
+        : undefined;
 
     try {
-      if (trimmedDisplayName.length < 2) {
+      if (submissionDisplayName.length < 2) {
         throw new IncompleteQuestionnaireSubmissionException(
           'Display name must contain at least 2 characters.',
         );
@@ -646,11 +669,11 @@ export class AccountService {
 
       const submittedOperations: Prisma.PrismaPromise<unknown>[] = [];
 
-      if (shouldUpdateDisplayName) {
+      if (displayNameUpdate !== undefined) {
         submittedOperations.push(
           this.prisma.user.update({
             where: { id: userId },
-            data: { displayName: trimmedDisplayName },
+            data: { displayName: displayNameUpdate },
           }),
         );
       }
@@ -701,18 +724,19 @@ export class AccountService {
           draftAnswers: draftPayload as Prisma.InputJsonValue,
         },
       };
-      const response = shouldUpdateDisplayName
-        ? await this.prisma.$transaction(async (tx) => {
-            await tx.user.update({
-              where: { id: userId },
-              data: { displayName: trimmedDisplayName },
-            });
+      const response =
+        displayNameUpdate !== undefined
+          ? await this.prisma.$transaction(async (tx) => {
+              await tx.user.update({
+                where: { id: userId },
+                data: { displayName: displayNameUpdate },
+              });
 
-            return tx.questionnaireResponse.upsert(draftUpsertArgs);
-          })
-        : await this.prisma.questionnaireResponse.upsert(draftUpsertArgs);
+              return tx.questionnaireResponse.upsert(draftUpsertArgs);
+            })
+          : await this.prisma.questionnaireResponse.upsert(draftUpsertArgs);
 
-      if (shouldUpdateDisplayName) {
+      if (displayNameUpdate !== undefined) {
         await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
       }
 

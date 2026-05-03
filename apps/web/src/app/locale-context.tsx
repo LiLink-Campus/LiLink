@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -12,6 +13,7 @@ import {
   isSupportedLocale,
   type SupportedLocale,
 } from "@lilink/shared";
+import { useAuthSession } from "./auth-session";
 
 type LocaleContextValue = {
   locale: SupportedLocale;
@@ -27,9 +29,21 @@ export function LocaleProvider({
   children: React.ReactNode;
   initialLocale: SupportedLocale;
 }) {
+  const { user } = useAuthSession();
+  const sessionLocale = user?.preferredLocale;
+  const resolvedInitialLocale = isSupportedLocale(initialLocale)
+    ? initialLocale
+    : DEFAULT_LOCALE;
+  const resolvedLocale = isSupportedLocale(sessionLocale)
+    ? sessionLocale
+    : resolvedInitialLocale;
   const [locale, setLocaleState] = useState<SupportedLocale>(
-    isSupportedLocale(initialLocale) ? initialLocale : DEFAULT_LOCALE,
+    resolvedLocale,
   );
+
+  useEffect(() => {
+    setLocaleState(resolvedLocale);
+  }, [resolvedLocale]);
 
   const setLocale = useCallback(async (nextLocale: SupportedLocale) => {
     if (!isSupportedLocale(nextLocale)) {
