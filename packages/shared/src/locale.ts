@@ -14,10 +14,10 @@ export function isSupportedLocale(value: unknown): value is SupportedLocale {
 }
 
 export function normalizeLocale(value: unknown): SupportedLocale {
-  return getSupportedLocale(value) ?? DEFAULT_LOCALE;
+  return parseSupportedLocale(value) ?? DEFAULT_LOCALE;
 }
 
-function getSupportedLocale(value: unknown): SupportedLocale | null {
+export function parseSupportedLocale(value: unknown): SupportedLocale | null {
   if (typeof value !== "string") {
     return null;
   }

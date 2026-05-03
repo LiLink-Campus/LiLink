@@ -25,18 +25,26 @@ const LocaleContext = createContext<LocaleContextValue | null>(null);
 export function LocaleProvider({
   children,
   initialLocale,
+  hasLocaleCookie,
 }: {
   children: React.ReactNode;
   initialLocale: SupportedLocale;
+  hasLocaleCookie: boolean;
 }) {
   const { user } = useAuthSession();
   const sessionLocale = user?.preferredLocale;
   const resolvedInitialLocale = isSupportedLocale(initialLocale)
     ? initialLocale
     : DEFAULT_LOCALE;
-  const resolvedLocale = isSupportedLocale(sessionLocale)
-    ? sessionLocale
-    : resolvedInitialLocale;
+  const [clientLocaleCookie, setClientLocaleCookie] =
+    useState<SupportedLocale | null>(null);
+  const hasEffectiveLocaleCookie =
+    hasLocaleCookie || clientLocaleCookie !== null;
+  const cookieLocale = clientLocaleCookie ?? resolvedInitialLocale;
+  const resolvedLocale =
+    !hasEffectiveLocaleCookie && isSupportedLocale(sessionLocale)
+      ? sessionLocale
+      : cookieLocale;
   const [locale, setLocaleState] = useState<SupportedLocale>(
     resolvedLocale,
   );
@@ -61,6 +69,7 @@ export function LocaleProvider({
     }
 
     setLocaleState(nextLocale);
+    setClientLocaleCookie(nextLocale);
   }, []);
 
   const value = useMemo<LocaleContextValue>(
