@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { resolveApiOriginForPreconnect } from "../lib/public-server-api";
-import { getRequestLocale } from "../lib/locale";
+import { getRequestLocaleResult } from "../lib/locale";
 import { AuthSessionProvider } from "./auth-session";
 import { AnnouncementDialog } from "./announcement-dialog";
 import { PublicChrome } from "./public-chrome";
@@ -29,7 +29,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const locale = await getRequestLocale();
+  const localeResult = await getRequestLocaleResult();
+  const { locale } = localeResult;
 
   return (
     <html
@@ -47,7 +48,10 @@ export default async function RootLayout({
       </head>
       <body>
         <AuthSessionProvider>
-          <LocaleProvider initialLocale={locale}>
+          <LocaleProvider
+            initialLocale={locale}
+            hasLocaleCookie={localeResult.source === "cookie"}
+          >
             <PublicChrome>{children}</PublicChrome>
           </LocaleProvider>
         </AuthSessionProvider>

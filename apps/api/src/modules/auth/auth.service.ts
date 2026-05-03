@@ -24,6 +24,11 @@ type VerificationCodePurpose = 'register' | 'password_reset';
 
 const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
 const VERIFICATION_CODE_HMAC_CONTEXT = 'verification-code';
+const USABLE_VERIFICATION_CODE_DELIVERY_STATUSES = [
+  'PENDING',
+  'PROCESSING',
+  'SENT',
+] as const;
 const REGISTRATION_CAPACITY_LOCK_KEY = 120_404_260;
 const MAX_REGISTRATIONS_SETTING_KEY = 'max_registrations';
 
@@ -342,7 +347,9 @@ export class AuthService {
       where: {
         email,
         purpose,
-        deliveryStatus: 'SENT',
+        deliveryStatus: {
+          in: [...USABLE_VERIFICATION_CODE_DELIVERY_STATUSES],
+        },
         consumedAt: null,
         expiresAt: { gt: new Date() },
       },

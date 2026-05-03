@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { LOCALE_COOKIE_NAME, isSupportedLocale } from '@lilink/shared';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { AccountService } from './account.service';
@@ -42,9 +43,13 @@ export class AccountController {
       this.accountService.getDashboard(request.user!.sub),
       this.accountService.getUserSummary(request.user!.sub),
     ]);
+    const cookieLocale = this.readLocaleCookie(request);
 
     return {
-      user,
+      user: {
+        ...user,
+        preferredLocale: cookieLocale ?? user.preferredLocale,
+      },
       dashboard,
     };
   }
@@ -106,5 +111,12 @@ export class AccountController {
     @Body() body: ReportMatchDto,
   ) {
     return this.accountService.reportMatch(request.user!.sub, matchId, body);
+  }
+
+  private readLocaleCookie(request: AuthenticatedRequest) {
+    const cookies = request.cookies as Record<string, unknown> | undefined;
+    const rawLocale = cookies?.[LOCALE_COOKIE_NAME];
+
+    return isSupportedLocale(rawLocale) ? rawLocale : null;
   }
 }
