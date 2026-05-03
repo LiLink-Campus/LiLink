@@ -305,6 +305,21 @@ function createDashboardPrismaMock({
   };
 }
 
+function createDashboardSnapshotServiceMock() {
+  return {
+    ensureUserSnapshotCoverage: jest.fn().mockResolvedValue(undefined),
+    readDashboardMatchPayload: jest
+      .fn()
+      .mockImplementation((rawPayload: unknown) =>
+        typeof rawPayload === 'object' && rawPayload !== null
+          ? rawPayload
+          : null,
+      ),
+    syncMatchSnapshots: jest.fn().mockResolvedValue(undefined),
+    syncUserMatchSnapshots: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
 describe('AccountService', () => {
   afterEach(() => {
     clearStickyParticipationCache();
@@ -324,6 +339,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -352,6 +368,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -382,6 +399,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -411,6 +429,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -451,6 +470,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await service.setParticipation('user-1', { optIn: true, intent: 'DATE' });
@@ -506,6 +526,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await service.setParticipation('user-1', { optIn: false });
@@ -540,6 +561,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -561,6 +583,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -615,6 +638,7 @@ describe('AccountService', () => {
           current_question: 'kept',
         }),
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.getQuestionnaire('user-1')).resolves.toEqual({
@@ -684,6 +708,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -830,6 +855,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -920,6 +946,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1049,6 +1076,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1146,6 +1174,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1227,6 +1256,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1283,6 +1313,7 @@ describe('AccountService', () => {
         }),
         validateAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1330,6 +1361,7 @@ describe('AccountService', () => {
       }) as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     const dashboard = await service.getDashboard('user-1');
@@ -1416,6 +1448,7 @@ describe('AccountService', () => {
       }) as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     const dashboard = await service.getDashboard('user-1');
@@ -1457,6 +1490,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await service.getDashboard('user-1');
@@ -1513,6 +1547,7 @@ describe('AccountService', () => {
       }) as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     const dashboard = await service.getDashboard('user-1');
@@ -1576,6 +1611,7 @@ describe('AccountService', () => {
       }) as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     const dashboard = await service.getDashboard('user-1');
@@ -1639,6 +1675,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.getDashboard('user-1')).resolves.toMatchObject({
@@ -1689,6 +1726,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.getDashboard('user-1')).resolves.toMatchObject({
@@ -1796,6 +1834,7 @@ describe('AccountService', () => {
       prisma as never,
       mailService as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
@@ -1910,6 +1949,7 @@ describe('AccountService', () => {
       prisma as never,
       mailService as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
@@ -2004,6 +2044,7 @@ describe('AccountService', () => {
             }),
         ),
     };
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
     const service = new AccountService(
       prisma as never,
       {
@@ -2011,6 +2052,7 @@ describe('AccountService', () => {
         flushQueuedEmails: jest.fn(),
       } as never,
       {} as never,
+      dashboardSnapshotService as never,
     );
 
     await expect(
@@ -2052,5 +2094,13 @@ describe('AccountService', () => {
         },
       },
     });
+    expect(dashboardSnapshotService.syncMatchSnapshots).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining({
+        report: expect.any(Object),
+        block: expect.any(Object),
+        auditLog: expect.any(Object),
+      }),
+    );
   });
 });
