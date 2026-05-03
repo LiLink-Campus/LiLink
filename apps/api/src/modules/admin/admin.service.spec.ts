@@ -919,6 +919,195 @@ describe('AdminService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('creates a new questionnaire version when updating a question', async () => {
+    const createdVersion = {
+      id: 'version-new',
+      questions: [
+        {
+          id: 'question-new',
+          key: 'pace',
+          prompt: 'New Pace',
+          type: 'SINGLE_SELECT',
+        },
+      ],
+    };
+    type CreateQuestionnaireVersionArgs = {
+      data: {
+        title: string;
+        isCurrent: boolean;
+        questions: {
+          create: Array<{
+            key: string;
+            prompt: string;
+            weight: number;
+          }>;
+        };
+      };
+    };
+    const createQuestionnaireVersion = jest
+      .fn<Promise<typeof createdVersion>, [CreateQuestionnaireVersionArgs]>()
+      .mockResolvedValue(createdVersion);
+    const updateQuestionnaireVersions = jest
+      .fn<Promise<{ count: number }>, [unknown]>()
+      .mockResolvedValue({ count: 1 });
+    const tx = {
+      questionnaireVersion: {
+        create: createQuestionnaireVersion,
+        updateMany: updateQuestionnaireVersions,
+      },
+    };
+    const prisma = {
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'version-old',
+          title: 'Current',
+          description: null,
+          questions: [
+            {
+              id: 'question-old',
+              key: 'pace',
+              prompt: 'Old Pace',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'slow', label: 'Slow' }],
+              reasonRules: [],
+              order: 1,
+              weight: 1,
+            },
+          ],
+        }),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        Promise.resolve(callback(tx)),
+      ),
+    };
+    const audit = {
+      listAuditLogs: jest.fn(),
+      getRecentAuditLogsByCondition: jest.fn(),
+      write: jest.fn(),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      audit as never,
+      {} as never,
+    );
+
+    await expect(
+      service.upsertQuestion(
+        {
+          questionId: 'question-old',
+          key: 'pace',
+          prompt: 'New Pace',
+          type: 'SINGLE_SELECT',
+          options: [{ label: 'Slow' }, { label: 'Fast' }],
+          order: 1,
+          weight: 2,
+        },
+        'admin-1',
+      ),
+    ).resolves.toMatchObject({
+      id: 'question-new',
+      key: 'pace',
+      prompt: 'New Pace',
+    });
+    expect(updateQuestionnaireVersions).toHaveBeenCalledWith({
+      where: {
+        id: 'version-old',
+        isCurrent: true,
+      },
+      data: {
+        isCurrent: false,
+      },
+    });
+    expect(
+      updateQuestionnaireVersions.mock.invocationCallOrder[0],
+    ).toBeLessThan(createQuestionnaireVersion.mock.invocationCallOrder[0]);
+
+    const createArgs = createQuestionnaireVersion.mock.calls[0]?.[0];
+    expect(createArgs?.data.title).toBe('Current');
+    expect(createArgs?.data.isCurrent).toBe(true);
+    expect(createArgs?.data.questions.create).toHaveLength(1);
+    expect(createArgs?.data.questions.create[0]).toMatchObject({
+      key: 'pace',
+      prompt: 'New Pace',
+      weight: 2,
+    });
+    expect(audit.write).toHaveBeenCalledWith(
+      'admin-1',
+      'question.updated',
+      expect.objectContaining({
+        questionId: 'question-new',
+        key: 'pace',
+      }),
+    );
+  });
+
+  it.each([
+    { caseName: 'omits a current question', questionIds: ['question-1'] },
+    {
+      caseName: 'contains duplicate question ids',
+      questionIds: ['question-1', 'question-1'],
+    },
+  ])('rejects a question reorder that $caseName', async ({ questionIds }) => {
+    const prisma = {
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          title: 'Current',
+          description: null,
+          questions: [
+            {
+              id: 'question-1',
+              key: 'pace',
+              prompt: 'Pace',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [],
+              reasonRules: [],
+              order: 1,
+              weight: 1,
+            },
+            {
+              id: 'question-2',
+              key: 'values',
+              prompt: 'Values',
+              description: null,
+              type: 'MULTI_SELECT',
+              required: true,
+              selectionLimit: 2,
+              options: [],
+              reasonRules: [],
+              order: 2,
+              weight: 1,
+            },
+          ],
+        }),
+      },
+      $transaction: jest.fn(),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: jest.fn(),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      service.reorderQuestions({ questionIds }, 'admin-1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects setting a selection limit on a non-multi-select question', async () => {
     const service = new AdminService(
       {
