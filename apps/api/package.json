@@ -14,6 +14,7 @@
     "ensure-cycle-participants": "npm run build:shared && node scripts/ensure-open-cycle-participants.mjs",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "sticky-participations:backfill": "ts-node scripts/backfill-sticky-cycle-participations.ts",
+    "export:anonymous-users": "npm run build:shared && node scripts/export-anonymous-user-data.mjs",
     "start": "npm run prepare:prisma && nest start",
     "start:dev": "npm run prepare:prisma && nest start --watch",
     "start:debug": "npm run prepare:prisma && nest start --debug --watch",
