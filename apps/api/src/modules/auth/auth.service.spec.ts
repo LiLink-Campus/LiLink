@@ -100,6 +100,111 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
+  it('uses a valid locale cookie before the account preferred locale in login payloads', async () => {
+    mockedArgon2.verify.mockResolvedValue(true);
+    const authService = new AuthService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            email: 'user@example.com',
+            displayName: 'User',
+            passwordHash: 'hash',
+            status: 'ACTIVE',
+            preferredLocale: 'zh-CN',
+          }),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        sign: jest.fn().mockReturnValue('jwt-token'),
+      } as never,
+    );
+
+    await expect(
+      authService.login(
+        {
+          email: 'user@example.com',
+          password: 'Password123',
+        },
+        'en-US',
+      ),
+    ).resolves.toMatchObject({
+      user: {
+        preferredLocale: 'en-US',
+      },
+    });
+  });
+
+  it('uses the account preferred locale when login has no valid locale cookie', async () => {
+    mockedArgon2.verify.mockResolvedValue(true);
+    const authService = new AuthService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            email: 'user@example.com',
+            displayName: 'User',
+            passwordHash: 'hash',
+            status: 'ACTIVE',
+            preferredLocale: 'en-US',
+          }),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        sign: jest.fn().mockReturnValue('jwt-token'),
+      } as never,
+    );
+
+    await expect(
+      authService.login({
+        email: 'user@example.com',
+        password: 'Password123',
+      }),
+    ).resolves.toMatchObject({
+      user: {
+        preferredLocale: 'en-US',
+      },
+    });
+  });
+
+  it('falls back to the default locale when login has no usable locale source', async () => {
+    mockedArgon2.verify.mockResolvedValue(true);
+    const authService = new AuthService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            email: 'user@example.com',
+            displayName: 'User',
+            passwordHash: 'hash',
+            status: 'ACTIVE',
+            preferredLocale: null,
+          }),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        sign: jest.fn().mockReturnValue('jwt-token'),
+      } as never,
+    );
+
+    await expect(
+      authService.login({
+        email: 'user@example.com',
+        password: 'Password123',
+      }),
+    ).resolves.toMatchObject({
+      user: {
+        preferredLocale: 'zh-CN',
+      },
+    });
+  });
+
   it('rechecks the email domain during registration', async () => {
     const findFirst = jest.fn();
     const authService = new AuthService(
