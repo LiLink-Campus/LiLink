@@ -2096,10 +2096,14 @@ describe('AccountService', () => {
     });
     expect(dashboardSnapshotService.syncMatchSnapshots).toHaveBeenCalledWith(
       'match-1',
-      expect.objectContaining({
-        report: expect.any(Object),
-        block: expect.any(Object),
-        auditLog: expect.any(Object),
+      expect.objectContaining<{
+        report: unknown;
+        block: unknown;
+        auditLog: unknown;
+      }>({
+        report: expect.objectContaining({ create: reportCreate }),
+        block: expect.objectContaining({ upsert: blockUpsert }),
+        auditLog: expect.objectContaining({ create: auditLogCreate }),
       }),
     );
   });

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -35,6 +36,8 @@ const USABLE_VERIFICATION_CODE_DELIVERY_STATUSES = [
 ] as const;
 const REGISTRATION_CAPACITY_LOCK_KEY = 120_404_260;
 const MAX_REGISTRATIONS_SETTING_KEY = 'max_registrations';
+const REGISTRATION_CAPACITY_LIMIT_PATTERN = /^\d+$/;
+const UNLIMITED_REGISTRATION_CAPACITY_LIMIT = 0;
 
 @Injectable()
 export class AuthService {
@@ -84,6 +87,7 @@ export class AuthService {
             passwordHash,
             status: 'ACTIVE',
             displayName: input.displayName,
+            preferredLocale: localeCookie ?? undefined,
             schoolId: school?.schoolId,
             acceptedTermsAt: input.acceptedTerms ? new Date() : null,
             profile: {
@@ -501,7 +505,30 @@ export class AuthService {
       where: { key: MAX_REGISTRATIONS_SETTING_KEY },
     });
 
-    return Number(setting?.value ?? '0');
+    return this.parseRegistrationCapacityLimit(setting?.value);
+  }
+
+  private parseRegistrationCapacityLimit(settingValue?: string | null) {
+    const rawLimit =
+      settingValue ?? String(UNLIMITED_REGISTRATION_CAPACITY_LIMIT);
+
+    if (!REGISTRATION_CAPACITY_LIMIT_PATTERN.test(rawLimit)) {
+      throw this.createInvalidRegistrationCapacityConfigError();
+    }
+
+    const limit = Number(rawLimit);
+
+    if (!Number.isSafeInteger(limit) || limit < 0) {
+      throw this.createInvalidRegistrationCapacityConfigError();
+    }
+
+    return limit;
+  }
+
+  private createInvalidRegistrationCapacityConfigError() {
+    return new InternalServerErrorException(
+      `${MAX_REGISTRATIONS_SETTING_KEY} must be a non-negative safe integer.`,
+    );
   }
 
   private assertRegistrationCapacityHasSpace(

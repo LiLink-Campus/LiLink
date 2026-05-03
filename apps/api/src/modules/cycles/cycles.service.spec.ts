@@ -255,14 +255,17 @@ function createCyclesService(
 
 describe('CyclesService', () => {
   afterEach(() => {
-    env.MATCH_NARRATIVE_GENERATION_ENABLED =
-      originalNarrativeGenerationEnabled;
+    env.MATCH_NARRATIVE_GENERATION_ENABLED = originalNarrativeGenerationEnabled;
     clearStickyParticipationCache();
   });
 
   it('declares dashboard snapshot sync as a module dependency', () => {
-    const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, CyclesModule);
+    const imports: unknown = Reflect.getMetadata(
+      MODULE_METADATA.IMPORTS,
+      CyclesModule,
+    );
 
+    expect(Array.isArray(imports)).toBe(true);
     expect(imports).toContain(DashboardSnapshotModule);
   });
 
@@ -270,6 +273,10 @@ describe('CyclesService', () => {
     env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
 
     const tx = {
+      cycleParticipation: {
+        findMany: jest.fn().mockResolvedValue([]),
+        createMany: jest.fn(),
+      },
       match: {
         create: jest.fn().mockResolvedValue({ id: 'match-1' }),
       },
@@ -302,9 +309,17 @@ describe('CyclesService', () => {
           id: 'questionnaire-1',
           questions: [],
         }),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       match: {
+        findMany: jest.fn().mockResolvedValue([]),
         count: jest.fn().mockResolvedValue(1),
+      },
+      matchParticipant: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
       },
       $transaction: jest.fn(
         async (callback: (transaction: typeof tx) => Promise<unknown>) =>
@@ -322,9 +337,7 @@ describe('CyclesService', () => {
     );
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      | 'toEligibleParticipants'
-      | 'calculatePairs'
-      | 'generateNarrativesForPairs'
+      'toEligibleParticipants' | 'calculatePairs' | 'generateNarrativesForPairs'
     >;
 
     jest
@@ -348,9 +361,9 @@ describe('CyclesService', () => {
       .spyOn(testHarness, 'generateNarrativesForPairs')
       .mockResolvedValue([null]);
 
-    await expect(
-      service.runRevealCycle({ cycleId: 'cycle-1' }),
-    ).resolves.toMatchObject({
+    const result = await service.runRevealCycle({ cycleId: 'cycle-1' });
+
+    expect(result).toMatchObject({
       ok: true,
       cycleId: 'cycle-1',
       state: 'PENDING',
@@ -2168,15 +2181,22 @@ describe('CyclesService', () => {
     expect(matchNarrativeService.generateNarrative).not.toHaveBeenCalled();
     expect(matchNarrativeService.buildDefaultNarrative).not.toHaveBeenCalled();
     expect(matchUpdateMany).not.toHaveBeenCalled();
-    expect(matchCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          reason: null,
-          conversationTopics: [],
-          narrativeSource: 'DISABLED',
-        }),
-      }),
-    );
+    const matchCreateCalls = matchCreate.mock.calls as Array<
+      [
+        {
+          data: {
+            reason: string | null;
+            conversationTopics: string[];
+            narrativeSource: string | null;
+          };
+        },
+      ]
+    >;
+    expect(matchCreateCalls[0]?.[0].data).toMatchObject({
+      reason: null,
+      conversationTopics: [],
+      narrativeSource: 'DISABLED',
+    });
     expect(finalizePreparationClaim).toHaveBeenCalledWith({
       where: {
         id: 'cycle-1',

@@ -467,7 +467,10 @@ export class AccountService {
     requestedDisplayName: string | undefined,
     currentDisplayName: string | null | undefined,
   ) {
-    if (requestedDisplayName !== undefined && requestedDisplayName.length >= 2) {
+    if (
+      requestedDisplayName !== undefined &&
+      requestedDisplayName.length >= 2
+    ) {
       return requestedDisplayName;
     }
 
