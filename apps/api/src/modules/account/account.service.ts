@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
 import {
   Prisma,
@@ -57,14 +57,6 @@ type DashboardSnapshotStore = {
     args: Prisma.UserCycleDashboardSnapshotFindManyArgs,
   ) => Promise<DashboardSnapshotRecord[]>;
 };
-type DashboardSnapshotPort = Pick<
-  DashboardSnapshotService,
-  | 'ensureUserSnapshotCoverage'
-  | 'readDashboardMatchPayload'
-  | 'syncMatchSnapshots'
-  | 'syncUserMatchSnapshots'
->;
-
 type QuestionnaireDraftPayload = {
   softAnswers: Record<string, Prisma.InputJsonValue>;
   hardMatchForm: HardMatchDraftForm;
@@ -84,40 +76,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
-  ensureUserSnapshotCoverage() {
-    return Promise.resolve();
-  },
-  readDashboardMatchPayload(rawPayload: Prisma.JsonValue | null | undefined) {
-    if (!isRecord(rawPayload)) {
-      return null;
-    }
-
-    return rawPayload as unknown as ReturnType<
-      DashboardSnapshotPort['readDashboardMatchPayload']
-    >;
-  },
-  syncMatchSnapshots() {
-    return Promise.resolve();
-  },
-  syncUserMatchSnapshots() {
-    return Promise.resolve();
-  },
-};
-
 @Injectable()
 export class AccountService {
-  private readonly dashboardSnapshotService: DashboardSnapshotPort;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly questionnaireService: QuestionnaireService,
-    @Optional() dashboardSnapshotService?: DashboardSnapshotService,
-  ) {
-    this.dashboardSnapshotService =
-      dashboardSnapshotService ?? defaultDashboardSnapshotPort;
-  }
+    private readonly dashboardSnapshotService: DashboardSnapshotService,
+  ) {}
 
   async getUserSummary(userId: string) {
     const user = await this.prisma.user.findUnique({
