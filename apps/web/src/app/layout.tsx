@@ -46,11 +46,11 @@ export default async function RootLayout({
         ) : null}
       </head>
       <body>
-        <LocaleProvider initialLocale={locale}>
-          <AuthSessionProvider>
+        <AuthSessionProvider>
+          <LocaleProvider initialLocale={locale}>
             <PublicChrome>{children}</PublicChrome>
-          </AuthSessionProvider>
-        </LocaleProvider>
+          </LocaleProvider>
+        </AuthSessionProvider>
         <AnnouncementDialog />
         <Analytics />
         <SpeedInsights />
