@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import {
   LOCALE_COOKIE_NAME,
-  isSupportedLocale,
+  parseSupportedLocale,
+  type SupportedLocale,
 } from "@lilink/shared";
 import { apiBaseUrl } from "../../../lib/api-base-url";
 
@@ -18,9 +19,9 @@ export async function PUT(request: Request) {
   const body = (await request.json().catch(() => null)) as
     | LocaleRequestBody
     | null;
-  const locale = body?.locale;
+  const locale = parseSupportedLocale(body?.locale);
 
-  if (!isSupportedLocale(locale)) {
+  if (!locale) {
     return NextResponse.json(
       { message: "Unsupported locale." },
       { status: 400 },
@@ -62,7 +63,7 @@ export async function PUT(request: Request) {
   return localeCookieResponse(locale);
 }
 
-function localeCookieResponse(locale: string) {
+function localeCookieResponse(locale: SupportedLocale) {
   const response = NextResponse.json({
     locale,
   });

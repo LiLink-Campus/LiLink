@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -9,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { LOCALE_COOKIE_NAME, isSupportedLocale } from '@lilink/shared';
+import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { AccountService } from './account.service';
@@ -18,7 +19,6 @@ import {
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
-  UpdateLocaleDto,
   UpdateProfileDto,
 } from './dto';
 
@@ -70,9 +70,15 @@ export class AccountController {
   @Put('locale')
   updateLocale(
     @Req() request: AuthenticatedRequest,
-    @Body() body: UpdateLocaleDto,
+    @Body('locale') rawLocale: unknown,
   ) {
-    return this.accountService.updateLocale(request.user!.sub, body);
+    const locale = parseSupportedLocale(rawLocale);
+
+    if (!locale) {
+      throw new BadRequestException('Unsupported locale.');
+    }
+
+    return this.accountService.updateLocale(request.user!.sub, { locale });
   }
 
   @Get('questionnaire')
@@ -117,6 +123,6 @@ export class AccountController {
     const cookies = request.cookies as Record<string, unknown> | undefined;
     const rawLocale = cookies?.[LOCALE_COOKIE_NAME];
 
-    return isSupportedLocale(rawLocale) ? rawLocale : null;
+    return parseSupportedLocale(rawLocale);
   }
 }

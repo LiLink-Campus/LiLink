@@ -8,7 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { LOCALE_COOKIE_NAME, isSupportedLocale } from '@lilink/shared';
+import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import {
@@ -115,8 +115,8 @@ export class AuthController {
   }
 
   private readLocaleCookie(request: RequestWithCookies) {
-    const rawLocale = request.cookies?.[LOCALE_COOKIE_NAME];
+    const rawLocale: unknown = request.cookies?.[LOCALE_COOKIE_NAME];
 
-    return isSupportedLocale(rawLocale) ? rawLocale : null;
+    return parseSupportedLocale(rawLocale);
   }
 }
