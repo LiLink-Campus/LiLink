@@ -1,11 +1,23 @@
 import { AccountController } from './account.controller';
+import type { AccountService } from './account.service';
 
 describe('AccountController', () => {
   it('returns the signed-in user and dashboard in one bootstrap payload', async () => {
     const dashboard = { currentCycle: null };
-    const accountService = {
-      getDashboard: jest.fn().mockResolvedValue(dashboard),
+    const userSummary = {
+      id: 'user-1',
+      email: 'summary@example.com',
+      displayName: 'Summary User',
+      preferredLocale: 'zh-CN',
     };
+    const accountService = {
+      getDashboard: jest
+        .fn<AccountService['getDashboard']>()
+        .mockResolvedValue(dashboard),
+      getUserSummary: jest
+        .fn<AccountService['getUserSummary']>()
+        .mockResolvedValue(userSummary),
+    } satisfies Pick<AccountService, 'getDashboard' | 'getUserSummary'>;
     const accountController = new AccountController(accountService as never);
 
     await expect(
@@ -17,15 +29,12 @@ describe('AccountController', () => {
         },
       } as never),
     ).resolves.toEqual({
-      user: {
-        id: 'user-1',
-        email: 'user@example.com',
-        displayName: 'User',
-      },
+      user: userSummary,
       dashboard,
     });
 
     expect(accountService.getDashboard).toHaveBeenCalledWith('user-1');
+    expect(accountService.getUserSummary).toHaveBeenCalledWith('user-1');
   });
 
   it('forwards the contact request to the account service for the signed-in user', async () => {

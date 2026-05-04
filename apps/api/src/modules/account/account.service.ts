@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
 import {
   Prisma,
@@ -6,7 +6,7 @@ import {
   type UserCycleDashboardSnapshot,
   type WeeklyIntent as PrismaWeeklyIntent,
 } from '@prisma/client';
-import { isWeeklyIntent } from '@lilink/shared';
+import { isWeeklyIntent, normalizeLocale } from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -30,6 +30,7 @@ import {
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
+  UpdateLocaleDto,
   UpdateProfileDto,
 } from './dto';
 
@@ -56,14 +57,6 @@ type DashboardSnapshotStore = {
     args: Prisma.UserCycleDashboardSnapshotFindManyArgs,
   ) => Promise<DashboardSnapshotRecord[]>;
 };
-type DashboardSnapshotPort = Pick<
-  DashboardSnapshotService,
-  | 'ensureUserSnapshotCoverage'
-  | 'readDashboardMatchPayload'
-  | 'syncMatchSnapshots'
-  | 'syncUserMatchSnapshots'
->;
-
 type QuestionnaireDraftPayload = {
   softAnswers: Record<string, Prisma.InputJsonValue>;
   hardMatchForm: HardMatchDraftForm;
@@ -83,39 +76,52 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
-  ensureUserSnapshotCoverage() {
-    return Promise.resolve();
-  },
-  readDashboardMatchPayload(rawPayload: Prisma.JsonValue | null | undefined) {
-    if (!isRecord(rawPayload)) {
-      return null;
-    }
-
-    return rawPayload as unknown as ReturnType<
-      DashboardSnapshotPort['readDashboardMatchPayload']
-    >;
-  },
-  syncMatchSnapshots() {
-    return Promise.resolve();
-  },
-  syncUserMatchSnapshots() {
-    return Promise.resolve();
-  },
-};
-
 @Injectable()
 export class AccountService {
-  private readonly dashboardSnapshotService: DashboardSnapshotPort;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly questionnaireService: QuestionnaireService,
-    @Optional() dashboardSnapshotService?: DashboardSnapshotService,
-  ) {
-    this.dashboardSnapshotService =
-      dashboardSnapshotService ?? defaultDashboardSnapshotPort;
+    private readonly dashboardSnapshotService: DashboardSnapshotService,
+  ) {}
+
+  async getUserSummary(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        preferredLocale: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return {
+      ...user,
+      preferredLocale: normalizeLocale(user.preferredLocale),
+    };
+  }
+
+  async updateLocale(userId: string, input: UpdateLocaleDto) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { preferredLocale: input.locale },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        preferredLocale: true,
+      },
+    });
+
+    return {
+      ...user,
+      preferredLocale: normalizeLocale(user.preferredLocale),
+    };
   }
 
   async getDashboard(userId: string): Promise<DashboardResponseDto> {
@@ -453,6 +459,24 @@ export class AccountService {
     return (currentDisplayName?.trim() ?? '') !== nextDisplayName;
   }
 
+  private normalizeQuestionnaireDisplayName(value: unknown) {
+    return typeof value === 'string' ? value.trim() : undefined;
+  }
+
+  private resolveQuestionnaireSubmissionDisplayName(
+    requestedDisplayName: string | undefined,
+    currentDisplayName: string | null | undefined,
+  ) {
+    if (
+      requestedDisplayName !== undefined &&
+      requestedDisplayName.length >= 2
+    ) {
+      return requestedDisplayName;
+    }
+
+    return currentDisplayName?.trim() ?? '';
+  }
+
   private assertKnownQuestionnaireKeys(
     questions: Array<{ key: string }>,
     rawAnswers: Record<string, unknown>,
@@ -576,14 +600,22 @@ export class AccountService {
       input,
       allowedSchoolIds,
     );
-    const trimmedDisplayName = draftPayload.displayName;
-    const shouldUpdateDisplayName = this.hasDisplayNameChange(
-      user.displayName,
-      trimmedDisplayName,
+    const requestedDisplayName = this.normalizeQuestionnaireDisplayName(
+      input.displayName,
     );
+    const submissionDisplayName =
+      this.resolveQuestionnaireSubmissionDisplayName(
+        requestedDisplayName,
+        user.displayName,
+      );
+    const displayNameUpdate =
+      requestedDisplayName !== undefined &&
+      this.hasDisplayNameChange(user.displayName, requestedDisplayName)
+        ? requestedDisplayName
+        : undefined;
 
     try {
-      if (trimmedDisplayName.length < 2) {
+      if (submissionDisplayName.length < 2) {
         throw new IncompleteQuestionnaireSubmissionException(
           'Display name must contain at least 2 characters.',
         );
@@ -606,11 +638,11 @@ export class AccountService {
 
       const submittedOperations: Prisma.PrismaPromise<unknown>[] = [];
 
-      if (shouldUpdateDisplayName) {
+      if (displayNameUpdate !== undefined) {
         submittedOperations.push(
           this.prisma.user.update({
             where: { id: userId },
-            data: { displayName: trimmedDisplayName },
+            data: { displayName: displayNameUpdate },
           }),
         );
       }
@@ -661,18 +693,19 @@ export class AccountService {
           draftAnswers: draftPayload as Prisma.InputJsonValue,
         },
       };
-      const response = shouldUpdateDisplayName
-        ? await this.prisma.$transaction(async (tx) => {
-            await tx.user.update({
-              where: { id: userId },
-              data: { displayName: trimmedDisplayName },
-            });
+      const response =
+        displayNameUpdate !== undefined
+          ? await this.prisma.$transaction(async (tx) => {
+              await tx.user.update({
+                where: { id: userId },
+                data: { displayName: displayNameUpdate },
+              });
 
-            return tx.questionnaireResponse.upsert(draftUpsertArgs);
-          })
-        : await this.prisma.questionnaireResponse.upsert(draftUpsertArgs);
+              return tx.questionnaireResponse.upsert(draftUpsertArgs);
+            })
+          : await this.prisma.questionnaireResponse.upsert(draftUpsertArgs);
 
-      if (shouldUpdateDisplayName) {
+      if (displayNameUpdate !== undefined) {
         await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
       }
 

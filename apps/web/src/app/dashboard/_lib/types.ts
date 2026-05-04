@@ -1,4 +1,5 @@
 import type { WeeklyIntent } from "../../../lib/weekly-intent";
+import type { SupportedLocale } from "@lilink/shared";
 import type {
   HardMatchFormState,
   HardMatchSchoolOption,
@@ -64,6 +65,7 @@ export type DashboardPayload = {
     id: string;
     email: string;
     displayName: string | null;
+    preferredLocale: SupportedLocale;
   };
   questionnaireSubmittedAt: string | null;
   currentCycle: DashboardCurrentCycle | null;
@@ -85,6 +87,7 @@ export type DashboardBootstrapPayload = {
     id: string;
     email: string;
     displayName: string | null;
+    preferredLocale: SupportedLocale;
   };
   dashboard: DashboardPayload;
 };

@@ -1,4 +1,5 @@
 import { apiBaseUrl } from "./api-base-url";
+import type { SupportedLocale } from "@lilink/shared";
 
 const API_ERROR_EN_TO_ZH: Record<string, string> = {
   "This email domain is not currently accepted.":
@@ -95,6 +96,7 @@ export type AuthMePayload = {
   id: string;
   email: string;
   displayName: string | null;
+  preferredLocale: SupportedLocale;
 };
 
 let authMeInflight: Promise<AuthMePayload | null> | null = null;

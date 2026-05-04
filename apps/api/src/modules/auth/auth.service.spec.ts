@@ -3,7 +3,11 @@ jest.mock('argon2', () => ({
   verify: jest.fn(),
 }));
 
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { validateSync } from 'class-validator';
 import { createHmac } from 'crypto';
 import * as argon2 from 'argon2';
@@ -98,6 +102,111 @@ describe('AuthService', () => {
         password: 'Password123',
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('uses a valid locale cookie before the account preferred locale in login payloads', async () => {
+    mockedArgon2.verify.mockResolvedValue(true);
+    const authService = new AuthService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            email: 'user@example.com',
+            displayName: 'User',
+            passwordHash: 'hash',
+            status: 'ACTIVE',
+            preferredLocale: 'zh-CN',
+          }),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        sign: jest.fn().mockReturnValue('jwt-token'),
+      } as never,
+    );
+
+    await expect(
+      authService.login(
+        {
+          email: 'user@example.com',
+          password: 'Password123',
+        },
+        'en-US',
+      ),
+    ).resolves.toMatchObject({
+      user: {
+        preferredLocale: 'en-US',
+      },
+    });
+  });
+
+  it('uses the account preferred locale when login has no valid locale cookie', async () => {
+    mockedArgon2.verify.mockResolvedValue(true);
+    const authService = new AuthService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            email: 'user@example.com',
+            displayName: 'User',
+            passwordHash: 'hash',
+            status: 'ACTIVE',
+            preferredLocale: 'en-US',
+          }),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        sign: jest.fn().mockReturnValue('jwt-token'),
+      } as never,
+    );
+
+    await expect(
+      authService.login({
+        email: 'user@example.com',
+        password: 'Password123',
+      }),
+    ).resolves.toMatchObject({
+      user: {
+        preferredLocale: 'en-US',
+      },
+    });
+  });
+
+  it('falls back to the default locale when login has no usable locale source', async () => {
+    mockedArgon2.verify.mockResolvedValue(true);
+    const authService = new AuthService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            email: 'user@example.com',
+            displayName: 'User',
+            passwordHash: 'hash',
+            status: 'ACTIVE',
+            preferredLocale: null,
+          }),
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        sign: jest.fn().mockReturnValue('jwt-token'),
+      } as never,
+    );
+
+    await expect(
+      authService.login({
+        email: 'user@example.com',
+        password: 'Password123',
+      }),
+    ).resolves.toMatchObject({
+      user: {
+        preferredLocale: 'zh-CN',
+      },
+    });
   });
 
   it('rechecks the email domain during registration', async () => {
@@ -561,6 +670,92 @@ describe('AuthService', () => {
     );
   });
 
+  it('persists the locale cookie as the registration preferred locale', async () => {
+    const deliveryDedupeKey = 'verification-code:test';
+    const emailCodeFindFirst = jest.fn().mockResolvedValue({
+      id: 'code-1',
+      codeHash: createVerificationCodeDigest({
+        email: 'user@example.com',
+        purpose: 'register',
+        deliveryDedupeKey,
+        code: '123456',
+      }),
+      deliveryDedupeKey,
+    });
+    const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const userCreate = jest.fn().mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      preferredLocale: 'en-US',
+    });
+    const tx: RegisterTransaction = {
+      $queryRaw: jest.fn(),
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+        updateMany: emailCodeUpdateMany,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(0),
+        create: userCreate,
+      },
+    };
+    const prisma = {
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      $transaction: jest.fn(
+        async (
+          callback: (transaction: RegisterTransaction) => Promise<unknown>,
+        ) => callback(tx),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+      } as never,
+      {
+        sign: jest.fn().mockReturnValue('jwt-token'),
+      } as never,
+    );
+    mockedArgon2.hash.mockResolvedValue('hashed-password');
+
+    await expect(
+      authService.register(
+        {
+          email: 'user@example.com',
+          code: '123456',
+          password: 'Password123',
+          displayName: 'User',
+          acceptedTerms: true,
+        },
+        'en-US',
+      ),
+    ).resolves.toMatchObject({
+      user: {
+        preferredLocale: 'en-US',
+      },
+    });
+    expect(userCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          preferredLocale: 'en-US',
+        }) as object,
+      }) as object,
+    );
+  });
+
   it('rejects full registration capacity before code validation or password hashing', async () => {
     const emailCodeFindFirst = jest.fn();
     const prisma = {
@@ -599,6 +794,139 @@ describe('AuthService', () => {
     expect(emailCodeFindFirst).not.toHaveBeenCalled();
     expect(mockedArgon2.hash).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'not-a-number',
+    'Infinity',
+    '-1',
+    '1.5',
+    '9007199254740992',
+    '',
+    '   ',
+    '1e3',
+    '0x10',
+  ])(
+    'rejects invalid max_registrations value %s before code validation',
+    async (settingValue) => {
+      const emailCodeFindFirst = jest.fn();
+      const prisma = {
+        emailCode: {
+          findFirst: emailCodeFindFirst,
+        },
+        systemSetting: {
+          findUnique: jest.fn().mockResolvedValue({ value: settingValue }),
+        },
+        user: {
+          count: jest.fn(),
+        },
+        $transaction: jest.fn(),
+      };
+      const authService = new AuthService(
+        prisma as never,
+        {} as never,
+        {
+          resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        } as never,
+        {
+          sign: jest.fn(),
+        } as never,
+      );
+      const registerPromise = authService.register({
+        email: 'user@example.com',
+        code: '123456',
+        password: 'Password123',
+        displayName: 'User',
+        acceptedTerms: true,
+      });
+
+      await expect(registerPromise).rejects.toBeInstanceOf(
+        InternalServerErrorException,
+      );
+      await expect(registerPromise).rejects.toMatchObject({
+        message: 'max_registrations must be a non-negative safe integer.',
+      });
+      expect(emailCodeFindFirst).not.toHaveBeenCalled();
+      expect(prisma.user.count).not.toHaveBeenCalled();
+      expect(mockedArgon2.hash).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it('treats max_registrations value 0 as unlimited without counting users', async () => {
+    const emailCodeFindFirst = jest.fn().mockRejectedValue(new Error('stop'));
+    const prisma = {
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue({ value: '0' }),
+      },
+      user: {
+        count: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+      } as never,
+      {
+        sign: jest.fn(),
+      } as never,
+    );
+
+    await expect(
+      authService.register({
+        email: 'user@example.com',
+        code: '123456',
+        password: 'Password123',
+        displayName: 'User',
+        acceptedTerms: true,
+      }),
+    ).rejects.toThrow('stop');
+    expect(prisma.user.count).not.toHaveBeenCalled();
+    expect(emailCodeFindFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts a positive safe integer max_registrations value', async () => {
+    const emailCodeFindFirst = jest.fn().mockRejectedValue(new Error('stop'));
+    const prisma = {
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue({ value: '2' }),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(1),
+      },
+      $transaction: jest.fn(),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+      } as never,
+      {
+        sign: jest.fn(),
+      } as never,
+    );
+
+    await expect(
+      authService.register({
+        email: 'user@example.com',
+        code: '123456',
+        password: 'Password123',
+        displayName: 'User',
+        acceptedTerms: true,
+      }),
+    ).rejects.toThrow('stop');
+    expect(prisma.user.count).toHaveBeenCalledTimes(1);
+    expect(emailCodeFindFirst).toHaveBeenCalledTimes(1);
   });
 
   it('serializes registration capacity checks inside the registration transaction', async () => {

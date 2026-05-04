@@ -1,0 +1,5 @@
+ALTER TYPE "MatchNarrativeSource"
+ADD VALUE IF NOT EXISTS 'DISABLED';
+
+ALTER TABLE "User"
+ADD COLUMN "preferredLocale" TEXT NOT NULL DEFAULT 'zh-CN';
