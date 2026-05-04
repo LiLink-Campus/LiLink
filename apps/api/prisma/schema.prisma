@@ -52,6 +52,7 @@ enum ReportStatus {
 enum MatchNarrativeSource {
   DEEPSEEK
   RULES_FALLBACK
+  DISABLED
 }
 
 enum DashboardSnapshotResult {
@@ -120,6 +121,7 @@ model User {
   schoolId              String?
   school                School?                @relation(fields: [schoolId], references: [id])
   displayName           String?
+  preferredLocale       String                 @default("zh-CN")
   isTest                Boolean                @default(false)
   acceptedTermsAt       DateTime?
   createdAt             DateTime               @default(now())

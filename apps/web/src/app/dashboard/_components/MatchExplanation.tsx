@@ -2,6 +2,8 @@ import {
   normalizeConversationTopics,
   normalizeMatchReasons,
 } from "../_lib/format";
+import { type SupportedLocale } from "@lilink/shared";
+import { useLocale } from "../../locale-context";
 import { MessageCircleIcon, PeopleIcon, ShieldIcon } from "./icons";
 
 type MatchExplanationProps = {
@@ -20,75 +22,126 @@ type ReasonHighlight = {
 };
 
 const REASON_HIGHLIGHT_RULES: ReadonlyArray<{
-  title: string;
+  titleByLocale: Record<SupportedLocale, string>;
   icon: ReasonHighlight["icon"];
   tone: ReasonHighlight["tone"];
   keywords: readonly string[];
 }> = [
   {
-    title: "沟通节奏一致",
+    titleByLocale: {
+      "zh-CN": "沟通节奏一致",
+      "en-US": "Similar Communication Pace",
+    },
     icon: "message",
     tone: "rose",
     keywords: ["沟通", "分歧", "修复", "表达", "聊天", "联系频率", "冷静"],
   },
   {
-    title: "责任感相近",
+    titleByLocale: {
+      "zh-CN": "责任感相近",
+      "en-US": "Aligned Reliability",
+    },
     icon: "shield",
     tone: "sage",
     keywords: ["责任", "稳定", "上进", "真诚", "温柔", "价值", "说到做到"],
   },
   {
-    title: "边界感契合",
+    titleByLocale: {
+      "zh-CN": "边界感契合",
+      "en-US": "Compatible Boundaries",
+    },
     icon: "people",
     tone: "sand",
     keywords: ["边界", "空间", "独处", "尊重", "控制欲"],
   },
   {
-    title: "支持方式相近",
+    titleByLocale: {
+      "zh-CN": "支持方式相近",
+      "en-US": "Similar Support Needs",
+    },
     icon: "message",
     tone: "rose",
     keywords: ["支持", "陪我聊天", "建议", "照顾", "在乎", "陪伴"],
   },
   {
-    title: "相处底线清楚",
+    titleByLocale: {
+      "zh-CN": "相处底线清楚",
+      "en-US": "Clear Dealbreakers",
+    },
     icon: "shield",
     tone: "sage",
     keywords: ["雷点", "敏感", "失联", "情绪爆炸", "迟到失约"],
   },
   {
-    title: "日常节奏合拍",
+    titleByLocale: {
+      "zh-CN": "日常节奏合拍",
+      "en-US": "Compatible Daily Rhythm",
+    },
     icon: "people",
     tone: "sand",
     keywords: ["约会", "周末", "出去玩", "AA", "买单", "小事", "关系感"],
   },
   {
-    title: "关系期待接近",
+    titleByLocale: {
+      "zh-CN": "关系期待接近",
+      "en-US": "Similar Relationship Goals",
+    },
     icon: "shield",
     tone: "sage",
     keywords: ["关系", "期待", "未来", "认真", "新鲜感", "成长"],
   },
 ];
 
-const FALLBACK_HIGHLIGHTS: ReadonlyArray<ReasonHighlight> = [
+const FALLBACK_HIGHLIGHTS: ReadonlyArray<
+  Omit<ReasonHighlight, "title"> & {
+    titleByLocale: Record<SupportedLocale, string>;
+  }
+> = [
   {
-    title: "共同点明确",
+    titleByLocale: {
+      "zh-CN": "共同点明确",
+      "en-US": "Clear Common Ground",
+    },
     body: "",
     icon: "message",
     tone: "rose",
   },
   {
-    title: "相处方式接近",
+    titleByLocale: {
+      "zh-CN": "相处方式接近",
+      "en-US": "Similar Interaction Style",
+    },
     body: "",
     icon: "shield",
     tone: "sage",
   },
   {
-    title: "互动基础稳定",
+    titleByLocale: {
+      "zh-CN": "互动基础稳定",
+      "en-US": "Stable Interaction Base",
+    },
     body: "",
     icon: "people",
     tone: "sand",
   },
 ];
+
+const MATCH_EXPLANATION_COPY: Record<
+  SupportedLocale,
+  {
+    reasonHeading: string;
+    topicHeading: string;
+  }
+> = {
+  "zh-CN": {
+    reasonHeading: "匹配理由",
+    topicHeading: "聊天话题",
+  },
+  "en-US": {
+    reasonHeading: "Match Reasons",
+    topicHeading: "Conversation Topics",
+  },
+};
 
 function compactReasonText(value: string) {
   return value
@@ -114,22 +167,23 @@ function highlightBody(reason: string) {
   return `${body.slice(0, 33)}…`;
 }
 
-function buildReasonHighlights(reasons: string[]) {
+function buildReasonHighlights(reasons: string[], locale: SupportedLocale) {
   const usedTitles = new Set<string>();
 
   return reasons.slice(0, 3).map((reason, index): ReasonHighlight => {
     const rule = REASON_HIGHLIGHT_RULES.find(
       (candidate) =>
-        !usedTitles.has(candidate.title) &&
+        !usedTitles.has(candidate.titleByLocale[locale]) &&
         candidate.keywords.some((keyword) => reason.includes(keyword)),
     );
     const fallback = FALLBACK_HIGHLIGHTS[index] ?? FALLBACK_HIGHLIGHTS[0];
     const meta = rule ?? fallback;
+    const title = meta.titleByLocale[locale];
 
-    usedTitles.add(meta.title);
+    usedTitles.add(title);
 
     return {
-      title: meta.title,
+      title,
       body: highlightBody(reason),
       icon: meta.icon,
       tone: meta.tone,
@@ -154,8 +208,10 @@ export function MatchExplanation({
   conversationTopics,
   emptyReasonFallback,
 }: MatchExplanationProps) {
+  const { locale } = useLocale();
+  const copy = MATCH_EXPLANATION_COPY[locale];
   const normalizedReasons = normalizeMatchReasons(reasons);
-  const highlights = buildReasonHighlights(normalizedReasons);
+  const highlights = buildReasonHighlights(normalizedReasons, locale);
   const summary = reason?.trim() ?? "";
   const topics = normalizeConversationTopics(conversationTopics);
 
@@ -172,7 +228,7 @@ export function MatchExplanation({
     <div className="match-explanation">
       <div className="match-explanation-heading">
         <ShieldIcon />
-        <p className="eyebrow">匹配理由</p>
+        <p className="eyebrow">{copy.reasonHeading}</p>
       </div>
       {note ? <p className="app-card-muted match-explanation-note">{note}</p> : null}
       {highlights.length > 0 ? (
@@ -208,7 +264,7 @@ export function MatchExplanation({
         <div className="conversation-topic-card">
           <div className="conversation-topic-heading">
             <MessageCircleIcon />
-            <p className="eyebrow">聊天话题</p>
+            <p className="eyebrow">{copy.topicHeading}</p>
           </div>
           <ul className="conversation-topic-list">
             {topics.map((topic, index) => (

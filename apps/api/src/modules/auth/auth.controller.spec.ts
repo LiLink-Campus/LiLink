@@ -1,3 +1,4 @@
+import { LOCALE_COOKIE_NAME } from '@lilink/shared';
 import { userSessionConfig } from '../../common/auth/session-config';
 import { env } from '../../config/env';
 import { AuthController } from './auth.controller';
@@ -24,6 +25,7 @@ describe('AuthController', () => {
           email: 'user@example.com',
           password: 'Password123',
         },
+        { cookies: {} } as never,
         response as never,
       ),
     ).resolves.toEqual({
@@ -67,6 +69,7 @@ describe('AuthController', () => {
           displayName: 'User',
           acceptedTerms: true,
         },
+        { cookies: {} } as never,
         response as never,
       ),
     ).resolves.toEqual({
@@ -101,6 +104,7 @@ describe('AuthController', () => {
           code: '123456',
           newPassword: 'Password123',
         },
+        { cookies: {} } as never,
         response as never,
       ),
     ).resolves.toEqual({
@@ -111,5 +115,115 @@ describe('AuthController', () => {
       },
     });
     expect(response.cookie).toHaveBeenCalled();
+  });
+
+  it('passes only a supported locale cookie into login', async () => {
+    const login = jest.fn().mockResolvedValue({
+      token: 'jwt-token',
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        displayName: 'User',
+      },
+    });
+    const authController = new AuthController({ login } as never);
+    const response = {
+      cookie: jest.fn(),
+    };
+
+    await authController.login(
+      {
+        email: 'user@example.com',
+        password: 'Password123',
+      },
+      { cookies: { [LOCALE_COOKIE_NAME]: 'en-US' } } as never,
+      response as never,
+    );
+
+    expect(login).toHaveBeenCalledWith(
+      {
+        email: 'user@example.com',
+        password: 'Password123',
+      },
+      'en-US',
+    );
+
+    await authController.login(
+      {
+        email: 'user@example.com',
+        password: 'Password123',
+      },
+      { cookies: { [LOCALE_COOKIE_NAME]: 'fr-FR' } } as never,
+      response as never,
+    );
+
+    expect(login).toHaveBeenLastCalledWith(
+      {
+        email: 'user@example.com',
+        password: 'Password123',
+      },
+      null,
+    );
+  });
+
+  it('passes the supported locale cookie into register and reset-password', async () => {
+    const register = jest.fn().mockResolvedValue({
+      token: 'jwt-token',
+      user: { id: 'user-1', email: 'user@example.com' },
+    });
+    const resetPassword = jest.fn().mockResolvedValue({
+      token: 'jwt-token',
+      user: { id: 'user-1', email: 'user@example.com' },
+    });
+    const authController = new AuthController({
+      register,
+      resetPassword,
+    } as never);
+    const response = {
+      cookie: jest.fn(),
+    };
+    const request = {
+      cookies: { [LOCALE_COOKIE_NAME]: 'en-US' },
+    };
+
+    await authController.register(
+      {
+        email: 'user@example.com',
+        code: '123456',
+        password: 'Password123',
+        displayName: 'User',
+        acceptedTerms: true,
+      },
+      request as never,
+      response as never,
+    );
+    await authController.resetPassword(
+      {
+        email: 'user@example.com',
+        code: '123456',
+        newPassword: 'Password123',
+      },
+      request as never,
+      response as never,
+    );
+
+    expect(register).toHaveBeenCalledWith(
+      {
+        email: 'user@example.com',
+        code: '123456',
+        password: 'Password123',
+        displayName: 'User',
+        acceptedTerms: true,
+      },
+      'en-US',
+    );
+    expect(resetPassword).toHaveBeenCalledWith(
+      {
+        email: 'user@example.com',
+        code: '123456',
+        newPassword: 'Password123',
+      },
+      'en-US',
+    );
   });
 });

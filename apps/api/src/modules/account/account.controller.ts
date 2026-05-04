@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -9,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { AccountService } from './account.service';
@@ -37,13 +39,16 @@ export class AccountController {
 
   @Get('bootstrap')
   async getDashboardBootstrap(@Req() request: AuthenticatedRequest) {
-    const dashboard = await this.accountService.getDashboard(request.user!.sub);
+    const [dashboard, user] = await Promise.all([
+      this.accountService.getDashboard(request.user!.sub),
+      this.accountService.getUserSummary(request.user!.sub),
+    ]);
+    const cookieLocale = this.readLocaleCookie(request);
 
     return {
       user: {
-        id: request.user!.sub,
-        email: request.user!.email,
-        displayName: request.user!.displayName,
+        ...user,
+        preferredLocale: cookieLocale ?? user.preferredLocale,
       },
       dashboard,
     };
@@ -60,6 +65,20 @@ export class AccountController {
     @Body() body: UpdateProfileDto,
   ) {
     return this.accountService.updateProfile(request.user!.sub, body);
+  }
+
+  @Put('locale')
+  updateLocale(
+    @Req() request: AuthenticatedRequest,
+    @Body('locale') rawLocale: unknown,
+  ) {
+    const locale = parseSupportedLocale(rawLocale);
+
+    if (!locale) {
+      throw new BadRequestException('Unsupported locale.');
+    }
+
+    return this.accountService.updateLocale(request.user!.sub, { locale });
   }
 
   @Get('questionnaire')
@@ -98,5 +117,12 @@ export class AccountController {
     @Body() body: ReportMatchDto,
   ) {
     return this.accountService.reportMatch(request.user!.sub, matchId, body);
+  }
+
+  private readLocaleCookie(request: AuthenticatedRequest) {
+    const cookies = request.cookies as Record<string, unknown> | undefined;
+    const rawLocale = cookies?.[LOCALE_COOKIE_NAME];
+
+    return parseSupportedLocale(rawLocale);
   }
 }
