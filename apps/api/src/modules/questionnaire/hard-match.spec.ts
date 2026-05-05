@@ -227,6 +227,40 @@ describe('hard-match helpers', () => {
     ).toBe(true);
   });
 
+  it('still returns compatible for participants with an out-of-life-expectancy birthDate', () => {
+    // Mirrors a real production record where birthDate=1926-09-05 (and
+    // heightCm=220) slipped through normalization. With age as a soft
+    // preference the candidate must remain match-eligible so blossom can
+    // still score them; previously the legacy hard age filter would have
+    // dropped the pair as soon as the calculated age fell outside the
+    // window.
+    const left = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+    })!;
+    const ancientRight = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.gender]: '女',
+      [HARD_MATCH_KEYS.partnerGenders]: ['男'],
+      [HARD_MATCH_KEYS.birthDate]: '1926-09-05',
+      [HARD_MATCH_KEYS.heightCm]: 165,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 160,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 195,
+      [HARD_MATCH_KEYS.school]: 'school-cuc',
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+    })!;
+
+    expect(
+      areHardMatchAnswersCompatible(
+        left,
+        ancientRight,
+        new Date('2026-05-20T00:00:00.000Z'),
+      ),
+    ).toBe(true);
+  });
+
   it('rejects when height is out of partner range', () => {
     const left = tryReadHardMatchAnswers(validAnswers)!;
     const tooTallRight = tryReadHardMatchAnswers({
