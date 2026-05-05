@@ -12,12 +12,14 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import {
+  HARD_MATCH_KEYS,
   buildHardMatchAnswerRecordFromFormInput,
   type HardMatchDraftForm,
   hardMatchQuestionKeys,
   normalizeHardMatchAnswers,
   readQuestionnaireOneLiner,
   sanitizeHardMatchDraftForm,
+  tryReadHardMatchAnswers,
 } from '../questionnaire/hard-match';
 import { IncompleteQuestionnaireSubmissionException } from '../questionnaire/incomplete-questionnaire-submission.exception';
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
@@ -820,7 +822,7 @@ export class AccountService {
 
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        select: { status: true },
+        select: { status: true, schoolId: true },
       });
 
       if (!user) {
@@ -832,6 +834,8 @@ export class AccountService {
           'Suspended or pending accounts cannot opt in to matching.',
         );
       }
+
+      await this.assertQuestionnaireReadyForOptIn(userId, user.schoolId);
     }
 
     const nextStatus = input.optIn ? 'OPTED_IN' : 'OPTED_OUT';
@@ -1140,5 +1144,36 @@ export class AccountService {
         metadata,
       },
     });
+  }
+
+  // Refuses opt-in until the user has a fully submitted questionnaire whose
+  // hard-match answers parse cleanly. Mirrors the eligibility check in
+  // CyclesService.toEligibleParticipants so nobody can sit in OPTED_IN with a
+  // draft and silently fail at preparation time.
+  private async assertQuestionnaireReadyForOptIn(
+    userId: string,
+    schoolId: string | null,
+  ) {
+    const response = await this.prisma.questionnaireResponse.findUnique({
+      where: { userId },
+      select: { answers: true, submittedAt: true },
+    });
+
+    if (!response || response.submittedAt == null) {
+      throw new BadRequestException(
+        'Submit a complete questionnaire before opting into matching.',
+      );
+    }
+
+    const hardMatchAnswers = tryReadHardMatchAnswers({
+      ...((response.answers ?? {}) as Record<string, unknown>),
+      [HARD_MATCH_KEYS.school]: schoolId ?? '',
+    });
+
+    if (!hardMatchAnswers) {
+      throw new BadRequestException(
+        'Your questionnaire is missing required fields. Please update your profile before opting into matching.',
+      );
+    }
   }
 }

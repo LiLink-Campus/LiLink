@@ -305,6 +305,31 @@ function createDashboardPrismaMock({
   };
 }
 
+function buildSubmittedQuestionnaireResponse(
+  overrides: Partial<{
+    answers: Record<string, unknown>;
+    submittedAt: Date;
+  }> = {},
+) {
+  return {
+    answers: {
+      [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
+      [HARD_MATCH_KEYS.partnerAgeMin]: 18,
+      [HARD_MATCH_KEYS.partnerAgeMax]: 30,
+      [HARD_MATCH_KEYS.gender]: '男',
+      [HARD_MATCH_KEYS.partnerGenders]: ['女'],
+      [HARD_MATCH_KEYS.looks]: '普通人',
+      [HARD_MATCH_KEYS.partnerLooks]: ['普通人'],
+      [HARD_MATCH_KEYS.heightCm]: 175,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 150,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 195,
+      [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢徒步。',
+      ...(overrides.answers ?? {}),
+    },
+    submittedAt: overrides.submittedAt ?? new Date('2026-04-01T00:00:00.000Z'),
+  };
+}
+
 function createDashboardSnapshotServiceMock() {
   return {
     ensureUserSnapshotCoverage: jest.fn().mockResolvedValue(undefined),
@@ -422,7 +447,9 @@ describe('AccountService', () => {
         }),
       },
       user: {
-        findUnique: jest.fn().mockResolvedValue({ status: 'SUSPENDED' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'SUSPENDED', schoolId: 'school-bupt' }),
       },
     };
     const service = new AccountService(
@@ -437,8 +464,126 @@ describe('AccountService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      select: { status: true },
+      select: { status: true, schoolId: true },
     });
+  });
+
+  it('rejects opt-in when the questionnaire has not been submitted yet', async () => {
+    const upsert = jest.fn();
+    const findUniqueResponse = jest.fn().mockResolvedValue(null);
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: findUniqueResponse,
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(findUniqueResponse).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      select: { answers: true, submittedAt: true },
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects opt-in when the saved questionnaire only has a draft (submittedAt is null)', async () => {
+    const upsert = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue({
+          ...buildSubmittedQuestionnaireResponse(),
+          submittedAt: null,
+        }),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects opt-in when the submitted answers no longer parse as valid hard-match data', async () => {
+    const upsert = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue({
+          // Legacy / corrupted record: submittedAt is set but the hard-match
+          // payload is missing required keys.
+          answers: { [HARD_MATCH_KEYS.gender]: '男' },
+          submittedAt: new Date('2026-04-01T00:00:00.000Z'),
+        }),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it('persists the chosen intent and writes it into the audit log on opt-in', async () => {
@@ -457,7 +602,14 @@ describe('AccountService', () => {
         }),
       },
       user: {
-        findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue(buildSubmittedQuestionnaireResponse()),
       },
       cycleParticipation: {
         upsert,

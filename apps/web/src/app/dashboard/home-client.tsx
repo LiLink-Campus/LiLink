@@ -236,6 +236,10 @@ export function HomeClient({
       void withdraw();
       return;
     }
+    if (!questionnaireSubmitted) {
+      setErrorOnly("请先完成「资料」中的问卷，再参加本轮匹配。");
+      return;
+    }
     setSheetOpen(true);
   }
 
@@ -333,7 +337,17 @@ export function HomeClient({
                 }
                 aria-pressed={isOptedIn}
                 aria-label={isOptedIn ? "退出本轮" : "参加本轮"}
-                disabled={saving || !cycle || !canEdit}
+                disabled={
+                  saving ||
+                  !cycle ||
+                  !canEdit ||
+                  (!isOptedIn && !questionnaireSubmitted)
+                }
+                title={
+                  !isOptedIn && !questionnaireSubmitted
+                    ? "请先在「资料」中完成问卷"
+                    : undefined
+                }
                 onClick={handleToggleClick}
               />
             </div>
