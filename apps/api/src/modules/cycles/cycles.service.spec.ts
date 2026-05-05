@@ -1230,6 +1230,70 @@ describe('CyclesService', () => {
     expect(insideScore!.rawScore).toBeGreaterThan(outsideScore!.rawScore);
   });
 
+  it('decays the age preference score linearly per year missed on each side of the partner window', () => {
+    // createBroadParticipant pegs everyone to birthDate=2000-05-10. With
+    // revealAt=2026-04-10 the partner is 25 years old (May birthday hasn't
+    // landed yet). Each side contributes 0..1 to the age fit:
+    //   inside the partner window         -> 1
+    //   1 year outside the partner window -> 0.75
+    //   2 years outside                   -> 0.50
+    //   ... (decay 0.25 per year, floors at 0)
+    // Average × AGE_PREFERENCE_SOFT_BONUS (=6) is added to rawScore.
+    const service = createCyclesService({});
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+    const revealAt = new Date('2026-04-10T00:00:00.000Z');
+
+    const me = createBroadParticipant('age-decay-me', {});
+
+    // Right wants partner aged 30-32; me=25 misses by 5 years -> right side
+    // fit=0. Right is 25 and falls inside my 18-40 window -> my side fit=1.
+    // Average=0.5, bonus=3.
+    const partialMissRight = createBroadParticipant('age-decay-partial', {});
+    partialMissRight.hardMatchAnswers = {
+      ...partialMissRight.hardMatchAnswers,
+      partnerAgeMin: 30,
+      partnerAgeMax: 32,
+    };
+
+    // Right wants 30-32 AND right is 22 (born 2003-05-10 -> turns 23 next
+    // month; on revealAt they are 22). 22 is 18-40, so my side fit=1; my
+    // window 18-40 includes 22, but their window 30-32 misses my 25 by 5
+    // years -> their side fit=0. Wait, this is the same as partialMiss.
+    // Use a stricter setup: my window 30-32 too -> both miss. Both fits=0.
+    const fullMissLeft = createBroadParticipant('age-decay-full-left', {});
+    fullMissLeft.hardMatchAnswers = {
+      ...fullMissLeft.hardMatchAnswers,
+      partnerAgeMin: 30,
+      partnerAgeMax: 32,
+    };
+    const fullMissRight = createBroadParticipant('age-decay-full-right', {});
+    fullMissRight.hardMatchAnswers = {
+      ...fullMissRight.hardMatchAnswers,
+      partnerAgeMin: 30,
+      partnerAgeMax: 32,
+    };
+
+    const inside = scorePair(
+      me,
+      createBroadParticipant('age-decay-inside-right', {}),
+      [],
+      revealAt,
+    );
+    const partial = scorePair(me, partialMissRight, [], revealAt);
+    const full = scorePair(fullMissLeft, fullMissRight, [], revealAt);
+
+    expect(inside).not.toBeNull();
+    expect(partial).not.toBeNull();
+    expect(full).not.toBeNull();
+
+    // Inside vs full-miss: 6-point gap.
+    expect(inside!.rawScore - full!.rawScore).toBeCloseTo(6, 5);
+    // Partial sits exactly at the half-way point.
+    expect(inside!.rawScore - partial!.rawScore).toBeCloseTo(3, 5);
+  });
+
   it('builds reasons from configured question templates instead of hard-coded keys', () => {
     const service = createCyclesService({});
     const scorePair = (

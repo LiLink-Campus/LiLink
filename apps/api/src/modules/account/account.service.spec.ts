@@ -652,6 +652,87 @@ describe('AccountService', () => {
     });
   });
 
+  it('still rejects opt-in switching intent when the saved questionnaire was reset to a draft after the first opt-in', async () => {
+    // Defense-in-depth: a user who was already OPTED_IN with a complete
+    // questionnaire is allowed to flip intent (DATE -> BOTH etc), but only
+    // if the questionnaire is still complete. If admin tooling, a data
+    // migration, or a manual reset wipes submittedAt, the next intent
+    // change must surface the contract failure instead of silently keeping
+    // them in OPTED_IN with unmatchable data.
+    const upsert = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue({
+          ...buildSubmittedQuestionnaireResponse(),
+          submittedAt: null,
+        }),
+      },
+      cycleParticipation: { upsert },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('lets a user opt out without requiring a complete questionnaire', async () => {
+    // Symmetric to the gate above: if a user somehow ended up OPTED_IN
+    // before the questionnaire gate was added, opt-out must still work
+    // without any questionnaire lookup so they can leave the cycle.
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'participation-1',
+      status: 'OPTED_OUT',
+      intent: null,
+    });
+    const findUniqueQuestionnaire = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      questionnaireResponse: { findUnique: findUniqueQuestionnaire },
+      cycleParticipation: { upsert },
+      auditLog: { create: jest.fn().mockResolvedValue(undefined) },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await service.setParticipation('user-1', { optIn: false });
+
+    expect(findUniqueQuestionnaire).not.toHaveBeenCalled();
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ status: 'OPTED_OUT' }) as object,
+      }),
+    );
+  });
+
   it('clears intent on opt-out so rejoining requires an explicit fresh choice', async () => {
     const upsert = jest.fn().mockResolvedValue({
       id: 'participation-1',
