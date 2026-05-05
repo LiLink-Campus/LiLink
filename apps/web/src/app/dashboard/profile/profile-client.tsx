@@ -1078,7 +1078,7 @@ export function ProfileClient({
                 <legend>对方年龄理想区间</legend>
                 <p className="app-muted">
                   填对方的<strong>实际年龄</strong>数字（例如 18 到 25），
-                  不是与你的年龄差。这是软偏好——超出此区间仍可能匹配，匹配分会按距离衰减。
+                  不是与你的年龄差。
                 </p>
                 <div className="form-grid">
                   <label>
