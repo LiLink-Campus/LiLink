@@ -782,17 +782,12 @@ export function areHardMatchAnswersCompatible(
     ? right.languages
     : defaultLanguages;
 
-  const leftAge = calculateAgeOnDate(left.birthDate, revealAt);
-  const rightAge = calculateAgeOnDate(right.birthDate, revealAt);
-
-  if (
-    leftAge < right.partnerAgeMin ||
-    leftAge > right.partnerAgeMax ||
-    rightAge < left.partnerAgeMin ||
-    rightAge > left.partnerAgeMax
-  ) {
-    return false;
-  }
+  // Age is intentionally a soft preference: a non-trivial number of users
+  // mis-read partnerAgeMin/Max as a relative offset (e.g. "4-5 years
+  // younger than me"), which produced absolute ranges like 1-8 that no real
+  // candidate satisfies. The matching score in cycles.service.ts rewards
+  // pairs that fall inside each other's preferred age window and decays the
+  // score for pairs that fall outside, instead of dropping them entirely.
 
   if (
     !multiPreferenceMatches(
