@@ -1178,6 +1178,58 @@ describe('CyclesService', () => {
     ).not.toBeNull();
   });
 
+  it('treats partnerAge window as a soft preference and still scores misread relative ranges', () => {
+    // Real production case: users mis-read "希望对方年龄" as a relative
+    // offset and entered partnerAgeMin/Max=4..5 meaning "对方比我小 4-5
+    // 岁". With age as a hard filter the pair was dropped; soft scoring
+    // keeps it in the candidate set instead.
+    const service = createCyclesService({});
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const left = createBroadParticipant('age-soft-left', {});
+    const rightWithMisreadWindow = createBroadParticipant('age-soft-right', {});
+    rightWithMisreadWindow.hardMatchAnswers = {
+      ...rightWithMisreadWindow.hardMatchAnswers,
+      partnerAgeMin: 4,
+      partnerAgeMax: 5,
+    };
+
+    expect(
+      scorePair(
+        left,
+        rightWithMisreadWindow,
+        [],
+        new Date('2026-04-10T00:00:00.000Z'),
+      ),
+    ).not.toBeNull();
+  });
+
+  it('scores pairs whose ages fall inside the partner window higher than pairs that fall fully outside', () => {
+    const service = createCyclesService({});
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+    const revealAt = new Date('2026-04-10T00:00:00.000Z');
+
+    const inside = createBroadParticipant('age-inside', {});
+    const insideRight = createBroadParticipant('age-inside-right', {});
+    const outsideRight = createBroadParticipant('age-outside-right', {});
+    outsideRight.hardMatchAnswers = {
+      ...outsideRight.hardMatchAnswers,
+      partnerAgeMin: 4,
+      partnerAgeMax: 5,
+    };
+
+    const insideScore = scorePair(inside, insideRight, [], revealAt);
+    const outsideScore = scorePair(inside, outsideRight, [], revealAt);
+
+    expect(insideScore).not.toBeNull();
+    expect(outsideScore).not.toBeNull();
+    expect(insideScore!.rawScore).toBeGreaterThan(outsideScore!.rawScore);
+  });
+
   it('builds reasons from configured question templates instead of hard-coded keys', () => {
     const service = createCyclesService({});
     const scorePair = (
@@ -1254,7 +1306,7 @@ describe('CyclesService', () => {
     );
 
     expect(result).toMatchObject({
-      rawScore: 69,
+      rawScore: 75,
       score: 100,
       reasons: ['你们对进入关系的期待很一致。'],
     });
@@ -1294,12 +1346,12 @@ describe('CyclesService', () => {
     );
 
     expect(focusedMatch).toMatchObject({
-      rawScore: 57,
+      rawScore: 63,
       score: 100,
     });
     expect(broadMatch).toMatchObject({
-      rawScore: 52.5,
-      score: 85,
+      rawScore: 58.5,
+      score: 91,
     });
   });
 
@@ -1331,12 +1383,12 @@ describe('CyclesService', () => {
     );
 
     expect(adjacentMatch).toMatchObject({
-      rawScore: 60,
-      score: 94,
+      rawScore: 66,
+      score: 95.7,
     });
     expect(oppositeMatch).toMatchObject({
-      rawScore: 51,
-      score: 76,
+      rawScore: 57,
+      score: 82.9,
     });
   });
 
@@ -1356,8 +1408,8 @@ describe('CyclesService', () => {
     expect(
       scorePair(left, right, [], new Date('2026-04-10T00:00:00.000Z')),
     ).toMatchObject({
-      rawScore: 48,
-      score: 70,
+      rawScore: 54,
+      score: 90,
     });
   });
 
@@ -1404,7 +1456,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-1' },
       right: { id: 'user-2' },
-      score: 80,
+      score: 83.6,
       reasons: ['你们都把 真诚、稳定 放在重要位置。'],
     });
   });
@@ -3738,7 +3790,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-b' },
       right: { id: 'user-c' },
-      score: 95.6,
+      score: 96.4,
       reasons: ['你们对进入关系的期待很一致。', '你们都把 真诚 放在重要位置。'],
     });
   });

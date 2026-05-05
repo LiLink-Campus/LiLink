@@ -149,7 +149,7 @@ describe('hard-match helpers', () => {
     ).toThrow(BadRequestException);
   });
 
-  it('applies age, height, and mutual preference hard filters', () => {
+  it('applies height and mutual preference hard filters', () => {
     const left = tryReadHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
@@ -193,6 +193,38 @@ describe('hard-match helpers', () => {
         new Date('2026-05-20T00:00:00.000Z'),
       ),
     ).toBe(false);
+  });
+
+  it('keeps the pair compatible even when the partnerAge window excludes both ages', () => {
+    // Many users mis-read partnerAgeMin/Max as a relative offset, e.g.
+    // entering "4-5" when they meant "4-5 years younger than me". Age must
+    // remain a soft preference; the cycles service handles the score decay.
+    const left = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.partnerAgeMin]: 4,
+      [HARD_MATCH_KEYS.partnerAgeMax]: 5,
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+    })!;
+    const right = tryReadHardMatchAnswers({
+      ...validAnswers,
+      [HARD_MATCH_KEYS.gender]: '女',
+      [HARD_MATCH_KEYS.partnerGenders]: ['男'],
+      [HARD_MATCH_KEYS.heightCm]: 165,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 160,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 195,
+      [HARD_MATCH_KEYS.school]: 'school-cuc',
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
+    })!;
+
+    expect(
+      areHardMatchAnswersCompatible(
+        left,
+        right,
+        new Date('2026-05-20T00:00:00.000Z'),
+      ),
+    ).toBe(true);
   });
 
   it('rejects when height is out of partner range', () => {

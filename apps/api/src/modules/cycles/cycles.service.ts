@@ -21,6 +21,7 @@ import {
 } from '../questionnaire/hard-match';
 import {
   areWeeklyIntentsCompatible,
+  calculateAgeOnDate,
   isWeeklyIntent,
   type WeeklyIntent,
 } from '@lilink/shared';
@@ -46,6 +47,14 @@ const BASE_MATCH_SCORE = 48;
 const SINGLE_SELECT_MATCH_BONUS = 6;
 const MULTI_SELECT_OVERLAP_BONUS = 3;
 const LOOKS_PREFERENCE_SOFT_BONUS = MULTI_SELECT_OVERLAP_BONUS;
+// Age is a soft preference (see hard-match.ts comment on
+// areHardMatchAnswersCompatible). Each side contributes 0..1 to the fit
+// score: 1 when their age sits inside the partner's preferred window, then
+// linearly decays toward 0 outside the window. Hitting both sides perfectly
+// adds AGE_PREFERENCE_SOFT_BONUS to the raw match score; falling fully
+// outside on both sides adds nothing without dropping the pair.
+const AGE_PREFERENCE_SOFT_BONUS = 6;
+const AGE_PREFERENCE_DECAY_PER_YEAR = 0.25;
 const MAX_MATCH_REASONS = 3;
 const MATCH_NARRATIVE_MAX_CONCURRENCY = 3;
 const MATCH_NARRATIVE_DEFAULT_AFTER_MS = 60 * 60 * 1000;
@@ -2008,6 +2017,43 @@ export class CyclesService {
     return selectedLooks.includes(candidateLooks) ? 1 : 0;
   }
 
+  private calculateAgePreferenceSimilarity(
+    left: HardMatchAnswers,
+    right: HardMatchAnswers,
+    revealAt: Date,
+  ) {
+    const leftAge = calculateAgeOnDate(left.birthDate, revealAt);
+    const rightAge = calculateAgeOnDate(right.birthDate, revealAt);
+    const leftFit = this.agePreferenceFit(
+      rightAge,
+      left.partnerAgeMin,
+      left.partnerAgeMax,
+    );
+    const rightFit = this.agePreferenceFit(
+      leftAge,
+      right.partnerAgeMin,
+      right.partnerAgeMax,
+    );
+
+    return (leftFit + rightFit) / 2;
+  }
+
+  private agePreferenceFit(
+    candidateAge: number,
+    partnerAgeMin: number,
+    partnerAgeMax: number,
+  ) {
+    if (candidateAge >= partnerAgeMin && candidateAge <= partnerAgeMax) {
+      return 1;
+    }
+
+    const yearsOutside =
+      candidateAge < partnerAgeMin
+        ? partnerAgeMin - candidateAge
+        : candidateAge - partnerAgeMax;
+    return Math.max(0, 1 - AGE_PREFERENCE_DECAY_PER_YEAR * yearsOutside);
+  }
+
   private calculateScaleAnswerSimilarity(
     leftQuestion: PreparedQuestion,
     leftAnswer: string,
@@ -2085,6 +2131,13 @@ export class CyclesService {
         left.hardMatchAnswers,
         right.hardMatchAnswers,
       ) * LOOKS_PREFERENCE_SOFT_BONUS;
+
+    rawScore +=
+      this.calculateAgePreferenceSimilarity(
+        left.hardMatchAnswers,
+        right.hardMatchAnswers,
+        revealAt,
+      ) * AGE_PREFERENCE_SOFT_BONUS;
 
     for (const question of resolvedQuestionSet.comparableQuestions) {
       const leftAnswer = normalizePreparedQuestionAnswer(
@@ -2562,7 +2615,10 @@ export class CyclesService {
         }),
         {
           min: BASE_MATCH_SCORE,
-          max: BASE_MATCH_SCORE + LOOKS_PREFERENCE_SOFT_BONUS,
+          max:
+            BASE_MATCH_SCORE +
+            LOOKS_PREFERENCE_SOFT_BONUS +
+            AGE_PREFERENCE_SOFT_BONUS,
         },
       );
   }
@@ -2570,7 +2626,10 @@ export class CyclesService {
   private calculateMatchScoreBounds(
     questions: Array<{ type: QuestionType; weight: number }>,
   ): MatchScoreBounds {
-    let max = BASE_MATCH_SCORE + LOOKS_PREFERENCE_SOFT_BONUS;
+    let max =
+      BASE_MATCH_SCORE +
+      LOOKS_PREFERENCE_SOFT_BONUS +
+      AGE_PREFERENCE_SOFT_BONUS;
 
     for (const question of questions) {
       if (

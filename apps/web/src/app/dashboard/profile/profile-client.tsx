@@ -1075,7 +1075,11 @@ export function ProfileClient({
             </div>
             <div className="question-list">
               <fieldset className="question-block">
-                <legend>希望对方的年龄范围</legend>
+                <legend>对方年龄理想区间</legend>
+                <p className="app-muted">
+                  填对方的<strong>实际年龄</strong>数字（例如 18 到 25），
+                  不是与你的年龄差。这是软偏好——超出此区间仍可能匹配，匹配分会按距离衰减。
+                </p>
                 <div className="form-grid">
                   <label>
                     <span>年龄下限</span>
@@ -1086,7 +1090,7 @@ export function ProfileClient({
                       options={AGE_VALUE_OPTIONS}
                       suffix="岁"
                       placeholder="请选择"
-                      sheetTitle="希望对方年龄下限"
+                      sheetTitle="对方年龄下限"
                       onChange={(next) =>
                         setHardMatchForm((f) => ({ ...f, partnerAgeMin: next }))
                       }
@@ -1101,7 +1105,7 @@ export function ProfileClient({
                       options={AGE_VALUE_OPTIONS}
                       suffix="岁"
                       placeholder="请选择"
-                      sheetTitle="希望对方年龄上限"
+                      sheetTitle="对方年龄上限"
                       onChange={(next) =>
                         setHardMatchForm((f) => ({ ...f, partnerAgeMax: next }))
                       }
