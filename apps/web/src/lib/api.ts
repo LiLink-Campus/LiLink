@@ -20,6 +20,10 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
     "验证邮件发送失败，请稍后再试。",
   "User account no longer exists.":
     "账号不存在。",
+  "Submit a complete questionnaire before opting into matching.":
+    "请先完成「资料」中的问卷，再参加本轮匹配。",
+  "Your questionnaire is missing required fields. Please update your profile before opting into matching.":
+    "你的问卷有必填项缺失，请回到「资料」补全后再参加本轮匹配。",
 };
 
 export class ApiRequestError extends Error {
