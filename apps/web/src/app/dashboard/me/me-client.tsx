@@ -68,6 +68,15 @@ export function MeClient({
           <h2 className="app-card-title">账号与帮助</h2>
         </div>
         <div className="me-card-list">
+          <Link href="/dashboard/profile" className="me-row">
+            <span className="me-row-text">
+              <strong>问卷资料</strong>
+              <span>{hasSavedQuestionnaire ? "问卷已保存" : "问卷待完成"}</span>
+            </span>
+            <span className="me-row-arrow" aria-hidden="true">
+              <ArrowRightIcon />
+            </span>
+          </Link>
           <Link href="/about" className="me-row">
             <span className="me-row-text">
               <strong>关于 LiLink</strong>

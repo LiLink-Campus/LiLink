@@ -24,7 +24,10 @@ import {
 } from "./_components/illustrations";
 import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
 import { canEditCurrentCycleParticipation } from "./_lib/format";
-import type { DashboardPayload } from "./_lib/types";
+import type {
+  DashboardPayload,
+  QuestionnaireAttentionPayload,
+} from "./_lib/types";
 
 type HomeMode = "ONE_ON_ONE" | "GROUP";
 
@@ -58,6 +61,15 @@ function formatDeadlineLabel(iso: string | null | undefined) {
   return `本周 ${formatter.format(target)} 截止参与`;
 }
 
+function questionnaireAttentionHref(
+  attention: QuestionnaireAttentionPayload | null,
+) {
+  const key = attention?.pendingKeys[0];
+  return key
+    ? `/dashboard/profile#questionnaire-question-${encodeURIComponent(key)}`
+    : "/dashboard/profile";
+}
+
 export function HomeClient({
   initialUser,
   initialDashboard,
@@ -65,6 +77,7 @@ export function HomeClient({
   questionnaireSubmitted,
   questionnaireEligibleToOptIn,
   questionnaireHasIncompleteDraft,
+  questionnaireAttention,
 }: {
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
@@ -72,6 +85,7 @@ export function HomeClient({
   questionnaireSubmitted: boolean;
   questionnaireEligibleToOptIn: boolean;
   questionnaireHasIncompleteDraft: boolean;
+  questionnaireAttention: QuestionnaireAttentionPayload | null;
 }) {
   const router = useRouter();
   const lastVisibleRefreshAtRef = useRef(Date.now());
@@ -139,6 +153,17 @@ export function HomeClient({
 
   const revealLabel = formatRevealLabel(cycle?.revealAt);
   const deadlineLabel = formatDeadlineLabel(cycle?.participationDeadline);
+  const pendingQuestionnaireUpdateCount =
+    questionnaireAttention?.pendingUpdatedKeys.length ?? 0;
+  const missingQuestionnaireRequiredCount =
+    questionnaireAttention?.missingRequiredKeys.length ?? 0;
+  const hasQuestionnaireAttention =
+    (questionnaireAttention?.pendingKeys.length ?? 0) > 0;
+  const showQuestionnaireCard =
+    !questionnaireEligibleToOptIn || hasQuestionnaireAttention;
+  const questionnaireCardHref = questionnaireAttentionHref(
+    questionnaireAttention,
+  );
 
   function setSavedMessageOnly(message: string | null) {
     setSavedMessage(message);
@@ -428,35 +453,66 @@ export function HomeClient({
             ) : null}
           </section>
 
-          <section className="app-card" aria-label="问卷进度">
-            <div className="app-card-head">
-              <h2 className="app-card-title">问卷进度</h2>
-              <Link href="/dashboard/profile" className="app-card-link">
-                继续完善 →
-              </Link>
-            </div>
-            <div className="q-progress-row">
-              <span className="app-muted">
-                {questionnaireEligibleToOptIn
-                  ? "已完成"
-                  : questionnaireHasIncompleteDraft
-                    ? "草稿待补完"
-                    : "草稿进度"}
-              </span>
-              <strong>{questionnairePercent}%</strong>
-            </div>
-            <div
-              className="q-progress-bar"
-              role="progressbar"
-              aria-valuenow={questionnairePercent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="问卷完成度"
+          {showQuestionnaireCard ? (
+            <section
+              className={
+                hasQuestionnaireAttention
+                  ? "app-card q-progress-card has-attention"
+                  : "app-card q-progress-card"
+              }
+              aria-label="问卷进度"
             >
-              <div style={{ width: `${questionnairePercent}%` }} />
-            </div>
-            <p className="q-progress-note">完成度越高，匹配越准确。</p>
-          </section>
+              <div className="app-card-head">
+                <div className="q-progress-title-row">
+                  <h2 className="app-card-title">问卷进度</h2>
+                  {hasQuestionnaireAttention ? (
+                    <span
+                      className="q-progress-attention-dot"
+                      aria-label="有问卷提示待查看"
+                    />
+                  ) : null}
+                </div>
+                <Link href={questionnaireCardHref} className="app-card-link">
+                  {hasQuestionnaireAttention ? "查看提示 →" : "继续完善 →"}
+                </Link>
+              </div>
+              <div className="q-progress-row">
+                <span className="app-muted">
+                  {pendingQuestionnaireUpdateCount > 0
+                    ? "有更新待查看"
+                    : missingQuestionnaireRequiredCount > 0
+                      ? "必填项待补完"
+                      : questionnaireEligibleToOptIn
+                        ? "已完成"
+                        : questionnaireHasIncompleteDraft
+                          ? "草稿待补完"
+                          : "草稿进度"}
+                </span>
+                <strong>
+                  {pendingQuestionnaireUpdateCount > 0
+                    ? `${pendingQuestionnaireUpdateCount}项`
+                    : `${questionnairePercent}%`}
+                </strong>
+              </div>
+              <div
+                className="q-progress-bar"
+                role="progressbar"
+                aria-valuenow={questionnairePercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="问卷完成度"
+              >
+                <div style={{ width: `${questionnairePercent}%` }} />
+              </div>
+              <p className="q-progress-note">
+                {pendingQuestionnaireUpdateCount > 0
+                  ? `有 ${pendingQuestionnaireUpdateCount} 项问卷更新待查看。`
+                  : missingQuestionnaireRequiredCount > 0
+                    ? `还有 ${missingQuestionnaireRequiredCount} 项必填内容需要补完。`
+                    : "完成度越高，匹配越准确。"}
+              </p>
+            </section>
+          ) : null}
 
           <section className="app-card grid-span-all" aria-label="我的匹配">
             <div className="app-card-head">

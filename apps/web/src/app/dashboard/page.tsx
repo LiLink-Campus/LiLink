@@ -25,6 +25,7 @@ export default async function DashboardHubPage() {
       questionnaireSubmitted={questionnaireSubmitted}
       questionnaireEligibleToOptIn={questionnaireEligibleToOptIn}
       questionnaireHasIncompleteDraft={questionnaireHasIncompleteDraft}
+      questionnaireAttention={savedQuestionnaire?.attention ?? null}
     />
   );
 }
