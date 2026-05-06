@@ -5,7 +5,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { Prisma, QuestionType, UserStatus } from '@prisma/client';
+import { Prisma, QuestionType, UserStatus } from '../../common/prisma/client';
 import * as argon2 from 'argon2';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';

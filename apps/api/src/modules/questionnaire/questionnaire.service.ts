@@ -3,8 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { QuestionType } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import { QuestionType } from '../../common/prisma/client';
+import type { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { hardMatchQuestionKeys, normalizeHardMatchAnswers } from './hard-match';
 import { IncompleteQuestionnaireSubmissionException } from './incomplete-questionnaire-submission.exception';

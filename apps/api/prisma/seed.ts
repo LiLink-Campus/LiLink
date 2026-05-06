@@ -1,8 +1,13 @@
 import { config as loadEnv } from 'dotenv';
 import path from 'path';
 import * as argon2 from 'argon2';
-import type { Prisma } from '@prisma/client';
-import { PrismaClient, QuestionType, UserStatus } from '@prisma/client';
+import type { Prisma } from '../src/common/prisma/client';
+import {
+  createPrismaClient,
+  PrismaClient,
+  QuestionType,
+  UserStatus,
+} from '../src/common/prisma/client';
 import {
   HARD_MATCH_GENDERS,
   HARD_MATCH_HEIGHT_MAX_CM,
@@ -16,7 +21,7 @@ const repoRoot = path.resolve(apiRoot, '..', '..');
 loadEnv({ path: path.join(repoRoot, '.env') });
 loadEnv({ path: path.join(apiRoot, '.env'), override: true });
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 function createOptions(labels: readonly string[]) {
   return labels.map((label) => ({

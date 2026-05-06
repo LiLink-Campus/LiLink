@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { OutboundEmailMessageCategory } from '@prisma/client';
+import { OutboundEmailMessageCategory } from '../prisma/client';
 import nodemailer from 'nodemailer';
 import { env } from '../../config/env';
 import { PrismaService } from '../prisma/prisma.service';
