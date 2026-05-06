@@ -480,7 +480,10 @@ export class AuthService {
     const limit = await this.getRegistrationCapacityLimit(tx);
     if (limit <= 0) return;
 
-    await tx.$queryRaw(
+    // pg_advisory_xact_lock() returns SQL `void`. Prisma 6's $queryRaw refuses
+    // to deserialize void columns (P2010), so route the lock through
+    // $executeRaw which discards the result set.
+    await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(${REGISTRATION_CAPACITY_LOCK_KEY})`,
     );
 

@@ -39,6 +39,7 @@ function createVerificationCodeDigest(input: {
 
 type RegisterTransaction = {
   $queryRaw: jest.Mock;
+  $executeRaw: jest.Mock;
   emailCode: {
     findFirst: jest.Mock;
     updateMany: jest.Mock;
@@ -539,6 +540,7 @@ describe('AuthService', () => {
     const userCreate = jest.fn();
     const tx: RegisterTransaction = {
       $queryRaw: jest.fn(),
+      $executeRaw: jest.fn(),
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
@@ -609,6 +611,7 @@ describe('AuthService', () => {
     const userCreate = jest.fn().mockRejectedValue({ code: 'P2002' });
     const tx: RegisterTransaction = {
       $queryRaw: jest.fn(),
+      $executeRaw: jest.fn(),
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
@@ -691,6 +694,7 @@ describe('AuthService', () => {
     });
     const tx: RegisterTransaction = {
       $queryRaw: jest.fn(),
+      $executeRaw: jest.fn(),
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
@@ -944,8 +948,10 @@ describe('AuthService', () => {
     const emailCodeUpdateMany = jest.fn();
     const userCreate = jest.fn();
     const queryRaw = jest.fn();
+    const executeRaw = jest.fn();
     const tx: RegisterTransaction = {
       $queryRaw: queryRaw,
+      $executeRaw: executeRaw,
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
@@ -996,11 +1002,106 @@ describe('AuthService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(queryRaw).toHaveBeenCalledTimes(1);
+    // Lock must be taken via $executeRaw, not $queryRaw. pg_advisory_xact_lock
+    // returns SQL `void`, which Prisma 6 refuses to deserialize through
+    // $queryRaw (P2010 → 500 in production).
+    expect(queryRaw).not.toHaveBeenCalled();
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    const [lockSqlArg] = executeRaw.mock.calls[0] as [
+      { sql: string; values: unknown[] },
+    ];
+    expect(lockSqlArg.sql).toContain('pg_advisory_xact_lock');
+    expect(lockSqlArg.values).toContain(120_404_260);
     expect(tx.user.count).toHaveBeenCalledTimes(1);
     expect(emailCodeFindFirst).toHaveBeenCalledTimes(1);
     expect(emailCodeUpdateMany).not.toHaveBeenCalled();
     expect(userCreate).not.toHaveBeenCalled();
+  });
+
+  it('registers successfully under capacity when max_registrations is configured', async () => {
+    const deliveryDedupeKey = 'verification-code:test';
+    const emailCodeFindFirst = jest.fn().mockResolvedValue({
+      id: 'code-1',
+      codeHash: createVerificationCodeDigest({
+        email: 'user@example.com',
+        purpose: 'register',
+        deliveryDedupeKey,
+        code: '123456',
+      }),
+      deliveryDedupeKey,
+    });
+    const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const userCreate = jest.fn().mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      preferredLocale: 'zh-CN',
+    });
+    // pg_advisory_xact_lock() returns void; Prisma 6 reports affected rows = 0.
+    const executeRaw = jest.fn().mockResolvedValue(0);
+    const queryRaw = jest.fn().mockRejectedValue(
+      new Error(
+        "P2010 Failed to deserialize column of type 'void' (regression guard)",
+      ),
+    );
+    const tx: RegisterTransaction = {
+      $queryRaw: queryRaw,
+      $executeRaw: executeRaw,
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+        updateMany: emailCodeUpdateMany,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue({ value: '500' }),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(117),
+        create: userCreate,
+      },
+    };
+    const prisma = {
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue({ value: '500' }),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(117),
+      },
+      $transaction: jest.fn(
+        async (
+          callback: (transaction: RegisterTransaction) => Promise<unknown>,
+        ) => callback(tx),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+      } as never,
+      {
+        sign: jest.fn().mockReturnValue('jwt-token'),
+      } as never,
+    );
+    mockedArgon2.hash.mockResolvedValue('hashed-password');
+
+    await expect(
+      authService.register({
+        email: 'user@example.com',
+        code: '123456',
+        password: 'Password123',
+        displayName: 'User',
+        acceptedTerms: true,
+      }),
+    ).resolves.toMatchObject({
+      token: 'jwt-token',
+      user: { id: 'user-1', email: 'user@example.com' },
+    });
+    expect(queryRaw).not.toHaveBeenCalled();
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(userCreate).toHaveBeenCalledTimes(1);
   });
 
   it('rejects password reset for suspended users before consuming the code or updating the password', async () => {
