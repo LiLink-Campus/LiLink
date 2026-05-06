@@ -724,6 +724,67 @@ describe('AccountService', () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it('rejects opt-in when an unsaved draft clears a required hard-match field', async () => {
+    const upsert = jest.fn();
+    const questionnaireService = buildQuestionnaireServiceWithSchema({
+      questions: [
+        {
+          key: 'value-1',
+          prompt: 'How important is honesty?',
+          type: 'SINGLE_SELECT',
+          required: true,
+          options: [{ value: 'low' }, { value: 'high' }],
+        },
+      ],
+      schools: [{ id: 'school-bupt' }],
+    });
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(
+          buildSubmittedQuestionnaireResponse({
+            answers: { ['value-1']: 'high' },
+            draftAnswers: {
+              softAnswers: { ['value-1']: 'high' },
+              hardMatchForm: buildSubmittedHardMatchDraftForm({
+                oneLinerIntro: '',
+              }),
+              displayName: 'User',
+            },
+          }),
+        ),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      questionnaireService as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toMatchObject({
+      message:
+        'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it('allows opt-in when a draft exists but still satisfies every required field', async () => {
     const upsert = jest.fn().mockResolvedValue({
       id: 'participation-1',
