@@ -120,6 +120,11 @@ export function HomeClient({
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
   const intent = cycle?.intent ?? null;
   const intentMeta = intent ? WEEKLY_INTENT_LABELS[intent] : null;
+  // The user could opt in this round but the questionnaire gate is blocking
+  // them. Mirrors the toggle's `disabled` clause so the inline notice and the
+  // disabled button stay in sync.
+  const participationBlockedByQuestionnaire =
+    Boolean(cycle) && canEdit && !isOptedIn && !questionnaireSubmitted;
 
   const greeting =
     initialUser.displayName?.trim() ||
@@ -324,7 +329,9 @@ export function HomeClient({
                         : "本轮已锁定"
                       : isOptedIn
                         ? "参与中"
-                        : "未参与"}
+                        : !questionnaireSubmitted
+                          ? "暂不可参与"
+                          : "未参与"}
                 </strong>
                 <span>匹配将于 {revealLabel} 开启</span>
               </div>
@@ -337,6 +344,11 @@ export function HomeClient({
                 }
                 aria-pressed={isOptedIn}
                 aria-label={isOptedIn ? "退出本轮" : "参加本轮"}
+                aria-describedby={
+                  participationBlockedByQuestionnaire
+                    ? "participation-blocked-hint"
+                    : undefined
+                }
                 disabled={
                   saving ||
                   !cycle ||
@@ -344,13 +356,37 @@ export function HomeClient({
                   (!isOptedIn && !questionnaireSubmitted)
                 }
                 title={
-                  !isOptedIn && !questionnaireSubmitted
-                    ? "请先在「资料」中完成问卷"
+                  participationBlockedByQuestionnaire
+                    ? "需要先完成「资料」中的问卷才能参加本轮匹配"
                     : undefined
                 }
                 onClick={handleToggleClick}
               />
             </div>
+            {participationBlockedByQuestionnaire ? (
+              <div
+                id="participation-blocked-hint"
+                className="weekly-intent-callout"
+                role="status"
+              >
+                <span
+                  className="weekly-intent-callout-icon"
+                  aria-hidden="true"
+                >
+                  !
+                </span>
+                <span>
+                  先完成「资料」中的问卷才能参加本轮匹配（当前进度{" "}
+                  {questionnairePercent}%）。
+                  <Link
+                    href="/dashboard/profile"
+                    className="participation-blocked-link"
+                  >
+                    去完善问卷 →
+                  </Link>
+                </span>
+              </div>
+            ) : null}
             {isOptedIn ? (
               <div className="participation-intent-row">
                 <span>
