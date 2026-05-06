@@ -2,7 +2,53 @@ import { BadRequestException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
+import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
+
+// Build a real QuestionnaireService whose validateAnswers / sanitizeStoredAnswers
+// are pure helpers, then stub getCurrentVersion to inject the schema we want.
+function buildQuestionnaireServiceWithSchema(payload: {
+  id?: string;
+  questions: Array<{
+    key: string;
+    prompt: string;
+    type: 'SINGLE_SELECT' | 'MULTI_SELECT' | 'SCALE';
+    required: boolean;
+    options?: Array<{ value: string; label?: string }>;
+    selectionLimit?: number | null;
+  }>;
+  schools: Array<{ id: string; name?: string }>;
+}) {
+  const service = new QuestionnaireService({} as never);
+  const questionnairePayload = {
+    id: payload.id ?? 'q-test',
+    questions: payload.questions.map((q, index) => ({
+      id: `${q.key}-id`,
+      versionId: payload.id ?? 'q-test',
+      key: q.key,
+      prompt: q.prompt,
+      description: null,
+      type: q.type,
+      weight: 1,
+      order: index,
+      required: q.required,
+      selectionLimit: q.selectionLimit ?? null,
+      options: (q.options ?? []).map((o) => ({
+        value: o.value,
+        label: o.label ?? o.value,
+      })),
+      reasonRules: { rules: [] },
+    })),
+    schools: payload.schools.map((s) => ({
+      id: s.id,
+      name: s.name ?? s.id,
+    })),
+  };
+  jest
+    .spyOn(service, 'getCurrentVersion')
+    .mockResolvedValue(questionnairePayload as never);
+  return service;
+}
 
 function buildRevealedCycle(id: string, codename: string, revealAt: string) {
   return {
@@ -308,6 +354,7 @@ function createDashboardPrismaMock({
 function buildSubmittedQuestionnaireResponse(
   overrides: Partial<{
     answers: Record<string, unknown>;
+    draftAnswers: Record<string, unknown> | null;
     submittedAt: Date;
   }> = {},
 ) {
@@ -326,7 +373,36 @@ function buildSubmittedQuestionnaireResponse(
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢徒步。',
       ...(overrides.answers ?? {}),
     },
+    draftAnswers:
+      overrides.draftAnswers === undefined ? null : overrides.draftAnswers,
     submittedAt: overrides.submittedAt ?? new Date('2026-04-01T00:00:00.000Z'),
+  };
+}
+
+function buildSubmittedHardMatchDraftForm(
+  overrides: Record<string, unknown> = {},
+) {
+  // Numeric fields are stored as strings in the draft so they round-trip
+  // through readAllowedNumberString / readRequiredIntegerInput unchanged.
+  return {
+    birthYear: '2000',
+    birthMonth: '05',
+    birthDay: '10',
+    partnerAgeMin: '18',
+    partnerAgeMax: '30',
+    gender: '男',
+    partnerGenders: ['女'],
+    nationality: '中国',
+    partnerNationalities: ['中国'],
+    languages: ['中文'],
+    partnerLanguages: ['中文'],
+    looks: '普通人',
+    partnerLooks: ['普通人'],
+    heightCm: '175',
+    partnerHeightMin: '150',
+    partnerHeightMax: '195',
+    oneLinerIntro: '喜欢徒步。',
+    ...overrides,
   };
 }
 
@@ -503,7 +579,7 @@ describe('AccountService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(findUniqueResponse).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
-      select: { answers: true, submittedAt: true },
+      select: { answers: true, draftAnswers: true, submittedAt: true },
     });
     expect(upsert).not.toHaveBeenCalled();
   });
@@ -584,6 +660,131 @@ describe('AccountService', () => {
       service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects opt-in when an unsaved draft has emptied a required soft question', async () => {
+    const upsert = jest.fn();
+    const questionnaireService = buildQuestionnaireServiceWithSchema({
+      questions: [
+        {
+          key: 'value-1',
+          prompt: 'How important is honesty?',
+          type: 'SINGLE_SELECT',
+          required: true,
+          options: [{ value: 'low' }, { value: 'high' }],
+        },
+      ],
+      schools: [{ id: 'school-bupt' }],
+    });
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(
+          buildSubmittedQuestionnaireResponse({
+            answers: { ['value-1']: 'high' },
+            // Draft cleared the required soft question after the original
+            // submission. The user-facing progress bar drops below 100% but
+            // submittedAt remains non-null.
+            draftAnswers: {
+              softAnswers: {},
+              hardMatchForm: buildSubmittedHardMatchDraftForm(),
+              displayName: 'User',
+            },
+          }),
+        ),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      questionnaireService as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toMatchObject({
+      message:
+        'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('allows opt-in when a draft exists but still satisfies every required field', async () => {
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'participation-1',
+      status: 'OPTED_IN',
+      intent: 'BOTH',
+    });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const questionnaireService = buildQuestionnaireServiceWithSchema({
+      questions: [
+        {
+          key: 'value-1',
+          prompt: 'How important is honesty?',
+          type: 'SINGLE_SELECT',
+          required: true,
+          options: [{ value: 'low' }, { value: 'high' }],
+        },
+      ],
+      schools: [{ id: 'school-bupt' }],
+    });
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(
+          buildSubmittedQuestionnaireResponse({
+            answers: { ['value-1']: 'high' },
+            draftAnswers: {
+              softAnswers: { ['value-1']: 'low' },
+              hardMatchForm: buildSubmittedHardMatchDraftForm(),
+              displayName: 'User',
+            },
+          }),
+        ),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      questionnaireService as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await service.setParticipation('user-1', { optIn: true, intent: 'BOTH' });
+
+    expect(upsert).toHaveBeenCalled();
   });
 
   it('persists the chosen intent and writes it into the audit log on opt-in', async () => {

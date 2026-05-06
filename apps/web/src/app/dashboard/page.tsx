@@ -5,13 +5,17 @@ import { HomeClient } from "./home-client";
 export default async function DashboardHubPage() {
   const { user, dashboard, questionnaire, savedQuestionnaire } =
     await loadDashboardHome();
-  const { percent: questionnairePercent, submitted: questionnaireSubmitted } =
-    computeQuestionnaireProgress({
-      questions: questionnaire.questions,
-      schools: questionnaire.schools,
-      savedQuestionnaire,
-      fallbackDisplayName: user.displayName,
-    });
+  const {
+    percent: questionnairePercent,
+    submitted: questionnaireSubmitted,
+    eligibleToOptIn: questionnaireEligibleToOptIn,
+    hasIncompleteDraft: questionnaireHasIncompleteDraft,
+  } = computeQuestionnaireProgress({
+    questions: questionnaire.questions,
+    schools: questionnaire.schools,
+    savedQuestionnaire,
+    fallbackDisplayName: user.displayName,
+  });
 
   return (
     <HomeClient
@@ -19,6 +23,8 @@ export default async function DashboardHubPage() {
       initialDashboard={dashboard}
       questionnairePercent={questionnairePercent}
       questionnaireSubmitted={questionnaireSubmitted}
+      questionnaireEligibleToOptIn={questionnaireEligibleToOptIn}
+      questionnaireHasIncompleteDraft={questionnaireHasIncompleteDraft}
     />
   );
 }

@@ -24,6 +24,8 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
     "请先完成「资料」中的问卷，再参加本轮匹配。",
   "Your questionnaire is missing required fields. Please update your profile before opting into matching.":
     "你的问卷有必填项缺失，请回到「资料」补全后再参加本轮匹配。",
+  "Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.":
+    "问卷有未保存的修改且必填项缺失，请回到「资料」补完或撤销修改后再参加本轮匹配。",
 };
 
 export class ApiRequestError extends Error {

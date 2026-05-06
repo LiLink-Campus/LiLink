@@ -102,7 +102,12 @@ export function computeQuestionnaireProgress(args: {
   schools: QuestionnairePayload["schools"];
   savedQuestionnaire: SavedQuestionnairePayload;
   fallbackDisplayName: string | null;
-}): { percent: number; submitted: boolean } {
+}): {
+  percent: number;
+  submitted: boolean;
+  eligibleToOptIn: boolean;
+  hasIncompleteDraft: boolean;
+} {
   const submitted = Boolean(args.savedQuestionnaire?.submittedAt);
 
   const nicknameRatio = nicknameCompletion(
@@ -128,5 +133,15 @@ export function computeQuestionnaireProgress(args: {
   const ratio = totalWeight === 0 ? 0 : weighted / totalWeight;
   const percent = Math.max(0, Math.min(100, Math.round(ratio * 100)));
 
-  return { percent, submitted };
+  // Mirrors AccountService.assertQuestionnaireReadyForOptIn: opting in
+  // requires a previous successful submission AND a current draft (if any)
+  // that still satisfies every required field. Comparing the raw ratios
+  // (rather than `percent === 100`) avoids misreporting eligibility because
+  // of rounding to integer percent.
+  const currentlyComplete =
+    nicknameRatio >= 1 && hardRatio >= 1 && softRatio >= 1;
+  const eligibleToOptIn = submitted && currentlyComplete;
+  const hasIncompleteDraft = submitted && !currentlyComplete;
+
+  return { percent, submitted, eligibleToOptIn, hasIncompleteDraft };
 }
