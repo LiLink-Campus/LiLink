@@ -35,9 +35,11 @@ import { buildDashboardFieldId } from "../_lib/format";
 import {
   getQuestionnaireIncompleteMessage,
   keepCurrentQuestionAnswers,
+  softQuestionAnswerIsComplete,
 } from "../_lib/questionnaire";
 import type {
   DashboardPayload,
+  QuestionnaireAttentionItem,
   Question,
   SavedQuestionnairePayload,
 } from "../_lib/types";
@@ -99,6 +101,11 @@ type QuestionnaireSaveResponse = {
   hasDraft: boolean;
 };
 
+type QuestionnaireAcknowledgementResponse = {
+  currentVersionId: string;
+  acknowledgedKeys: string[];
+};
+
 type QuestionnaireAutosaveState =
   | "idle"
   | "pending"
@@ -122,6 +129,33 @@ type MultiChoiceSummaryPickerProps = {
 const QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS = [1500, 3000, 5000, 10000];
 const QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS =
   QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS.length;
+const QUESTIONNAIRE_ATTENTION_VIEW_MS = 200;
+
+function questionnaireQuestionElementId(key: string) {
+  return `questionnaire-question-${key}`;
+}
+
+function initialProfileTab(
+  questions: Question[],
+  savedQuestionnaire: SavedQuestionnairePayload,
+): ProfileTab {
+  const pendingKeys = new Set(savedQuestionnaire?.attention?.pendingKeys ?? []);
+  return questions.some((question) => pendingKeys.has(question.key))
+    ? "values"
+    : "self";
+}
+
+function questionnaireAttentionText(item: QuestionnaireAttentionItem) {
+  if (item.updated && item.missingRequired) {
+    return "本题有更新，且当前答案待补完。";
+  }
+
+  if (item.updated) {
+    return "本题有更新。";
+  }
+
+  return "本题待补完。";
+}
 
 function buildQuestionnaireSavePayload(
   answers: Record<string, unknown>,
@@ -433,7 +467,13 @@ export function ProfileClient({
   const [hasQuestionnaireDraft, setHasQuestionnaireDraft] = useState(
     Boolean(initialDraft),
   );
-  const [activeTab, setActiveTab] = useState<ProfileTab>("self");
+  const [activeTab, setActiveTab] = useState<ProfileTab>(() =>
+    initialProfileTab(initialQuestions, initialSavedQuestionnaire),
+  );
+  const questionnaireAttention = initialSavedQuestionnaire?.attention ?? null;
+  const [acknowledgedQuestionnaireKeys, setAcknowledgedQuestionnaireKeys] =
+    useState<string[]>(() => questionnaireAttention?.acknowledgedKeys ?? []);
+  const questionBlockRefs = useRef(new Map<string, HTMLFieldSetElement>());
   const questionnaireAutosaveReady = useRef(false);
   const questionnaireSaveAbortRef = useRef<AbortController | null>(null);
   const questionnaireSaveInFlightRef = useRef(false);
@@ -519,6 +559,187 @@ export function ProfileClient({
     });
   }
 
+  const questionAttentionByKey = useMemo(() => {
+    const acknowledgedKeys = new Set(acknowledgedQuestionnaireKeys);
+    const attentionByKey = new Map<string, QuestionnaireAttentionItem>();
+
+    for (const item of questionnaireAttention?.items ?? []) {
+      attentionByKey.set(item.key, {
+        ...item,
+        acknowledged: !item.updated || acknowledgedKeys.has(item.key),
+      });
+    }
+
+    for (const question of questions) {
+      const missingRequired =
+        question.required !== false &&
+        !softQuestionAnswerIsComplete(question, answers[question.key]);
+
+      if (!missingRequired) {
+        continue;
+      }
+
+      const current = attentionByKey.get(question.key);
+      attentionByKey.set(question.key, {
+        key: question.key,
+        prompt: question.prompt,
+        updated: current?.updated ?? false,
+        missingRequired: true,
+        acknowledged: current?.updated
+          ? acknowledgedKeys.has(question.key)
+          : true,
+      });
+    }
+
+    return attentionByKey;
+  }, [
+    acknowledgedQuestionnaireKeys,
+    answers,
+    questionnaireAttention,
+    questions,
+  ]);
+
+  const pendingUpdatedAttentionKeys = useMemo(
+    () =>
+      [...questionAttentionByKey.values()]
+        .filter((item) => item.updated && !item.acknowledged)
+        .map((item) => item.key),
+    [questionAttentionByKey],
+  );
+
+  function setQuestionBlockRef(key: string, node: HTMLFieldSetElement | null) {
+    if (node) {
+      questionBlockRefs.current.set(key, node);
+      return;
+    }
+
+    questionBlockRefs.current.delete(key);
+  }
+
+  function questionBlockClassName(key: string) {
+    const item = questionAttentionByKey.get(key);
+    const needsAttention =
+      item != null &&
+      (item.missingRequired || (item.updated && !item.acknowledged));
+
+    return needsAttention
+      ? "question-block question-block-attention"
+      : "question-block";
+  }
+
+  const acknowledgeQuestionnaireKeys = useEffectEvent(
+    async (keys: string[]) => {
+      if (!questionnaireAttention || keys.length === 0) {
+        return;
+      }
+
+      try {
+        const result = await fetchApi<QuestionnaireAcknowledgementResponse>(
+          "/me/questionnaire/acknowledgement",
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              versionId: questionnaireAttention.currentVersionId,
+              keys,
+            }),
+          },
+        );
+
+        if (!questionnaireUnmountedRef.current) {
+          setAcknowledgedQuestionnaireKeys(result.acknowledgedKeys);
+        }
+      } catch {
+        // Keep the marker visible; the next viewport pass can retry.
+      }
+    },
+  );
+
+  useEffect(() => {
+    const hashPrefix = "#questionnaire-question-";
+    if (!window.location.hash.startsWith(hashPrefix)) {
+      return;
+    }
+
+    const key = decodeURIComponent(
+      window.location.hash.slice(hashPrefix.length),
+    );
+    if (!questions.some((question) => question.key === key)) {
+      return;
+    }
+
+    if (activeTab !== "values") {
+      setActiveTab("values");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      document
+        .getElementById(questionnaireQuestionElementId(key))
+        ?.scrollIntoView({ block: "center" });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeTab, questions]);
+
+  useEffect(() => {
+    if (
+      !questionnaireAttention ||
+      pendingUpdatedAttentionKeys.length === 0 ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return;
+    }
+
+    const timers = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const key = (entry.target as HTMLElement).dataset.questionKey;
+          if (!key) {
+            continue;
+          }
+
+          if (!entry.isIntersecting) {
+            const timer = timers.get(key);
+            if (timer != null) {
+              window.clearTimeout(timer);
+              timers.delete(key);
+            }
+            continue;
+          }
+
+          if (timers.has(key)) {
+            continue;
+          }
+
+          const timeoutId = window.setTimeout(() => {
+            timers.delete(key);
+            observer.unobserve(entry.target);
+            void acknowledgeQuestionnaireKeys([key]);
+          }, QUESTIONNAIRE_ATTENTION_VIEW_MS);
+          timers.set(key, timeoutId);
+        }
+      },
+      { threshold: 0.35 },
+    );
+
+    for (const key of pendingUpdatedAttentionKeys) {
+      const node = questionBlockRefs.current.get(key);
+      if (node) {
+        observer.observe(node);
+      }
+    }
+
+    return () => {
+      observer.disconnect();
+      for (const timer of timers.values()) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [pendingUpdatedAttentionKeys, questionnaireAttention]);
+
   const flushQueuedQuestionnaireSave = useEffectEvent(
     async (payload: QuestionnaireSavePayload, snapshot: string) => {
       let shouldScheduleRetry = false;
@@ -566,6 +787,11 @@ export function ProfileClient({
               }
             : current,
         );
+        if (result.saveState === "SUBMITTED") {
+          setAcknowledgedQuestionnaireKeys(
+            questions.map((question) => question.key),
+          );
+        }
         setQuestionnaireSaveState(
           result.saveState === "SUBMITTED" ? "submitted" : "draft-saved",
         );
@@ -1388,6 +1614,11 @@ export function ProfileClient({
             <div className="question-list">
               {questions.map((question, questionIndex) => {
                 const value = answers[question.key];
+                const attentionItem = questionAttentionByKey.get(question.key);
+                const showQuestionAttention =
+                  attentionItem != null &&
+                  (attentionItem.missingRequired ||
+                    (attentionItem.updated && !attentionItem.acknowledged));
                 const questionTitle = (
                   <div aria-hidden="true" className="question-block-title">
                     <span className="app-q-num">{questionIndex + 1}</span>
@@ -1401,11 +1632,22 @@ export function ProfileClient({
                   const reachedSelectionLimit =
                     selectionLimit != null && selected.length >= selectionLimit;
                   return (
-                    <fieldset key={question.id} className="question-block">
+                    <fieldset
+                      key={question.id}
+                      ref={(node) => setQuestionBlockRef(question.key, node)}
+                      id={questionnaireQuestionElementId(question.key)}
+                      className={questionBlockClassName(question.key)}
+                      data-question-key={question.key}
+                    >
                       <legend className="question-block-legend">
                         {question.prompt}
                       </legend>
                       {questionTitle}
+                      {showQuestionAttention && attentionItem ? (
+                        <p className="question-attention-note">
+                          {questionnaireAttentionText(attentionItem)}
+                        </p>
+                      ) : null}
                       {selectionLimit != null ? (
                         <p className="app-muted">
                           本题最多选择 {selectionLimit} 项。
@@ -1469,11 +1711,22 @@ export function ProfileClient({
                 }
 
                 return (
-                  <fieldset key={question.id} className="question-block">
+                  <fieldset
+                    key={question.id}
+                    ref={(node) => setQuestionBlockRef(question.key, node)}
+                    id={questionnaireQuestionElementId(question.key)}
+                    className={questionBlockClassName(question.key)}
+                    data-question-key={question.key}
+                  >
                     <legend className="question-block-legend">
                       {question.prompt}
                     </legend>
                     {questionTitle}
+                    {showQuestionAttention && attentionItem ? (
+                      <p className="question-attention-note">
+                        {questionnaireAttentionText(attentionItem)}
+                      </p>
+                    ) : null}
                     <div className="option-list">
                       {question.options?.map((option, optionIndex) => (
                         <label key={option.value}>
