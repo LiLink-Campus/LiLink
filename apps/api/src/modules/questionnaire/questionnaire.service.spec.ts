@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { QuestionType } from '@prisma/client';
+import { QuestionType } from '../../common/prisma/client';
 import {
   HARD_MATCH_GENDERS,
   HARD_MATCH_KEYS,

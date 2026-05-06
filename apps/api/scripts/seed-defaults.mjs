@@ -1,6 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import { loadMonorepoEnv } from './load-env.mjs';
+import { loadPrismaClientModule } from './prisma-client.mjs';
 
-const prisma = new PrismaClient();
+loadMonorepoEnv();
+
+const { createPrismaClient } = await loadPrismaClientModule();
+const prisma = createPrismaClient();
 
 const schools = [
   {

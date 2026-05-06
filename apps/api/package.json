@@ -6,15 +6,15 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "admin:create": "node scripts/create-admin.mjs",
+    "admin:create": "tsx scripts/create-admin.mjs",
     "prepare:prisma": "prisma generate",
     "build:shared": "npm run build:shared --prefix ../..",
     "build": "npm run prepare:prisma && nest build",
     "db:bootstrap": "node scripts/bootstrap-db.mjs",
-    "ensure-cycle-participants": "npm run build:shared && node scripts/ensure-open-cycle-participants.mjs",
+    "ensure-cycle-participants": "npm run build:shared && tsx scripts/ensure-open-cycle-participants.mjs",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "sticky-participations:backfill": "ts-node scripts/backfill-sticky-cycle-participations.ts",
-    "export:anonymous-users": "npm run build:shared && node scripts/export-anonymous-user-data.mjs",
+    "sticky-participations:backfill": "tsx scripts/backfill-sticky-cycle-participations.ts",
+    "export:anonymous-users": "npm run build:shared && tsx scripts/export-anonymous-user-data.mjs",
     "start": "npm run prepare:prisma && nest start",
     "start:dev": "npm run prepare:prisma && nest start --watch",
     "start:debug": "npm run prepare:prisma && nest start --debug --watch",
@@ -23,14 +23,14 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:seed": "npm run build:shared && ts-node prisma/seed.ts",
-    "prisma:seed-defaults": "node scripts/seed-defaults.mjs",
-    "prisma:seed:default": "npm run build:shared && cross-env SEED_SCOPE=default ts-node prisma/seed.ts",
+    "prisma:seed": "npm run build:shared && tsx prisma/seed.ts",
+    "prisma:seed-defaults": "tsx scripts/seed-defaults.mjs",
+    "prisma:seed:default": "npm run build:shared && cross-env SEED_SCOPE=default tsx prisma/seed.ts",
     "test": "npm run prepare:prisma && npm run build:shared && jest",
     "test:watch": "npm run prepare:prisma && npm run build:shared && jest --watch",
     "test:cov": "npm run prepare:prisma && npm run build:shared && jest --coverage",
     "test:debug": "npm run prepare:prisma && npm run build:shared && node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "npm run prepare:prisma && npm run build:shared && jest --config ./test/jest-e2e.json"
+    "test:e2e": "npm run prepare:prisma && npm run build:shared && cross-env NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@lilink/shared": "file:../../packages/shared",
@@ -42,7 +42,8 @@
     "@nestjs/schedule": "^6.1.1",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
-    "@prisma/client": "^6.19.3",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "argon2": "^0.44.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
@@ -52,6 +53,7 @@
     "helmet": "^8.1.0",
     "nodemailer": "^8.0.4",
     "pg": "^8.16.3",
+    "prisma": "^7.8.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "zod": "^4.3.6"
@@ -75,13 +77,13 @@
     "globals": "^16.0.0",
     "jest": "^30.0.0",
     "prettier": "^3.4.2",
-    "prisma": "^6.19.3",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },
@@ -95,9 +97,6 @@
     "fdir": {
       "picomatch": "4.0.4"
     }
-  },
-  "prisma": {
-    "seed": "npm run build:shared && ts-node prisma/seed.ts"
   },
   "jest": {
     "moduleFileExtensions": [

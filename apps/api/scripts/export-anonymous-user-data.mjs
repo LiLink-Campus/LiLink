@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
-import { PrismaClient } from "@prisma/client";
 import { loadMonorepoEnv } from "./load-env.mjs";
+import { loadPrismaClientModule } from "./prisma-client.mjs";
 
 const require = createRequire(import.meta.url);
 const { HARD_MATCH_KEYS } = require("@lilink/shared");
@@ -19,7 +19,7 @@ if (!process.env.DATABASE_URL) {
   loadMonorepoEnv();
 }
 
-const prisma = new PrismaClient();
+let prisma;
 
 const HARD_MATCH_KEY_SET = new Set(Object.values(HARD_MATCH_KEYS));
 
@@ -91,7 +91,7 @@ function printHelp() {
   console.log(`Export anonymous user rows (no credentials or direct identifiers).
 
 Usage:
-  node scripts/export-anonymous-user-data.mjs [options]
+  tsx scripts/export-anonymous-user-data.mjs [options]
 
   --out=<file>      Write JSON to this path (default: repo root or OS temp)
   --stdout          Print JSON to stdout (use with shell redirect to host path; recommended in Docker)
@@ -121,6 +121,9 @@ async function main() {
   if (toStdout && outArg) {
     throw new Error("Use either --stdout or --out=..., not both.");
   }
+
+  const { createPrismaClient } = await loadPrismaClientModule();
+  prisma = createPrismaClient();
 
   const users = await prisma.user.findMany({
     where: omitTestUsers ? { isTest: false } : undefined,
@@ -231,5 +234,5 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await prisma?.$disconnect();
   });

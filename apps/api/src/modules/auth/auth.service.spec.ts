@@ -1002,9 +1002,8 @@ describe('AuthService', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    // Lock must be taken via $executeRaw, not $queryRaw. pg_advisory_xact_lock
-    // returns SQL `void`, which Prisma 6 refuses to deserialize through
-    // $queryRaw (P2010 → 500 in production).
+    // Lock must be taken via $executeRaw, not $queryRaw. The statement is used
+    // for its side effect, so AuthService should not depend on a result shape.
     expect(queryRaw).not.toHaveBeenCalled();
     expect(executeRaw).toHaveBeenCalledTimes(1);
     const [lockSqlArg] = executeRaw.mock.calls[0] as [
@@ -1037,7 +1036,7 @@ describe('AuthService', () => {
       displayName: 'User',
       preferredLocale: 'zh-CN',
     });
-    // pg_advisory_xact_lock() returns void; Prisma 6 reports affected rows = 0.
+    // pg_advisory_xact_lock() returns void, so no affected-row count is useful.
     const executeRaw = jest.fn().mockResolvedValue(0);
     const queryRaw = jest
       .fn()
