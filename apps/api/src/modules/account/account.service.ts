@@ -1150,13 +1150,18 @@ export class AccountService {
   // hard-match answers parse cleanly. Mirrors the eligibility check in
   // CyclesService.toEligibleParticipants so nobody can sit in OPTED_IN with a
   // draft and silently fail at preparation time.
+  //
+  // Also rejects opt-in when the user has an unsaved draft that no longer
+  // satisfies the questionnaire requirements: the matching engine would
+  // silently use the older complete `answers` snapshot, which conflicts with
+  // what the user sees in /dashboard/profile (and on the home progress bar).
   private async assertQuestionnaireReadyForOptIn(
     userId: string,
     schoolId: string | null,
   ) {
     const response = await this.prisma.questionnaireResponse.findUnique({
       where: { userId },
-      select: { answers: true, submittedAt: true },
+      select: { answers: true, draftAnswers: true, submittedAt: true },
     });
 
     if (!response || response.submittedAt == null) {
@@ -1174,6 +1179,54 @@ export class AccountService {
       throw new BadRequestException(
         'Your questionnaire is missing required fields. Please update your profile before opting into matching.',
       );
+    }
+
+    if (response.draftAnswers != null) {
+      await this.assertDraftQuestionnaireIsComplete(
+        response.draftAnswers,
+        schoolId,
+      );
+    }
+  }
+
+  // Validates the in-progress draft using the same rules as a real submission.
+  // Throws a user-facing BadRequest when the draft is missing required answers
+  // so the home participation gate can surface it as "questionnaire has
+  // unsaved incomplete changes".
+  private async assertDraftQuestionnaireIsComplete(
+    rawDraftAnswers: Prisma.JsonValue,
+    schoolId: string | null,
+  ) {
+    const questionnaire = await this.questionnaireService.getCurrentVersion();
+    const allowedSchoolIds = questionnaire.schools.map((school) => school.id);
+    const draft = this.normalizeStoredQuestionnaireDraftPayload(
+      questionnaire.questions,
+      rawDraftAnswers,
+      allowedSchoolIds,
+    );
+
+    if (!draft) {
+      return;
+    }
+
+    try {
+      const draftHardMatchAnswers = buildHardMatchAnswerRecordFromFormInput(
+        draft.hardMatchForm,
+        schoolId ?? '',
+        allowedSchoolIds,
+      );
+      this.questionnaireService.validateAnswers(
+        questionnaire.questions,
+        { ...draft.softAnswers, ...draftHardMatchAnswers },
+        allowedSchoolIds,
+      );
+    } catch (error) {
+      if (error instanceof IncompleteQuestionnaireSubmissionException) {
+        throw new BadRequestException(
+          'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
+        );
+      }
+      throw error;
     }
   }
 }

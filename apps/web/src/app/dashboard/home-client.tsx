@@ -63,11 +63,15 @@ export function HomeClient({
   initialDashboard,
   questionnairePercent,
   questionnaireSubmitted,
+  questionnaireEligibleToOptIn,
+  questionnaireHasIncompleteDraft,
 }: {
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
   questionnairePercent: number;
   questionnaireSubmitted: boolean;
+  questionnaireEligibleToOptIn: boolean;
+  questionnaireHasIncompleteDraft: boolean;
 }) {
   const router = useRouter();
   const lastVisibleRefreshAtRef = useRef(Date.now());
@@ -121,10 +125,12 @@ export function HomeClient({
   const intent = cycle?.intent ?? null;
   const intentMeta = intent ? WEEKLY_INTENT_LABELS[intent] : null;
   // The user could opt in this round but the questionnaire gate is blocking
-  // them. Mirrors the toggle's `disabled` clause so the inline notice and the
-  // disabled button stay in sync.
+  // them - either because they never submitted, or they did submit but a
+  // later draft removed required answers (see assertQuestionnaireReadyForOptIn
+  // on the API side). Mirrors the toggle's `disabled` clause so the inline
+  // notice and the disabled button stay in sync.
   const participationBlockedByQuestionnaire =
-    Boolean(cycle) && canEdit && !isOptedIn && !questionnaireSubmitted;
+    Boolean(cycle) && canEdit && !isOptedIn && !questionnaireEligibleToOptIn;
 
   const greeting =
     initialUser.displayName?.trim() ||
@@ -241,8 +247,15 @@ export function HomeClient({
       void withdraw();
       return;
     }
-    if (!questionnaireSubmitted) {
-      setErrorOnly("请先完成「资料」中的问卷，再参加本轮匹配。");
+    // Defensive: the toggle is disabled in this state, but if the disabled
+    // attribute is bypassed we still surface a friendly inline error rather
+    // than firing a request the API would reject.
+    if (!questionnaireEligibleToOptIn) {
+      setErrorOnly(
+        questionnaireHasIncompleteDraft
+          ? "问卷有未保存的修改且必填项缺失，请回到「资料」补完后再参加本轮匹配。"
+          : "请先完成「资料」中的问卷，再参加本轮匹配。",
+      );
       return;
     }
     setSheetOpen(true);
@@ -329,7 +342,7 @@ export function HomeClient({
                         : "本轮已锁定"
                       : isOptedIn
                         ? "参与中"
-                        : !questionnaireSubmitted
+                        : !questionnaireEligibleToOptIn
                           ? "暂不可参与"
                           : "未参与"}
                 </strong>
@@ -353,11 +366,13 @@ export function HomeClient({
                   saving ||
                   !cycle ||
                   !canEdit ||
-                  (!isOptedIn && !questionnaireSubmitted)
+                  (!isOptedIn && !questionnaireEligibleToOptIn)
                 }
                 title={
                   participationBlockedByQuestionnaire
-                    ? "需要先完成「资料」中的问卷才能参加本轮匹配"
+                    ? questionnaireHasIncompleteDraft
+                      ? "问卷有未保存的修改且必填项缺失，请回到「资料」补完后再参加本轮匹配"
+                      : "需要先完成「资料」中的问卷才能参加本轮匹配"
                     : undefined
                 }
                 onClick={handleToggleClick}
@@ -376,13 +391,17 @@ export function HomeClient({
                   !
                 </span>
                 <span>
-                  先完成「资料」中的问卷才能参加本轮匹配（当前进度{" "}
-                  {questionnairePercent}%）。
+                  {questionnaireHasIncompleteDraft
+                    ? "问卷有未保存的修改且必填项缺失，请回到「资料」补完后再参加本轮匹配"
+                    : "先完成「资料」中的问卷才能参加本轮匹配"}
+                  （当前进度 {questionnairePercent}%）。
                   <Link
                     href="/dashboard/profile"
                     className="participation-blocked-link"
                   >
-                    去完善问卷 →
+                    {questionnaireHasIncompleteDraft
+                      ? "去补完问卷 →"
+                      : "去完善问卷 →"}
                   </Link>
                 </span>
               </div>
@@ -418,7 +437,11 @@ export function HomeClient({
             </div>
             <div className="q-progress-row">
               <span className="app-muted">
-                {questionnaireSubmitted ? "已完成" : "草稿进度"}
+                {questionnaireEligibleToOptIn
+                  ? "已完成"
+                  : questionnaireHasIncompleteDraft
+                    ? "草稿待补完"
+                    : "草稿进度"}
               </span>
               <strong>{questionnairePercent}%</strong>
             </div>
