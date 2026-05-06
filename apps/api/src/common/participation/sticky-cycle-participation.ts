@@ -3,7 +3,7 @@ import {
   ParticipationStatus,
   Prisma,
   WeeklyIntent,
-} from '@prisma/client';
+} from '../prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 const STICKY_PARTICIPATION_CYCLE_STATUSES: MatchCycleStatus[] = [

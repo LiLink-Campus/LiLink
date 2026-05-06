@@ -2,6 +2,7 @@
 
 import {
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -91,6 +92,7 @@ export function ValuePicker({
   const listRef = useRef<HTMLUListElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [activeOptionIndex, setActiveOptionIndex] = useState(0);
   const isDesktop = useSyncExternalStore(
     subscribeDesktopMatch,
     getDesktopMatchSnapshot,
@@ -101,6 +103,39 @@ export function ValuePicker({
     setOpen(false);
     triggerRef.current?.focus({ preventScroll: true });
   }, []);
+
+  const selectedOptionIndex = options.findIndex(
+    (option) => option.value === value,
+  );
+  const selectedOption =
+    selectedOptionIndex >= 0 ? options[selectedOptionIndex] : null;
+
+  const getInitialActiveOptionIndex = useCallback(() => {
+    if (selectedOptionIndex >= 0) return selectedOptionIndex;
+    return options.length > 0 ? 0 : -1;
+  }, [options.length, selectedOptionIndex]);
+
+  const focusOption = useCallback((optionIndex: number) => {
+    const list = listRef.current;
+    if (!list) return;
+    const option = list.querySelector<HTMLLIElement>(
+      `[data-option-index="${optionIndex}"]`,
+    );
+    option?.focus({ preventScroll: true });
+  }, []);
+
+  const togglePicker = useCallback(() => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+
+    const initialIndex = getInitialActiveOptionIndex();
+    if (initialIndex >= 0) {
+      setActiveOptionIndex(initialIndex);
+    }
+    setOpen(true);
+  }, [getInitialActiveOptionIndex, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -142,8 +177,16 @@ export function ValuePicker({
     };
   }, [open, isDesktop, closePicker]);
 
-  // Auto-scroll the selected item into view when opening, so long lists
-  // (e.g. height 145–200cm) start anchored at the user's last choice.
+  useEffect(() => {
+    if (!open) return;
+    if (activeOptionIndex < 0) return;
+    const frame = window.requestAnimationFrame(() =>
+      focusOption(activeOptionIndex),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, activeOptionIndex, focusOption]);
+
+  // Keep the keyboard-focused item in view while navigating long lists.
   useEffect(() => {
     if (!open) return;
     const list = listRef.current;
@@ -156,16 +199,70 @@ export function ValuePicker({
       list.scrollTop = Math.max(0, activeItem.offsetTop - SCROLL_OFFSET_PX);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [open]);
+  }, [open, activeOptionIndex]);
 
-  const selectedOption =
-    options.find((option) => option.value === value) ?? null;
   const triggerLabel = selectedOption
     ? suffix
       ? `${selectedOption.label} ${suffix}`
       : selectedOption.label
     : placeholder;
   const isPlaceholder = !selectedOption;
+
+  const selectOption = useCallback(
+    (option: ValuePickerOption) => {
+      onChange(option.value);
+      setOpen(false);
+      triggerRef.current?.focus({ preventScroll: true });
+    },
+    [onChange],
+  );
+
+  const moveActiveOption = useCallback(
+    (nextIndex: number) => {
+      if (options.length === 0) return;
+      const boundedIndex = Math.min(Math.max(nextIndex, 0), options.length - 1);
+      setActiveOptionIndex(boundedIndex);
+      focusOption(boundedIndex);
+    },
+    [focusOption, options.length],
+  );
+
+  function handleOptionListKeyDown(
+    event: ReactKeyboardEvent<HTMLUListElement>,
+  ) {
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        moveActiveOption(activeOptionIndex + 1);
+        return;
+      case "ArrowUp":
+        event.preventDefault();
+        moveActiveOption(activeOptionIndex - 1);
+        return;
+      case "Home":
+        event.preventDefault();
+        moveActiveOption(0);
+        return;
+      case "End":
+        event.preventDefault();
+        moveActiveOption(options.length - 1);
+        return;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        if (activeOptionIndex >= 0) {
+          const activeOption = options[activeOptionIndex];
+          if (activeOption) selectOption(activeOption);
+        }
+        return;
+      case "Escape":
+        event.preventDefault();
+        closePicker();
+        return;
+      default:
+        return;
+    }
+  }
 
   function renderOptionList(idPrefix: string) {
     return (
@@ -174,30 +271,33 @@ export function ValuePicker({
         role="listbox"
         aria-labelledby={`${idPrefix}-label`}
         className="picker-list"
+        onKeyDown={handleOptionListKeyDown}
       >
-        {options.map((option) => {
-          const active = option.value === value;
+        {options.map((option, optionIndex) => {
+          const selected = option.value === value;
+          const active = optionIndex === activeOptionIndex;
           const optionId = `${idPrefix}-opt-${option.value}`;
           return (
             <li
               key={option.value}
               id={optionId}
               role="option"
-              aria-selected={active}
+              aria-selected={selected}
+              tabIndex={active ? 0 : -1}
               data-active={active ? "true" : undefined}
-              className={active ? "picker-option is-active" : "picker-option"}
+              data-option-index={optionIndex}
+              className={
+                selected ? "picker-option is-active" : "picker-option"
+              }
               style={{ minHeight: `${PICKER_OPTION_PX}px` }}
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-                triggerRef.current?.focus({ preventScroll: true });
-              }}
+              onClick={() => selectOption(option)}
+              onFocus={() => setActiveOptionIndex(optionIndex)}
             >
               <span>{option.label}</span>
               {suffix ? (
                 <span className="picker-option-suffix">{suffix}</span>
               ) : null}
-              {active ? (
+              {selected ? (
                 <span className="picker-option-check" aria-hidden="true">
                   ✓
                 </span>
@@ -226,7 +326,7 @@ export function ValuePicker({
         aria-expanded={open}
         aria-label={ariaLabel}
         disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
+        onClick={togglePicker}
       >
         <span className="picker-trigger-text">{triggerLabel}</span>
         <span className="picker-trigger-caret" aria-hidden="true">

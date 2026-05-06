@@ -5,7 +5,7 @@ import {
   type QuestionType,
   type UserCycleDashboardSnapshot,
   type WeeklyIntent as PrismaWeeklyIntent,
-} from '@prisma/client';
+} from '../../common/prisma/client';
 import { isWeeklyIntent, normalizeLocale } from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';

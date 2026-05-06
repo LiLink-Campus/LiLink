@@ -6,7 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import blossom from 'edmonds-blossom-fixed';
-import { Prisma, QuestionType } from '@prisma/client';
+import { Prisma, QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';

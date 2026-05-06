@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '../../common/prisma/client';
 import {
   DEFAULT_LOCALE,
   normalizeLocale,
@@ -480,9 +480,8 @@ export class AuthService {
     const limit = await this.getRegistrationCapacityLimit(tx);
     if (limit <= 0) return;
 
-    // pg_advisory_xact_lock() returns SQL `void`. Prisma 6's $queryRaw refuses
-    // to deserialize void columns (P2010), so route the lock through
-    // $executeRaw which discards the result set.
+    // The advisory lock is executed only for its side effect, so discard the
+    // result set instead of binding this path to raw-query result shape.
     await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(${REGISTRATION_CAPACITY_LOCK_KEY})`,
     );
