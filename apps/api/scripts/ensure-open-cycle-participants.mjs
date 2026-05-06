@@ -6,16 +6,16 @@
  * cycle that existed at seed time; new cycles start with zero participations.
  *
  * Usage (from repo root, after npm run build:shared or via npm script):
- *   cd apps/api && tsx scripts/ensure-open-cycle-participants.mjs
- *   cd apps/api && tsx scripts/ensure-open-cycle-participants.mjs --codename=第三轮
+ *   cd apps/api && node scripts/ensure-open-cycle-participants.mjs
+ *   cd apps/api && node scripts/ensure-open-cycle-participants.mjs --codename=第三轮
  */
-import { parseHardMatchAnswers } from '@lilink/shared';
 import { loadMonorepoEnv } from './load-env.mjs';
 import { loadPrismaClientModule } from './prisma-client.mjs';
 
 loadMonorepoEnv();
 
 const { createPrismaClient } = await loadPrismaClientModule();
+const { parseHardMatchAnswers } = await import('@lilink/shared');
 const prisma = createPrismaClient();
 
 function readCodenameArg() {
