@@ -2479,6 +2479,19 @@
   font-size: 0.82rem;
 }
 
+.participation-blocked-link {
+  margin-left: 0.35rem;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.participation-blocked-link:hover {
+  color: var(--warning);
+}
+
 /* Questionnaire progress card */
 
 .q-progress-row {
