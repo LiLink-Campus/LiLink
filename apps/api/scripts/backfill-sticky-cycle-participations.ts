@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../src/common/prisma/client';
 import { config } from 'dotenv';
 import path from 'path';
 import { ensureStickyCycleParticipations } from '../src/common/participation/sticky-cycle-participation';
@@ -12,7 +12,7 @@ function loadMonorepoEnv() {
 
 loadMonorepoEnv();
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 function printHelp() {
   console.log(`Usage:

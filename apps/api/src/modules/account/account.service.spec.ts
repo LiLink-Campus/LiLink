@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '../../common/prisma/client';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
@@ -1203,7 +1203,7 @@ describe('AccountService', () => {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
-          draftAnswers: {},
+          draftAnswers: Prisma.DbNull,
           submittedAt: expect.any(Date) as unknown as Date,
         }) as object,
         update: expect.objectContaining({
@@ -1211,7 +1211,7 @@ describe('AccountService', () => {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
-          draftAnswers: {},
+          draftAnswers: Prisma.DbNull,
           submittedAt: expect.any(Date) as unknown as Date,
         }) as object,
       }),

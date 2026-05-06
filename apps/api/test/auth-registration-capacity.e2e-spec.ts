@@ -1,12 +1,15 @@
 // End-to-end coverage for registration capacity enforcement against a real
-// Postgres. Guards against the production "Internal server error" we saw when
-// Prisma 6 refused to deserialize the void column returned by
-// pg_advisory_xact_lock(). The fix is to call the lock through $executeRaw;
-// these tests pin both the underlying Prisma contract and AuthService's
-// behavior end-to-end so a future revert is caught immediately.
+// Postgres. The app must acquire pg_advisory_xact_lock() through $executeRaw so
+// the lock statement is executed for its side effect and never depends on
+// result-shape deserialization.
 
 import { JwtService } from '@nestjs/jwt';
-import { OutboundEmailStatus, Prisma, PrismaClient } from '@prisma/client';
+import {
+  createPrismaClient,
+  OutboundEmailStatus,
+  Prisma,
+  PrismaClient,
+} from '../src/common/prisma/client';
 import { createHmac, randomUUID } from 'crypto';
 import { SchoolResolverService } from '../src/common/schools/school-resolver.service';
 import { env } from '../src/config/env';
@@ -44,7 +47,7 @@ describe('Registration capacity advisory lock (e2e)', () => {
   let testSchoolId: string;
 
   beforeAll(async () => {
-    prisma = new PrismaClient();
+    prisma = createPrismaClient();
     await prisma.$connect();
     const school = await prisma.school.create({
       data: {
@@ -88,26 +91,6 @@ describe('Registration capacity advisory lock (e2e)', () => {
           return 'acquired';
         }),
       ).resolves.toBe('acquired');
-    });
-
-    it('rejects with the void deserialize error when invoked through $queryRaw', async () => {
-      // This pins the underlying Prisma 6 limitation that took down production
-      // registration. If a future Prisma release ever fixes void deserialization
-      // for $queryRaw, this test will start failing - that is the signal that
-      // the workaround can be reconsidered. Until then, the advisory lock MUST
-      // be issued through $executeRaw.
-      await expect(
-        prisma.$transaction(async (tx) => {
-          await tx.$queryRaw(
-            Prisma.sql`SELECT pg_advisory_xact_lock(${REGISTRATION_CAPACITY_LOCK_KEY})`,
-          );
-        }),
-      ).rejects.toMatchObject({
-        code: 'P2010',
-        meta: expect.objectContaining({
-          message: expect.stringMatching(/void/i) as unknown,
-        }) as unknown,
-      });
     });
   });
 

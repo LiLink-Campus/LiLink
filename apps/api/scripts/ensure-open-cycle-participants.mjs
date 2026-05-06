@@ -9,13 +9,14 @@
  *   cd apps/api && node scripts/ensure-open-cycle-participants.mjs
  *   cd apps/api && node scripts/ensure-open-cycle-participants.mjs --codename=第三轮
  */
-import { PrismaClient } from '@prisma/client';
-import { parseHardMatchAnswers } from '@lilink/shared';
 import { loadMonorepoEnv } from './load-env.mjs';
+import { loadPrismaClientModule } from './prisma-client.mjs';
 
 loadMonorepoEnv();
 
-const prisma = new PrismaClient();
+const { createPrismaClient } = await loadPrismaClientModule();
+const { parseHardMatchAnswers } = await import('@lilink/shared');
+const prisma = createPrismaClient();
 
 function readCodenameArg() {
   const prefixed = process.argv.find((a) => a.startsWith('--codename='));
