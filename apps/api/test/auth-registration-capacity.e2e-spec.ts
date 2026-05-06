@@ -213,6 +213,19 @@ describe('Registration capacity advisory lock (e2e)', () => {
     });
 
     it('rejects registration when the capacity limit is already reached', async () => {
+      // Pad the user table with at least one synthetic registration so the
+      // capacity check is exercised. Without padding the CI database would
+      // start empty (count = 0), and `max_registrations = '0'` is treated by
+      // parseRegistrationCapacityLimit as "unlimited" -> the registration
+      // would silently succeed and this test would not catch a regression.
+      await prisma.user.create({
+        data: {
+          email: `pad-${randomUUID().slice(0, 8)}@${TEST_EMAIL_DOMAIN}`,
+          passwordHash: 'placeholder-not-a-real-hash',
+          status: 'ACTIVE',
+          schoolId: testSchoolId,
+        },
+      });
       const currentUserCount = await prisma.user.count();
       await prisma.systemSetting.upsert({
         where: { key: MAX_REGISTRATIONS_KEY },

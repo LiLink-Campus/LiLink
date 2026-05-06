@@ -1039,11 +1039,13 @@ describe('AuthService', () => {
     });
     // pg_advisory_xact_lock() returns void; Prisma 6 reports affected rows = 0.
     const executeRaw = jest.fn().mockResolvedValue(0);
-    const queryRaw = jest.fn().mockRejectedValue(
-      new Error(
-        "P2010 Failed to deserialize column of type 'void' (regression guard)",
-      ),
-    );
+    const queryRaw = jest
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          "P2010 Failed to deserialize column of type 'void' (regression guard)",
+        ),
+      );
     const tx: RegisterTransaction = {
       $queryRaw: queryRaw,
       $executeRaw: executeRaw,
