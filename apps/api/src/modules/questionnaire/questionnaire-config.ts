@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { QuestionType } from '@prisma/client';
+import { QuestionType } from '../../common/prisma/client';
 
 export const QUESTION_REASON_RULE_TYPES = [
   'EXACT_MATCH',

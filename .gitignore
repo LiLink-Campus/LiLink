@@ -52,6 +52,7 @@ backups
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+apps/api/src/generated/prisma/
 
 # Misc
 .vercel/

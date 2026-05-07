@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { Prisma, QuestionType } from '@prisma/client';
+import { Prisma, QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotModule } from '../../common/dashboard/dashboard-snapshot.module';
 import { CyclesService } from './cycles.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';

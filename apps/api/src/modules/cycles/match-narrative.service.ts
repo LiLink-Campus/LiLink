@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { type QuestionType } from '@prisma/client';
+import { type QuestionType } from '../../common/prisma/client';
 import { type WeeklyIntent } from '@lilink/shared';
 import { z } from 'zod';
 import { env } from '../../config/env';
