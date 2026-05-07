@@ -22,8 +22,10 @@ import {
   tryReadHardMatchAnswers,
 } from '../questionnaire/hard-match';
 import { IncompleteQuestionnaireSubmissionException } from '../questionnaire/incomplete-questionnaire-submission.exception';
+import { normalizeQuestionOptions } from '../questionnaire/questionnaire-config';
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import {
+  AcknowledgeQuestionnaireItemsDto,
   DashboardHistoryItemResponseDto,
   DashboardHistoryLimitedReason,
   DashboardHistoryResult,
@@ -74,8 +76,70 @@ type QuestionnaireDraftQuestion = {
   options: Prisma.JsonValue | null;
 };
 
+type QuestionnaireAttentionQuestion = Omit<
+  QuestionnaireDraftQuestion,
+  'options'
+> & {
+  description?: string | null;
+  options: unknown;
+};
+
+type QuestionnaireAttentionItem = {
+  key: string;
+  prompt: string;
+  updated: boolean;
+  missingRequired: boolean;
+  acknowledged: boolean;
+};
+
+type QuestionnaireAcknowledgementRow = {
+  acknowledgedQuestionnaireKeys: Prisma.JsonValue | null;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeAcknowledgedQuestionnaireKeys(rawKeys: unknown) {
+  if (!Array.isArray(rawKeys)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      rawKeys
+        .filter((key): key is string => typeof key === 'string')
+        .map((key) => key.trim())
+        .filter((key) => key.length > 0),
+    ),
+  ];
+}
+
+function normalizeQuestionOptionsForComparison(
+  question: Pick<QuestionnaireAttentionQuestion, 'options'>,
+) {
+  return normalizeQuestionOptions(question.options);
+}
+
+function hasQuestionnaireQuestionUpdate(
+  previousQuestion: QuestionnaireAttentionQuestion | undefined,
+  currentQuestion: QuestionnaireAttentionQuestion,
+) {
+  if (!previousQuestion) {
+    return true;
+  }
+
+  return (
+    previousQuestion.prompt !== currentQuestion.prompt ||
+    (previousQuestion.description ?? null) !==
+      (currentQuestion.description ?? null) ||
+    previousQuestion.type !== currentQuestion.type ||
+    previousQuestion.required !== currentQuestion.required ||
+    (previousQuestion.selectionLimit ?? null) !==
+      (currentQuestion.selectionLimit ?? null) ||
+    JSON.stringify(normalizeQuestionOptionsForComparison(previousQuestion)) !==
+      JSON.stringify(normalizeQuestionOptionsForComparison(currentQuestion))
+  );
 }
 
 @Injectable()
@@ -540,6 +604,75 @@ export class AccountService {
     };
   }
 
+  private buildQuestionnaireAttention(args: {
+    currentVersionId: string;
+    currentQuestions: QuestionnaireAttentionQuestion[];
+    previousQuestions: QuestionnaireAttentionQuestion[];
+    responseVersionId: string | null | undefined;
+    filteredAnswers: Record<string, unknown>;
+    acknowledgedVersionId: string | null | undefined;
+    acknowledgedKeys: unknown;
+  }) {
+    const acknowledgedKeys =
+      args.acknowledgedVersionId === args.currentVersionId
+        ? normalizeAcknowledgedQuestionnaireKeys(args.acknowledgedKeys)
+        : [];
+    const acknowledgedKeySet = new Set(acknowledgedKeys);
+    const previousQuestionsByKey = new Map(
+      args.previousQuestions.map((question) => [question.key, question]),
+    );
+    const hasVersionUpdate =
+      args.responseVersionId != null &&
+      args.responseVersionId !== args.currentVersionId;
+    const itemsByKey = new Map<string, QuestionnaireAttentionItem>();
+
+    for (const question of args.currentQuestions) {
+      const updated =
+        hasVersionUpdate &&
+        hasQuestionnaireQuestionUpdate(
+          previousQuestionsByKey.get(question.key),
+          question,
+        );
+      const missingRequired =
+        question.required &&
+        !Object.prototype.hasOwnProperty.call(
+          args.filteredAnswers,
+          question.key,
+        );
+
+      if (!updated && !missingRequired) {
+        continue;
+      }
+
+      itemsByKey.set(question.key, {
+        key: question.key,
+        prompt: question.prompt,
+        updated,
+        missingRequired,
+        acknowledged: !updated || acknowledgedKeySet.has(question.key),
+      });
+    }
+
+    const items = [...itemsByKey.values()];
+    const pendingUpdatedKeys = items
+      .filter((item) => item.updated && !item.acknowledged)
+      .map((item) => item.key);
+    const missingRequiredKeys = items
+      .filter((item) => item.missingRequired)
+      .map((item) => item.key);
+
+    return {
+      currentVersionId: args.currentVersionId,
+      acknowledgedKeys,
+      pendingUpdatedKeys,
+      missingRequiredKeys,
+      pendingKeys: [
+        ...new Set([...pendingUpdatedKeys, ...missingRequiredKeys]),
+      ],
+      items,
+    };
+  }
+
   async updateProfile(userId: string, input: UpdateProfileDto) {
     const { displayName, ...profileFields } = input;
 
@@ -636,6 +769,9 @@ export class AccountService {
         },
         allowedSchoolIds,
       );
+      const acknowledgedQuestionnaireKeys = questionnaire.questions.map(
+        (question) => question.key,
+      );
       const submittedAt = new Date();
 
       const submittedOperations: Prisma.PrismaPromise<unknown>[] = [];
@@ -657,12 +793,18 @@ export class AccountService {
             versionId: questionnaire.id,
             answers: normalizedAnswers as Prisma.InputJsonValue,
             draftAnswers: Prisma.DbNull,
+            acknowledgedQuestionnaireVersionId: questionnaire.id,
+            acknowledgedQuestionnaireKeys:
+              acknowledgedQuestionnaireKeys as Prisma.InputJsonValue,
             submittedAt,
           },
           update: {
             versionId: questionnaire.id,
             answers: normalizedAnswers as Prisma.InputJsonValue,
             draftAnswers: Prisma.DbNull,
+            acknowledgedQuestionnaireVersionId: questionnaire.id,
+            acknowledgedQuestionnaireKeys:
+              acknowledgedQuestionnaireKeys as Prisma.InputJsonValue,
             submittedAt,
           },
         }),
@@ -723,6 +865,15 @@ export class AccountService {
     const [response, currentQuestionnaire, user] = await Promise.all([
       this.prisma.questionnaireResponse.findUnique({
         where: { userId },
+        include: {
+          version: {
+            include: {
+              questions: {
+                orderBy: { order: 'asc' },
+              },
+            },
+          },
+        },
       }),
       this.questionnaireService.getCurrentVersion().catch(() => null),
       this.prisma.user.findUnique({
@@ -737,9 +888,12 @@ export class AccountService {
 
     if (!currentQuestionnaire) {
       return {
+        versionId: response.versionId,
+        currentVersionId: null,
         answers: isRecord(response.answers) ? response.answers : {},
         submittedAt: this.toIsoString(response.submittedAt),
         draft: null,
+        attention: null,
       };
     }
 
@@ -778,12 +932,115 @@ export class AccountService {
     }
 
     return {
+      versionId: response.versionId,
+      currentVersionId: currentQuestionnaire.id,
       answers: filteredAnswers,
       submittedAt: this.toIsoString(response.submittedAt),
       draft: this.normalizeStoredQuestionnaireDraftPayload(
         currentQuestionnaire.questions,
         response.draftAnswers,
         allowedSchoolIds,
+      ),
+      attention: this.buildQuestionnaireAttention({
+        currentVersionId: currentQuestionnaire.id,
+        currentQuestions: currentQuestionnaire.questions,
+        previousQuestions: response.version?.questions ?? [],
+        responseVersionId: response.versionId,
+        filteredAnswers,
+        acknowledgedVersionId: response.acknowledgedQuestionnaireVersionId,
+        acknowledgedKeys: response.acknowledgedQuestionnaireKeys,
+      }),
+    };
+  }
+
+  async acknowledgeQuestionnaireItems(
+    userId: string,
+    input: AcknowledgeQuestionnaireItemsDto,
+  ) {
+    const currentQuestionnaire =
+      await this.questionnaireService.getCurrentVersion();
+
+    if (input.versionId !== currentQuestionnaire.id) {
+      throw new BadRequestException('Questionnaire version is outdated.');
+    }
+
+    const currentQuestionKeys = new Set(
+      currentQuestionnaire.questions.map((question) => question.key),
+    );
+    const requestedKeys = [
+      ...new Set(
+        input.keys.map((key) => key.trim()).filter((key) => key.length > 0),
+      ),
+    ];
+
+    for (const key of requestedKeys) {
+      if (!currentQuestionKeys.has(key)) {
+        throw new BadRequestException(
+          `Unexpected questionnaire acknowledgement key: ${key}.`,
+        );
+      }
+    }
+
+    if (requestedKeys.length === 0) {
+      const response = await this.prisma.questionnaireResponse.findUnique({
+        where: { userId },
+        select: {
+          acknowledgedQuestionnaireVersionId: true,
+          acknowledgedQuestionnaireKeys: true,
+        },
+      });
+
+      return {
+        currentVersionId: currentQuestionnaire.id,
+        acknowledgedKeys:
+          response?.acknowledgedQuestionnaireVersionId ===
+          currentQuestionnaire.id
+            ? normalizeAcknowledgedQuestionnaireKeys(
+                response.acknowledgedQuestionnaireKeys,
+              )
+            : [],
+      };
+    }
+
+    const updatedRows = await this.prisma.$queryRaw<
+      QuestionnaireAcknowledgementRow[]
+    >`
+      UPDATE "QuestionnaireResponse" AS response
+      SET
+        "acknowledgedQuestionnaireVersionId" = ${currentQuestionnaire.id},
+        "acknowledgedQuestionnaireKeys" = (
+          SELECT COALESCE(
+            jsonb_agg(DISTINCT acknowledged_key ORDER BY acknowledged_key),
+            '[]'::jsonb
+          )
+          FROM (
+            SELECT jsonb_array_elements_text(
+              CASE
+                WHEN response."acknowledgedQuestionnaireVersionId" = ${currentQuestionnaire.id}
+                  AND jsonb_typeof(response."acknowledgedQuestionnaireKeys") = 'array'
+                THEN response."acknowledgedQuestionnaireKeys"
+                ELSE '[]'::jsonb
+              END
+            ) AS acknowledged_key
+            UNION
+            SELECT unnest(ARRAY[${Prisma.join(requestedKeys)}]::text[]) AS acknowledged_key
+          ) AS acknowledged_keys
+        )
+      WHERE response."userId" = ${userId}
+      RETURNING response."acknowledgedQuestionnaireKeys"
+    `;
+
+    if (updatedRows.length === 0) {
+      return {
+        currentVersionId: currentQuestionnaire.id,
+        acknowledgedKeys: [],
+      };
+    }
+
+    return {
+      currentVersionId: currentQuestionnaire.id,
+      acknowledgedKeys: normalizeAcknowledgedQuestionnaireKeys(
+        updatedRows[0].acknowledgedQuestionnaireKeys,
       ),
     };
   }
