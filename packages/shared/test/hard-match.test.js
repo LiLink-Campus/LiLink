@@ -370,6 +370,55 @@ test("areHardMatchAnswersCompatible accepts legacy objects without new optional 
   );
 });
 
+test("areHardMatchAnswersCompatible treats age range as a soft preference", () => {
+  const baseLeft = {
+    [HARD_MATCH_KEYS.birthDate]: "2003-06-15",
+    [HARD_MATCH_KEYS.partnerAgeMin]: 20,
+    [HARD_MATCH_KEYS.partnerAgeMax]: 30,
+    [HARD_MATCH_KEYS.gender]: "男",
+    [HARD_MATCH_KEYS.partnerGenders]: ["女"],
+    [HARD_MATCH_KEYS.looks]: "普通人",
+    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美"],
+    [HARD_MATCH_KEYS.heightCm]: 178,
+    [HARD_MATCH_KEYS.partnerHeightMin]: 150,
+    [HARD_MATCH_KEYS.partnerHeightMax]: 195,
+    [HARD_MATCH_KEYS.oneLinerIntro]: "你好",
+    [HARD_MATCH_KEYS.school]: "school-bupt",
+    [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+  };
+  const left = parseHardMatchAnswers(baseLeft);
+
+  // Right is the partner the user accidentally excluded with a relative
+  // window like "对方比我小 4-5 岁": partnerAgeMin/Max=4..5. Pre-soft this
+  // would have been rejected; now it must remain a candidate.
+  const rightWithMisreadAgeWindow = parseHardMatchAnswers({
+    [HARD_MATCH_KEYS.birthDate]: "2004-03-20",
+    [HARD_MATCH_KEYS.partnerAgeMin]: 4,
+    [HARD_MATCH_KEYS.partnerAgeMax]: 5,
+    [HARD_MATCH_KEYS.gender]: "女",
+    [HARD_MATCH_KEYS.partnerGenders]: ["男"],
+    [HARD_MATCH_KEYS.looks]: "小帅/美",
+    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美", "顶帅/美"],
+    [HARD_MATCH_KEYS.heightCm]: 165,
+    [HARD_MATCH_KEYS.partnerHeightMin]: 170,
+    [HARD_MATCH_KEYS.partnerHeightMax]: 185,
+    [HARD_MATCH_KEYS.oneLinerIntro]: "你好",
+    [HARD_MATCH_KEYS.school]: "school-cuc",
+    [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+  });
+
+  assert.ok(left);
+  assert.ok(rightWithMisreadAgeWindow);
+  assert.equal(
+    areHardMatchAnswersCompatible(
+      left,
+      rightWithMisreadAgeWindow,
+      new Date("2026-04-11T00:00:00.000Z"),
+    ),
+    true,
+  );
+});
+
 test("readQuestionnaireOneLiner collapses whitespace", () => {
   assert.equal(
     readQuestionnaireOneLiner({

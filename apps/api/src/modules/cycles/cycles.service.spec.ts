@@ -1,12 +1,16 @@
 import { BadRequestException } from '@nestjs/common';
-import { Prisma, QuestionType } from '@prisma/client';
+import { MODULE_METADATA } from '@nestjs/common/constants';
+import { Prisma, QuestionType } from '../../common/prisma/client';
+import { DashboardSnapshotModule } from '../../common/dashboard/dashboard-snapshot.module';
 import { CyclesService } from './cycles.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 import { env } from '../../config/env';
+import { CyclesModule } from './cycles.module';
 
 type EligibleParticipantStub = {
   id: string;
   displayName: string | null;
+  questionnaireVersionId?: string | null;
   hardMatchAnswers: {
     birthDate: string;
     partnerAgeMin: number;
@@ -47,12 +51,9 @@ type CyclesServiceTestHarness = {
       prompt: string;
       type: QuestionType;
       weight: number;
+      selectionLimit?: number | null;
       options: Array<{ value: string; label: string }>;
-      reasonRules: Array<{
-        type: 'EXACT_MATCH';
-        template: string;
-        priority: number;
-      }>;
+      reasonRules: unknown[];
     }>,
     revealAt: Date,
   ) => {
@@ -69,6 +70,7 @@ type CyclesServiceTestHarness = {
     questions: unknown[],
     revealAt: Date,
     currentCycleId?: string,
+    questionnairesByVersionId?: Map<string, unknown[]>,
   ) => Promise<{
     candidates: CandidatePairStub[];
     selectedPairs: CandidatePairStub[];
@@ -127,6 +129,48 @@ function createBroadParticipant(
   };
 }
 
+function createPairCalculationPrisma(input?: {
+  blocks?: unknown[];
+  historicalMatches?: unknown[];
+  historicalParticipations?: unknown[];
+  matchedParticipations?: unknown[];
+}) {
+  return {
+    block: {
+      findMany: jest.fn().mockResolvedValue(input?.blocks ?? []),
+    },
+    match: {
+      findMany: jest.fn().mockResolvedValue(input?.historicalMatches ?? []),
+    },
+    cycleParticipation: {
+      findMany: jest
+        .fn()
+        .mockResolvedValue(input?.historicalParticipations ?? []),
+    },
+    matchParticipant: {
+      findMany: jest.fn().mockResolvedValue(input?.matchedParticipations ?? []),
+    },
+  };
+}
+
+function createHistoricalParticipation(
+  userId: string,
+  cycleId: string,
+  revealAt: string,
+) {
+  const revealedAt = new Date(revealAt);
+
+  return {
+    userId,
+    cycleId,
+    updatedAt: revealedAt,
+    cycle: {
+      revealAt: revealedAt,
+      createdAt: revealedAt,
+    },
+  };
+}
+
 const RELATIONSHIP_QUESTION = {
   key: 'relationship_intent',
   prompt: 'Intent',
@@ -167,13 +211,169 @@ const VALUE_QUESTION = {
   ],
 };
 
+const SCALE_QUESTION = {
+  key: 'openness',
+  prompt: 'Openness',
+  type: QuestionType.SCALE,
+  weight: 2,
+  options: [
+    { value: 'very_unlike', label: '非常不像我' },
+    { value: 'unlike', label: '比较不像我' },
+    { value: 'depends', label: '看情况' },
+    { value: 'like', label: '比较像我' },
+    { value: 'very_like', label: '非常像我' },
+  ],
+  reasonRules: [
+    {
+      type: 'EXACT_MATCH' as const,
+      template: '你们在开放度上都选择了 {{answer_label}}。',
+      priority: 2,
+    },
+  ],
+};
+
 const originalNarrativeGenerationEnabled =
   env.MATCH_NARRATIVE_GENERATION_ENABLED;
+
+function createDashboardSnapshotServiceMock() {
+  return {
+    syncCycleSnapshots: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createCyclesService(
+  prisma: unknown,
+  matchNarrativeService?: unknown,
+  dashboardSnapshotService = createDashboardSnapshotServiceMock(),
+) {
+  return new CyclesService(
+    prisma as never,
+    dashboardSnapshotService as never,
+    matchNarrativeService as never,
+  );
+}
 
 describe('CyclesService', () => {
   afterEach(() => {
     env.MATCH_NARRATIVE_GENERATION_ENABLED = originalNarrativeGenerationEnabled;
     clearStickyParticipationCache();
+  });
+
+  it('declares dashboard snapshot sync as a module dependency', () => {
+    const imports: unknown = Reflect.getMetadata(
+      MODULE_METADATA.IMPORTS,
+      CyclesModule,
+    );
+
+    expect(Array.isArray(imports)).toBe(true);
+    expect(imports).toContain(DashboardSnapshotModule);
+  });
+
+  it('syncs dashboard snapshots when preparation waits for pending narratives', async () => {
+    env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
+
+    const tx = {
+      cycleParticipation: {
+        findMany: jest.fn().mockResolvedValue([]),
+        createMany: jest.fn(),
+      },
+      match: {
+        create: jest.fn().mockResolvedValue({ id: 'match-1' }),
+      },
+      matchCycle: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() - 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
+          participations: [],
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      cycleParticipation: {
+        findMany: jest.fn().mockResolvedValue([]),
+        createMany: jest.fn(),
+      },
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(1),
+      },
+      matchParticipant: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      block: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      $transaction: jest.fn(
+        async (callback: (transaction: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
+    };
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
+    const service = createCyclesService(
+      prisma,
+      {
+        generateNarrative: jest.fn(),
+        buildDefaultNarrative: jest.fn(),
+      },
+      dashboardSnapshotService,
+    );
+    const testHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'toEligibleParticipants' | 'calculatePairs' | 'generateNarrativesForPairs'
+    >;
+
+    jest
+      .spyOn(testHarness, 'toEligibleParticipants')
+      .mockReturnValue([
+        createBroadParticipant('user-1', {}),
+        createBroadParticipant('user-2', {}),
+      ]);
+    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
+      candidates: [],
+      selectedPairs: [
+        {
+          left: { id: 'user-1' },
+          right: { id: 'user-2' },
+          score: 88,
+          reasons: ['reason'],
+        },
+      ],
+    });
+    jest
+      .spyOn(testHarness, 'generateNarrativesForPairs')
+      .mockResolvedValue([null]);
+
+    const result = await service.runRevealCycle({ cycleId: 'cycle-1' });
+
+    expect(result).toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'PENDING',
+      createdMatches: 1,
+    });
+
+    expect(dashboardSnapshotService.syncCycleSnapshots).toHaveBeenCalledWith(
+      'cycle-1',
+      tx,
+    );
   });
 
   it('rejects preparing a cycle before participation deadline by default', async () => {
@@ -206,7 +406,7 @@ describe('CyclesService', () => {
         Promise.resolve(fn({ cycleParticipation })),
       ),
     };
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
 
     await expect(
       service.runRevealCycle({ cycleId: 'cycle-1' }),
@@ -221,6 +421,19 @@ describe('CyclesService', () => {
     const revealClaim = jest.fn().mockResolvedValue({ count: 1 });
     const revealMatchUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const revealTx = {
+      cycleParticipation,
+      match: {
+        updateMany: revealMatchUpdateMany,
+      },
+      matchCycle: {
+        update: jest.fn().mockResolvedValue({ id: 'cycle-1' }),
+        updateMany: revealClaim,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
     const prisma = {
       matchCycle: {
         findUnique: jest
@@ -259,24 +472,15 @@ describe('CyclesService', () => {
         }),
       },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
-        Promise.resolve(
-          fn({
-            cycleParticipation,
-            match: {
-              updateMany: revealMatchUpdateMany,
-            },
-            matchCycle: {
-              update: jest.fn().mockResolvedValue({ id: 'cycle-1' }),
-              updateMany: revealClaim,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
-        ),
+        Promise.resolve(fn(revealTx)),
       ),
     };
-    const service = new CyclesService(prisma as never);
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
+    const service = createCyclesService(
+      prisma,
+      undefined,
+      dashboardSnapshotService,
+    );
 
     await expect(
       service.runRevealCycle({ cycleId: 'cycle-1', force: true }),
@@ -286,6 +490,57 @@ describe('CyclesService', () => {
       state: 'REVEALED',
       createdMatches: 0,
     });
+    expect(dashboardSnapshotService.syncCycleSnapshots).toHaveBeenCalledWith(
+      'cycle-1',
+      revealTx,
+    );
+  });
+
+  it('does not sync dashboard snapshots when reveal claim is lost', async () => {
+    const revealClaim = jest.fn().mockResolvedValue({ count: 0 });
+    const revealMatchUpdateMany = jest.fn();
+    const auditLogCreate = jest.fn();
+    const revealTx = {
+      match: {
+        updateMany: revealMatchUpdateMany,
+      },
+      matchCycle: {
+        updateMany: revealClaim,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'REVEAL_READY',
+          revealAt: new Date(Date.now() - 60_000),
+        }),
+      },
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
+        Promise.resolve(fn(revealTx)),
+      ),
+    };
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
+    const service = createCyclesService(
+      prisma,
+      undefined,
+      dashboardSnapshotService,
+    );
+
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'SKIPPED',
+      createdMatches: 0,
+    });
+    expect(revealMatchUpdateMany).not.toHaveBeenCalled();
+    expect(auditLogCreate).not.toHaveBeenCalled();
+    expect(dashboardSnapshotService.syncCycleSnapshots).not.toHaveBeenCalled();
   });
 
   it('backfills sticky participation records before running an existing open cycle', async () => {
@@ -400,6 +655,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn().mockResolvedValue({
           reason:
@@ -579,7 +835,7 @@ describe('CyclesService', () => {
         }),
       },
     };
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
 
     await expect(service.previewCycle('cycle-1')).resolves.toMatchObject({
       cycleId: 'cycle-1',
@@ -591,7 +847,7 @@ describe('CyclesService', () => {
   });
 
   it('injects the current school id when building eligible participants', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const toEligibleParticipants = (
       service as unknown as Pick<
         CyclesServiceTestHarness,
@@ -667,7 +923,7 @@ describe('CyclesService', () => {
   });
 
   it('keeps hard-match fields out of DeepSeek narrative questionnaire input', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const buildNarrativeQuestionnaire = (
       service as unknown as Pick<
         CyclesServiceTestHarness,
@@ -742,7 +998,7 @@ describe('CyclesService', () => {
   });
 
   it('keeps hard-match fields out of DeepSeek narrative shared signals', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const scorePair = (
       service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
     ).scorePair.bind(service);
@@ -785,7 +1041,7 @@ describe('CyclesService', () => {
   });
 
   it('ignores questionnaire drafts that were never formally submitted', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const toEligibleParticipants = (
       service as unknown as Pick<
         CyclesServiceTestHarness,
@@ -824,7 +1080,7 @@ describe('CyclesService', () => {
   });
 
   it('drops participants whose weekly intent is missing or invalid', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const toEligibleParticipants = (
       service as unknown as Pick<
         CyclesServiceTestHarness,
@@ -893,7 +1149,7 @@ describe('CyclesService', () => {
   });
 
   it('blocks pairing when weekly intents are incompatible (FRIEND vs DATE)', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const scorePair = (
       service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
     ).scorePair.bind(service);
@@ -922,8 +1178,124 @@ describe('CyclesService', () => {
     ).not.toBeNull();
   });
 
+  it('treats partnerAge window as a soft preference and still scores misread relative ranges', () => {
+    // Real production case: users mis-read "希望对方年龄" as a relative
+    // offset and entered partnerAgeMin/Max=4..5 meaning "对方比我小 4-5
+    // 岁". With age as a hard filter the pair was dropped; soft scoring
+    // keeps it in the candidate set instead.
+    const service = createCyclesService({});
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const left = createBroadParticipant('age-soft-left', {});
+    const rightWithMisreadWindow = createBroadParticipant('age-soft-right', {});
+    rightWithMisreadWindow.hardMatchAnswers = {
+      ...rightWithMisreadWindow.hardMatchAnswers,
+      partnerAgeMin: 4,
+      partnerAgeMax: 5,
+    };
+
+    expect(
+      scorePair(
+        left,
+        rightWithMisreadWindow,
+        [],
+        new Date('2026-04-10T00:00:00.000Z'),
+      ),
+    ).not.toBeNull();
+  });
+
+  it('scores pairs whose ages fall inside the partner window higher than pairs that fall fully outside', () => {
+    const service = createCyclesService({});
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+    const revealAt = new Date('2026-04-10T00:00:00.000Z');
+
+    const inside = createBroadParticipant('age-inside', {});
+    const insideRight = createBroadParticipant('age-inside-right', {});
+    const outsideRight = createBroadParticipant('age-outside-right', {});
+    outsideRight.hardMatchAnswers = {
+      ...outsideRight.hardMatchAnswers,
+      partnerAgeMin: 4,
+      partnerAgeMax: 5,
+    };
+
+    const insideScore = scorePair(inside, insideRight, [], revealAt);
+    const outsideScore = scorePair(inside, outsideRight, [], revealAt);
+
+    expect(insideScore).not.toBeNull();
+    expect(outsideScore).not.toBeNull();
+    expect(insideScore!.rawScore).toBeGreaterThan(outsideScore!.rawScore);
+  });
+
+  it('decays the age preference score linearly per year missed on each side of the partner window', () => {
+    // createBroadParticipant pegs everyone to birthDate=2000-05-10. With
+    // revealAt=2026-04-10 the partner is 25 years old (May birthday hasn't
+    // landed yet). Each side contributes 0..1 to the age fit:
+    //   inside the partner window         -> 1
+    //   1 year outside the partner window -> 0.75
+    //   2 years outside                   -> 0.50
+    //   ... (decay 0.25 per year, floors at 0)
+    // Average × AGE_PREFERENCE_SOFT_BONUS (=6) is added to rawScore.
+    const service = createCyclesService({});
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+    const revealAt = new Date('2026-04-10T00:00:00.000Z');
+
+    const me = createBroadParticipant('age-decay-me', {});
+
+    // Right wants partner aged 30-32; me=25 misses by 5 years -> right side
+    // fit=0. Right is 25 and falls inside my 18-40 window -> my side fit=1.
+    // Average=0.5, bonus=3.
+    const partialMissRight = createBroadParticipant('age-decay-partial', {});
+    partialMissRight.hardMatchAnswers = {
+      ...partialMissRight.hardMatchAnswers,
+      partnerAgeMin: 30,
+      partnerAgeMax: 32,
+    };
+
+    // Right wants 30-32 AND right is 22 (born 2003-05-10 -> turns 23 next
+    // month; on revealAt they are 22). 22 is 18-40, so my side fit=1; my
+    // window 18-40 includes 22, but their window 30-32 misses my 25 by 5
+    // years -> their side fit=0. Wait, this is the same as partialMiss.
+    // Use a stricter setup: my window 30-32 too -> both miss. Both fits=0.
+    const fullMissLeft = createBroadParticipant('age-decay-full-left', {});
+    fullMissLeft.hardMatchAnswers = {
+      ...fullMissLeft.hardMatchAnswers,
+      partnerAgeMin: 30,
+      partnerAgeMax: 32,
+    };
+    const fullMissRight = createBroadParticipant('age-decay-full-right', {});
+    fullMissRight.hardMatchAnswers = {
+      ...fullMissRight.hardMatchAnswers,
+      partnerAgeMin: 30,
+      partnerAgeMax: 32,
+    };
+
+    const inside = scorePair(
+      me,
+      createBroadParticipant('age-decay-inside-right', {}),
+      [],
+      revealAt,
+    );
+    const partial = scorePair(me, partialMissRight, [], revealAt);
+    const full = scorePair(fullMissLeft, fullMissRight, [], revealAt);
+
+    expect(inside).not.toBeNull();
+    expect(partial).not.toBeNull();
+    expect(full).not.toBeNull();
+
+    // Inside vs full-miss: 6-point gap.
+    expect(inside!.rawScore - full!.rawScore).toBeCloseTo(6, 5);
+    // Partial sits exactly at the half-way point.
+    expect(inside!.rawScore - partial!.rawScore).toBeCloseTo(3, 5);
+  });
+
   it('builds reasons from configured question templates instead of hard-coded keys', () => {
-    const service = new CyclesService({} as never);
+    const service = createCyclesService({});
     const scorePair = (
       service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
     ).scorePair.bind(service);
@@ -998,7 +1370,7 @@ describe('CyclesService', () => {
     );
 
     expect(result).toMatchObject({
-      rawScore: 66,
+      rawScore: 75,
       score: 100,
       reasons: ['你们对进入关系的期待很一致。'],
     });
@@ -1008,6 +1380,319 @@ describe('CyclesService', () => {
         type: 'EXACT_MATCH',
       }),
     ]);
+  });
+
+  it('normalizes multi-select scoring so broad selections are not rewarded', () => {
+    const service = createCyclesService({});
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const focusedMatch = scorePair(
+      createBroadParticipant('user-1', {
+        values: ['honesty'],
+      }),
+      createBroadParticipant('user-2', {
+        values: ['honesty'],
+      }),
+      [VALUE_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+    const broadMatch = scorePair(
+      createBroadParticipant('user-1', {
+        values: ['honesty', 'stability', 'humor', 'growth'],
+      }),
+      createBroadParticipant('user-2', {
+        values: ['honesty'],
+      }),
+      [VALUE_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(focusedMatch).toMatchObject({
+      rawScore: 63,
+      score: 100,
+    });
+    expect(broadMatch).toMatchObject({
+      rawScore: 58.5,
+      score: 91,
+    });
+  });
+
+  it('gives adjacent scale answers partial credit', () => {
+    const service = createCyclesService({});
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const adjacentMatch = scorePair(
+      createBroadParticipant('user-1', {
+        openness: 'like',
+      }),
+      createBroadParticipant('user-2', {
+        openness: 'very_like',
+      }),
+      [SCALE_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+    const oppositeMatch = scorePair(
+      createBroadParticipant('user-1', {
+        openness: 'very_unlike',
+      }),
+      createBroadParticipant('user-2', {
+        openness: 'very_like',
+      }),
+      [SCALE_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+    );
+
+    expect(adjacentMatch).toMatchObject({
+      rawScore: 66,
+      score: 95.7,
+    });
+    expect(oppositeMatch).toMatchObject({
+      rawScore: 57,
+      score: 82.9,
+    });
+  });
+
+  it('keeps looks preferences out of hard filtering', () => {
+    const service = createCyclesService({});
+    const scorePair = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
+    ).scorePair.bind(service);
+
+    const left = createBroadParticipant('user-1', {});
+    const right = createBroadParticipant('user-2', {});
+    left.hardMatchAnswers.looks = '普通人';
+    left.hardMatchAnswers.partnerLooks = ['普通人'];
+    right.hardMatchAnswers.looks = '顶帅/美';
+    right.hardMatchAnswers.partnerLooks = ['顶帅/美'];
+
+    expect(
+      scorePair(left, right, [], new Date('2026-04-10T00:00:00.000Z')),
+    ).toMatchObject({
+      rawScore: 54,
+      score: 90,
+    });
+  });
+
+  it('scores stored answers with their submitted questionnaire version and global bounds', async () => {
+    const prisma = createPairCalculationPrisma();
+    const service = createCyclesService(prisma);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const currentValueQuestion = {
+      ...VALUE_QUESTION,
+      selectionLimit: 2,
+    };
+    const oldValueQuestion = {
+      ...VALUE_QUESTION,
+      description: null,
+      selectionLimit: null,
+      normalizedOptions: VALUE_QUESTION.options,
+      normalizedReasonRules: VALUE_QUESTION.reasonRules,
+    };
+    const participants = [
+      {
+        ...createBroadParticipant('user-1', {
+          values: ['honesty', 'stability', 'humor'],
+        }),
+        questionnaireVersionId: 'version-old',
+      },
+      {
+        ...createBroadParticipant('user-2', {
+          values: ['honesty', 'stability', 'humor'],
+        }),
+        questionnaireVersionId: 'version-old',
+      },
+    ];
+
+    const result = await calculatePairs(
+      participants,
+      [currentValueQuestion, RELATIONSHIP_QUESTION],
+      new Date('2026-04-10T00:00:00.000Z'),
+      undefined,
+      new Map([['version-old', [oldValueQuestion]]]),
+    );
+
+    expect(result.selectedPairs[0]).toMatchObject({
+      left: { id: 'user-1' },
+      right: { id: 'user-2' },
+      score: 83.6,
+      reasons: ['你们都把 真诚、稳定 放在重要位置。'],
+    });
+  });
+
+  it('fills pending narratives while a cycle stays in PREPARING', async () => {
+    env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
+
+    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const cycleParticipation = {
+      findMany: jest.fn().mockResolvedValue([]),
+      createMany: jest.fn(),
+    };
+    const pendingMatch = {
+      id: 'match-1',
+      score: 88,
+      reasons: ['reason'],
+      createdAt: new Date(Date.now() - 5 * 60_000),
+      participants: [
+        { userId: 'user-1', position: 1 },
+        { userId: 'user-2', position: 2 },
+      ],
+    };
+    const prisma = {
+      matchCycle: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'PREPARING',
+          participationDeadline: new Date(Date.now() - 2 * 60_000),
+          revealAt: new Date(Date.now() + 60_000),
+          createdAt: new Date('2026-04-20T12:00:00.000Z'),
+          updatedAt: new Date('2026-04-20T12:10:00.000Z'),
+          participations: [],
+        }),
+        updateMany: matchCycleUpdateMany,
+      },
+      cycleParticipation,
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'questionnaire-1',
+          questions: [],
+        }),
+      },
+      match: {
+        findMany: jest.fn().mockResolvedValue([pendingMatch]),
+        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+      $transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) =>
+          callback({
+            match: {
+              updateMany: matchUpdateMany,
+            },
+            matchCycle: {
+              updateMany: matchCycleUpdateMany,
+            },
+            auditLog: {
+              create: auditLogCreate,
+            },
+          }),
+      ),
+    };
+    const matchNarrativeService = {
+      generateNarrative: jest.fn().mockResolvedValue({
+        reason:
+          '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
+        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
+        source: 'DEEPSEEK',
+      }),
+      buildDefaultNarrative: jest.fn(),
+    };
+    const service = createCyclesService(prisma, matchNarrativeService);
+    const testHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'toEligibleParticipants'
+    >;
+
+    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
+      {
+        id: 'user-1',
+        displayName: 'A',
+        hardMatchAnswers: {
+          birthDate: '2000-05-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '女',
+          partnerGenders: ['男'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 165,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢徒步。',
+          school: SCHOOL_BUPT,
+          excludedPartnerSchools: [],
+        },
+        answers: {},
+        intent: 'BOTH',
+      },
+      {
+        id: 'user-2',
+        displayName: 'B',
+        hardMatchAnswers: {
+          birthDate: '1999-07-10',
+          partnerAgeMin: 18,
+          partnerAgeMax: 30,
+          gender: '男',
+          partnerGenders: ['女'],
+          looks: '普通人',
+          partnerLooks: ['普通人'],
+          heightCm: 178,
+          partnerHeightMin: 120,
+          partnerHeightMax: 220,
+          oneLinerIntro: '喜欢阅读。',
+          school: SCHOOL_CUC,
+          excludedPartnerSchools: [],
+        },
+        answers: {},
+        intent: 'BOTH',
+      },
+    ]);
+
+    await expect(
+      service.runRevealCycle({ cycleId: 'cycle-1' }),
+    ).resolves.toMatchObject({
+      ok: true,
+      cycleId: 'cycle-1',
+      state: 'PREPARED',
+      createdMatches: 1,
+    });
+
+    expect(matchNarrativeService.generateNarrative).toHaveBeenCalledTimes(1);
+    expect(matchNarrativeService.buildDefaultNarrative).not.toHaveBeenCalled();
+    expect(matchUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'match-1',
+        narrativeSource: null,
+      },
+      data: {
+        reason:
+          '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
+        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
+        narrativeSource: 'DEEPSEEK',
+      },
+    });
+    expect(matchCycleUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'cycle-1',
+        status: 'PREPARING',
+        updatedAt: expect.any(Date) as unknown as Date,
+      },
+      data: {
+        status: 'REVEAL_READY',
+      },
+    });
+    const preparedAuditLogCalls = auditLogCreate.mock.calls as Array<
+      [
+        {
+          data: {
+            action: string;
+          };
+        },
+      ]
+    >;
+    const finalizedPreparedCall = preparedAuditLogCalls.find(
+      ([call]) => call.data.action === 'cycle.prepared',
+    );
+    expect(finalizedPreparedCall).toBeDefined();
   });
 
   it('disables pending narratives while a cycle stays in PREPARING', async () => {
@@ -1082,10 +1767,7 @@ describe('CyclesService', () => {
       }),
       buildDefaultNarrative: jest.fn(),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants'
@@ -1183,6 +1865,8 @@ describe('CyclesService', () => {
   });
 
   it('uses the default narrative after one hour instead of retrying forever', async () => {
+    env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
+
     const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
@@ -1257,10 +1941,7 @@ describe('CyclesService', () => {
       generateNarrative: jest.fn(),
       buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
 
     await expect(
       service.runRevealCycle({ cycleId: 'cycle-1' }),
@@ -1289,6 +1970,8 @@ describe('CyclesService', () => {
   });
 
   it('falls back immediately when narrative generation fails during preparation', async () => {
+    env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
+
     const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
     const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -1354,10 +2037,7 @@ describe('CyclesService', () => {
       }),
       buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -1543,10 +2223,7 @@ describe('CyclesService', () => {
       generateNarrative: jest.fn(),
       buildDefaultNarrative: jest.fn(),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -1620,15 +2297,22 @@ describe('CyclesService', () => {
     expect(matchNarrativeService.generateNarrative).not.toHaveBeenCalled();
     expect(matchNarrativeService.buildDefaultNarrative).not.toHaveBeenCalled();
     expect(matchUpdateMany).not.toHaveBeenCalled();
-    expect(matchCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          reason: null,
-          conversationTopics: [],
-          narrativeSource: 'DISABLED',
-        }) as object,
-      }),
-    );
+    const matchCreateCalls = matchCreate.mock.calls as Array<
+      [
+        {
+          data: {
+            reason: string | null;
+            conversationTopics: string[];
+            narrativeSource: string | null;
+          };
+        },
+      ]
+    >;
+    expect(matchCreateCalls[0]?.[0].data).toMatchObject({
+      reason: null,
+      conversationTopics: [],
+      narrativeSource: 'DISABLED',
+    });
     expect(finalizePreparationClaim).toHaveBeenCalledWith({
       where: {
         id: 'cycle-1',
@@ -1705,10 +2389,7 @@ describe('CyclesService', () => {
       }),
       buildDefaultNarrative: jest.fn(),
     };
-    const service = new CyclesService(
-      prisma as never,
-      matchNarrativeService as never,
-    );
+    const service = createCyclesService(prisma, matchNarrativeService);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -1826,6 +2507,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
         buildDefaultNarrative: jest.fn(),
@@ -1915,6 +2597,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
         buildDefaultNarrative: jest.fn(),
@@ -2009,6 +2692,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
         buildDefaultNarrative: jest.fn(),
@@ -2089,6 +2773,7 @@ describe('CyclesService', () => {
     };
     const service = new CyclesService(
       prisma as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
         buildDefaultNarrative: jest.fn(),
@@ -2126,6 +2811,7 @@ describe('CyclesService', () => {
         questionnaireVersion: {},
         $transaction: jest.fn(),
       } as never,
+      createDashboardSnapshotServiceMock() as never,
       {
         generateNarrative: jest.fn(),
       } as never,
@@ -2223,7 +2909,7 @@ describe('CyclesService', () => {
           .mockResolvedValueOnce([]),
       },
     };
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const loggerSpy = jest
       .spyOn(
         (
@@ -2336,7 +3022,7 @@ describe('CyclesService', () => {
         });
       }),
     };
-    const service = new CyclesService(prisma as never);
+    const service = createCyclesService(prisma);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -2412,16 +3098,9 @@ describe('CyclesService', () => {
   });
 
   it('ignores matches from the current cycle when loading historical pair exclusions', async () => {
-    const matchFindMany = jest.fn().mockResolvedValue([]);
-    const prisma = {
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      match: {
-        findMany: matchFindMany,
-      },
-    };
-    const service = new CyclesService(prisma as never);
+    const prisma = createPairCalculationPrisma();
+    const matchFindMany = prisma.match.findMany;
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2460,15 +3139,8 @@ describe('CyclesService', () => {
   });
 
   it('selects the highest-scoring disjoint pairs from an overlapping candidate pool', async () => {
-    const prisma = {
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-    };
-    const service = new CyclesService(prisma as never);
+    const prisma = createPairCalculationPrisma();
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2502,7 +3174,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-a' },
       right: { id: 'user-b' },
-      score: 91.4,
+      score: 100,
       reasons: [
         '你们对进入关系的期待很一致。',
         '你们都把 真诚、稳定 放在重要位置。',
@@ -2511,7 +3183,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[1]).toMatchObject({
       left: { id: 'user-c' },
       right: { id: 'user-d' },
-      score: 91.4,
+      score: 100,
       reasons: [
         '你们对进入关系的期待很一致。',
         '你们都把 幽默感、上进 放在重要位置。',
@@ -2520,15 +3192,8 @@ describe('CyclesService', () => {
   });
 
   it('maximizes matched users once hard constraints have been applied', async () => {
-    const prisma = {
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-    };
-    const service = new CyclesService(prisma as never);
+    const prisma = createPairCalculationPrisma();
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2601,15 +3266,8 @@ describe('CyclesService', () => {
   });
 
   it('does not accept a higher-scoring pair when that leaves fewer users matched', async () => {
-    const prisma = {
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-    };
-    const service = new CyclesService(prisma as never);
+    const prisma = createPairCalculationPrisma();
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2668,16 +3326,254 @@ describe('CyclesService', () => {
     ).toEqual(['user-a::user-c', 'user-b::user-d']);
   });
 
+  it('prioritizes a participant with three consecutive unmatched revealed opt-ins', async () => {
+    const prisma = createPairCalculationPrisma({
+      historicalParticipations: [
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-3',
+          '2026-04-03T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-2',
+          '2026-04-02T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+      ],
+    });
+    const service = createCyclesService(prisma);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'scorePair'
+    >;
+    const participants = [
+      createBroadParticipant('user-priority', {}),
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'scorePair')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<
+            string,
+            { rawScore: number; score: number; reasons: string[] }
+          > = {
+            'user-a::user-b': {
+              rawScore: 100,
+              score: 100,
+              reasons: ['highest-compatibility'],
+            },
+            'user-a::user-priority': {
+              rawScore: 60,
+              score: 60,
+              reasons: ['retention-priority'],
+            },
+          };
+
+          return scoreByPairKey[pairKey] ?? null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+      'cycle-4',
+    );
+
+    expect(result.selectedPairs).toHaveLength(1);
+    expect(result.selectedPairs[0]).toMatchObject({
+      left: { id: 'user-priority' },
+      right: { id: 'user-a' },
+      score: 60,
+      reasons: ['retention-priority'],
+    });
+  });
+
+  it('does not reset an unmatched streak when a user skipped a revealed cycle', async () => {
+    const prisma = createPairCalculationPrisma({
+      historicalParticipations: [
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-4',
+          '2026-04-04T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-3',
+          '2026-04-03T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-0',
+          '2026-03-31T00:00:00.000Z',
+        ),
+      ],
+      matchedParticipations: [
+        {
+          userId: 'user-priority',
+          cycleId: 'cycle-0',
+        },
+      ],
+    });
+    const service = createCyclesService(prisma);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'scorePair'
+    >;
+    const participants = [
+      createBroadParticipant('user-priority', {}),
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'scorePair')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<
+            string,
+            { rawScore: number; score: number; reasons: string[] }
+          > = {
+            'user-a::user-b': {
+              rawScore: 100,
+              score: 100,
+              reasons: ['highest-compatibility'],
+            },
+            'user-a::user-priority': {
+              rawScore: 60,
+              score: 60,
+              reasons: ['skipped-week-does-not-reset'],
+            },
+          };
+
+          return scoreByPairKey[pairKey] ?? null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+      'cycle-5',
+    );
+
+    expect(result.selectedPairs).toHaveLength(1);
+    expect(
+      result.selectedPairs.map((pair) =>
+        [pair.left.id, pair.right.id].sort().join('::'),
+      ),
+    ).toEqual(['user-a::user-priority']);
+  });
+
+  it('resets the unmatched streak after a matched revealed opt-in', async () => {
+    const prisma = createPairCalculationPrisma({
+      historicalParticipations: [
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-4',
+          '2026-04-04T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-3',
+          '2026-04-03T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-2',
+          '2026-04-02T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-priority',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+      ],
+      matchedParticipations: [
+        {
+          userId: 'user-priority',
+          cycleId: 'cycle-2',
+        },
+      ],
+    });
+    const service = createCyclesService(prisma);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'scorePair'
+    >;
+    const participants = [
+      createBroadParticipant('user-priority', {}),
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'scorePair')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<
+            string,
+            { rawScore: number; score: number; reasons: string[] }
+          > = {
+            'user-a::user-b': {
+              rawScore: 100,
+              score: 100,
+              reasons: ['highest-compatibility'],
+            },
+            'user-a::user-priority': {
+              rawScore: 60,
+              score: 60,
+              reasons: ['below-threshold'],
+            },
+          };
+
+          return scoreByPairKey[pairKey] ?? null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+      'cycle-5',
+    );
+
+    expect(result.selectedPairs).toHaveLength(1);
+    expect(
+      result.selectedPairs.map((pair) =>
+        [pair.left.id, pair.right.id].sort().join('::'),
+      ),
+    ).toEqual(['user-a::user-b']);
+  });
+
   it('maximizes raw compatibility when display scores tie', async () => {
-    const prisma = {
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-    };
-    const service = new CyclesService(prisma as never);
+    const prisma = createPairCalculationPrisma();
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2742,15 +3638,8 @@ describe('CyclesService', () => {
   });
 
   it('samples spread-out candidates beyond the local scan window', async () => {
-    const prisma = {
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-    };
-    const service = new CyclesService(prisma as never);
+    const prisma = createPairCalculationPrisma();
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2795,15 +3684,8 @@ describe('CyclesService', () => {
   });
 
   it('scores the only compatible pair even when it would be missed by bounded sampling', async () => {
-    const prisma = {
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-    };
-    const service = new CyclesService(prisma as never);
+    const prisma = createPairCalculationPrisma();
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2848,19 +3730,14 @@ describe('CyclesService', () => {
   });
 
   it('falls back to the next valid candidate when the top-scoring pair already exists in history', async () => {
-    const prisma = {
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([
-          {
-            participants: [{ userId: 'user-a' }, { userId: 'user-b' }],
-          },
-        ]),
-      },
-    };
-    const service = new CyclesService(prisma as never);
+    const prisma = createPairCalculationPrisma({
+      historicalMatches: [
+        {
+          participants: [{ userId: 'user-a' }, { userId: 'user-b' }],
+        },
+      ],
+    });
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2938,21 +3815,15 @@ describe('CyclesService', () => {
   });
 
   it('excludes blocked and previously matched pairs before choosing the final result set', async () => {
-    const prisma = {
-      block: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ blockerId: 'user-a', blockedId: 'user-b' }]),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([
-          {
-            participants: [{ userId: 'user-a' }, { userId: 'user-c' }],
-          },
-        ]),
-      },
-    };
-    const service = new CyclesService(prisma as never);
+    const prisma = createPairCalculationPrisma({
+      blocks: [{ blockerId: 'user-a', blockedId: 'user-b' }],
+      historicalMatches: [
+        {
+          participants: [{ userId: 'user-a' }, { userId: 'user-c' }],
+        },
+      ],
+    });
+    const service = createCyclesService(prisma);
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
@@ -2983,7 +3854,7 @@ describe('CyclesService', () => {
     expect(result.selectedPairs[0]).toMatchObject({
       left: { id: 'user-b' },
       right: { id: 'user-c' },
-      score: 87.1,
+      score: 96.4,
       reasons: ['你们对进入关系的期待很一致。', '你们都把 真诚 放在重要位置。'],
     });
   });

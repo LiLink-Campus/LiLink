@@ -1,10 +1,10 @@
 import argon2 from 'argon2';
-import { PrismaClient } from '@prisma/client';
 import { loadMonorepoEnv } from './load-env.mjs';
+import { loadPrismaClientModule } from './prisma-client.mjs';
 
 loadMonorepoEnv();
 
-const prisma = new PrismaClient();
+let prisma;
 
 function readArgument(name) {
   const prefixed = `--${name}=`;
@@ -34,6 +34,9 @@ async function main() {
     throw new Error('Both --email and --password are required.');
   }
 
+  const { createPrismaClient } = await loadPrismaClientModule();
+  prisma = createPrismaClient();
+
   const existingOperator = await prisma.adminOperator.findUnique({
     where: { email },
     select: { id: true },
@@ -62,5 +65,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await prisma?.$disconnect();
   });

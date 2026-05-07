@@ -25,7 +25,10 @@ import {
 } from "./_components/illustrations";
 import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
 import { canEditCurrentCycleParticipation } from "./_lib/format";
-import type { DashboardPayload } from "./_lib/types";
+import type {
+  DashboardPayload,
+  QuestionnaireAttentionPayload,
+} from "./_lib/types";
 import { useLocale } from "../locale-context";
 
 type HomeMode = "ONE_ON_ONE" | "GROUP";
@@ -68,6 +71,15 @@ function formatDeadlineLabel(
     : `Participation closes ${formatter.format(target)}`;
 }
 
+function questionnaireAttentionHref(
+  attention: QuestionnaireAttentionPayload | null,
+) {
+  const key = attention?.pendingKeys[0];
+  return key
+    ? `/dashboard/profile#questionnaire-question-${encodeURIComponent(key)}`
+    : "/dashboard/profile";
+}
+
 const HOME_DASHBOARD_COPY = {
   "zh-CN": {
     fallbackName: "同学",
@@ -90,6 +102,32 @@ const HOME_DASHBOARD_COPY = {
     locked: "本轮已锁定",
     joined: "参与中",
     notJoined: "未参与",
+    notJoinable: "暂不可参与",
+    joinBlockedIncomplete:
+      "问卷有未保存的修改且必填项缺失，请回到「资料」补完后再参加本轮匹配。",
+    joinBlockedNotSubmitted: "请先完成「资料」中的问卷，再参加本轮匹配。",
+    blockedCalloutIncomplete:
+      "问卷有未保存的修改且必填项缺失，请回到「资料」补完后再参加本轮匹配",
+    blockedCalloutNotSubmitted: "先完成「资料」中的问卷才能参加本轮匹配",
+    blockedProgress: (n: number) => `（当前进度 ${n}%）。`,
+    toFixQuestionnaire: "去补完问卷 →",
+    toCompleteQuestionnaire: "去完善问卷 →",
+    toggleHintIncomplete:
+      "问卷有未保存的修改且必填项缺失，请回到「资料」补完后再参加本轮匹配",
+    toggleHintNotStarted: "需要先完成「资料」中的问卷才能参加本轮匹配",
+    attentionDotAria: "有问卷提示待查看",
+    progressLinkTips: "查看提示 →",
+    progressLinkView: "查看问卷 →",
+    progressLinkContinue: "继续完善 →",
+    prRowUpdates: "有更新待查看",
+    prRowRequired: "必填项待补完",
+    prRowComplete: "已完成",
+    prRowDraftIncomplete: "草稿待补完",
+    prRowDraft: "草稿进度",
+    prNoteUpdates: (n: number) => `有 ${n} 项问卷更新待查看。`,
+    prNoteRequired: (n: number) => `还有 ${n} 项必填内容需要补完。`,
+    prNoteEligible: "问卷已满足本轮要求；若有题目更新会在此提醒你查看。",
+    prPendingBadge: (n: number) => `${n}项`,
     reveal: (label: string) => `匹配将于 ${label} 开启`,
     leaveAria: "退出本轮",
     joinAria: "参加本轮",
@@ -153,6 +191,38 @@ const HOME_DASHBOARD_COPY = {
     locked: "Round locked",
     joined: "Joined",
     notJoined: "Not joined",
+    notJoinable: "Unavailable",
+    joinBlockedIncomplete:
+      "Your questionnaire has unsaved incomplete changes. Finish required fields in Profile before joining this round.",
+    joinBlockedNotSubmitted:
+      "Complete your questionnaire in Profile before joining this round.",
+    blockedCalloutIncomplete:
+      "Your questionnaire has unsaved incomplete changes. Finish required fields in Profile before joining this round.",
+    blockedCalloutNotSubmitted:
+      "Complete your questionnaire in Profile before joining this round.",
+    blockedProgress: (n: number) => `(Current progress ${n}%).`,
+    toFixQuestionnaire: "Finish questionnaire →",
+    toCompleteQuestionnaire: "Continue questionnaire →",
+    toggleHintIncomplete:
+      "Your questionnaire has unsaved incomplete changes. Finish required fields in Profile before joining this round.",
+    toggleHintNotStarted:
+      "Complete your questionnaire in Profile before joining this round.",
+    attentionDotAria: "Questionnaire updates need your attention",
+    progressLinkTips: "View updates →",
+    progressLinkView: "View questionnaire →",
+    progressLinkContinue: "Continue →",
+    prRowUpdates: "Updates to review",
+    prRowRequired: "Required fields missing",
+    prRowComplete: "Completed",
+    prRowDraftIncomplete: "Draft incomplete",
+    prRowDraft: "Draft progress",
+    prNoteUpdates: (n: number) =>
+      `${n} questionnaire update(s) need your review.`,
+    prNoteRequired: (n: number) =>
+      `${n} required field(s) still need to be completed.`,
+    prNoteEligible:
+      "Your questionnaire meets this round's requirements; we will remind you here when items change.",
+    prPendingBadge: (n: number) => String(n),
     reveal: (label: string) => `Matching opens at ${label}`,
     leaveAria: "Leave this round",
     joinAria: "Join this round",
@@ -202,11 +272,17 @@ export function HomeClient({
   initialDashboard,
   questionnairePercent,
   questionnaireSubmitted,
+  questionnaireEligibleToOptIn,
+  questionnaireHasIncompleteDraft,
+  questionnaireAttention,
 }: {
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
   questionnairePercent: number;
   questionnaireSubmitted: boolean;
+  questionnaireEligibleToOptIn: boolean;
+  questionnaireHasIncompleteDraft: boolean;
+  questionnaireAttention: QuestionnaireAttentionPayload | null;
 }) {
   const { locale } = useLocale();
   const copy = HOME_DASHBOARD_COPY[locale];
@@ -261,6 +337,17 @@ export function HomeClient({
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
   const intent = cycle?.intent ?? null;
   const intentMeta = intent ? weeklyIntentLabelsFor(intent, locale) : null;
+  const participationBlockedByQuestionnaire =
+    Boolean(cycle) && canEdit && !isOptedIn && !questionnaireEligibleToOptIn;
+  const pendingQuestionnaireUpdateCount =
+    questionnaireAttention?.pendingUpdatedKeys.length ?? 0;
+  const missingQuestionnaireRequiredCount =
+    questionnaireAttention?.missingRequiredKeys.length ?? 0;
+  const hasQuestionnaireAttention =
+    (questionnaireAttention?.pendingKeys.length ?? 0) > 0;
+  const questionnaireCardHref = questionnaireAttentionHref(
+    questionnaireAttention,
+  );
 
   const greeting =
     initialUser.displayName?.trim() ||
@@ -380,6 +467,14 @@ export function HomeClient({
       void withdraw();
       return;
     }
+    if (!questionnaireEligibleToOptIn) {
+      setErrorOnly(
+        questionnaireHasIncompleteDraft
+          ? copy.joinBlockedIncomplete
+          : copy.joinBlockedNotSubmitted,
+      );
+      return;
+    }
     setSheetOpen(true);
   }
 
@@ -462,7 +557,9 @@ export function HomeClient({
                         : copy.locked
                       : isOptedIn
                         ? copy.joined
-                        : copy.notJoined}
+                        : !questionnaireEligibleToOptIn
+                          ? copy.notJoinable
+                          : copy.notJoined}
                 </strong>
                 <span>{copy.reveal(revealLabel)}</span>
               </div>
@@ -475,10 +572,55 @@ export function HomeClient({
                 }
                 aria-pressed={isOptedIn}
                 aria-label={isOptedIn ? copy.leaveAria : copy.joinAria}
-                disabled={saving || !cycle || !canEdit}
+                aria-describedby={
+                  participationBlockedByQuestionnaire
+                    ? "participation-blocked-hint"
+                    : undefined
+                }
+                disabled={
+                  saving ||
+                  !cycle ||
+                  !canEdit ||
+                  (!isOptedIn && !questionnaireEligibleToOptIn)
+                }
+                title={
+                  participationBlockedByQuestionnaire
+                    ? questionnaireHasIncompleteDraft
+                      ? copy.toggleHintIncomplete
+                      : copy.toggleHintNotStarted
+                    : undefined
+                }
                 onClick={handleToggleClick}
               />
             </div>
+            {participationBlockedByQuestionnaire ? (
+              <div
+                id="participation-blocked-hint"
+                className="weekly-intent-callout"
+                role="status"
+              >
+                <span
+                  className="weekly-intent-callout-icon"
+                  aria-hidden="true"
+                >
+                  !
+                </span>
+                <span>
+                  {questionnaireHasIncompleteDraft
+                    ? copy.blockedCalloutIncomplete
+                    : copy.blockedCalloutNotSubmitted}
+                  {copy.blockedProgress(questionnairePercent)}
+                  <Link
+                    href="/dashboard/profile"
+                    className="participation-blocked-link"
+                  >
+                    {questionnaireHasIncompleteDraft
+                      ? copy.toFixQuestionnaire
+                      : copy.toCompleteQuestionnaire}
+                  </Link>
+                </span>
+              </div>
+            ) : null}
             {isOptedIn ? (
               <div className="participation-intent-row">
                 <span>
@@ -501,18 +643,49 @@ export function HomeClient({
             ) : null}
           </section>
 
-          <section className="app-card" aria-label={copy.profileAria}>
+          <section
+            className={
+              hasQuestionnaireAttention
+                ? "app-card q-progress-card has-attention"
+                : "app-card q-progress-card"
+            }
+            aria-label={copy.profileAria}
+          >
             <div className="app-card-head">
-              <h2 className="app-card-title">{copy.profileTitle}</h2>
-              <Link href="/dashboard/profile" className="app-card-link">
-                {copy.continueProfile}
+              <div className="q-progress-title-row">
+                <h2 className="app-card-title">{copy.profileTitle}</h2>
+                {hasQuestionnaireAttention ? (
+                  <span
+                    className="q-progress-attention-dot"
+                    aria-label={copy.attentionDotAria}
+                  />
+                ) : null}
+              </div>
+              <Link href={questionnaireCardHref} className="app-card-link">
+                {hasQuestionnaireAttention
+                  ? copy.progressLinkTips
+                  : questionnaireEligibleToOptIn
+                    ? copy.progressLinkView
+                    : copy.progressLinkContinue}
               </Link>
             </div>
             <div className="q-progress-row">
               <span className="app-muted">
-                {questionnaireSubmitted ? copy.completed : copy.draft}
+                {pendingQuestionnaireUpdateCount > 0
+                  ? copy.prRowUpdates
+                  : missingQuestionnaireRequiredCount > 0
+                    ? copy.prRowRequired
+                    : questionnaireEligibleToOptIn
+                      ? copy.prRowComplete
+                      : questionnaireHasIncompleteDraft
+                        ? copy.prRowDraftIncomplete
+                        : copy.prRowDraft}
               </span>
-              <strong>{questionnairePercent}%</strong>
+              <strong>
+                {pendingQuestionnaireUpdateCount > 0
+                  ? copy.prPendingBadge(pendingQuestionnaireUpdateCount)
+                  : `${questionnairePercent}%`}
+              </strong>
             </div>
             <div
               className="q-progress-bar"
@@ -524,7 +697,15 @@ export function HomeClient({
             >
               <div style={{ width: `${questionnairePercent}%` }} />
             </div>
-            <p className="q-progress-note">{copy.progressNote}</p>
+            <p className="q-progress-note">
+              {pendingQuestionnaireUpdateCount > 0
+                ? copy.prNoteUpdates(pendingQuestionnaireUpdateCount)
+                : missingQuestionnaireRequiredCount > 0
+                  ? copy.prNoteRequired(missingQuestionnaireRequiredCount)
+                  : questionnaireEligibleToOptIn
+                    ? copy.prNoteEligible
+                    : copy.progressNote}
+            </p>
           </section>
 
           <section className="app-card grid-span-all" aria-label={copy.matchAria}>

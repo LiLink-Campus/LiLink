@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:2525:1025"
-      - "8025:8025"
+      - "127.0.0.1:8025:8025"
 
   api:
     profiles:
@@ -45,11 +45,23 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:4000:4000"
+    command:
+      - sh
+      - -c
+      - |
+        if [ -z "$$DB_PASSWORD" ]; then
+          echo "DB_PASSWORD is required for the prod profile." >&2
+          exit 1
+        fi
+        export DATABASE_URL="postgresql://lilink:$$DB_PASSWORD@postgres:5432/lilink?schema=public&connection_limit=$${DATABASE_CONNECTION_LIMIT:-20}&pool_timeout=$${DATABASE_POOL_TIMEOUT_SECONDS:-10}"
+        npx prisma migrate deploy && node scripts/bootstrap-admin.mjs && node dist/src/main.js
     environment:
       APP_ENV: production
       PORT: 4000
       CLIENT_ORIGIN: ${CLIENT_ORIGIN}
-      DATABASE_URL: "postgresql://lilink:${DB_PASSWORD}@postgres:5432/lilink?schema=public&connection_limit=${DATABASE_CONNECTION_LIMIT:-20}&pool_timeout=${DATABASE_POOL_TIMEOUT_SECONDS:-10}"
+      DB_PASSWORD: ${DB_PASSWORD:-}
+      DATABASE_CONNECTION_LIMIT: ${DATABASE_CONNECTION_LIMIT:-20}
+      DATABASE_POOL_TIMEOUT_SECONDS: ${DATABASE_POOL_TIMEOUT_SECONDS:-10}
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
       COOKIE_NAME: lilink_token

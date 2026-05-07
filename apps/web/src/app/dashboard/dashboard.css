@@ -2490,8 +2490,40 @@
   font-size: 0.82rem;
 }
 
+.participation-blocked-link {
+  margin-left: 0.35rem;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.participation-blocked-link:hover {
+  color: var(--warning);
+}
+
 /* Questionnaire progress card */
 
+.q-progress-card {
+  position: relative;
+}
+
+.q-progress-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.q-progress-attention-dot {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-radius: var(--radius-pill);
+  background: var(--warning);
+  box-shadow: 0 0 0 0.28rem var(--warning-soft);
+  flex-shrink: 0;
+}
 .q-progress-row {
   display: flex;
   align-items: baseline;
@@ -2525,6 +2557,19 @@
   font-size: 0.82rem;
   color: var(--fg-muted);
   margin: 0;
+}
+
+.question-block-attention {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+  background: color-mix(in srgb, var(--warning-soft) 46%, var(--bg-tinted));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 16%, transparent);
+}
+
+.question-attention-note {
+  margin: -0.25rem 0 0.8rem;
+  color: #6f5114;
+  font-size: 0.84rem;
+  line-height: 1.55;
 }
 
 /* Match preview card on the home hub */

@@ -7,6 +7,22 @@ import { useLocale } from "./locale-context";
 
 const SEEN_KEY = "lilink_seen_announcement";
 
+function readSeenAnnouncementId() {
+  try {
+    return window.localStorage.getItem(SEEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberSeenAnnouncement(id: string) {
+  try {
+    window.localStorage.setItem(SEEN_KEY, id);
+  } catch {
+    return;
+  }
+}
+
 export function AnnouncementDialog() {
   const pathname = usePathname();
   const { locale } = useLocale();
@@ -18,14 +34,14 @@ export function AnnouncementDialog() {
   useEffect(() => {
     if (!latest) return;
 
-    const seen = localStorage.getItem(SEEN_KEY);
+    const seen = readSeenAnnouncementId();
     if (seen === latest.id) return;
 
     dialogRef.current?.showModal();
   }, [latest]);
 
   function dismiss() {
-    if (latest) localStorage.setItem(SEEN_KEY, latest.id);
+    if (latest) rememberSeenAnnouncement(latest.id);
     dialogRef.current?.close();
   }
 

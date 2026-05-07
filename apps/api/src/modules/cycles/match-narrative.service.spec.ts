@@ -1,4 +1,4 @@
-import { QuestionType } from '@prisma/client';
+import { QuestionType } from '../../common/prisma/client';
 import { env } from '../../config/env';
 import {
   MatchNarrativeInput,

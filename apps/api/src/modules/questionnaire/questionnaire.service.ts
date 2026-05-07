@@ -3,8 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { QuestionType } from '@prisma/client';
-import type { Prisma } from '@prisma/client';
+import { QuestionType } from '../../common/prisma/client';
+import type { Prisma } from '../../common/prisma/client';
 import {
   DEFAULT_LOCALE,
   PUBLIC_SUPPORTED_SCHOOL_SLUGS,

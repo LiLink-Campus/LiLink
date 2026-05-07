@@ -6,13 +6,14 @@ import {
   Optional,
 } from '@nestjs/common';
 import blossom from 'edmonds-blossom-fixed';
-import { Prisma, QuestionType } from '@prisma/client';
+import { Prisma, QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
 import { env } from '../../config/env';
 import {
   HARD_MATCH_KEYS,
+  HARD_MATCH_LOOKS,
   HardMatchAnswers,
   areHardMatchAnswersCompatible,
   isHardMatchKey,
@@ -20,6 +21,7 @@ import {
 } from '../questionnaire/hard-match';
 import {
   areWeeklyIntentsCompatible,
+  calculateAgeOnDate,
   isWeeklyIntent,
   type WeeklyIntent,
 } from '@lilink/shared';
@@ -44,22 +46,23 @@ import {
 const BASE_MATCH_SCORE = 48;
 const SINGLE_SELECT_MATCH_BONUS = 6;
 const MULTI_SELECT_OVERLAP_BONUS = 3;
+const LOOKS_PREFERENCE_SOFT_BONUS = MULTI_SELECT_OVERLAP_BONUS;
+// Age is a soft preference (see hard-match.ts comment on
+// areHardMatchAnswersCompatible). Each side contributes 0..1 to the fit
+// score: 1 when their age sits inside the partner's preferred window, then
+// linearly decays toward 0 outside the window. Hitting both sides perfectly
+// adds AGE_PREFERENCE_SOFT_BONUS to the raw match score; falling fully
+// outside on both sides adds nothing without dropping the pair.
+const AGE_PREFERENCE_SOFT_BONUS = 6;
+const AGE_PREFERENCE_DECAY_PER_YEAR = 0.25;
 const MAX_MATCH_REASONS = 3;
 const MATCH_NARRATIVE_MAX_CONCURRENCY = 3;
 const MATCH_NARRATIVE_DEFAULT_AFTER_MS = 60 * 60 * 1000;
 const PREPARATION_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
-type DashboardSnapshotPort = Pick<
-  DashboardSnapshotService,
-  'syncCycleSnapshots'
->;
-
-const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
-  syncCycleSnapshots() {
-    return Promise.resolve();
-  },
-};
+const PRIORITY_UNMATCHED_STREAK_THRESHOLD = 3;
+const PRE_PRIORITY_UNMATCHED_STREAK_BONUS = 2;
 
 /**
  * Only ACTIVE users with a stored weekly intent may appear in matching /
@@ -83,7 +86,13 @@ const CYCLE_PROCESSING_INCLUDE = {
         select: {
           id: true,
           displayName: true,
-          questionnaireResponse: true,
+          questionnaireResponse: {
+            select: {
+              versionId: true,
+              answers: true,
+              submittedAt: true,
+            },
+          },
           school: { select: { id: true } },
         },
       },
@@ -94,6 +103,7 @@ const CYCLE_PROCESSING_INCLUDE = {
 type EligibleParticipant = {
   id: string;
   displayName: string | null;
+  questionnaireVersionId: string | null;
   hardMatchAnswers: HardMatchAnswers;
   answers: Record<string, unknown>;
   intent: WeeklyIntent;
@@ -105,8 +115,17 @@ type CandidatePair = {
   right: EligibleParticipant;
   rawScore: number;
   score: number;
+  matchingWeight: number;
   reasons: string[];
   sharedSignals: MatchNarrativeSignal[];
+  leftQuestions?: PreparedQuestion[];
+  rightQuestions?: PreparedQuestion[];
+};
+
+type RetentionWeightTiers = {
+  priorityUser: number;
+  priorityStreak: number;
+  matchedUser: number;
 };
 
 type QuestionnaireQuestion = {
@@ -129,6 +148,21 @@ type PreparedQuestion = Omit<
 };
 
 type MatchQuestion = QuestionnaireQuestion | PreparedQuestion;
+
+type ComparableQuestion = {
+  key: string;
+  order: number;
+  type: QuestionType;
+  weight: number;
+  leftQuestion: PreparedQuestion;
+  rightQuestion: PreparedQuestion;
+};
+
+type PairQuestionSet = {
+  leftQuestions: PreparedQuestion[];
+  rightQuestions: PreparedQuestion[];
+  comparableQuestions: ComparableQuestion[];
+};
 
 type RunRevealCycleOptions = {
   force?: boolean;
@@ -323,17 +357,13 @@ function normalizePreparedQuestionAnswer(
 @Injectable()
 export class CyclesService {
   private readonly logger = new Logger(CyclesService.name);
-  private readonly dashboardSnapshotService: DashboardSnapshotPort;
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly dashboardSnapshotService: DashboardSnapshotService,
     @Optional()
     private readonly matchNarrativeService: MatchNarrativeService = new MatchNarrativeService(),
-    @Optional() dashboardSnapshotService?: DashboardSnapshotService,
-  ) {
-    this.dashboardSnapshotService =
-      dashboardSnapshotService ?? defaultDashboardSnapshotPort;
-  }
+  ) {}
 
   private narrativeGenerationEnabled() {
     return env.MATCH_NARRATIVE_GENERATION_ENABLED;
@@ -613,6 +643,8 @@ export class CyclesService {
       const optedInCount = cycle.participations.length;
       const participants = this.toEligibleParticipants(cycle.participations);
       const preparedQuestions = prepareQuestions(questionnaire.questions);
+      const questionnairesByVersionId =
+        await this.loadQuestionnairesByVersionId(participants, questionnaire);
 
       let selectedPairs: CandidatePair[] = [];
       let preparationMessage = 'Cycle is prepared and waiting for reveal.';
@@ -628,6 +660,7 @@ export class CyclesService {
           questionnaire.questions,
           cycle.revealAt,
           cycle.id,
+          questionnairesByVersionId,
         );
 
         selectedPairs = calculatedPairs.selectedPairs;
@@ -956,17 +989,20 @@ export class CyclesService {
     const preparedQuestions = questionnaire
       ? prepareQuestions(questionnaire.questions)
       : [];
+    const participants = this.toEligibleParticipants(cycle.participations);
+    const questionnairesByVersionId = await this.loadQuestionnairesByVersionId(
+      participants,
+      questionnaire,
+    );
     const participantsById = new Map(
-      this.toEligibleParticipants(cycle.participations).map((participant) => [
-        participant.id,
-        participant,
-      ]),
+      participants.map((participant) => [participant.id, participant]),
     );
     const resolvedNarratives = await this.resolvePendingNarrativesForMatches(
       pendingMatches,
       participantsById,
       preparedQuestions,
       cycle.revealAt,
+      questionnairesByVersionId,
     );
     const completedNarratives = resolvedNarratives.filter(
       (entry): entry is { matchId: string; narrative: MatchNarrativeResult } =>
@@ -1095,6 +1131,8 @@ export class CyclesService {
         },
       });
 
+      await this.dashboardSnapshotService.syncCycleSnapshots(cycle.id, tx);
+
       return revealedMatches.count;
     });
 
@@ -1151,6 +1189,7 @@ export class CyclesService {
     participantsById: Map<string, EligibleParticipant>,
     preparedQuestions: PreparedQuestion[],
     revealAt: Date,
+    questionnairesByVersionId = new Map<string, PreparedQuestion[]>(),
   ) {
     return this.mapWithNarrativeConcurrency(
       pendingMatches,
@@ -1167,6 +1206,7 @@ export class CyclesService {
           participantsById,
           preparedQuestions,
           revealAt,
+          questionnairesByVersionId,
         );
 
         if (!narrativeInput) {
@@ -1284,7 +1324,13 @@ export class CyclesService {
                 select: {
                   id: true,
                   displayName: true,
-                  questionnaireResponse: true,
+                  questionnaireResponse: {
+                    select: {
+                      versionId: true,
+                      answers: true,
+                      submittedAt: true,
+                    },
+                  },
                   school: { select: { id: true } },
                 },
               },
@@ -1317,11 +1363,16 @@ export class CyclesService {
     }
 
     const participants = this.toEligibleParticipants(cycle.participations);
+    const questionnairesByVersionId = await this.loadQuestionnairesByVersionId(
+      participants,
+      questionnaire,
+    );
     const { candidates, selectedPairs } = await this.calculatePairs(
       participants,
       questionnaire.questions,
       cycle.revealAt,
       cycle.id,
+      questionnairesByVersionId,
     );
     const matchedUserIds = new Set(
       selectedPairs.flatMap((pair) => [pair.left.id, pair.right.id]),
@@ -1399,6 +1450,94 @@ export class CyclesService {
       .then((matches) => this.buildHistoricalPairKeySet(matches));
   }
 
+  private async loadUnmatchedStreaks(
+    participantIds: string[],
+    beforeRevealAt: Date,
+    currentCycleId?: string,
+  ) {
+    if (participantIds.length === 0) {
+      return new Map<string, number>();
+    }
+
+    const participations = await this.prisma.cycleParticipation.findMany({
+      where: {
+        userId: { in: participantIds },
+        status: 'OPTED_IN',
+        intent: { not: null },
+        ...(currentCycleId ? { cycleId: { not: currentCycleId } } : {}),
+        cycle: {
+          status: 'REVEALED',
+          revealAt: { lt: beforeRevealAt },
+        },
+      },
+      select: {
+        userId: true,
+        cycleId: true,
+        updatedAt: true,
+        cycle: {
+          select: {
+            revealAt: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: [
+        { userId: 'asc' },
+        { cycle: { revealAt: 'desc' } },
+        { cycle: { createdAt: 'desc' } },
+        { updatedAt: 'desc' },
+      ],
+    });
+    const cycleIds = Array.from(
+      new Set(participations.map((participation) => participation.cycleId)),
+    );
+    const matchedParticipations =
+      cycleIds.length === 0
+        ? []
+        : await this.prisma.matchParticipant.findMany({
+            where: {
+              userId: { in: participantIds },
+              cycleId: { in: cycleIds },
+            },
+            select: {
+              userId: true,
+              cycleId: true,
+            },
+          });
+    const matchedParticipationKeys = new Set(
+      matchedParticipations.map(
+        (participant) => `${participant.userId}::${participant.cycleId}`,
+      ),
+    );
+    const participationsByUserId = new Map<string, typeof participations>();
+
+    for (const participation of participations) {
+      const userParticipations =
+        participationsByUserId.get(participation.userId) ?? [];
+      userParticipations.push(participation);
+      participationsByUserId.set(participation.userId, userParticipations);
+    }
+
+    return new Map(
+      participantIds.map((participantId) => {
+        const userParticipations =
+          participationsByUserId.get(participantId) ?? [];
+        let streak = 0;
+
+        for (const participation of userParticipations) {
+          const participationKey = `${participation.userId}::${participation.cycleId}`;
+          if (matchedParticipationKeys.has(participationKey)) {
+            break;
+          }
+
+          streak += 1;
+        }
+
+        return [participantId, streak];
+      }),
+    );
+  }
+
   private loadCycleForProcessing(cycleId: string) {
     return this.prisma.matchCycle.findUnique({
       where: { id: cycleId },
@@ -1414,6 +1553,7 @@ export class CyclesService {
         displayName: string | null;
         school?: { id: string } | null;
         questionnaireResponse: {
+          versionId?: string | null;
           answers: Prisma.JsonValue;
           submittedAt: Date | null;
         } | null;
@@ -1453,6 +1593,7 @@ export class CyclesService {
         return {
           id: user.id,
           displayName: user.displayName,
+          questionnaireVersionId: user.questionnaireResponse.versionId ?? null,
           hardMatchAnswers,
           answers,
           intent: entry.intent,
@@ -1465,14 +1606,71 @@ export class CyclesService {
       );
   }
 
+  private async loadQuestionnairesByVersionId(
+    participants: EligibleParticipant[],
+    currentQuestionnaire?: {
+      id: string;
+      questions: QuestionnaireQuestion[];
+    } | null,
+  ) {
+    const versionIds = [
+      ...new Set(
+        participants
+          .map((participant) => participant.questionnaireVersionId)
+          .filter((versionId): versionId is string => Boolean(versionId)),
+      ),
+    ];
+    const questionnairesByVersionId = new Map<string, PreparedQuestion[]>();
+
+    if (currentQuestionnaire) {
+      questionnairesByVersionId.set(
+        currentQuestionnaire.id,
+        prepareQuestions(currentQuestionnaire.questions),
+      );
+    }
+
+    const missingVersionIds = versionIds.filter(
+      (versionId) => !questionnairesByVersionId.has(versionId),
+    );
+
+    if (missingVersionIds.length === 0) {
+      return questionnairesByVersionId;
+    }
+
+    const questionnaireVersions =
+      await this.prisma.questionnaireVersion.findMany({
+        where: {
+          id: { in: missingVersionIds },
+        },
+        include: {
+          questions: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      });
+
+    for (const questionnaireVersion of questionnaireVersions) {
+      questionnairesByVersionId.set(
+        questionnaireVersion.id,
+        prepareQuestions(questionnaireVersion.questions),
+      );
+    }
+
+    return questionnairesByVersionId;
+  }
+
   private async calculatePairs(
     participants: EligibleParticipant[],
     questions: QuestionnaireQuestion[],
     revealAt: Date,
     currentCycleId?: string,
+    questionnairesByVersionId = new Map<string, PreparedQuestion[]>(),
   ) {
     const preparedQuestions = prepareQuestions(questions);
-    const scoreBounds = this.calculateMatchScoreBounds(preparedQuestions);
+    const scoreBounds = this.calculateMaxMatchScoreBounds([
+      preparedQuestions,
+      ...questionnairesByVersionId.values(),
+    ]);
     const participantIds = participants.map((participant) => participant.id);
     if (participants.length < 2) {
       return {
@@ -1481,7 +1679,7 @@ export class CyclesService {
       };
     }
 
-    const [blocks, historicalPairKeys] = await Promise.all([
+    const [blocks, historicalPairKeys, unmatchedStreaks] = await Promise.all([
       this.prisma.block.findMany({
         where: {
           OR: [
@@ -1491,7 +1689,13 @@ export class CyclesService {
         },
       }),
       this.loadHistoricalPairKeys(participantIds, currentCycleId),
+      this.loadUnmatchedStreaks(participantIds, revealAt, currentCycleId),
     ]);
+    const retentionWeightTiers = this.buildRetentionWeightTiers(
+      participants.length,
+      scoreBounds,
+      unmatchedStreaks,
+    );
 
     const blockedPairKeys = new Set(
       blocks.map((block) =>
@@ -1512,11 +1716,14 @@ export class CyclesService {
         const candidateResult = this.buildCandidatePair({
           left,
           right,
-          preparedQuestions,
+          fallbackQuestions: preparedQuestions,
+          questionnairesByVersionId,
           revealAt,
           scoreBounds,
           blockedPairKeys,
           historicalPairKeys,
+          unmatchedStreaks,
+          retentionWeightTiers,
         });
         if (
           !candidateResult ||
@@ -1535,7 +1742,7 @@ export class CyclesService {
     const candidates = [...candidateByPairKey.values()].sort((first, second) =>
       this.compareCandidatePairs(first, second),
     );
-    const selectedPairs = this.selectMaximumCardinalityPairs(
+    const selectedPairs = this.selectRetentionPriorityPairs(
       participants,
       candidates,
     );
@@ -1553,11 +1760,14 @@ export class CyclesService {
   private buildCandidatePair(input: {
     left: EligibleParticipant;
     right: EligibleParticipant;
-    preparedQuestions: PreparedQuestion[];
+    fallbackQuestions: PreparedQuestion[];
+    questionnairesByVersionId: Map<string, PreparedQuestion[]>;
     revealAt: Date;
     scoreBounds: MatchScoreBounds;
     blockedPairKeys: Set<string>;
     historicalPairKeys: Set<string>;
+    unmatchedStreaks: Map<string, number>;
+    retentionWeightTiers: RetentionWeightTiers;
   }): { pairKey: string; candidate: CandidatePair } | null {
     const pairKey = this.createPairKey(input.left.id, input.right.id);
 
@@ -1568,16 +1778,27 @@ export class CyclesService {
       return null;
     }
 
+    const pairQuestionSet = this.buildPairQuestionSet(
+      input.left,
+      input.right,
+      input.fallbackQuestions,
+      input.questionnairesByVersionId,
+    );
     const scored = this.scorePair(
       input.left,
       input.right,
-      input.preparedQuestions,
+      input.fallbackQuestions,
       input.revealAt,
       input.scoreBounds,
+      pairQuestionSet,
     );
     if (!scored) {
       return null;
     }
+
+    const leftUnmatchedStreak = input.unmatchedStreaks.get(input.left.id) ?? 0;
+    const rightUnmatchedStreak =
+      input.unmatchedStreaks.get(input.right.id) ?? 0;
 
     return {
       pairKey,
@@ -1586,8 +1807,16 @@ export class CyclesService {
         right: input.right,
         rawScore: scored.rawScore,
         score: scored.score,
+        matchingWeight: this.calculateRetentionMatchingWeight({
+          rawScore: scored.rawScore,
+          leftUnmatchedStreak,
+          rightUnmatchedStreak,
+          tiers: input.retentionWeightTiers,
+        }),
         reasons: scored.reasons,
         sharedSignals: scored.sharedSignals,
+        leftQuestions: pairQuestionSet.leftQuestions,
+        rightQuestions: pairQuestionSet.rightQuestions,
       },
     };
   }
@@ -1622,14 +1851,259 @@ export class CyclesService {
     );
   }
 
+  private buildRetentionWeightTiers(
+    participantCount: number,
+    scoreBounds: MatchScoreBounds,
+    unmatchedStreaks: Map<string, number>,
+  ): RetentionWeightTiers {
+    const maxPairCount = Math.max(1, Math.floor(participantCount / 2));
+    const maxPrePriorityBonusTotal =
+      maxPairCount *
+      2 *
+      (PRIORITY_UNMATCHED_STREAK_THRESHOLD - 1) *
+      PRE_PRIORITY_UNMATCHED_STREAK_BONUS;
+    const maxCompatibilityTotal =
+      maxPairCount *
+        Math.max(1, Math.ceil(scoreBounds.max), NORMALIZED_SCORE_MAX) +
+      maxPrePriorityBonusTotal;
+    const matchedUser = maxCompatibilityTotal + 1;
+    const maxMatchedUserTotal = maxPairCount * 2 * matchedUser;
+    const priorityStreak = maxMatchedUserTotal + maxCompatibilityTotal + 1;
+    const maxPriorityStreak = Math.max(
+      0,
+      ...[...unmatchedStreaks.values()].filter(
+        (streak) => streak >= PRIORITY_UNMATCHED_STREAK_THRESHOLD,
+      ),
+    );
+    const maxPriorityStreakTotal =
+      maxPairCount * 2 * maxPriorityStreak * priorityStreak;
+    const priorityUser =
+      maxPriorityStreakTotal + maxMatchedUserTotal + maxCompatibilityTotal + 1;
+
+    return {
+      priorityUser,
+      priorityStreak,
+      matchedUser,
+    };
+  }
+
+  private calculateRetentionMatchingWeight(input: {
+    rawScore: number;
+    leftUnmatchedStreak: number;
+    rightUnmatchedStreak: number;
+    tiers: RetentionWeightTiers;
+  }) {
+    const leftPriorityStreak = this.toPriorityStreak(input.leftUnmatchedStreak);
+    const rightPriorityStreak = this.toPriorityStreak(
+      input.rightUnmatchedStreak,
+    );
+    const priorityUserCount =
+      (leftPriorityStreak > 0 ? 1 : 0) + (rightPriorityStreak > 0 ? 1 : 0);
+    const priorityStreakTotal = leftPriorityStreak + rightPriorityStreak;
+    const regularStreakTotal =
+      this.toRegularStreak(input.leftUnmatchedStreak) +
+      this.toRegularStreak(input.rightUnmatchedStreak);
+
+    return (
+      priorityUserCount * input.tiers.priorityUser +
+      priorityStreakTotal * input.tiers.priorityStreak +
+      2 * input.tiers.matchedUser +
+      regularStreakTotal * PRE_PRIORITY_UNMATCHED_STREAK_BONUS +
+      input.rawScore
+    );
+  }
+
+  private toPriorityStreak(unmatchedStreak: number) {
+    return unmatchedStreak >= PRIORITY_UNMATCHED_STREAK_THRESHOLD
+      ? unmatchedStreak
+      : 0;
+  }
+
+  private toRegularStreak(unmatchedStreak: number) {
+    return unmatchedStreak < PRIORITY_UNMATCHED_STREAK_THRESHOLD
+      ? unmatchedStreak
+      : 0;
+  }
+
+  private resolveParticipantQuestions(
+    participant: EligibleParticipant,
+    fallbackQuestions: PreparedQuestion[],
+    questionnairesByVersionId: Map<string, PreparedQuestion[]> = new Map(),
+  ) {
+    if (!participant.questionnaireVersionId) {
+      return fallbackQuestions;
+    }
+
+    return (
+      questionnairesByVersionId.get(participant.questionnaireVersionId) ??
+      fallbackQuestions
+    );
+  }
+
+  private buildPairQuestionSet(
+    left: EligibleParticipant,
+    right: EligibleParticipant,
+    fallbackQuestions: PreparedQuestion[],
+    questionnairesByVersionId: Map<string, PreparedQuestion[]> = new Map(),
+  ): PairQuestionSet {
+    const leftQuestions = this.resolveParticipantQuestions(
+      left,
+      fallbackQuestions,
+      questionnairesByVersionId,
+    );
+    const rightQuestions = this.resolveParticipantQuestions(
+      right,
+      fallbackQuestions,
+      questionnairesByVersionId,
+    );
+    const rightQuestionsByKey = new Map(
+      rightQuestions.map((question) => [question.key, question]),
+    );
+
+    const comparableQuestions = leftQuestions
+      .map((leftQuestion, order): ComparableQuestion | null => {
+        const rightQuestion = rightQuestionsByKey.get(leftQuestion.key);
+
+        if (!rightQuestion || leftQuestion.type !== rightQuestion.type) {
+          return null;
+        }
+
+        return {
+          key: leftQuestion.key,
+          order,
+          type: leftQuestion.type,
+          weight: (leftQuestion.weight + rightQuestion.weight) / 2,
+          leftQuestion,
+          rightQuestion,
+        };
+      })
+      .filter((question): question is ComparableQuestion => question !== null);
+
+    return {
+      leftQuestions,
+      rightQuestions,
+      comparableQuestions,
+    };
+  }
+
+  private calculateLooksPreferenceSimilarity(
+    left: HardMatchAnswers,
+    right: HardMatchAnswers,
+  ) {
+    const leftAcceptsRight = this.looksPreferenceIncludes(
+      left.partnerLooks,
+      right.looks,
+    );
+    const rightAcceptsLeft = this.looksPreferenceIncludes(
+      right.partnerLooks,
+      left.looks,
+    );
+
+    return (leftAcceptsRight + rightAcceptsLeft) / 2;
+  }
+
+  private looksPreferenceIncludes(
+    selectedLooks: readonly string[],
+    candidateLooks: string,
+  ) {
+    if (selectedLooks.length === 0) {
+      return 0;
+    }
+
+    if (selectedLooks.length === HARD_MATCH_LOOKS.length) {
+      return 1;
+    }
+
+    return selectedLooks.includes(candidateLooks) ? 1 : 0;
+  }
+
+  private calculateAgePreferenceSimilarity(
+    left: HardMatchAnswers,
+    right: HardMatchAnswers,
+    revealAt: Date,
+  ) {
+    const leftAge = calculateAgeOnDate(left.birthDate, revealAt);
+    const rightAge = calculateAgeOnDate(right.birthDate, revealAt);
+    const leftFit = this.agePreferenceFit(
+      rightAge,
+      left.partnerAgeMin,
+      left.partnerAgeMax,
+    );
+    const rightFit = this.agePreferenceFit(
+      leftAge,
+      right.partnerAgeMin,
+      right.partnerAgeMax,
+    );
+
+    return (leftFit + rightFit) / 2;
+  }
+
+  private agePreferenceFit(
+    candidateAge: number,
+    partnerAgeMin: number,
+    partnerAgeMax: number,
+  ) {
+    if (candidateAge >= partnerAgeMin && candidateAge <= partnerAgeMax) {
+      return 1;
+    }
+
+    const yearsOutside =
+      candidateAge < partnerAgeMin
+        ? partnerAgeMin - candidateAge
+        : candidateAge - partnerAgeMax;
+    return Math.max(0, 1 - AGE_PREFERENCE_DECAY_PER_YEAR * yearsOutside);
+  }
+
+  private calculateScaleAnswerSimilarity(
+    leftQuestion: PreparedQuestion,
+    leftAnswer: string,
+    rightQuestion: PreparedQuestion,
+    rightAnswer: string,
+  ) {
+    if (leftAnswer === rightAnswer) {
+      return 1;
+    }
+
+    const leftPosition = this.getScaleAnswerPosition(leftQuestion, leftAnswer);
+    const rightPosition = this.getScaleAnswerPosition(
+      rightQuestion,
+      rightAnswer,
+    );
+
+    if (leftPosition == null || rightPosition == null) {
+      return 0;
+    }
+
+    return Math.max(0, 1 - Math.abs(leftPosition - rightPosition));
+  }
+
+  private getScaleAnswerPosition(question: PreparedQuestion, answer: string) {
+    const optionIndex = question.normalizedOptions.findIndex(
+      (option) => option.value === answer,
+    );
+
+    if (optionIndex < 0 || question.normalizedOptions.length < 2) {
+      return null;
+    }
+
+    return optionIndex / (question.normalizedOptions.length - 1);
+  }
+
   private scorePair(
     left: EligibleParticipant,
     right: EligibleParticipant,
     questions: MatchQuestion[],
     revealAt: Date,
-    scoreBounds = this.calculateMatchScoreBounds(prepareQuestions(questions)),
+    scoreBounds?: MatchScoreBounds,
+    pairQuestionSet?: PairQuestionSet,
   ) {
-    const preparedQuestions = prepareQuestions(questions);
+    const fallbackQuestions = prepareQuestions(questions);
+    const resolvedQuestionSet =
+      pairQuestionSet ??
+      this.buildPairQuestionSet(left, right, fallbackQuestions);
+    const resolvedScoreBounds =
+      scoreBounds ??
+      this.calculateMatchScoreBounds(resolvedQuestionSet.comparableQuestions);
 
     // Weekly-intent compatibility (FRIEND/DATE/BOTH) is a hard cycle-level
     // constraint, evaluated alongside the long-lived hard-match answers.
@@ -1652,14 +2126,27 @@ export class CyclesService {
       [];
     const sharedSignals: MatchNarrativeSignal[] = [];
 
-    for (const [order, question] of preparedQuestions.entries()) {
+    rawScore +=
+      this.calculateLooksPreferenceSimilarity(
+        left.hardMatchAnswers,
+        right.hardMatchAnswers,
+      ) * LOOKS_PREFERENCE_SOFT_BONUS;
+
+    rawScore +=
+      this.calculateAgePreferenceSimilarity(
+        left.hardMatchAnswers,
+        right.hardMatchAnswers,
+        revealAt,
+      ) * AGE_PREFERENCE_SOFT_BONUS;
+
+    for (const question of resolvedQuestionSet.comparableQuestions) {
       const leftAnswer = normalizePreparedQuestionAnswer(
-        question,
+        question.leftQuestion,
         left.answers[question.key],
         { invalidAsNull: true },
       );
       const rightAnswer = normalizePreparedQuestionAnswer(
-        question,
+        question.rightQuestion,
         right.answers[question.key],
         { invalidAsNull: true },
       );
@@ -1670,20 +2157,22 @@ export class CyclesService {
       }
 
       if (
-        (question.type === QuestionType.SINGLE_SELECT ||
-          question.type === QuestionType.SCALE) &&
+        question.type === QuestionType.SINGLE_SELECT &&
         leftAnswer === rightAnswer
       ) {
         rawScore += weight * SINGLE_SELECT_MATCH_BONUS;
         const matchedLabel =
           typeof leftAnswer === 'string'
-            ? labelForQuestionValue(leftAnswer, question.normalizedOptions)
+            ? labelForQuestionValue(
+                leftAnswer,
+                question.leftQuestion.normalizedOptions,
+              )
             : '';
 
         if (this.canUseQuestionForNarrative(question.key)) {
           sharedSignals.push({
             questionKey: question.key,
-            prompt: question.prompt,
+            prompt: question.leftQuestion.prompt,
             type: 'EXACT_MATCH',
             weight,
             sharedLabels: matchedLabel ? [matchedLabel] : [],
@@ -1692,8 +2181,57 @@ export class CyclesService {
           });
         }
         reasons.push(
-          ...this.buildReasonMessages(question, leftAnswer, rightAnswer, order),
+          ...this.buildReasonMessages(
+            question.leftQuestion,
+            leftAnswer,
+            rightAnswer,
+            question.order,
+          ),
         );
+      }
+
+      if (
+        question.type === QuestionType.SCALE &&
+        typeof leftAnswer === 'string' &&
+        typeof rightAnswer === 'string'
+      ) {
+        const similarity = this.calculateScaleAnswerSimilarity(
+          question.leftQuestion,
+          leftAnswer,
+          question.rightQuestion,
+          rightAnswer,
+        );
+
+        if (similarity > 0) {
+          rawScore += weight * SINGLE_SELECT_MATCH_BONUS * similarity;
+        }
+
+        if (leftAnswer === rightAnswer) {
+          const matchedLabel = labelForQuestionValue(
+            leftAnswer,
+            question.leftQuestion.normalizedOptions,
+          );
+
+          if (this.canUseQuestionForNarrative(question.key)) {
+            sharedSignals.push({
+              questionKey: question.key,
+              prompt: question.leftQuestion.prompt,
+              type: 'EXACT_MATCH',
+              weight,
+              sharedLabels: matchedLabel ? [matchedLabel] : [],
+              leftAnswerLabels: matchedLabel ? [matchedLabel] : [],
+              rightAnswerLabels: matchedLabel ? [matchedLabel] : [],
+            });
+          }
+          reasons.push(
+            ...this.buildReasonMessages(
+              question.leftQuestion,
+              leftAnswer,
+              rightAnswer,
+              question.order,
+            ),
+          );
+        }
       }
 
       if (question.type === QuestionType.MULTI_SELECT) {
@@ -1702,32 +2240,45 @@ export class CyclesService {
         const overlap = leftOptions.filter((value) =>
           rightOptions.includes(value),
         );
+        const union = [...new Set([...leftOptions, ...rightOptions])];
 
         if (overlap.length > 0) {
-          rawScore += overlap.length * weight * MULTI_SELECT_OVERLAP_BONUS;
+          rawScore +=
+            (overlap.length / union.length) *
+            weight *
+            MULTI_SELECT_OVERLAP_BONUS;
           if (this.canUseQuestionForNarrative(question.key)) {
             sharedSignals.push({
               questionKey: question.key,
-              prompt: question.prompt,
+              prompt: question.leftQuestion.prompt,
               type: 'MULTI_OVERLAP',
               weight,
               sharedLabels: overlap.map((value) =>
-                labelForQuestionValue(value, question.normalizedOptions),
+                labelForQuestionValue(
+                  value,
+                  question.leftQuestion.normalizedOptions,
+                ),
               ),
               leftAnswerLabels: leftOptions.map((value) =>
-                labelForQuestionValue(value, question.normalizedOptions),
+                labelForQuestionValue(
+                  value,
+                  question.leftQuestion.normalizedOptions,
+                ),
               ),
               rightAnswerLabels: rightOptions.map((value) =>
-                labelForQuestionValue(value, question.normalizedOptions),
+                labelForQuestionValue(
+                  value,
+                  question.rightQuestion.normalizedOptions,
+                ),
               ),
             });
           }
           reasons.push(
             ...this.buildReasonMessages(
-              question,
+              question.leftQuestion,
               leftAnswer,
               rightAnswer,
-              order,
+              question.order,
             ),
           );
         }
@@ -1762,7 +2313,7 @@ export class CyclesService {
 
     return {
       rawScore,
-      score: this.normalizeMatchScore(rawScore, scoreBounds),
+      score: this.normalizeMatchScore(rawScore, resolvedScoreBounds),
       sharedSignals,
       reasons:
         uniqueReasons.length > 0
@@ -1882,14 +2433,14 @@ export class CyclesService {
         intro: pair.left.introLine ?? '',
         questionnaire: this.buildNarrativeQuestionnaire(
           pair.left,
-          preparedQuestions,
+          pair.leftQuestions ?? preparedQuestions,
         ),
       },
       participantB: {
         intro: pair.right.introLine ?? '',
         questionnaire: this.buildNarrativeQuestionnaire(
           pair.right,
-          preparedQuestions,
+          pair.rightQuestions ?? preparedQuestions,
         ),
       },
     };
@@ -1900,6 +2451,7 @@ export class CyclesService {
     participantsById: Map<string, EligibleParticipant>,
     preparedQuestions: PreparedQuestion[],
     revealAt: Date,
+    questionnairesByVersionId = new Map<string, PreparedQuestion[]>(),
   ): MatchNarrativeInput | null {
     const orderedParticipants = [...match.participants].sort(
       (left, right) => left.position - right.position,
@@ -1915,11 +2467,19 @@ export class CyclesService {
       return null;
     }
 
+    const pairQuestionSet = this.buildPairQuestionSet(
+      left,
+      right,
+      preparedQuestions,
+      questionnairesByVersionId,
+    );
     const rescoredPair = this.scorePair(
       left,
       right,
       preparedQuestions,
       revealAt,
+      undefined,
+      pairQuestionSet,
     );
 
     return {
@@ -1933,14 +2493,14 @@ export class CyclesService {
         intro: left.introLine ?? '',
         questionnaire: this.buildNarrativeQuestionnaire(
           left,
-          preparedQuestions,
+          pairQuestionSet.leftQuestions,
         ),
       },
       participantB: {
         intro: right.introLine ?? '',
         questionnaire: this.buildNarrativeQuestionnaire(
           right,
-          preparedQuestions,
+          pairQuestionSet.rightQuestions,
         ),
       },
     };
@@ -2001,7 +2561,7 @@ export class CyclesService {
     );
   }
 
-  private selectMaximumCardinalityPairs(
+  private selectRetentionPriorityPairs(
     participants: EligibleParticipant[],
     candidates: CandidatePair[],
   ) {
@@ -2027,10 +2587,10 @@ export class CyclesService {
       const vertexPairKey = `${firstIndex}::${secondIndex}`;
 
       candidateByVertexPair.set(vertexPairKey, candidate);
-      edges.push([firstIndex, secondIndex, candidate.rawScore]);
+      edges.push([firstIndex, secondIndex, candidate.matchingWeight]);
     }
 
-    const matchedVertices = blossom(edges, true);
+    const matchedVertices = blossom(edges);
     return matchedVertices
       .map((rightIndex, leftIndex) => {
         if (rightIndex <= leftIndex) {
@@ -2043,27 +2603,45 @@ export class CyclesService {
       .sort((first, second) => this.compareCandidatePairs(first, second));
   }
 
-  private calculateMatchScoreBounds(
-    questions: MatchQuestion[],
+  private calculateMaxMatchScoreBounds(
+    questionSets: Array<Array<{ type: QuestionType; weight: number }>>,
   ): MatchScoreBounds {
-    let max = BASE_MATCH_SCORE;
+    return questionSets
+      .map((questions) => this.calculateMatchScoreBounds(questions))
+      .reduce(
+        (bounds, currentBounds) => ({
+          min: Math.min(bounds.min, currentBounds.min),
+          max: Math.max(bounds.max, currentBounds.max),
+        }),
+        {
+          min: BASE_MATCH_SCORE,
+          max:
+            BASE_MATCH_SCORE +
+            LOOKS_PREFERENCE_SOFT_BONUS +
+            AGE_PREFERENCE_SOFT_BONUS,
+        },
+      );
+  }
+
+  private calculateMatchScoreBounds(
+    questions: Array<{ type: QuestionType; weight: number }>,
+  ): MatchScoreBounds {
+    let max =
+      BASE_MATCH_SCORE +
+      LOOKS_PREFERENCE_SOFT_BONUS +
+      AGE_PREFERENCE_SOFT_BONUS;
 
     for (const question of questions) {
-      const preparedQuestion = prepareQuestion(question);
-
       if (
-        preparedQuestion.type === QuestionType.SINGLE_SELECT ||
-        preparedQuestion.type === QuestionType.SCALE
+        question.type === QuestionType.SINGLE_SELECT ||
+        question.type === QuestionType.SCALE
       ) {
-        max += preparedQuestion.weight * SINGLE_SELECT_MATCH_BONUS;
+        max += question.weight * SINGLE_SELECT_MATCH_BONUS;
         continue;
       }
 
-      if (preparedQuestion.type === QuestionType.MULTI_SELECT) {
-        max +=
-          this.getMaxMultiSelectOverlap(preparedQuestion) *
-          preparedQuestion.weight *
-          MULTI_SELECT_OVERLAP_BONUS;
+      if (question.type === QuestionType.MULTI_SELECT) {
+        max += question.weight * MULTI_SELECT_OVERLAP_BONUS;
       }
     }
 
@@ -2071,40 +2649,6 @@ export class CyclesService {
       min: BASE_MATCH_SCORE,
       max,
     };
-  }
-
-  private getMaxMultiSelectOverlap(question: {
-    prompt: string;
-    selectionLimit?: number | null;
-    normalizedOptions?: QuestionOption[];
-    options?: Prisma.JsonValue | null;
-  }) {
-    const optionCount =
-      question.normalizedOptions?.length ??
-      normalizeQuestionOptions(question.options ?? null).length;
-    const selectionLimit = question.selectionLimit ?? null;
-
-    if (selectionLimit != null) {
-      if (!Number.isInteger(selectionLimit) || selectionLimit < 0) {
-        throw new BadRequestException(
-          `Question "${question.prompt}" has an invalid selection limit.`,
-        );
-      }
-
-      if (optionCount === 0) {
-        return selectionLimit;
-      }
-
-      return Math.min(selectionLimit, optionCount);
-    }
-
-    if (optionCount === 0) {
-      throw new BadRequestException(
-        `Question "${question.prompt}" must define options or a selection limit before match scores can be normalized.`,
-      );
-    }
-
-    return optionCount;
   }
 
   private normalizeMatchScore(rawScore: number, scoreBounds: MatchScoreBounds) {

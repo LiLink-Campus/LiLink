@@ -1,6 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import { loadMonorepoEnv } from './load-env.mjs';
+import { loadPrismaClientModule } from './prisma-client.mjs';
 
-const prisma = new PrismaClient();
+loadMonorepoEnv();
+
+const { createPrismaClient } = await loadPrismaClientModule();
+const prisma = createPrismaClient();
 
 const schools = [
   {
@@ -347,7 +351,7 @@ async function seedQuestionnaire() {
   for (const q of QUESTIONNAIRE_DEFINITIONS) {
     const optionsPayload = createOptions(q.options);
     await prisma.question.upsert({
-      where: { key: q.key },
+      where: { versionId_key: { versionId: version.id, key: q.key } },
       update: {
         versionId: version.id,
         prompt: q.prompt,

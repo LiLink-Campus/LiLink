@@ -1,10 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { Prisma, UserStatus } from '@prisma/client';
+import { Prisma, QuestionType, UserStatus } from '../../common/prisma/client';
 import * as argon2 from 'argon2';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -42,6 +43,44 @@ const adminSchoolNameSelect = {
 } satisfies Prisma.SchoolSelect;
 
 const lockedCycleStatuses = ['REVEAL_READY', 'REVEALED'] as const;
+
+type QuestionnaireRevisionQuestion = {
+  key: string;
+  prompt: string;
+  description: string | null;
+  type: QuestionType;
+  required: boolean;
+  selectionLimit: number | null;
+  options: Prisma.InputJsonValue | typeof Prisma.DbNull;
+  reasonRules: Prisma.InputJsonValue | typeof Prisma.DbNull;
+  order: number;
+  weight: number;
+};
+
+type CurrentQuestionnaireForMutation = {
+  id: string;
+  title: string;
+  description: string | null;
+  questions: Array<{
+    id: string;
+    key: string;
+    prompt: string;
+    description: string | null;
+    type: QuestionType;
+    required: boolean;
+    selectionLimit: number | null;
+    options: Prisma.JsonValue | null;
+    reasonRules: Prisma.JsonValue | null;
+    order: number;
+    weight: number;
+  }>;
+};
+
+function toNullableJsonInput(value: Prisma.JsonValue | null) {
+  return value == null
+    ? Prisma.DbNull
+    : (value as Prisma.InputJsonValue | typeof Prisma.DbNull);
+}
 
 function isLockedCycleStatus(status: string) {
   return lockedCycleStatuses.includes(
@@ -887,6 +926,80 @@ export class AdminService {
     });
   }
 
+  private cloneQuestionForRevision(
+    question: CurrentQuestionnaireForMutation['questions'][number],
+  ): QuestionnaireRevisionQuestion {
+    return {
+      key: question.key,
+      prompt: question.prompt,
+      description: question.description,
+      type: question.type,
+      required: question.required,
+      selectionLimit: question.selectionLimit,
+      options: toNullableJsonInput(question.options),
+      reasonRules: toNullableJsonInput(question.reasonRules),
+      order: question.order,
+      weight: question.weight,
+    };
+  }
+
+  private async createQuestionnaireRevision(
+    currentVersion: CurrentQuestionnaireForMutation,
+    questions: QuestionnaireRevisionQuestion[],
+  ) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.questionnaireVersion.updateMany({
+          where: {
+            id: currentVersion.id,
+            isCurrent: true,
+          },
+          data: {
+            isCurrent: false,
+          },
+        });
+
+        return tx.questionnaireVersion.create({
+          data: {
+            title: currentVersion.title,
+            description: currentVersion.description,
+            isCurrent: true,
+            questions: {
+              create: questions.map((question) => ({
+                key: question.key,
+                prompt: question.prompt,
+                description: question.description,
+                type: question.type,
+                required: question.required,
+                selectionLimit: question.selectionLimit,
+                options: question.options,
+                reasonRules: question.reasonRules,
+                order: question.order,
+                weight: question.weight,
+              })),
+            },
+          },
+          include: {
+            questions: {
+              orderBy: { order: 'asc' },
+            },
+          },
+        });
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Questionnaire was updated concurrently. Please retry.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
   async getQuestions() {
     const version = await this.prisma.questionnaireVersion.findFirst({
       where: { isCurrent: true },
@@ -924,6 +1037,11 @@ export class AdminService {
   async upsertQuestion(input: UpsertQuestionDto, adminActorId: string) {
     const version = await this.prisma.questionnaireVersion.findFirst({
       where: { isCurrent: true },
+      include: {
+        questions: {
+          orderBy: { order: 'asc' },
+        },
+      },
     });
 
     if (!version) {
@@ -939,11 +1057,23 @@ export class AdminService {
       normalizedOptions.length,
       input.selectionLimit,
     );
+    const nextQuestionData = {
+      key: input.key,
+      prompt: input.prompt,
+      description: null,
+      type: input.type,
+      required: true,
+      selectionLimit,
+      options: normalizedOptions as Prisma.InputJsonValue,
+      reasonRules: normalizedReasonRules as Prisma.InputJsonValue,
+      order: input.order,
+      weight: input.weight ?? 1,
+    } satisfies QuestionnaireRevisionQuestion;
 
     if (input.questionId) {
-      const existingQuestion = await this.prisma.question.findUnique({
-        where: { id: input.questionId },
-      });
+      const existingQuestion = version.questions.find(
+        (question) => question.id === input.questionId,
+      );
 
       if (!existingQuestion) {
         throw new NotFoundException('Question not found.');
@@ -955,18 +1085,25 @@ export class AdminService {
         );
       }
 
-      const question = await this.prisma.question.update({
-        where: { id: input.questionId },
-        data: {
-          prompt: input.prompt,
-          type: input.type,
-          selectionLimit,
-          options: normalizedOptions,
-          reasonRules: normalizedReasonRules,
-          order: input.order,
-          weight: input.weight ?? 1,
-        },
-      });
+      const nextVersion = await this.createQuestionnaireRevision(
+        version,
+        version.questions.map((question) =>
+          question.id === input.questionId
+            ? {
+                ...nextQuestionData,
+                description: existingQuestion.description,
+                required: existingQuestion.required,
+              }
+            : this.cloneQuestionForRevision(question),
+        ),
+      );
+      const question = nextVersion.questions.find(
+        (candidate) => candidate.key === input.key,
+      );
+
+      if (!question) {
+        throw new NotFoundException('Question not found after revision.');
+      }
 
       await this.adminAuditService.write(adminActorId, 'question.updated', {
         questionId: question.id,
@@ -977,19 +1114,25 @@ export class AdminService {
       return question;
     }
 
-    const question = await this.prisma.question.create({
-      data: {
-        versionId: version.id,
-        key: input.key,
-        prompt: input.prompt,
-        type: input.type,
-        selectionLimit,
-        options: normalizedOptions,
-        reasonRules: normalizedReasonRules,
-        order: input.order,
-        weight: input.weight ?? 1,
-      },
-    });
+    if (version.questions.some((question) => question.key === input.key)) {
+      throw new BadRequestException(
+        `Question key "${input.key}" already exists in the current questionnaire.`,
+      );
+    }
+
+    const nextVersion = await this.createQuestionnaireRevision(version, [
+      ...version.questions.map((question) =>
+        this.cloneQuestionForRevision(question),
+      ),
+      nextQuestionData,
+    ]);
+    const question = nextVersion.questions.find(
+      (candidate) => candidate.key === input.key,
+    );
+
+    if (!question) {
+      throw new NotFoundException('Question not found after revision.');
+    }
 
     await this.adminAuditService.write(adminActorId, 'question.created', {
       questionId: question.id,
@@ -1001,25 +1144,47 @@ export class AdminService {
   }
 
   async reorderQuestions(input: ReorderQuestionsDto, adminActorId: string) {
-    const questions = await this.prisma.question.findMany({
-      where: {
-        id: { in: input.questionIds },
+    const version = await this.prisma.questionnaireVersion.findFirst({
+      where: { isCurrent: true },
+      include: {
+        questions: {
+          orderBy: { order: 'asc' },
+        },
       },
     });
 
-    if (questions.length !== input.questionIds.length) {
+    if (!version) {
+      throw new NotFoundException('No active questionnaire version found.');
+    }
+
+    const currentQuestionsById = new Map(
+      version.questions.map((question) => [question.id, question]),
+    );
+    const uniqueQuestionIds = new Set(input.questionIds);
+
+    if (
+      input.questionIds.length !== version.questions.length ||
+      uniqueQuestionIds.size !== version.questions.length
+    ) {
+      throw new BadRequestException(
+        'Question order must include every current question exactly once.',
+      );
+    }
+
+    if (
+      input.questionIds.some(
+        (questionId) => !currentQuestionsById.has(questionId),
+      )
+    ) {
       throw new NotFoundException('Some questions were not found.');
     }
 
-    await this.prisma.$transaction(
-      input.questionIds.map((questionId, index) =>
-        this.prisma.question.update({
-          where: { id: questionId },
-          data: {
-            order: index + 1,
-          },
-        }),
-      ),
+    await this.createQuestionnaireRevision(
+      version,
+      input.questionIds.map((questionId, index) => ({
+        ...this.cloneQuestionForRevision(currentQuestionsById.get(questionId)!),
+        order: index + 1,
+      })),
     );
 
     await this.adminAuditService.write(adminActorId, 'question.reordered', {
@@ -1030,15 +1195,29 @@ export class AdminService {
   }
 
   async deleteQuestion(questionId: string, adminActorId: string) {
-    const question = await this.prisma.question.findUnique({
-      where: { id: questionId },
+    const version = await this.prisma.questionnaireVersion.findFirst({
+      where: { isCurrent: true },
+      include: {
+        questions: {
+          orderBy: { order: 'asc' },
+        },
+      },
     });
+    const question = version?.questions.find(
+      (candidate) => candidate.id === questionId,
+    );
 
-    if (!question) {
+    if (!version || !question) {
       throw new NotFoundException('Question not found.');
     }
 
-    await this.prisma.question.delete({ where: { id: questionId } });
+    await this.createQuestionnaireRevision(
+      version,
+      version.questions
+        .filter((candidate) => candidate.id !== questionId)
+        .map((candidate) => this.cloneQuestionForRevision(candidate)),
+    );
+
     await this.adminAuditService.write(adminActorId, 'question.deleted', {
       questionId,
       key: question.key,

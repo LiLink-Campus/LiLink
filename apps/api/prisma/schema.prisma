@@ -4,12 +4,14 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client-js"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum UserStatus {
@@ -194,7 +196,7 @@ model Question {
   id          String               @id @default(cuid())
   versionId   String
   version     QuestionnaireVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  key         String               @unique
+  key         String
   prompt      String
   description String?
   type        QuestionType
@@ -206,18 +208,21 @@ model Question {
   reasonRules Json?
 
   @@index([versionId, order])
+  @@unique([versionId, key])
 }
 
 model QuestionnaireResponse {
-  id          String               @id @default(cuid())
-  userId      String               @unique
-  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  versionId   String
-  version     QuestionnaireVersion @relation(fields: [versionId], references: [id])
-  answers     Json
-  draftAnswers Json?
-  submittedAt DateTime?
-  updatedAt   DateTime             @updatedAt
+  id                                 String               @id @default(cuid())
+  userId                             String               @unique
+  user                               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versionId                          String
+  version                            QuestionnaireVersion @relation(fields: [versionId], references: [id])
+  answers                            Json
+  draftAnswers                       Json?
+  acknowledgedQuestionnaireVersionId String?
+  acknowledgedQuestionnaireKeys      Json?
+  submittedAt                        DateTime?
+  updatedAt                          DateTime             @updatedAt
 
   @@index([versionId])
   @@index([submittedAt])

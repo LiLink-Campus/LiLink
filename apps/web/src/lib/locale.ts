@@ -5,11 +5,20 @@ import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE_NAME,
   normalizeLocale,
+  parseSupportedLocale,
   type SupportedLocale,
 } from "@lilink/shared";
+import { fetchUserApiServer, hasUserSessionCookie } from "./server-api";
 
 export type { SupportedLocale };
 export { DEFAULT_LOCALE, LOCALE_COOKIE_NAME };
+
+type RequestLocaleSource = "cookie" | "user" | "default";
+
+type RequestLocaleResult = {
+  locale: SupportedLocale;
+  source: RequestLocaleSource;
+};
 
 function isMissingRequestContextError(error: unknown) {
   return (
@@ -19,15 +28,53 @@ function isMissingRequestContextError(error: unknown) {
 }
 
 export async function getRequestLocale() {
+  return (await getRequestLocaleResult()).locale;
+}
+
+export async function getRequestLocaleResult(): Promise<RequestLocaleResult> {
+  let cookieStore: Awaited<ReturnType<typeof cookies>>;
   try {
-    const cookieStore = await cookies();
-    return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+    cookieStore = await cookies();
   } catch (error) {
-    // Build-time prerender paths do not have an incoming request to read from.
     if (isMissingRequestContextError(error)) {
-      return DEFAULT_LOCALE;
+      return {
+        locale: DEFAULT_LOCALE,
+        source: "default",
+      };
     }
 
     throw error;
+  }
+
+  const cookieLocale = cookieStore.get(LOCALE_COOKIE_NAME)?.value;
+  const parsedCookieLocale = parseSupportedLocale(cookieLocale);
+
+  if (parsedCookieLocale) {
+    return {
+      locale: parsedCookieLocale,
+      source: "cookie",
+    };
+  }
+
+  if (!(await hasUserSessionCookie())) {
+    return {
+      locale: DEFAULT_LOCALE,
+      source: "default",
+    };
+  }
+
+  try {
+    const user = await fetchUserApiServer<{ preferredLocale?: unknown }>(
+      "/auth/me",
+    );
+    return {
+      locale: normalizeLocale(user.preferredLocale),
+      source: "user",
+    };
+  } catch {
+    return {
+      locale: DEFAULT_LOCALE,
+      source: "default",
+    };
   }
 }

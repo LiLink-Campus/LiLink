@@ -6,14 +6,14 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useSyncExternalStore,
+  useState,
 } from "react";
 import {
   DEFAULT_LOCALE,
   isSupportedLocale,
   type SupportedLocale,
 } from "@lilink/shared";
-import { readClientLocale } from "../lib/i18n";
+import { useAuthSession } from "./auth-session";
 
 type LocaleContextValue = {
   locale: SupportedLocale;
@@ -21,42 +21,37 @@ type LocaleContextValue = {
 };
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
-const localeListeners = new Set<() => void>();
-let localeOverride: SupportedLocale | null = null;
-
-function subscribeLocale(listener: () => void) {
-  localeListeners.add(listener);
-  return () => {
-    localeListeners.delete(listener);
-  };
-}
-
-function readLocaleSnapshot() {
-  return localeOverride ?? readClientLocale();
-}
-
-function emitLocaleChange() {
-  for (const listener of localeListeners) {
-    listener();
-  }
-}
 
 export function LocaleProvider({
   children,
   initialLocale,
+  hasLocaleCookie,
 }: {
   children: React.ReactNode;
   initialLocale: SupportedLocale;
+  hasLocaleCookie: boolean;
 }) {
-  const serverLocale = useMemo(
-    () => (isSupportedLocale(initialLocale) ? initialLocale : DEFAULT_LOCALE),
-    [initialLocale],
+  const { user } = useAuthSession();
+  const sessionLocale = user?.preferredLocale;
+  const resolvedInitialLocale = isSupportedLocale(initialLocale)
+    ? initialLocale
+    : DEFAULT_LOCALE;
+  const [clientLocaleCookie, setClientLocaleCookie] =
+    useState<SupportedLocale | null>(null);
+  const hasEffectiveLocaleCookie =
+    hasLocaleCookie || clientLocaleCookie !== null;
+  const cookieLocale = clientLocaleCookie ?? resolvedInitialLocale;
+  const resolvedLocale =
+    !hasEffectiveLocaleCookie && isSupportedLocale(sessionLocale)
+      ? sessionLocale
+      : cookieLocale;
+  const [locale, setLocaleState] = useState<SupportedLocale>(
+    resolvedLocale,
   );
-  const locale = useSyncExternalStore(
-    subscribeLocale,
-    readLocaleSnapshot,
-    () => serverLocale,
-  );
+
+  useEffect(() => {
+    setLocaleState(resolvedLocale);
+  }, [resolvedLocale]);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -78,10 +73,8 @@ export function LocaleProvider({
       throw new Error("Failed to update locale.");
     }
 
-    localeOverride = nextLocale;
-    document.documentElement.lang = nextLocale;
-    document.documentElement.dataset.locale = nextLocale;
-    emitLocaleChange();
+    setLocaleState(nextLocale);
+    setClientLocaleCookie(nextLocale);
   }, []);
 
   const value = useMemo<LocaleContextValue>(

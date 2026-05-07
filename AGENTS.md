@@ -42,3 +42,20 @@ These instructions apply to the entire repository unless a more specific `AGENTS
 - Do not commit local-only files such as `.env`, `.env.*`, `AGENTS.override.md`, `.codex-local/`, build output, dependency folders, or logs.
 - Before staging, inspect `git status --short` and avoid adding unrelated untracked files.
 - Comments and docstrings in code should be concise and written in English.
+
+## Production Container Operations
+
+The prod `api` service in `docker-compose.yml` intentionally omits `DATABASE_URL` from the compose `environment:` block. The entrypoint assembles the URL inline and `export`s it only for the Node process, so `docker inspect` cannot leak the database password. Consequences agents must remember:
+
+- `docker exec lilink-api env` does not show `DATABASE_URL`. The running Node process has it; new exec shells start without it. This is by design, not a misconfiguration.
+- Ad-hoc Prisma CLI invocations inside the container must rebuild the URL from the parts that *are* in the env (e.g. `DB_PASSWORD`). Example:
+
+  ```sh
+  docker exec lilink-api sh -c '
+    export DATABASE_URL="postgresql://lilink:$DB_PASSWORD@postgres:5432/lilink?schema=public" &&
+    npx prisma migrate status
+  '
+  ```
+
+- `apps/api/prisma/schema.prisma` no longer declares `url = env("DATABASE_URL")` because the API uses the Prisma 7 driver adapter (`@prisma/adapter-pg`) and reads the connection string at runtime via `apps/api/src/common/prisma/client.ts`. Treat any reintroduction of a hard-coded `url` in the schema as a regression.
+- Never echo `DATABASE_URL`, `DB_PASSWORD`, or other secrets to logs, terminals, or commit messages.

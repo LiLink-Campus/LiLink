@@ -9,7 +9,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import type { Response } from 'express';
+import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import {
   LoginDto,
@@ -28,6 +29,10 @@ import {
 } from '../../common/auth/session-config';
 import { createPublicAuthThrottle } from './auth-throttle';
 
+type RequestWithCookies = Request & {
+  cookies?: Record<string, unknown>;
+};
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -45,10 +50,14 @@ export class AuthController {
   @Throttle(createPublicAuthThrottle('register'))
   async register(
     @Body() body: RegisterDto,
+    @Req() request: RequestWithCookies,
     @Res({ passthrough: true }) response: Response,
     @Headers('x-locale') locale?: string,
   ) {
-    const { token, ...payload } = await this.authService.register(body, locale);
+    const { token, ...payload } = await this.authService.register(
+      body,
+      this.readLocaleCookie(request) ?? parseSupportedLocale(locale),
+    );
     this.attachAuthCookie(response, token);
     return payload;
   }
@@ -66,9 +75,13 @@ export class AuthController {
   @Throttle(createPublicAuthThrottle('resetPassword'))
   async resetPassword(
     @Body() body: ResetPasswordDto,
+    @Req() request: RequestWithCookies,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { token, ...payload } = await this.authService.resetPassword(body);
+    const { token, ...payload } = await this.authService.resetPassword(
+      body,
+      this.readLocaleCookie(request),
+    );
     this.attachAuthCookie(response, token);
     return payload;
   }
@@ -77,9 +90,13 @@ export class AuthController {
   @Throttle(createPublicAuthThrottle('login'))
   async login(
     @Body() body: LoginDto,
+    @Req() request: RequestWithCookies,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { token, ...payload } = await this.authService.login(body);
+    const { token, ...payload } = await this.authService.login(
+      body,
+      this.readLocaleCookie(request),
+    );
     this.attachAuthCookie(response, token);
     return payload;
   }
@@ -103,5 +120,11 @@ export class AuthController {
       token,
       createSessionCookieOptions(userSessionConfig.cookieMaxAgeMs),
     );
+  }
+
+  private readLocaleCookie(request: RequestWithCookies) {
+    const rawLocale: unknown = request.cookies?.[LOCALE_COOKIE_NAME];
+
+    return parseSupportedLocale(rawLocale);
   }
 }

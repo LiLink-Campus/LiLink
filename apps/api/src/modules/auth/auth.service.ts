@@ -1,13 +1,14 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '../../common/prisma/client';
 import {
   DEFAULT_LOCALE,
   isSupportedLocale,
@@ -33,8 +34,15 @@ type ResolvedSchool = NonNullable<
 
 const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
 const VERIFICATION_CODE_HMAC_CONTEXT = 'verification-code';
+const USABLE_VERIFICATION_CODE_DELIVERY_STATUSES = [
+  'PENDING',
+  'PROCESSING',
+  'SENT',
+] as const;
 const REGISTRATION_CAPACITY_LOCK_KEY = 120_404_260;
 const MAX_REGISTRATIONS_SETTING_KEY = 'max_registrations';
+const REGISTRATION_CAPACITY_LIMIT_PATTERN = /^\d+$/;
+const UNLIMITED_REGISTRATION_CAPACITY_LIMIT = 0;
 
 @Injectable()
 export class AuthService {
@@ -64,9 +72,12 @@ export class AuthService {
     return { ...result, school };
   }
 
-  async register(input: RegisterDto, locale: unknown = DEFAULT_LOCALE) {
+  async register(
+    input: RegisterDto,
+    localeHint?: SupportedLocale | null,
+  ) {
     const normalizedEmail = input.email.trim().toLowerCase();
-    const preferredLocale = normalizeLocale(locale);
+    const preferredLocale = normalizeLocale(localeHint ?? DEFAULT_LOCALE);
     const school = await this.resolveAllowedSchool(normalizedEmail);
     await this.assertRegistrationCapacityPreflight(
       this.prisma,
@@ -96,8 +107,8 @@ export class AuthService {
             passwordHash,
             status: 'ACTIVE',
             displayName: input.displayName,
+            preferredLocale: localeHint ?? preferredLocale,
             schoolId: school?.schoolId,
-            preferredLocale,
             acceptedTermsAt: input.acceptedTerms ? new Date() : null,
             profile: {
               create: {
@@ -120,6 +131,7 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
+      localeHint,
     );
   }
 
@@ -149,7 +161,10 @@ export class AuthService {
     );
   }
 
-  async resetPassword(input: ResetPasswordDto) {
+  async resetPassword(
+    input: ResetPasswordDto,
+    localeCookie?: SupportedLocale | null,
+  ) {
     const normalizedEmail = input.email.trim().toLowerCase();
     const existingUser = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -192,10 +207,11 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
+      localeCookie,
     );
   }
 
-  async login(input: LoginDto) {
+  async login(input: LoginDto, localeCookie?: SupportedLocale | null) {
     const normalizedEmail = input.email.trim().toLowerCase();
 
     const user = await this.prisma.user.findUnique({
@@ -221,6 +237,7 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
+      localeCookie,
     );
   }
 
@@ -373,7 +390,9 @@ export class AuthService {
       where: {
         email,
         purpose,
-        deliveryStatus: 'SENT',
+        deliveryStatus: {
+          in: [...USABLE_VERIFICATION_CODE_DELIVERY_STATUSES],
+        },
         consumedAt: null,
         expiresAt: { gt: new Date() },
       },
@@ -495,6 +514,7 @@ export class AuthService {
     email: string,
     displayName: string | null,
     preferredLocale: unknown = DEFAULT_LOCALE,
+    localeCookie?: SupportedLocale | null,
   ) {
     const token = this.jwtService.sign({
       sub: userId,
@@ -508,7 +528,7 @@ export class AuthService {
         id: userId,
         email,
         displayName,
-        preferredLocale: normalizeLocale(preferredLocale),
+        preferredLocale: localeCookie ?? normalizeLocale(preferredLocale),
       },
     };
   }
@@ -529,7 +549,9 @@ export class AuthService {
     const limit = await this.getRegistrationCapacityLimit(tx);
     if (limit <= 0) return;
 
-    await tx.$queryRaw(
+    // The advisory lock is executed only for its side effect, so discard the
+    // result set instead of binding this path to raw-query result shape.
+    await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(${REGISTRATION_CAPACITY_LOCK_KEY})`,
     );
 
@@ -555,7 +577,30 @@ export class AuthService {
       where: { key: MAX_REGISTRATIONS_SETTING_KEY },
     });
 
-    return Number(setting?.value ?? '0');
+    return this.parseRegistrationCapacityLimit(setting?.value);
+  }
+
+  private parseRegistrationCapacityLimit(settingValue?: string | null) {
+    const rawLimit =
+      settingValue ?? String(UNLIMITED_REGISTRATION_CAPACITY_LIMIT);
+
+    if (!REGISTRATION_CAPACITY_LIMIT_PATTERN.test(rawLimit)) {
+      throw this.createInvalidRegistrationCapacityConfigError();
+    }
+
+    const limit = Number(rawLimit);
+
+    if (!Number.isSafeInteger(limit) || limit < 0) {
+      throw this.createInvalidRegistrationCapacityConfigError();
+    }
+
+    return limit;
+  }
+
+  private createInvalidRegistrationCapacityConfigError() {
+    return new InternalServerErrorException(
+      `${MAX_REGISTRATIONS_SETTING_KEY} must be a non-negative safe integer.`,
+    );
   }
 
   private assertRegistrationCapacityHasSpace(

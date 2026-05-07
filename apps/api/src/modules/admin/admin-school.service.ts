@@ -5,7 +5,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { isDeepStrictEqual } from 'node:util';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '../../common/prisma/client';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {

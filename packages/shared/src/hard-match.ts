@@ -948,29 +948,24 @@ export function areHardMatchAnswersCompatible(
   right: HardMatchAnswers,
   revealAt: Date,
 ) {
-  const leftNationality =
-    left.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
-  const rightNationality =
-    right.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
+  const leftNationality = left.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
+  const rightNationality = right.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
   const defaultLanguages: readonly HardMatchLanguage[] = [
     HARD_MATCH_DEFAULT_LANGUAGE,
   ];
-  const leftLanguages: readonly HardMatchLanguage[] =
-    left.languages?.length ? left.languages : defaultLanguages;
-  const rightLanguages: readonly HardMatchLanguage[] =
-    right.languages?.length ? right.languages : defaultLanguages;
+  const leftLanguages: readonly HardMatchLanguage[] = left.languages?.length
+    ? left.languages
+    : defaultLanguages;
+  const rightLanguages: readonly HardMatchLanguage[] = right.languages?.length
+    ? right.languages
+    : defaultLanguages;
 
-  const leftAge = calculateAgeOnDate(left.birthDate, revealAt);
-  const rightAge = calculateAgeOnDate(right.birthDate, revealAt);
-
-  if (
-    leftAge < right.partnerAgeMin ||
-    leftAge > right.partnerAgeMax ||
-    rightAge < left.partnerAgeMin ||
-    rightAge > left.partnerAgeMax
-  ) {
-    return false;
-  }
+  // Age is intentionally a soft preference: a non-trivial number of users
+  // mis-read partnerAgeMin/Max as a relative offset (e.g. "4-5 years
+  // younger than me"), which produced absolute ranges like 1-8 that no real
+  // candidate satisfies. The matching score in cycles.service.ts rewards
+  // pairs that fall inside each other's preferred age window and decays the
+  // score for pairs that fall outside, instead of dropping them entirely.
 
   if (
     !multiPreferenceMatches(
@@ -1003,18 +998,8 @@ export function areHardMatchAnswersCompatible(
   }
 
   if (
-    !optionalLanguagePreferenceMatches(
-      left.partnerLanguages,
-      rightLanguages,
-    ) ||
+    !optionalLanguagePreferenceMatches(left.partnerLanguages, rightLanguages) ||
     !optionalLanguagePreferenceMatches(right.partnerLanguages, leftLanguages)
-  ) {
-    return false;
-  }
-
-  if (
-    !multiPreferenceMatches(left.partnerLooks, right.looks, HARD_MATCH_LOOKS) ||
-    !multiPreferenceMatches(right.partnerLooks, left.looks, HARD_MATCH_LOOKS)
   ) {
     return false;
   }

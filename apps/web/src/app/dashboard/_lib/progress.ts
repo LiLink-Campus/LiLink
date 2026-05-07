@@ -1,4 +1,7 @@
-import { hardMatchFormFromAnswers } from "../../../lib/hard-match";
+import {
+  getHardMatchFormSaveErrorMessage,
+  hardMatchFormFromAnswers,
+} from "../../../lib/hard-match";
 import {
   keepCurrentQuestionAnswers,
   softQuestionAnswerIsComplete,
@@ -42,7 +45,7 @@ const HARD_MATCH_REQUIRED_LIST_FIELDS = [
 function hardMatchCompletion(
   saved: SavedQuestionnairePayload,
   schools: QuestionnairePayload["schools"],
-): number {
+): { ratio: number; isSavable: boolean } {
   const hardMatchForm = hardMatchFormFromAnswers(
     saved?.draft?.softAnswers ?? saved?.answers ?? undefined,
     schools,
@@ -65,7 +68,11 @@ function hardMatchCompletion(
     }
   }
 
-  return totalChecks === 0 ? 0 : satisfied / totalChecks;
+  const ratio = totalChecks === 0 ? 0 : satisfied / totalChecks;
+  const isSavable =
+    ratio >= 1 && getHardMatchFormSaveErrorMessage(draftForm) === null;
+
+  return { ratio, isSavable };
 }
 
 function softQuestionCompletion(
@@ -102,14 +109,22 @@ export function computeQuestionnaireProgress(args: {
   schools: QuestionnairePayload["schools"];
   savedQuestionnaire: SavedQuestionnairePayload;
   fallbackDisplayName: string | null;
-}): { percent: number; submitted: boolean } {
+}): {
+  percent: number;
+  submitted: boolean;
+  eligibleToOptIn: boolean;
+  hasIncompleteDraft: boolean;
+} {
   const submitted = Boolean(args.savedQuestionnaire?.submittedAt);
 
   const nicknameRatio = nicknameCompletion(
     args.savedQuestionnaire,
     args.fallbackDisplayName,
   );
-  const hardRatio = hardMatchCompletion(args.savedQuestionnaire, args.schools);
+  const hardCompletion = hardMatchCompletion(
+    args.savedQuestionnaire,
+    args.schools,
+  );
   const softRatio = softQuestionCompletion(
     args.questions,
     args.savedQuestionnaire,
@@ -122,11 +137,22 @@ export function computeQuestionnaireProgress(args: {
 
   const weighted =
     NICKNAME_WEIGHT * nicknameRatio +
-    HARD_MATCH_WEIGHT * hardRatio +
+    HARD_MATCH_WEIGHT * hardCompletion.ratio +
     SOFT_QUESTION_WEIGHT * args.questions.length * softRatio;
 
   const ratio = totalWeight === 0 ? 0 : weighted / totalWeight;
   const percent = Math.max(0, Math.min(100, Math.round(ratio * 100)));
 
-  return { percent, submitted };
+  // Mirrors AccountService.assertQuestionnaireReadyForOptIn: opting in
+  // requires a previous successful submission AND a current draft (if any)
+  // that still satisfies every required field. Comparing the raw ratios
+  // (rather than `percent === 100`) avoids misreporting eligibility because
+  // of rounding to integer percent.
+  const currentlyComplete =
+    nicknameRatio >= 1 && hardCompletion.isSavable && softRatio >= 1;
+  const eligibleToOptIn = submitted && currentlyComplete;
+  const hasIncompleteDraft =
+    submitted && args.savedQuestionnaire?.draft != null && !currentlyComplete;
+
+  return { percent, submitted, eligibleToOptIn, hasIncompleteDraft };
 }

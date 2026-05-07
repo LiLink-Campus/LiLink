@@ -1,8 +1,54 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '../../common/prisma/client';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
+import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
+
+// Build a real QuestionnaireService whose validateAnswers / sanitizeStoredAnswers
+// are pure helpers, then stub getCurrentVersion to inject the schema we want.
+function buildQuestionnaireServiceWithSchema(payload: {
+  id?: string;
+  questions: Array<{
+    key: string;
+    prompt: string;
+    type: 'SINGLE_SELECT' | 'MULTI_SELECT' | 'SCALE';
+    required: boolean;
+    options?: Array<{ value: string; label?: string }>;
+    selectionLimit?: number | null;
+  }>;
+  schools: Array<{ id: string; name?: string }>;
+}) {
+  const service = new QuestionnaireService({} as never);
+  const questionnairePayload = {
+    id: payload.id ?? 'q-test',
+    questions: payload.questions.map((q, index) => ({
+      id: `${q.key}-id`,
+      versionId: payload.id ?? 'q-test',
+      key: q.key,
+      prompt: q.prompt,
+      description: null,
+      type: q.type,
+      weight: 1,
+      order: index,
+      required: q.required,
+      selectionLimit: q.selectionLimit ?? null,
+      options: (q.options ?? []).map((o) => ({
+        value: o.value,
+        label: o.label ?? o.value,
+      })),
+      reasonRules: { rules: [] },
+    })),
+    schools: payload.schools.map((s) => ({
+      id: s.id,
+      name: s.name ?? s.id,
+    })),
+  };
+  jest
+    .spyOn(service, 'getCurrentVersion')
+    .mockResolvedValue(questionnairePayload as never);
+  return service;
+}
 
 function buildRevealedCycle(id: string, codename: string, revealAt: string) {
   return {
@@ -305,6 +351,76 @@ function createDashboardPrismaMock({
   };
 }
 
+function buildSubmittedQuestionnaireResponse(
+  overrides: Partial<{
+    answers: Record<string, unknown>;
+    draftAnswers: Record<string, unknown> | null;
+    submittedAt: Date;
+  }> = {},
+) {
+  return {
+    answers: {
+      [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
+      [HARD_MATCH_KEYS.partnerAgeMin]: 18,
+      [HARD_MATCH_KEYS.partnerAgeMax]: 30,
+      [HARD_MATCH_KEYS.gender]: '男',
+      [HARD_MATCH_KEYS.partnerGenders]: ['女'],
+      [HARD_MATCH_KEYS.looks]: '普通人',
+      [HARD_MATCH_KEYS.partnerLooks]: ['普通人'],
+      [HARD_MATCH_KEYS.heightCm]: 175,
+      [HARD_MATCH_KEYS.partnerHeightMin]: 150,
+      [HARD_MATCH_KEYS.partnerHeightMax]: 195,
+      [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢徒步。',
+      ...(overrides.answers ?? {}),
+    },
+    draftAnswers:
+      overrides.draftAnswers === undefined ? null : overrides.draftAnswers,
+    submittedAt: overrides.submittedAt ?? new Date('2026-04-01T00:00:00.000Z'),
+  };
+}
+
+function buildSubmittedHardMatchDraftForm(
+  overrides: Record<string, unknown> = {},
+) {
+  // Numeric fields are stored as strings in the draft so they round-trip
+  // through readAllowedNumberString / readRequiredIntegerInput unchanged.
+  return {
+    birthYear: '2000',
+    birthMonth: '05',
+    birthDay: '10',
+    partnerAgeMin: '18',
+    partnerAgeMax: '30',
+    gender: '男',
+    partnerGenders: ['女'],
+    nationality: '中国',
+    partnerNationalities: ['中国'],
+    languages: ['中文'],
+    partnerLanguages: ['中文'],
+    looks: '普通人',
+    partnerLooks: ['普通人'],
+    heightCm: '175',
+    partnerHeightMin: '150',
+    partnerHeightMax: '195',
+    oneLinerIntro: '喜欢徒步。',
+    ...overrides,
+  };
+}
+
+function createDashboardSnapshotServiceMock() {
+  return {
+    ensureUserSnapshotCoverage: jest.fn().mockResolvedValue(undefined),
+    readDashboardMatchPayload: jest
+      .fn()
+      .mockImplementation((rawPayload: unknown) =>
+        typeof rawPayload === 'object' && rawPayload !== null
+          ? rawPayload
+          : null,
+      ),
+    syncMatchSnapshots: jest.fn().mockResolvedValue(undefined),
+    syncUserMatchSnapshots: jest.fn().mockResolvedValue(undefined),
+  };
+}
+
 describe('AccountService', () => {
   afterEach(() => {
     clearStickyParticipationCache();
@@ -324,6 +440,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -352,6 +469,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -382,6 +500,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -404,13 +523,16 @@ describe('AccountService', () => {
         }),
       },
       user: {
-        findUnique: jest.fn().mockResolvedValue({ status: 'SUSPENDED' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'SUSPENDED', schoolId: 'school-bupt' }),
       },
     };
     const service = new AccountService(
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -418,8 +540,312 @@ describe('AccountService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      select: { status: true },
+      select: { status: true, schoolId: true },
     });
+  });
+
+  it('rejects opt-in when the questionnaire has not been submitted yet', async () => {
+    const upsert = jest.fn();
+    const findUniqueResponse = jest.fn().mockResolvedValue(null);
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: findUniqueResponse,
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(findUniqueResponse).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      select: { answers: true, draftAnswers: true, submittedAt: true },
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects opt-in when the saved questionnaire only has a draft (submittedAt is null)', async () => {
+    const upsert = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue({
+          ...buildSubmittedQuestionnaireResponse(),
+          submittedAt: null,
+        }),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects opt-in when the submitted answers no longer parse as valid hard-match data', async () => {
+    const upsert = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue({
+          // Legacy / corrupted record: submittedAt is set but the hard-match
+          // payload is missing required keys.
+          answers: { [HARD_MATCH_KEYS.gender]: '男' },
+          submittedAt: new Date('2026-04-01T00:00:00.000Z'),
+        }),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects opt-in when an unsaved draft has emptied a required soft question', async () => {
+    const upsert = jest.fn();
+    const questionnaireService = buildQuestionnaireServiceWithSchema({
+      questions: [
+        {
+          key: 'value-1',
+          prompt: 'How important is honesty?',
+          type: 'SINGLE_SELECT',
+          required: true,
+          options: [{ value: 'low' }, { value: 'high' }],
+        },
+      ],
+      schools: [{ id: 'school-bupt' }],
+    });
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(
+          buildSubmittedQuestionnaireResponse({
+            answers: { ['value-1']: 'high' },
+            // Draft cleared the required soft question after the original
+            // submission. The user-facing progress bar drops below 100% but
+            // submittedAt remains non-null.
+            draftAnswers: {
+              softAnswers: {},
+              hardMatchForm: buildSubmittedHardMatchDraftForm(),
+              displayName: 'User',
+            },
+          }),
+        ),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      questionnaireService as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toMatchObject({
+      message:
+        'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects opt-in when an unsaved draft clears a required hard-match field', async () => {
+    const upsert = jest.fn();
+    const questionnaireService = buildQuestionnaireServiceWithSchema({
+      questions: [
+        {
+          key: 'value-1',
+          prompt: 'How important is honesty?',
+          type: 'SINGLE_SELECT',
+          required: true,
+          options: [{ value: 'low' }, { value: 'high' }],
+        },
+      ],
+      schools: [{ id: 'school-bupt' }],
+    });
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(
+          buildSubmittedQuestionnaireResponse({
+            answers: { ['value-1']: 'high' },
+            draftAnswers: {
+              softAnswers: { ['value-1']: 'high' },
+              hardMatchForm: buildSubmittedHardMatchDraftForm({
+                oneLinerIntro: '',
+              }),
+              displayName: 'User',
+            },
+          }),
+        ),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      questionnaireService as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toMatchObject({
+      message:
+        'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('allows opt-in when a draft exists but still satisfies every required field', async () => {
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'participation-1',
+      status: 'OPTED_IN',
+      intent: 'BOTH',
+    });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const questionnaireService = buildQuestionnaireServiceWithSchema({
+      questions: [
+        {
+          key: 'value-1',
+          prompt: 'How important is honesty?',
+          type: 'SINGLE_SELECT',
+          required: true,
+          options: [{ value: 'low' }, { value: 'high' }],
+        },
+      ],
+      schools: [{ id: 'school-bupt' }],
+    });
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(
+          buildSubmittedQuestionnaireResponse({
+            answers: { ['value-1']: 'high' },
+            draftAnswers: {
+              softAnswers: { ['value-1']: 'low' },
+              hardMatchForm: buildSubmittedHardMatchDraftForm(),
+              displayName: 'User',
+            },
+          }),
+        ),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      questionnaireService as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await service.setParticipation('user-1', { optIn: true, intent: 'BOTH' });
+
+    expect(upsert).toHaveBeenCalled();
   });
 
   it('persists the chosen intent and writes it into the audit log on opt-in', async () => {
@@ -438,7 +864,14 @@ describe('AccountService', () => {
         }),
       },
       user: {
-        findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue(buildSubmittedQuestionnaireResponse()),
       },
       cycleParticipation: {
         upsert,
@@ -451,6 +884,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await service.setParticipation('user-1', { optIn: true, intent: 'DATE' });
@@ -480,6 +914,87 @@ describe('AccountService', () => {
     });
   });
 
+  it('still rejects opt-in switching intent when the saved questionnaire was reset to a draft after the first opt-in', async () => {
+    // Defense-in-depth: a user who was already OPTED_IN with a complete
+    // questionnaire is allowed to flip intent (DATE -> BOTH etc), but only
+    // if the questionnaire is still complete. If admin tooling, a data
+    // migration, or a manual reset wipes submittedAt, the next intent
+    // change must surface the contract failure instead of silently keeping
+    // them in OPTED_IN with unmatchable data.
+    const upsert = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue({
+          ...buildSubmittedQuestionnaireResponse(),
+          submittedAt: null,
+        }),
+      },
+      cycleParticipation: { upsert },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it('lets a user opt out without requiring a complete questionnaire', async () => {
+    // Symmetric to the gate above: if a user somehow ended up OPTED_IN
+    // before the questionnaire gate was added, opt-out must still work
+    // without any questionnaire lookup so they can leave the cycle.
+    const upsert = jest.fn().mockResolvedValue({
+      id: 'participation-1',
+      status: 'OPTED_OUT',
+      intent: null,
+    });
+    const findUniqueQuestionnaire = jest.fn();
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      questionnaireResponse: { findUnique: findUniqueQuestionnaire },
+      cycleParticipation: { upsert },
+      auditLog: { create: jest.fn().mockResolvedValue(undefined) },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await service.setParticipation('user-1', { optIn: false });
+
+    expect(findUniqueQuestionnaire).not.toHaveBeenCalled();
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ status: 'OPTED_OUT' }) as object,
+      }),
+    );
+  });
+
   it('clears intent on opt-out so rejoining requires an explicit fresh choice', async () => {
     const upsert = jest.fn().mockResolvedValue({
       id: 'participation-1',
@@ -506,6 +1021,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await service.setParticipation('user-1', { optIn: false });
@@ -540,6 +1056,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -561,6 +1078,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -578,6 +1096,7 @@ describe('AccountService', () => {
         },
         questionnaireResponse: {
           findUnique: jest.fn().mockResolvedValue({
+            versionId: 'version-old',
             answers: {
               current_question: 'kept',
               removed_question: 'dropped',
@@ -590,19 +1109,37 @@ describe('AccountService', () => {
               [HARD_MATCH_KEYS.oneLinerIntro]:
                 '测试用一句话介绍，用于回归问卷过滤。',
             },
+            acknowledgedQuestionnaireVersionId: null,
+            acknowledgedQuestionnaireKeys: null,
             submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            version: {
+              questions: [
+                {
+                  key: 'current_question',
+                  prompt: 'Current question',
+                  description: null,
+                  type: 'SINGLE_SELECT',
+                  required: true,
+                  selectionLimit: null,
+                  options: null,
+                },
+              ],
+            },
           }),
         },
       } as never,
       {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
           questions: [
             {
               key: 'current_question',
               prompt: 'Current question',
+              description: null,
               type: 'SINGLE_SELECT',
               required: true,
+              selectionLimit: null,
               options: null,
             },
           ],
@@ -615,9 +1152,12 @@ describe('AccountService', () => {
           current_question: 'kept',
         }),
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.getQuestionnaire('user-1')).resolves.toEqual({
+      versionId: 'version-old',
+      currentVersionId: 'version-current',
       answers: {
         current_question: 'kept',
         [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
@@ -627,7 +1167,153 @@ describe('AccountService', () => {
       },
       submittedAt: '2026-04-18T12:00:00.000Z',
       draft: null,
+      attention: {
+        currentVersionId: 'version-current',
+        acknowledgedKeys: [],
+        pendingUpdatedKeys: [],
+        missingRequiredKeys: [],
+        pendingKeys: [],
+        items: [],
+      },
     });
+  });
+
+  it('marks current-version questionnaire additions as pending account-level attention', async () => {
+    const service = new AccountService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            schoolId: 'school-bupt',
+          }),
+        },
+        questionnaireResponse: {
+          findUnique: jest.fn().mockResolvedValue({
+            versionId: 'version-old',
+            answers: {
+              current_question: 'kept',
+              [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
+              [HARD_MATCH_KEYS.school]: 'school-bupt',
+              [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢徒步。',
+            },
+            acknowledgedQuestionnaireVersionId: null,
+            acknowledgedQuestionnaireKeys: null,
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            version: {
+              questions: [
+                {
+                  key: 'current_question',
+                  prompt: 'Current question',
+                  description: null,
+                  type: 'SINGLE_SELECT',
+                  required: true,
+                  selectionLimit: null,
+                  options: [{ value: 'kept', label: 'Kept' }],
+                },
+              ],
+            },
+          }),
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'kept', label: 'Kept' }],
+            },
+            {
+              key: 'new_question',
+              prompt: 'New question',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'new', label: 'New' }],
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          ],
+        }),
+        sanitizeStoredAnswers: jest.fn().mockReturnValue({
+          current_question: 'kept',
+        }),
+      } as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(service.getQuestionnaire('user-1')).resolves.toMatchObject({
+      versionId: 'version-old',
+      currentVersionId: 'version-current',
+      attention: {
+        currentVersionId: 'version-current',
+        acknowledgedKeys: [],
+        pendingUpdatedKeys: ['new_question'],
+        missingRequiredKeys: ['new_question'],
+        pendingKeys: ['new_question'],
+        items: [
+          {
+            key: 'new_question',
+            prompt: 'New question',
+            updated: true,
+            missingRequired: true,
+            acknowledged: false,
+          },
+        ],
+      },
+    });
+  });
+
+  it('persists questionnaire attention acknowledgement keys per current version', async () => {
+    const queryRaw = jest.fn().mockResolvedValue([
+      {
+        acknowledgedQuestionnaireKeys: ['existing_question', 'new_question'],
+      },
+    ]);
+    const findUnique = jest.fn();
+    const service = new AccountService(
+      {
+        $queryRaw: queryRaw,
+        questionnaireResponse: {
+          findUnique,
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          questions: [{ key: 'existing_question' }, { key: 'new_question' }],
+        }),
+      } as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.acknowledgeQuestionnaireItems('user-1', {
+        versionId: 'version-current',
+        keys: ['new_question', 'new_question', ' '],
+      }),
+    ).resolves.toEqual({
+      currentVersionId: 'version-current',
+      acknowledgedKeys: ['existing_question', 'new_question'],
+    });
+
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    const [queryTemplate] = queryRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    expect(Array.from(queryTemplate).join('')).toContain(
+      'UPDATE "QuestionnaireResponse" AS response',
+    );
   });
 
   it('submits a complete questionnaire and clears any draft payload', async () => {
@@ -684,6 +1370,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -744,7 +1431,7 @@ describe('AccountService', () => {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
-          draftAnswers: {},
+          draftAnswers: Prisma.DbNull,
           submittedAt: expect.any(Date) as unknown as Date,
         }) as object,
         update: expect.objectContaining({
@@ -752,7 +1439,7 @@ describe('AccountService', () => {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
-          draftAnswers: {},
+          draftAnswers: Prisma.DbNull,
           submittedAt: expect.any(Date) as unknown as Date,
         }) as object,
       }),
@@ -830,6 +1517,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -920,6 +1608,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1049,6 +1738,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1146,6 +1836,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1227,6 +1918,7 @@ describe('AccountService', () => {
         validateAnswers,
         sanitizeStoredAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1283,6 +1975,7 @@ describe('AccountService', () => {
         }),
         validateAnswers,
       } as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1330,6 +2023,7 @@ describe('AccountService', () => {
       }) as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     const dashboard = await service.getDashboard('user-1');
@@ -1416,6 +2110,7 @@ describe('AccountService', () => {
       }) as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     const dashboard = await service.getDashboard('user-1');
@@ -1457,6 +2152,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await service.getDashboard('user-1');
@@ -1513,6 +2209,7 @@ describe('AccountService', () => {
       }) as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     const dashboard = await service.getDashboard('user-1');
@@ -1576,6 +2273,7 @@ describe('AccountService', () => {
       }) as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     const dashboard = await service.getDashboard('user-1');
@@ -1639,6 +2337,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.getDashboard('user-1')).resolves.toMatchObject({
@@ -1689,6 +2388,7 @@ describe('AccountService', () => {
       prisma as never,
       {} as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.getDashboard('user-1')).resolves.toMatchObject({
@@ -1804,6 +2504,7 @@ describe('AccountService', () => {
       prisma as never,
       mailService as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
@@ -1920,6 +2621,7 @@ describe('AccountService', () => {
       prisma as never,
       mailService as never,
       {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
@@ -2010,6 +2712,7 @@ describe('AccountService', () => {
             }),
         ),
     };
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
     const service = new AccountService(
       prisma as never,
       {
@@ -2017,6 +2720,7 @@ describe('AccountService', () => {
         flushQueuedEmails: jest.fn(),
       } as never,
       {} as never,
+      dashboardSnapshotService as never,
     );
 
     await expect(
@@ -2058,5 +2762,17 @@ describe('AccountService', () => {
         },
       },
     });
+    expect(dashboardSnapshotService.syncMatchSnapshots).toHaveBeenCalledWith(
+      'match-1',
+      expect.objectContaining<{
+        report: unknown;
+        block: unknown;
+        auditLog: unknown;
+      }>({
+        report: expect.objectContaining({ create: reportCreate }),
+        block: expect.objectContaining({ upsert: blockUpsert }),
+        auditLog: expect.objectContaining({ create: auditLogCreate }),
+      }),
+    );
   });
 });
