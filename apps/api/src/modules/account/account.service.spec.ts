@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '../../common/prisma/client';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
@@ -724,6 +724,67 @@ describe('AccountService', () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it('rejects opt-in when an unsaved draft clears a required hard-match field', async () => {
+    const upsert = jest.fn();
+    const questionnaireService = buildQuestionnaireServiceWithSchema({
+      questions: [
+        {
+          key: 'value-1',
+          prompt: 'How important is honesty?',
+          type: 'SINGLE_SELECT',
+          required: true,
+          options: [{ value: 'low' }, { value: 'high' }],
+        },
+      ],
+      schools: [{ id: 'school-bupt' }],
+    });
+    const prisma = {
+      matchCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'cycle-1',
+          status: 'OPEN',
+          participationDeadline: new Date(Date.now() + 60_000),
+        }),
+      },
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+      },
+      questionnaireResponse: {
+        findUnique: jest.fn().mockResolvedValue(
+          buildSubmittedQuestionnaireResponse({
+            answers: { ['value-1']: 'high' },
+            draftAnswers: {
+              softAnswers: { ['value-1']: 'high' },
+              hardMatchForm: buildSubmittedHardMatchDraftForm({
+                oneLinerIntro: '',
+              }),
+              displayName: 'User',
+            },
+          }),
+        ),
+      },
+      cycleParticipation: {
+        upsert,
+      },
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      questionnaireService as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toMatchObject({
+      message:
+        'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
+    });
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it('allows opt-in when a draft exists but still satisfies every required field', async () => {
     const upsert = jest.fn().mockResolvedValue({
       id: 'participation-1',
@@ -1211,15 +1272,17 @@ describe('AccountService', () => {
   });
 
   it('persists questionnaire attention acknowledgement keys per current version', async () => {
-    const update = jest.fn().mockResolvedValue({});
+    const queryRaw = jest.fn().mockResolvedValue([
+      {
+        acknowledgedQuestionnaireKeys: ['existing_question', 'new_question'],
+      },
+    ]);
+    const findUnique = jest.fn();
     const service = new AccountService(
       {
+        $queryRaw: queryRaw,
         questionnaireResponse: {
-          findUnique: jest.fn().mockResolvedValue({
-            acknowledgedQuestionnaireVersionId: 'version-current',
-            acknowledgedQuestionnaireKeys: ['existing_question'],
-          }),
-          update,
+          findUnique,
         },
       } as never,
       {} as never,
@@ -1242,13 +1305,15 @@ describe('AccountService', () => {
       acknowledgedKeys: ['existing_question', 'new_question'],
     });
 
-    expect(update).toHaveBeenCalledWith({
-      where: { userId: 'user-1' },
-      data: {
-        acknowledgedQuestionnaireVersionId: 'version-current',
-        acknowledgedQuestionnaireKeys: ['existing_question', 'new_question'],
-      },
-    });
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    const [queryTemplate] = queryRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    expect(Array.from(queryTemplate).join('')).toContain(
+      'UPDATE "QuestionnaireResponse" AS response',
+    );
   });
 
   it('submits a complete questionnaire and clears any draft payload', async () => {
@@ -1366,7 +1431,7 @@ describe('AccountService', () => {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
-          draftAnswers: {},
+          draftAnswers: Prisma.DbNull,
           submittedAt: expect.any(Date) as unknown as Date,
         }) as object,
         update: expect.objectContaining({
@@ -1374,7 +1439,7 @@ describe('AccountService', () => {
             [HARD_MATCH_KEYS.school]: 'school-bupt',
             current_question: 'kept',
           },
-          draftAnswers: {},
+          draftAnswers: Prisma.DbNull,
           submittedAt: expect.any(Date) as unknown as Date,
         }) as object,
       }),

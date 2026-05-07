@@ -6,7 +6,7 @@ import {
   type DashboardSnapshotVisibility as DashboardSnapshotVisibilityValue,
   type ParticipationStatus,
   type ReportStatus,
-} from '@prisma/client';
+} from '../prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { readQuestionnaireOneLiner } from '../../modules/questionnaire/hard-match';
 import {

@@ -5,7 +5,7 @@ import {
   type QuestionType,
   type UserCycleDashboardSnapshot,
   type WeeklyIntent as PrismaWeeklyIntent,
-} from '@prisma/client';
+} from '../../common/prisma/client';
 import { isWeeklyIntent, normalizeLocale } from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -90,6 +90,10 @@ type QuestionnaireAttentionItem = {
   updated: boolean;
   missingRequired: boolean;
   acknowledged: boolean;
+};
+
+type QuestionnaireAcknowledgementRow = {
+  acknowledgedQuestionnaireKeys: Prisma.JsonValue | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -977,41 +981,67 @@ export class AccountService {
       }
     }
 
-    const response = await this.prisma.questionnaireResponse.findUnique({
-      where: { userId },
-      select: {
-        acknowledgedQuestionnaireVersionId: true,
-        acknowledgedQuestionnaireKeys: true,
-      },
-    });
+    if (requestedKeys.length === 0) {
+      const response = await this.prisma.questionnaireResponse.findUnique({
+        where: { userId },
+        select: {
+          acknowledgedQuestionnaireVersionId: true,
+          acknowledgedQuestionnaireKeys: true,
+        },
+      });
 
-    if (!response) {
+      return {
+        currentVersionId: currentQuestionnaire.id,
+        acknowledgedKeys:
+          response?.acknowledgedQuestionnaireVersionId ===
+          currentQuestionnaire.id
+            ? normalizeAcknowledgedQuestionnaireKeys(
+                response.acknowledgedQuestionnaireKeys,
+              )
+            : [],
+      };
+    }
+
+    const updatedRows = await this.prisma.$queryRaw<
+      QuestionnaireAcknowledgementRow[]
+    >`
+      UPDATE "QuestionnaireResponse" AS response
+      SET
+        "acknowledgedQuestionnaireVersionId" = ${currentQuestionnaire.id},
+        "acknowledgedQuestionnaireKeys" = (
+          SELECT COALESCE(
+            jsonb_agg(DISTINCT acknowledged_key ORDER BY acknowledged_key),
+            '[]'::jsonb
+          )
+          FROM (
+            SELECT jsonb_array_elements_text(
+              CASE
+                WHEN response."acknowledgedQuestionnaireVersionId" = ${currentQuestionnaire.id}
+                  AND jsonb_typeof(response."acknowledgedQuestionnaireKeys") = 'array'
+                THEN response."acknowledgedQuestionnaireKeys"
+                ELSE '[]'::jsonb
+              END
+            ) AS acknowledged_key
+            UNION
+            SELECT unnest(ARRAY[${Prisma.join(requestedKeys)}]::text[]) AS acknowledged_key
+          ) AS acknowledged_keys
+        )
+      WHERE response."userId" = ${userId}
+      RETURNING response."acknowledgedQuestionnaireKeys"
+    `;
+
+    if (updatedRows.length === 0) {
       return {
         currentVersionId: currentQuestionnaire.id,
         acknowledgedKeys: [],
       };
     }
 
-    const existingKeys =
-      response.acknowledgedQuestionnaireVersionId === currentQuestionnaire.id
-        ? normalizeAcknowledgedQuestionnaireKeys(
-            response.acknowledgedQuestionnaireKeys,
-          )
-        : [];
-    const acknowledgedKeys = [...new Set([...existingKeys, ...requestedKeys])];
-
-    await this.prisma.questionnaireResponse.update({
-      where: { userId },
-      data: {
-        acknowledgedQuestionnaireVersionId: currentQuestionnaire.id,
-        acknowledgedQuestionnaireKeys:
-          acknowledgedKeys as Prisma.InputJsonValue,
-      },
-    });
-
     return {
       currentVersionId: currentQuestionnaire.id,
-      acknowledgedKeys,
+      acknowledgedKeys: normalizeAcknowledgedQuestionnaireKeys(
+        updatedRows[0].acknowledgedQuestionnaireKeys,
+      ),
     };
   }
 
