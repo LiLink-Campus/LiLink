@@ -5,4 +5,3 @@ process.env.ADMIN_JWT_SECRET ??= 'abcdef1234567890';
 process.env.ADMIN_COOKIE_NAME ??= 'lilink_admin_token';
 process.env.SMTP_FROM ??= 'LiLink <hello@lilink.zone>';
 process.env.CRON_SECRET ??= 'abcdef1234567890';
-process.env.MATCH_NARRATIVE_GENERATION_ENABLED ??= 'true';

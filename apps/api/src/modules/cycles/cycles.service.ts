@@ -10,7 +10,6 @@ import { Prisma, QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
-import { env } from '../../config/env';
 import {
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
@@ -365,10 +364,6 @@ export class CyclesService {
     private readonly matchNarrativeService: MatchNarrativeService = new MatchNarrativeService(),
   ) {}
 
-  private narrativeGenerationEnabled() {
-    return env.MATCH_NARRATIVE_GENERATION_ENABLED;
-  }
-
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
     if (!options.cycleId) {
       return this.runAutomationTick();
@@ -672,7 +667,6 @@ export class CyclesService {
       }
 
       const unmatchedCount = participants.length - selectedPairs.length * 2;
-      const narrativeGenerationEnabled = this.narrativeGenerationEnabled();
 
       const createdMatchIds = await this.prisma.$transaction(async (tx) => {
         const activeClaim = await tx.matchCycle.updateMany({
@@ -699,10 +693,8 @@ export class CyclesService {
               score: pair.score,
               reasons: pair.reasons,
               reason: null,
-              conversationTopics: narrativeGenerationEnabled
-                ? Prisma.DbNull
-                : [],
-              narrativeSource: narrativeGenerationEnabled ? null : 'DISABLED',
+              conversationTopics: Prisma.DbNull,
+              narrativeSource: null,
               revealedAt: null,
               participants: {
                 create: [
@@ -768,18 +760,6 @@ export class CyclesService {
           unmatchedCount,
           message: preparationMessage,
         };
-      }
-
-      if (!narrativeGenerationEnabled) {
-        return this.finalizePreparedCycle({
-          cycleId: cycle.id,
-          claimUpdatedAt,
-          adminActorId: options.adminActorId,
-          force: options.force,
-          createdMatches: selectedPairs.length,
-          unmatchedCount,
-          message: preparationMessage,
-        });
       }
 
       const resolvedNarratives = await this.generateNarrativesForPairs(
@@ -917,41 +897,6 @@ export class CyclesService {
       0,
       cycle.participations.length - totalMatchCount * 2,
     );
-
-    if (!this.narrativeGenerationEnabled()) {
-      if (totalMatchCount === 0) {
-        const recoveredPreparation = await this.recoverStaleEmptyPreparation(
-          cycle,
-          options,
-          unmatchedCount,
-        );
-
-        if (recoveredPreparation) {
-          return recoveredPreparation;
-        }
-
-        return {
-          ok: true,
-          cycleId: cycle.id,
-          state: 'PENDING',
-          createdMatches: 0,
-          unmatchedCount,
-          message: 'Cycle is still being prepared.',
-        };
-      }
-
-      await this.disablePendingNarratives(cycle.id);
-
-      return this.finalizePreparedCycle({
-        cycleId: cycle.id,
-        claimUpdatedAt: cycle.updatedAt,
-        adminActorId: options.adminActorId,
-        force: options.force,
-        createdMatches: totalMatchCount,
-        unmatchedCount,
-        message: 'Cycle is prepared and waiting for reveal.',
-      });
-    }
 
     if (pendingMatches.length === 0) {
       if (totalMatchCount === 0) {
@@ -2814,19 +2759,6 @@ export class CyclesService {
         ? options.message
         : 'Cycle is already prepared and waiting for reveal.',
     };
-  }
-
-  private async disablePendingNarratives(cycleId: string) {
-    await this.prisma.match.updateMany({
-      where: {
-        cycleId,
-        narrativeSource: null,
-      },
-      data: {
-        conversationTopics: [],
-        narrativeSource: 'DISABLED',
-      },
-    });
   }
 
   private countPendingNarratives(cycleId: string) {
