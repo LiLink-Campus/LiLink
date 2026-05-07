@@ -1096,6 +1096,7 @@ describe('AccountService', () => {
         },
         questionnaireResponse: {
           findUnique: jest.fn().mockResolvedValue({
+            versionId: 'version-old',
             answers: {
               current_question: 'kept',
               removed_question: 'dropped',
@@ -1108,19 +1109,37 @@ describe('AccountService', () => {
               [HARD_MATCH_KEYS.oneLinerIntro]:
                 '测试用一句话介绍，用于回归问卷过滤。',
             },
+            acknowledgedQuestionnaireVersionId: null,
+            acknowledgedQuestionnaireKeys: null,
             submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            version: {
+              questions: [
+                {
+                  key: 'current_question',
+                  prompt: 'Current question',
+                  description: null,
+                  type: 'SINGLE_SELECT',
+                  required: true,
+                  selectionLimit: null,
+                  options: null,
+                },
+              ],
+            },
           }),
         },
       } as never,
       {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
           questions: [
             {
               key: 'current_question',
               prompt: 'Current question',
+              description: null,
               type: 'SINGLE_SELECT',
               required: true,
+              selectionLimit: null,
               options: null,
             },
           ],
@@ -1137,6 +1156,8 @@ describe('AccountService', () => {
     );
 
     await expect(service.getQuestionnaire('user-1')).resolves.toEqual({
+      versionId: 'version-old',
+      currentVersionId: 'version-current',
       answers: {
         current_question: 'kept',
         [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
@@ -1146,7 +1167,153 @@ describe('AccountService', () => {
       },
       submittedAt: '2026-04-18T12:00:00.000Z',
       draft: null,
+      attention: {
+        currentVersionId: 'version-current',
+        acknowledgedKeys: [],
+        pendingUpdatedKeys: [],
+        missingRequiredKeys: [],
+        pendingKeys: [],
+        items: [],
+      },
     });
+  });
+
+  it('marks current-version questionnaire additions as pending account-level attention', async () => {
+    const service = new AccountService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            schoolId: 'school-bupt',
+          }),
+        },
+        questionnaireResponse: {
+          findUnique: jest.fn().mockResolvedValue({
+            versionId: 'version-old',
+            answers: {
+              current_question: 'kept',
+              [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
+              [HARD_MATCH_KEYS.school]: 'school-bupt',
+              [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢徒步。',
+            },
+            acknowledgedQuestionnaireVersionId: null,
+            acknowledgedQuestionnaireKeys: null,
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            version: {
+              questions: [
+                {
+                  key: 'current_question',
+                  prompt: 'Current question',
+                  description: null,
+                  type: 'SINGLE_SELECT',
+                  required: true,
+                  selectionLimit: null,
+                  options: [{ value: 'kept', label: 'Kept' }],
+                },
+              ],
+            },
+          }),
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'kept', label: 'Kept' }],
+            },
+            {
+              key: 'new_question',
+              prompt: 'New question',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'new', label: 'New' }],
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          ],
+        }),
+        sanitizeStoredAnswers: jest.fn().mockReturnValue({
+          current_question: 'kept',
+        }),
+      } as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(service.getQuestionnaire('user-1')).resolves.toMatchObject({
+      versionId: 'version-old',
+      currentVersionId: 'version-current',
+      attention: {
+        currentVersionId: 'version-current',
+        acknowledgedKeys: [],
+        pendingUpdatedKeys: ['new_question'],
+        missingRequiredKeys: ['new_question'],
+        pendingKeys: ['new_question'],
+        items: [
+          {
+            key: 'new_question',
+            prompt: 'New question',
+            updated: true,
+            missingRequired: true,
+            acknowledged: false,
+          },
+        ],
+      },
+    });
+  });
+
+  it('persists questionnaire attention acknowledgement keys per current version', async () => {
+    const queryRaw = jest.fn().mockResolvedValue([
+      {
+        acknowledgedQuestionnaireKeys: ['existing_question', 'new_question'],
+      },
+    ]);
+    const findUnique = jest.fn();
+    const service = new AccountService(
+      {
+        $queryRaw: queryRaw,
+        questionnaireResponse: {
+          findUnique,
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          questions: [{ key: 'existing_question' }, { key: 'new_question' }],
+        }),
+      } as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.acknowledgeQuestionnaireItems('user-1', {
+        versionId: 'version-current',
+        keys: ['new_question', 'new_question', ' '],
+      }),
+    ).resolves.toEqual({
+      currentVersionId: 'version-current',
+      acknowledgedKeys: ['existing_question', 'new_question'],
+    });
+
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    const [queryTemplate] = queryRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    expect(Array.from(queryTemplate).join('')).toContain(
+      'UPDATE "QuestionnaireResponse" AS response',
+    );
   });
 
   it('submits a complete questionnaire and clears any draft payload', async () => {

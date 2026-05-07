@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { AccountService } from './account.service';
 import {
+  AcknowledgeQuestionnaireItemsDto,
   DashboardResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
@@ -92,6 +93,17 @@ export class AccountController {
     @Body() body: SaveQuestionnaireDto,
   ) {
     return this.accountService.saveQuestionnaire(request.user!.sub, body);
+  }
+
+  @Put('questionnaire/acknowledgement')
+  acknowledgeQuestionnaireItems(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: AcknowledgeQuestionnaireItemsDto,
+  ) {
+    return this.accountService.acknowledgeQuestionnaireItems(
+      request.user!.sub,
+      body,
+    );
   }
 
   @Put('participation')

@@ -212,15 +212,17 @@ model Question {
 }
 
 model QuestionnaireResponse {
-  id          String               @id @default(cuid())
-  userId      String               @unique
-  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  versionId   String
-  version     QuestionnaireVersion @relation(fields: [versionId], references: [id])
-  answers     Json
-  draftAnswers Json?
-  submittedAt DateTime?
-  updatedAt   DateTime             @updatedAt
+  id                                 String               @id @default(cuid())
+  userId                             String               @unique
+  user                               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versionId                          String
+  version                            QuestionnaireVersion @relation(fields: [versionId], references: [id])
+  answers                            Json
+  draftAnswers                       Json?
+  acknowledgedQuestionnaireVersionId String?
+  acknowledgedQuestionnaireKeys      Json?
+  submittedAt                        DateTime?
+  updatedAt                          DateTime             @updatedAt
 
   @@index([versionId])
   @@index([submittedAt])

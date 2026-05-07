@@ -109,6 +109,15 @@ export class SaveQuestionnaireResultDto {
   hasDraft!: boolean;
 }
 
+export class AcknowledgeQuestionnaireItemsDto {
+  @IsString()
+  versionId!: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  keys!: string[];
+}
+
 export class ToggleParticipationDto {
   @IsBoolean()
   optIn!: boolean;
