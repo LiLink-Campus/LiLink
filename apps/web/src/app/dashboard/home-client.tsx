@@ -158,9 +158,7 @@ export function HomeClient({
   const missingQuestionnaireRequiredCount =
     questionnaireAttention?.missingRequiredKeys.length ?? 0;
   const hasQuestionnaireAttention =
-    (questionnaireAttention?.pendingKeys.length ?? 0) > 0;
-  const showQuestionnaireCard =
-    !questionnaireEligibleToOptIn || hasQuestionnaireAttention;
+      (questionnaireAttention?.pendingKeys.length ?? 0) > 0;
   const questionnaireCardHref = questionnaireAttentionHref(
     questionnaireAttention,
   );
@@ -453,66 +451,70 @@ export function HomeClient({
             ) : null}
           </section>
 
-          {showQuestionnaireCard ? (
-            <section
-              className={
-                hasQuestionnaireAttention
-                  ? "app-card q-progress-card has-attention"
-                  : "app-card q-progress-card"
-              }
-              aria-label="问卷进度"
-            >
-              <div className="app-card-head">
-                <div className="q-progress-title-row">
-                  <h2 className="app-card-title">问卷进度</h2>
-                  {hasQuestionnaireAttention ? (
-                    <span
-                      className="q-progress-attention-dot"
-                      aria-label="有问卷提示待查看"
-                    />
-                  ) : null}
-                </div>
-                <Link href={questionnaireCardHref} className="app-card-link">
-                  {hasQuestionnaireAttention ? "查看提示 →" : "继续完善 →"}
-                </Link>
-              </div>
-              <div className="q-progress-row">
-                <span className="app-muted">
-                  {pendingQuestionnaireUpdateCount > 0
-                    ? "有更新待查看"
-                    : missingQuestionnaireRequiredCount > 0
-                      ? "必填项待补完"
-                      : questionnaireEligibleToOptIn
-                        ? "已完成"
-                        : questionnaireHasIncompleteDraft
-                          ? "草稿待补完"
-                          : "草稿进度"}
-                </span>
-                <strong>
-                  {pendingQuestionnaireUpdateCount > 0
-                    ? `${pendingQuestionnaireUpdateCount}项`
-                    : `${questionnairePercent}%`}
-                </strong>
-              </div>
-              <div
-                className="q-progress-bar"
-                role="progressbar"
-                aria-valuenow={questionnairePercent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label="问卷完成度"
-              >
-                <div style={{ width: `${questionnairePercent}%` }} />
-              </div>
-              <p className="q-progress-note">
-                {pendingQuestionnaireUpdateCount > 0
-                  ? `有 ${pendingQuestionnaireUpdateCount} 项问卷更新待查看。`
-                  : missingQuestionnaireRequiredCount > 0
-                    ? `还有 ${missingQuestionnaireRequiredCount} 项必填内容需要补完。`
+                          <section
+                              className={
+                                  hasQuestionnaireAttention
+                                      ? "app-card q-progress-card has-attention"
+                                      : "app-card q-progress-card"
+                              }
+                              aria-label="问卷进度"
+                          >
+                              <div className="app-card-head">
+                                  <div className="q-progress-title-row">
+                                      <h2 className="app-card-title">问卷进度</h2>
+                                      {hasQuestionnaireAttention ? (
+                                          <span
+                                              className="q-progress-attention-dot"
+                                              aria-label="有问卷提示待查看"
+                                          />
+                                      ) : null}
+                                  </div>
+                                  <Link href={questionnaireCardHref} className="app-card-link">
+                                      {hasQuestionnaireAttention
+                                          ? "查看提示 →"
+                                          : questionnaireEligibleToOptIn
+                                              ? "查看问卷 →"
+                                              : "继续完善 →"}
+                                  </Link>
+                              </div>
+                              <div className="q-progress-row">
+                                  <span className="app-muted">
+                                      {pendingQuestionnaireUpdateCount > 0
+                                          ? "有更新待查看"
+                                          : missingQuestionnaireRequiredCount > 0
+                                              ? "必填项待补完"
+                                              : questionnaireEligibleToOptIn
+                                                  ? "已完成"
+                                                  : questionnaireHasIncompleteDraft
+                                                      ? "草稿待补完"
+                                                      : "草稿进度"}
+                                  </span>
+                                  <strong>
+                                      {pendingQuestionnaireUpdateCount > 0
+                                          ? `${pendingQuestionnaireUpdateCount}项`
+                                          : `${questionnairePercent}%`}
+                                  </strong>
+                              </div>
+                              <div
+                                  className="q-progress-bar"
+                                  role="progressbar"
+                                  aria-valuenow={questionnairePercent}
+                                  aria-valuemin={0}
+                                  aria-valuemax={100}
+                                  aria-label="问卷完成度"
+                              >
+                                  <div style={{ width: `${questionnairePercent}%` }} />
+                              </div>
+                              <p className="q-progress-note">
+                                  {pendingQuestionnaireUpdateCount > 0
+                                      ? `有 ${pendingQuestionnaireUpdateCount} 项问卷更新待查看。`
+                                      : missingQuestionnaireRequiredCount > 0
+                                          ? `还有 ${missingQuestionnaireRequiredCount} 项必填内容需要补完。`
+                                          : questionnaireEligibleToOptIn
+                                              ? "问卷已满足本轮要求；若有题目更新会在此提醒你查看。"
                     : "完成度越高，匹配越准确。"}
-              </p>
-            </section>
-          ) : null}
+                              </p>
+                          </section>
 
           <section className="app-card grid-span-all" aria-label="我的匹配">
             <div className="app-card-head">
