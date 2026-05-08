@@ -1227,8 +1227,6 @@
   .chip,
   .school-exclusion-gender,
   .picker-trigger,
-  .picker-option,
-  .picker-sheet-cancel,
   .report-form select,
   .report-form textarea {
     font-size: 1rem;
@@ -1967,28 +1965,8 @@
   color: var(--fg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   min-height: 2.95rem;
-  touch-action: none;
-}
-
-.picker-trigger:hover:not(:disabled) {
-  border-color: var(--primary-soft);
-  background: var(--primary-tint);
-}
-
-.picker-trigger[aria-expanded="true"],
-.picker-trigger:focus-visible {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(47, 91, 67, 0.12);
-}
-
-.picker-trigger:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  background: var(--bg-soft);
 }
 
 .picker-trigger.is-placeholder .picker-trigger-text {
@@ -2003,16 +1981,6 @@
   text-overflow: ellipsis;
 }
 
-.picker-trigger-caret {
-  color: var(--primary);
-  font-size: 0.9rem;
-  transition: transform 0.18s;
-}
-
-.picker-trigger[aria-expanded="true"] .picker-trigger-caret {
-  transform: rotate(180deg);
-}
-
 .picker-native-wrap {
   position: relative;
   width: 100%;
@@ -2021,10 +1989,12 @@
 .picker-native-display {
   pointer-events: none;
   padding-right: 2.6rem;
+  cursor: pointer;
 }
 
 .picker-native-display.is-disabled {
   opacity: 0.55;
+  cursor: not-allowed;
   background: var(--bg-soft);
 }
 
@@ -2045,6 +2015,11 @@
   cursor: not-allowed;
 }
 
+.picker-native-wrap:hover .picker-native-display:not(.is-disabled) {
+  border-color: var(--primary-soft);
+  background: var(--primary-tint);
+}
+
 .picker-native-wrap:focus-within .picker-native-display {
   outline: none;
   border-color: var(--primary);
@@ -2061,200 +2036,6 @@
   pointer-events: none;
 }
 
-/* Shared option list (used in both popover and sheet) */
-
-.picker-list {
-  list-style: none;
-  margin: 0;
-  padding: 0.4rem;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-}
-
-.picker-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.65rem 0.95rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: 1rem;
-  color: var(--fg);
-  background: transparent;
-  transition: background 0.15s, color 0.15s;
-}
-
-.picker-option:hover,
-.picker-option:focus-visible {
-  background: var(--primary-tint);
-  color: var(--primary-ink);
-}
-
-.picker-option.is-active {
-  background: var(--primary);
-  color: var(--fg-onPrimary);
-  font-weight: 600;
-}
-
-.picker-option-suffix {
-  font-size: 0.78rem;
-  opacity: 0.75;
-  margin-left: auto;
-}
-
-.picker-option.is-active .picker-option-suffix {
-  opacity: 0.9;
-}
-
-.picker-option-check {
-  font-size: 0.85rem;
-}
-
-/* Desktop popover */
-
-.picker-popover {
-  position: absolute;
-  top: calc(100% + 0.4rem);
-  left: 0;
-  z-index: 70;
-  min-width: var(--picker-min-width, 100%);
-  max-width: min(28rem, 100vw - 2rem);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  padding: 0.5rem;
-  animation: picker-popover-in 0.16s ease-out both;
-  display: flex;
-  flex-direction: column;
-  max-height: 22rem;
-}
-
-@keyframes picker-popover-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.picker-popover-label {
-  font-size: 0.74rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
-  margin: 0.4rem 0.6rem 0.3rem;
-}
-
-.picker-popover .picker-list {
-  max-height: 17rem;
-}
-
-/* Mobile bottom sheet */
-
-.picker-sheet-root {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.picker-sheet-backdrop {
-  position: absolute;
-  inset: 0;
-  background: var(--bg-overlay);
-  backdrop-filter: blur(6px);
-  border: none;
-  cursor: pointer;
-  animation: fade-in 0.18s ease-out both;
-}
-
-.picker-sheet {
-  position: relative;
-  width: min(100%, 30rem);
-  background: var(--bg-elevated);
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  box-shadow: var(--shadow-lg);
-  animation: sheet-slide-up 0.24s ease-out both;
-  display: flex;
-  flex-direction: column;
-  max-height: 70dvh;
-}
-
-.picker-sheet-handle {
-  width: 2.6rem;
-  height: 0.32rem;
-  border-radius: 999px;
-  background: var(--bg-soft);
-  align-self: center;
-  margin: 0.55rem auto 0.4rem;
-}
-
-.picker-sheet-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  padding: 0.4rem 0.85rem 0.3rem;
-  gap: 0.5rem;
-}
-
-.picker-sheet-cancel {
-  background: transparent;
-  border: none;
-  padding: 0.35rem 0.5rem;
-  font: inherit;
-  font-size: 0.95rem;
-  color: var(--fg-secondary);
-  cursor: pointer;
-  justify-self: start;
-}
-
-.picker-sheet-cancel:hover {
-  color: var(--accent);
-}
-
-.picker-sheet-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--fg);
-  text-align: center;
-}
-
-.picker-sheet-spacer {
-  display: block;
-  width: 100%;
-}
-
-.picker-sheet-subtitle {
-  margin: 0 1rem 0.5rem;
-  color: var(--fg-secondary);
-  font-size: 0.85rem;
-}
-
-.picker-sheet .picker-list {
-  padding: 0.35rem 0.85rem 1.1rem;
-}
-
-.picker-sheet .picker-option {
-  padding: 0.85rem 1rem;
-  font-size: 1.05rem;
-}
-
-/* Compact picker variant — used in inline form rows where we want the
-   trigger to feel like a small chip rather than a full-width button. */
-
-.picker-trigger-compact {
-  width: auto;
-  padding: 0.5rem 0.85rem;
-  border-radius: var(--radius-pill);
-  background: var(--bg-tinted);
-  font-size: 0.92rem;
-  min-height: 2.4rem;
-}
 
 /* ── Report form ─────────────────────────────────────────── */
 
