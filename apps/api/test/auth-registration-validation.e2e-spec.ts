@@ -119,7 +119,7 @@ describe('Auth registration HTTP validation (e2e)', () => {
 
       expect(response.status).toBe(201);
       expect(requestCode).toHaveBeenCalledTimes(1);
-      expect(requestCode).toHaveBeenCalledWith('user@example.com');
+      expect(requestCode).toHaveBeenCalledWith('user@example.com', undefined);
       expect(response.body).toMatchObject({
         email: 'user@example.com',
         school: { schoolId: 'school-1' },
