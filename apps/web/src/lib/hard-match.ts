@@ -17,6 +17,9 @@ import {
   MONTH_OPTIONS,
   WEIGHT_OPTIONS,
   buildDayOptions,
+  hardMatchAttentionFieldForKey,
+  hardMatchAttentionKeys,
+  hardMatchAttentionFields,
   normalizeExcludedPartnerPreferences,
   normalizeOneLinerIntro,
   readHeightValue,
@@ -42,6 +45,9 @@ export {
   MONTH_OPTIONS,
   WEIGHT_OPTIONS,
   buildDayOptions,
+  hardMatchAttentionFieldForKey,
+  hardMatchAttentionKeys,
+  hardMatchAttentionFields,
 };
 
 export type HardMatchSchoolOption = {

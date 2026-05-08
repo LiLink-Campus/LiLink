@@ -3,7 +3,9 @@
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type TouchEvent as ReactTouchEvent,
   useCallback,
   useEffect,
   useId,
@@ -41,6 +43,7 @@ type ValuePickerProps = {
 const DESKTOP_BREAKPOINT_PX = 768;
 const SCROLL_OFFSET_PX = 96;
 const PICKER_OPTION_PX = 44;
+const PICKER_REOPEN_GUARD_MS = 350;
 const DESKTOP_MEDIA_QUERY = `(min-width: ${DESKTOP_BREAKPOINT_PX}px)`;
 
 function subscribeDesktopMatch(callback: () => void): () => void {
@@ -82,7 +85,6 @@ export function ValuePicker({
   ariaLabel,
   suffix,
   sheetTitle,
-  sheetSubtitle,
   triggerClassName,
   popoverMinWidth,
 }: ValuePickerProps) {
@@ -91,6 +93,8 @@ export function ValuePicker({
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const reopenGuardUntilRef = useRef(0);
+  const ignoreTriggerClickUntilRef = useRef(0);
   const [open, setOpen] = useState(false);
   const [activeOptionIndex, setActiveOptionIndex] = useState(0);
   const isDesktop = useSyncExternalStore(
@@ -100,6 +104,7 @@ export function ValuePicker({
   );
 
   const closePicker = useCallback(() => {
+    reopenGuardUntilRef.current = window.performance.now() + PICKER_REOPEN_GUARD_MS;
     setOpen(false);
     triggerRef.current?.focus({ preventScroll: true });
   }, []);
@@ -125,6 +130,10 @@ export function ValuePicker({
   }, []);
 
   const togglePicker = useCallback(() => {
+    if (window.performance.now() < reopenGuardUntilRef.current) {
+      return;
+    }
+
     if (open) {
       setOpen(false);
       return;
@@ -136,6 +145,48 @@ export function ValuePicker({
     }
     setOpen(true);
   }, [getInitialActiveOptionIndex, open]);
+
+  const handleTriggerClick = useCallback(() => {
+    if (window.performance.now() < ignoreTriggerClickUntilRef.current) {
+      return;
+    }
+
+    togglePicker();
+  }, [togglePicker]);
+
+  const handleTriggerPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (event.pointerType === "mouse") {
+        return;
+      }
+
+      if (window.performance.now() < ignoreTriggerClickUntilRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      ignoreTriggerClickUntilRef.current =
+        window.performance.now() + PICKER_REOPEN_GUARD_MS;
+      togglePicker();
+    },
+    [togglePicker],
+  );
+
+  const handleTriggerTouchStart = useCallback(
+    (event: ReactTouchEvent<HTMLButtonElement>) => {
+      if (window.performance.now() < ignoreTriggerClickUntilRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      ignoreTriggerClickUntilRef.current =
+        window.performance.now() + PICKER_REOPEN_GUARD_MS;
+      togglePicker();
+    },
+    [togglePicker],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -211,6 +262,8 @@ export function ValuePicker({
   const selectOption = useCallback(
     (option: ValuePickerOption) => {
       onChange(option.value);
+      reopenGuardUntilRef.current =
+        window.performance.now() + PICKER_REOPEN_GUARD_MS;
       setOpen(false);
       triggerRef.current?.focus({ preventScroll: true });
     },
@@ -310,6 +363,52 @@ export function ValuePicker({
   }
 
   const labelHeading = ariaLabel ?? sheetTitle ?? placeholder;
+  const nativeDisplayClassName = triggerClassName
+    ? `${triggerClassName} picker-native-display`
+    : `picker-trigger picker-native-display${
+        isPlaceholder ? " is-placeholder" : ""
+      }`;
+  const hasPlaceholderOption = options.some((option) => option.value === "");
+
+  if (isDesktop === false) {
+    return (
+      <div className="picker-root">
+        <div className="picker-native-wrap">
+          <div
+            className={`${nativeDisplayClassName}${
+              disabled ? " is-disabled" : ""
+            }`}
+            aria-hidden="true"
+          >
+            <span className="picker-trigger-text">{triggerLabel}</span>
+            <span className="picker-native-caret" aria-hidden="true">
+              ▾
+            </span>
+          </div>
+          <select
+            id={id}
+            name={name}
+            className="picker-native-select"
+            value={value}
+            aria-label={ariaLabel ?? labelHeading}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            {!hasPlaceholderOption ? (
+              <option value="" disabled>
+                {placeholder}
+              </option>
+            ) : null}
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {suffix ? `${option.label} ${suffix}` : option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="picker-root">
@@ -326,7 +425,9 @@ export function ValuePicker({
         aria-expanded={open}
         aria-label={ariaLabel}
         disabled={disabled}
-        onClick={togglePicker}
+        onClick={handleTriggerClick}
+        onPointerDown={handleTriggerPointerDown}
+        onTouchStart={handleTriggerTouchStart}
       >
         <span className="picker-trigger-text">{triggerLabel}</span>
         <span className="picker-trigger-caret" aria-hidden="true">
@@ -355,42 +456,6 @@ export function ValuePicker({
         </div>
       ) : null}
 
-      {open && isDesktop === false ? (
-        <div className="picker-sheet-root" role="presentation">
-          <button
-            type="button"
-            className="picker-sheet-backdrop"
-            aria-label="关闭选择器"
-            onClick={closePicker}
-          />
-          <div
-            ref={sheetRef}
-            className="picker-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-label={labelHeading}
-          >
-            <div className="picker-sheet-handle" aria-hidden="true" />
-            <div className="picker-sheet-head">
-              <button
-                type="button"
-                className="picker-sheet-cancel"
-                onClick={closePicker}
-              >
-                取消
-              </button>
-              <p id={`${reactId}-label`} className="picker-sheet-title">
-                {sheetTitle ?? labelHeading}
-              </p>
-              <span className="picker-sheet-spacer" aria-hidden="true" />
-            </div>
-            {sheetSubtitle ? (
-              <p className="picker-sheet-subtitle">{sheetSubtitle}</p>
-            ) : null}
-            {renderOptionList(reactId)}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

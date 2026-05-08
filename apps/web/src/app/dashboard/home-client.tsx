@@ -24,6 +24,7 @@ import {
 } from "./_components/illustrations";
 import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
 import { canEditCurrentCycleParticipation } from "./_lib/format";
+import { profileAttentionHashForKey } from "./_lib/profile-attention";
 import type {
   DashboardPayload,
   QuestionnaireAttentionPayload,
@@ -66,7 +67,7 @@ function questionnaireAttentionHref(
 ) {
   const key = attention?.pendingKeys[0];
   return key
-    ? `/dashboard/profile#questionnaire-question-${encodeURIComponent(key)}`
+    ? `/dashboard/profile${profileAttentionHashForKey(key)}`
     : "/dashboard/profile";
 }
 

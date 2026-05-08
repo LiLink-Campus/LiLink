@@ -1590,6 +1590,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
+  touch-action: none;
   transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
@@ -1969,7 +1970,7 @@
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   min-height: 2.95rem;
-  touch-action: manipulation;
+  touch-action: none;
 }
 
 .picker-trigger:hover:not(:disabled) {
@@ -2010,6 +2011,54 @@
 
 .picker-trigger[aria-expanded="true"] .picker-trigger-caret {
   transform: rotate(180deg);
+}
+
+.picker-native-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.picker-native-display {
+  pointer-events: none;
+  padding-right: 2.6rem;
+}
+
+.picker-native-display.is-disabled {
+  opacity: 0.55;
+  background: var(--bg-soft);
+}
+
+.picker-native-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  touch-action: manipulation;
+}
+
+.picker-native-select:disabled {
+  cursor: not-allowed;
+}
+
+.picker-native-wrap:focus-within .picker-native-display {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(47, 91, 67, 0.12);
+}
+
+.picker-native-caret {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--primary);
+  font-size: 0.9rem;
+  pointer-events: none;
 }
 
 /* Shared option list (used in both popover and sheet) */
@@ -2509,8 +2558,8 @@
   width: 0.58rem;
   height: 0.58rem;
   border-radius: var(--radius-pill);
-  background: var(--warning);
-  box-shadow: 0 0 0 0.28rem var(--warning-soft);
+  background: var(--error);
+  box-shadow: 0 0 0 0.28rem var(--error-soft);
   flex-shrink: 0;
 }
 .q-progress-row {
@@ -2549,14 +2598,18 @@
 }
 
 .question-block-attention {
-  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
-  background: color-mix(in srgb, var(--warning-soft) 46%, var(--bg-tinted));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 16%, transparent);
+  border-color: color-mix(in srgb, var(--error) 64%, var(--border));
+  background: color-mix(in srgb, var(--error-soft) 58%, var(--bg-elevated));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--error) 24%, transparent);
+}
+
+.question-block-attention .app-q-num {
+  background: var(--error);
 }
 
 .question-attention-note {
   margin: -0.25rem 0 0.8rem;
-  color: #6f5114;
+  color: var(--error);
   font-size: 0.84rem;
   line-height: 1.55;
 }

@@ -152,6 +152,154 @@ export type HardMatchSchoolGenderExclusion = {
 export type HardMatchKey =
   (typeof HARD_MATCH_KEYS)[keyof typeof HARD_MATCH_KEYS];
 
+export type HardMatchAttentionTab = "self" | "partner";
+
+export type HardMatchAttentionField = {
+  key: HardMatchKey;
+  label: string;
+  tab: HardMatchAttentionTab;
+  required: boolean;
+};
+
+export const HARD_MATCH_ATTENTION_FIELDS = [
+  {
+    key: HARD_MATCH_KEYS.birthDate,
+    label: "出生日期",
+    tab: "self",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.gender,
+    label: "性别",
+    tab: "self",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.nationality,
+    label: "国籍",
+    tab: "self",
+    required: false,
+  },
+  {
+    key: HARD_MATCH_KEYS.languages,
+    label: "语言",
+    tab: "self",
+    required: false,
+  },
+  {
+    key: HARD_MATCH_KEYS.looks,
+    label: "颜值自评",
+    tab: "self",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.heightCm,
+    label: "身高",
+    tab: "self",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.weightKg,
+    label: "体重",
+    tab: "self",
+    required: false,
+  },
+  {
+    key: HARD_MATCH_KEYS.oneLinerIntro,
+    label: "一句话介绍",
+    tab: "self",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerAgeMin,
+    label: "对方年龄下限",
+    tab: "partner",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerAgeMax,
+    label: "对方年龄上限",
+    tab: "partner",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerGenders,
+    label: "希望对方的性别",
+    tab: "partner",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerNationalities,
+    label: "希望对方的国籍",
+    tab: "partner",
+    required: false,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerLanguages,
+    label: "希望对方的语言",
+    tab: "partner",
+    required: false,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerLooks,
+    label: "希望对方的颜值",
+    tab: "partner",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerHeightMin,
+    label: "希望对方身高下限",
+    tab: "partner",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerHeightMax,
+    label: "希望对方身高上限",
+    tab: "partner",
+    required: true,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerWeightMin,
+    label: "希望对方体重下限",
+    tab: "partner",
+    required: false,
+  },
+  {
+    key: HARD_MATCH_KEYS.partnerWeightMax,
+    label: "希望对方体重上限",
+    tab: "partner",
+    required: false,
+  },
+  {
+    key: HARD_MATCH_KEYS.excludedPartnerSchools,
+    label: "按学校排除",
+    tab: "partner",
+    required: false,
+  },
+  {
+    key: HARD_MATCH_KEYS.excludedPartnerSchoolGenders,
+    label: "按学校排除性别",
+    tab: "partner",
+    required: false,
+  },
+] as const satisfies ReadonlyArray<HardMatchAttentionField>;
+
+const HARD_MATCH_ATTENTION_FIELD_BY_KEY = new Map<string, HardMatchAttentionField>(
+  HARD_MATCH_ATTENTION_FIELDS.map((field) => [field.key, field]),
+);
+
+export function hardMatchAttentionFields() {
+  return [...HARD_MATCH_ATTENTION_FIELDS];
+}
+
+export function hardMatchAttentionKeys() {
+  return HARD_MATCH_ATTENTION_FIELDS.map((field) => field.key);
+}
+
+export function hardMatchAttentionFieldForKey(key: string) {
+  return HARD_MATCH_ATTENTION_FIELD_BY_KEY.get(key) ?? null;
+}
+
 export type HardMatchAnswers = {
   birthDate: string;
   partnerAgeMin: number;
