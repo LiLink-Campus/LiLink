@@ -21,8 +21,9 @@ const VERIFICATION_CODE_TTL_MS = 10 * 60 * 1000;
 const MAX_REGISTRATIONS_KEY = 'max_registrations';
 
 const TEST_RUN_TAG = `${process.pid}-${Date.now()}`;
-const TEST_EMAIL_DOMAIN = `lilink-cap-${TEST_RUN_TAG}.example`;
-const TEST_SCHOOL_SLUG = `lilink-cap-${TEST_RUN_TAG}`;
+// Subdomain of a seeded public school domain so SchoolResolverService accepts it
+// (only PUBLIC_SUPPORTED_SCHOOL_SLUGS are resolvable).
+const TEST_EMAIL_SUFFIX = `e2e-regcap-${TEST_RUN_TAG}.cuc.edu.cn`;
 
 function hashRegistrationCode(input: {
   email: string;
@@ -49,22 +50,20 @@ describe('Registration capacity advisory lock (e2e)', () => {
   beforeAll(async () => {
     prisma = createPrismaClient();
     await prisma.$connect();
-    const school = await prisma.school.create({
-      data: {
-        name: `Capacity Test School ${TEST_RUN_TAG}`,
-        slug: TEST_SCHOOL_SLUG,
-        domains: { create: [{ domain: TEST_EMAIL_DOMAIN }] },
-      },
+    const school = await prisma.school.findUniqueOrThrow({
+      where: { slug: 'cuc-hainan-international' },
+      select: { id: true },
     });
     testSchoolId = school.id;
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { schoolId: testSchoolId } });
-    await prisma.emailCode.deleteMany({
-      where: { email: { endsWith: `@${TEST_EMAIL_DOMAIN}` } },
+    await prisma.user.deleteMany({
+      where: { email: { endsWith: `@${TEST_EMAIL_SUFFIX}` } },
     });
-    await prisma.school.delete({ where: { id: testSchoolId } });
+    await prisma.emailCode.deleteMany({
+      where: { email: { endsWith: `@${TEST_EMAIL_SUFFIX}` } },
+    });
     await prisma.systemSetting.deleteMany({
       where: { key: MAX_REGISTRATIONS_KEY },
     });
@@ -72,9 +71,11 @@ describe('Registration capacity advisory lock (e2e)', () => {
   });
 
   afterEach(async () => {
-    await prisma.user.deleteMany({ where: { schoolId: testSchoolId } });
+    await prisma.user.deleteMany({
+      where: { email: { endsWith: `@${TEST_EMAIL_SUFFIX}` } },
+    });
     await prisma.emailCode.deleteMany({
-      where: { email: { endsWith: `@${TEST_EMAIL_DOMAIN}` } },
+      where: { email: { endsWith: `@${TEST_EMAIL_SUFFIX}` } },
     });
     await prisma.systemSetting.deleteMany({
       where: { key: MAX_REGISTRATIONS_KEY },
@@ -175,7 +176,7 @@ describe('Registration capacity advisory lock (e2e)', () => {
           value: String(baseUserCount + 100),
         },
       });
-      const email = `solo-${randomUUID().slice(0, 8)}@${TEST_EMAIL_DOMAIN}`;
+      const email = `solo-${randomUUID().slice(0, 8)}@${TEST_EMAIL_SUFFIX}`;
       await seedVerifiedRegistrationCode(email, '654321');
 
       const result = await authService.register({
@@ -203,7 +204,7 @@ describe('Registration capacity advisory lock (e2e)', () => {
       // would silently succeed and this test would not catch a regression.
       await prisma.user.create({
         data: {
-          email: `pad-${randomUUID().slice(0, 8)}@${TEST_EMAIL_DOMAIN}`,
+          email: `pad-${randomUUID().slice(0, 8)}@${TEST_EMAIL_SUFFIX}`,
           passwordHash: 'placeholder-not-a-real-hash',
           status: 'ACTIVE',
           schoolId: testSchoolId,
@@ -218,7 +219,7 @@ describe('Registration capacity advisory lock (e2e)', () => {
           value: String(currentUserCount),
         },
       });
-      const email = `full-${randomUUID().slice(0, 8)}@${TEST_EMAIL_DOMAIN}`;
+      const email = `full-${randomUUID().slice(0, 8)}@${TEST_EMAIL_SUFFIX}`;
       await seedVerifiedRegistrationCode(email, '111222');
 
       await expect(
@@ -247,8 +248,8 @@ describe('Registration capacity advisory lock (e2e)', () => {
         create: { key: MAX_REGISTRATIONS_KEY, value: String(limit) },
       });
 
-      const emailA = `race-a-${randomUUID().slice(0, 8)}@${TEST_EMAIL_DOMAIN}`;
-      const emailB = `race-b-${randomUUID().slice(0, 8)}@${TEST_EMAIL_DOMAIN}`;
+      const emailA = `race-a-${randomUUID().slice(0, 8)}@${TEST_EMAIL_SUFFIX}`;
+      const emailB = `race-b-${randomUUID().slice(0, 8)}@${TEST_EMAIL_SUFFIX}`;
       await seedVerifiedRegistrationCode(emailA, '101010');
       await seedVerifiedRegistrationCode(emailB, '202020');
 

@@ -72,10 +72,7 @@ export class AuthService {
     return { ...result, school };
   }
 
-  async register(
-    input: RegisterDto,
-    localeHint?: SupportedLocale | null,
-  ) {
+  async register(input: RegisterDto, localeHint?: SupportedLocale | null) {
     const normalizedEmail = input.email.trim().toLowerCase();
     const preferredLocale = normalizeLocale(localeHint ?? DEFAULT_LOCALE);
     const school = await this.resolveAllowedSchool(normalizedEmail);
