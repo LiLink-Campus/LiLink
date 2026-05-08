@@ -1,5 +1,6 @@
 "use client";
 
+import { parseSafeAdminPostLoginPath } from "@lilink/shared";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -48,9 +49,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
                 "next",
               );
               const redirectPath =
-                nextPath && nextPath.startsWith("/admin/")
-                  ? nextPath
-                  : "/admin";
+                parseSafeAdminPostLoginPath(nextPath) ?? "/admin";
               router.replace(redirectPath);
             }}
           >
