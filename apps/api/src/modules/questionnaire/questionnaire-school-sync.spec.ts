@@ -39,7 +39,9 @@ describe('syncExcludedPartnerSchoolPreferences', () => {
       ),
     ).toEqual({
       excludedPartnerSchools: [],
-      excludedPartnerSchoolGenders: [{ schoolId: 'merged-campus', genders: ['女'] }],
+      excludedPartnerSchoolGenders: [
+        { schoolId: 'merged-campus', genders: ['女'] },
+      ],
     });
   });
 
