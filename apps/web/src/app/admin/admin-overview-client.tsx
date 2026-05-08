@@ -325,7 +325,7 @@ export default function AdminOverviewPage({
           </div>
         </div>
         <p style={{ fontSize: "0.9rem", color: "var(--fg-secondary)", marginBottom: "1rem" }}>
-          一键生成 30 个测试用户（含问卷与轮次参与），用于验证匹配流程。所有测试用户密码统一为 <code>TestDemo_LiLink_42!</code>
+          一键生成 30 个测试用户（含问卷与轮次参与），用于验证匹配流程。每次生成的登录密码仅在下方成功提示中展示一次，请自行妥善保存。
         </p>
         <div className="auth-actions" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
           <button
@@ -337,8 +337,14 @@ export default function AdminOverviewPage({
               setSeedMsg(null);
               setDeleteMsg(null);
               try {
-                const result = await fetchApi<{ createdCount: number; cycleName: string }>("/admin/seed-test-users", { method: "POST" });
-                setSeedMsg(`已创建 ${result.createdCount} 个测试用户，已加入轮次「${result.cycleName}」。`);
+                const result = await fetchApi<{
+                  createdCount: number;
+                  cycleName: string;
+                  password: string;
+                }>("/admin/seed-test-users", { method: "POST" });
+                setSeedMsg(
+                  `已创建 ${result.createdCount} 个测试用户，已加入轮次「${result.cycleName}」。本次密码（仅显示一次）：${result.password}`,
+                );
                 void refresh();
               } catch (e) {
                 setSeedMsg(e instanceof Error ? e.message : "生成失败");
