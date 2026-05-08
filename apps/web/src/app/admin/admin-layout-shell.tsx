@@ -1,5 +1,6 @@
 "use client";
 
+import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -47,9 +48,13 @@ function AdminGate({ children }: { children: React.ReactNode }) {
               const nextPath = new URLSearchParams(window.location.search).get(
                 "next",
               );
+              const safeNext = sanitizeSameOriginRelativePath(
+                nextPath,
+                window.location.origin,
+              );
               const redirectPath =
-                nextPath && nextPath.startsWith("/admin/")
-                  ? nextPath
+                safeNext && safeNext.startsWith("/admin/")
+                  ? safeNext
                   : "/admin";
               router.replace(redirectPath);
             }}
