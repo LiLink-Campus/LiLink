@@ -265,7 +265,6 @@ describe('CyclesService', () => {
   });
 
   it('syncs dashboard snapshots when preparation waits for pending narratives', async () => {
-
     const tx = {
       cycleParticipation: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -1520,7 +1519,6 @@ describe('CyclesService', () => {
   });
 
   it('fills pending narratives while a cycle stays in PREPARING', async () => {
-
     const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
@@ -1689,7 +1687,6 @@ describe('CyclesService', () => {
   });
 
   it('uses the default narrative after one hour instead of retrying forever', async () => {
-
     const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const auditLogCreate = jest.fn().mockResolvedValue(undefined);
@@ -1793,7 +1790,6 @@ describe('CyclesService', () => {
   });
 
   it('falls back immediately when narrative generation fails during preparation', async () => {
-
     const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
     const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
