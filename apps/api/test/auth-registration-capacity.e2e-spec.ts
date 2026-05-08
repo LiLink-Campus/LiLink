@@ -50,10 +50,24 @@ describe('Registration capacity advisory lock (e2e)', () => {
   beforeAll(async () => {
     prisma = createPrismaClient();
     await prisma.$connect();
-    const school = await prisma.school.findUniqueOrThrow({
+    // CI applies migrations only (no seed). Ensure a public-slug school exists so
+    // SchoolResolverService can resolve *.cuc.edu.cn addresses.
+    const school = await prisma.school.upsert({
       where: { slug: 'cuc-hainan-international' },
-      select: { id: true },
+      update: {},
+      create: {
+        name: '中国传媒大学海南国际学院',
+        slug: 'cuc-hainan-international',
+        description: '黎安试验区中外合作办学机构',
+      },
     });
+    for (const domain of ['cuc.cn', 'cuc.edu.cn', 'coventry.ac.uk'] as const) {
+      await prisma.schoolDomain.upsert({
+        where: { domain },
+        update: { schoolId: school.id },
+        create: { domain, schoolId: school.id },
+      });
+    }
     testSchoolId = school.id;
   });
 
