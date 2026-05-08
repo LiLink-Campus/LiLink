@@ -1,5 +1,6 @@
 "use client";
 
+import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { fetchApi } from "../../lib/api";
@@ -28,7 +29,8 @@ export default function LoginPageClient() {
       });
       const nextPath = new URLSearchParams(window.location.search).get("next");
       const redirectPath =
-        nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard";
+        sanitizeSameOriginRelativePath(nextPath, window.location.origin) ??
+        "/dashboard";
       window.location.href = redirectPath;
     } catch (caughtError) {
       setError(
