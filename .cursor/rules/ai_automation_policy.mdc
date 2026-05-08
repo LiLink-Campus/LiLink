@@ -1,0 +1,126 @@
+---
+alwaysApply: true
+---
+
+# AI Automation Policy
+
+These rules apply to every AI-generated maintenance pull request in LiLink.
+
+## Repository Shape
+
+- `apps/api` contains the NestJS API and Prisma schema.
+- `apps/web` contains the Next.js web application.
+- `packages/shared` contains shared TypeScript code used by both workspaces.
+- Build `@lilink/shared` before running app builds or checks that depend on shared output.
+- Run Prisma generate after schema or Prisma client dependency changes.
+- Never print secret values from `.env` files, logs, shell output, or CI output.
+
+## Required Workflow
+
+1. Read `AGENTS.md` before editing.
+2. Use the smallest safe change.
+3. Keep one PR focused on one issue and one intent.
+4. Keep bug fixes separate from refactors.
+5. Keep dead code removal separate from behavior changes.
+6. Do not create broad refactors.
+7. Do not weaken tests, skip tests, or remove assertions to pass CI.
+8. Do not edit generated files unless the task explicitly requires it.
+9. Do not edit secrets or local environment files.
+10. Do not merge pull requests.
+11. Do not approve your own pull request.
+
+## Branches And Labels
+
+- AI maintenance branches must begin with `ai/maintenance/`.
+- Every AI maintenance PR must have label `ai_cursor`.
+- Bug PRs must have `ai_type_bug`.
+- Dangerous-behavior PRs must have `ai_type_danger`.
+- Refactor PRs must have `ai_type_refactor`.
+- Dead-code PRs must have `ai_type_dead_code`.
+- Deprecated-code PRs must have `ai_type_deprecated`.
+- A PR must have exactly one primary type label.
+- Use state labels only for the current state.
+- Pass labels and pass comments are valid only for the latest PR head SHA.
+
+## Size Budgets
+
+- Bug PR: maximum 5 files and 220 changed lines.
+- Dangerous-behavior PR: maximum 3 files and 120 changed lines.
+- Refactor PR: maximum 4 files and 160 changed lines.
+- Dead-code PR: maximum 4 files and 160 changed lines.
+- Deprecated-code PR: maximum 3 files and 120 changed lines.
+- If a useful fix exceeds the budget, stop and mark the PR for human review or split the work.
+
+## High-Risk Areas
+
+Do not modify these areas unless a human explicitly allows it or the change is tiny, local, obvious, and tested:
+
+- authentication
+- authorization
+- billing
+- payments
+- secrets
+- production deployment
+- database migrations
+- data deletion
+- encryption
+- GitHub Actions security settings
+
+If the required change needs product judgment, permission-model changes, payment behavior changes, database migrations, deployment changes, or broad design decisions, stop and add `ai_state_human`.
+
+## LiLink Checks
+
+Use the narrowest relevant check first, then broader checks as needed.
+
+- Install: `npm ci`
+- Shared build: `npm run build:shared`
+- Shared tests: `npm run test:shared`
+- Web typecheck: `npm run typecheck:web`
+- Web build: `npm run build:web`
+- API unit tests: `npm run test --workspace api`
+- API e2e tests: `npm run test:e2e --workspace api`
+- Full lint: `npm run lint`
+- Full build: `npm run build`
+
+`npm run lint` may rewrite files because the API lint script uses `--fix`. After running lint, check the diff and do not include unrelated lint rewrites.
+
+The CI workflow currently has these primary jobs:
+
+- `Root lint and build`
+- `API unit and e2e tests`
+
+Final gate decisions must evaluate checks for the latest PR head SHA. Successful checks on older commits do not count.
+
+## Pass Tokens
+
+Every pass decision must include the latest PR head SHA:
+
+- `CURSOR_SCOPE_PASS sha=<latest_head_sha>`
+- `CURSOR_CORRECTNESS_PASS sha=<latest_head_sha>`
+- `CURSOR_CLEANUP_PASS sha=<latest_head_sha>`
+- `CURSOR_FINAL_PASS sha=<latest_head_sha>`
+
+Ignore pass tokens for older SHAs.
+
+## PR Body
+
+AI maintenance PRs must include:
+
+1. Problem or target.
+2. Root cause or evidence.
+3. Fix summary.
+4. Files changed.
+5. Tests run.
+6. Risk.
+7. Why the change is small.
+8. Latest head SHA.
+
+## Dead Code Proof
+
+Before removing code, prove that it is safe to remove:
+
+- Search all repository references.
+- Check dynamic reference risks such as string imports, route names, config names, CLI entrypoints, reflection, and generated code.
+- Check package exports and public API boundaries.
+- Check tests and build configuration.
+- If public API or dynamic reference risk is unclear, do not remove the code.
