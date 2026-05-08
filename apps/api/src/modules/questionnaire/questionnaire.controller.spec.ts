@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE } from '@lilink/shared';
 import { QuestionnaireController } from './questionnaire.controller';
 import type { QuestionnaireService } from './questionnaire.service';
 
@@ -14,6 +15,8 @@ describe('QuestionnaireController', () => {
     );
 
     await expect(controller.getCurrent()).resolves.toBe(current);
-    expect(questionnaireService.getCurrentVersion).toHaveBeenCalledWith();
+    expect(questionnaireService.getCurrentVersion).toHaveBeenCalledWith(
+      DEFAULT_LOCALE,
+    );
   });
 });

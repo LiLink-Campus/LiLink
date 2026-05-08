@@ -22,7 +22,7 @@ describe('AuthController', () => {
     });
 
     expect(requestCode).toHaveBeenCalledTimes(1);
-    expect(requestCode).toHaveBeenCalledWith('user@example.com');
+    expect(requestCode).toHaveBeenCalledWith('user@example.com', undefined);
   });
 
   it('strips the token from the login response body while still setting the cookie', async () => {

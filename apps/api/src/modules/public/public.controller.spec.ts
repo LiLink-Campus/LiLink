@@ -13,7 +13,7 @@ describe('PublicController', () => {
     const controller = new PublicController(publicService as never);
 
     await expect(controller.getLanding()).resolves.toBe(landing);
-    expect(publicService.getLandingPayload).toHaveBeenCalledWith();
+    expect(publicService.getLandingPayload).toHaveBeenCalledWith(undefined);
   });
 
   it('returns eligible schools from PublicService', async () => {
@@ -27,6 +27,6 @@ describe('PublicController', () => {
     const controller = new PublicController(publicService as never);
 
     await expect(controller.getSchools()).resolves.toBe(schools);
-    expect(publicService.getEligibleSchools).toHaveBeenCalledWith();
+    expect(publicService.getEligibleSchools).toHaveBeenCalledWith(undefined);
   });
 });
