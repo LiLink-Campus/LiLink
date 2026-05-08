@@ -4,6 +4,27 @@ import { env } from '../../config/env';
 import { AuthController } from './auth.controller';
 
 describe('AuthController', () => {
+  it('forwards requestCode to AuthService with the submitted email', async () => {
+    const requestCode = jest.fn().mockResolvedValue({
+      email: 'user@example.com',
+      expiresAt: new Date(),
+      school: { schoolId: 'school-1' },
+    });
+    const authController = new AuthController({
+      requestCode,
+    } as never);
+
+    await expect(
+      authController.requestCode({ email: 'user@example.com' }),
+    ).resolves.toMatchObject({
+      email: 'user@example.com',
+      school: { schoolId: 'school-1' },
+    });
+
+    expect(requestCode).toHaveBeenCalledTimes(1);
+    expect(requestCode).toHaveBeenCalledWith('user@example.com');
+  });
+
   it('strips the token from the login response body while still setting the cookie', async () => {
     const authController = new AuthController({
       login: jest.fn().mockResolvedValue({
