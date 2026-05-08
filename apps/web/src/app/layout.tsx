@@ -47,7 +47,9 @@ export default function RootLayout({
         </AuthSessionProvider>
         <AnnouncementDialog />
         <Analytics />
-        <SpeedInsights />
+              {process.env.VERCEL_ENV === "production" && (
+                  <SpeedInsights sampleRate={0.1} />
+              )}
       </body>
     </html>
   );
