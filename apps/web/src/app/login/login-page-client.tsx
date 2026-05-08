@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { resolveSafePostAuthRedirect } from "@lilink/shared";
 import { fetchApi } from "../../lib/api";
 import {
   GrassRowIllustration,
@@ -27,8 +28,11 @@ export default function LoginPageClient() {
         body: JSON.stringify({ email, password }),
       });
       const nextPath = new URLSearchParams(window.location.search).get("next");
-      const redirectPath =
-        nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard";
+      const redirectPath = resolveSafePostAuthRedirect(
+        nextPath,
+        window.location.origin,
+        "/dashboard",
+      );
       window.location.href = redirectPath;
     } catch (caughtError) {
       setError(
