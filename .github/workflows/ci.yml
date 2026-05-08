@@ -36,6 +36,9 @@ jobs:
       - name: Build shared workspace
         run: npm run build:shared
 
+      - name: Run shared package tests
+        run: npm run test:shared
+
       # Prisma Client is not committed; ESLint type-aware rules need generated types.
       - name: Generate Prisma client
         env:
