@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { isSafeSameOriginRelativePathForBrowserLocation } from "@lilink/shared";
 import { FormEvent, useState } from "react";
 import { fetchApi } from "../../lib/api";
 import {
@@ -28,7 +29,9 @@ export default function LoginPageClient() {
       });
       const nextPath = new URLSearchParams(window.location.search).get("next");
       const redirectPath =
-        nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard";
+        nextPath && isSafeSameOriginRelativePathForBrowserLocation(nextPath)
+          ? nextPath
+          : "/dashboard";
       window.location.href = redirectPath;
     } catch (caughtError) {
       setError(
