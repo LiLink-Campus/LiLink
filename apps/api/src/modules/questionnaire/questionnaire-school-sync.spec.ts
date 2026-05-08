@@ -1,5 +1,69 @@
 import { HARD_MATCH_KEYS } from '@lilink/shared';
-import { syncQuestionnaireSchoolAnswers } from './questionnaire-school-sync';
+import {
+  syncExcludedPartnerSchoolPreferences,
+  syncQuestionnaireSchoolAnswers,
+} from './questionnaire-school-sync';
+
+describe('syncExcludedPartnerSchoolPreferences', () => {
+  it('rewrites excluded partner school ids before allowed-school filtering', () => {
+    expect(
+      syncExcludedPartnerSchoolPreferences(
+        {
+          excludedPartnerSchools: ['legacy-campus', 'keep-campus'],
+          excludedPartnerSchoolGenders: [],
+        },
+        {
+          allowedSchoolIds: ['merged-campus', 'keep-campus'],
+          rewrittenSchoolIds: { 'legacy-campus': 'merged-campus' },
+        },
+      ),
+    ).toEqual({
+      excludedPartnerSchools: ['merged-campus', 'keep-campus'],
+      excludedPartnerSchoolGenders: [],
+    });
+  });
+
+  it('rewrites schoolId values inside gender exclusions when campuses are merged', () => {
+    expect(
+      syncExcludedPartnerSchoolPreferences(
+        {
+          excludedPartnerSchools: [],
+          excludedPartnerSchoolGenders: [
+            { schoolId: 'legacy-campus', genders: ['女'] },
+          ],
+        },
+        {
+          allowedSchoolIds: ['merged-campus'],
+          rewrittenSchoolIds: { 'legacy-campus': 'merged-campus' },
+        },
+      ),
+    ).toEqual({
+      excludedPartnerSchools: [],
+      excludedPartnerSchoolGenders: [
+        { schoolId: 'merged-campus', genders: ['女'] },
+      ],
+    });
+  });
+
+  it('ignores null and primitive gender exclusion entries without throwing', () => {
+    expect(
+      syncExcludedPartnerSchoolPreferences(
+        {
+          excludedPartnerSchools: [],
+          excludedPartnerSchoolGenders: [
+            null,
+            'not-an-object',
+            { schoolId: 'campus-a', genders: ['男'] },
+          ],
+        },
+        { allowedSchoolIds: ['campus-a'] },
+      ),
+    ).toEqual({
+      excludedPartnerSchools: [],
+      excludedPartnerSchoolGenders: [{ schoolId: 'campus-a', genders: ['男'] }],
+    });
+  });
+});
 
 describe('questionnaire-school-sync', () => {
   it('dedupes excluded partner school ids after a merge rewrite', () => {

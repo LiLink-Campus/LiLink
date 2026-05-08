@@ -18,6 +18,7 @@ import {
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminSchoolService } from './admin-school.service';
+import { generateSeedTestUserPassword } from './seed-test-user-password';
 import {
   AdminUpdateUserDto,
   BatchReviewReportsDto,
@@ -1890,7 +1891,7 @@ export class AdminService {
       );
     }
 
-    const PASSWORD = 'TestDemo_LiLink_42!';
+    const PASSWORD = generateSeedTestUserPassword();
     const passwordHash = await argon2.hash(PASSWORD);
 
     const softBase = {
