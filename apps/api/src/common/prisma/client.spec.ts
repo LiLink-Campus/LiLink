@@ -33,8 +33,9 @@ describe('createPostgresPoolConfig', () => {
     'DATABASE_CONNECTION_LIMIT',
     'DATABASE_POOL_TIMEOUT_SECONDS',
   ] as const;
-  const snapshot: Partial<Record<(typeof envKeys)[number], string | undefined>> =
-    {};
+  const snapshot: Partial<
+    Record<(typeof envKeys)[number], string | undefined>
+  > = {};
 
   beforeEach(() => {
     for (const key of envKeys) {
