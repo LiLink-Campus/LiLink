@@ -357,6 +357,64 @@ describe('AuthService', () => {
     });
   });
 
+  it('normalizes email casing and whitespace before resolving the school', async () => {
+    const resolveByEmail = jest
+      .fn()
+      .mockResolvedValue({ schoolId: 'school-1' });
+    const create = jest.fn().mockResolvedValue({ id: 'code-1' });
+    const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
+    const outboundCreate = jest.fn().mockResolvedValue(undefined);
+    const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
+    const prisma = {
+      $transaction: jest.fn(
+        async (
+          callback: (
+            transaction: VerificationCodeTransaction,
+          ) => Promise<unknown>,
+        ) =>
+          callback({
+            emailCode: {
+              create,
+              updateMany: invalidateExistingCodes,
+            },
+            outboundEmail: { create: outboundCreate },
+          }),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {
+        buildVerificationCodeEmail: jest.fn(
+          (input: {
+            dedupeKey: string;
+            recipientEmail: string;
+            code: string;
+          }) => ({
+            dedupeKey: input.dedupeKey,
+            recipientEmail: input.recipientEmail,
+            subject: 'LiLink verification code',
+            html: '<p>Code</p>',
+            maxAttempts: 3,
+          }),
+        ),
+        deliverQueuedEmailNow,
+      } as never,
+      { resolveByEmail } as never,
+      {} as never,
+    );
+
+    await authService.requestCode('  User@Example.COM  ');
+
+    expect(resolveByEmail).toHaveBeenCalledWith('user@example.com');
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          email: 'user@example.com',
+        }) as object,
+      }) as object,
+    );
+  });
+
   it('swallows immediate-delivery failures so the request still succeeds', async () => {
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     // Reject the immediate kick-off; cron should later retry via maxAttempts.
