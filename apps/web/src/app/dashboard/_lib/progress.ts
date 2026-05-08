@@ -1,5 +1,6 @@
 import {
   getHardMatchFormSaveErrorMessage,
+  hardMatchAttentionKeys,
   hardMatchFormFromAnswers,
 } from "../../../lib/hard-match";
 import {
@@ -75,24 +76,63 @@ function hardMatchCompletion(
   return { ratio, isSavable };
 }
 
-function softQuestionCompletion(
+function currentSoftAnswers(
   questions: Question[],
   saved: SavedQuestionnairePayload,
+) {
+  return (
+    saved?.draft?.softAnswers ??
+    keepCurrentQuestionAnswers(questions, saved?.answers)
+  );
+}
+
+function softQuestionCompletion(
+  questions: Question[],
+  answers: Record<string, unknown>,
 ): number {
   const requiredQuestions = questions.filter((q) => q.required !== false);
   if (requiredQuestions.length === 0) {
     return 1;
   }
 
-  const answers =
-    saved?.draft?.softAnswers ??
-    keepCurrentQuestionAnswers(questions, saved?.answers);
-
   const completed = requiredQuestions.filter((question) =>
     softQuestionAnswerIsComplete(question, answers[question.key]),
   ).length;
 
   return completed / requiredQuestions.length;
+}
+
+function pendingUpdateReviewWeight(
+  questions: Question[],
+  saved: SavedQuestionnairePayload,
+) {
+  const attention = saved?.attention;
+  if (!attention || attention.pendingUpdatedKeys.length === 0) {
+    return 0;
+  }
+
+  const currentQuestionKeys = new Set(questions.map((question) => question.key));
+  const hardMatchKeySet = new Set<string>(hardMatchAttentionKeys());
+  const attentionItemsByKey = new Map(
+    attention.items.map((item) => [item.key, item]),
+  );
+
+  const softQuestionReviewWeight =
+    attention.pendingUpdatedKeys.filter((key) => {
+      const item = attentionItemsByKey.get(key);
+      return currentQuestionKeys.has(key) && item && !item.missingRequired;
+    }).length * SOFT_QUESTION_WEIGHT;
+
+  const hardMatchReviewWeight =
+    hardMatchKeySet.size === 0
+      ? 0
+      : attention.pendingUpdatedKeys.filter((key) => {
+          const item = attentionItemsByKey.get(key);
+          return hardMatchKeySet.has(key) && item && !item.missingRequired;
+        }).length *
+        (HARD_MATCH_WEIGHT / hardMatchKeySet.size);
+
+  return softQuestionReviewWeight + hardMatchReviewWeight;
 }
 
 function nicknameCompletion(
@@ -125,10 +165,8 @@ export function computeQuestionnaireProgress(args: {
     args.savedQuestionnaire,
     args.schools,
   );
-  const softRatio = softQuestionCompletion(
-    args.questions,
-    args.savedQuestionnaire,
-  );
+  const softAnswers = currentSoftAnswers(args.questions, args.savedQuestionnaire);
+  const softRatio = softQuestionCompletion(args.questions, softAnswers);
 
   const totalWeight =
     NICKNAME_WEIGHT +
@@ -140,7 +178,13 @@ export function computeQuestionnaireProgress(args: {
     HARD_MATCH_WEIGHT * hardCompletion.ratio +
     SOFT_QUESTION_WEIGHT * args.questions.length * softRatio;
 
-  const ratio = totalWeight === 0 ? 0 : weighted / totalWeight;
+  const reviewAdjustedWeighted = Math.max(
+    0,
+    weighted -
+      pendingUpdateReviewWeight(args.questions, args.savedQuestionnaire),
+  );
+  const ratio =
+    totalWeight === 0 ? 0 : reviewAdjustedWeighted / totalWeight;
   const percent = Math.max(0, Math.min(100, Math.round(ratio * 100)));
 
   // Mirrors AccountService.assertQuestionnaireReadyForOptIn: opting in

@@ -365,12 +365,22 @@ function buildSubmittedQuestionnaireResponse(
       [HARD_MATCH_KEYS.partnerAgeMax]: 30,
       [HARD_MATCH_KEYS.gender]: '男',
       [HARD_MATCH_KEYS.partnerGenders]: ['女'],
+      [HARD_MATCH_KEYS.nationality]: '中国',
+      [HARD_MATCH_KEYS.partnerNationalities]: [],
+      [HARD_MATCH_KEYS.languages]: ['中文'],
+      [HARD_MATCH_KEYS.partnerLanguages]: [],
       [HARD_MATCH_KEYS.looks]: '普通人',
       [HARD_MATCH_KEYS.partnerLooks]: ['普通人'],
       [HARD_MATCH_KEYS.heightCm]: 175,
       [HARD_MATCH_KEYS.partnerHeightMin]: 150,
       [HARD_MATCH_KEYS.partnerHeightMax]: 195,
+      [HARD_MATCH_KEYS.weightKg]: null,
+      [HARD_MATCH_KEYS.partnerWeightMin]: null,
+      [HARD_MATCH_KEYS.partnerWeightMax]: null,
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢徒步。',
+      [HARD_MATCH_KEYS.school]: 'school-bupt',
+      [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+      [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
       ...(overrides.answers ?? {}),
     },
     draftAnswers:
@@ -1098,6 +1108,7 @@ describe('AccountService', () => {
           findUnique: jest.fn().mockResolvedValue({
             versionId: 'version-old',
             answers: {
+              ...buildSubmittedQuestionnaireResponse().answers,
               current_question: 'kept',
               removed_question: 'dropped',
               [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
@@ -1155,7 +1166,9 @@ describe('AccountService', () => {
       createDashboardSnapshotServiceMock() as never,
     );
 
-    await expect(service.getQuestionnaire('user-1')).resolves.toEqual({
+    const result = await service.getQuestionnaire('user-1');
+
+    expect(result).toMatchObject({
       versionId: 'version-old',
       currentVersionId: 'version-current',
       answers: {
@@ -1176,6 +1189,7 @@ describe('AccountService', () => {
         items: [],
       },
     });
+    expect(result!.answers).not.toHaveProperty('removed_question');
   });
 
   it('marks current-version questionnaire additions as pending account-level attention', async () => {
@@ -1190,6 +1204,7 @@ describe('AccountService', () => {
           findUnique: jest.fn().mockResolvedValue({
             versionId: 'version-old',
             answers: {
+              ...buildSubmittedQuestionnaireResponse().answers,
               current_question: 'kept',
               [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
               [HARD_MATCH_KEYS.school]: 'school-bupt',
@@ -1271,10 +1286,95 @@ describe('AccountService', () => {
     });
   });
 
+  it('marks newly introduced hard-match fields as pending attention', async () => {
+    const legacyAnswers = { ...buildSubmittedQuestionnaireResponse().answers };
+    delete legacyAnswers[HARD_MATCH_KEYS.partnerLanguages];
+
+    const service = new AccountService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            schoolId: 'school-bupt',
+          }),
+        },
+        questionnaireResponse: {
+          findUnique: jest.fn().mockResolvedValue({
+            versionId: 'version-old',
+            answers: {
+              ...legacyAnswers,
+              current_question: 'kept',
+            },
+            acknowledgedQuestionnaireVersionId: null,
+            acknowledgedQuestionnaireKeys: null,
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            version: {
+              questions: [
+                {
+                  key: 'current_question',
+                  prompt: 'Current question',
+                  description: null,
+                  type: 'SINGLE_SELECT',
+                  required: true,
+                  selectionLimit: null,
+                  options: [{ value: 'kept', label: 'Kept' }],
+                },
+              ],
+            },
+          }),
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'kept', label: 'Kept' }],
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          ],
+        }),
+        sanitizeStoredAnswers: jest.fn().mockReturnValue({
+          current_question: 'kept',
+        }),
+      } as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(service.getQuestionnaire('user-1')).resolves.toMatchObject({
+      attention: {
+        pendingUpdatedKeys: [HARD_MATCH_KEYS.partnerLanguages],
+        missingRequiredKeys: [],
+        pendingKeys: [HARD_MATCH_KEYS.partnerLanguages],
+        items: [
+          {
+            key: HARD_MATCH_KEYS.partnerLanguages,
+            prompt: '希望对方的语言',
+            updated: true,
+            missingRequired: false,
+            acknowledged: false,
+          },
+        ],
+      },
+    });
+  });
+
   it('persists questionnaire attention acknowledgement keys per current version', async () => {
     const queryRaw = jest.fn().mockResolvedValue([
       {
-        acknowledgedQuestionnaireKeys: ['existing_question', 'new_question'],
+        acknowledgedQuestionnaireKeys: [
+          'existing_question',
+          'new_question',
+          HARD_MATCH_KEYS.partnerLanguages,
+        ],
       },
     ]);
     const findUnique = jest.fn();
@@ -1298,11 +1398,20 @@ describe('AccountService', () => {
     await expect(
       service.acknowledgeQuestionnaireItems('user-1', {
         versionId: 'version-current',
-        keys: ['new_question', 'new_question', ' '],
+        keys: [
+          'new_question',
+          HARD_MATCH_KEYS.partnerLanguages,
+          'new_question',
+          ' ',
+        ],
       }),
     ).resolves.toEqual({
       currentVersionId: 'version-current',
-      acknowledgedKeys: ['existing_question', 'new_question'],
+      acknowledgedKeys: [
+        'existing_question',
+        'new_question',
+        HARD_MATCH_KEYS.partnerLanguages,
+      ],
     });
 
     expect(findUnique).not.toHaveBeenCalled();

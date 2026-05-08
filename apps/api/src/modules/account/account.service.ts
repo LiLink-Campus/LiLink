@@ -6,7 +6,12 @@ import {
   type UserCycleDashboardSnapshot,
   type WeeklyIntent as PrismaWeeklyIntent,
 } from '../../common/prisma/client';
-import { isWeeklyIntent, normalizeLocale } from '@lilink/shared';
+import {
+  hardMatchAttentionFields,
+  hardMatchAttentionKeys,
+  isWeeklyIntent,
+  normalizeLocale,
+} from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -609,6 +614,7 @@ export class AccountService {
     currentQuestions: QuestionnaireAttentionQuestion[];
     previousQuestions: QuestionnaireAttentionQuestion[];
     responseVersionId: string | null | undefined;
+    rawAnswers: Record<string, unknown>;
     filteredAnswers: Record<string, unknown>;
     acknowledgedVersionId: string | null | undefined;
     acknowledgedKeys: unknown;
@@ -650,6 +656,27 @@ export class AccountService {
         updated,
         missingRequired,
         acknowledged: !updated || acknowledgedKeySet.has(question.key),
+      });
+    }
+
+    for (const field of hardMatchAttentionFields()) {
+      const updated =
+        hasVersionUpdate &&
+        !Object.prototype.hasOwnProperty.call(args.rawAnswers, field.key);
+      const missingRequired =
+        field.required &&
+        !Object.prototype.hasOwnProperty.call(args.filteredAnswers, field.key);
+
+      if (!updated && !missingRequired) {
+        continue;
+      }
+
+      itemsByKey.set(field.key, {
+        key: field.key,
+        prompt: field.label,
+        updated,
+        missingRequired,
+        acknowledged: !updated || acknowledgedKeySet.has(field.key),
       });
     }
 
@@ -946,6 +973,7 @@ export class AccountService {
         currentQuestions: currentQuestionnaire.questions,
         previousQuestions: response.version?.questions ?? [],
         responseVersionId: response.versionId,
+        rawAnswers: schoolAwareAnswers,
         filteredAnswers,
         acknowledgedVersionId: response.acknowledgedQuestionnaireVersionId,
         acknowledgedKeys: response.acknowledgedQuestionnaireKeys,
@@ -964,9 +992,10 @@ export class AccountService {
       throw new BadRequestException('Questionnaire version is outdated.');
     }
 
-    const currentQuestionKeys = new Set(
-      currentQuestionnaire.questions.map((question) => question.key),
-    );
+    const currentQuestionKeys = new Set([
+      ...currentQuestionnaire.questions.map((question) => question.key),
+      ...hardMatchAttentionKeys(),
+    ]);
     const requestedKeys = [
       ...new Set(
         input.keys.map((key) => key.trim()).filter((key) => key.length > 0),

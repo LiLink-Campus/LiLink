@@ -1,7 +1,15 @@
 "use client";
 
 import { takeNextAutosaveQueueItem } from "@lilink/shared";
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   fetchApi,
   isApiRequestError,
@@ -10,6 +18,7 @@ import {
 import {
   AGE_OPTIONS,
   BIRTH_YEAR_OPTIONS,
+  HARD_MATCH_KEYS,
   HARD_MATCH_GENDERS,
   HARD_MATCH_LANGUAGES,
   HARD_MATCH_LOOKS,
@@ -19,6 +28,7 @@ import {
   MONTH_OPTIONS,
   WEIGHT_OPTIONS,
   buildDayOptions,
+  hardMatchAttentionFields,
   hardMatchFormFromAnswers,
   schoolGenderExclusionFor,
   setSchoolGenderExclusion,
@@ -32,6 +42,11 @@ import {
   type ValuePickerOption,
 } from "../_components/ValuePicker";
 import { buildDashboardFieldId } from "../_lib/format";
+import {
+  profileAttentionElementId,
+  profileAttentionKeyFromHash,
+  profileAttentionTabForKey,
+} from "../_lib/profile-attention";
 import {
   getQuestionnaireIncompleteMessage,
   keepCurrentQuestionAnswers,
@@ -89,6 +104,34 @@ const PROFILE_TABS: ReadonlyArray<{ id: ProfileTab; label: string }> = [
   { id: "values", label: "价值观问卷" },
 ];
 
+const HARD_MATCH_FIELD_KEY_GROUPS = {
+  birthDate: [HARD_MATCH_KEYS.birthDate],
+  gender: [HARD_MATCH_KEYS.gender],
+  nationality: [HARD_MATCH_KEYS.nationality],
+  languages: [HARD_MATCH_KEYS.languages],
+  looks: [HARD_MATCH_KEYS.looks],
+  heightCm: [HARD_MATCH_KEYS.heightCm],
+  weightKg: [HARD_MATCH_KEYS.weightKg],
+  oneLinerIntro: [HARD_MATCH_KEYS.oneLinerIntro],
+  partnerAge: [HARD_MATCH_KEYS.partnerAgeMin, HARD_MATCH_KEYS.partnerAgeMax],
+  partnerGenders: [HARD_MATCH_KEYS.partnerGenders],
+  partnerNationalities: [HARD_MATCH_KEYS.partnerNationalities],
+  partnerLanguages: [HARD_MATCH_KEYS.partnerLanguages],
+  partnerLooks: [HARD_MATCH_KEYS.partnerLooks],
+  partnerHeight: [
+    HARD_MATCH_KEYS.partnerHeightMin,
+    HARD_MATCH_KEYS.partnerHeightMax,
+  ],
+  partnerWeight: [
+    HARD_MATCH_KEYS.partnerWeightMin,
+    HARD_MATCH_KEYS.partnerWeightMax,
+  ],
+  excludedPartnerSchools: [
+    HARD_MATCH_KEYS.excludedPartnerSchools,
+    HARD_MATCH_KEYS.excludedPartnerSchoolGenders,
+  ],
+} as const;
+
 type QuestionnaireSavePayload = {
   answers: Record<string, unknown>;
   hardMatchForm: HardMatchFormState;
@@ -130,6 +173,7 @@ const QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS = [1500, 3000, 5000, 10000];
 const QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS =
   QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS.length;
 const QUESTIONNAIRE_ATTENTION_VIEW_MS = 200;
+const MULTI_CHOICE_REOPEN_GUARD_MS = 350;
 
 function questionnaireQuestionElementId(key: string) {
   return `questionnaire-question-${key}`;
@@ -139,10 +183,12 @@ function initialProfileTab(
   questions: Question[],
   savedQuestionnaire: SavedQuestionnairePayload,
 ): ProfileTab {
-  const pendingKeys = new Set(savedQuestionnaire?.attention?.pendingKeys ?? []);
-  return questions.some((question) => pendingKeys.has(question.key))
-    ? "values"
-    : "self";
+  const firstPendingKey = savedQuestionnaire?.attention?.pendingKeys[0];
+  if (!firstPendingKey) {
+    return "self";
+  }
+
+  return profileAttentionTabForKey(firstPendingKey, questions) ?? "self";
 }
 
 function questionnaireAttentionText(item: QuestionnaireAttentionItem) {
@@ -241,6 +287,81 @@ function activeExcludedGendersFor(
   );
 }
 
+function numericFormValueIsComplete(value: string) {
+  return value.trim().length > 0 && Number.isFinite(Number(value));
+}
+
+function numericRangeFormValueIsComplete(min: string, max: string) {
+  return (
+    numericFormValueIsComplete(min) &&
+    numericFormValueIsComplete(max) &&
+    Number(min) <= Number(max)
+  );
+}
+
+function hardMatchFieldIsComplete(
+  key: string,
+  hardMatchForm: HardMatchFormState,
+) {
+  switch (key) {
+    case HARD_MATCH_KEYS.birthDate:
+      return (
+        hardMatchForm.birthYear.trim().length > 0 &&
+        hardMatchForm.birthMonth.trim().length > 0 &&
+        hardMatchForm.birthDay.trim().length > 0 &&
+        buildDayOptions(
+          hardMatchForm.birthYear,
+          hardMatchForm.birthMonth,
+        ).includes(Number(hardMatchForm.birthDay))
+      );
+    case HARD_MATCH_KEYS.gender:
+      return hardMatchForm.gender.trim().length > 0;
+    case HARD_MATCH_KEYS.nationality:
+      return hardMatchForm.nationality.trim().length > 0;
+    case HARD_MATCH_KEYS.languages:
+      return hardMatchForm.languages.length > 0;
+    case HARD_MATCH_KEYS.looks:
+      return hardMatchForm.looks.trim().length > 0;
+    case HARD_MATCH_KEYS.heightCm:
+      return numericFormValueIsComplete(hardMatchForm.heightCm);
+    case HARD_MATCH_KEYS.weightKg:
+      return true;
+    case HARD_MATCH_KEYS.oneLinerIntro: {
+      const oneLinerIntro = hardMatchForm.oneLinerIntro.trim();
+      return (
+        oneLinerIntro.length > 0 &&
+        oneLinerIntro.length <= HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH
+      );
+    }
+    case HARD_MATCH_KEYS.partnerAgeMin:
+    case HARD_MATCH_KEYS.partnerAgeMax:
+      return numericRangeFormValueIsComplete(
+        hardMatchForm.partnerAgeMin,
+        hardMatchForm.partnerAgeMax,
+      );
+    case HARD_MATCH_KEYS.partnerGenders:
+      return hardMatchForm.partnerGenders.length > 0;
+    case HARD_MATCH_KEYS.partnerNationalities:
+    case HARD_MATCH_KEYS.partnerLanguages:
+      return true;
+    case HARD_MATCH_KEYS.partnerLooks:
+      return hardMatchForm.partnerLooks.length > 0;
+    case HARD_MATCH_KEYS.partnerHeightMin:
+    case HARD_MATCH_KEYS.partnerHeightMax:
+      return numericRangeFormValueIsComplete(
+        hardMatchForm.partnerHeightMin,
+        hardMatchForm.partnerHeightMax,
+      );
+    case HARD_MATCH_KEYS.partnerWeightMin:
+    case HARD_MATCH_KEYS.partnerWeightMax:
+    case HARD_MATCH_KEYS.excludedPartnerSchools:
+    case HARD_MATCH_KEYS.excludedPartnerSchoolGenders:
+      return true;
+    default:
+      return true;
+  }
+}
+
 function MultiChoiceSummaryPicker({
   id,
   name,
@@ -254,6 +375,8 @@ function MultiChoiceSummaryPicker({
 }: MultiChoiceSummaryPickerProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const reopenGuardUntilRef = useRef(0);
+  const ignoreTriggerClickUntilRef = useRef(0);
   const [search, setSearch] = useState("");
   const hasSelectedValues = values.length > 0;
   const previewValues = values.slice(0, MULTI_CHOICE_PREVIEW_LIMIT);
@@ -270,13 +393,57 @@ function MultiChoiceSummaryPicker({
   }, [options, search]);
 
   function openDialog() {
+    if (window.performance.now() < reopenGuardUntilRef.current) {
+      return;
+    }
+
     const dialog = dialogRef.current;
     if (!dialog || dialog.open) return;
     dialog.showModal();
     window.requestAnimationFrame(() => searchInputRef.current?.focus());
   }
 
+  function handleTriggerClick() {
+    if (window.performance.now() < ignoreTriggerClickUntilRef.current) {
+      return;
+    }
+
+    openDialog();
+  }
+
+  function handleTriggerPointerDown(
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    if (event.pointerType === "mouse") {
+      return;
+    }
+
+    if (window.performance.now() < ignoreTriggerClickUntilRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    ignoreTriggerClickUntilRef.current =
+      window.performance.now() + MULTI_CHOICE_REOPEN_GUARD_MS;
+    openDialog();
+  }
+
+  function handleTriggerTouchStart(event: ReactTouchEvent<HTMLButtonElement>) {
+    if (window.performance.now() < ignoreTriggerClickUntilRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    ignoreTriggerClickUntilRef.current =
+      window.performance.now() + MULTI_CHOICE_REOPEN_GUARD_MS;
+    openDialog();
+  }
+
   function closeDialog() {
+    reopenGuardUntilRef.current =
+      window.performance.now() + MULTI_CHOICE_REOPEN_GUARD_MS;
     dialogRef.current?.close();
   }
 
@@ -327,7 +494,9 @@ function MultiChoiceSummaryPicker({
           type="button"
           className="multi-choice-trigger"
           aria-haspopup="dialog"
-          onClick={openDialog}
+          onClick={handleTriggerClick}
+          onPointerDown={handleTriggerPointerDown}
+          onTouchStart={handleTriggerTouchStart}
         >
           选择
         </button>
@@ -570,6 +739,38 @@ export function ProfileClient({
       });
     }
 
+    for (const field of hardMatchAttentionFields()) {
+      const current = attentionByKey.get(field.key);
+      const missingRequired =
+        field.required && !hardMatchFieldIsComplete(field.key, hardMatchForm);
+
+      if (!missingRequired && !current?.updated) {
+        attentionByKey.delete(field.key);
+        continue;
+      }
+
+      if (!missingRequired && current) {
+        attentionByKey.set(field.key, {
+          ...current,
+          missingRequired: false,
+          acknowledged: !current.updated || acknowledgedKeys.has(field.key),
+        });
+        continue;
+      }
+
+      if (missingRequired) {
+        attentionByKey.set(field.key, {
+          key: field.key,
+          prompt: current?.prompt ?? field.label,
+          updated: current?.updated ?? false,
+          missingRequired: true,
+          acknowledged: current?.updated
+            ? acknowledgedKeys.has(field.key)
+            : true,
+        });
+      }
+    }
+
     for (const question of questions) {
       const missingRequired =
         question.required !== false &&
@@ -595,6 +796,7 @@ export function ProfileClient({
   }, [
     acknowledgedQuestionnaireKeys,
     answers,
+    hardMatchForm,
     questionnaireAttention,
     questions,
   ]);
@@ -607,24 +809,47 @@ export function ProfileClient({
     [questionAttentionByKey],
   );
 
-  function setQuestionBlockRef(key: string, node: HTMLFieldSetElement | null) {
+  function setAttentionBlockRef(
+    keys: readonly string[],
+    node: HTMLFieldSetElement | null,
+  ) {
     if (node) {
-      questionBlockRefs.current.set(key, node);
+      for (const key of keys) {
+        questionBlockRefs.current.set(key, node);
+      }
       return;
     }
 
-    questionBlockRefs.current.delete(key);
+    for (const key of keys) {
+      questionBlockRefs.current.delete(key);
+    }
   }
 
-  function questionBlockClassName(key: string) {
-    const item = questionAttentionByKey.get(key);
-    const needsAttention =
-      item != null &&
-      (item.missingRequired || (item.updated && !item.acknowledged));
+  function attentionItemForKeys(keys: readonly string[]) {
+    return (
+      keys
+        .map((key) => questionAttentionByKey.get(key))
+        .find(
+          (item) =>
+            item != null &&
+            (item.missingRequired || (item.updated && !item.acknowledged)),
+        ) ?? null
+    );
+  }
 
-    return needsAttention
+  function attentionBlockClassName(keys: readonly string[]) {
+    return attentionItemForKeys(keys)
       ? "question-block question-block-attention"
       : "question-block";
+  }
+
+  function renderAttentionNote(keys: readonly string[]) {
+    const item = attentionItemForKeys(keys);
+    return item ? (
+      <p className="question-attention-note">
+        {questionnaireAttentionText(item)}
+      </p>
+    ) : null;
   }
 
   const acknowledgeQuestionnaireKeys = useEffectEvent(
@@ -655,27 +880,36 @@ export function ProfileClient({
   );
 
   useEffect(() => {
-    const hashPrefix = "#questionnaire-question-";
-    if (!window.location.hash.startsWith(hashPrefix)) {
+    const attentionHash = window.location.hash;
+    const key = profileAttentionKeyFromHash(attentionHash);
+    if (!key) {
       return;
     }
 
-    const key = decodeURIComponent(
-      window.location.hash.slice(hashPrefix.length),
-    );
-    if (!questions.some((question) => question.key === key)) {
+    const targetTab = profileAttentionTabForKey(key, questions);
+    if (!targetTab) {
       return;
     }
 
-    if (activeTab !== "values") {
-      setActiveTab("values");
+    if (activeTab !== targetTab) {
+      setActiveTab(targetTab);
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      document
-        .getElementById(questionnaireQuestionElementId(key))
-        ?.scrollIntoView({ block: "center" });
+      const target =
+        questionBlockRefs.current.get(key) ??
+        document.getElementById(profileAttentionElementId(key)) ??
+        document.getElementById(questionnaireQuestionElementId(key));
+      target?.scrollIntoView({ block: "center" });
+
+      if (target && window.location.hash === attentionHash) {
+        window.history.replaceState(
+          window.history.state,
+          "",
+          `${window.location.pathname}${window.location.search}`,
+        );
+      }
     }, 0);
 
     return () => {
@@ -696,38 +930,43 @@ export function ProfileClient({
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const key = (entry.target as HTMLElement).dataset.questionKey;
-          if (!key) {
+          const keys = pendingUpdatedAttentionKeys.filter(
+            (key) => questionBlockRefs.current.get(key) === entry.target,
+          );
+          if (keys.length === 0) {
             continue;
           }
+          const timerKey = keys.join("\u0000");
 
           if (!entry.isIntersecting) {
-            const timer = timers.get(key);
+            const timer = timers.get(timerKey);
             if (timer != null) {
               window.clearTimeout(timer);
-              timers.delete(key);
+              timers.delete(timerKey);
             }
             continue;
           }
 
-          if (timers.has(key)) {
+          if (timers.has(timerKey)) {
             continue;
           }
 
           const timeoutId = window.setTimeout(() => {
-            timers.delete(key);
+            timers.delete(timerKey);
             observer.unobserve(entry.target);
-            void acknowledgeQuestionnaireKeys([key]);
+            void acknowledgeQuestionnaireKeys(keys);
           }, QUESTIONNAIRE_ATTENTION_VIEW_MS);
-          timers.set(key, timeoutId);
+          timers.set(timerKey, timeoutId);
         }
       },
       { threshold: 0.35 },
     );
 
+    const observedNodes = new Set<HTMLFieldSetElement>();
     for (const key of pendingUpdatedAttentionKeys) {
       const node = questionBlockRefs.current.get(key);
-      if (node) {
+      if (node && !observedNodes.has(node)) {
+        observedNodes.add(node);
         observer.observe(node);
       }
     }
@@ -738,7 +977,7 @@ export function ProfileClient({
         window.clearTimeout(timer);
       }
     };
-  }, [pendingUpdatedAttentionKeys, questionnaireAttention]);
+  }, [activeTab, pendingUpdatedAttentionKeys, questionnaireAttention]);
 
   const flushQueuedQuestionnaireSave = useEffectEvent(
     async (payload: QuestionnaireSavePayload, snapshot: string) => {
@@ -1090,8 +1329,20 @@ export function ProfileClient({
               </div>
             </div>
             <div className="question-list">
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.birthDate)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.birthDate,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.birthDate,
+                )}
+              >
                 <legend>出生日期</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.birthDate)}
                 <div className="form-grid birth-date-grid">
                   <label>
                     <span>年份</span>
@@ -1141,8 +1392,17 @@ export function ProfileClient({
                 </div>
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.gender)}
+                ref={(node) =>
+                  setAttentionBlockRef(HARD_MATCH_FIELD_KEY_GROUPS.gender, node)
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.gender,
+                )}
+              >
                 <legend>性别</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.gender)}
                 <div className="option-list">
                   {HARD_MATCH_GENDERS.map((g, i) => (
                     <label key={g}>
@@ -1161,8 +1421,20 @@ export function ProfileClient({
                 </div>
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.nationality)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.nationality,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.nationality,
+                )}
+              >
                 <legend>国籍</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.nationality)}
                 <ValuePicker
                   id={buildDashboardFieldId("nationality")}
                   name="nationality"
@@ -1176,8 +1448,20 @@ export function ProfileClient({
                 />
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.languages)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.languages,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.languages,
+                )}
+              >
                 <legend>语言（可多选）</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.languages)}
                 <MultiChoiceSummaryPicker
                   id={buildDashboardFieldId("languages")}
                   name="languages"
@@ -1192,8 +1476,17 @@ export function ProfileClient({
                 />
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.looks)}
+                ref={(node) =>
+                  setAttentionBlockRef(HARD_MATCH_FIELD_KEY_GROUPS.looks, node)
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.looks,
+                )}
+              >
                 <legend>颜值自评</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.looks)}
                 <div className="option-list">
                   {HARD_MATCH_LOOKS.map((l, i) => (
                     <label key={l}>
@@ -1212,8 +1505,20 @@ export function ProfileClient({
                 </div>
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.heightCm)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.heightCm,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.heightCm,
+                )}
+              >
                 <legend>身高（厘米）</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.heightCm)}
                 <ValuePicker
                   id={buildDashboardFieldId("height-cm")}
                   name="heightCm"
@@ -1228,8 +1533,20 @@ export function ProfileClient({
                 />
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.weightKg)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.weightKg,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.weightKg,
+                )}
+              >
                 <legend>体重（公斤）</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.weightKg)}
                 <ValuePicker
                   id={buildDashboardFieldId("weight-kg")}
                   name="weightKg"
@@ -1261,8 +1578,20 @@ export function ProfileClient({
                 </label>
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.oneLinerIntro)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
+                )}
+              >
                 <legend>一句话介绍</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro)}
                 <label className="dash-one-liner-label">
                   <span className="app-muted">
                     用一两句话介绍你的兴趣或期待；引荐邮件中会展示给对方。请勿填写隐私敏感信息。
@@ -1300,8 +1629,20 @@ export function ProfileClient({
               </div>
             </div>
             <div className="question-list">
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.partnerAgeMin)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.partnerAge,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerAge,
+                )}
+              >
                 <legend>对方年龄理想区间</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerAge)}
                 <p className="app-muted">
                   填对方的<strong>实际年龄</strong>数字（例如 18 到 25），
                   不是与你的年龄差。
@@ -1340,8 +1681,22 @@ export function ProfileClient({
                 </div>
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.partnerGenders)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.partnerGenders,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerGenders,
+                )}
+              >
                 <legend>希望对方的性别（可多选）</legend>
+                {renderAttentionNote(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerGenders,
+                )}
                 <div className="chip-grid">
                   {HARD_MATCH_GENDERS.map((g, i) => {
                     const active = hardMatchForm.partnerGenders.includes(g);
@@ -1366,8 +1721,24 @@ export function ProfileClient({
                 </div>
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(
+                  HARD_MATCH_KEYS.partnerNationalities,
+                )}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.partnerNationalities,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerNationalities,
+                )}
+              >
                 <legend>希望对方的国籍</legend>
+                {renderAttentionNote(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerNationalities,
+                )}
                 <MultiChoiceSummaryPicker
                   id={buildDashboardFieldId("partner-nationalities")}
                   name="partnerNationalities"
@@ -1386,8 +1757,22 @@ export function ProfileClient({
                 />
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.partnerLanguages)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.partnerLanguages,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerLanguages,
+                )}
+              >
                 <legend>希望对方的语言</legend>
+                {renderAttentionNote(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerLanguages,
+                )}
                 <MultiChoiceSummaryPicker
                   id={buildDashboardFieldId("partner-languages")}
                   name="partnerLanguages"
@@ -1406,8 +1791,20 @@ export function ProfileClient({
                 />
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.partnerLooks)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.partnerLooks,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerLooks,
+                )}
+              >
                 <legend>希望对方的颜值（可多选）</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerLooks)}
                 <div className="chip-grid">
                   {HARD_MATCH_LOOKS.map((l, i) => {
                     const active = hardMatchForm.partnerLooks.includes(l);
@@ -1432,8 +1829,20 @@ export function ProfileClient({
                 </div>
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.partnerHeightMin)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.partnerHeight,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerHeight,
+                )}
+              >
                 <legend>希望对方的身高范围（厘米）</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerHeight)}
                 <div className="form-grid">
                   <label>
                     <span>身高下限</span>
@@ -1474,8 +1883,20 @@ export function ProfileClient({
                 </div>
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.partnerWeightMin)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.partnerWeight,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.partnerWeight,
+                )}
+              >
                 <legend>希望对方的体重范围（公斤）</legend>
+                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerWeight)}
                 <div className="form-grid">
                   <label>
                     <span>体重下限</span>
@@ -1514,8 +1935,24 @@ export function ProfileClient({
                 </div>
               </fieldset>
 
-              <fieldset className="question-block">
+              <fieldset
+                id={profileAttentionElementId(
+                  HARD_MATCH_KEYS.excludedPartnerSchools,
+                )}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.excludedPartnerSchools,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.excludedPartnerSchools,
+                )}
+              >
                 <legend>按学校排除（可选）</legend>
+                {renderAttentionNote(
+                  HARD_MATCH_FIELD_KEY_GROUPS.excludedPartnerSchools,
+                )}
                 <p className="app-muted">
                   在每所学校上，勾选你不希望匹配的性别。三项全选即整校排除。
                 </p>
@@ -1634,10 +2071,11 @@ export function ProfileClient({
                   return (
                     <fieldset
                       key={question.id}
-                      ref={(node) => setQuestionBlockRef(question.key, node)}
+                      ref={(node) =>
+                        setAttentionBlockRef([question.key], node)
+                      }
                       id={questionnaireQuestionElementId(question.key)}
-                      className={questionBlockClassName(question.key)}
-                      data-question-key={question.key}
+                      className={attentionBlockClassName([question.key])}
                     >
                       <legend className="question-block-legend">
                         {question.prompt}
@@ -1713,10 +2151,9 @@ export function ProfileClient({
                 return (
                   <fieldset
                     key={question.id}
-                    ref={(node) => setQuestionBlockRef(question.key, node)}
+                    ref={(node) => setAttentionBlockRef([question.key], node)}
                     id={questionnaireQuestionElementId(question.key)}
-                    className={questionBlockClassName(question.key)}
-                    data-question-key={question.key}
+                    className={attentionBlockClassName([question.key])}
                   >
                     <legend className="question-block-legend">
                       {question.prompt}
