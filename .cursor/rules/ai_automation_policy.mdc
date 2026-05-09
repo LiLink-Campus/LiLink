@@ -2,71 +2,145 @@
 alwaysApply: true
 ---
 
-# AI Automation Policy
+# LiLink AI Automation Policy
 
-These rules apply to every AI-generated maintenance pull request in LiLink.
+These rules apply to every AI-generated maintenance run and pull request in LiLink.
+
+## Operating Model
+
+LiLink AI maintenance uses a PR-first workflow:
+
+1. Creator automations open small, focused pull requests.
+2. Scope Gate comments on AI pull requests and requests reviewers only after the PR is reviewable.
+3. CI Fixer comments on AI pull requests and may update the same PR branch only when the CI failure was introduced by that PR.
+4. Slack Morning Digest summarizes AI maintenance status in Slack.
+
+Do not create GitHub issue inboxes for automation state.
+Do not write `ai-reports/*`.
+Do not commit generated reports, scratch files, logs, or local workflow notes.
+
+## Source Of Truth
+
+Before acting, read:
+
+1. `AGENTS.md`
+2. `.cursor/rules/ai_automation_policy.mdc`
+3. `package.json`
+4. `.github/workflows/ci.yml`
+
+Use live GitHub state as the source of truth for labels, open PRs, CI status, requested reviewers, and PR comments.
 
 ## Repository Shape
 
 - `apps/api` contains the NestJS API and Prisma schema.
 - `apps/web` contains the Next.js web application.
-- `packages/shared` contains shared TypeScript code used by both workspaces.
+- `packages/shared` contains shared TypeScript code used by both app workspaces.
 - Build `@lilink/shared` before running app builds or checks that depend on shared output.
 - Run Prisma generate after schema or Prisma client dependency changes.
-- Never print secret values from `.env` files, logs, shell output, or CI output.
+- Never print secret values from `.env` files, logs, shell output, CI output, or Slack messages.
+
+## GitHub Labels
+
+Every AI maintenance PR must have:
+
+- `ai`
+- exactly one type label:
+  - `ai:bug`
+  - `ai:risk`
+  - `ai:test`
+  - `ai:policy`
+
+Optional state labels:
+
+- `ai:blocked`
+- `ai:review`
+
+Label meanings:
+
+- `ai`: AI-generated maintenance PR.
+- `ai:bug`: bug fix for a concrete user-facing or admin-facing failure.
+- `ai:risk`: fix for authentication, authorization, privacy, admin, data-loss, destructive-action, secret-handling, production config, or CI security risk.
+- `ai:test`: test-only improvement that protects a real regression path.
+- `ai:policy`: AI automation policy update.
+- `ai:blocked`: blocked by scope, validation, or missing human judgment.
+- `ai:review`: passed scope review and is ready for human review.
+
+Do not use retired labels:
+
+- `ai_cursor`
+- `ai_type_bug`
+- `ai_type_security`
+- `ai_type_danger`
+- `ai_type_test`
+- `ai_type_refactor`
+- `ai_type_dead_code`
+- `ai_type_deprecated`
+- `ai_type_ci_fix`
+- `ai_state_human`
+
+## Branches And Titles
+
+AI maintenance branches must begin with `ai/maintenance/`.
+
+Allowed branch patterns:
+
+- `ai/maintenance/bug-*`
+- `ai/maintenance/risk-*`
+- `ai/maintenance/test-*`
+- `ai/maintenance/policy-*`
+
+Allowed PR title prefixes:
+
+- `[AI][BUG]`
+- `[AI][RISK]`
+- `[AI][TEST]`
+- `[AI][POLICY]`
+
+Direct commits to `main` are forbidden unless the human explicitly requests a direct-main change.
 
 ## Required Workflow
 
-1. Read `AGENTS.md` before editing.
-2. Use the smallest safe change.
-3. Keep one PR focused on one issue and one intent.
-4. Keep bug fixes separate from refactors.
-5. Keep dead code removal separate from behavior changes.
-6. Do not create broad refactors.
-7. Do not weaken tests, skip tests, or remove assertions to pass CI.
-8. Do not edit generated files unless the task explicitly requires it.
-9. Do not edit secrets or local environment files.
-10. Do not merge pull requests.
-11. Do not approve your own pull request.
-
-## Branches And Labels
-
-- AI maintenance branches must begin with `ai/maintenance/`.
-- Every AI maintenance PR must have label `ai_cursor`.
-- Bug PRs must have `ai_type_bug`.
-- Dangerous-behavior PRs must have `ai_type_danger`.
-- Refactor PRs must have `ai_type_refactor`.
-- Dead-code PRs must have `ai_type_dead_code`.
-- Deprecated-code PRs must have `ai_type_deprecated`.
-- A PR must have exactly one primary type label.
-- Use state labels only for the current state.
-- Pass labels and pass comments are valid only for the latest PR head SHA.
+1. Use the smallest safe change.
+2. Keep one PR focused on one issue and one intent.
+3. Keep bug fixes separate from risk fixes, tests, policy updates, refactors, and cleanup.
+4. Do not create broad refactors.
+5. Do not edit generated files unless the task explicitly requires it.
+6. Do not edit secrets or local environment files.
+7. Do not weaken tests, skip tests, remove assertions, or delete failing coverage to pass CI.
+8. Do not merge pull requests.
+9. Do not approve your own pull request.
+10. Do not request human reviewers until Scope Gate passes.
 
 ## Size Budgets
 
-- Bug PR: maximum 5 files and 220 changed lines.
-- Dangerous-behavior PR: maximum 3 files and 120 changed lines.
-- Refactor PR: maximum 4 files and 160 changed lines.
-- Dead-code PR: maximum 4 files and 160 changed lines.
-- Deprecated-code PR: maximum 3 files and 120 changed lines.
-- If a useful fix exceeds the budget, stop and mark the PR for human review or split the work.
+- `ai:bug`: maximum 5 files and 220 changed lines.
+- `ai:risk`: maximum 3 files and 120 changed lines.
+- `ai:test`: maximum 4 files and 180 changed lines.
+- `ai:policy`: maximum 2 files and 160 changed lines.
+
+If a useful change exceeds the budget, stop and mark the PR with `ai:blocked`.
 
 ## High-Risk Areas
 
-Do not modify these areas unless a human explicitly allows it or the change is tiny, local, obvious, and tested:
+Treat these as `ai:risk` when the issue is real and the fix is small:
 
 - authentication
 - authorization
-- billing
-- payments
-- secrets
-- production deployment
-- database migrations
+- admin actions
+- student verification
+- questionnaire submission
+- matching algorithm
+- match result persistence
+- profile visibility
+- privacy
+- database writes
+- Prisma migrations
 - data deletion
-- encryption
+- deployment and production config
 - GitHub Actions security settings
+- secrets and environment variable handling
 
-If the required change needs product judgment, permission-model changes, payment behavior changes, database migrations, deployment changes, or broad design decisions, stop and add `ai_state_human`.
+If the required change needs product judgment, permission-model redesign, schema migration, deployment redesign, matching-algorithm redesign, or broad architecture work, stop and mark the PR with `ai:blocked`.
 
 ## LiLink Checks
 
@@ -82,45 +156,162 @@ Use the narrowest relevant check first, then broader checks as needed.
 - Full lint: `npm run lint`
 - Full build: `npm run build`
 
-`npm run lint` may rewrite files because the API lint script uses `--fix`. After running lint, check the diff and do not include unrelated lint rewrites.
+`npm run lint` may rewrite files because the API lint script uses `--fix`.
+After running lint, check the diff and do not include unrelated lint rewrites.
 
 The CI workflow currently has these primary jobs:
 
 - `Root lint and build`
 - `API unit and e2e tests`
 
-Final gate decisions must evaluate checks for the latest PR head SHA. Successful checks on older commits do not count.
-
-## Pass Tokens
-
-Every pass decision must include the latest PR head SHA:
-
-- `CURSOR_SCOPE_PASS sha=<latest_head_sha>`
-- `CURSOR_CORRECTNESS_PASS sha=<latest_head_sha>`
-- `CURSOR_CLEANUP_PASS sha=<latest_head_sha>`
-- `CURSOR_FINAL_PASS sha=<latest_head_sha>`
-
-Ignore pass tokens for older SHAs.
+Final gate decisions must evaluate checks for the latest PR head SHA.
+Successful checks on older commits do not count.
 
 ## PR Body
 
-AI maintenance PRs must include:
+Every AI maintenance PR must include:
 
-1. Problem or target.
-2. Root cause or evidence.
-3. Fix summary.
-4. Files changed.
-5. Tests run.
-6. Risk.
-7. Why the change is small.
-8. Latest head SHA.
+```text
+AI-MAINTENANCE: true
+AI-TYPE: bug | risk | test | policy
+BASE-SHA:
+HEAD-SHA:
 
-## Dead Code Proof
+Problem:
+Concrete trigger or evidence:
+Root cause:
+Change summary:
+Files changed:
+Validation performed:
+Risk:
+Why this change is small:
+Human review required: true
+```
 
-Before removing code, prove that it is safe to remove:
+`ai:risk` PRs must also include:
 
-- Search all repository references.
-- Check dynamic reference risks such as string imports, route names, config names, CLI entrypoints, reflection, and generated code.
-- Check package exports and public API boundaries.
-- Check tests and build configuration.
-- If public API or dynamic reference risk is unclear, do not remove the code.
+```text
+Affected data:
+Misuse or attack path:
+Residual risk:
+```
+
+## Scope Gate
+
+Scope Gate may only:
+
+1. Comment on pull requests.
+2. Request reviewers.
+3. Add or remove AI labels if the automation environment supports label updates.
+
+Scope Gate must not edit files, push commits, merge, or approve PRs.
+
+Scope Gate checks:
+
+1. Branch starts with `ai/maintenance/`.
+2. PR has `ai`.
+3. PR has exactly one type label.
+4. PR title prefix matches the type label.
+5. PR body includes required metadata.
+6. File count and changed-line count are within budget.
+7. PR does not mix bug, risk, test, policy, cleanup, or refactor work.
+8. PR does not include unrelated lint rewrites.
+9. PR does not edit secrets, local env files, reports, logs, or scratch files.
+10. PR does not touch high-risk areas without concrete trigger, explanation, and validation.
+
+If the PR passes, comment:
+
+```text
+AI_SCOPE_PASS sha=<latest_head_sha>
+
+Scope Audit Result: PASS
+Reason:
+<brief reason>
+```
+
+Then request reviewers and apply `ai:review` if label updates are available.
+
+If the PR is blocked, comment:
+
+```text
+AI_SCOPE_BLOCKED sha=<latest_head_sha>
+
+Scope Audit Result: BLOCKED
+Blocking reasons:
+1. <at most 3 reasons>
+
+Required changes:
+<required changes only>
+```
+
+Then apply `ai:blocked` if label updates are available.
+
+## CI Fixer
+
+CI Fixer only acts on existing PRs with `ai`.
+
+Allowed:
+
+- Diagnose CI failures introduced by the current AI PR.
+- Modify the same PR branch only when the failure was introduced by that PR and the environment permits branch updates.
+- Comment with the failure cause, fix, validation, and remaining risk.
+
+Forbidden:
+
+- Do not create another PR.
+- Do not fix unrelated `main` failures.
+- Do not refactor.
+- Do not expand PR scope.
+- Do not delete tests.
+- Do not weaken assertions.
+- Do not edit secrets or local environment files.
+
+CI Fixer comments must use:
+
+```text
+AI_CI_RESULT sha=<latest_head_sha>
+Status: fixed | diagnosis-only | unrelated
+
+Cause:
+Action:
+Validation:
+Remaining risk:
+```
+
+## Slack Morning Digest
+
+Slack Morning Digest reads open PRs with `ai`, their type labels, CI status, Scope Gate comments, requested reviewers, and `ai:blocked` or `ai:review` labels.
+
+It sends one concise Slack message and must not edit code, open PRs, request reviewers, or change labels.
+
+Digest format:
+
+```text
+LiLink AI Maintenance Digest
+Date: <YYYY-MM-DD>
+
+Human action required: Yes | No
+Critical AI PRs: <number>
+
+Open AI PRs:
+- <at most 3 PRs, each with title, type, status, and human action>
+
+Noise filtered:
+<one sentence>
+```
+
+If no action is required, include:
+
+```text
+No human action required today.
+```
+
+## Production Container Operations
+
+The production `api` service intentionally omits `DATABASE_URL` from the Docker Compose `environment:` block.
+The entrypoint assembles the URL inline and exports it only for the Node process.
+
+- `docker exec lilink-api env` not showing `DATABASE_URL` is expected.
+- Ad-hoc Prisma CLI commands inside the container must rebuild `DATABASE_URL` from non-secret-safe parts already in the environment.
+- `apps/api/prisma/schema.prisma` must not reintroduce `url = env("DATABASE_URL")`; the API uses the Prisma 7 driver adapter and reads the runtime connection string through `apps/api/src/common/prisma/client.ts`.
+- Never echo `DATABASE_URL`, `DB_PASSWORD`, or other secrets.
