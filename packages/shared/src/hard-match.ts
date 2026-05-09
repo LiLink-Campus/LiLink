@@ -330,9 +330,12 @@ function buildSequentialNumberOptions(min: number, max: number) {
   return Array.from({ length: max - min + 1 }, (_, index) => min + index);
 }
 
+// Must match parseHardMatchAnswers / API validation (HARD_MATCH_HEIGHT_MAX_CM).
+// Using the form-only cap here drops 221-230 cm values from native selects and
+// risks corrupting saved answers when the controlled value has no <option>.
 export const HEIGHT_OPTIONS = buildSequentialNumberOptions(
   HARD_MATCH_HEIGHT_MIN_CM,
-  HARD_MATCH_FORM_HEIGHT_MAX_CM,
+  HARD_MATCH_HEIGHT_MAX_CM,
 );
 export const WEIGHT_OPTIONS = buildSequentialNumberOptions(
   HARD_MATCH_WEIGHT_MIN_KG,
