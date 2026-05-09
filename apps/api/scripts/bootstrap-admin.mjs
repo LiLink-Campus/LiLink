@@ -39,7 +39,9 @@ async function main() {
     },
   });
 
-  console.log(`Admin bootstrap completed for ${email}.`);
+  // Avoid logging bootstrap email addresses; logs are often centralized and
+  // should not carry operator-identifying PII.
+  console.log('Admin bootstrap completed.');
 }
 
 main()
