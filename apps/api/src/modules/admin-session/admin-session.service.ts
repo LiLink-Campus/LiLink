@@ -6,6 +6,11 @@ import { adminSessionConfig } from '../../common/auth/session-config';
 import { env } from '../../config/env';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
+// Verify Argon2 even when no operator row exists (or the operator is inactive) so
+// login latency does not reveal whether an admin email is registered.
+const ADMIN_LOGIN_TIMING_DUMMY_PASSWORD_HASH =
+  '$argon2id$v=19$m=65536,t=3,p=4$2rglnnjyD1Y/7qp5puaQPg$MhDQ8qPl+Nk7UAsGohdqSGhUccpXm4z+bSZKNnEWW5Q';
+
 @Injectable()
 export class AdminSessionService {
   constructor(
@@ -26,16 +31,17 @@ export class AdminSessionService {
       },
     });
 
-    if (!adminOperator?.isActive) {
-      throw new UnauthorizedException('Admin email or password is invalid.');
-    }
+    const hashForVerification =
+      adminOperator?.isActive === true
+        ? adminOperator.passwordHash
+        : ADMIN_LOGIN_TIMING_DUMMY_PASSWORD_HASH;
 
-    const isValidPassword = await argon2.verify(
-      adminOperator.passwordHash,
+    const passwordMatchesStoredHash = await argon2.verify(
+      hashForVerification,
       password,
     );
 
-    if (!isValidPassword) {
+    if (adminOperator?.isActive !== true || !passwordMatchesStoredHash) {
       throw new UnauthorizedException('Admin email or password is invalid.');
     }
 

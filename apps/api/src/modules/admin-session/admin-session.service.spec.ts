@@ -27,9 +27,43 @@ describe('AdminSessionService', () => {
       prisma as never,
     );
 
+    jest.mocked(argon2.verify).mockResolvedValue(false as never);
+
     await expect(
       service.login('admin@example.com', 'bad-password'),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(argon2.verify).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects inactive operators after verifying the dummy hash path', async () => {
+    const prisma = {
+      adminOperator: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          displayName: 'Ops',
+          passwordHash: 'real-hash',
+          isActive: false,
+        }),
+      },
+    };
+    const jwtService = {
+      signAsync: jest.fn(),
+    };
+    const service = new AdminSessionService(
+      jwtService as never,
+      prisma as never,
+    );
+
+    jest.mocked(argon2.verify).mockResolvedValue(true as never);
+
+    await expect(
+      service.login('admin@example.com', 'any-password'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(argon2.verify).toHaveBeenCalledTimes(1);
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
   });
 
   it('returns a token and admin profile for valid credentials', async () => {
