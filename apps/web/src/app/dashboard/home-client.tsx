@@ -65,7 +65,7 @@ function formatDeadlineLabel(iso: string | null | undefined) {
 function questionnaireAttentionHref(
   attention: QuestionnaireAttentionPayload | null,
 ) {
-  const key = attention?.pendingKeys[0];
+  const key = attention?.pendingKeys?.[0];
   return key
     ? `/dashboard/profile${profileAttentionHashForKey(key)}`
     : "/dashboard/profile";
@@ -155,11 +155,11 @@ export function HomeClient({
   const revealLabel = formatRevealLabel(cycle?.revealAt);
   const deadlineLabel = formatDeadlineLabel(cycle?.participationDeadline);
   const pendingQuestionnaireUpdateCount =
-    questionnaireAttention?.pendingUpdatedKeys.length ?? 0;
+    questionnaireAttention?.pendingUpdatedKeys?.length ?? 0;
   const missingQuestionnaireRequiredCount =
-    questionnaireAttention?.missingRequiredKeys.length ?? 0;
+    questionnaireAttention?.missingRequiredKeys?.length ?? 0;
   const hasQuestionnaireAttention =
-      (questionnaireAttention?.pendingKeys.length ?? 0) > 0;
+    (questionnaireAttention?.pendingKeys?.length ?? 0) > 0;
   const questionnaireCardHref = questionnaireAttentionHref(
     questionnaireAttention,
   );

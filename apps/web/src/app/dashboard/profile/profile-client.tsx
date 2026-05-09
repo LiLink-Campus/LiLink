@@ -183,7 +183,7 @@ function initialProfileTab(
   questions: Question[],
   savedQuestionnaire: SavedQuestionnairePayload,
 ): ProfileTab {
-  const firstPendingKey = savedQuestionnaire?.attention?.pendingKeys[0];
+  const firstPendingKey = savedQuestionnaire?.attention?.pendingKeys?.[0];
   if (!firstPendingKey) {
     return "self";
   }
