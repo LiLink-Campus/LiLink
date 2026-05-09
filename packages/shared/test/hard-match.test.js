@@ -17,6 +17,7 @@ const {
   hardMatchAttentionFieldForKey,
   hardMatchAttentionFields,
   hardMatchAttentionKeys,
+  normalizeExcludedPartnerPreferences,
 } = require("../dist");
 
 test("buildDayOptions returns the correct number of days for leap-year February", () => {
@@ -488,4 +489,52 @@ test("hardMatchAttention registry keys are unique and aligned with hardMatchAtte
   const keys = fields.map((field) => field.key);
   assert.equal(keys.length, new Set(keys).size);
   assert.deepEqual([...hardMatchAttentionKeys()].sort(), [...keys].sort());
+});
+
+test("normalizeExcludedPartnerPreferences keeps unknown school ids when no allowlist is provided", () => {
+  const result = normalizeExcludedPartnerPreferences({
+    excludedPartnerSchools: ["school-known", "school-stale"],
+    excludedPartnerSchoolGenders: [
+      { schoolId: "school-partial", genders: ["男"] },
+    ],
+  });
+
+  assert.deepEqual(result.excludedPartnerSchools, [
+    "school-known",
+    "school-stale",
+  ]);
+  assert.deepEqual(result.excludedPartnerSchoolGenders, [
+    { schoolId: "school-partial", genders: ["男"] },
+  ]);
+});
+
+test("normalizeExcludedPartnerPreferences drops schools not in allowedSchoolIds", () => {
+  const allowed = ["school-a", "school-b"];
+  const result = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools: ["school-a", "school-removed"],
+      excludedPartnerSchoolGenders: [
+        { schoolId: "school-removed", genders: ["女"] },
+        { schoolId: "school-b", genders: ["非二元"] },
+      ],
+    },
+    allowed,
+  );
+
+  assert.deepEqual(result.excludedPartnerSchools, ["school-a"]);
+  assert.deepEqual(result.excludedPartnerSchoolGenders, [
+    { schoolId: "school-b", genders: ["非二元"] },
+  ]);
+});
+
+test("normalizeExcludedPartnerPreferences promotes all genders for a school to a full school exclusion", () => {
+  const result = normalizeExcludedPartnerPreferences({
+    excludedPartnerSchools: [],
+    excludedPartnerSchoolGenders: [
+      { schoolId: "school-x", genders: ["男", "女", "非二元"] },
+    ],
+  });
+
+  assert.deepEqual(result.excludedPartnerSchools, ["school-x"]);
+  assert.deepEqual(result.excludedPartnerSchoolGenders, []);
 });
