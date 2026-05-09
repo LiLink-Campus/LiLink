@@ -28,6 +28,17 @@ test("profileAttentionKeyFromHash returns null for unrelated hashes", () => {
   assert.equal(profileAttentionKeyFromHash(""), null);
 });
 
+test("profileAttentionKeyFromHash returns null when the segment is not valid URI encoding", () => {
+  assert.equal(
+    profileAttentionKeyFromHash("#profile-attention-bad%"),
+    null,
+  );
+  assert.equal(
+    profileAttentionKeyFromHash("#questionnaire-question-bad%"),
+    null,
+  );
+});
+
 test("profileAttentionElementId matches DOM id used for scrolling", () => {
   assert.equal(
     profileAttentionElementId("hard_gender"),
