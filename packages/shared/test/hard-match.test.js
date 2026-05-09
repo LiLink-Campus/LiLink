@@ -2,7 +2,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  HARD_MATCH_HEIGHT_MAX_CM,
+  HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_KEYS,
+  HEIGHT_OPTIONS,
   parseHardMatchAnswers,
   buildDayOptions,
   splitBirthDate,
@@ -24,6 +27,18 @@ test("splitBirthDate safely handles malformed input", () => {
     birthMonth: "",
     birthDay: "",
   });
+});
+
+test("HEIGHT_OPTIONS spans the full validated height range", () => {
+  assert.equal(HEIGHT_OPTIONS[0], HARD_MATCH_HEIGHT_MIN_CM);
+  assert.equal(
+    HEIGHT_OPTIONS[HEIGHT_OPTIONS.length - 1],
+    HARD_MATCH_HEIGHT_MAX_CM,
+  );
+  assert.equal(
+    HEIGHT_OPTIONS.length,
+    HARD_MATCH_HEIGHT_MAX_CM - HARD_MATCH_HEIGHT_MIN_CM + 1,
+  );
 });
 
 test("parseHardMatchAnswers normalizes valid records", () => {
