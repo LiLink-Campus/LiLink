@@ -12,6 +12,9 @@ const {
   areHardMatchAnswersCompatible,
   calculateAgeOnDate,
   readQuestionnaireOneLiner,
+  hardMatchAttentionFieldForKey,
+  hardMatchAttentionFields,
+  hardMatchAttentionKeys,
 } = require("../dist");
 
 test("buildDayOptions returns the correct number of days for leap-year February", () => {
@@ -432,4 +435,30 @@ test("readQuestionnaireOneLiner collapses whitespace", () => {
     }),
     "保持 清晰",
   );
+});
+
+test("hardMatchAttentionFieldForKey maps questionnaire keys to stable tabs", () => {
+  assert.deepEqual(hardMatchAttentionFieldForKey(HARD_MATCH_KEYS.gender), {
+    key: HARD_MATCH_KEYS.gender,
+    label: "性别",
+    tab: "self",
+    required: true,
+  });
+  assert.deepEqual(
+    hardMatchAttentionFieldForKey(HARD_MATCH_KEYS.partnerAgeMin),
+    {
+      key: HARD_MATCH_KEYS.partnerAgeMin,
+      label: "对方年龄下限",
+      tab: "partner",
+      required: true,
+    },
+  );
+  assert.equal(hardMatchAttentionFieldForKey("not-a-real-key"), null);
+});
+
+test("hardMatchAttention registry keys are unique and aligned with hardMatchAttentionKeys", () => {
+  const fields = hardMatchAttentionFields();
+  const keys = fields.map((field) => field.key);
+  assert.equal(keys.length, new Set(keys).size);
+  assert.deepEqual([...hardMatchAttentionKeys()].sort(), [...keys].sort());
 });
