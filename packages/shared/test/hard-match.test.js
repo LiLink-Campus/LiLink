@@ -11,6 +11,8 @@ const {
   splitBirthDate,
   areHardMatchAnswersCompatible,
   calculateAgeOnDate,
+  normalizeBirthDate,
+  readHeightValue,
   readQuestionnaireOneLiner,
   hardMatchAttentionFieldForKey,
   hardMatchAttentionFields,
@@ -30,6 +32,31 @@ test("splitBirthDate safely handles malformed input", () => {
     birthMonth: "",
     birthDay: "",
   });
+});
+
+test("normalizeBirthDate rejects impossible calendar dates and accepts leap days", () => {
+  assert.equal(normalizeBirthDate("2023-02-29"), null);
+  assert.equal(normalizeBirthDate("2024-02-29"), "2024-02-29");
+  assert.equal(normalizeBirthDate(" 2000-05-10 "), "2000-05-10");
+  assert.equal(normalizeBirthDate("2000-00-10"), null);
+});
+
+test("readHeightValue only stringifies integer heights for native selects", () => {
+  assert.equal(readHeightValue(221), "221");
+  assert.equal(readHeightValue(178.5), "");
+  assert.equal(readHeightValue("178"), "");
+  assert.equal(readHeightValue(null, "170"), "170");
+});
+
+test("readQuestionnaireOneLiner returns null when the intro is missing or blank", () => {
+  assert.equal(readQuestionnaireOneLiner(null), null);
+  assert.equal(readQuestionnaireOneLiner({}), null);
+  assert.equal(
+    readQuestionnaireOneLiner({
+      [HARD_MATCH_KEYS.oneLinerIntro]: "   ",
+    }),
+    null,
+  );
 });
 
 test("HEIGHT_OPTIONS spans the full validated height range", () => {
