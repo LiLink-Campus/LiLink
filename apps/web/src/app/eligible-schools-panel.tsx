@@ -343,7 +343,7 @@ export function EligibleSchoolsPanel({
         type="button"
         className="schools-toggle"
         aria-expanded={expanded}
-        aria-controls={headingId}
+        aria-controls={expanded ? headingId : undefined}
         onClick={() => collapsible && setExpanded((value) => !value)}
         disabled={!collapsible}
       >
