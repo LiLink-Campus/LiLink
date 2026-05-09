@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  HARD_MATCH_FORM_HEIGHT_MAX_CM,
   HARD_MATCH_HEIGHT_MAX_CM,
   HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_KEYS,
@@ -12,6 +13,7 @@ const {
   areHardMatchAnswersCompatible,
   calculateAgeOnDate,
   normalizeBirthDate,
+  normalizeExcludedPartnerPreferences,
   readHeightValue,
   readQuestionnaireOneLiner,
   hardMatchAttentionFieldForKey,
@@ -68,6 +70,75 @@ test("HEIGHT_OPTIONS spans the full validated height range", () => {
   assert.equal(
     HEIGHT_OPTIONS.length,
     HARD_MATCH_HEIGHT_MAX_CM - HARD_MATCH_HEIGHT_MIN_CM + 1,
+  );
+});
+
+test("normalizeExcludedPartnerPreferences drops schools outside the allowlist", () => {
+  const result = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools: ["school-ok", "school-unknown"],
+      excludedPartnerSchoolGenders: [
+        { schoolId: "school-unknown-2", genders: ["男"] },
+        { schoolId: "school-ok", genders: ["女"] },
+      ],
+    },
+    ["school-ok"],
+  );
+
+  assert.deepEqual(result.excludedPartnerSchools, ["school-ok"]);
+  assert.deepEqual(result.excludedPartnerSchoolGenders, []);
+});
+
+test("normalizeExcludedPartnerPreferences upgrades selecting every gender to a school-wide exclusion", () => {
+  const result = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools: [],
+      excludedPartnerSchoolGenders: [
+        { schoolId: "school-x", genders: ["男", "女", "非二元"] },
+      ],
+    },
+    ["school-x"],
+  );
+
+  assert.deepEqual(result.excludedPartnerSchools, ["school-x"]);
+  assert.deepEqual(result.excludedPartnerSchoolGenders, []);
+});
+
+test("parseHardMatchAnswers accepts stored heights above the form cap through the API max", () => {
+  assert.ok(
+    HARD_MATCH_HEIGHT_MAX_CM > HARD_MATCH_FORM_HEIGHT_MAX_CM,
+    "precondition: native selects cap below persisted validation max",
+  );
+
+  const tallBase = {
+    [HARD_MATCH_KEYS.birthDate]: "2003-06-15",
+    [HARD_MATCH_KEYS.partnerAgeMin]: 20,
+    [HARD_MATCH_KEYS.partnerAgeMax]: 30,
+    [HARD_MATCH_KEYS.gender]: "男",
+    [HARD_MATCH_KEYS.partnerGenders]: ["女"],
+    [HARD_MATCH_KEYS.looks]: "普通人",
+    [HARD_MATCH_KEYS.partnerLooks]: ["普通人"],
+    [HARD_MATCH_KEYS.partnerHeightMin]: HARD_MATCH_HEIGHT_MIN_CM,
+    [HARD_MATCH_KEYS.partnerHeightMax]: HARD_MATCH_HEIGHT_MAX_CM,
+    [HARD_MATCH_KEYS.oneLinerIntro]: "你好",
+    [HARD_MATCH_KEYS.school]: "school-bupt",
+    [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+  };
+
+  const parsed = parseHardMatchAnswers({
+    ...tallBase,
+    [HARD_MATCH_KEYS.heightCm]: HARD_MATCH_FORM_HEIGHT_MAX_CM + 5,
+  });
+
+  assert.ok(parsed);
+  assert.equal(parsed.heightCm, HARD_MATCH_FORM_HEIGHT_MAX_CM + 5);
+
+  assert.equal(
+    parseHardMatchAnswers({
+      ...tallBase,
+      [HARD_MATCH_KEYS.heightCm]: HARD_MATCH_HEIGHT_MAX_CM + 1,
+    }),
+    null,
   );
 });
 
