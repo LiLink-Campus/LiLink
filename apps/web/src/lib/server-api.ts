@@ -1,6 +1,7 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { sanitizeSameOriginRelativePath } from "@lilink/shared";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { apiBaseUrl } from "./api-base-url";
 
@@ -115,15 +116,57 @@ export async function requireUserSession<T>(
   return load();
 }
 
-export async function redirectAuthenticatedUser(destination = "/dashboard") {
+async function resolveForwardedSiteOrigin(): Promise<string | null> {
+  const headerList = await headers();
+  const hostHeader =
+    headerList.get("x-forwarded-host") ?? headerList.get("host");
+  const host = hostHeader?.split(",")[0]?.trim();
+  if (!host) {
+    return null;
+  }
+
+  const protoHeader = headerList
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim();
+  const protocol =
+    protoHeader?.toLowerCase() === "https" ? "https:" : "http:";
+
+  try {
+    return new URL(`${protocol}//${host}`).origin;
+  } catch {
+    return null;
+  }
+}
+
+export async function redirectAuthenticatedUser(options?: {
+  /** Raw `next` query string from the request URL (unsafe until sanitized). */
+  nextCandidate?: string | null;
+  fallbackDestination?: string;
+}) {
   if (!(await hasUserSessionCookie())) {
     return;
   }
 
   try {
     await fetchUserApiServer("/auth/me");
-    redirect(destination);
   } catch {
     // Ignore stale session cookies and render the public page.
+    return;
   }
+
+  const fallbackDestination = options?.fallbackDestination ?? "/dashboard";
+  let destination = fallbackDestination;
+  const trimmedNext = options?.nextCandidate?.trim();
+  if (trimmedNext) {
+    const siteOrigin = await resolveForwardedSiteOrigin();
+    if (siteOrigin) {
+      const safeNext = sanitizeSameOriginRelativePath(trimmedNext, siteOrigin);
+      if (safeNext) {
+        destination = safeNext;
+      }
+    }
+  }
+
+  redirect(destination);
 }
