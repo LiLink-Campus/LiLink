@@ -42,6 +42,12 @@ export function useMatchActions({
   const reportSectionRef = useRef<HTMLElement | null>(null);
   const reportReasonSelectRef = useRef<HTMLSelectElement | null>(null);
 
+  // Keep local dashboard state aligned with the latest server snapshot when
+  // the RSC tree revalidates (e.g. router.refresh), matching the hub page.
+  useEffect(() => {
+    setDashboard(initialDashboard);
+  }, [initialDashboard]);
+
   useEffect(() => {
     if (!reportOpen || !reportTargetMatchId) {
       return;
