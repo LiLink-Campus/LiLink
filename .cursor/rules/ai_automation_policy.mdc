@@ -80,14 +80,21 @@ Do not use retired labels:
 
 ## Branches And Titles
 
-AI maintenance branches must begin with `ai/maintenance/`.
+Human-created or local AI maintenance branches should begin with `ai/maintenance/`.
+Cursor-created background-agent branches may begin with `cursor/` because Cursor may assign the working branch before the agent can rename it.
+Do not block an otherwise valid Cursor PR only because its branch starts with `cursor/`.
 
-Allowed branch patterns:
+Preferred branch patterns for human-created or local AI branches:
 
 - `ai/maintenance/bug-*`
 - `ai/maintenance/risk-*`
 - `ai/maintenance/test-*`
 - `ai/maintenance/policy-*`
+
+Allowed branch prefixes for AI PRs:
+
+- `ai/maintenance/`
+- `cursor/`
 
 Allowed PR title prefixes:
 
@@ -208,7 +215,7 @@ Scope Gate must not edit files, push commits, merge, or approve PRs.
 
 Scope Gate checks:
 
-1. Branch starts with `ai/maintenance/`.
+1. Branch starts with `ai/maintenance/` or `cursor/`.
 2. PR has `ai`.
 3. PR has exactly one type label.
 4. PR title prefix matches the type label.
@@ -218,6 +225,9 @@ Scope Gate checks:
 8. PR does not include unrelated lint rewrites.
 9. PR does not edit secrets, local env files, reports, logs, or scratch files.
 10. PR does not touch high-risk areas without concrete trigger, explanation, and validation.
+
+Branch name enforcement is a guardrail, not the primary source of trust.
+For Cursor-created PRs, labels, PR title, PR body metadata, diff scope, validation, and Scope Gate comments are the primary review signals.
 
 If the PR passes, comment:
 
