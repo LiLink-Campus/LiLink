@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   Optional,
@@ -10,6 +11,7 @@ import * as argon2 from 'argon2';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
+import { env } from '../../config/env';
 import { CyclesService } from '../cycles/cycles.service';
 import {
   normalizeQuestionOptions,
@@ -1765,6 +1767,14 @@ export class AdminService {
     };
   }
 
+  private assertTestUserBulkOpsAllowed() {
+    if (env.APP_ENV === 'production') {
+      throw new ForbiddenException(
+        'Bulk test user seed and delete are disabled in production.',
+      );
+    }
+  }
+
   async setTestFlag(userId: string, isTest: boolean, adminActorId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found.');
@@ -1783,6 +1793,8 @@ export class AdminService {
   }
 
   async deleteAllTestUsers(adminActorId: string) {
+    this.assertTestUserBulkOpsAllowed();
+
     const testUsers = await this.prisma.user.findMany({
       where: { isTest: true },
       select: { id: true, email: true },
@@ -1856,6 +1868,8 @@ export class AdminService {
   }
 
   async seedTestUsers(adminActorId: string) {
+    this.assertTestUserBulkOpsAllowed();
+
     const version = await this.prisma.questionnaireVersion.findFirst({
       where: { isCurrent: true },
     });
