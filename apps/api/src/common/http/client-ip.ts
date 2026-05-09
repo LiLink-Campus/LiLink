@@ -54,8 +54,9 @@ function isTrustedProxySource(rawIp: string | undefined): boolean {
  *     gateway (e.g. 172.19.0.1), which is private.
  *
  * If a future deployment exposes the API directly to the internet, this
- * predicate will refuse to trust spoofed CF-Connecting-IP headers and
- * fall back to the actual remote address.
+ * predicate will refuse to trust spoofed CF-Connecting-IP, X-Forwarded-For,
+ * and Express-derived `req.ip` values and will fall back to the TCP peer
+ * address instead.
  *
  * Edge-layer firewall complements this: only Cloudflare IPs may reach
  * Caddy at all (see ops/firewall scripts).
@@ -64,26 +65,37 @@ export function getRealClientIp(request: ClientIpRequest): string {
   const socketIp =
     request.socket?.remoteAddress ?? request.connection?.remoteAddress;
   const headerValue = request.headers?.[CF_CONNECTING_IP_HEADER];
+  const peerTrusted = isTrustedProxySource(socketIp);
 
   if (
-    isTrustedProxySource(socketIp) &&
+    peerTrusted &&
     typeof headerValue === 'string' &&
     headerValue.length > 0
   ) {
     return headerValue;
   }
 
-  const forwardedIps = request.ips;
-  if (forwardedIps && forwardedIps.length > 0) {
-    const firstForwardedIp = forwardedIps[0];
-    if (typeof firstForwardedIp === 'string' && firstForwardedIp.length > 0) {
-      return firstForwardedIp;
+  // With `trust proxy` enabled, Express derives `req.ip` / `req.ips` from
+  // X-Forwarded-For. Only consume those when the TCP peer is a trusted
+  // reverse proxy; otherwise a client that hits the API directly can spoof
+  // arbitrary addresses and bypass per-IP throttles.
+  if (peerTrusted) {
+    const forwardedIps = request.ips;
+    if (forwardedIps && forwardedIps.length > 0) {
+      const firstForwardedIp = forwardedIps[0];
+      if (typeof firstForwardedIp === 'string' && firstForwardedIp.length > 0) {
+        return firstForwardedIp;
+      }
+    }
+
+    if (request.ip) {
+      return request.ip;
     }
   }
 
-  if (request.ip) {
-    return request.ip;
+  if (socketIp) {
+    return normalizeSocketIp(socketIp);
   }
 
-  return socketIp ?? 'unknown';
+  return 'unknown';
 }

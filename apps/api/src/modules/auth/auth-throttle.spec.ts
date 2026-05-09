@@ -27,6 +27,7 @@ describe('auth throttle helpers', () => {
         {
           body: {},
           ip: '203.0.113.9',
+          socket: { remoteAddress: '203.0.113.9' },
         },
         stubContext,
       ),

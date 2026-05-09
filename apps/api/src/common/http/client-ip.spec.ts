@@ -60,12 +60,23 @@ describe('getRealClientIp', () => {
   });
 
   describe('with an untrusted (public) socket peer', () => {
-    it('refuses to honour CF-Connecting-IP and uses req.ip instead', () => {
+    it('refuses spoofed CF-Connecting-IP and uses the socket peer address', () => {
       expect(
         getRealClientIp({
           headers: { 'cf-connecting-ip': '203.0.113.7' },
           ip: '198.51.100.5',
           ips: ['198.51.100.5'],
+          socket: publicSocket,
+        }),
+      ).toBe('198.51.100.5');
+    });
+
+    it('ignores X-Forwarded-For-derived req.ip and req.ips when the peer is public', () => {
+      expect(
+        getRealClientIp({
+          headers: { 'cf-connecting-ip': '203.0.113.7' },
+          ip: '1.2.3.4',
+          ips: ['1.2.3.4', '198.51.100.5'],
           socket: publicSocket,
         }),
       ).toBe('198.51.100.5');

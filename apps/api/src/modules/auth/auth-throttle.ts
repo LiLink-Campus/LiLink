@@ -12,6 +12,8 @@ type AuthThrottleRequest = {
   headers?: Record<string, unknown>;
   ip?: string;
   ips?: readonly string[];
+  socket?: { remoteAddress?: string };
+  connection?: { remoteAddress?: string };
   path?: string;
   url?: string;
   method?: string;
