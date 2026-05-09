@@ -59,3 +59,32 @@ The prod `api` service in `docker-compose.yml` intentionally omits `DATABASE_URL
 
 - `apps/api/prisma/schema.prisma` no longer declares `url = env("DATABASE_URL")` because the API uses the Prisma 7 driver adapter (`@prisma/adapter-pg`) and reads the connection string at runtime via `apps/api/src/common/prisma/client.ts`. Treat any reintroduction of a hard-coded `url` in the schema as a regression.
 - Never echo `DATABASE_URL`, `DB_PASSWORD`, or other secrets to logs, terminals, or commit messages.
+
+## Cursor Cloud specific instructions
+
+### Prerequisites
+
+Docker must be running before starting dev services. Start the daemon with:
+
+```sh
+sudo dockerd &>/tmp/dockerd.log &
+sudo chmod 666 /var/run/docker.sock
+```
+
+### Starting the development environment
+
+1. Start infrastructure (PostgreSQL + Mailpit): `npm run infra:up`
+2. Copy env file if missing: `cp apps/api/.env.example apps/api/.env` (then fill in dev secrets — see `.env.example` for field descriptions).
+3. Run migrations: `npm run db:migrate`
+4. Seed defaults (schools, questionnaire, cycle): `npm run db:seed-defaults`
+5. Bootstrap admin: `cd apps/api && node scripts/bootstrap-admin.mjs`
+6. Start all dev servers: `npm run dev` (shared watch + API on :4000 + Web on :3000)
+
+### Gotchas
+
+- The API lint script (`npm run lint:api`) uses `--fix` and may modify files. Always check `git diff` after running lint.
+- `npm run dev` runs `build:shared` first, then starts the shared package in watch mode alongside the API and web. If the shared build fails, all downstream servers will not start.
+- The web app needs `NEXT_PUBLIC_API_BASE_URL` (defaults to `http://localhost:4000/v1` in dev mode via the build script wrapper).
+- API e2e tests require a running PostgreSQL instance with migrations applied. Unit tests do not require a running DB.
+- Docker in this Cloud VM requires `fuse-overlayfs` storage driver and `iptables-legacy`. These are configured in `/etc/docker/daemon.json` and via `update-alternatives`.
+- Mailpit catches all outgoing SMTP on port 2525; view captured emails at http://localhost:8025.
