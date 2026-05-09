@@ -150,23 +150,23 @@ export async function redirectAuthenticatedUser(options?: {
 
   try {
     await fetchUserApiServer("/auth/me");
-    const fallbackDestination = options?.fallbackDestination ?? "/dashboard";
-    let destination = fallbackDestination;
-    const trimmedNext = options?.nextCandidate?.trim();
-    if (trimmedNext) {
-      const siteOrigin = await resolveForwardedSiteOrigin();
-      if (siteOrigin) {
-        const safeNext = sanitizeSameOriginRelativePath(
-          trimmedNext,
-          siteOrigin,
-        );
-        if (safeNext) {
-          destination = safeNext;
-        }
-      }
-    }
-    redirect(destination);
   } catch {
     // Ignore stale session cookies and render the public page.
+    return;
   }
+
+  const fallbackDestination = options?.fallbackDestination ?? "/dashboard";
+  let destination = fallbackDestination;
+  const trimmedNext = options?.nextCandidate?.trim();
+  if (trimmedNext) {
+    const siteOrigin = await resolveForwardedSiteOrigin();
+    if (siteOrigin) {
+      const safeNext = sanitizeSameOriginRelativePath(trimmedNext, siteOrigin);
+      if (safeNext) {
+        destination = safeNext;
+      }
+    }
+  }
+
+  redirect(destination);
 }
