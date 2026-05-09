@@ -2,10 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  HARD_MATCH_FORM_HEIGHT_MAX_CM,
   HARD_MATCH_HEIGHT_MAX_CM,
   HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_KEYS,
   HEIGHT_OPTIONS,
+  normalizeExcludedPartnerPreferences,
   parseHardMatchAnswers,
   buildDayOptions,
   splitBirthDate,
@@ -69,6 +71,73 @@ test("HEIGHT_OPTIONS spans the full validated height range", () => {
     HEIGHT_OPTIONS.length,
     HARD_MATCH_HEIGHT_MAX_CM - HARD_MATCH_HEIGHT_MIN_CM + 1,
   );
+});
+
+test("HEIGHT_OPTIONS stays aligned with API height max, not the shorter form UI cap", () => {
+  assert.ok(HARD_MATCH_FORM_HEIGHT_MAX_CM < HARD_MATCH_HEIGHT_MAX_CM);
+  assert.ok(HEIGHT_OPTIONS.includes(HARD_MATCH_FORM_HEIGHT_MAX_CM + 1));
+});
+
+test("normalizeExcludedPartnerPreferences drops schools outside the allowlist", () => {
+  const normalized = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools: ["school-allowed", "school-unknown"],
+      excludedPartnerSchoolGenders: [
+        { schoolId: "school-other-allowed", genders: ["男"] },
+        { schoolId: "school-unknown", genders: ["女"] },
+      ],
+    },
+    ["school-allowed", "school-other-allowed"],
+  );
+
+  assert.deepEqual(normalized.excludedPartnerSchools, ["school-allowed"]);
+  assert.deepEqual(normalized.excludedPartnerSchoolGenders, [
+    { schoolId: "school-other-allowed", genders: ["男"] },
+  ]);
+});
+
+test("normalizeExcludedPartnerPreferences upgrades all-gender selections to full school exclusions", () => {
+  const normalized = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools: [],
+      excludedPartnerSchoolGenders: [
+        { schoolId: "school-x", genders: ["男", "女", "非二元"] },
+      ],
+    },
+    ["school-x"],
+  );
+
+  assert.deepEqual(normalized.excludedPartnerSchools, ["school-x"]);
+  assert.deepEqual(normalized.excludedPartnerSchoolGenders, []);
+});
+
+test("normalizeExcludedPartnerPreferences merges partial gender rows until all options are covered", () => {
+  const normalized = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools: [],
+      excludedPartnerSchoolGenders: [
+        { schoolId: "school-y", genders: ["男", "女"] },
+        { schoolId: "school-y", genders: ["非二元"] },
+      ],
+    },
+    ["school-y"],
+  );
+
+  assert.deepEqual(normalized.excludedPartnerSchools, ["school-y"]);
+  assert.deepEqual(normalized.excludedPartnerSchoolGenders, []);
+});
+
+test("normalizeExcludedPartnerPreferences ignores gender rows for schools already fully excluded", () => {
+  const normalized = normalizeExcludedPartnerPreferences(
+    {
+      excludedPartnerSchools: ["school-z"],
+      excludedPartnerSchoolGenders: [{ schoolId: "school-z", genders: ["男"] }],
+    },
+    undefined,
+  );
+
+  assert.deepEqual(normalized.excludedPartnerSchools, ["school-z"]);
+  assert.deepEqual(normalized.excludedPartnerSchoolGenders, []);
 });
 
 test("parseHardMatchAnswers normalizes valid records", () => {
