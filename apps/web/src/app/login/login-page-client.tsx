@@ -2,7 +2,7 @@
 
 import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
 import {
   GrassRowIllustration,
@@ -11,11 +11,25 @@ import {
 
 const PASSWORD_MAX_LENGTH = 128;
 
+function registerHrefFromSearch(search: string) {
+  const nextPath = new URLSearchParams(search).get("next");
+  if (!nextPath) {
+    return "/register";
+  }
+
+  return `/register?${new URLSearchParams({ next: nextPath }).toString()}`;
+}
+
 export default function LoginPageClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [registerHref, setRegisterHref] = useState("/register");
+
+  useEffect(() => {
+    setRegisterHref(registerHrefFromSearch(window.location.search));
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -89,7 +103,7 @@ export default function LoginPageClient() {
           <Link href="/forgot-password">忘记密码？</Link>
         </p>
         <p className="auth-hint">
-          还没有账号？<Link href="/register">立即注册</Link>
+          还没有账号？<Link href={registerHref}>立即注册</Link>
         </p>
       </section>
       <div className="auth-grass-line" aria-hidden="true">

@@ -1,5 +1,6 @@
 "use client";
 
+import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
@@ -13,6 +14,15 @@ const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 const DISPLAY_NAME_MAX_LENGTH = 30;
 const VERIFICATION_CODE_LENGTH = 6;
+
+function loginHrefFromSearch(search: string) {
+  const nextPath = new URLSearchParams(search).get("next");
+  if (!nextPath) {
+    return "/login";
+  }
+
+  return `/login?${new URLSearchParams({ next: nextPath }).toString()}`;
+}
 
 type CodeResponse = {
   email: string;
@@ -40,10 +50,12 @@ export default function RegisterPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [canRevealDevCode, setCanRevealDevCode] = useState(false);
+  const [loginHref, setLoginHref] = useState("/login");
 
   useEffect(() => {
     const localhostHosts = new Set(["localhost", "127.0.0.1", "::1"]);
     setCanRevealDevCode(localhostHosts.has(window.location.hostname));
+    setLoginHref(loginHrefFromSearch(window.location.search));
   }, []);
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
@@ -105,7 +117,11 @@ export default function RegisterPageClient() {
         }),
       });
 
-      window.location.href = "/dashboard";
+      const nextPath = new URLSearchParams(window.location.search).get("next");
+      const redirectPath =
+        sanitizeSameOriginRelativePath(nextPath, window.location.origin) ??
+        "/dashboard";
+      window.location.href = redirectPath;
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -268,7 +284,7 @@ export default function RegisterPageClient() {
         )}
 
         <p className="auth-hint">
-          已有账号？<Link href="/login">立即登录</Link>
+          已有账号？<Link href={loginHref}>立即登录</Link>
         </p>
       </section>
       <div className="auth-grass-line" aria-hidden="true">
