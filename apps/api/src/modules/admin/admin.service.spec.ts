@@ -1,5 +1,13 @@
+const mockEnv: { APP_ENV: 'development' | 'test' | 'production' } = {
+  APP_ENV: 'test',
+};
+
+jest.mock('../../config/env', () => ({
+  env: mockEnv,
+}));
+
 import { AdminService } from './admin.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
@@ -1345,5 +1353,39 @@ describe('AdminService', () => {
         emails: ['seed-1@example.com', 'seed-2@example.com'],
       },
     );
+  });
+
+  describe('test user bulk operations in production', () => {
+    afterEach(() => {
+      mockEnv.APP_ENV = 'test';
+    });
+
+    it('rejects deleteAllTestUsers when APP_ENV is production', async () => {
+      mockEnv.APP_ENV = 'production';
+      const service = new AdminService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      );
+
+      await expect(service.deleteAllTestUsers('admin-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('rejects seedTestUsers when APP_ENV is production', async () => {
+      mockEnv.APP_ENV = 'production';
+      const service = new AdminService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      );
+
+      await expect(service.seedTestUsers('admin-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
   });
 });
