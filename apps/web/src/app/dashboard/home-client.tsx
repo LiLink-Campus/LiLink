@@ -9,6 +9,7 @@ import {
   type WeeklyIntent,
 } from "../../lib/weekly-intent";
 import { IntentSheet } from "./_components/IntentSheet";
+import { DashboardTodoSection } from "./_components/DashboardTodoSection";
 import {
   CalendarIcon,
   GroupTrioIcon,
@@ -286,6 +287,7 @@ export function HomeClient({
   }
 
   const latestMatch = dashboard.latestMatch;
+  const dashboardTasks = dashboard.tasks ?? [];
   const counterpart =
     latestMatch && initialUser
       ? latestMatch.participants.find((p) => p.userId !== initialUser.id) ??
@@ -331,6 +333,7 @@ export function HomeClient({
 
       {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
       {error ? <p className="form-error">{error}</p> : null}
+      <DashboardTodoSection tasks={dashboardTasks} />
 
       {mode === "GROUP" ? (
         <section className="coming-soon-card" aria-label="多人局即将开放">

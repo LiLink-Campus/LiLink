@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { AuthMePayload } from "../../../lib/api";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { MatchExplanation } from "../_components/MatchExplanation";
@@ -12,6 +13,11 @@ import {
   reportHandlingChipLabel,
 } from "../_lib/format";
 import type { DashboardPayload } from "../_lib/types";
+import type { DashboardMeetupSummary } from "../_lib/types";
+import {
+  formatMeetupTimeRange,
+  PROGRESS_LABELS,
+} from "../meetup/_components/meetup-format";
 
 export function MatchClient({
   initialUser,
@@ -53,6 +59,7 @@ export function MatchClient({
       : null;
 
   const introduced = Boolean(latestMatch?.introducedAt);
+  const meetupSummary = dashboard?.meetupSummary ?? null;
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
   const currentCycle = dashboard?.currentCycle ?? null;
   const canEditParticipation = canEditCurrentCycleParticipation(currentCycle);
@@ -262,6 +269,12 @@ export function MatchClient({
         )}
       </section>
 
+      <MeetupMatchSummaryCard
+        latestMatchId={latestMatch?.id ?? null}
+        introduced={introduced}
+        summary={meetupSummary}
+      />
+
       <section className="app-card" aria-label="历史回顾">
         <div className="app-card-head">
           <h2 className="app-card-title">历史回顾</h2>
@@ -296,5 +309,94 @@ export function MatchClient({
         />
       ) : null}
     </div>
+  );
+}
+
+function MeetupMatchSummaryCard({
+  latestMatchId,
+  introduced,
+  summary,
+}: {
+  latestMatchId: string | null;
+  introduced: boolean;
+  summary: DashboardMeetupSummary | null;
+}) {
+  const canStart = latestMatchId !== null && introduced && summary === null;
+  const terminal =
+    summary?.status === "CANCELED" ||
+    summary?.status === "EXPIRED" ||
+    summary?.status === "ARCHIVED";
+
+  if (!summary && !canStart) return null;
+
+  return (
+    <section className="app-card meetup-match-summary" aria-label="第一次见面安排">
+      <div className="app-card-head">
+        <h2 className="app-card-title">第一次见面安排</h2>
+        {summary ? (
+          <span className="app-card-status">
+            {PROGRESS_LABELS[summary.progressStatus]}
+          </span>
+        ) : (
+          <span className="app-card-status is-accent">可安排</span>
+        )}
+      </div>
+
+      {summary ? (
+        <>
+          {terminal ? (
+            <p className="app-card-muted">
+              {summary.terminalText ??
+                "本次见面安排已结束，当前版本暂不支持重新发起。"}
+            </p>
+          ) : summary.status === "LOCKED" ? (
+            <>
+              <p className="app-card-muted">你们已确认第一次见面的时间和地点。</p>
+              <div className="meetup-summary-facts">
+                <div className="meetup-plan-fact">
+                  <span>时间</span>
+                  <strong>
+                    {formatMeetupTimeRange(
+                      summary.confirmedStartsAt,
+                      summary.confirmedEndsAt,
+                    )}
+                  </strong>
+                </div>
+                <div className="meetup-plan-fact">
+                  <span>地点</span>
+                  <strong>{summary.confirmedPlaceName ?? "地点待确认"}</strong>
+                </div>
+              </div>
+              <Link className="button-primary meetup-inline-link" href={summary.href}>
+                查看见面安排
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="app-card-muted">
+                第一次见面仍在协商中；首页待办会提示当前轮到谁回应。
+              </p>
+              <Link className="button-primary meetup-inline-link" href={summary.href}>
+                继续安排第一次见面
+              </Link>
+            </>
+          )}
+        </>
+      ) : latestMatchId ? (
+        <>
+          <p className="app-card-muted">
+            引荐已完成后，可以向对方发出第一次见面的时间和地点候选。
+          </p>
+          <Link
+            className="button-primary meetup-inline-link"
+            href={`/dashboard/meetup/start?matchId=${encodeURIComponent(
+              latestMatchId,
+            )}`}
+          >
+            安排第一次见面
+          </Link>
+        </>
+      ) : null}
+    </section>
   );
 }

@@ -14,8 +14,15 @@ import {
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  MAX_MEETUP_EXPIRATION_WEEKS,
+  MEETUP_PROGRESS_STATUSES,
+  MEETUP_TODO_PRIORITY,
+  MEETUP_USER_TURN_STATUSES,
+  MIN_MEETUP_EXPIRATION_WEEKS,
   SUPPORTED_LOCALES,
   WEEKLY_INTENTS,
+  type MeetupProgressStatus,
+  type MeetupUserTurnStatus,
   type SupportedLocale,
   type WeeklyIntent,
 } from '@lilink/shared';
@@ -134,6 +141,13 @@ export class UpdateLocaleDto {
   locale!: SupportedLocale;
 }
 
+export class UpdateMeetupSettingsDto {
+  @IsInt()
+  @Min(MIN_MEETUP_EXPIRATION_WEEKS)
+  @Max(MAX_MEETUP_EXPIRATION_WEEKS)
+  meetupExpirationWeeks!: 1 | 2 | 3 | 4;
+}
+
 export class ReportMatchDto {
   @IsIn(['骚扰', '冒犯内容', '身份异常', '恶意行为', '其他'])
   reason!: '骚扰' | '冒犯内容' | '身份异常' | '恶意行为' | '其他';
@@ -161,6 +175,7 @@ export enum DashboardHistoryResult {
 
 export enum DashboardHistoryVisibility {
   VISIBLE = 'VISIBLE',
+  // LIMITED hides match-card details today; it is not a meetup access gate.
   LIMITED = 'LIMITED',
   NOT_APPLICABLE = 'NOT_APPLICABLE',
 }
@@ -298,6 +313,78 @@ export class DashboardLastRevealedRoundResponseDto {
   matched!: boolean;
 }
 
+export class DashboardTaskResponseDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty({ enum: ['MEETUP'] })
+  type!: 'MEETUP';
+
+  @ApiProperty({ default: MEETUP_TODO_PRIORITY })
+  priority!: number;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty()
+  text!: string;
+
+  @ApiProperty()
+  href!: string;
+
+  @ApiProperty({ enum: MEETUP_USER_TURN_STATUSES as unknown as string[] })
+  userTurnStatus!: MeetupUserTurnStatus;
+
+  @ApiProperty({ enum: MEETUP_PROGRESS_STATUSES as unknown as string[] })
+  progressStatus!: MeetupProgressStatus;
+
+  @ApiProperty()
+  matchId!: string;
+
+  @ApiProperty({ nullable: true })
+  sessionId!: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  updatedAt!: string;
+}
+
+export class DashboardMeetupSummaryResponseDto {
+  @ApiProperty()
+  sessionId!: string;
+
+  @ApiProperty()
+  matchId!: string;
+
+  @ApiProperty({
+    enum: ['ACTIVE', 'LOCKED', 'CANCELED', 'EXPIRED', 'ARCHIVED'],
+  })
+  status!: 'ACTIVE' | 'LOCKED' | 'CANCELED' | 'EXPIRED' | 'ARCHIVED';
+
+  @ApiProperty({ enum: MEETUP_PROGRESS_STATUSES as unknown as string[] })
+  progressStatus!: MeetupProgressStatus;
+
+  @ApiProperty()
+  href!: string;
+
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  confirmedStartsAt!: string | null;
+
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  confirmedEndsAt!: string | null;
+
+  @ApiProperty({ nullable: true })
+  confirmedPlaceName!: string | null;
+
+  @ApiProperty()
+  canReviseAfterLock!: boolean;
+
+  @ApiProperty()
+  canCancel!: boolean;
+
+  @ApiProperty({ nullable: true })
+  terminalText!: string | null;
+}
+
 export class DashboardResponseDto {
   @ApiProperty({
     type: Object,
@@ -321,7 +408,12 @@ export class DashboardResponseDto {
   @ApiProperty({ type: () => DashboardMatchResponseDto, nullable: true })
   latestMatch!: DashboardMatchResponseDto | null;
 
-  @ApiPropertyOptional({ enum: DashboardHistoryVisibility, nullable: true })
+  @ApiPropertyOptional({
+    enum: DashboardHistoryVisibility,
+    nullable: true,
+    description:
+      'LIMITED reduces match detail visibility; existing meetup access is governed by participant/session policy.',
+  })
   latestMatchVisibility!: DashboardHistoryVisibility | null;
 
   @ApiPropertyOptional({ enum: DashboardHistoryLimitedReason, nullable: true })
@@ -332,4 +424,13 @@ export class DashboardResponseDto {
     isArray: true,
   })
   recentMatchHistory!: DashboardHistoryItemResponseDto[];
+
+  @ApiProperty({ type: () => DashboardTaskResponseDto, isArray: true })
+  tasks!: DashboardTaskResponseDto[];
+
+  @ApiProperty({
+    type: () => DashboardMeetupSummaryResponseDto,
+    nullable: true,
+  })
+  meetupSummary!: DashboardMeetupSummaryResponseDto | null;
 }

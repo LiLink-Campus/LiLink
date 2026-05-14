@@ -1,14 +1,30 @@
 "use client";
 
+import { DEFAULT_MEETUP_EXPIRATION_WEEKS } from "@lilink/shared";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { fetchApi, type AuthMePayload } from "../../../lib/api";
+import { type FormEvent, useState } from "react";
+import {
+  fetchApi,
+  updateMeetupSettings,
+  type AuthMePayload,
+  type MeetupExpirationWeeks,
+} from "../../../lib/api";
 import { useAuthSession } from "../../auth-session";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { ArrowRightIcon, LogoutIcon } from "../_components/icons";
 import { GrassRowIllustration } from "../_components/illustrations";
 import type { DashboardPayload } from "../_lib/types";
+
+const MEETUP_EXPIRATION_OPTIONS: MeetupExpirationWeeks[] = [1, 2, 3, 4];
+
+function normalizeMeetupExpirationWeeks(
+  value: AuthMePayload["meetupExpirationWeeks"],
+): MeetupExpirationWeeks {
+  return MEETUP_EXPIRATION_OPTIONS.includes(value as MeetupExpirationWeeks)
+    ? (value as MeetupExpirationWeeks)
+    : DEFAULT_MEETUP_EXPIRATION_WEEKS;
+}
 
 export function MeClient({
   initialUser,
@@ -21,6 +37,18 @@ export function MeClient({
   useDashboardSessionSeed(initialUser);
   const { setUser } = useAuthSession();
   const [pending, setPending] = useState(false);
+  const initialMeetupExpirationWeeks = normalizeMeetupExpirationWeeks(
+    initialUser.meetupExpirationWeeks,
+  );
+  const [meetupExpirationWeeks, setMeetupExpirationWeeks] =
+    useState<MeetupExpirationWeeks>(initialMeetupExpirationWeeks);
+  const [savedMeetupExpirationWeeks, setSavedMeetupExpirationWeeks] =
+    useState<MeetupExpirationWeeks>(initialMeetupExpirationWeeks);
+  const [settingsPending, setSettingsPending] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState<{
+    kind: "success" | "error";
+    text: string;
+  } | null>(null);
   const hasSavedQuestionnaire = Boolean(
     initialDashboard.questionnaireSubmittedAt,
   );
@@ -36,6 +64,38 @@ export function MeClient({
       setUser(null);
       router.push("/");
       router.refresh();
+    }
+  }
+
+  async function handleMeetupSettingsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSettingsPending(true);
+    setSettingsMessage(null);
+
+    try {
+      const updatedUser = await updateMeetupSettings({
+        meetupExpirationWeeks,
+      });
+      const updatedMeetupExpirationWeeks = normalizeMeetupExpirationWeeks(
+        updatedUser.meetupExpirationWeeks,
+      );
+      setMeetupExpirationWeeks(updatedMeetupExpirationWeeks);
+      setSavedMeetupExpirationWeeks(updatedMeetupExpirationWeeks);
+      setUser({
+        ...initialUser,
+        ...updatedUser,
+        meetupExpirationWeeks: updatedMeetupExpirationWeeks,
+      });
+      setSettingsMessage({ kind: "success", text: "已保存" });
+      router.refresh();
+    } catch (caughtError) {
+      setSettingsMessage({
+        kind: "error",
+        text:
+          caughtError instanceof Error ? caughtError.message : "保存设置失败。",
+      });
+    } finally {
+      setSettingsPending(false);
     }
   }
 
@@ -62,6 +122,53 @@ export function MeClient({
           </div>
         </div>
       </header>
+
+      <section className="app-card" aria-label="见面设置">
+        <div className="app-card-head">
+          <h2 className="app-card-title">见面设置</h2>
+          <span className="app-card-status">账号设置</span>
+        </div>
+        <form className="me-settings-form" onSubmit={handleMeetupSettingsSubmit}>
+          <label className="meetup-field">
+            <span>协商有效期</span>
+            <select
+              value={meetupExpirationWeeks}
+              disabled={settingsPending}
+              onChange={(event) => {
+                setMeetupExpirationWeeks(
+                  Number(event.target.value) as MeetupExpirationWeeks,
+                );
+                setSettingsMessage(null);
+              }}
+            >
+              {MEETUP_EXPIRATION_OPTIONS.map((weeks) => (
+                <option value={weeks} key={weeks}>
+                  {weeks} 周
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="button-primary"
+            type="submit"
+            disabled={
+              settingsPending ||
+              meetupExpirationWeeks === savedMeetupExpirationWeeks
+            }
+          >
+            {settingsPending ? "保存中…" : "保存设置"}
+          </button>
+        </form>
+        {settingsMessage ? (
+          <p
+            className={
+              settingsMessage.kind === "success" ? "form-success" : "form-error"
+            }
+          >
+            {settingsMessage.text}
+          </p>
+        ) : null}
+      </section>
 
       <section className="app-card" aria-label="账号与帮助">
         <div className="app-card-head">
