@@ -570,6 +570,711 @@
   color: var(--accent);
 }
 
+/* ── Dashboard toast + meetup task cards ──────────────────── */
+
+.dashboard-toast-region {
+  position: fixed;
+  top: calc(var(--appbar-height) + 0.75rem);
+  right: clamp(1rem, 4vw, 1.5rem);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: min(22rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.dashboard-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.72rem 0.8rem 0.72rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+  color: var(--fg);
+  font-size: 0.92rem;
+}
+
+.dashboard-toast button {
+  width: 1.8rem;
+  height: 1.8rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--bg-soft);
+  color: var(--fg-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.dashboard-toast button:hover {
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+}
+
+.dashboard-todo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dashboard-todo-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.dashboard-todo-head .eyebrow {
+  margin: 0 0 0.1rem;
+  color: var(--accent);
+}
+
+.dashboard-todo-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.dashboard-todo-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.dashboard-todo-card {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.16s, transform 0.16s, box-shadow 0.16s;
+}
+
+.dashboard-todo-card:hover {
+  border-color: var(--primary-soft);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.dashboard-todo-card-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dashboard-todo-kind {
+  width: fit-content;
+  padding: 0.18rem 0.52rem;
+  border-radius: var(--radius-pill);
+  background: var(--gold-soft);
+  color: #6f5114;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.dashboard-todo-card-main strong {
+  color: var(--fg);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+}
+
+.dashboard-todo-card-main span:last-child {
+  color: var(--fg-secondary);
+  font-size: 0.9rem;
+}
+
+.dashboard-todo-card-meta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.35rem;
+  color: var(--fg-secondary);
+  font-size: 0.78rem;
+}
+
+.dashboard-todo-card-meta span {
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg-soft);
+}
+
+/* ── Meetup pages ─────────────────────────────────────────── */
+
+.meetup-status-row,
+.meetup-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.meetup-inline-link {
+  width: fit-content;
+}
+
+.meetup-workspace {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (min-width: 1040px) {
+  .meetup-workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 23rem);
+  }
+}
+
+.meetup-current-plan,
+.meetup-timeline-card,
+.meetup-action-panel {
+  min-width: 0;
+}
+
+.meetup-plan-grid,
+.meetup-summary-facts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .meetup-plan-grid,
+  .meetup-summary-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.meetup-plan-fact {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+}
+
+.meetup-plan-fact span {
+  color: var(--fg-muted);
+  font-size: 0.78rem;
+}
+
+.meetup-plan-fact strong {
+  color: var(--fg);
+  font-size: 0.98rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.meetup-plan-fact small {
+  color: var(--fg-secondary);
+  font-size: 0.78rem;
+}
+
+.meetup-plan-fact.is-muted strong {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.meetup-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.meetup-message-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+}
+
+.meetup-message-card.is-mine {
+  border-color: var(--primary-soft);
+  background: var(--primary-tint);
+}
+
+.meetup-message-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.meetup-message-card header div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.meetup-message-card header strong {
+  color: var(--fg);
+}
+
+.meetup-message-card header span,
+.meetup-message-card time {
+  color: var(--fg-secondary);
+  font-size: 0.8rem;
+}
+
+.meetup-message-card p {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.meetup-proposal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.meetup-proposal-card.status-rejected,
+.meetup-proposal-card.status-superseded {
+  opacity: 0.72;
+}
+
+.meetup-proposal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--fg-secondary);
+  font-size: 0.78rem;
+}
+
+.meetup-proposal-head span {
+  padding: 0.18rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg-soft);
+}
+
+.meetup-option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.meetup-option-group > span {
+  color: var(--fg-muted);
+  font-size: 0.78rem;
+}
+
+.meetup-option-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.meetup-option-card,
+.meetup-option-choice {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+  color: inherit;
+}
+
+.meetup-option-choice {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.meetup-option-choice:hover:not(:disabled),
+.meetup-option-choice.is-selected {
+  border-color: var(--primary);
+  background: var(--primary-tint);
+}
+
+.meetup-option-choice:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.meetup-option-card strong,
+.meetup-option-choice strong {
+  color: var(--fg);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.meetup-option-card span,
+.meetup-option-choice span {
+  color: var(--fg-secondary);
+  font-size: 0.82rem;
+}
+
+.meetup-option-card small {
+  width: fit-content;
+  padding: 0.16rem 0.48rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  font-size: 0.72rem;
+}
+
+.meetup-option-card.status-confirmed,
+.meetup-option-card.is-current {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+.meetup-option-card.status-rejected,
+.meetup-option-card.status-disabled {
+  opacity: 0.65;
+}
+
+.meetup-action-panel {
+  position: sticky;
+  bottom: calc(var(--tabbar-height) + 0.85rem);
+  z-index: 20;
+  max-height: calc(100dvh - var(--appbar-height) - var(--tabbar-height) - 2rem);
+  overflow: auto;
+}
+
+@media (min-width: 880px) {
+  .meetup-action-panel {
+    bottom: 1rem;
+    max-height: calc(100dvh - 2rem);
+  }
+}
+
+.meetup-participant-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.meetup-participant {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+}
+
+.meetup-participant strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.meetup-participant span {
+  flex-shrink: 0;
+  color: var(--fg-secondary);
+  font-size: 0.8rem;
+}
+
+.meetup-final-panel,
+.meetup-accept-panel,
+.meetup-locked-summary,
+.meetup-terminal-state,
+.meetup-revision-form,
+.meetup-action-stack,
+.meetup-proposal-form,
+.meetup-proposal-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.meetup-final-panel,
+.meetup-locked-summary,
+.meetup-terminal-state {
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+}
+
+.meetup-final-panel p,
+.meetup-terminal-state p,
+.meetup-form-section p,
+.meetup-accept-panel p {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.meetup-proposal-details {
+  border-top: 1px dashed var(--border-strong);
+  padding-top: 0.75rem;
+}
+
+.meetup-proposal-details summary {
+  cursor: pointer;
+  color: var(--primary-ink);
+  font-weight: 600;
+}
+
+.meetup-scope-control,
+.meetup-form-section,
+.meetup-choice-group {
+  min-width: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.meetup-scope-control legend,
+.meetup-form-section legend,
+.meetup-choice-group legend {
+  padding: 0;
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.meetup-scope-control {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+@media (min-width: 560px) {
+  .meetup-scope-control {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.meetup-scope-control legend {
+  grid-column: 1 / -1;
+}
+
+.meetup-scope-control label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.45rem;
+  padding: 0.52rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+  color: var(--fg-secondary);
+  cursor: pointer;
+}
+
+.meetup-scope-control label.is-active {
+  border-color: var(--primary);
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+  font-weight: 600;
+}
+
+.meetup-scope-control input {
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+
+.meetup-time-slot {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+@media (min-width: 700px) {
+  .meetup-time-slot {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+}
+
+.meetup-location-slot {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  align-items: end;
+}
+
+@media (min-width: 640px) {
+  .meetup-location-slot {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+.meetup-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: var(--fg-secondary);
+  font-size: 0.85rem;
+}
+
+.meetup-field input,
+.meetup-field select,
+.meetup-field textarea {
+  width: 100%;
+  min-height: 2.55rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.94rem;
+  padding: 0.6rem 0.7rem;
+}
+
+.meetup-field textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.meetup-small-button {
+  width: fit-content;
+}
+
+.meetup-location-picker {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.meetup-location-detail,
+.meetup-location-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.8rem;
+  color: var(--fg-secondary);
+  font-size: 0.8rem;
+}
+
+.meetup-detail-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--primary-ink);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.meetup-detail-toggle:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.meetup-danger-button {
+  color: var(--accent);
+}
+
+.meetup-confirm-dialog {
+  width: min(30rem, calc(100vw - 2rem));
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+}
+
+.meetup-confirm-dialog::backdrop {
+  background: var(--bg-overlay);
+  backdrop-filter: blur(6px);
+}
+
+.meetup-confirm-dialog-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+}
+
+.meetup-confirm-dialog h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+}
+
+.meetup-confirm-dialog p {
+  margin: 0;
+  color: var(--fg-secondary);
+  line-height: 1.65;
+}
+
+.meetup-confirm-dialog-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--fg);
+  line-height: 1.55;
+}
+
+.meetup-confirm-dialog-details li {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .dashboard-todo-card,
+  .dashboard-todo-card-meta,
+  .meetup-message-card header,
+  .meetup-action-row {
+    align-items: stretch;
+  }
+
+  .dashboard-todo-card,
+  .meetup-message-card header {
+    flex-direction: column;
+  }
+
+  .dashboard-todo-card-meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .meetup-action-row .button-primary,
+  .meetup-action-row .button-secondary,
+  .meetup-action-panel .button-primary,
+  .meetup-action-panel .button-secondary,
+  .meetup-proposal-form > .button-primary {
+    width: 100%;
+  }
+}
+
 /* ── Hub cards (Dashboard overview) ───────────────────────── */
 
 .hub-grid {
@@ -2759,6 +3464,19 @@
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+}
+
+.me-settings-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+@media (min-width: 640px) {
+  .me-settings-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
 
 .me-row {

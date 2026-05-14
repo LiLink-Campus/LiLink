@@ -1,6 +1,11 @@
 import type { WeeklyIntent } from "../../../lib/weekly-intent";
 import type { SupportedLocale } from "@lilink/shared";
 import type {
+  MeetupExpirationWeeks,
+  MeetupProgressStatus,
+  MeetupUserTurnStatus,
+} from "../../../lib/api";
+import type {
   HardMatchFormState,
   HardMatchSchoolOption,
 } from "../../../lib/hard-match";
@@ -45,9 +50,38 @@ export type DashboardHistoryItem = {
   revealAt: string;
   participationStatus: "OPTED_IN" | "OPTED_OUT";
   result: "MATCHED" | "UNMATCHED" | "NOT_PARTICIPATED";
+  // LIMITED hides match details; meetup access uses participant/session policy.
   visibility: "VISIBLE" | "LIMITED" | "NOT_APPLICABLE";
   limitedReason: "REPORTED" | "BLOCKED" | null;
   match: DashboardMatch | null;
+};
+
+export type DashboardTask = {
+  id: string;
+  type: "MEETUP";
+  priority: number;
+  title: string;
+  text: string;
+  href: string;
+  userTurnStatus: MeetupUserTurnStatus;
+  progressStatus: MeetupProgressStatus;
+  matchId: string;
+  sessionId: string | null;
+  updatedAt: string;
+};
+
+export type DashboardMeetupSummary = {
+  sessionId: string;
+  matchId: string;
+  status: "ACTIVE" | "LOCKED" | "CANCELED" | "EXPIRED" | "ARCHIVED";
+  progressStatus: MeetupProgressStatus;
+  href: string;
+  confirmedStartsAt: string | null;
+  confirmedEndsAt: string | null;
+  confirmedPlaceName: string | null;
+  canReviseAfterLock: boolean;
+  canCancel: boolean;
+  terminalText: string | null;
 };
 
 export type DashboardCurrentCycle = {
@@ -66,6 +100,7 @@ export type DashboardPayload = {
     email: string;
     displayName: string | null;
     preferredLocale: SupportedLocale;
+    meetupExpirationWeeks: MeetupExpirationWeeks;
   };
   questionnaireSubmittedAt: string | null;
   currentCycle: DashboardCurrentCycle | null;
@@ -77,9 +112,12 @@ export type DashboardPayload = {
     matched: boolean;
   } | null;
   latestMatch: DashboardMatch | null;
+  // LIMITED does not currently block an existing meetup session by itself.
   latestMatchVisibility: "VISIBLE" | "LIMITED" | null;
   latestMatchLimitedReason: "REPORTED" | "BLOCKED" | null;
   recentMatchHistory: DashboardHistoryItem[];
+  tasks?: DashboardTask[];
+  meetupSummary?: DashboardMeetupSummary | null;
 };
 
 export type DashboardBootstrapPayload = {
@@ -88,6 +126,7 @@ export type DashboardBootstrapPayload = {
     email: string;
     displayName: string | null;
     preferredLocale: SupportedLocale;
+    meetupExpirationWeeks: MeetupExpirationWeeks;
   };
   dashboard: DashboardPayload;
 };
