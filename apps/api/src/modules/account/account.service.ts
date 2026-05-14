@@ -7,10 +7,14 @@ import {
   type WeeklyIntent as PrismaWeeklyIntent,
 } from '../../common/prisma/client';
 import {
+  DEFAULT_MEETUP_EXPIRATION_WEEKS,
+  MEETUP_TODO_PRIORITY,
   hardMatchAttentionFields,
   hardMatchAttentionKeys,
   isWeeklyIntent,
   normalizeLocale,
+  type MeetupProgressStatus,
+  type MeetupUserTurnStatus,
 } from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -31,19 +35,66 @@ import { normalizeQuestionOptions } from '../questionnaire/questionnaire-config'
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import {
   AcknowledgeQuestionnaireItemsDto,
+  DashboardMeetupSummaryResponseDto,
   DashboardHistoryItemResponseDto,
   DashboardHistoryLimitedReason,
   DashboardHistoryResult,
   DashboardHistoryVisibility,
   DashboardResponseDto,
+  DashboardTaskResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
   UpdateLocaleDto,
+  UpdateMeetupSettingsDto,
   UpdateProfileDto,
 } from './dto';
 
 const DASHBOARD_HISTORY_LIMIT = 3;
+const MEETUP_TERMINAL_SUMMARY_TEXT =
+  '本次见面安排已结束，当前版本暂不支持重新发起。';
+
+const dashboardMeetupSessionSelect = {
+  id: true,
+  matchId: true,
+  status: true,
+  currentProposalId: true,
+  confirmedTimeOptionId: true,
+  confirmedLocationOptionId: true,
+  finalConfirmRequiredByUserId: true,
+  reopenedFromLockedStartsAt: true,
+  lockedAt: true,
+  canceledAt: true,
+  canceledByUserId: true,
+  effectiveExpirationWeeks: true,
+  expiresAt: true,
+  archiveEligibleAt: true,
+  lastActiveAt: true,
+  confirmedTimeOption: {
+    select: {
+      startsAt: true,
+      endsAt: true,
+    },
+  },
+  confirmedLocationOption: {
+    select: {
+      placeName: true,
+    },
+  },
+  participants: {
+    select: {
+      userId: true,
+      turnState: true,
+      revisionUsedAt: true,
+      lastSeenAt: true,
+      user: {
+        select: {
+          displayName: true,
+        },
+      },
+    },
+  },
+} satisfies Prisma.MeetupSessionSelect;
 
 type DashboardCycleSummary = Prisma.MatchCycleGetPayload<{
   select: {
@@ -65,6 +116,13 @@ type DashboardSnapshotStore = {
   findMany: (
     args: Prisma.UserCycleDashboardSnapshotFindManyArgs,
   ) => Promise<DashboardSnapshotRecord[]>;
+};
+type DashboardMeetupSession = Prisma.MeetupSessionGetPayload<{
+  select: typeof dashboardMeetupSessionSelect;
+}>;
+type DashboardMeetupPayload = {
+  tasks: DashboardTaskResponseDto[];
+  meetupSummary: DashboardMeetupSummaryResponseDto | null;
 };
 type QuestionnaireDraftPayload = {
   softAnswers: Record<string, Prisma.InputJsonValue>;
@@ -164,6 +222,7 @@ export class AccountService {
         email: true,
         displayName: true,
         preferredLocale: true,
+        meetupExpirationWeeks: true,
       },
     });
 
@@ -174,6 +233,8 @@ export class AccountService {
     return {
       ...user,
       preferredLocale: normalizeLocale(user.preferredLocale),
+      meetupExpirationWeeks:
+        user.meetupExpirationWeeks ?? DEFAULT_MEETUP_EXPIRATION_WEEKS,
     };
   }
 
@@ -186,12 +247,36 @@ export class AccountService {
         email: true,
         displayName: true,
         preferredLocale: true,
+        meetupExpirationWeeks: true,
       },
     });
 
     return {
       ...user,
       preferredLocale: normalizeLocale(user.preferredLocale),
+      meetupExpirationWeeks:
+        user.meetupExpirationWeeks ?? DEFAULT_MEETUP_EXPIRATION_WEEKS,
+    };
+  }
+
+  async updateMeetupSettings(userId: string, input: UpdateMeetupSettingsDto) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { meetupExpirationWeeks: input.meetupExpirationWeeks },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        preferredLocale: true,
+        meetupExpirationWeeks: true,
+      },
+    });
+
+    return {
+      ...user,
+      preferredLocale: normalizeLocale(user.preferredLocale),
+      meetupExpirationWeeks:
+        user.meetupExpirationWeeks ?? DEFAULT_MEETUP_EXPIRATION_WEEKS,
     };
   }
 
@@ -350,6 +435,19 @@ export class AccountService {
       };
     }
 
+    const latestMatchVisibility =
+      latestMatch != null
+        ? this.toDashboardHistoryVisibility(latestSnapshot?.visibility)
+        : null;
+    const latestMatchLimitedReason =
+      latestMatch != null
+        ? this.toDashboardHistoryLimitedReason(latestSnapshot?.limitedReason)
+        : null;
+    const meetupDashboard = await this.buildDashboardMeetupPayload({
+      userId,
+      matchId: latestMatch?.id ?? null,
+    });
+
     return {
       profile,
       questionnaireSubmittedAt: this.toIsoString(questionnaire?.submittedAt),
@@ -365,16 +463,12 @@ export class AccountService {
           }
         : null,
       latestMatch,
-      latestMatchVisibility:
-        latestMatch != null
-          ? this.toDashboardHistoryVisibility(latestSnapshot?.visibility)
-          : null,
-      latestMatchLimitedReason:
-        latestMatch != null
-          ? this.toDashboardHistoryLimitedReason(latestSnapshot?.limitedReason)
-          : null,
+      latestMatchVisibility,
+      latestMatchLimitedReason,
       lastRevealedRound,
       recentMatchHistory,
+      tasks: meetupDashboard.tasks,
+      meetupSummary: meetupDashboard.meetupSummary,
     };
   }
 
@@ -422,6 +516,371 @@ export class AccountService {
     return this.dashboardSnapshotService.readDashboardMatchPayload(
       snapshot.matchPayload,
     );
+  }
+
+  private async buildDashboardMeetupPayload(input: {
+    userId: string;
+    matchId: string | null;
+  }): Promise<DashboardMeetupPayload> {
+    if (!input.matchId) {
+      return { tasks: [], meetupSummary: null };
+    }
+
+    const match = await this.prisma.match.findUnique({
+      where: { id: input.matchId },
+      select: {
+        id: true,
+        introducedAt: true,
+        participants: {
+          select: {
+            userId: true,
+          },
+        },
+        meetupSession: {
+          select: dashboardMeetupSessionSelect,
+        },
+      },
+    });
+
+    if (!match?.introducedAt || match.participants.length !== 2) {
+      return { tasks: [], meetupSummary: null };
+    }
+
+    const currentParticipant = match.participants.find(
+      (participant) => participant.userId === input.userId,
+    );
+    const counterpart = match.participants.find(
+      (participant) => participant.userId !== input.userId,
+    );
+
+    if (!currentParticipant || !counterpart) {
+      return { tasks: [], meetupSummary: null };
+    }
+
+    if (!match.meetupSession) {
+      return {
+        tasks: [
+          {
+            id: `meetup-start:${match.id}`,
+            type: 'MEETUP',
+            priority: MEETUP_TODO_PRIORITY,
+            title: '安排第一次见面',
+            text: '可以开始安排第一次见面',
+            href: `/dashboard/meetup/start?matchId=${match.id}`,
+            userTurnStatus: 'NOT_STARTED',
+            progressStatus: 'NOT_STARTED',
+            matchId: match.id,
+            sessionId: null,
+            updatedAt: match.introducedAt.toISOString(),
+          },
+        ],
+        meetupSummary: null,
+      };
+    }
+
+    const session = await this.convergeDashboardMeetupSession(
+      match.meetupSession,
+    );
+    const meetupSummary = this.buildDashboardMeetupSummary({
+      session,
+      currentUserId: input.userId,
+      now: new Date(),
+    });
+
+    if (session.status !== 'ACTIVE') {
+      return { tasks: [], meetupSummary };
+    }
+
+    const userTurnStatus = this.deriveMeetupUserTurnStatus(
+      session,
+      input.userId,
+    );
+
+    return {
+      tasks: [
+        {
+          id: `meetup:${session.id}`,
+          type: 'MEETUP',
+          priority: MEETUP_TODO_PRIORITY,
+          title: '安排第一次见面',
+          text: this.buildMeetupTaskText(userTurnStatus),
+          href: `/dashboard/meetup/${session.id}`,
+          userTurnStatus,
+          progressStatus: this.deriveMeetupProgressStatus(session),
+          matchId: match.id,
+          sessionId: session.id,
+          updatedAt: session.lastActiveAt.toISOString(),
+        },
+      ],
+      meetupSummary,
+    };
+  }
+
+  private async convergeDashboardMeetupSession(
+    session: DashboardMeetupSession,
+  ): Promise<DashboardMeetupSession> {
+    const now = new Date();
+
+    if (
+      session.status === 'ACTIVE' &&
+      session.expiresAt &&
+      session.expiresAt <= now
+    ) {
+      return this.prisma.$transaction(async (tx) => {
+        const transition = await tx.meetupSession.updateMany({
+          where: {
+            id: session.id,
+            status: 'ACTIVE',
+            currentProposalId: session.currentProposalId,
+            finalConfirmRequiredByUserId: session.finalConfirmRequiredByUserId,
+            expiresAt: {
+              lte: now,
+            },
+          },
+          data: {
+            status: 'EXPIRED',
+            expiredAt: now,
+            currentProposalId: null,
+            finalConfirmRequiredByUserId: null,
+            expiresAt: null,
+            archiveEligibleAt: null,
+            lastActiveAt: now,
+          },
+        });
+
+        if (transition.count === 0) {
+          return tx.meetupSession.findUniqueOrThrow({
+            where: { id: session.id },
+            select: dashboardMeetupSessionSelect,
+          });
+        }
+
+        if (session.currentProposalId) {
+          await tx.meetupProposal.updateMany({
+            where: {
+              id: session.currentProposalId,
+              sessionId: session.id,
+              status: 'PENDING',
+            },
+            data: {
+              status: 'SUPERSEDED',
+            },
+          });
+          await tx.meetupOption.updateMany({
+            where: {
+              proposalId: session.currentProposalId,
+              status: 'PENDING',
+            },
+            data: {
+              status: 'DISABLED',
+            },
+          });
+        }
+
+        await tx.meetupParticipant.updateMany({
+          where: { sessionId: session.id },
+          data: {
+            turnState: 'NONE',
+            responseRequiredAt: null,
+            responseRequiredMessageId: null,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            actorId: null,
+            action: 'meetup.expired',
+            metadata: {
+              sessionId: session.id,
+              matchId: session.matchId,
+            },
+          },
+        });
+
+        return tx.meetupSession.findUniqueOrThrow({
+          where: { id: session.id },
+          select: dashboardMeetupSessionSelect,
+        });
+      });
+    }
+
+    if (
+      session.status === 'LOCKED' &&
+      session.archiveEligibleAt &&
+      session.archiveEligibleAt <= now
+    ) {
+      return this.prisma.$transaction(async (tx) => {
+        const transition = await tx.meetupSession.updateMany({
+          where: {
+            id: session.id,
+            status: 'LOCKED',
+            currentProposalId: session.currentProposalId,
+            finalConfirmRequiredByUserId: session.finalConfirmRequiredByUserId,
+            archiveEligibleAt: {
+              lte: now,
+            },
+          },
+          data: {
+            status: 'ARCHIVED',
+            archivedAt: now,
+            currentProposalId: null,
+            finalConfirmRequiredByUserId: null,
+            lastActiveAt: now,
+          },
+        });
+
+        if (transition.count === 0) {
+          return tx.meetupSession.findUniqueOrThrow({
+            where: { id: session.id },
+            select: dashboardMeetupSessionSelect,
+          });
+        }
+
+        await tx.meetupParticipant.updateMany({
+          where: { sessionId: session.id },
+          data: {
+            turnState: 'NONE',
+            responseRequiredAt: null,
+            responseRequiredMessageId: null,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            actorId: null,
+            action: 'meetup.archived',
+            metadata: {
+              sessionId: session.id,
+              matchId: session.matchId,
+            },
+          },
+        });
+
+        return tx.meetupSession.findUniqueOrThrow({
+          where: { id: session.id },
+          select: dashboardMeetupSessionSelect,
+        });
+      });
+    }
+
+    return session;
+  }
+
+  private buildDashboardMeetupSummary(input: {
+    session: DashboardMeetupSession;
+    currentUserId: string;
+    now: Date;
+  }): DashboardMeetupSummaryResponseDto {
+    const currentParticipant =
+      input.session.participants.find(
+        (participant) => participant.userId === input.currentUserId,
+      ) ?? null;
+    const confirmedStartsAt =
+      input.session.confirmedTimeOption?.startsAt ?? null;
+    const confirmedEndsAt = input.session.confirmedTimeOption?.endsAt ?? null;
+    const lockedStartIsFuture =
+      confirmedStartsAt != null && confirmedStartsAt > input.now;
+    const reopenedStartIsFuture =
+      input.session.reopenedFromLockedStartsAt == null ||
+      input.session.reopenedFromLockedStartsAt > input.now;
+
+    return {
+      sessionId: input.session.id,
+      matchId: input.session.matchId,
+      status: input.session.status,
+      progressStatus: this.deriveMeetupProgressStatus(input.session),
+      href: `/dashboard/meetup/${input.session.id}`,
+      confirmedStartsAt: this.toIsoString(confirmedStartsAt),
+      confirmedEndsAt: this.toIsoString(confirmedEndsAt),
+      confirmedPlaceName:
+        input.session.confirmedLocationOption?.placeName ?? null,
+      canReviseAfterLock:
+        input.session.status === 'LOCKED' &&
+        lockedStartIsFuture &&
+        currentParticipant?.revisionUsedAt == null,
+      canCancel:
+        input.session.status === 'ACTIVE'
+          ? reopenedStartIsFuture
+          : input.session.status === 'LOCKED' && lockedStartIsFuture,
+      terminalText: ['CANCELED', 'EXPIRED', 'ARCHIVED'].includes(
+        input.session.status,
+      )
+        ? MEETUP_TERMINAL_SUMMARY_TEXT
+        : null,
+    };
+  }
+
+  private deriveMeetupUserTurnStatus(
+    session: DashboardMeetupSession | null,
+    currentUserId: string,
+  ): MeetupUserTurnStatus {
+    if (!session) {
+      return 'NOT_STARTED';
+    }
+    if (session.status !== 'ACTIVE') {
+      return 'NONE';
+    }
+
+    if (session.finalConfirmRequiredByUserId === currentUserId) {
+      return 'NEEDS_YOUR_RESPONSE';
+    }
+    if (session.finalConfirmRequiredByUserId) {
+      return 'WAITING_FOR_COUNTERPART';
+    }
+
+    const currentParticipant = session.participants.find(
+      (participant) => participant.userId === currentUserId,
+    );
+
+    if (currentParticipant?.turnState === 'REQUIRED') {
+      return 'NEEDS_YOUR_RESPONSE';
+    }
+
+    if (currentParticipant?.turnState === 'WAITING') {
+      return 'WAITING_FOR_COUNTERPART';
+    }
+
+    return 'NONE';
+  }
+
+  private deriveMeetupProgressStatus(
+    session: DashboardMeetupSession | null,
+  ): MeetupProgressStatus {
+    if (!session) {
+      return 'NOT_STARTED';
+    }
+    if (session.status === 'CANCELED') {
+      return 'CANCELED';
+    }
+    if (session.status === 'EXPIRED') {
+      return 'EXPIRED';
+    }
+    if (session.status === 'ARCHIVED') {
+      return 'ARCHIVED';
+    }
+    if (session.status === 'LOCKED') {
+      return 'LOCKED';
+    }
+    if (session.finalConfirmRequiredByUserId) {
+      return 'AWAITING_FINAL_CONFIRMATION';
+    }
+    if (session.confirmedLocationOptionId && !session.confirmedTimeOptionId) {
+      return 'LOCATION_CONFIRMED_TIME_PENDING';
+    }
+    if (session.confirmedTimeOptionId && !session.confirmedLocationOptionId) {
+      return 'TIME_CONFIRMED_LOCATION_PENDING';
+    }
+
+    return 'NEGOTIATING';
+  }
+
+  private buildMeetupTaskText(userTurnStatus: MeetupUserTurnStatus) {
+    switch (userTurnStatus) {
+      case 'NEEDS_YOUR_RESPONSE':
+        return '需要你回应';
+      case 'WAITING_FOR_COUNTERPART':
+        return '等待对方回应';
+      default:
+        return '继续安排第一次见面';
+    }
   }
 
   private normalizeMatchReasons(rawReasons: Prisma.JsonValue): string[] {
