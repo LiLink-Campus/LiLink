@@ -26,6 +26,12 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
     "你的问卷有必填项缺失，请回到「资料」补全后再参加本轮匹配。",
   "Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.":
     "问卷有未保存的修改且必填项缺失，请回到「资料」补完或撤销修改后再参加本轮匹配。",
+  "Selected contact channel must have a value.":
+    "请选择已填写的联系方式。",
+  "Phone number must use international format.":
+    "手机号请使用国际格式，例如 +86 138 0013 8000。",
+  "Contact method value is too long.": "联系方式内容过长。",
+  "Duplicate contact method type.": "联系方式类型重复。",
 };
 
 export class ApiRequestError extends Error {

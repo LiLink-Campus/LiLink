@@ -2,15 +2,22 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
 import {
   Prisma,
+  type ContactChannelType as PrismaContactChannelType,
   type QuestionType,
   type UserCycleDashboardSnapshot,
   type WeeklyIntent as PrismaWeeklyIntent,
 } from '../../common/prisma/client';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import {
+  CONTACT_CHANNEL_LABELS,
+  EDITABLE_CONTACT_CHANNEL_TYPES,
+  contactChannelLabel,
   hardMatchAttentionFields,
   hardMatchAttentionKeys,
   isWeeklyIntent,
   normalizeLocale,
+  type ContactChannelType,
+  type EditableContactChannelType,
 } from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -39,11 +46,16 @@ import {
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
+  UpdateContactPreferencesDto,
   UpdateLocaleDto,
   UpdateProfileDto,
 } from './dto';
 
 const DASHBOARD_HISTORY_LIMIT = 3;
+const CONTACT_METHOD_VALUE_MAX_LENGTH = 120;
+const EDITABLE_CONTACT_CHANNEL_SET = new Set<ContactChannelType>(
+  EDITABLE_CONTACT_CHANNEL_TYPES,
+);
 
 type DashboardCycleSummary = Prisma.MatchCycleGetPayload<{
   select: {
@@ -101,8 +113,115 @@ type QuestionnaireAcknowledgementRow = {
   acknowledgedQuestionnaireKeys: Prisma.JsonValue | null;
 };
 
+type ContactMethodSummary = {
+  type: EditableContactChannelType;
+  value: string;
+};
+
+type PublicContactSummary = {
+  type: ContactChannelType;
+  label: string;
+  value: string;
+};
+
+type ContactMethodUser = {
+  email: string;
+  preferredContactChannel?: ContactChannelType | PrismaContactChannelType;
+  contactMethods?: Array<{
+    type: ContactChannelType | PrismaContactChannelType;
+    value: string;
+  }>;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isEditableContactChannel(
+  type: ContactChannelType | PrismaContactChannelType,
+): type is EditableContactChannelType {
+  return EDITABLE_CONTACT_CHANNEL_SET.has(type as ContactChannelType);
+}
+
+function normalizeContactMethodValue(
+  type: EditableContactChannelType,
+  rawValue: string,
+) {
+  const value = rawValue.trim();
+
+  if (!value) {
+    return null;
+  }
+
+  if (value.length > CONTACT_METHOD_VALUE_MAX_LENGTH) {
+    throw new BadRequestException('Contact method value is too long.');
+  }
+
+  if (type !== 'PHONE') {
+    return {
+      value,
+      normalizedValue: null,
+    };
+  }
+
+  if (!value.startsWith('+')) {
+    throw new BadRequestException(
+      'Phone number must use international format.',
+    );
+  }
+
+  const phoneNumber = parsePhoneNumberFromString(value);
+
+  if (!phoneNumber?.isPossible()) {
+    throw new BadRequestException(
+      'Phone number must use international format.',
+    );
+  }
+
+  return {
+    value: phoneNumber.number,
+    normalizedValue: phoneNumber.number,
+  };
+}
+
+function normalizeContactPreferencesInput(input: UpdateContactPreferencesDto) {
+  const methods = new Map<
+    EditableContactChannelType,
+    { value: string; normalizedValue: string | null }
+  >();
+
+  for (const method of input.methods) {
+    if (methods.has(method.type)) {
+      throw new BadRequestException('Duplicate contact method type.');
+    }
+
+    const normalized = normalizeContactMethodValue(method.type, method.value);
+    if (normalized) {
+      methods.set(method.type, normalized);
+    }
+  }
+
+  if (
+    isEditableContactChannel(input.preferredContactChannel) &&
+    !methods.has(input.preferredContactChannel)
+  ) {
+    throw new BadRequestException('Selected contact channel must have a value.');
+  }
+
+  return methods;
+}
+
+function buildContactPreferencesResponse(input: {
+  email: string;
+  preferredContactChannel: ContactChannelType | PrismaContactChannelType;
+  methods: ContactMethodSummary[];
+}) {
+  return {
+    email: input.email,
+    preferredContactChannel:
+      input.preferredContactChannel as ContactChannelType,
+    methods: input.methods,
+  };
 }
 
 function normalizeAcknowledgedQuestionnaireKeys(rawKeys: unknown) {
@@ -739,6 +858,121 @@ export class AccountService {
     return profile;
   }
 
+  async getContactPreferences(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        preferredContactChannel: true,
+        contactMethods: {
+          select: {
+            type: true,
+            value: true,
+          },
+          orderBy: {
+            type: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return buildContactPreferencesResponse({
+      email: user.email,
+      preferredContactChannel: user.preferredContactChannel,
+      methods: user.contactMethods
+        .filter((method): method is ContactMethodSummary =>
+          isEditableContactChannel(method.type),
+        )
+        .map((method) => ({
+          type: method.type,
+          value: method.value,
+        })),
+    });
+  }
+
+  async updateContactPreferences(
+    userId: string,
+    input: UpdateContactPreferencesDto,
+  ) {
+    const methods = normalizeContactPreferencesInput(input);
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: {
+        email: true,
+      },
+    });
+    const omittedMethodTypes = EDITABLE_CONTACT_CHANNEL_TYPES.filter(
+      (type) => !methods.has(type),
+    );
+
+    const savedMethods = await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { preferredContactChannel: input.preferredContactChannel },
+      });
+
+      if (omittedMethodTypes.length > 0) {
+        await tx.userContactMethod.deleteMany({
+          where: {
+            userId,
+            type: {
+              in: omittedMethodTypes,
+            },
+          },
+        });
+      }
+
+      for (const [type, method] of methods) {
+        await tx.userContactMethod.upsert({
+          where: {
+            userId_type: {
+              userId,
+              type,
+            },
+          },
+          update: {
+            value: method.value,
+            normalizedValue: method.normalizedValue,
+          },
+          create: {
+            userId,
+            type,
+            value: method.value,
+            normalizedValue: method.normalizedValue,
+          },
+        });
+      }
+
+      return tx.userContactMethod.findMany({
+        where: { userId },
+        select: {
+          type: true,
+          value: true,
+        },
+        orderBy: {
+          type: 'asc',
+        },
+      });
+    });
+
+    return buildContactPreferencesResponse({
+      email: user.email,
+      preferredContactChannel: input.preferredContactChannel,
+      methods: savedMethods
+        .filter((method): method is ContactMethodSummary =>
+          isEditableContactChannel(method.type),
+        )
+        .map((method) => ({
+          type: method.type,
+          value: method.value,
+        })),
+    });
+  }
+
   async saveQuestionnaire(userId: string, input: SaveQuestionnaireDto) {
     const [questionnaire, user] = await Promise.all([
       this.questionnaireService.getCurrentVersion(),
@@ -1170,6 +1404,12 @@ export class AccountService {
               include: {
                 user: {
                   include: {
+                    contactMethods: {
+                      select: {
+                        type: true,
+                        value: true,
+                      },
+                    },
                     profile: true,
                     school: true,
                     questionnaireResponse: {
@@ -1231,6 +1471,13 @@ export class AccountService {
       (item) => item.userId === userId,
     );
 
+    if (!requester) {
+      throw new BadRequestException('Requester was not found for this match.');
+    }
+
+    const requesterContact = this.resolvePublicContact(requester.user);
+    const counterpartContact = this.resolvePublicContact(counterpart.user);
+
     const claimedAt = new Date();
     const conversationTopics = this.normalizeConversationTopics(
       participant.match.conversationTopics,
@@ -1239,13 +1486,14 @@ export class AccountService {
     const queuedEmails = this.mailService.buildIntroductionEmails({
       matchId: participant.match.id,
       requester: {
-        email: requester!.user.email,
-        displayName: requester!.user.displayName,
-        schoolName: requester!.user.school?.name ?? null,
+        email: requester.user.email,
+        displayName: requester.user.displayName,
+        schoolName: requester.user.school?.name ?? null,
         introLine: this.displayIntroLine(
-          requester!.user.questionnaireResponse?.answers,
-          requester!.user.profile?.headline,
+          requester.user.questionnaireResponse?.answers,
+          requester.user.profile?.headline,
         ),
+        publicContact: requesterContact,
       },
       recipient: {
         email: counterpart.user.email,
@@ -1255,6 +1503,7 @@ export class AccountService {
           counterpart.user.questionnaireResponse?.answers,
           counterpart.user.profile?.headline,
         ),
+        publicContact: counterpartContact,
       },
       reason:
         this.normalizeMatchReason(
@@ -1291,8 +1540,27 @@ export class AccountService {
         },
         data: {
           contactRequestedAt: claimedAt,
+          introducedContactType: requesterContact.type,
+          introducedContactValue: requesterContact.value,
         },
       });
+
+      for (const matchParticipant of participant.match.participants) {
+        if (matchParticipant.id === participant.id) {
+          continue;
+        }
+
+        const publicContact = this.resolvePublicContact(matchParticipant.user);
+        await tx.matchParticipant.updateMany({
+          where: {
+            id: matchParticipant.id,
+          },
+          data: {
+            introducedContactType: publicContact.type,
+            introducedContactValue: publicContact.value,
+          },
+        });
+      }
 
       await tx.outboundEmail.createMany({
         data: queuedEmails,
@@ -1416,6 +1684,35 @@ export class AccountService {
 
     const trimmedHeadline = profileHeadline?.trim();
     return trimmedHeadline ? trimmedHeadline : null;
+  }
+
+  private resolvePublicContact(user: ContactMethodUser): PublicContactSummary {
+    const preferredContactChannel = (user.preferredContactChannel ??
+      'EMAIL') as ContactChannelType;
+
+    if (preferredContactChannel === 'EMAIL') {
+      return {
+        type: 'EMAIL',
+        label: contactChannelLabel('EMAIL'),
+        value: user.email,
+      };
+    }
+
+    const method = (user.contactMethods ?? []).find(
+      (item) => item.type === preferredContactChannel,
+    );
+
+    if (!method?.value) {
+      throw new BadRequestException(
+        'Selected contact channel must have a value.',
+      );
+    }
+
+    return {
+      type: preferredContactChannel,
+      label: CONTACT_CHANNEL_LABELS[preferredContactChannel],
+      value: method.value,
+    };
   }
 
   private async createAuditLog(

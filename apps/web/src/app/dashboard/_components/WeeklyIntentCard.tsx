@@ -62,7 +62,7 @@ export function WeeklyIntentCard({
         tone: "default",
       };
     } else if (hasMissingIntent) {
-      statusPill = { label: "本周意图待确认", tone: "pending" };
+      statusPill = { label: "本周意向待确认", tone: "pending" };
     } else {
       statusPill = { label: "本轮未参与", tone: "off" };
     }
@@ -81,8 +81,8 @@ export function WeeklyIntentCard({
         <h2 className="weekly-intent-title">本周你想找什么？</h2>
         <p className="weekly-intent-subtitle">
           {currentCycleIsLocked
-            ? "本轮报名已经截止。你仍可继续注册和填写问卷，但本轮不能参加、退出或修改意图。"
-            : "选择 Friend / Date / Both 之一作为本轮的硬约束 — BOTH 可与任意意图相容，FRIEND 与 DATE 互斥。默认沿用上一轮，也可在截止前改成别的。"}
+            ? "本轮报名已经截止。你仍可继续注册和填写匹配资料，但本轮不能参加、退出或修改意向。"
+            : "选择 Friend / Date / Both 之一作为本轮的硬约束；BOTH 可与任意意向相容，FRIEND 与 DATE 互斥。默认沿用上一轮，也可在截止前改成别的。"}
         </p>
       </div>
 
@@ -106,7 +106,7 @@ export function WeeklyIntentCard({
             !
           </span>
           <span>
-            本轮已进入预生成或等待揭晓阶段。现在只能继续完善问卷资料，不能再参加本轮或调整本周意图。
+            本轮已进入预生成或等待揭晓阶段。现在只能继续完善匹配资料，不能再参加本轮或调整本周意向。
           </span>
         </div>
       ) : hasMissingIntent ? (
@@ -115,7 +115,7 @@ export function WeeklyIntentCard({
             !
           </span>
           <span>
-            当前这轮还没有保存可用的本周意图。请在下方确认
+            当前这轮还没有保存可用的本周意向。请在下方确认
             <strong> Friend、Date 或 Both </strong>
             之一，匹配会按这次确认后的设置计算。
           </span>
@@ -124,7 +124,7 @@ export function WeeklyIntentCard({
 
       {!cycle ? (
         <p className="app-muted">
-          当前没有开放中的轮次；下一轮上线后再回到这里设置本周意图。
+          当前没有开放中的轮次；下一轮上线后再回到这里设置本周意向。
         </p>
       ) : (
         <ul className="weekly-intent-options">
@@ -187,9 +187,9 @@ export function WeeklyIntentCard({
         <div className="weekly-intent-footer">
           <p className="weekly-intent-footer-note">
             {currentCycleIsLocked
-              ? "本轮报名已锁定；你可以继续修改问卷资料，为下一轮开放时的报名和匹配做准备。"
+              ? "本轮报名已锁定；你可以继续修改匹配资料，为下一轮开放时的报名和匹配做准备。"
               : currentIntent
-              ? "可在截止前随时更换；切换不同意图也算同一轮报名，不会重复占用名额。"
+              ? "可在截止前随时更换；切换不同意向也算同一轮报名，不会重复占用名额。"
               : "选择任意一项后，本周即报名成功；BOTH 与所有人相容，是兜底选项。"}
           </p>
           {isOptedIn && !currentCycleIsLocked ? (

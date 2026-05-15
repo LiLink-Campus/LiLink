@@ -88,9 +88,10 @@ export function MatchHistoryList({
                           未引荐前不展示对方学校、昵称等可识别信息。
                         </p>
                       ) : null}
-                      {introducedRow && counterpart?.email ? (
+                      {introducedRow && counterpart?.contact ? (
                         <p className="form-success app-match-email">
-                          联络邮箱：{counterpart.email}
+                          联系方式：{counterpart.contact.label}{" "}
+                          {counterpart.contact.value}
                         </p>
                       ) : null}
                       {introducedRow && counterpart?.introLine ? (

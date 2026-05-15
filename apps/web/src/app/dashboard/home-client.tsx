@@ -1,5 +1,6 @@
 "use client";
 
+import { CONTACT_CHANNEL_LABELS } from "@lilink/shared";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -11,26 +12,22 @@ import {
 import { IntentSheet } from "./_components/IntentSheet";
 import {
   CalendarIcon,
-  GroupTrioIcon,
-  PeopleIcon,
+  CheckCircleIcon,
 } from "./_components/icons";
 import {
-  CampusLineart,
-  GrassRowIllustration,
-  OliveSprigIllustration,
   TeaTimeIllustration,
-  ThreeChairsIllustration,
   WheatSprigIllustration,
 } from "./_components/illustrations";
 import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
 import { canEditCurrentCycleParticipation } from "./_lib/format";
 import { profileAttentionHashForKey } from "./_lib/profile-attention";
 import type {
+  ContactPreferencesPayload,
   DashboardPayload,
   QuestionnaireAttentionPayload,
 } from "./_lib/types";
 
-type HomeMode = "ONE_ON_ONE" | "GROUP";
+type PrepTaskTone = "complete" | "neutral" | "warning";
 
 const HOME_VISIBLE_REFRESH_TTL_MS = 30_000;
 
@@ -71,6 +68,57 @@ function questionnaireAttentionHref(
     : "/dashboard/profile";
 }
 
+function PrepTaskCard({
+  title,
+  description,
+  marker,
+  tone,
+  actionLabel,
+  href,
+  disabled,
+  onAction,
+}: {
+  title: string;
+  description: string;
+  marker: string;
+  tone: PrepTaskTone;
+  actionLabel: string;
+  href?: string;
+  disabled?: boolean;
+  onAction?: () => void;
+}) {
+  const statusClassName = `weekly-prep-status is-${tone}`;
+  const actionClassName = disabled
+    ? "weekly-prep-action is-disabled"
+    : "weekly-prep-action";
+
+  return (
+    <article className="weekly-prep-item">
+      <div className={statusClassName} aria-hidden="true">
+        {tone === "complete" ? <CheckCircleIcon /> : marker}
+      </div>
+      <div className="weekly-prep-copy">
+        <h3>{title}</h3>
+        <p>{description}</p>
+      </div>
+      {href ? (
+        <Link className={actionClassName} href={href}>
+          {actionLabel}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className={actionClassName}
+          disabled={disabled}
+          onClick={onAction}
+        >
+          {actionLabel}
+        </button>
+      )}
+    </article>
+  );
+}
+
 export function HomeClient({
   initialUser,
   initialDashboard,
@@ -79,6 +127,7 @@ export function HomeClient({
   questionnaireEligibleToOptIn,
   questionnaireHasIncompleteDraft,
   questionnaireAttention,
+  contactPreferences,
 }: {
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
@@ -87,12 +136,12 @@ export function HomeClient({
   questionnaireEligibleToOptIn: boolean;
   questionnaireHasIncompleteDraft: boolean;
   questionnaireAttention: QuestionnaireAttentionPayload | null;
+  contactPreferences: ContactPreferencesPayload;
 }) {
   const router = useRouter();
   const lastVisibleRefreshAtRef = useRef(Date.now());
   useDashboardSessionSeed(initialUser);
   const [dashboard, setDashboard] = useState<DashboardPayload>(initialDashboard);
-  const [mode, setMode] = useState<HomeMode>("ONE_ON_ONE");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,10 +152,6 @@ export function HomeClient({
     lastVisibleRefreshAtRef.current = Date.now();
   }, [initialDashboard]);
 
-  // The dashboard summary (questionnaire progress, latest match, current
-  // cycle) is rendered server-side. When the user comes back from another
-  // tab/page (e.g. after editing the questionnaire), refresh the RSC tree so
-  // the percentage and match preview reflect the latest server state.
   useEffect(() => {
     function refreshIfStale() {
       const now = Date.now();
@@ -139,18 +184,8 @@ export function HomeClient({
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
   const intent = cycle?.intent ?? null;
   const intentMeta = intent ? WEEKLY_INTENT_LABELS[intent] : null;
-  // The user could opt in this round but the questionnaire gate is blocking
-  // them - either because they never submitted, or they did submit but a
-  // later draft removed required answers (see assertQuestionnaireReadyForOptIn
-  // on the API side). Mirrors the toggle's `disabled` clause so the inline
-  // notice and the disabled button stay in sync.
   const participationBlockedByQuestionnaire =
     Boolean(cycle) && canEdit && !isOptedIn && !questionnaireEligibleToOptIn;
-
-  const greeting =
-    initialUser.displayName?.trim() ||
-    initialUser.email.split("@")[0] ||
-    "同学";
 
   const revealLabel = formatRevealLabel(cycle?.revealAt);
   const deadlineLabel = formatDeadlineLabel(cycle?.participationDeadline);
@@ -163,6 +198,43 @@ export function HomeClient({
   const questionnaireCardHref = questionnaireAttentionHref(
     questionnaireAttention,
   );
+  const hasAdditionalContactMethod = contactPreferences.methods.some(
+    (method) => method.value.trim().length > 0,
+  );
+  const contactUsesEmail = contactPreferences.preferredContactChannel === "EMAIL";
+  const contactTaskComplete = hasAdditionalContactMethod && !contactUsesEmail;
+  const contactTaskDescription = contactTaskComplete
+    ? `引荐后将展示${CONTACT_CHANNEL_LABELS[contactPreferences.preferredContactChannel]}。`
+    : hasAdditionalContactMethod
+      ? "已添加其他方式，当前仍选择展示邮箱。"
+      : "引荐后将默认展示注册邮箱。";
+  const questionnaireTaskComplete =
+    questionnaireEligibleToOptIn && !hasQuestionnaireAttention;
+  const questionnaireTaskDescription =
+    pendingQuestionnaireUpdateCount > 0
+      ? `有 ${pendingQuestionnaireUpdateCount} 项更新待查看。`
+      : missingQuestionnaireRequiredCount > 0
+        ? `还有 ${missingQuestionnaireRequiredCount} 项必填内容需要补完。`
+        : questionnaireTaskComplete
+          ? "已满足本轮匹配要求。"
+          : questionnaireHasIncompleteDraft
+            ? "草稿待补完，完成后才能参与本轮。"
+            : questionnaireSubmitted
+              ? `当前完成度 ${questionnairePercent}%。`
+              : "先补完资料，下一轮才能认真匹配。";
+  const intentTaskComplete = Boolean(isOptedIn && intentMeta);
+  const intentTaskDescription = intentMeta
+    ? `本周意向：${intentMeta.primary} · ${intentMeta.subtitle}`
+    : !cycle
+      ? "等待下一轮开放。"
+      : participationBlockedByQuestionnaire
+        ? "先完成匹配资料，再选择本周意向。"
+        : "设置你本周想参与的匹配方向。";
+  const intentActionDisabled =
+    saving ||
+    !cycle ||
+    !canEdit ||
+    (!isOptedIn && !questionnaireEligibleToOptIn);
 
   function setSavedMessageOnly(message: string | null) {
     setSavedMessage(message);
@@ -174,6 +246,26 @@ export function HomeClient({
     setSavedMessage(null);
   }
 
+  function openIntentSheetFromTask() {
+    if (!cycle) {
+      setErrorOnly("当前没有开放中的轮次。");
+      return;
+    }
+    if (!canEdit) {
+      setErrorOnly("本轮报名已锁定，不能再修改参与状态或本周意向。");
+      return;
+    }
+    if (!isOptedIn && !questionnaireEligibleToOptIn) {
+      setErrorOnly(
+        questionnaireHasIncompleteDraft
+          ? "匹配资料有未保存的修改且必填项缺失，请补完后再参加本轮匹配。"
+          : "请先完成「匹配资料」，再参加本轮匹配。",
+      );
+      return;
+    }
+    setSheetOpen(true);
+  }
+
   async function chooseIntent(nextIntent: WeeklyIntent) {
     if (!cycle) {
       setErrorOnly("当前没有开放中的轮次。");
@@ -181,7 +273,7 @@ export function HomeClient({
       return;
     }
     if (!canEdit) {
-      setErrorOnly("本轮报名已锁定，不能再修改参与状态或本周意图。");
+      setErrorOnly("本轮报名已锁定，不能再修改参与状态或本周意向。");
       setSheetOpen(false);
       return;
     }
@@ -207,14 +299,14 @@ export function HomeClient({
           : current,
       );
       setSavedMessageOnly(
-        `本周意图已锁定为 ${WEEKLY_INTENT_LABELS[nextIntent].primary}（${WEEKLY_INTENT_LABELS[nextIntent].subtitle}）。`,
+        `本周意向已锁定为 ${WEEKLY_INTENT_LABELS[nextIntent].primary}（${WEEKLY_INTENT_LABELS[nextIntent].subtitle}）。`,
       );
       setSheetOpen(false);
     } catch (caughtError) {
       setErrorOnly(
         caughtError instanceof Error
           ? caughtError.message
-          : "本周意图保存失败。",
+          : "本周意向保存失败。",
       );
     } finally {
       setSaving(false);
@@ -248,7 +340,7 @@ export function HomeClient({
             }
           : current,
       );
-      setSavedMessageOnly("已退出本轮，意图已清空；随时可以重新加入。");
+      setSavedMessageOnly("已退出本轮，意向已清空；随时可以重新加入。");
     } catch (caughtError) {
       setErrorOnly(
         caughtError instanceof Error ? caughtError.message : "退出本轮失败。",
@@ -271,14 +363,11 @@ export function HomeClient({
       void withdraw();
       return;
     }
-    // Defensive: the toggle is disabled in this state, but if the disabled
-    // attribute is bypassed we still surface a friendly inline error rather
-    // than firing a request the API would reject.
     if (!questionnaireEligibleToOptIn) {
       setErrorOnly(
         questionnaireHasIncompleteDraft
-          ? "问卷有未保存的修改且必填项缺失，请回到「资料」补完后再参加本轮匹配。"
-          : "请先完成「资料」中的问卷，再参加本轮匹配。",
+          ? "匹配资料有未保存的修改且必填项缺失，请补完后再参加本轮匹配。"
+          : "请先完成「匹配资料」，再参加本轮匹配。",
       );
       return;
     }
@@ -294,67 +383,58 @@ export function HomeClient({
   const matchIntroduced = Boolean(latestMatch?.introducedAt);
 
   return (
-    <div className="app-page-shell">
-      <section className="hub-greeting">
-        <h1>
-          你好，{greeting}
-          <OliveSprigIllustration className="olive-sprig" />
-        </h1>
-        <p>
-          {questionnaireSubmitted
-            ? "本周是新的开始，期待你的相遇。"
-            : "先去「资料」补完问卷，下一轮就能为你认真匹配。"}
-        </p>
-      </section>
-
-      <nav className="mode-tabs" aria-label="匹配模式">
-        <button
-          type="button"
-          className={mode === "ONE_ON_ONE" ? "mode-tab is-active" : "mode-tab"}
-          aria-pressed={mode === "ONE_ON_ONE"}
-          onClick={() => setMode("ONE_ON_ONE")}
-        >
-          <PeopleIcon />
-          <span>1v1 匹配</span>
-        </button>
-        <button
-          type="button"
-          className={mode === "GROUP" ? "mode-tab is-active" : "mode-tab"}
-          aria-pressed={mode === "GROUP"}
-          onClick={() => setMode("GROUP")}
-        >
-          <GroupTrioIcon />
-          <span>多人局</span>
-          <span className="mode-tab-badge">即将开放</span>
-        </button>
-      </nav>
+    <div className="app-page-shell home-dashboard">
+      <header className="home-page-title">
+        <h1>首页</h1>
+      </header>
 
       {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
       {error ? <p className="form-error">{error}</p> : null}
 
-      {mode === "GROUP" ? (
-        <section className="coming-soon-card" aria-label="多人局即将开放">
-          <ThreeChairsIllustration className="coming-soon-illustration" />
-          <span className="coming-soon-meta">即将开放</span>
-          <h3>多人局</h3>
-          <p>
-            多人匹配，更多可能。我们正在打磨多人组队的匹配算法；第一波内测开放后会通过通知告诉你。
-          </p>
-        </section>
-      ) : (
-        <>
-        <div className="app-card-grid">
-          <section className="app-card" aria-label="本周参与">
-            <div className="app-card-head">
-              <h2 className="app-card-title">本周参与</h2>
-              <Link href="/about" className="app-card-link">
-                规则说明 →
-              </Link>
-            </div>
-            <span className="participation-meta">
-              <CalendarIcon />
-              {deadlineLabel ?? "等待下一轮开放"}
-            </span>
+      <section className="weekly-prep-panel" aria-label="本周准备">
+        <h2>本周准备</h2>
+        <div className="weekly-prep-list">
+          <PrepTaskCard
+            title="完成匹配资料"
+            description={questionnaireTaskDescription}
+            marker="1"
+            tone={questionnaireTaskComplete ? "complete" : "warning"}
+            actionLabel={questionnaireTaskComplete ? "查看 →" : "去完善 →"}
+            href={questionnaireCardHref}
+          />
+          <PrepTaskCard
+            title="选择本周意向"
+            description={intentTaskDescription}
+            marker="2"
+            tone={intentTaskComplete ? "complete" : "neutral"}
+            actionLabel={intentMeta ? "更换 →" : "去选择 →"}
+            disabled={intentActionDisabled}
+            onAction={openIntentSheetFromTask}
+          />
+          <PrepTaskCard
+            title="设置引荐联系方式"
+            description={contactTaskDescription}
+            marker="!"
+            tone={contactTaskComplete ? "complete" : "warning"}
+            actionLabel="去设置 →"
+            href="/dashboard/referral-settings"
+          />
+        </div>
+      </section>
+
+      <div className="home-card-grid">
+        <section className="app-card home-participation-card" aria-label="本周参与">
+          <div className="app-card-head">
+            <h2 className="app-card-title">本周参与</h2>
+            <Link href="/about" className="app-card-link">
+              规则说明 →
+            </Link>
+          </div>
+          <span className="participation-meta">
+            <CalendarIcon />
+            {deadlineLabel ?? "等待下一轮开放"}
+          </span>
+          <div className="home-participation-panel">
             <div className="participation-row">
               <div className="participation-state">
                 <strong>
@@ -395,13 +475,14 @@ export function HomeClient({
                 title={
                   participationBlockedByQuestionnaire
                     ? questionnaireHasIncompleteDraft
-                      ? "问卷有未保存的修改且必填项缺失，请回到「资料」补完后再参加本轮匹配"
-                      : "需要先完成「资料」中的问卷才能参加本轮匹配"
+                      ? "匹配资料有未保存的修改且必填项缺失，请补完后再参加本轮匹配"
+                      : "需要先完成「匹配资料」才能参加本轮匹配"
                     : undefined
                 }
                 onClick={handleToggleClick}
               />
             </div>
+
             {participationBlockedByQuestionnaire ? (
               <div
                 id="participation-blocked-hint"
@@ -416,24 +497,23 @@ export function HomeClient({
                 </span>
                 <span>
                   {questionnaireHasIncompleteDraft
-                    ? "问卷有未保存的修改且必填项缺失，请回到「资料」补完后再参加本轮匹配"
-                    : "先完成「资料」中的问卷才能参加本轮匹配"}
+                    ? "匹配资料有未保存的修改且必填项缺失，请补完后再参加本轮匹配"
+                    : "先完成「匹配资料」才能参加本轮匹配"}
                   （当前进度 {questionnairePercent}%）。
                   <Link
                     href="/dashboard/profile"
                     className="participation-blocked-link"
                   >
-                    {questionnaireHasIncompleteDraft
-                      ? "去补完问卷 →"
-                      : "去完善问卷 →"}
+                    去完善 →
                   </Link>
                 </span>
               </div>
             ) : null}
+
             {isOptedIn ? (
               <div className="participation-intent-row">
                 <span>
-                  本周意图：
+                  本周意向：
                   <strong>
                     {intentMeta
                       ? `${intentMeta.primary} · ${intentMeta.subtitle}`
@@ -446,141 +526,69 @@ export function HomeClient({
                   disabled={saving || !canEdit}
                   onClick={() => setSheetOpen(true)}
                 >
-                  {intentMeta ? "更换" : "选择意图"}
+                  {intentMeta ? "更换" : "选择意向"}
                 </button>
               </div>
             ) : null}
-          </section>
-
-                          <section
-                              className={
-                                  hasQuestionnaireAttention
-                                      ? "app-card q-progress-card has-attention"
-                                      : "app-card q-progress-card"
-                              }
-                              aria-label="问卷进度"
-                          >
-                              <div className="app-card-head">
-                                  <div className="q-progress-title-row">
-                                      <h2 className="app-card-title">问卷进度</h2>
-                                      {hasQuestionnaireAttention ? (
-                                          <span
-                                              className="q-progress-attention-dot"
-                                              aria-label="有问卷提示待查看"
-                                          />
-                                      ) : null}
-                                  </div>
-                                  <Link href={questionnaireCardHref} className="app-card-link">
-                                      {hasQuestionnaireAttention
-                                          ? "查看提示 →"
-                                          : questionnaireEligibleToOptIn
-                                              ? "查看问卷 →"
-                                              : "继续完善 →"}
-                                  </Link>
-                              </div>
-                              <div className="q-progress-row">
-                                  <span className="app-muted">
-                                      {pendingQuestionnaireUpdateCount > 0
-                                          ? "有更新待查看"
-                                          : missingQuestionnaireRequiredCount > 0
-                                              ? "必填项待补完"
-                                              : questionnaireEligibleToOptIn
-                                                  ? "已完成"
-                                                  : questionnaireHasIncompleteDraft
-                                                      ? "草稿待补完"
-                                                      : "草稿进度"}
-                                  </span>
-                                  <strong>
-                                      {pendingQuestionnaireUpdateCount > 0
-                                          ? `${pendingQuestionnaireUpdateCount}项`
-                                          : `${questionnairePercent}%`}
-                                  </strong>
-                              </div>
-                              <div
-                                  className="q-progress-bar"
-                                  role="progressbar"
-                                  aria-valuenow={questionnairePercent}
-                                  aria-valuemin={0}
-                                  aria-valuemax={100}
-                                  aria-label="问卷完成度"
-                              >
-                                  <div style={{ width: `${questionnairePercent}%` }} />
-                              </div>
-                              <p className="q-progress-note">
-                                  {pendingQuestionnaireUpdateCount > 0
-                                      ? `有 ${pendingQuestionnaireUpdateCount} 项问卷更新待查看。`
-                                      : missingQuestionnaireRequiredCount > 0
-                                          ? `还有 ${missingQuestionnaireRequiredCount} 项必填内容需要补完。`
-                                          : questionnaireEligibleToOptIn
-                                              ? "问卷已满足本轮要求；若有题目更新会在此提醒你查看。"
-                    : "完成度越高，匹配越准确。"}
-                              </p>
-                          </section>
-
-          <section className="app-card grid-span-all" aria-label="我的匹配">
-            <div className="app-card-head">
-              <h2 className="app-card-title">我的匹配</h2>
-              <Link href="/dashboard/match" className="app-card-link">
-                查看全部 →
-              </Link>
-            </div>
-            {dashboard.latestMatchVisibility === "LIMITED" && latestMatch ? (
-              <div className="match-empty">
-                <TeaTimeIllustration className="match-empty-illustration" />
-                <div className="match-empty-body">
-                  <strong>本轮匹配已受限</strong>
-                  <span>对方信息已隐藏；点查看全部了解原因和后续操作。</span>
-                </div>
-              </div>
-            ) : counterpart && latestMatch ? (
-              <div className="match-preview">
-                <WheatSprigIllustration className="match-preview-illustration" />
-                <div className="match-preview-body">
-                  <p className="match-preview-title">
-                    本周为你匹配到{" "}
-                    {matchIntroduced ? counterpart.displayName ?? "TA" : "TA"}
-                  </p>
-                  <p className="match-preview-sub">
-                    匹配度 {latestMatch.score.toFixed(1)} · {" "}
-                    {matchIntroduced ? "已引荐" : "等待你引荐对方"}
-                  </p>
-                </div>
-              </div>
-            ) : dashboard.lastRevealedRound?.participationStatus === "OPTED_IN" &&
-              !dashboard.lastRevealedRound.matched ? (
-              <div className="match-empty">
-                <TeaTimeIllustration className="match-empty-illustration" />
-                <div className="match-empty-body">
-                  <strong>上一轮未匹配到对象</strong>
-                  <span>本轮报名后，揭晓时再为你尝试一次。</span>
-                </div>
-              </div>
-            ) : (
-              <div className="match-empty">
-                <TeaTimeIllustration className="match-empty-illustration" />
-                <div className="match-empty-body">
-                  <strong>本周暂无匹配结果</strong>
-                  <span>请耐心等待 {revealLabel} 的开启。</span>
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-
-        <section className="coming-soon-card" aria-label="更多功能">
-          <CampusLineart className="coming-soon-illustration coming-soon-illustration-wide" />
-          <span className="coming-soon-meta">即将开放</span>
-          <h3>更多功能</h3>
-          <p>更多模块在路上。</p>
+          </div>
         </section>
-        </>
-      )}
 
-      <div className="hub-grass-divider" aria-hidden="true">
-        <GrassRowIllustration />
-        <span>好的关系，源于尊重与真诚</span>
-        <GrassRowIllustration />
+        <section className="app-card home-match-card" aria-label="我的匹配">
+          <div className="app-card-head">
+            <h2 className="app-card-title">我的匹配</h2>
+            <Link href="/dashboard/match" className="app-card-link">
+              查看全部 →
+            </Link>
+          </div>
+          {dashboard.latestMatchVisibility === "LIMITED" && latestMatch ? (
+            <div className="match-empty">
+              <TeaTimeIllustration className="match-empty-illustration" />
+              <div className="match-empty-body">
+                <strong>本轮匹配已受限</strong>
+                <span>对方信息已隐藏；点查看全部了解原因和后续操作。</span>
+              </div>
+            </div>
+          ) : counterpart && latestMatch ? (
+            <div className="match-preview">
+              <WheatSprigIllustration className="match-preview-illustration" />
+              <div className="match-preview-body">
+                <p className="match-preview-title">
+                  本周为你匹配到{" "}
+                  {matchIntroduced ? counterpart.displayName ?? "TA" : "TA"}
+                </p>
+                <p className="match-preview-sub">
+                  匹配度 {latestMatch.score.toFixed(1)} ·{" "}
+                  {matchIntroduced ? "已引荐" : "等待你引荐对方"}
+                </p>
+              </div>
+            </div>
+          ) : dashboard.lastRevealedRound?.participationStatus === "OPTED_IN" &&
+            !dashboard.lastRevealedRound.matched ? (
+            <div className="match-empty">
+              <TeaTimeIllustration className="match-empty-illustration" />
+              <div className="match-empty-body">
+                <strong>上一轮未匹配到对象</strong>
+                <span>本轮报名后，揭晓时再为你尝试一次。</span>
+              </div>
+            </div>
+          ) : (
+            <div className="match-empty">
+              <TeaTimeIllustration className="match-empty-illustration" />
+              <div className="match-empty-body">
+                <strong>本周暂无匹配结果</strong>
+                <span>请耐心等待 {revealLabel} 的开启。</span>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
+
+      <aside className="home-tip-bar">
+        <span className="home-tip-icon" aria-hidden="true">
+          i
+        </span>
+        <p>小贴士：资料越完整，匹配越精准；花几分钟完善信息吧。</p>
+      </aside>
 
       <IntentSheet
         open={sheetOpen}
