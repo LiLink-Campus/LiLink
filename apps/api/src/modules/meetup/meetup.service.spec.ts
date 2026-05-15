@@ -716,7 +716,16 @@ describe('MeetupService', () => {
     expect(
       tx.meetupSession.updateMany.mock.invocationCallOrder[0],
     ).toBeLessThan(tx.meetupProposal.create.mock.invocationCallOrder[0]);
-    const claimInput = tx.meetupSession.updateMany.mock.calls[0]?.[0];
+    const sessionUpdateCalls = tx.meetupSession.updateMany.mock
+      .calls as unknown as Array<
+      [
+        {
+          where?: Record<string, unknown>;
+          data?: Record<string, unknown>;
+        },
+      ]
+    >;
+    const claimInput = sessionUpdateCalls[0]?.[0];
     expect(claimInput).toMatchObject({
       where: {
         id: 'session-1',
@@ -728,7 +737,7 @@ describe('MeetupService', () => {
         lastActiveAt: new Date('2026-05-14T10:00:00.000Z'),
       },
     });
-    const linkInput = tx.meetupSession.updateMany.mock.calls[1]?.[0];
+    const linkInput = sessionUpdateCalls[1]?.[0];
     expect(linkInput).toMatchObject({
       data: {
         currentProposalId: 'proposal-created',
@@ -806,7 +815,16 @@ describe('MeetupService', () => {
     expect(
       tx.meetupSession.updateMany.mock.invocationCallOrder[0],
     ).toBeLessThan(tx.meetupProposal.create.mock.invocationCallOrder[0]);
-    const claimInput = tx.meetupSession.updateMany.mock.calls[0]?.[0];
+    const sessionUpdateCalls = tx.meetupSession.updateMany.mock
+      .calls as unknown as Array<
+      [
+        {
+          where?: Record<string, unknown>;
+          data?: Record<string, unknown>;
+        },
+      ]
+    >;
+    const claimInput = sessionUpdateCalls[0]?.[0];
     expect(claimInput).toMatchObject({
       where: {
         id: 'session-1',
@@ -820,7 +838,7 @@ describe('MeetupService', () => {
         reopenedFromLockedStartsAt: confirmedTime.startsAt,
       },
     });
-    const linkInput = tx.meetupSession.updateMany.mock.calls[1]?.[0];
+    const linkInput = sessionUpdateCalls[1]?.[0];
     expect(linkInput).toMatchObject({
       data: {
         currentProposalId: 'proposal-created',
@@ -889,7 +907,7 @@ describe('MeetupService', () => {
         data: expect.objectContaining({
           status: 'CANCELED',
           canceledByUserId: 'user-a',
-        }),
+        }) as object,
       }),
     );
   });

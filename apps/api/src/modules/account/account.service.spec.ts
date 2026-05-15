@@ -2429,7 +2429,7 @@ describe('AccountService', () => {
     expect(dashboard.meetupSummary).toMatchObject({
       sessionId: 'session-1',
       status: 'EXPIRED',
-      terminalText: expect.any(String),
+      terminalText: expect.any(String) as string,
     });
     expect(dashboard.tasks).toEqual([]);
     expect(tx.meetupSession.updateMany).toHaveBeenCalledWith({
@@ -2555,7 +2555,7 @@ describe('AccountService', () => {
     expect(dashboard.meetupSummary).toMatchObject({
       sessionId: 'session-1',
       status: 'ARCHIVED',
-      terminalText: expect.any(String),
+      terminalText: expect.any(String) as string,
     });
     expect(tx.meetupSession.updateMany).toHaveBeenCalledWith({
       where: {
@@ -2675,7 +2675,7 @@ describe('AccountService', () => {
     expect(dashboard.meetupSummary).toMatchObject({
       sessionId: 'session-1',
       status: 'CANCELED',
-      terminalText: expect.any(String),
+      terminalText: expect.any(String) as string,
     });
     expect(tx.meetupProposal.updateMany).not.toHaveBeenCalled();
     expect(tx.meetupOption.updateMany).not.toHaveBeenCalled();
