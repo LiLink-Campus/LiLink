@@ -520,6 +520,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.75rem;
 }
 
@@ -552,7 +553,8 @@
   color: var(--fg-secondary);
   width: fit-content;
   max-width: 100%;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 .app-card-status.is-on {
@@ -721,6 +723,60 @@
   align-items: center;
 }
 
+.meetup-progress-tracker {
+  width: min(100%, 44rem);
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.meetup-progress-tracker li {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.52rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-elevated) 76%, transparent);
+  color: var(--fg-secondary);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.meetup-progress-tracker li.is-complete {
+  border-color: color-mix(in srgb, var(--success) 42%, transparent);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.meetup-progress-tracker li.is-active {
+  border-color: var(--primary-soft);
+  background: var(--primary-tint);
+  color: var(--primary-ink);
+  font-weight: 600;
+}
+
+.meetup-progress-tracker li.is-muted {
+  opacity: 0.64;
+}
+
+.meetup-step-marker {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .meetup-inline-link {
   width: fit-content;
 }
@@ -742,6 +798,10 @@
 .meetup-timeline-card,
 .meetup-action-panel {
   min-width: 0;
+}
+
+.meetup-timeline-card {
+  order: 2;
 }
 
 .meetup-plan-grid,
@@ -958,6 +1018,7 @@
 
 .meetup-action-panel {
   position: sticky;
+  order: 1;
   bottom: calc(var(--tabbar-height) + 0.85rem);
   z-index: 20;
   max-height: calc(100dvh - var(--appbar-height) - var(--tabbar-height) - 2rem);
@@ -968,6 +1029,16 @@
   .meetup-action-panel {
     bottom: 1rem;
     max-height: calc(100dvh - 2rem);
+  }
+}
+
+@media (min-width: 1040px) {
+  .meetup-action-panel {
+    order: 2;
+  }
+
+  .meetup-timeline-card {
+    order: 1;
   }
 }
 
@@ -998,6 +1069,45 @@
   font-size: 0.8rem;
 }
 
+.meetup-action-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-soft);
+}
+
+.meetup-action-brief strong {
+  color: var(--fg);
+  font-size: 0.96rem;
+}
+
+.meetup-action-brief p {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.meetup-action-brief.is-attention {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-left-color: var(--primary);
+  background: var(--primary-tint);
+}
+
+.meetup-action-brief.is-waiting {
+  border-left-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.meetup-action-brief.is-locked {
+  border-left-color: var(--success);
+  background: var(--success-soft);
+}
+
 .meetup-final-panel,
 .meetup-accept-panel,
 .meetup-locked-summary,
@@ -1023,7 +1133,8 @@
 .meetup-final-panel p,
 .meetup-terminal-state p,
 .meetup-form-section p,
-.meetup-accept-panel p {
+.meetup-accept-panel p,
+.meetup-proposal-preview p {
   margin: 0;
   color: var(--fg-secondary);
   font-size: 0.9rem;
@@ -1156,6 +1267,48 @@
   resize: vertical;
 }
 
+.meetup-selection-hint,
+.meetup-proposal-preview {
+  padding: 0.7rem 0.78rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-tinted);
+}
+
+.meetup-selection-hint {
+  color: var(--fg-secondary);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.meetup-proposal-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.meetup-proposal-preview > span {
+  color: var(--fg-muted);
+  font-size: 0.76rem;
+}
+
+.meetup-proposal-preview strong {
+  color: var(--fg);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.meetup-inline-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.meetup-inline-feedback .form-error {
+  flex: 1 1 14rem;
+}
+
 .meetup-small-button {
   width: fit-content;
 }
@@ -1272,6 +1425,10 @@
   .meetup-action-panel .button-secondary,
   .meetup-proposal-form > .button-primary {
     width: 100%;
+  }
+
+  .meetup-progress-tracker {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -101,11 +101,30 @@ type MeetupProposalSubmitSummary = {
   noteText: string | null;
 };
 
+type MeetupProgressStepState = "complete" | "active" | "pending" | "muted";
+
+type MeetupActionBriefTone = "default" | "attention" | "waiting" | "locked";
+
+type MeetupActionBriefContent = {
+  title: string;
+  body: string;
+  tone: MeetupActionBriefTone;
+};
+
 const MIN_LEAD_MINUTES = 30;
 const CHINA_STANDARD_TIME_OFFSET_MINUTES = 8 * 60;
 const MINUTE_MS = 60_000;
 const DATETIME_LOCAL_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+const MEETUP_PROGRESS_STEPS: Array<{
+  key: "proposal" | "selection" | "confirmation";
+  label: string;
+}> = [
+  { key: "proposal", label: "发起方案" },
+  { key: "selection", label: "选择可行项" },
+  { key: "confirmation", label: "确认安排" },
+];
 
 const MESSAGE_TYPE_LABELS: Record<
   MeetupSessionResponse["messages"][number]["type"],
@@ -157,6 +176,10 @@ function toDatetimeLocalValue(parts: {
   )}:${pad(parts.minute)}`;
 }
 
+function chinaStandardDatetimeLocalValue(date: Date) {
+  return toDatetimeLocalValue(chinaStandardTimeParts(date));
+}
+
 function defaultChinaStandardDatetimeLocalValue(
   daysFromToday: number,
   hour: number,
@@ -166,7 +189,13 @@ function defaultChinaStandardDatetimeLocalValue(
   const instant =
     Date.UTC(today.year, today.month - 1, today.day + daysFromToday, hour, minute) -
     CHINA_STANDARD_TIME_OFFSET_MINUTES * MINUTE_MS;
-  return toDatetimeLocalValue(chinaStandardTimeParts(new Date(instant)));
+  return chinaStandardDatetimeLocalValue(new Date(instant));
+}
+
+function minimumChinaStandardDatetimeLocalValue() {
+  return chinaStandardDatetimeLocalValue(
+    new Date(Date.now() + MIN_LEAD_MINUTES * MINUTE_MS),
+  );
 }
 
 function defaultTimeSlot(index: number): TimeSlot {
@@ -273,7 +302,7 @@ function buildProposalSubmitSummary(
       proposal.locationOptions?.map((option) => {
         const candidate = candidateById.get(option.locationCandidateId);
         if (!candidate) return `地点候选 ${option.locationCandidateId}`;
-        return `${candidate.name} (${candidate.latitude.toFixed(6)}, ${candidate.longitude.toFixed(6)})`;
+        return candidate.name;
       }) ?? [],
     noteText: proposal.noteText ?? proposal.notePreset ?? null,
   };
@@ -397,7 +426,7 @@ export function MeetupStartClient({
         <p className="eyebrow">Meetup</p>
         <h1>安排第一次见面</h1>
         <p>
-          先给对方发出第一条方案。时间与地点都可以提交 2-3 个选项；地点只来自服务端候选集合。
+          先给对方发出第一条方案。你可以同时提议时间和地点，也可以只先确定其中一项；每项保留 2-3 个候选。
         </p>
       </section>
       <section className="app-card">
@@ -497,8 +526,58 @@ function MeetupStatusHeader({ session }: { session: MeetupSessionResponse }) {
           </span>
         ) : null}
       </div>
+      <MeetupProgressTracker session={session} />
     </section>
   );
+}
+
+function MeetupProgressTracker({ session }: { session: MeetupSessionResponse }) {
+  const stepStates = meetupProgressStepStates(session);
+
+  return (
+    <ol className="meetup-progress-tracker" aria-label="见面安排进度">
+      {MEETUP_PROGRESS_STEPS.map((step, index) => (
+        <li className={`is-${stepStates[step.key]}`} key={step.key}>
+          <span className="meetup-step-marker">{index + 1}</span>
+          <span>{step.label}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function meetupProgressStepStates(
+  session: MeetupSessionResponse,
+): Record<(typeof MEETUP_PROGRESS_STEPS)[number]["key"], MeetupProgressStepState> {
+  const terminal = sessionIsTerminal(session);
+  const locked = session.status === "LOCKED" || session.progressStatus === "LOCKED";
+  const hasProposal = session.messages.some(
+    (message) => message.type === "PROPOSE" || message.type === "REVISE_AFTER_LOCK",
+  );
+  const hasAnyConfirmedOption =
+    session.confirmedTimeOptionId !== null ||
+    session.confirmedLocationOptionId !== null;
+  const awaitingFinal =
+    session.progressStatus === "AWAITING_FINAL_CONFIRMATION" ||
+    session.finalConfirmRequiredByUserId !== null;
+
+  if (terminal && !locked) {
+    return {
+      proposal: hasProposal ? "complete" : "muted",
+      selection: hasAnyConfirmedOption ? "complete" : "muted",
+      confirmation: "muted",
+    };
+  }
+
+  return {
+    proposal: hasProposal ? "complete" : "active",
+    selection: locked || awaitingFinal
+      ? "complete"
+      : hasProposal
+        ? "active"
+        : "pending",
+    confirmation: locked ? "complete" : awaitingFinal ? "active" : "pending",
+  };
 }
 
 function MeetupCurrentPlanCard({ session }: { session: MeetupSessionResponse }) {
@@ -522,12 +601,6 @@ function MeetupCurrentPlanCard({ session }: { session: MeetupSessionResponse }) 
           label="地点"
           value={plan.placeName ?? "地点待确认"}
           muted={!plan.placeName}
-          detail={
-            typeof plan.latitude === "number" &&
-            typeof plan.longitude === "number"
-              ? `${plan.latitude.toFixed(6)}, ${plan.longitude.toFixed(6)}`
-              : null
-          }
         />
       </div>
     </section>
@@ -847,6 +920,13 @@ function MeetupActionPanel({
   const canCancel = session.availableActions.cancel.enabled;
   const canRevise = session.availableActions.reviseAfterLock.enabled;
   const defaultScope = defaultScopeForSession(session);
+  const actionBrief = meetupActionBrief({
+    session,
+    terminal,
+    canAccept: Boolean(canAccept),
+    canFinalConfirm,
+    canPropose,
+  });
 
   return (
     <aside className="app-card meetup-action-panel" aria-label="当前操作">
@@ -856,6 +936,8 @@ function MeetupActionPanel({
           {TURN_LABELS[session.userTurnStatus]}
         </span>
       </div>
+
+      <MeetupActionBrief content={actionBrief} />
 
       <MeetupParticipantList
         session={session}
@@ -1018,6 +1100,84 @@ function MeetupActionPanel({
   );
 }
 
+function meetupActionBrief({
+  session,
+  terminal,
+  canAccept,
+  canFinalConfirm,
+  canPropose,
+}: {
+  session: MeetupSessionResponse;
+  terminal: boolean;
+  canAccept: boolean;
+  canFinalConfirm: boolean;
+  canPropose: boolean;
+}): MeetupActionBriefContent {
+  if (terminal) {
+    return {
+      title: "本次安排已结束",
+      body: "你仍可以回到匹配页查看当前匹配状态和历史记录。",
+      tone: "default",
+    };
+  }
+
+  if (session.status === "LOCKED") {
+    return {
+      title: "安排已确认",
+      body: "时间和地点已经锁定；如计划有变化，可按当前规则发起一次修改或取消。",
+      tone: "locked",
+    };
+  }
+
+  if (canFinalConfirm) {
+    return {
+      title: "等待你最终确认",
+      body: "对方已接受完整方案。确认后，这次见面的时间和地点会锁定。",
+      tone: "attention",
+    };
+  }
+
+  if (canAccept) {
+    return {
+      title: "轮到你回应当前提议",
+      body: "选择你能接受的时间或地点；如果都不合适，建议写一句备注再交回对方。",
+      tone: "attention",
+    };
+  }
+
+  if (canPropose) {
+    return {
+      title:
+        session.messages.length === 0 ? "发送第一条见面倡议" : "继续推进这个安排",
+      body: "给对方 2-3 个可选项，能让回应更快，也降低来回修改的成本。",
+      tone: "default",
+    };
+  }
+
+  if (session.userTurnStatus === "WAITING_FOR_COUNTERPART") {
+    return {
+      title: "已交给对方回应",
+      body: "对方选择或修改后，这里会切回可操作状态；你也可以先查看当前方案。",
+      tone: "waiting",
+    };
+  }
+
+  return {
+    title: "暂无需要处理的操作",
+    body: "当前状态不需要你继续填写；如状态变化，首页待办和本页都会更新。",
+    tone: "default",
+  };
+}
+
+function MeetupActionBrief({ content }: { content: MeetupActionBriefContent }) {
+  return (
+    <div className={`meetup-action-brief is-${content.tone}`}>
+      <strong>{content.title}</strong>
+      <p>{content.body}</p>
+    </div>
+  );
+}
+
 function MeetupParticipantList({
   session,
   currentUserId,
@@ -1089,6 +1249,7 @@ function MeetupAcceptPanel({
   );
   const [noteText, setNoteText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
   const kinds = requiredKindsFromProposal(proposal);
   const timeOptions = proposal.options.filter(
     (option) => option.kind === "TIME",
@@ -1096,6 +1257,11 @@ function MeetupAcceptPanel({
   const locationOptions = proposal.options.filter(
     (option) => option.kind === "LOCATION",
   );
+  const hasSelection = Boolean(selectedTimeId || selectedLocationId);
+  const selectedSummary = [
+    selectedTimeId ? "已选时间" : null,
+    selectedLocationId ? "已选地点" : null,
+  ].filter(Boolean);
 
   async function submitAccept(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1127,7 +1293,7 @@ function MeetupAcceptPanel({
     <form className="meetup-accept-panel" onSubmit={submitAccept}>
       <div>
         <strong>回应当前提议</strong>
-        <p>你可以接受其中一个维度，或同时接受时间和地点。</p>
+        <p>你可以只接受其中一项，也可以同时接受时间和地点。</p>
       </div>
       {kinds.has("TIME") ? (
         <MeetupChoiceGroup
@@ -1147,18 +1313,28 @@ function MeetupAcceptPanel({
           onSelect={setSelectedLocationId}
         />
       ) : null}
+      <p className="meetup-selection-hint" aria-live="polite">
+        {hasSelection
+          ? `${selectedSummary.join("，")}。提交后会把选择同步给对方。`
+          : "先选择一个你可以接受的时间或地点。"}
+      </p>
       <label className="meetup-field">
-        <span>备注（选填）</span>
+        <span>给对方的备注（选填，拒绝时建议填写）</span>
         <textarea
           value={noteText}
           maxLength={500}
           disabled={disabled}
+          placeholder="例如：这个时间可以，但希望地点再靠近一点。"
           onChange={(event) => setNoteText(event.target.value)}
         />
       </label>
       {error ? <p className="form-error">{error}</p> : null}
       <div className="meetup-action-row">
-        <button className="button-primary" type="submit" disabled={disabled}>
+        <button
+          className="button-primary"
+          type="submit"
+          disabled={disabled || !hasSelection}
+        >
           接受所选选项
         </button>
         {onReject ? (
@@ -1166,12 +1342,29 @@ function MeetupAcceptPanel({
             className="button-secondary"
             type="button"
             disabled={disabled}
-            onClick={() => void submitReject()}
+            onClick={() => setConfirmRejectOpen(true)}
           >
             拒绝并交回对方
           </button>
         ) : null}
       </div>
+      <ConfirmActionDialog
+        open={confirmRejectOpen}
+        title="拒绝这条提议？"
+        description={
+          cleanOptionalText(noteText)
+            ? "拒绝后会轮到对方重新提出方案。你的备注会一起发送。"
+            : "拒绝后会轮到对方重新提出方案。没有备注也可以继续，但补充原因通常更容易推进。"
+        }
+        details={[]}
+        confirmLabel="确认拒绝"
+        busy={disabled}
+        onClose={() => setConfirmRejectOpen(false)}
+        onConfirm={() => {
+          setConfirmRejectOpen(false);
+          void submitReject();
+        }}
+      />
     </form>
   );
 }
@@ -1314,7 +1507,12 @@ function MeetupProposalForm({
   const [candidates, setCandidates] = useState<MeetupLocationCandidate[]>([]);
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [candidateReloadKey, setCandidateReloadKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const minimumTimeValue = useMemo(
+    () => minimumChinaStandardDatetimeLocalValue(),
+    [],
+  );
 
   useEffect(() => {
     setScope(defaultScope);
@@ -1323,6 +1521,7 @@ function MeetupProposalForm({
   useEffect(() => {
     let canceled = false;
     setLoadingCandidates(true);
+    setCandidateError(null);
     fetchMeetupLocationCandidates()
       .then((nextCandidates) => {
         if (canceled) return;
@@ -1331,6 +1530,7 @@ function MeetupProposalForm({
       })
       .catch((caughtError) => {
         if (canceled) return;
+        setCandidates([]);
         setCandidateError(
           errorMessage(caughtError, "地点候选加载失败，请稍后重试。"),
         );
@@ -1341,13 +1541,26 @@ function MeetupProposalForm({
     return () => {
       canceled = true;
     };
-  }, []);
+  }, [candidateReloadKey]);
 
   const wantsTime = scope !== "LOCATION_ONLY";
   const wantsLocation = scope !== "TIME_ONLY";
   const selectedLocationIds = locationSlots
     .map((slot) => slot.locationCandidateId)
     .filter(Boolean);
+  const completeTimeSlotCount = wantsTime
+    ? timeSlots.filter((slot) => slot.startsAt && slot.endsAt).length
+    : 0;
+  const selectedLocationSlotCount = wantsLocation
+    ? locationSlots.filter((slot) => slot.locationCandidateId).length
+    : 0;
+  const noteLength = cleanOptionalText(noteText)?.length ?? 0;
+  const submitDisabled = disabled || (wantsLocation && loadingCandidates);
+  const submitButtonLabel = disabled
+    ? submittingLabel
+    : wantsLocation && loadingCandidates
+      ? "正在加载地点…"
+      : submitLabel;
 
   function addTimeSlot() {
     if (timeSlots.length >= 3) return;
@@ -1478,7 +1691,9 @@ function MeetupProposalForm({
       {wantsTime ? (
         <fieldset className="meetup-form-section">
           <legend>时间选项</legend>
-          <p>请提供 2-3 个未来时间段。</p>
+          <p>
+            请提供 2-3 个未来时间段。按北京时间填写，开始时间至少晚于当前 30 分钟。
+          </p>
           {timeSlots.map((slot, index) => (
             <div className="meetup-time-slot" key={slot.key}>
               <label className="meetup-field">
@@ -1486,6 +1701,7 @@ function MeetupProposalForm({
                 <input
                   type="datetime-local"
                   value={slot.startsAt}
+                  min={minimumTimeValue}
                   disabled={disabled}
                   onChange={(event) =>
                     updateTimeSlot(slot.key, { startsAt: event.target.value })
@@ -1497,6 +1713,7 @@ function MeetupProposalForm({
                 <input
                   type="datetime-local"
                   value={slot.endsAt}
+                  min={slot.startsAt || minimumTimeValue}
                   disabled={disabled}
                   onChange={(event) =>
                     updateTimeSlot(slot.key, { endsAt: event.target.value })
@@ -1531,8 +1748,20 @@ function MeetupProposalForm({
       {wantsLocation ? (
         <fieldset className="meetup-form-section">
           <legend>地点选项</legend>
-          <p>地点候选由服务端提供；提交时只发送 candidate ID。</p>
-          {candidateError ? <p className="form-error">{candidateError}</p> : null}
+          <p>请选择 2-3 个候选地点，不要重复。对方可以从这些地点里直接选择。</p>
+          {candidateError ? (
+            <div className="meetup-inline-feedback">
+              <p className="form-error">{candidateError}</p>
+              <button
+                className="button-secondary meetup-small-button"
+                type="button"
+                disabled={disabled || loadingCandidates}
+                onClick={() => setCandidateReloadKey((current) => current + 1)}
+              >
+                重新加载地点
+              </button>
+            </div>
+          ) : null}
           {loadingCandidates ? (
             <p className="app-card-muted">正在加载地点候选…</p>
           ) : null}
@@ -1574,18 +1803,39 @@ function MeetupProposalForm({
       ) : null}
 
       <label className="meetup-field">
-        <span>备注（选填）</span>
+        <span>给对方的备注（选填）</span>
         <textarea
           value={noteText}
           maxLength={500}
           disabled={disabled}
+          placeholder="例如：更偏好傍晚，地点希望安静一些。"
           onChange={(event) => setNoteText(event.target.value)}
         />
       </label>
 
       {error ? <p className="form-error">{error}</p> : null}
-      <button className="button-primary" type="submit" disabled={disabled}>
-        {disabled ? submittingLabel : submitLabel}
+      <div className="meetup-proposal-preview" aria-live="polite">
+        <span>发送前检查</span>
+        <strong>
+          {[
+            wantsTime
+              ? `${completeTimeSlotCount}/${timeSlots.length} 个时间已填写`
+              : null,
+            wantsLocation
+              ? `${selectedLocationSlotCount}/${locationSlots.length} 个地点已选择`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </strong>
+        <p>
+          {noteLength > 0
+            ? `备注 ${noteLength}/500 字`
+            : "备注可补充偏好或限制，让对方更容易回应。"}
+        </p>
+      </div>
+      <button className="button-primary" type="submit" disabled={submitDisabled}>
+        {submitButtonLabel}
       </button>
     </form>
   );
@@ -1647,11 +1897,11 @@ function MeetupLocationCandidatePicker({
             aria-expanded={detailsOpen}
             onClick={() => setDetailsOpen((current) => !current)}
           >
-            {detailsOpen ? "收起坐标" : "查看坐标"}
+            {detailsOpen ? "收起位置参考" : "查看位置参考"}
           </button>
           {detailsOpen ? (
             <p>
-              {selectedCandidate.latitude.toFixed(6)},{" "}
+              坐标：{selectedCandidate.latitude.toFixed(6)},{" "}
               {selectedCandidate.longitude.toFixed(6)}
             </p>
           ) : null}

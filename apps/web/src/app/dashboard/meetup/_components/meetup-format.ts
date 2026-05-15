@@ -119,9 +119,9 @@ export function optionSecondaryText(option: MeetupOption) {
     typeof option.latitude === "number" &&
     typeof option.longitude === "number"
   ) {
-    return `${option.latitude.toFixed(6)}, ${option.longitude.toFixed(6)}`;
+    return "系统候选地点";
   }
-  return "坐标由服务端候选地点提供";
+  return "系统候选地点";
 }
 
 export function proposalSummary(proposal: MeetupProposal) {
