@@ -289,8 +289,7 @@ function mapAvailableActions(input: {
     session.status === 'LOCKED' &&
     !lockedStarted &&
     currentParticipant?.revisionUsedAt == null;
-  const lockedCancelStarted =
-    session.status === 'LOCKED' && lockedStarted;
+  const lockedCancelStarted = session.status === 'LOCKED' && lockedStarted;
   const canCancel =
     session.status === 'ACTIVE'
       ? !activeExpired && !reopenedGuardStarted
