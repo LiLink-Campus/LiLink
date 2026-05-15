@@ -131,7 +131,7 @@ export function MatchClient({
             </div>
             {introduced ? (
               <p className="app-card-muted">
-                引荐已完成：系统已向你与对方的注册邮箱各发送一封引荐邮件（含联络方式与下方说明）。请查收收件箱及垃圾邮件夹后，再通过邮件与对方联系。
+                引荐已完成：系统已向你与对方的注册邮箱各发送一封引荐邮件（含联络方式与下方说明）。请查收收件箱及垃圾邮件夹后，按对方公开的联系方式联系。
               </p>
             ) : (
               <p className="app-card-muted">
@@ -139,9 +139,10 @@ export function MatchClient({
               </p>
             )}
 
-            {introduced && counterpart.email ? (
+            {introduced && counterpart.contact ? (
               <p className="form-success app-match-email">
-                联络邮箱：{counterpart.email}
+                联系方式：{counterpart.contact.label}{" "}
+                {counterpart.contact.value}
               </p>
             ) : null}
             {introduced && counterpart.introLine ? (
@@ -199,10 +200,10 @@ export function MatchClient({
             {hasMissingIntent ? (
               <>
                 <div className="app-card-head">
-                  <h2>待选择本周意图</h2>
+                  <h2>待选择本周意向</h2>
                 </div>
                 <p className="app-card-muted">
-                  当前这轮还没有保存可用的匹配意图。回到「首页」用本周参与开关确认 Friend、Date 或 Both 后，系统会按这次确认后的设置参与匹配。
+                  当前这轮还没有保存可用的匹配意向。回到「首页」用本周参与开关确认 Friend、Date 或 Both 后，系统会按这次确认后的设置参与匹配。
                 </p>
               </>
             ) : currentCycle?.participationStatus === "OPTED_IN" &&
@@ -213,10 +214,10 @@ export function MatchClient({
                   <h2>本轮已锁定</h2>
                 </div>
                 <p className="app-card-muted">
-                  本轮报名已经截止，而且这轮没有保存可用的匹配意图，因此系统不会按本轮为你参与匹配。
+                  本轮报名已经截止，而且这轮没有保存可用的匹配意向，因此系统不会按本轮为你参与匹配。
                 </p>
                 <p className="app-card-muted">
-                  你仍可继续完善问卷资料，等待下一轮开放后再选择 Friend、Date 或 Both。
+                  你仍可继续完善匹配资料，等待下一轮开放后再选择 Friend、Date 或 Both。
                 </p>
               </>
             ) : currentCycle?.participationStatus === "OPTED_IN" &&
@@ -231,19 +232,19 @@ export function MatchClient({
                 </div>
                 <p className="app-card-muted">
                   {hasSavedQuestionnaire
-                    ? "你已填写问卷并已参加本轮。揭晓后将在此显示匹配说明与后续操作；在此前可在「资料」中修改信息。"
+                    ? "你已填写匹配资料并已参加本轮。揭晓后将在此显示匹配说明与后续操作；在此前可在「匹配资料」中修改信息。"
                     : "本轮揭晓后将在此显示匹配说明与后续操作。"}
                 </p>
               </>
             ) : currentCycleIsLocked ? (
               <>
                 <div className="app-card-head">
-                  <h2>{hasSavedQuestionnaire ? "本轮已锁定" : "继续完善资料"}</h2>
+                  <h2>{hasSavedQuestionnaire ? "本轮已锁定" : "继续完善匹配资料"}</h2>
                 </div>
                 <p className="app-card-muted">
                   {hasSavedQuestionnaire
-                    ? "本轮报名已经截止，当前不能再参加或修改本周意图。你可以继续完善问卷资料，等待下一轮开放。"
-                    : "本轮报名已经截止。你仍可继续填写和完善问卷资料，为下一轮开放后的报名做准备。"}
+                    ? "本轮报名已经截止，当前不能再参加或修改本周意向。你可以继续完善匹配资料，等待下一轮开放。"
+                    : "本轮报名已经截止。你仍可继续填写和完善匹配资料，为下一轮开放后的报名做准备。"}
                 </p>
               </>
             ) : (
@@ -254,7 +255,7 @@ export function MatchClient({
                 <p className="app-card-muted">
                   {hasSavedQuestionnaire
                     ? "你已保存问卷。若尚未参加本轮，可回到「首页」打开本周参与开关报名；揭晓后返回此处查看结果。"
-                    : "请先在「资料」完成问卷，然后回到「首页」报名参加当前轮次。"}
+                    : "请先在「匹配资料」完成问卷，然后回到「首页」报名参加当前轮次。"}
                 </p>
               </>
             )}

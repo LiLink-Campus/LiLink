@@ -4,6 +4,7 @@ import { OutboundEmailMessageCategory } from '../prisma/client';
 import nodemailer from 'nodemailer';
 import { env } from '../../config/env';
 import { PrismaService } from '../prisma/prisma.service';
+import type { ContactChannelType } from '@lilink/shared';
 
 function escapeHtml(value: string | null | undefined) {
   return String(value ?? '')
@@ -21,15 +22,23 @@ type IntroductionEmailInput = {
     displayName: string | null;
     schoolName?: string | null;
     introLine?: string | null;
+    publicContact?: PublicContactInput;
   };
   recipient: {
     email: string;
     displayName: string | null;
     schoolName?: string | null;
     introLine?: string | null;
+    publicContact?: PublicContactInput;
   };
   reason: string;
   conversationTopics: string[];
+};
+
+type PublicContactInput = {
+  type: ContactChannelType;
+  label: string;
+  value: string;
 };
 
 type VerificationCodeEmailInput = {
@@ -272,7 +281,12 @@ export class MailService {
     conversationTopics: string[];
   }) {
     const subject = `LiLink 已为你引荐 ${input.otherPartyDisplayName}`;
-    const otherEmail = input.otherParty.email;
+    const otherContact = input.otherParty.publicContact ?? {
+      type: 'EMAIL' as const,
+      label: '邮箱',
+      value: input.otherParty.email,
+    };
+    const otherContactText = `${otherContact.label} ${otherContact.value}`;
     const otherSchool = input.otherParty.schoolName ?? '未填写';
     const otherIntro = input.otherParty.introLine ?? '暂无';
     const escapedReason = escapeHtml(input.reason);
@@ -286,7 +300,7 @@ export class MailService {
     const text = [
       input.leadingSentence,
       '',
-      `对方邮箱：${otherEmail}`,
+      `对方联系方式：${otherContactText}`,
       `对方学校：${otherSchool}`,
       `对方一句话介绍：${otherIntro}`,
       '',
@@ -308,7 +322,7 @@ export class MailService {
         '<p class="brand">LiLink</p>',
         `<h1>${escapeHtml(subject)}</h1>`,
         `<p>${escapeHtml(input.leadingSentence)}</p>`,
-        `<p class="note">对方邮箱：<strong>${escapeHtml(otherEmail)}</strong></p>`,
+        `<p class="note">对方联系方式：<strong>${escapeHtml(otherContactText)}</strong></p>`,
         `<p class="note">对方学校：${escapeHtml(otherSchool)}</p>`,
         `<p class="note">对方一句话介绍：${escapeHtml(otherIntro)}</p>`,
         '<p class="note">本次匹配理由：</p>',

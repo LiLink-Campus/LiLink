@@ -15,6 +15,7 @@ import {
   HeartIcon,
   HomeIcon,
   LogoutIcon,
+  MessageCircleIcon,
   ProfileIcon,
   UserCircleIcon,
 } from "./icons";
@@ -28,7 +29,12 @@ type NavItem = {
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: "/dashboard", label: "首页", Icon: HomeIcon },
   { href: "/dashboard/match", label: "我的匹配", Icon: HeartIcon },
-  { href: "/dashboard/profile", label: "资料", Icon: ProfileIcon },
+  { href: "/dashboard/profile", label: "匹配资料", Icon: ProfileIcon },
+  {
+    href: "/dashboard/referral-settings",
+    label: "引荐设置",
+    Icon: MessageCircleIcon,
+  },
   { href: "/dashboard/me", label: "我的", Icon: UserCircleIcon },
 ];
 
@@ -156,7 +162,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                   role="menuitem"
                   onClick={closeMenu}
                 >
-                  问卷资料
+                  匹配资料
+                </Link>
+                <Link
+                  href="/dashboard/referral-settings"
+                  role="menuitem"
+                  onClick={closeMenu}
+                >
+                  引荐设置
                 </Link>
                 <Link
                   href="/dashboard/me"

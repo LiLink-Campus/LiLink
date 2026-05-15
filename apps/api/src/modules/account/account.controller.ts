@@ -20,6 +20,7 @@ import {
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
+  UpdateContactPreferencesDto,
   UpdateProfileDto,
 } from './dto';
 
@@ -66,6 +67,19 @@ export class AccountController {
     @Body() body: UpdateProfileDto,
   ) {
     return this.accountService.updateProfile(request.user!.sub, body);
+  }
+
+  @Get('contact-preferences')
+  getContactPreferences(@Req() request: AuthenticatedRequest) {
+    return this.accountService.getContactPreferences(request.user!.sub);
+  }
+
+  @Put('contact-preferences')
+  updateContactPreferences(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: UpdateContactPreferencesDto,
+  ) {
+    return this.accountService.updateContactPreferences(request.user!.sub, body);
   }
 
   @Put('locale')

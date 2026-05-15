@@ -162,6 +162,43 @@ describe('MailService', () => {
     expect(recipientEmail.html).toContain('A&amp;B School');
   });
 
+  it('renders the other party selected public contact in introduction email', () => {
+    const service = createMailService();
+
+    const [requesterEmail, recipientEmail] = service.buildIntroductionEmails({
+      matchId: 'match-1',
+      requester: {
+        email: 'requester@example.com',
+        displayName: 'Requester',
+        publicContact: {
+          type: 'WECHAT',
+          label: '微信号',
+          value: 'wx_user_1',
+        },
+      },
+      recipient: {
+        email: 'recipient@example.com',
+        displayName: 'Recipient',
+        publicContact: {
+          type: 'PHONE',
+          label: '手机号',
+          value: '+14155552671',
+        },
+      },
+      reason: 'reason paragraph',
+      conversationTopics: ['topic 1'],
+    } as never);
+
+    expect(requesterEmail.text).toContain('对方联系方式：手机号 +14155552671');
+    expect(requesterEmail.html).toContain(
+      '对方联系方式：<strong>手机号 +14155552671</strong>',
+    );
+    expect(recipientEmail.text).toContain('对方联系方式：微信号 wx_user_1');
+    expect(recipientEmail.html).toContain(
+      '对方联系方式：<strong>微信号 wx_user_1</strong>',
+    );
+  });
+
   it('builds a verification email payload with a small retry budget', () => {
     const service = createMailService();
 

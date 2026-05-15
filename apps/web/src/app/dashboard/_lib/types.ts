@@ -1,5 +1,9 @@
 import type { WeeklyIntent } from "../../../lib/weekly-intent";
-import type { SupportedLocale } from "@lilink/shared";
+import type {
+  ContactChannelType,
+  EditableContactChannelType,
+  SupportedLocale,
+} from "@lilink/shared";
 import type {
   HardMatchFormState,
   HardMatchSchoolOption,
@@ -23,8 +27,26 @@ export type DashboardMatchParticipant = {
   displayName: string | null;
   introLine: string | null;
   email: string | null;
+  contact: DashboardPublicContact | null;
   schoolName: string | null;
   contactRequestedAt: string | null;
+};
+
+export type ContactMethodPayload = {
+  type: EditableContactChannelType;
+  value: string;
+};
+
+export type ContactPreferencesPayload = {
+  email: string;
+  preferredContactChannel: ContactChannelType;
+  methods: ContactMethodPayload[];
+};
+
+export type DashboardPublicContact = {
+  type: ContactChannelType;
+  label: string;
+  value: string;
 };
 
 export type DashboardMatch = {
