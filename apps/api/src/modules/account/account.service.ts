@@ -587,6 +587,19 @@ export class AccountService {
       now: new Date(),
     });
 
+    if (session.status === 'CANCELED') {
+      const canceledTask = this.buildCounterpartCanceledMeetupTask({
+        session,
+        currentUserId: input.userId,
+        matchId: match.id,
+      });
+
+      return {
+        tasks: canceledTask ? [canceledTask] : [],
+        meetupSummary,
+      };
+    }
+
     if (session.status !== 'ACTIVE') {
       return { tasks: [], meetupSummary };
     }
@@ -881,6 +894,48 @@ export class AccountService {
       default:
         return '继续安排第一次见面';
     }
+  }
+
+  private buildCounterpartCanceledMeetupTask(input: {
+    session: DashboardMeetupSession;
+    currentUserId: string;
+    matchId: string;
+  }): DashboardTaskResponseDto | null {
+    const canceledAt = input.session.canceledAt ?? input.session.lastActiveAt;
+    const currentParticipant =
+      input.session.participants.find(
+        (participant) => participant.userId === input.currentUserId,
+      ) ?? null;
+    const canceledByCounterpart = input.session.participants.some(
+      (participant) =>
+        participant.userId === input.session.canceledByUserId &&
+        participant.userId !== input.currentUserId,
+    );
+
+    if (!canceledByCounterpart) {
+      return null;
+    }
+
+    if (
+      currentParticipant?.lastSeenAt &&
+      currentParticipant.lastSeenAt >= canceledAt
+    ) {
+      return null;
+    }
+
+    return {
+      id: `meetup-canceled:${input.session.id}`,
+      type: 'MEETUP',
+      priority: MEETUP_TODO_PRIORITY,
+      title: '第一次见面已取消',
+      text: '对方取消了该次见面',
+      href: `/dashboard/meetup/${input.session.id}`,
+      userTurnStatus: 'NONE',
+      progressStatus: 'CANCELED',
+      matchId: input.matchId,
+      sessionId: input.session.id,
+      updatedAt: canceledAt.toISOString(),
+    };
   }
 
   private normalizeMatchReasons(rawReasons: Prisma.JsonValue): string[] {

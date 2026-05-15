@@ -2683,6 +2683,94 @@ describe('AccountService', () => {
     expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 
+  it('surfaces a dashboard todo when the counterpart cancels a confirmed meetup', async () => {
+    const revealedCycles = [
+      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
+    ];
+    const canceledAt = new Date('2026-05-14T09:59:30.000Z');
+    const canceledSession = buildDashboardMeetupSession({
+      status: 'CANCELED',
+      currentProposalId: null,
+      confirmedTimeOptionId: 'time-1',
+      confirmedLocationOptionId: 'location-1',
+      finalConfirmRequiredByUserId: null,
+      lockedAt: new Date('2026-05-13T10:00:00.000Z'),
+      canceledAt,
+      canceledByUserId: 'user-2',
+      expiresAt: null,
+      lastActiveAt: canceledAt,
+      confirmedTimeOption: {
+        startsAt: new Date('2026-05-15T08:00:00.000Z'),
+        endsAt: new Date('2026-05-15T09:00:00.000Z'),
+      },
+      confirmedLocationOption: {
+        placeName: 'Cafe',
+      },
+      participants: [
+        {
+          userId: 'user-1',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: new Date('2026-05-14T09:00:00.000Z'),
+          user: { displayName: 'User 1' },
+        },
+        {
+          userId: 'user-2',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 2' },
+        },
+      ],
+    });
+    const prisma = createDashboardPrismaMock({
+      revealedCycles,
+      recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
+      recentMatches: [
+        buildHistoryMatchParticipant({
+          cycleId: 'cycle-1',
+          matchId: 'match-1',
+          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        }),
+      ],
+      lastRevealedParticipation: {
+        cycleId: 'cycle-1',
+        status: 'OPTED_IN',
+        cycle: revealedCycles[0],
+      },
+      dashboardMeetupMatch: {
+        id: 'match-1',
+        introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
+        meetupSession: canceledSession,
+      },
+    });
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.tasks).toEqual([
+      {
+        id: 'meetup-canceled:session-1',
+        type: 'MEETUP',
+        priority: 11,
+        title: '第一次见面已取消',
+        text: '对方取消了该次见面',
+        href: '/dashboard/meetup/session-1',
+        userTurnStatus: 'NONE',
+        progressStatus: 'CANCELED',
+        matchId: 'match-1',
+        sessionId: 'session-1',
+        updatedAt: '2026-05-14T09:59:30.000Z',
+      },
+    ]);
+  });
+
   it('limits reported history matches and keeps the match id for reuse', async () => {
     const revealedCycles = [
       buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
