@@ -8,6 +8,26 @@ const PASSWORD = 'MeetupTest2026!';
 const ALEX_EMAIL = 'meetup.demo.alex@lilink.test';
 const RIVER_EMAIL = 'meetup.demo.river@lilink.test';
 const CYCLE_CODENAME = 'manual-meetup-demo';
+const DEMO_MEETUP_LOCATION_OPTIONS = [
+  {
+    locationCandidateId: 'social-suoshe',
+    placeName: 'social索社',
+    latitude: 18.39608,
+    longitude: 110.022687,
+  },
+  {
+    locationCandidateId: 'vibes-restaurant-bar',
+    placeName: 'vibes餐吧',
+    latitude: 18.392448,
+    longitude: 110.020263,
+  },
+  {
+    locationCandidateId: 'living-area-2-canteen',
+    placeName: '生活二区食堂',
+    latitude: 18.395834,
+    longitude: 110.023802,
+  },
+];
 const CLIENT_ORIGIN =
   process.env.CLIENT_ORIGIN?.split(',')[0]?.trim() || 'http://localhost:3000';
 const SCENARIOS = new Set(['pending-response', 'not-started']);
@@ -134,7 +154,7 @@ async function createPendingMeetupSession(tx, input) {
       actorUserId: input.river.user.id,
       type: 'PROPOSE',
       notePreset: '先用低压力方式见一面',
-      noteText: '我选了两个时间和两个地点，你看哪个更舒服。',
+      noteText: '我选了两个时间和三个地点，你看哪个更舒服。',
       createdAt: input.now,
     },
   });
@@ -171,26 +191,13 @@ async function createPendingMeetupSession(tx, input) {
         endsAt: addHours(timeTwoStart, 1.5),
         toleranceMinutes: 15,
       },
-      {
+      ...DEMO_MEETUP_LOCATION_OPTIONS.map((option) => ({
         sessionId: session.id,
         proposalId: proposal.id,
         kind: 'LOCATION',
         status: 'PENDING',
-        locationCandidateId: 'nyush-qiantan-cafe',
-        placeName: 'NYU Shanghai Qiantan Cafe',
-        latitude: 31.162996,
-        longitude: 121.471015,
-      },
-      {
-        sessionId: session.id,
-        proposalId: proposal.id,
-        kind: 'LOCATION',
-        status: 'PENDING',
-        locationCandidateId: 'qiantan-taikoo-li-central-plaza',
-        placeName: 'Qiantan Taikoo Li Central Plaza',
-        latitude: 31.158448,
-        longitude: 121.480532,
-      },
+        ...option,
+      })),
     ],
   });
 
