@@ -1999,40 +1999,65 @@ export class AccountService {
       participant.match.conversationTopics,
     );
 
-    const queuedEmails = this.mailService.buildIntroductionEmails({
-      matchId: participant.match.id,
-      requester: {
-        email: requester.user.email,
-        displayName: requester.user.displayName,
-        schoolName: requester.user.school?.name ?? null,
-        introLine: this.displayIntroLine(
-          requester.user.questionnaireResponse?.answers,
-          requester.user.profile?.headline,
-        ),
-        publicContact: requesterContact,
-      },
-      recipient: {
-        email: counterpart.user.email,
-        displayName: counterpart.user.displayName,
-        schoolName: counterpart.user.school?.name ?? null,
-        introLine: this.displayIntroLine(
-          counterpart.user.questionnaireResponse?.answers,
-          counterpart.user.profile?.headline,
-        ),
-        publicContact: counterpartContact,
-      },
-      reason:
-        this.normalizeMatchReason(
-          participant.match.reason,
-          this.normalizeMatchReasons(participant.match.reasons),
-        ) ?? '你们在多项关系判断与日常偏好上呈现出稳定的相容趋势。',
-      conversationTopics:
-        conversationTopics.length > 0
-          ? conversationTopics
-          : this.defaultConversationTopics(),
-    });
+    let queuedEmails: ReturnType<MailService['buildIntroductionEmails']> = [];
 
     await this.prisma.$transaction(async (tx) => {
+      await this.lockMatchForContactDecision(tx, participant.match.id);
+
+      const transactionBlock = await tx.block.findFirst({
+        where: {
+          OR: [
+            {
+              blockerId: userId,
+              blockedId: counterpart.userId,
+            },
+            {
+              blockerId: counterpart.userId,
+              blockedId: userId,
+            },
+          ],
+        },
+      });
+
+      if (transactionBlock) {
+        throw new BadRequestException(
+          'This match is no longer available for introductions.',
+        );
+      }
+
+      queuedEmails = this.mailService.buildIntroductionEmails({
+        matchId: participant.match.id,
+        requester: {
+          email: requester.user.email,
+          displayName: requester.user.displayName,
+          schoolName: requester.user.school?.name ?? null,
+          introLine: this.displayIntroLine(
+            requester.user.questionnaireResponse?.answers,
+            requester.user.profile?.headline,
+          ),
+          publicContact: requesterContact,
+        },
+        recipient: {
+          email: counterpart.user.email,
+          displayName: counterpart.user.displayName,
+          schoolName: counterpart.user.school?.name ?? null,
+          introLine: this.displayIntroLine(
+            counterpart.user.questionnaireResponse?.answers,
+            counterpart.user.profile?.headline,
+          ),
+          publicContact: counterpartContact,
+        },
+        reason:
+          this.normalizeMatchReason(
+            participant.match.reason,
+            this.normalizeMatchReasons(participant.match.reasons),
+          ) ?? '你们在多项关系判断与日常偏好上呈现出稳定的相容趋势。',
+        conversationTopics:
+          conversationTopics.length > 0
+            ? conversationTopics
+            : this.defaultConversationTopics(),
+      });
+
       const claimedMatch = await tx.match.updateMany({
         where: {
           id: participant.match.id,
@@ -2149,6 +2174,8 @@ export class AccountService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      await this.lockMatchForContactDecision(tx, matchId);
+
       await tx.report.create({
         data: {
           reporterId: userId,
@@ -2187,6 +2214,18 @@ export class AccountService {
     });
 
     return { ok: true };
+  }
+
+  private async lockMatchForContactDecision(
+    tx: Prisma.TransactionClient,
+    matchId: string,
+  ) {
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "Match"
+      WHERE "id" = ${matchId}
+      FOR UPDATE
+    `;
   }
 
   private displayIntroLine(
