@@ -3606,6 +3606,32 @@
   min-width: 0;
 }
 
+.contact-phone-input-shell {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.contact-phone-country-code {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 1.85rem;
+  padding: 0 0.58rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--bg-elevated) 58%, var(--primary-tint));
+  color: var(--fg-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.contact-phone-input-shell .contact-method-input {
+  flex: 1 1 auto;
+}
+
 .contact-method-input::placeholder {
   color: var(--fg-muted);
 }
@@ -3702,6 +3728,10 @@
 
   .contact-method-grid {
     grid-template-columns: 1fr;
+  }
+
+  .contact-phone-input-shell {
+    align-items: stretch;
   }
 
   .contact-channel-options-label {
