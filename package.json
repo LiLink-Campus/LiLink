@@ -20,10 +20,14 @@
     "build:web": "npm run build --workspace web",
     "build:api": "npm run build --workspace api",
     "typecheck:web": "npm run build:shared && npm run typecheck --workspace web",
+    "hooks:install": "node scripts/install-git-hooks.mjs",
     "lint": "npm run lint:shared && npm run lint:web && npm run lint:api",
     "lint:shared": "npm run lint --workspace @lilink/shared",
     "lint:web": "npm run lint --workspace web",
     "lint:api": "npm run lint --workspace api",
+    "lint:pre-push": "node scripts/run-pre-push-lint.mjs",
+    "lint:staged": "lint-staged",
+    "test:hooks": "node --test scripts/install-git-hooks.test.mjs",
     "test:shared": "npm run test --workspace @lilink/shared",
     "db:bootstrap": "npm run db:bootstrap --workspace api",
     "db:generate": "npm run prisma:generate --workspace api",
@@ -38,6 +42,7 @@
     "infra:down": "docker compose down"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "lint-staged": "^16.4.0"
   }
 }

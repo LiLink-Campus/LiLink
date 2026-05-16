@@ -18,6 +18,7 @@ These instructions apply to the entire repository unless a more specific `AGENTS
 - Prefer existing workspace scripts in `package.json` over ad-hoc commands.
 - Build `@lilink/shared` before running app builds that depend on shared output.
 - Run Prisma generate after schema or Prisma client dependency changes.
+- Install local Git 2.54+ config-based lint hooks with `npm run hooks:install`. The pre-commit hook runs `npm run lint:staged`; the pre-push hook runs `npm run lint:pre-push`, which runs `npm run lint && git diff --exit-code`.
 - Do not silently create or change environment files with real credentials.
 - Never print secret values from `.env` files, logs, shell output, or CI output.
 
