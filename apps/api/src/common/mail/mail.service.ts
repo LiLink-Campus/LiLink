@@ -38,6 +38,15 @@ type VerificationCodeEmailInput = {
   code: string;
 };
 
+type MeetupReminderEmailInput = {
+  sessionId: string;
+  recipientEmail: string;
+  recipientDisplayName: string | null;
+  otherPartyDisplayName: string | null;
+  actionSentence: string;
+  directUrl: string;
+};
+
 type OutboundEmailRecord = {
   id: string;
   dedupeKey: string;
@@ -260,6 +269,45 @@ export class MailService {
         conversationTopics: input.conversationTopics,
       }),
     ];
+  }
+
+  buildMeetupReminderEmail(input: MeetupReminderEmailInput) {
+    const recipientName = input.recipientDisplayName ?? 'LiLink 用户';
+    const subject = 'LiLink 破冰会话待处理';
+    const text = [
+      `${recipientName}，`,
+      '',
+      input.actionSentence,
+      '请打开 LiLink 查看并处理这个破冰会话：',
+      input.directUrl,
+      '',
+      '每个破冰会话最多发送一次提醒邮件。此邮件由 LiLink 系统自动发送，请勿直接回复。',
+      '',
+      '— LiLink 团队',
+      'https://lilink.top',
+    ].join('\n');
+    const html = renderHtmlDocument({
+      title: subject,
+      body: [
+        '<p class="brand">LiLink</p>',
+        `<h1>${escapeHtml(subject)}</h1>`,
+        `<p>${escapeHtml(recipientName)}，</p>`,
+        `<p>${escapeHtml(input.actionSentence)}</p>`,
+        `<p><a href="${escapeHtml(input.directUrl)}">打开 LiLink 处理破冰会话</a></p>`,
+        '<p class="footer">每个破冰会话最多发送一次提醒邮件。此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
+        '<hr>',
+        '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
+      ].join(''),
+    });
+
+    return {
+      dedupeKey: `meetup-reminder:${input.sessionId}`,
+      recipientEmail: input.recipientEmail,
+      subject,
+      html,
+      text,
+      messageCategory: OutboundEmailMessageCategory.TRANSACTIONAL,
+    };
   }
 
   private buildIntroductionEmail(input: {
