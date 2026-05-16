@@ -19,6 +19,7 @@ export type MeetupDelegate = {
   findMany: DelegateMethod;
   create: DelegateMethod;
   createMany: DelegateMethod;
+  createManyAndReturn: DelegateMethod;
   update: DelegateMethod;
   updateMany: DelegateMethod;
   upsert: DelegateMethod;
@@ -34,6 +35,7 @@ export type MeetupTransactionClient = {
   meetupParticipant: MeetupDelegate;
   meetupProposal: MeetupDelegate;
   meetupSession: MeetupDelegate;
+  outboundEmail: MeetupDelegate;
   user: MeetupDelegate;
 };
 

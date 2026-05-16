@@ -2,9 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { MailService } from '../../common/mail/mail.service';
+import { env } from '../../config/env';
 import {
   DEFAULT_MEETUP_EXPIRATION_WEEKS,
   DEFAULT_MEETUP_TOLERANCE_MINUTES,
@@ -100,6 +104,8 @@ const MATCH_WITH_PARTICIPANTS_INCLUDE = {
 const CHINA_STANDARD_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
 const OFFSETLESS_DATE_TIME_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/;
+const MEETUP_REMINDER_DELAY_MS = 24 * 60 * 60 * 1000;
+const MEETUP_REMINDER_BATCH_SIZE = 50;
 
 type NormalizedTimeOptionInput = {
   startsAt: Date;
@@ -120,12 +126,230 @@ type NormalizedProposalInput = {
   noteText?: string;
 };
 
+type MeetupReminderCandidate = {
+  id: string;
+  userId: string;
+  responseRequiredAt: Date;
+  responseRequiredMessage: {
+    type: MeetupMessageType;
+  } | null;
+  user: {
+    email: string;
+    displayName: string | null;
+  };
+  session: {
+    id: string;
+    matchId: string;
+    finalConfirmRequiredByUserId: string | null;
+    participants: Array<{
+      userId: string;
+      user: {
+        displayName: string | null;
+      };
+    }>;
+  };
+};
+
+type OutboundEmailDedupeRecord = {
+  dedupeKey: string;
+};
+
 @Injectable()
 export class MeetupService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(MeetupService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   getLocationCandidates() {
     return locationCandidates.map((candidate) => ({ ...candidate }));
+  }
+
+  @Cron(CronExpression.EVERY_HOUR, {
+    name: 'meetup-reminder-email',
+    waitForCompletion: true,
+  })
+  async handleMeetupReminderEmailQueue() {
+    try {
+      await this.queueMeetupReminderEmails();
+    } catch (error) {
+      this.logger.error(
+        'Failed to queue meetup reminder emails.',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  async queueMeetupReminderEmails() {
+    const queuedDedupeKeys = await this.db.$transaction(async (tx) => {
+      const now = new Date();
+      const threshold = new Date(now.getTime() - MEETUP_REMINDER_DELAY_MS);
+      const emails = [];
+      let skippedCandidates = 0;
+
+      while (emails.length < MEETUP_REMINDER_BATCH_SIZE) {
+        const candidates = (await tx.meetupParticipant.findMany({
+          where: {
+            turnState: 'REQUIRED',
+            responseRequiredAt: {
+              lte: threshold,
+            },
+            session: {
+              is: {
+                status: 'ACTIVE',
+                OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+              },
+            },
+          },
+          select: {
+            id: true,
+            userId: true,
+            responseRequiredAt: true,
+            responseRequiredMessage: {
+              select: {
+                type: true,
+              },
+            },
+            user: {
+              select: {
+                email: true,
+                displayName: true,
+              },
+            },
+            session: {
+              select: {
+                id: true,
+                matchId: true,
+                finalConfirmRequiredByUserId: true,
+                participants: {
+                  select: {
+                    userId: true,
+                    user: {
+                      select: {
+                        displayName: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: [{ responseRequiredAt: 'asc' }, { id: 'asc' }],
+          skip: skippedCandidates,
+          take: MEETUP_REMINDER_BATCH_SIZE,
+        })) as MeetupReminderCandidate[];
+
+        if (candidates.length === 0) {
+          break;
+        }
+
+        const candidateDedupeKeys = candidates.map(
+          (candidate) => `meetup-reminder:${candidate.session.id}`,
+        );
+        const existingEmails = (await tx.outboundEmail.findMany({
+          where: {
+            dedupeKey: {
+              in: candidateDedupeKeys,
+            },
+          },
+          select: {
+            dedupeKey: true,
+          },
+        })) as OutboundEmailDedupeRecord[];
+        const existingDedupeKeys = new Set(
+          existingEmails.map((email) => email.dedupeKey),
+        );
+
+        for (const candidate of candidates) {
+          const dedupeKey = `meetup-reminder:${candidate.session.id}`;
+          if (existingDedupeKeys.has(dedupeKey)) {
+            continue;
+          }
+
+          const otherParticipant = candidate.session.participants.find(
+            (participant) => participant.userId !== candidate.userId,
+          );
+          const otherPartyDisplayName =
+            otherParticipant?.user.displayName ?? null;
+          const otherPartyName = otherPartyDisplayName ?? '对方';
+          const actionSentence = this.buildMeetupReminderActionSentence(
+            candidate,
+            otherPartyName,
+          );
+
+          if (!actionSentence) {
+            continue;
+          }
+
+          emails.push(
+            this.mailService.buildMeetupReminderEmail({
+              sessionId: candidate.session.id,
+              recipientEmail: candidate.user.email,
+              recipientDisplayName: candidate.user.displayName,
+              otherPartyDisplayName,
+              actionSentence,
+              directUrl: this.buildMeetupSessionUrl(candidate.session.id),
+            }),
+          );
+
+          if (emails.length >= MEETUP_REMINDER_BATCH_SIZE) {
+            break;
+          }
+        }
+
+        skippedCandidates += candidates.length;
+
+        if (candidates.length < MEETUP_REMINDER_BATCH_SIZE) {
+          break;
+        }
+      }
+
+      if (emails.length === 0) {
+        return [];
+      }
+
+      const createdEmails = (await tx.outboundEmail.createManyAndReturn({
+        data: emails.slice(0, MEETUP_REMINDER_BATCH_SIZE),
+        skipDuplicates: true,
+        select: {
+          dedupeKey: true,
+        },
+      })) as OutboundEmailDedupeRecord[];
+
+      return createdEmails.map((email) => email.dedupeKey);
+    });
+
+    if (queuedDedupeKeys.length > 0) {
+      await this.mailService.flushQueuedEmails({
+        dedupeKeys: queuedDedupeKeys,
+      });
+    }
+
+    return { queuedCount: queuedDedupeKeys.length };
+  }
+
+  private buildMeetupReminderActionSentence(
+    candidate: MeetupReminderCandidate,
+    otherPartyName: string,
+  ) {
+    switch (candidate.responseRequiredMessage?.type) {
+      case 'PROPOSE':
+      case 'REVISE_AFTER_LOCK':
+        return `${otherPartyName} 已经发出见面提议，正在等你确认。`;
+      case 'ACCEPT':
+        if (
+          candidate.session.finalConfirmRequiredByUserId === candidate.userId
+        ) {
+          return `${otherPartyName} 已经接受时间和地点，正在等你最终确认。`;
+        }
+        return `${otherPartyName} 已经接受了部分选项，正在等你继续处理这个破冰会话。`;
+      case 'REJECT':
+        return `${otherPartyName} 已经拒绝这次见面提议，正在等你调整后重新发出提议。`;
+      default:
+        return null;
+    }
   }
 
   async getSession(userId: string, sessionId: string) {
@@ -874,6 +1098,11 @@ export class MeetupService {
     return this.prisma as unknown as MeetupPrismaClient;
   }
 
+  private buildMeetupSessionUrl(sessionId: string) {
+    const origin = env.CLIENT_ORIGIN[0].replace(/\/+$/, '');
+    return `${origin}/dashboard/meetup/${encodeURIComponent(sessionId)}`;
+  }
+
   private async loadMatchOrThrow(
     tx: MeetupTransactionClient,
     matchId: string,
@@ -1042,16 +1271,25 @@ export class MeetupService {
         createdAt: input.now,
       },
     })) as { id: string };
-    const proposal = (await tx.meetupProposal.create({
-      data: {
-        sessionId: input.sessionId,
-        messageId: message.id,
-        actorUserId: input.actorUserId,
-        scope: input.proposalInput.scope,
-        status: 'PENDING',
-        createdAt: input.now,
-      },
-    })) as { id: string };
+    let proposal: { id: string };
+    try {
+      proposal = (await tx.meetupProposal.create({
+        data: {
+          sessionId: input.sessionId,
+          messageId: message.id,
+          actorUserId: input.actorUserId,
+          scope: input.proposalInput.scope,
+          status: 'PENDING',
+          createdAt: input.now,
+        },
+      })) as { id: string };
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException('MEETUP_STALE_PROPOSAL');
+      }
+
+      throw error;
+    }
 
     const optionData = this.buildOptionCreateData({
       sessionId: input.sessionId,

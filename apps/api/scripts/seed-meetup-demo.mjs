@@ -1,13 +1,16 @@
-import argon2 from 'argon2';
 import { loadMonorepoEnv } from './load-env.mjs';
 import { loadPrismaClientModule } from './prisma-client.mjs';
 
 loadMonorepoEnv();
 
-const PASSWORD = 'MeetupTest2026!';
 const ALEX_EMAIL = 'meetup.demo.alex@lilink.test';
 const RIVER_EMAIL = 'meetup.demo.river@lilink.test';
 const CYCLE_CODENAME = 'manual-meetup-demo';
+const MIN_PASSWORD_LENGTH = 12;
+const PRODUCTION_ENVIRONMENT_NAMES = new Set(['prod', 'production']);
+const SAFE_DATABASE_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const SAFE_DATABASE_TARGET_MARKER_PATTERN =
+  /(^|[-_.])(?:dev|development|test|testing|demo|local)(?:[-_.]|$)/i;
 const DEMO_MEETUP_LOCATION_OPTIONS = [
   {
     locationCandidateId: 'social-suoshe',
@@ -33,6 +36,7 @@ const CLIENT_ORIGIN =
 const SCENARIOS = new Set(['pending-response', 'not-started']);
 
 let prisma;
+let argon2;
 
 function readArgument(name) {
   const prefixed = `--${name}=`;
@@ -56,6 +60,93 @@ function addHours(date, hours) {
 
 function addDays(date, days) {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function readBooleanArgument(name) {
+  return process.argv.includes(`--${name}`);
+}
+
+function readDemoPassword() {
+  const password =
+    readArgument('password') ?? process.env.MEETUP_DEMO_PASSWORD ?? '';
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(
+      `A demo password with at least ${MIN_PASSWORD_LENGTH} characters is required. Pass --password or set MEETUP_DEMO_PASSWORD.`,
+    );
+  }
+
+  return password;
+}
+
+function isProductionLikeEnvironment() {
+  return [process.env.APP_ENV, process.env.NODE_ENV]
+    .map((value) => value?.trim().toLowerCase())
+    .some((value) => value && PRODUCTION_ENVIRONMENT_NAMES.has(value));
+}
+
+function hasSafeDatabaseTargetMarker(value) {
+  return SAFE_DATABASE_TARGET_MARKER_PATTERN.test(value);
+}
+
+function readDatabaseTarget() {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  if (!databaseUrl) {
+    throw new Error(
+      'Refusing to seed meetup demo data because DATABASE_URL is not set.',
+    );
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(databaseUrl);
+  } catch {
+    throw new Error(
+      'Refusing to seed meetup demo data because DATABASE_URL is not a valid URL.',
+    );
+  }
+
+  const hostname = parsedUrl.hostname
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '');
+  const databaseName = decodeURIComponent(
+    parsedUrl.pathname.replace(/^\/+/, '').split('/')[0] ?? '',
+  );
+
+  return { hostname, databaseName };
+}
+
+function isSafeDatabaseTarget(databaseTarget) {
+  return (
+    SAFE_DATABASE_HOSTS.has(databaseTarget.hostname) ||
+    hasSafeDatabaseTargetMarker(databaseTarget.hostname) ||
+    hasSafeDatabaseTargetMarker(databaseTarget.databaseName)
+  );
+}
+
+function assertSafeRuntime() {
+  const allowProductionSeed =
+    readBooleanArgument('allow-production-demo-seed') ||
+    process.env.MEETUP_DEMO_ALLOW_PRODUCTION === '1';
+
+  if (allowProductionSeed) {
+    return;
+  }
+
+  if (isProductionLikeEnvironment()) {
+    throw new Error(
+      'Refusing to seed meetup demo data in production. Set MEETUP_DEMO_ALLOW_PRODUCTION=1 or pass --allow-production-demo-seed only for an intentional demo-data operation.',
+    );
+  }
+
+  const databaseTarget = readDatabaseTarget();
+  if (isSafeDatabaseTarget(databaseTarget)) {
+    return;
+  }
+
+  throw new Error(
+    `Refusing to seed meetup demo data into database host "${databaseTarget.hostname || 'unknown'}" and database "${databaseTarget.databaseName || 'unknown'}". Use a local/dev/test/demo database, or set MEETUP_DEMO_ALLOW_PRODUCTION=1 or pass --allow-production-demo-seed only for an intentional demo-data operation.`,
+  );
 }
 
 function participantPayload(user, profile, contactRequestedAt) {
@@ -225,9 +316,9 @@ async function createPendingMeetupSession(tx, input) {
   return { session, proposal };
 }
 
-async function seedScenario(scenario) {
+async function seedScenario(scenario, password) {
   const now = new Date();
-  const passwordHash = await argon2.hash(PASSWORD);
+  const passwordHash = await argon2.hash(password);
 
   return prisma.$transaction(async (tx) => {
     await tx.matchCycle.deleteMany({ where: { codename: CYCLE_CODENAME } });
@@ -367,7 +458,6 @@ async function seedScenario(scenario) {
       scenario,
       userEmail: ALEX_EMAIL,
       counterpartEmail: RIVER_EMAIL,
-      password: PASSWORD,
       matchId: match.id,
       sessionId: seededSession?.session.id ?? null,
       proposalId: seededSession?.proposal.id ?? null,
@@ -380,6 +470,8 @@ async function seedScenario(scenario) {
 }
 
 async function main() {
+  assertSafeRuntime();
+
   const scenario = readArgument('scenario')?.trim() || 'pending-response';
   if (!SCENARIOS.has(scenario)) {
     throw new Error(
@@ -387,10 +479,13 @@ async function main() {
     );
   }
 
+  const password = readDemoPassword();
+  argon2 = (await import('argon2')).default;
+
   const { createPrismaClient } = await loadPrismaClientModule();
   prisma = createPrismaClient();
 
-  const result = await seedScenario(scenario);
+  const result = await seedScenario(scenario, password);
   console.log(JSON.stringify(result, null, 2));
 }
 

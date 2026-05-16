@@ -123,6 +123,32 @@ describe('MailService', () => {
     ]);
   });
 
+  it('builds a deduplicated meetup reminder email', () => {
+    const service = createMailService();
+
+    const built = service.buildMeetupReminderEmail({
+      sessionId: 'session-1',
+      recipientEmail: 'recipient@example.com',
+      recipientDisplayName: 'User <B>',
+      otherPartyDisplayName: 'User <A>',
+      actionSentence: 'User <A> 已经发出见面提议，正在等你确认。',
+      directUrl: 'https://lilink.test/dashboard/meetup/session-1?from=<mail>',
+    });
+
+    expect(built).toMatchObject({
+      dedupeKey: 'meetup-reminder:session-1',
+      recipientEmail: 'recipient@example.com',
+      subject: 'LiLink 破冰会话待处理',
+      messageCategory: 'TRANSACTIONAL',
+    });
+    expect(built.html).toContain('User &lt;A&gt;');
+    expect(built.html).toContain(
+      'https://lilink.test/dashboard/meetup/session-1?from=&lt;mail&gt;',
+    );
+    expect(built.html).not.toContain('User <A>');
+    expect(built.text).toContain('User <A>');
+  });
+
   it('escapes user-controlled fields in introduction email HTML', () => {
     const service = createMailService();
 
