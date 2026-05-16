@@ -7,9 +7,7 @@ import {
   reportHandlingChipLabel,
 } from "../_lib/format";
 import { MatchExplanation } from "./MatchExplanation";
-import type {
-  DashboardHistoryItem,
-} from "../_lib/types";
+import type { DashboardHistoryItem } from "../_lib/types";
 
 type MatchHistoryListProps = {
   history: DashboardHistoryItem[];
@@ -59,9 +57,7 @@ export function MatchHistoryList({
               <p className="app-card-muted">该轮你未报名参加。</p>
             ) : null}
             {item.result === "UNMATCHED" ? (
-              <p className="app-card-muted">
-                你参加了该轮，但未匹配到对象。
-              </p>
+              <p className="app-card-muted">你参加了该轮，但未匹配到对象。</p>
             ) : null}
             {item.result === "MATCHED" && item.visibility === "LIMITED" ? (
               <p className="app-card-muted">
@@ -78,6 +74,11 @@ export function MatchHistoryList({
                     hm.participants.find((p) => p.userId !== currentUserId) ??
                     null;
                   const introducedRow = Boolean(hm.introducedAt);
+                  const publicContact =
+                    counterpart?.contact ??
+                    (counterpart?.email
+                      ? { label: "联络邮箱", value: counterpart.email }
+                      : null);
                   return (
                     <>
                       <span className="app-match-score">
@@ -88,9 +89,9 @@ export function MatchHistoryList({
                           未引荐前不展示对方学校、昵称等可识别信息。
                         </p>
                       ) : null}
-                      {introducedRow && counterpart?.email ? (
+                      {introducedRow && publicContact ? (
                         <p className="form-success app-match-email">
-                          联络邮箱：{counterpart.email}
+                          联系方式：{publicContact.label} {publicContact.value}
                         </p>
                       ) : null}
                       {introducedRow && counterpart?.introLine ? (

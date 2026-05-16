@@ -684,7 +684,6 @@ export function ProfileClient({
     () => JSON.stringify(questionnaireSavePayload),
     [questionnaireSavePayload],
   );
-
   function clearQuestionnaireRetryTimer() {
     if (questionnaireRetryTimerRef.current == null) {
       return;
@@ -1253,14 +1252,14 @@ export function ProfileClient({
   return (
     <div className="app-page-shell">
       <header className="app-page-header">
-        <p className="eyebrow">Profile</p>
-        <h1>客观条件与价值观</h1>
+        <p className="eyebrow">Matching Profile</p>
+        <h1>匹配资料</h1>
         <p>
           {hasSavedQuestionnaire
             ? hasQuestionnaireDraft
               ? "你有一份未完成草稿；当前匹配仍按最近一次正式保存的完整问卷计算。补全后系统会自动切换到最新版本。"
               : "匹配以你最近一次正式保存的内容计算；你在这里的修改会自动保存并用于后续轮次。"
-            : "在这里填写问卷资料。系统会自动保存草稿；补全全部必答项后，会自动转为正式问卷。"}
+            : "在这里填写匹配资料。系统会自动保存草稿；补全全部必答项后，会自动转为正式资料。"}
         </p>
         <span
           className={

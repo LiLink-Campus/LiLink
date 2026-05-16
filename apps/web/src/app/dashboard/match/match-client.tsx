@@ -54,11 +54,16 @@ export function MatchClient({
   const latestMatch = dashboard?.latestMatch ?? null;
   const counterpart =
     latestMatch && initialUser
-      ? latestMatch.participants.find((p) => p.userId !== initialUser.id) ??
-        null
+      ? (latestMatch.participants.find((p) => p.userId !== initialUser.id) ??
+        null)
       : null;
 
   const introduced = Boolean(latestMatch?.introducedAt);
+  const publicContact =
+    counterpart?.contact ??
+    (counterpart?.email
+      ? { label: "联络邮箱", value: counterpart.email }
+      : null);
   const meetupSummary = dashboard?.meetupSummary ?? null;
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
   const currentCycle = dashboard?.currentCycle ?? null;
@@ -102,7 +107,8 @@ export function MatchClient({
               <h2>本轮未匹配到对象</h2>
             </div>
             <p className="app-card-muted">
-              你已参加「{dashboard.lastRevealedRound.codename}」这轮匹配；本轮可配对人数不足或没有与你相容的组合，因此没有为你生成匹配对象。
+              你已参加「{dashboard.lastRevealedRound.codename}
+              」这轮匹配；本轮可配对人数不足或没有与你相容的组合，因此没有为你生成匹配对象。
             </p>
             <p className="app-card-muted">
               下一轮开放报名时，回到「首页」即可再次参与；你也可以更新问卷，提高下次匹配成功率。
@@ -138,7 +144,7 @@ export function MatchClient({
             </div>
             {introduced ? (
               <p className="app-card-muted">
-                引荐已完成：系统已向你与对方的注册邮箱各发送一封引荐邮件（含联络方式与下方说明）。请查收收件箱及垃圾邮件夹后，再通过邮件与对方联系。
+                引荐已完成：系统已向你与对方的注册邮箱各发送一封引荐邮件（含联络方式与下方说明）。请查收收件箱及垃圾邮件夹后，按对方公开的联系方式联系。
               </p>
             ) : (
               <p className="app-card-muted">
@@ -146,9 +152,9 @@ export function MatchClient({
               </p>
             )}
 
-            {introduced && counterpart.email ? (
+            {introduced && publicContact ? (
               <p className="form-success app-match-email">
-                联络邮箱：{counterpart.email}
+                联系方式：{publicContact.label} {publicContact.value}
               </p>
             ) : null}
             {introduced && counterpart.introLine ? (
@@ -206,10 +212,11 @@ export function MatchClient({
             {hasMissingIntent ? (
               <>
                 <div className="app-card-head">
-                  <h2>待选择本周意图</h2>
+                  <h2>待选择本周意向</h2>
                 </div>
                 <p className="app-card-muted">
-                  当前这轮还没有保存可用的匹配意图。回到「首页」用本周参与开关确认 Friend、Date 或 Both 后，系统会按这次确认后的设置参与匹配。
+                  当前这轮还没有保存可用的匹配意向。回到「首页」用本周参与开关确认
+                  Friend、Date 或 Both 后，系统会按这次确认后的设置参与匹配。
                 </p>
               </>
             ) : currentCycle?.participationStatus === "OPTED_IN" &&
@@ -220,10 +227,11 @@ export function MatchClient({
                   <h2>本轮已锁定</h2>
                 </div>
                 <p className="app-card-muted">
-                  本轮报名已经截止，而且这轮没有保存可用的匹配意图，因此系统不会按本轮为你参与匹配。
+                  本轮报名已经截止，而且这轮没有保存可用的匹配意向，因此系统不会按本轮为你参与匹配。
                 </p>
                 <p className="app-card-muted">
-                  你仍可继续完善问卷资料，等待下一轮开放后再选择 Friend、Date 或 Both。
+                  你仍可继续完善匹配资料，等待下一轮开放后再选择 Friend、Date 或
+                  Both。
                 </p>
               </>
             ) : currentCycle?.participationStatus === "OPTED_IN" &&
@@ -238,30 +246,34 @@ export function MatchClient({
                 </div>
                 <p className="app-card-muted">
                   {hasSavedQuestionnaire
-                    ? "你已填写问卷并已参加本轮。揭晓后将在此显示匹配说明与后续操作；在此前可在「资料」中修改信息。"
+                    ? "你已填写匹配资料并已参加本轮。揭晓后将在此显示匹配说明与后续操作；在此前可在「匹配资料」中修改信息。"
                     : "本轮揭晓后将在此显示匹配说明与后续操作。"}
                 </p>
               </>
             ) : currentCycleIsLocked ? (
               <>
                 <div className="app-card-head">
-                  <h2>{hasSavedQuestionnaire ? "本轮已锁定" : "继续完善资料"}</h2>
+                  <h2>
+                    {hasSavedQuestionnaire ? "本轮已锁定" : "继续完善匹配资料"}
+                  </h2>
                 </div>
                 <p className="app-card-muted">
                   {hasSavedQuestionnaire
-                    ? "本轮报名已经截止，当前不能再参加或修改本周意图。你可以继续完善问卷资料，等待下一轮开放。"
-                    : "本轮报名已经截止。你仍可继续填写和完善问卷资料，为下一轮开放后的报名做准备。"}
+                    ? "本轮报名已经截止，当前不能再参加或修改本周意向。你可以继续完善匹配资料，等待下一轮开放。"
+                    : "本轮报名已经截止。你仍可继续填写和完善匹配资料，为下一轮开放后的报名做准备。"}
                 </p>
               </>
             ) : (
               <>
                 <div className="app-card-head">
-                  <h2>{hasSavedQuestionnaire ? "等待匹配" : "还没有匹配结果"}</h2>
+                  <h2>
+                    {hasSavedQuestionnaire ? "等待匹配" : "还没有匹配结果"}
+                  </h2>
                 </div>
                 <p className="app-card-muted">
                   {hasSavedQuestionnaire
                     ? "你已保存问卷。若尚未参加本轮，可回到「首页」打开本周参与开关报名；揭晓后返回此处查看结果。"
-                    : "请先在「资料」完成问卷，然后回到「首页」报名参加当前轮次。"}
+                    : "请先在「匹配资料」完成问卷，然后回到「首页」报名参加当前轮次。"}
                 </p>
               </>
             )}
@@ -330,7 +342,10 @@ function MeetupMatchSummaryCard({
   if (!summary && !canStart) return null;
 
   return (
-    <section className="app-card meetup-match-summary" aria-label="第一次见面安排">
+    <section
+      className="app-card meetup-match-summary"
+      aria-label="第一次见面安排"
+    >
       <div className="app-card-head">
         <h2 className="app-card-title">第一次见面安排</h2>
         {summary ? (
@@ -351,7 +366,9 @@ function MeetupMatchSummaryCard({
             </p>
           ) : summary.status === "LOCKED" ? (
             <>
-              <p className="app-card-muted">你们已确认第一次见面的时间和地点。</p>
+              <p className="app-card-muted">
+                你们已确认第一次见面的时间和地点。
+              </p>
               <div className="meetup-summary-facts">
                 <div className="meetup-plan-fact">
                   <span>时间</span>
@@ -367,7 +384,10 @@ function MeetupMatchSummaryCard({
                   <strong>{summary.confirmedPlaceName ?? "地点待确认"}</strong>
                 </div>
               </div>
-              <Link className="button-primary meetup-inline-link" href={summary.href}>
+              <Link
+                className="button-primary meetup-inline-link"
+                href={summary.href}
+              >
                 查看见面安排
               </Link>
             </>
@@ -376,7 +396,10 @@ function MeetupMatchSummaryCard({
               <p className="app-card-muted">
                 第一次见面仍在协商中；首页待办会提示当前轮到谁回应。
               </p>
-              <Link className="button-primary meetup-inline-link" href={summary.href}>
+              <Link
+                className="button-primary meetup-inline-link"
+                href={summary.href}
+              >
                 继续安排第一次见面
               </Link>
             </>

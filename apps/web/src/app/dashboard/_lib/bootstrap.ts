@@ -4,6 +4,7 @@ import {
   hasUserSessionCookie,
 } from "../../../lib/server-api";
 import type {
+  ContactPreferencesPayload,
   DashboardBootstrapPayload,
   QuestionnairePayload,
   SavedQuestionnairePayload,
@@ -44,14 +45,44 @@ export async function loadDashboardHome() {
   await ensureDashboardSession();
 
   try {
-    const [bootstrap, questionnaire, savedQuestionnaire] =
+    const [bootstrap, questionnaire, savedQuestionnaire, contactPreferences] =
       await Promise.all([
         fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
         fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
         fetchUserApiServer<SavedQuestionnairePayload>(
           "/me/questionnaire",
         ).catch(() => null),
+        fetchUserApiServer<ContactPreferencesPayload>(
+          "/me/contact-preferences",
+        ),
       ]);
+    return {
+      user: bootstrap.user,
+      dashboard: bootstrap.dashboard,
+      questionnaire,
+      savedQuestionnaire,
+      contactPreferences,
+    };
+  } catch {
+    redirect("/login");
+  }
+}
+
+/**
+ * Profile sub-page loader: identity, dashboard summary (for header status),
+ * and the matching questionnaire schema + saved answers.
+ */
+export async function loadDashboardProfile() {
+  await ensureDashboardSession();
+
+  try {
+    const [bootstrap, questionnaire, savedQuestionnaire] = await Promise.all([
+      fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
+      fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
+      fetchUserApiServer<SavedQuestionnairePayload>(
+        "/me/questionnaire",
+      ).catch(() => null),
+    ]);
     return {
       user: bootstrap.user,
       dashboard: bootstrap.dashboard,
@@ -64,26 +95,19 @@ export async function loadDashboardHome() {
 }
 
 /**
- * Profile sub-page loader: identity, dashboard summary (for header status),
- * and the questionnaire schema + saved answers.
+ * Loader for contact details shown after a successful introduction.
  */
-export async function loadDashboardProfile() {
+export async function loadDashboardReferralSettings() {
   await ensureDashboardSession();
 
   try {
-    const [bootstrap, questionnaire, savedQuestionnaire] =
-      await Promise.all([
-        fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
-        fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
-        fetchUserApiServer<SavedQuestionnairePayload>(
-          "/me/questionnaire",
-        ).catch(() => null),
-      ]);
+    const [bootstrap, contactPreferences] = await Promise.all([
+      fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
+      fetchUserApiServer<ContactPreferencesPayload>("/me/contact-preferences"),
+    ]);
     return {
       user: bootstrap.user,
-      dashboard: bootstrap.dashboard,
-      questionnaire,
-      savedQuestionnaire,
+      contactPreferences,
     };
   } catch {
     redirect("/login");

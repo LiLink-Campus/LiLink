@@ -57,7 +57,7 @@ export function IntentSheet({
       <button
         type="button"
         className="intent-sheet-backdrop"
-        aria-label="关闭意图选择"
+        aria-label="关闭意向选择"
         disabled={saving}
         onClick={onClose}
       />
@@ -68,10 +68,10 @@ export function IntentSheet({
         aria-labelledby="intent-sheet-title"
       >
         <div className="intent-sheet-handle" aria-hidden="true" />
-        <p className="eyebrow">本周匹配意图</p>
+        <p className="eyebrow">本周匹配意向</p>
         <h2 id="intent-sheet-title">选一个本周想找的方向</h2>
         <p className="app-muted">
-          BOTH 与所有意图相容；FRIEND 与 DATE 互斥。可在截止前再改一次。
+          BOTH 与所有意向相容；FRIEND 与 DATE 互斥。可在截止前再改一次。
         </p>
         <ul className="intent-sheet-options">
           {WEEKLY_INTENTS.map((intent) => {

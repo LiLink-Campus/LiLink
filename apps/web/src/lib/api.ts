@@ -8,24 +8,24 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
     "未找到有效验证码，请先返回上一步重新获取验证码。",
   "Verification code is invalid. Please request a new one.":
     "验证码不正确或已失效，请重新获取验证码。",
-  "This email is already registered.":
-    "该邮箱已注册，请直接登录。",
-  "Email or password is incorrect.":
-    "邮箱或密码不正确。",
-  "Account has been suspended.":
-    "账号已被暂停使用。",
-  "Account is not active yet.":
-    "账号尚未激活。",
+  "This email is already registered.": "该邮箱已注册，请直接登录。",
+  "Email or password is incorrect.": "邮箱或密码不正确。",
+  "Account has been suspended.": "账号已被暂停使用。",
+  "Account is not active yet.": "账号尚未激活。",
   "Verification email could not be delivered. Please try again later.":
     "验证邮件发送失败，请稍后再试。",
-  "User account no longer exists.":
-    "账号不存在。",
+  "User account no longer exists.": "账号不存在。",
   "Submit a complete questionnaire before opting into matching.":
     "请先完成「资料」中的问卷，再参加本轮匹配。",
   "Your questionnaire is missing required fields. Please update your profile before opting into matching.":
     "你的问卷有必填项缺失，请回到「资料」补全后再参加本轮匹配。",
   "Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.":
     "问卷有未保存的修改且必填项缺失，请回到「资料」补完或撤销修改后再参加本轮匹配。",
+  "Selected contact channel must have a value.": "请选择已填写的联系方式。",
+  "Phone number must use international format.":
+    "手机号请使用国际格式，例如 中国 +86 138 0013 8000。",
+  "Contact method value is too long.": "联系方式内容过长。",
+  "Duplicate contact method type.": "联系方式类型重复。",
 };
 
 export class ApiRequestError extends Error {
