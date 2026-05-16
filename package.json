@@ -7,9 +7,6 @@
     "apps/web",
     "packages/shared"
   ],
-  "engines": {
-    "node": ">=22.22.1"
-  },
   "scripts": {
     "postinstall": "node scripts/postinstall-prisma-generate.cjs",
     "dev": "npm run build:shared && concurrently -k -n shared,web,api \"npm run dev:shared\" \"npm run dev:web:raw\" \"npm run dev:api:raw\"",
@@ -23,12 +20,14 @@
     "build:web": "npm run build --workspace web",
     "build:api": "npm run build --workspace api",
     "typecheck:web": "npm run build:shared && npm run typecheck --workspace web",
+    "hooks:install": "node scripts/install-git-hooks.mjs",
     "lint": "npm run lint:shared && npm run lint:web && npm run lint:api",
     "lint:shared": "npm run lint --workspace @lilink/shared",
     "lint:web": "npm run lint --workspace web",
     "lint:api": "npm run lint --workspace api",
-    "lint:pre-push": "node -e \"const { execSync } = require('node:child_process'); execSync('npm run lint', { stdio: 'inherit' }); execSync('git diff --exit-code', { stdio: 'inherit' });\"",
+    "lint:pre-push": "node scripts/run-pre-push-lint.mjs",
     "lint:staged": "lint-staged",
+    "test:hooks": "node --test scripts/install-git-hooks.test.mjs",
     "test:shared": "npm run test --workspace @lilink/shared",
     "db:bootstrap": "npm run db:bootstrap --workspace api",
     "db:generate": "npm run prisma:generate --workspace api",
@@ -44,23 +43,6 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "lint-staged": "^17.0.5"
-  },
-  "lint-staged": {
-    "apps/api/**/*.{ts,tsx}": [
-      "prettier --ignore-unknown --write",
-      "npm exec --workspace api -- eslint --fix --"
-    ],
-    "apps/web/**/*.{js,jsx,ts,tsx}": [
-      "prettier --ignore-unknown --write",
-      "npm exec --workspace web -- eslint --fix --"
-    ],
-    "packages/shared/**/*.ts": [
-      "prettier --ignore-unknown --write",
-      "node -e \"require('node:child_process').execSync('npm run lint:shared', { stdio: 'inherit' })\""
-    ],
-    "**/*.{json,md,yml,yaml}": "prettier --ignore-unknown --write",
-    "*.{js,jsx,ts,tsx}": "prettier --ignore-unknown --write",
-    "scripts/**/*.mjs": "prettier --ignore-unknown --write"
+    "lint-staged": "^16.4.0"
   }
 }
