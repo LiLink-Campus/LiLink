@@ -82,6 +82,14 @@ enum OutboundEmailStatus {
   EXHAUSTED
 }
 
+enum ContactChannelType {
+  EMAIL
+  WECHAT
+  QQ
+  PHONE
+
+}
+
 enum MeetupSessionStatus {
   ACTIVE
   LOCKED
@@ -176,6 +184,7 @@ model User {
   schoolId              String?
   school                School?                @relation(fields: [schoolId], references: [id])
   displayName           String?
+  preferredContactChannel ContactChannelType   @default(EMAIL)
   preferredLocale       String                 @default("zh-CN")
   meetupExpirationWeeks Int                    @default(2)
   isTest                Boolean                @default(false)
@@ -198,9 +207,24 @@ model User {
   meetupProposals       MeetupProposal[]       @relation("MeetupProposalActor")
   auditLogs             AuditLog[]             @relation("Actor")
   dashboardSnapshots    UserCycleDashboardSnapshot[]
+  contactMethods        UserContactMethod[]
 
   @@index([status, createdAt])
   @@index([schoolId])
+}
+
+model UserContactMethod {
+  id              String             @id @default(cuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            ContactChannelType
+  value           String
+  normalizedValue String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([userId, type])
+  @@index([type, normalizedValue])
 }
 
 model EmailCode {
@@ -350,6 +374,8 @@ model MatchParticipant {
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   position           Int
   contactRequestedAt DateTime?
+  introducedContactType  ContactChannelType?
+  introducedContactValue String?
   createdAt          DateTime  @default(now())
   meetupParticipants MeetupParticipant[]
 

@@ -117,7 +117,7 @@ export function MeClient({
                   : "app-card-status is-warn"
               }
             >
-              {hasSavedQuestionnaire ? "问卷已保存" : "问卷待完成"}
+              {hasSavedQuestionnaire ? "匹配资料已保存" : "匹配资料待完成"}
             </span>
           </div>
         </div>
@@ -177,8 +177,19 @@ export function MeClient({
         <div className="me-card-list">
           <Link href="/dashboard/profile" className="me-row">
             <span className="me-row-text">
-              <strong>问卷资料</strong>
-              <span>{hasSavedQuestionnaire ? "问卷已保存" : "问卷待完成"}</span>
+              <strong>匹配资料</strong>
+              <span>
+                {hasSavedQuestionnaire ? "匹配资料已保存" : "匹配资料待完成"}
+              </span>
+            </span>
+            <span className="me-row-arrow" aria-hidden="true">
+              <ArrowRightIcon />
+            </span>
+          </Link>
+          <Link href="/dashboard/referral-settings" className="me-row">
+            <span className="me-row-text">
+              <strong>引荐设置</strong>
+              <span>联系方式与展示渠道</span>
             </span>
             <span className="me-row-arrow" aria-hidden="true">
               <ArrowRightIcon />

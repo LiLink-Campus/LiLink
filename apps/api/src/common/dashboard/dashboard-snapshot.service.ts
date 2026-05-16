@@ -10,6 +10,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { readQuestionnaireOneLiner } from '../../modules/questionnaire/hard-match';
 import {
+  CONTACT_CHANNEL_LABELS,
+  contactChannelLabel,
+  type ContactChannelType,
+} from '@lilink/shared';
+import {
   DashboardHistoryVisibility,
   type DashboardMatchResponseDto,
 } from '../../modules/account/dto';
@@ -51,6 +56,8 @@ const dashboardSnapshotMatchSelect = {
     select: {
       userId: true,
       contactRequestedAt: true,
+      introducedContactType: true,
+      introducedContactValue: true,
       user: {
         select: {
           email: true,
@@ -127,6 +134,26 @@ function createPairKey(firstUserId: string, secondUserId: string) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function buildIntroducedContact(input: {
+  introducedContactType: ContactChannelType | null;
+  introducedContactValue: string | null;
+  fallbackEmail: string;
+}) {
+  if (input.introducedContactType && input.introducedContactValue) {
+    return {
+      type: input.introducedContactType,
+      label: CONTACT_CHANNEL_LABELS[input.introducedContactType],
+      value: input.introducedContactValue,
+    };
+  }
+
+  return {
+    type: 'EMAIL' as const,
+    label: contactChannelLabel('EMAIL'),
+    value: input.fallbackEmail,
+  };
 }
 
 @Injectable()
@@ -709,19 +736,30 @@ export class DashboardSnapshotService {
       reportStatus: input.reportStatus,
       participants: input.hideSensitiveFields
         ? []
-        : input.match.participants.map((participant) => ({
-            userId: participant.userId,
-            displayName: participant.user.displayName,
-            introLine: this.displayIntroLine(
-              participant.user.questionnaireResponse?.answers,
-              participant.user.profile?.headline,
-            ),
-            email: input.match.introducedAt ? participant.user.email : null,
-            schoolName: participant.user.school?.name ?? null,
-            contactRequestedAt: this.toIsoString(
-              participant.contactRequestedAt,
-            ),
-          })),
+        : input.match.participants.map((participant) => {
+            const contact = input.match.introducedAt
+              ? buildIntroducedContact({
+                  introducedContactType: participant.introducedContactType,
+                  introducedContactValue: participant.introducedContactValue,
+                  fallbackEmail: participant.user.email,
+                })
+              : null;
+
+            return {
+              userId: participant.userId,
+              displayName: participant.user.displayName,
+              introLine: this.displayIntroLine(
+                participant.user.questionnaireResponse?.answers,
+                participant.user.profile?.headline,
+              ),
+              email: contact?.type === 'EMAIL' ? contact.value : null,
+              contact,
+              schoolName: participant.user.school?.name ?? null,
+              contactRequestedAt: this.toIsoString(
+                participant.contactRequestedAt,
+              ),
+            };
+          }),
     };
   }
 

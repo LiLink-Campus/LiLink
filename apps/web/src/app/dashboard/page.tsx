@@ -3,7 +3,13 @@ import { computeQuestionnaireProgress } from "./_lib/progress";
 import { HomeClient } from "./home-client";
 
 export default async function DashboardHubPage() {
-  const { user, dashboard, questionnaire, savedQuestionnaire } =
+  const {
+    user,
+    dashboard,
+    questionnaire,
+    savedQuestionnaire,
+    contactPreferences,
+  } =
     await loadDashboardHome();
   const {
     percent: questionnairePercent,
@@ -26,6 +32,7 @@ export default async function DashboardHubPage() {
       questionnaireEligibleToOptIn={questionnaireEligibleToOptIn}
       questionnaireHasIncompleteDraft={questionnaireHasIncompleteDraft}
       questionnaireAttention={savedQuestionnaire?.attention ?? null}
+      contactPreferences={contactPreferences}
     />
   );
 }

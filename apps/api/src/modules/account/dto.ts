@@ -9,11 +9,14 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateNested,
   ValidateIf,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  CONTACT_CHANNEL_TYPES,
+  EDITABLE_CONTACT_CHANNEL_TYPES,
   MAX_MEETUP_EXPIRATION_WEEKS,
   MEETUP_PROGRESS_STATUSES,
   MEETUP_TODO_PRIORITY,
@@ -23,6 +26,8 @@ import {
   WEEKLY_INTENTS,
   type MeetupProgressStatus,
   type MeetupUserTurnStatus,
+  type ContactChannelType,
+  type EditableContactChannelType,
   type SupportedLocale,
   type WeeklyIntent,
 } from '@lilink/shared';
@@ -141,6 +146,54 @@ export class UpdateLocaleDto {
   locale!: SupportedLocale;
 }
 
+export class ContactMethodDto {
+  @IsIn(EDITABLE_CONTACT_CHANNEL_TYPES as unknown as string[])
+  type!: EditableContactChannelType;
+
+  @IsString()
+  value!: string;
+}
+
+export class UpdateContactPreferencesDto {
+  @IsIn(CONTACT_CHANNEL_TYPES as unknown as string[])
+  preferredContactChannel!: ContactChannelType;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ContactMethodDto)
+  methods!: ContactMethodDto[];
+}
+
+export class ContactMethodResponseDto {
+  @ApiProperty({ enum: EDITABLE_CONTACT_CHANNEL_TYPES as unknown as string[] })
+  type!: EditableContactChannelType;
+
+  @ApiProperty()
+  value!: string;
+}
+
+export class ContactPreferencesResponseDto {
+  @ApiProperty()
+  email!: string;
+
+  @ApiProperty({ enum: CONTACT_CHANNEL_TYPES as unknown as string[] })
+  preferredContactChannel!: ContactChannelType;
+
+  @ApiProperty({ type: () => ContactMethodResponseDto, isArray: true })
+  methods!: ContactMethodResponseDto[];
+}
+
+export class DashboardPublicContactResponseDto {
+  @ApiProperty({ enum: CONTACT_CHANNEL_TYPES as unknown as string[] })
+  type!: ContactChannelType;
+
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  value!: string;
+}
+
 export class UpdateMeetupSettingsDto {
   @IsInt()
   @Min(MIN_MEETUP_EXPIRATION_WEEKS)
@@ -197,6 +250,12 @@ export class DashboardMatchParticipantResponseDto {
 
   @ApiProperty({ nullable: true })
   email!: string | null;
+
+  @ApiProperty({
+    type: () => DashboardPublicContactResponseDto,
+    nullable: true,
+  })
+  contact!: DashboardPublicContactResponseDto | null;
 
   @ApiProperty({ nullable: true })
   schoolName!: string | null;

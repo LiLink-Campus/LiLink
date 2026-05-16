@@ -226,6 +226,15 @@ function buildDashboardSnapshotRecord({
   };
 }
 
+type IntroductionEmailPayload = {
+  requester: {
+    publicContact: { type: string; label: string; value: string };
+  };
+  recipient: {
+    publicContact: { type: string; label: string; value: string };
+  };
+};
+
 function createDashboardPrismaMock({
   revealedCycles,
   recentParticipations = [],
@@ -3220,6 +3229,114 @@ describe('AccountService', () => {
     });
   });
 
+  it('saves contact preferences with normalized international phone numbers', async () => {
+    const userUpdate = jest.fn().mockResolvedValue(undefined);
+    const deleteMany = jest.fn().mockResolvedValue({ count: 1 });
+    const upsert = jest.fn().mockResolvedValue(undefined);
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        type: 'PHONE',
+        value: '+8613800138000',
+      },
+      {
+        type: 'WECHAT',
+        value: 'wx_user',
+      },
+    ]);
+    const prisma = {
+      user: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({
+          id: 'user-1',
+          email: 'user-1@example.com',
+          preferredContactChannel: 'EMAIL',
+        }),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback({
+          user: {
+            update: userUpdate,
+          },
+          userContactMethod: {
+            deleteMany,
+            upsert,
+            findMany,
+          },
+        }),
+      ),
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.updateContactPreferences('user-1', {
+        preferredContactChannel: 'PHONE',
+        methods: [
+          { type: 'PHONE', value: '+86 138 0013 8000' },
+          { type: 'WECHAT', value: ' wx_user ' },
+        ],
+      }),
+    ).resolves.toEqual({
+      email: 'user-1@example.com',
+      preferredContactChannel: 'PHONE',
+      methods: [
+        { type: 'PHONE', value: '+8613800138000' },
+        { type: 'WECHAT', value: 'wx_user' },
+      ],
+    });
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { preferredContactChannel: 'PHONE' },
+    });
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        type: {
+          in: ['QQ'],
+        },
+      },
+    });
+    expect(upsert).toHaveBeenCalledWith({
+      where: {
+        userId_type: {
+          userId: 'user-1',
+          type: 'PHONE',
+        },
+      },
+      update: {
+        value: '+8613800138000',
+        normalizedValue: '+8613800138000',
+      },
+      create: {
+        userId: 'user-1',
+        type: 'PHONE',
+        value: '+8613800138000',
+        normalizedValue: '+8613800138000',
+      },
+    });
+  });
+
+  it('rejects choosing a non-email contact channel that has no value', async () => {
+    const service = new AccountService(
+      {} as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.updateContactPreferences('user-1', {
+        preferredContactChannel: 'QQ',
+        methods: [{ type: 'WECHAT', value: 'wx_user' }],
+      }),
+    ).rejects.toMatchObject({
+      message: 'Selected contact channel must have a value.',
+    });
+  });
+
   it('queues introduction emails with the stored narrative reason and topics', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 2 });
     const queuedEmails = [
@@ -3300,6 +3417,10 @@ describe('AccountService', () => {
       },
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         callback({
+          $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
+          block: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
           match: {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           },
@@ -3329,12 +3450,22 @@ describe('AccountService', () => {
         displayName: 'User 1',
         schoolName: 'School A',
         introLine: '喜欢读书和散步，也愿意认真沟通。',
+        publicContact: {
+          type: 'EMAIL',
+          label: '邮箱',
+          value: 'user-1@example.com',
+        },
       },
       recipient: {
         email: 'user-2@example.com',
         displayName: 'User 2',
         schoolName: 'School B',
         introLine: '平时爱看展，也很看重稳定陪伴。',
+        publicContact: {
+          type: 'EMAIL',
+          label: '邮箱',
+          value: 'user-2@example.com',
+        },
       },
       reason:
         '你们在相处节奏和价值判断上都强调稳定与真诚，因此更容易在建立信任后形成持续而自然的交流。',
@@ -3349,6 +3480,242 @@ describe('AccountService', () => {
         'match-introduction:match-1:recipient',
       ],
     });
+  });
+
+  it('uses each participant selected contact channel when requesting contact', async () => {
+    const createMany = jest.fn().mockResolvedValue({ count: 2 });
+    const queuedEmails = [
+      {
+        dedupeKey: 'match-introduction:match-1:requester',
+        recipientEmail: 'user-1@example.com',
+        subject: 'subject-1',
+        html: '<p>requester</p>',
+      },
+      {
+        dedupeKey: 'match-introduction:match-1:recipient',
+        recipientEmail: 'user-2@example.com',
+        subject: 'subject-2',
+        html: '<p>recipient</p>',
+      },
+    ];
+    const buildIntroductionEmails: jest.MockedFunction<
+      (payload: IntroductionEmailPayload) => typeof queuedEmails
+    > = jest.fn().mockReturnValue(queuedEmails);
+    const mailService = {
+      buildIntroductionEmails,
+      flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
+    };
+    const participantUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      matchParticipant: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'participant-1',
+          userId: 'user-1',
+          match: {
+            id: 'match-1',
+            revealedAt: new Date('2026-05-08T12:00:00.000Z'),
+            introducedAt: null,
+            reasons: ['reason'],
+            reason: 'reason paragraph',
+            conversationTopics: ['topic 1'],
+            participants: [
+              {
+                id: 'participant-1',
+                userId: 'user-1',
+                user: {
+                  email: 'user-1@example.com',
+                  displayName: 'User 1',
+                  preferredContactChannel: 'WECHAT',
+                  contactMethods: [{ type: 'WECHAT', value: 'wx_user_1' }],
+                  profile: { headline: 'hello' },
+                  school: { name: 'School A' },
+                  questionnaireResponse: null,
+                },
+              },
+              {
+                id: 'participant-2',
+                userId: 'user-2',
+                user: {
+                  email: 'user-2@example.com',
+                  displayName: 'User 2',
+                  preferredContactChannel: 'PHONE',
+                  contactMethods: [{ type: 'PHONE', value: '+14155552671' }],
+                  profile: { headline: 'world' },
+                  school: { name: 'School B' },
+                  questionnaireResponse: null,
+                },
+              },
+            ],
+          },
+        }),
+      },
+      block: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback({
+          $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
+          block: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          match: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          matchParticipant: {
+            updateMany: participantUpdateMany,
+          },
+          outboundEmail: {
+            createMany,
+          },
+        }),
+      ),
+    };
+    const service = new AccountService(
+      prisma as never,
+      mailService as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
+      ok: true,
+    });
+    expect(mailService.buildIntroductionEmails).toHaveBeenCalledTimes(1);
+    const introductionEmailPayload =
+      mailService.buildIntroductionEmails.mock.calls[0][0];
+    expect(introductionEmailPayload.requester.publicContact).toEqual({
+      type: 'WECHAT',
+      label: '微信号',
+      value: 'wx_user_1',
+    });
+    expect(introductionEmailPayload.recipient.publicContact).toEqual({
+      type: 'PHONE',
+      label: '手机号',
+      value: '+14155552671',
+    });
+    expect(participantUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'participant-1',
+        contactRequestedAt: null,
+      },
+      data: {
+        contactRequestedAt: expect.any(Date) as unknown as Date,
+        introducedContactType: 'WECHAT',
+        introducedContactValue: 'wx_user_1',
+      },
+    });
+    expect(participantUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'participant-2',
+      },
+      data: {
+        introducedContactType: 'PHONE',
+        introducedContactValue: '+14155552671',
+      },
+    });
+  });
+
+  it('does not introduce a match when a block appears inside the contact request transaction', async () => {
+    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const participantUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const createMany = jest.fn().mockResolvedValue({ count: 2 });
+    const mailService = {
+      buildIntroductionEmails: jest.fn().mockReturnValue([
+        {
+          dedupeKey: 'match-introduction:match-1:requester',
+          recipientEmail: 'user-1@example.com',
+          subject: 'subject-1',
+          html: '<p>requester</p>',
+        },
+      ]),
+      flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
+    };
+    const prisma = {
+      matchParticipant: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'participant-1',
+          userId: 'user-1',
+          match: {
+            id: 'match-1',
+            revealedAt: new Date('2026-05-08T12:00:00.000Z'),
+            introducedAt: null,
+            reasons: ['reason'],
+            reason: 'reason paragraph',
+            conversationTopics: ['topic 1'],
+            participants: [
+              {
+                id: 'participant-1',
+                userId: 'user-1',
+                user: {
+                  email: 'user-1@example.com',
+                  displayName: 'User 1',
+                  profile: { headline: 'hello' },
+                  school: { name: 'School A' },
+                  questionnaireResponse: null,
+                },
+              },
+              {
+                id: 'participant-2',
+                userId: 'user-2',
+                user: {
+                  email: 'user-2@example.com',
+                  displayName: 'User 2',
+                  profile: { headline: 'world' },
+                  school: { name: 'School B' },
+                  questionnaireResponse: null,
+                },
+              },
+            ],
+          },
+        }),
+      },
+      block: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        callback({
+          $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
+          block: {
+            findFirst: jest.fn().mockResolvedValue({
+              blockerId: 'user-2',
+              blockedId: 'user-1',
+            }),
+          },
+          match: {
+            updateMany: matchUpdateMany,
+          },
+          matchParticipant: {
+            updateMany: participantUpdateMany,
+          },
+          outboundEmail: {
+            createMany,
+          },
+        }),
+      ),
+    };
+    const service = new AccountService(
+      prisma as never,
+      mailService as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    await expect(
+      service.requestContact('user-1', 'match-1'),
+    ).rejects.toMatchObject({
+      message: 'This match is no longer available for introductions.',
+    });
+    expect(matchUpdateMany).not.toHaveBeenCalled();
+    expect(participantUpdateMany).not.toHaveBeenCalled();
+    expect(createMany).not.toHaveBeenCalled();
+    expect(mailService.buildIntroductionEmails).not.toHaveBeenCalled();
+    expect(mailService.flushQueuedEmails).not.toHaveBeenCalled();
   });
 
   it('falls back to legacy reasons and default topics when narrative fields are missing', async () => {
@@ -3415,6 +3782,10 @@ describe('AccountService', () => {
       },
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         callback({
+          $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
+          block: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
           match: {
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),
           },
@@ -3514,6 +3885,7 @@ describe('AccountService', () => {
         .mockImplementation(
           async (callback: (tx: unknown) => Promise<unknown>) =>
             callback({
+              $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
               report: {
                 create: reportCreate,
               },
