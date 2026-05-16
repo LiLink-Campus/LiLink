@@ -3887,6 +3887,7 @@ describe('AccountService', () => {
             callback({
               $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
               report: {
+                findFirst: jest.fn().mockResolvedValue(null),
                 create: reportCreate,
               },
               block: {
@@ -3960,5 +3961,76 @@ describe('AccountService', () => {
         auditLog: expect.objectContaining({ create: auditLogCreate }),
       }),
     );
+  });
+
+  it('rechecks an open report after locking the match row', async () => {
+    const reportCreate = jest.fn().mockResolvedValue(undefined);
+    const transactionReportFindFirst = jest
+      .fn()
+      .mockResolvedValue({ id: 'report-1' });
+    const prisma = {
+      matchParticipant: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'participant-1',
+            userId: 'user-1',
+            match: {
+              id: 'match-1',
+              revealedAt: new Date('2026-05-08T12:00:00.000Z'),
+            },
+          })
+          .mockResolvedValueOnce({
+            id: 'participant-2',
+            userId: 'user-2',
+          }),
+      },
+      report: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: reportCreate,
+      },
+      $transaction: jest
+        .fn()
+        .mockImplementation(
+          async (callback: (tx: unknown) => Promise<unknown>) =>
+            callback({
+              $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
+              report: {
+                findFirst: transactionReportFindFirst,
+                create: reportCreate,
+              },
+              block: {
+                upsert: jest.fn().mockResolvedValue(undefined),
+              },
+              auditLog: {
+                create: jest.fn().mockResolvedValue(undefined),
+              },
+            }),
+        ),
+    };
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
+    const service = new AccountService(
+      prisma as never,
+      {
+        buildIntroductionEmails: jest.fn(),
+        flushQueuedEmails: jest.fn(),
+      } as never,
+      {} as never,
+      dashboardSnapshotService as never,
+    );
+
+    await expect(
+      service.reportMatch('user-1', 'match-1', { reason: 'spam' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(transactionReportFindFirst).toHaveBeenCalledWith({
+      where: {
+        reporterId: 'user-1',
+        matchId: 'match-1',
+        status: 'OPEN',
+      },
+    });
+    expect(reportCreate).not.toHaveBeenCalled();
+    expect(dashboardSnapshotService.syncMatchSnapshots).not.toHaveBeenCalled();
   });
 });

@@ -2176,6 +2176,18 @@ export class AccountService {
     await this.prisma.$transaction(async (tx) => {
       await this.lockMatchForContactDecision(tx, matchId);
 
+      const transactionExistingReport = await tx.report.findFirst({
+        where: {
+          reporterId: userId,
+          matchId,
+          status: 'OPEN',
+        },
+      });
+
+      if (transactionExistingReport) {
+        throw new BadRequestException('This match has already been reported.');
+      }
+
       await tx.report.create({
         data: {
           reporterId: userId,

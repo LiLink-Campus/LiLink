@@ -292,3 +292,14 @@ export class AdminUpdateUserDto {
   @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 }
+
+export class ToggleTestFlagDto {
+  @IsBoolean()
+  isTest!: boolean;
+}
+
+export class UpdateSettingsDto {
+  @IsOptional()
+  @IsString()
+  max_registrations?: string;
+}
