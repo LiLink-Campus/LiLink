@@ -31,7 +31,7 @@
     "test:watch": "npm run prepare:prisma && npm run build:shared && jest --watch",
     "test:cov": "npm run prepare:prisma && npm run build:shared && jest --coverage",
     "test:debug": "npm run prepare:prisma && npm run build:shared && node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "npm run prepare:prisma && npm run build:shared && cross-env NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json"
+    "test:e2e": "npm run prisma:migrate:deploy && npm run prepare:prisma && npm run build:shared && cross-env NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@lilink/shared": "file:../../packages/shared",

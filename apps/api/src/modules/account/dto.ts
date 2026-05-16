@@ -251,7 +251,10 @@ export class DashboardMatchParticipantResponseDto {
   @ApiProperty({ nullable: true })
   email!: string | null;
 
-  @ApiProperty({ type: () => DashboardPublicContactResponseDto, nullable: true })
+  @ApiProperty({
+    type: () => DashboardPublicContactResponseDto,
+    nullable: true,
+  })
   contact!: DashboardPublicContactResponseDto | null;
 
   @ApiProperty({ nullable: true })

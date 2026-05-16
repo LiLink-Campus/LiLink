@@ -24,6 +24,7 @@
     "lint:shared": "npm run lint --workspace @lilink/shared",
     "lint:web": "npm run lint --workspace web",
     "lint:api": "npm run lint --workspace api",
+    "lint:staged": "lint-staged",
     "test:shared": "npm run test --workspace @lilink/shared",
     "db:bootstrap": "npm run db:bootstrap --workspace api",
     "db:generate": "npm run prisma:generate --workspace api",
@@ -38,6 +39,10 @@
     "infra:down": "docker compose down"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "lint-staged": "^17.0.5"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,md,yml,yaml}": "prettier --ignore-unknown --write"
   }
 }
