@@ -37,6 +37,7 @@ import {
   ReorderQuestionsDto,
   ReviewReportDto,
   UpdateUserStatusDto,
+  UpdateSettingsDto,
   UpsertCycleDto,
   UpsertQuestionDto,
 } from './dto';
@@ -2305,7 +2306,7 @@ export class AdminService {
     return settings;
   }
 
-  async updateSettings(input: Record<string, string>, adminActorId: string) {
+  async updateSettings(input: UpdateSettingsDto, adminActorId: string) {
     const allowedKeys = new Set(['max_registrations']);
 
     const entries = Object.entries(input).filter(([key]) =>

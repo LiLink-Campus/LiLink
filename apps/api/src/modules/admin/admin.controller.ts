@@ -29,7 +29,9 @@ import {
   RunCycleDto,
   ReorderQuestionsDto,
   ReviewReportDto,
+  ToggleTestFlagDto,
   UpdateUserStatusDto,
+  UpdateSettingsDto,
   UpdateSchoolDto,
   UpsertCycleDto,
   UpsertQuestionDto,
@@ -235,7 +237,7 @@ export class AdminController {
   toggleTestFlag(
     @Req() request: AdminAuthenticatedRequest,
     @Param('userId') userId: string,
-    @Body() body: { isTest: boolean },
+    @Body() body: ToggleTestFlagDto,
   ) {
     return this.adminService.setTestFlag(
       userId,
@@ -285,7 +287,7 @@ export class AdminController {
   @Patch('settings')
   updateSettings(
     @Req() request: AdminAuthenticatedRequest,
-    @Body() body: Record<string, string>,
+    @Body() body: UpdateSettingsDto,
   ) {
     return this.adminService.updateSettings(body, request.admin!.id);
   }
