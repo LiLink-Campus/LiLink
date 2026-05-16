@@ -1,4 +1,9 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { MeetupService } from './meetup.service';
 import { locationCandidates } from './location-candidates';
 import type {
@@ -17,6 +22,7 @@ function createDelegate() {
     findMany: jest.fn(),
     create: jest.fn(),
     createMany: jest.fn(),
+    createManyAndReturn: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
     upsert: jest.fn(),
@@ -34,6 +40,7 @@ function createTx() {
     meetupParticipant: createDelegate(),
     meetupProposal: createDelegate(),
     meetupSession: createDelegate(),
+    outboundEmail: createDelegate(),
     user: createDelegate(),
   };
 }
@@ -44,9 +51,32 @@ function createService(tx: ReturnType<typeof createTx>) {
       callback: (client: MeetupTransactionClient) => Promise<T>,
     ) => callback(tx as unknown as MeetupTransactionClient),
   };
+  const mailService = {
+    buildMeetupReminderEmail: jest
+      .fn()
+      .mockImplementation(
+        (input: {
+          sessionId: string;
+          recipientEmail: string;
+          recipientDisplayName: string | null;
+          otherPartyDisplayName: string | null;
+          actionSentence: string;
+          directUrl: string;
+        }) => ({
+          dedupeKey: `meetup-reminder:${input.sessionId}`,
+          recipientEmail: input.recipientEmail,
+          subject: 'LiLink 破冰会话待处理',
+          html: `<a href="${input.directUrl}">open</a>`,
+          text: input.actionSentence,
+          messageCategory: 'TRANSACTIONAL',
+        }),
+      ),
+    flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
+  };
 
   return {
-    service: new MeetupService(prisma as never),
+    service: new MeetupService(prisma as never, mailService as never),
+    mailService,
     prisma,
   };
 }
@@ -217,6 +247,53 @@ function buildSession(
   };
 }
 
+function buildReminderCandidate(overrides: {
+  sessionId?: string;
+  participantId?: string;
+  userId?: string;
+  responseRequiredAt?: Date;
+  responseRequiredMessageType?: string | null;
+  finalConfirmRequiredByUserId?: string | null;
+}) {
+  const sessionId = overrides.sessionId ?? 'session-1';
+  const userId = overrides.userId ?? 'user-b';
+
+  return {
+    id: overrides.participantId ?? `meetup-participant-${sessionId}`,
+    userId,
+    responseRequiredAt:
+      overrides.responseRequiredAt ?? new Date('2026-05-13T09:59:00.000Z'),
+    responseRequiredMessage:
+      overrides.responseRequiredMessageType === null
+        ? null
+        : { type: overrides.responseRequiredMessageType ?? 'PROPOSE' },
+    user: {
+      email: `${userId}@example.com`,
+      displayName: userId === 'user-b' ? 'User B' : 'User A',
+    },
+    session: {
+      id: sessionId,
+      matchId: 'match-1',
+      finalConfirmRequiredByUserId:
+        overrides.finalConfirmRequiredByUserId ?? null,
+      participants: [
+        {
+          userId: 'user-a',
+          user: {
+            displayName: 'User A',
+          },
+        },
+        {
+          userId: 'user-b',
+          user: {
+            displayName: 'User B',
+          },
+        },
+      ],
+    },
+  };
+}
+
 describe('MeetupService', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -225,6 +302,351 @@ describe('MeetupService', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('queues one reminder email for a required turn after 24 hours', async () => {
+    const tx = createTx();
+    const { service, mailService } = createService(tx);
+    tx.meetupParticipant.findMany.mockResolvedValue([
+      buildReminderCandidate({ sessionId: 'session-1' }),
+    ]);
+    tx.outboundEmail.findMany.mockResolvedValue([]);
+    tx.outboundEmail.createManyAndReturn.mockResolvedValue([
+      { dedupeKey: 'meetup-reminder:session-1' },
+    ]);
+
+    await expect(service.queueMeetupReminderEmails()).resolves.toEqual({
+      queuedCount: 1,
+    });
+
+    const [[findManyArgs]] = tx.meetupParticipant.findMany.mock
+      .calls as unknown as Array<
+      [
+        {
+          where: {
+            turnState: string;
+            responseRequiredAt: { lte: Date };
+            session: {
+              is: {
+                status: string;
+                OR: Array<Record<string, unknown>>;
+              };
+            };
+          };
+        },
+      ]
+    >;
+    expect(findManyArgs.where.turnState).toBe('REQUIRED');
+    expect(findManyArgs.where.responseRequiredAt.lte).toEqual(
+      new Date('2026-05-13T10:00:00.000Z'),
+    );
+    expect(findManyArgs.where.session.is.status).toBe('ACTIVE');
+    expect(findManyArgs).toMatchObject({
+      orderBy: [{ responseRequiredAt: 'asc' }, { id: 'asc' }],
+      skip: 0,
+      take: 50,
+    });
+    const [[reminderInput]] = mailService.buildMeetupReminderEmail.mock
+      .calls as unknown as Array<
+      [
+        {
+          sessionId: string;
+          recipientEmail: string;
+          recipientDisplayName: string | null;
+          otherPartyDisplayName: string | null;
+          actionSentence: string;
+          directUrl: string;
+        },
+      ]
+    >;
+    expect(reminderInput).toMatchObject({
+      sessionId: 'session-1',
+      recipientEmail: 'user-b@example.com',
+      recipientDisplayName: 'User B',
+      otherPartyDisplayName: 'User A',
+      actionSentence: 'User A 已经发出见面提议，正在等你确认。',
+    });
+    expect(reminderInput.directUrl).toMatch(/\/dashboard\/meetup\/session-1$/);
+    expect(tx.outboundEmail.findMany).toHaveBeenCalledWith({
+      where: {
+        dedupeKey: {
+          in: ['meetup-reminder:session-1'],
+        },
+      },
+      select: {
+        dedupeKey: true,
+      },
+    });
+    expect(tx.outboundEmail.createManyAndReturn).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          dedupeKey: 'meetup-reminder:session-1',
+          recipientEmail: 'user-b@example.com',
+        }),
+      ],
+      skipDuplicates: true,
+      select: {
+        dedupeKey: true,
+      },
+    });
+    expect(mailService.flushQueuedEmails).toHaveBeenCalledWith({
+      dedupeKeys: ['meetup-reminder:session-1'],
+    });
+  });
+
+  it('queues a partial accept reminder with matching action copy', async () => {
+    const tx = createTx();
+    const { service, mailService } = createService(tx);
+    tx.meetupParticipant.findMany.mockResolvedValue([
+      buildReminderCandidate({
+        sessionId: 'session-accept-partial',
+        userId: 'user-a',
+        responseRequiredMessageType: 'ACCEPT',
+      }),
+    ]);
+    tx.outboundEmail.findMany.mockResolvedValue([]);
+    tx.outboundEmail.createManyAndReturn.mockResolvedValue([
+      { dedupeKey: 'meetup-reminder:session-accept-partial' },
+    ]);
+
+    await expect(service.queueMeetupReminderEmails()).resolves.toEqual({
+      queuedCount: 1,
+    });
+
+    expect(mailService.buildMeetupReminderEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'session-accept-partial',
+        recipientEmail: 'user-a@example.com',
+        otherPartyDisplayName: 'User B',
+        actionSentence:
+          'User B 已经接受了部分选项，正在等你继续处理这个破冰会话。',
+      }),
+    );
+  });
+
+  it('queues a final confirmation reminder with matching action copy', async () => {
+    const tx = createTx();
+    const { service, mailService } = createService(tx);
+    tx.meetupParticipant.findMany.mockResolvedValue([
+      buildReminderCandidate({
+        sessionId: 'session-final-confirm',
+        userId: 'user-a',
+        responseRequiredMessageType: 'ACCEPT',
+        finalConfirmRequiredByUserId: 'user-a',
+      }),
+    ]);
+    tx.outboundEmail.findMany.mockResolvedValue([]);
+    tx.outboundEmail.createManyAndReturn.mockResolvedValue([
+      { dedupeKey: 'meetup-reminder:session-final-confirm' },
+    ]);
+
+    await expect(service.queueMeetupReminderEmails()).resolves.toEqual({
+      queuedCount: 1,
+    });
+
+    expect(mailService.buildMeetupReminderEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'session-final-confirm',
+        recipientEmail: 'user-a@example.com',
+        otherPartyDisplayName: 'User B',
+        actionSentence: 'User B 已经接受时间和地点，正在等你最终确认。',
+      }),
+    );
+  });
+
+  it('queues a rejection reminder with matching action copy', async () => {
+    const tx = createTx();
+    const { service, mailService } = createService(tx);
+    tx.meetupParticipant.findMany.mockResolvedValue([
+      buildReminderCandidate({
+        sessionId: 'session-reject',
+        userId: 'user-a',
+        responseRequiredMessageType: 'REJECT',
+      }),
+    ]);
+    tx.outboundEmail.findMany.mockResolvedValue([]);
+    tx.outboundEmail.createManyAndReturn.mockResolvedValue([
+      { dedupeKey: 'meetup-reminder:session-reject' },
+    ]);
+
+    await expect(service.queueMeetupReminderEmails()).resolves.toEqual({
+      queuedCount: 1,
+    });
+
+    expect(mailService.buildMeetupReminderEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'session-reject',
+        recipientEmail: 'user-a@example.com',
+        otherPartyDisplayName: 'User B',
+        actionSentence:
+          'User B 已经拒绝这次见面提议，正在等你调整后重新发出提议。',
+      }),
+    );
+  });
+
+  it('skips required turns without a supported reminder message type', async () => {
+    const tx = createTx();
+    const { service, mailService } = createService(tx);
+    tx.meetupParticipant.findMany.mockResolvedValue([
+      buildReminderCandidate({
+        sessionId: 'session-unsupported',
+        responseRequiredMessageType: null,
+      }),
+    ]);
+    tx.outboundEmail.findMany.mockResolvedValue([]);
+
+    await expect(service.queueMeetupReminderEmails()).resolves.toEqual({
+      queuedCount: 0,
+    });
+
+    expect(mailService.buildMeetupReminderEmail).not.toHaveBeenCalled();
+    expect(tx.outboundEmail.createManyAndReturn).not.toHaveBeenCalled();
+    expect(mailService.flushQueuedEmails).not.toHaveBeenCalled();
+  });
+
+  it('lets the reminder cron catch immediate flush failures after queueing emails', async () => {
+    const tx = createTx();
+    const { service, mailService } = createService(tx);
+    const flushError = new Error('flush failed');
+    const loggerErrorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    tx.meetupParticipant.findMany.mockResolvedValue([
+      buildReminderCandidate({ sessionId: 'session-1' }),
+    ]);
+    tx.outboundEmail.findMany.mockResolvedValue([]);
+    tx.outboundEmail.createManyAndReturn.mockResolvedValue([
+      { dedupeKey: 'meetup-reminder:session-1' },
+    ]);
+    mailService.flushQueuedEmails.mockRejectedValue(flushError);
+
+    await expect(
+      service.handleMeetupReminderEmailQueue(),
+    ).resolves.toBeUndefined();
+
+    expect(tx.outboundEmail.createManyAndReturn).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          dedupeKey: 'meetup-reminder:session-1',
+        }),
+      ],
+      skipDuplicates: true,
+      select: {
+        dedupeKey: true,
+      },
+    });
+    expect(mailService.flushQueuedEmails).toHaveBeenCalledWith({
+      dedupeKeys: ['meetup-reminder:session-1'],
+    });
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      'Failed to queue meetup reminder emails.',
+      flushError.stack,
+    );
+
+    loggerErrorSpy.mockRestore();
+  });
+
+  it('does not flush when the session reminder was already queued', async () => {
+    const tx = createTx();
+    const { service, mailService } = createService(tx);
+    tx.meetupParticipant.findMany.mockResolvedValue([
+      buildReminderCandidate({ sessionId: 'session-1' }),
+    ]);
+    tx.outboundEmail.findMany.mockResolvedValue([
+      { dedupeKey: 'meetup-reminder:session-1' },
+    ]);
+
+    await expect(service.queueMeetupReminderEmails()).resolves.toEqual({
+      queuedCount: 0,
+    });
+
+    expect(tx.outboundEmail.createManyAndReturn).not.toHaveBeenCalled();
+    expect(mailService.flushQueuedEmails).not.toHaveBeenCalled();
+  });
+
+  it('continues past an already queued full reminder batch', async () => {
+    const tx = createTx();
+    const { service, mailService } = createService(tx);
+    const existingCandidates = Array.from({ length: 50 }, (_, index) =>
+      buildReminderCandidate({
+        sessionId: `session-${index}`,
+        participantId: `participant-${index}`,
+      }),
+    );
+    const nextCandidate = buildReminderCandidate({
+      sessionId: 'session-50',
+      participantId: 'participant-50',
+    });
+    tx.meetupParticipant.findMany
+      .mockResolvedValueOnce(existingCandidates)
+      .mockResolvedValueOnce([nextCandidate]);
+    tx.outboundEmail.findMany
+      .mockResolvedValueOnce(
+        existingCandidates.map((candidate) => ({
+          dedupeKey: `meetup-reminder:${candidate.session.id}`,
+        })),
+      )
+      .mockResolvedValueOnce([]);
+    tx.outboundEmail.createManyAndReturn.mockResolvedValue([
+      { dedupeKey: 'meetup-reminder:session-50' },
+    ]);
+
+    await expect(service.queueMeetupReminderEmails()).resolves.toEqual({
+      queuedCount: 1,
+    });
+
+    const participantQueries = tx.meetupParticipant.findMany.mock
+      .calls as unknown as Array<[{ skip: number; take: number }]>;
+    expect(participantQueries[0]?.[0]).toMatchObject({ skip: 0, take: 50 });
+    expect(participantQueries[1]?.[0]).toMatchObject({ skip: 50, take: 50 });
+    expect(tx.outboundEmail.createManyAndReturn).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          dedupeKey: 'meetup-reminder:session-50',
+        }),
+      ],
+      skipDuplicates: true,
+      select: {
+        dedupeKey: true,
+      },
+    });
+    expect(mailService.flushQueuedEmails).toHaveBeenCalledWith({
+      dedupeKeys: ['meetup-reminder:session-50'],
+    });
+  });
+
+  it('returns only newly inserted reminder dedupe keys after partial dedupe', async () => {
+    const tx = createTx();
+    const { service, mailService } = createService(tx);
+    tx.meetupParticipant.findMany.mockResolvedValue([
+      buildReminderCandidate({ sessionId: 'session-existing' }),
+      buildReminderCandidate({ sessionId: 'session-new' }),
+    ]);
+    tx.outboundEmail.findMany.mockResolvedValue([
+      { dedupeKey: 'meetup-reminder:session-existing' },
+    ]);
+    tx.outboundEmail.createManyAndReturn.mockResolvedValue([
+      { dedupeKey: 'meetup-reminder:session-new' },
+    ]);
+
+    await expect(service.queueMeetupReminderEmails()).resolves.toEqual({
+      queuedCount: 1,
+    });
+
+    expect(tx.outboundEmail.createManyAndReturn).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          dedupeKey: 'meetup-reminder:session-new',
+        }),
+      ],
+      skipDuplicates: true,
+      select: {
+        dedupeKey: true,
+      },
+    });
+    expect(mailService.flushQueuedEmails).toHaveBeenCalledWith({
+      dedupeKeys: ['meetup-reminder:session-new'],
+    });
   });
 
   it('rejects start before the match is introduced', async () => {
@@ -745,6 +1167,52 @@ describe('MeetupService', () => {
     });
   });
 
+  it('maps a pending proposal race during proposal creation to a stale proposal conflict', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+    const session = buildSession({
+      currentProposalId: null,
+      currentProposal: null,
+      participants: [
+        buildParticipant({
+          id: 'meetup-participant-a',
+          userId: 'user-a',
+          matchParticipantId: 'mp-a',
+          turnState: 'REQUIRED',
+        }),
+        buildParticipant({
+          id: 'meetup-participant-b',
+          userId: 'user-b',
+          matchParticipantId: 'mp-b',
+          turnState: 'WAITING',
+        }),
+      ],
+    });
+    const uniqueError = Object.assign(new Error('Unique constraint failed'), {
+      code: 'P2002',
+    });
+
+    tx.meetupSession.findUnique
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(session);
+    tx.user.findMany.mockResolvedValue([
+      { id: 'user-a', meetupExpirationWeeks: 2 },
+      { id: 'user-b', meetupExpirationWeeks: 2 },
+    ]);
+    tx.meetupSession.updateMany.mockResolvedValue({ count: 1 });
+    tx.meetupMessage.create.mockResolvedValue({ id: 'message-created' });
+    tx.meetupProposal.create.mockRejectedValue(uniqueError);
+
+    const result = service.createProposal(
+      'user-a',
+      'session-1',
+      buildProposalInput(),
+    );
+
+    await expect(result).rejects.toThrow(ConflictException);
+    await expect(result).rejects.toThrow('MEETUP_STALE_PROPOSAL');
+  });
+
   it('claims a locked session before creating a revision proposal', async () => {
     const tx = createTx();
     const { service } = createService(tx);
@@ -844,6 +1312,69 @@ describe('MeetupService', () => {
         currentProposalId: 'proposal-created',
       },
     });
+  });
+
+  it('maps a pending proposal race during locked revision to a stale proposal conflict', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+    const confirmedTime = buildTimeOption({
+      id: 'time-confirmed',
+      status: 'CONFIRMED',
+      startsAt: new Date('2026-05-15T10:00:00.000Z'),
+      endsAt: new Date('2026-05-15T11:00:00.000Z'),
+    });
+    const confirmedLocation = buildLocationOption({
+      id: 'location-confirmed',
+      status: 'CONFIRMED',
+    });
+    const lockedSession = buildSession({
+      status: 'LOCKED',
+      currentProposalId: null,
+      currentProposal: null,
+      confirmedTimeOptionId: confirmedTime.id,
+      confirmedTimeOption: confirmedTime,
+      confirmedLocationOptionId: confirmedLocation.id,
+      confirmedLocationOption: confirmedLocation,
+      lockedAt: new Date('2026-05-14T09:00:00.000Z'),
+      expiresAt: null,
+      archiveEligibleAt: new Date('2026-05-16T10:00:00.000Z'),
+      participants: [
+        buildParticipant({
+          id: 'meetup-participant-a',
+          userId: 'user-a',
+          matchParticipantId: 'mp-a',
+          turnState: 'NONE',
+        }),
+        buildParticipant({
+          id: 'meetup-participant-b',
+          userId: 'user-b',
+          matchParticipantId: 'mp-b',
+          turnState: 'NONE',
+        }),
+      ],
+    });
+    const uniqueError = Object.assign(new Error('Unique constraint failed'), {
+      code: 'P2002',
+    });
+
+    tx.meetupSession.findUnique
+      .mockResolvedValueOnce(lockedSession)
+      .mockResolvedValueOnce(lockedSession);
+    tx.user.findMany.mockResolvedValue([
+      { id: 'user-a', meetupExpirationWeeks: 2 },
+      { id: 'user-b', meetupExpirationWeeks: 2 },
+    ]);
+    tx.meetupSession.updateMany.mockResolvedValue({ count: 1 });
+    tx.meetupParticipant.updateMany.mockResolvedValue({ count: 1 });
+    tx.meetupMessage.create.mockResolvedValue({ id: 'message-created' });
+    tx.meetupProposal.create.mockRejectedValue(uniqueError);
+
+    const result = service.reviseAfterLock('user-a', 'session-1', {
+      proposal: buildProposalInput(),
+    });
+
+    await expect(result).rejects.toThrow(ConflictException);
+    await expect(result).rejects.toThrow('MEETUP_STALE_PROPOSAL');
   });
 
   it('allows ordinary active cancellation after the confirmed start time', async () => {
