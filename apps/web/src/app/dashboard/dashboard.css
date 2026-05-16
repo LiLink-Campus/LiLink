@@ -3675,7 +3675,7 @@
 .contact-channel-option.is-disabled {
   cursor: not-allowed;
   color: var(--fg-muted);
-  background: color-mix(in srgb, var(--bg-elevated) 58%, var(--bg-muted));
+  background: color-mix(in srgb, var(--bg-elevated) 58%, var(--bg-soft));
 }
 
 .contact-channel-option input {
