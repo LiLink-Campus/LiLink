@@ -30,6 +30,7 @@
     "db:migrate": "npm run prisma:migrate --workspace api",
     "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace api",
     "db:seed": "npm run prisma:seed --workspace api",
+    "db:seed-meetup-demo": "npm run seed:meetup-demo --workspace api --",
     "db:ensure-participants": "npm run ensure-cycle-participants --workspace api",
     "db:seed-defaults": "npm run prisma:seed-defaults --workspace api",
     "db:seed:default": "npm run prisma:seed:default --workspace api",

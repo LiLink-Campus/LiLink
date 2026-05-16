@@ -104,12 +104,320 @@ export async function fetchApi<T>(
   return JSON.parse(text) as T;
 }
 
+export type MeetupExpirationWeeks = 1 | 2 | 3 | 4;
+
 export type AuthMePayload = {
   id: string;
   email: string;
   displayName: string | null;
   preferredLocale: SupportedLocale;
+  meetupExpirationWeeks: MeetupExpirationWeeks;
 };
+
+export type MeetupSessionStatus =
+  | "ACTIVE"
+  | "LOCKED"
+  | "CANCELED"
+  | "EXPIRED"
+  | "ARCHIVED";
+
+export type MeetupUserTurnStatus =
+  | "NOT_STARTED"
+  | "WAITING_FOR_COUNTERPART"
+  | "NEEDS_YOUR_RESPONSE"
+  | "NONE";
+
+export type MeetupProgressStatus =
+  | "NOT_STARTED"
+  | "NEGOTIATING"
+  | "LOCATION_CONFIRMED_TIME_PENDING"
+  | "TIME_CONFIRMED_LOCATION_PENDING"
+  | "AWAITING_FINAL_CONFIRMATION"
+  | "LOCKED"
+  | "CANCELED"
+  | "EXPIRED"
+  | "ARCHIVED";
+
+export type MeetupProposalScope = "BOTH" | "TIME_ONLY" | "LOCATION_ONLY";
+
+export type MeetupParticipantTurnState = "NONE" | "REQUIRED" | "WAITING";
+
+export type MeetupMessageType =
+  | "PROPOSE"
+  | "ACCEPT"
+  | "REJECT"
+  | "FINAL_CONFIRM"
+  | "REVISE_AFTER_LOCK"
+  | "CANCEL";
+
+export type MeetupProposalStatus =
+  | "PENDING"
+  | "PARTIALLY_ACCEPTED"
+  | "CONFIRMED"
+  | "REJECTED"
+  | "SUPERSEDED";
+
+export type MeetupOptionKind = "TIME" | "LOCATION";
+
+export type MeetupOptionStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "REJECTED"
+  | "DISABLED";
+
+export type MeetupLocationCandidate = {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+};
+
+export type MeetupActionAvailability = {
+  enabled: boolean;
+  reason: string | null;
+};
+
+export type MeetupAvailableActions = {
+  propose: MeetupActionAvailability;
+  accept: MeetupActionAvailability & {
+    requiredOptionKinds: MeetupOptionKind[];
+  };
+  reject: MeetupActionAvailability;
+  finalConfirm: MeetupActionAvailability;
+  reviseAfterLock: MeetupActionAvailability;
+  cancel: MeetupActionAvailability;
+};
+
+export type MeetupOption = {
+  id: string;
+  kind: MeetupOptionKind;
+  status: MeetupOptionStatus;
+  startsAt: string | null;
+  endsAt: string | null;
+  toleranceMinutes: number | null;
+  locationCandidateId: string | null;
+  placeName: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export type MeetupProposal = {
+  id: string;
+  actorUserId: string;
+  scope: MeetupProposalScope;
+  status: MeetupProposalStatus;
+  options: MeetupOption[];
+};
+
+export type MeetupMessage = {
+  id: string;
+  actorUserId: string;
+  type: MeetupMessageType;
+  notePreset: string | null;
+  noteText: string | null;
+  createdAt: string;
+  proposal: MeetupProposal | null;
+};
+
+export type MeetupParticipant = {
+  userId: string;
+  displayName: string | null;
+  turnState: MeetupParticipantTurnState;
+  revisionUsedAt: string | null;
+  lastSeenAt: string | null;
+};
+
+export type MeetupCurrentPlan = {
+  timeOption: MeetupOption | null;
+  locationOption: MeetupOption | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  toleranceMinutes: number | null;
+  locationCandidateId: string | null;
+  placeName: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export type MeetupSessionResponse = {
+  id: string;
+  matchId: string;
+  status: MeetupSessionStatus;
+  userTurnStatus: MeetupUserTurnStatus;
+  progressStatus: MeetupProgressStatus;
+  startedByUserId: string;
+  counterpartUserId: string;
+  counterpartDisplayName: string | null;
+  currentProposalId: string | null;
+  confirmedTimeOptionId: string | null;
+  confirmedLocationOptionId: string | null;
+  finalConfirmRequiredByUserId: string | null;
+  lockedAt: string | null;
+  canceledAt: string | null;
+  canceledByUserId: string | null;
+  effectiveExpirationWeeks: number | null;
+  expiresAt: string | null;
+  archiveEligibleAt: string | null;
+  lastActiveAt: string;
+  currentPlan: MeetupCurrentPlan;
+  currentPendingProposal: MeetupProposal | null;
+  participants: MeetupParticipant[];
+  messages: MeetupMessage[];
+  availableActions: MeetupAvailableActions;
+};
+
+export type MeetupTimeOptionInput = {
+  startsAt: string;
+  endsAt: string;
+  toleranceMinutes?: number;
+};
+
+export type MeetupLocationOptionInput = {
+  locationCandidateId: string;
+};
+
+export type MeetupProposalPayload = {
+  scope: MeetupProposalScope;
+  timeOptions?: MeetupTimeOptionInput[];
+  locationOptions?: MeetupLocationOptionInput[];
+  notePreset?: string;
+  noteText?: string;
+};
+
+export type AcceptMeetupOptionsPayload = {
+  timeOptionId?: string;
+  locationOptionId?: string;
+  notePreset?: string;
+  noteText?: string;
+};
+
+export type MeetupNotePayload = {
+  notePreset?: string;
+  noteText?: string;
+};
+
+export type CancelMeetupSessionPayload = {
+  note?: string;
+};
+
+function proposalRequestBody(proposal: MeetupProposalPayload) {
+  return JSON.stringify(proposal);
+}
+
+function wrappedProposalRequestBody(proposal: MeetupProposalPayload) {
+  return JSON.stringify({ proposal });
+}
+
+export type MeetupSettingsPayload = {
+  meetupExpirationWeeks: MeetupExpirationWeeks;
+};
+
+export function fetchMeetupLocationCandidates() {
+  return fetchApi<MeetupLocationCandidate[]>("/me/meetup-location-candidates");
+}
+
+export function fetchMeetupSession(sessionId: string) {
+  return fetchApi<MeetupSessionResponse>(`/me/meetup-sessions/${sessionId}`);
+}
+
+export function startMeetupSession(
+  matchId: string,
+  proposal: MeetupProposalPayload,
+) {
+  return fetchApi<MeetupSessionResponse>(
+    `/me/matches/${matchId}/meetup/start`,
+    {
+      method: "POST",
+      body: wrappedProposalRequestBody(proposal),
+    },
+  );
+}
+
+export function createMeetupProposal(
+  sessionId: string,
+  proposal: MeetupProposalPayload,
+) {
+  return fetchApi<MeetupSessionResponse>(
+    `/me/meetup-sessions/${sessionId}/proposals`,
+    {
+      method: "POST",
+      body: proposalRequestBody(proposal),
+    },
+  );
+}
+
+export function acceptMeetupOptions(
+  sessionId: string,
+  payload: AcceptMeetupOptionsPayload,
+) {
+  return fetchApi<MeetupSessionResponse>(
+    `/me/meetup-sessions/${sessionId}/options/accept`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function rejectMeetupProposal(
+  sessionId: string,
+  proposalId: string,
+  payload: MeetupNotePayload = {},
+) {
+  return fetchApi<MeetupSessionResponse>(
+    `/me/meetup-sessions/${sessionId}/proposals/${proposalId}/reject`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function finalConfirmMeetupSession(sessionId: string) {
+  return fetchApi<MeetupSessionResponse>(
+    `/me/meetup-sessions/${sessionId}/final-confirm`,
+    { method: "POST" },
+  );
+}
+
+export function reviseMeetupSession(
+  sessionId: string,
+  proposal: MeetupProposalPayload,
+) {
+  return fetchApi<MeetupSessionResponse>(
+    `/me/meetup-sessions/${sessionId}/revise`,
+    {
+      method: "POST",
+      body: wrappedProposalRequestBody(proposal),
+    },
+  );
+}
+
+export function cancelMeetupSession(
+  sessionId: string,
+  payload: CancelMeetupSessionPayload = {},
+) {
+  return fetchApi<MeetupSessionResponse>(
+    `/me/meetup-sessions/${sessionId}/cancel`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function markMeetupSessionSeen(sessionId: string) {
+  await fetchApi<null>(`/me/meetup-sessions/${sessionId}/seen`, {
+    method: "POST",
+  });
+}
+
+export function updateMeetupSettings(payload: MeetupSettingsPayload) {
+  return fetchApi<AuthMePayload>("/me/settings/meetup", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
 
 let authMeInflight: Promise<AuthMePayload | null> | null = null;
 

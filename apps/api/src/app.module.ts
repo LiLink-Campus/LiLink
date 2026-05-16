@@ -16,6 +16,7 @@ import { AccountModule } from './modules/account/account.module';
 import { CyclesModule } from './modules/cycles/cycles.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AdminSessionModule } from './modules/admin-session/admin-session.module';
+import { MeetupModule } from './modules/meetup/meetup.module';
 import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
 import { authEmailThrottler } from './modules/auth/auth-throttle';
 
@@ -51,6 +52,7 @@ import { authEmailThrottler } from './modules/auth/auth-throttle';
     QuestionnaireModule,
     AuthModule,
     AccountModule,
+    MeetupModule,
     CyclesModule,
     AdminModule,
     AdminSessionModule,

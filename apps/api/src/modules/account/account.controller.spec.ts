@@ -9,6 +9,7 @@ describe('AccountController', () => {
       email: 'summary@example.com',
       displayName: 'Summary User',
       preferredLocale: 'zh-CN',
+      meetupExpirationWeeks: 2,
     };
     const accountService = {
       getDashboard: jest

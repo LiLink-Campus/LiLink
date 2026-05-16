@@ -10,6 +10,7 @@ import {
   type WeeklyIntent,
 } from "../../lib/weekly-intent";
 import { IntentSheet } from "./_components/IntentSheet";
+import { DashboardTodoSection } from "./_components/DashboardTodoSection";
 import {
   CalendarIcon,
   CheckCircleIcon,
@@ -375,6 +376,7 @@ export function HomeClient({
   }
 
   const latestMatch = dashboard.latestMatch;
+  const dashboardTasks = dashboard.tasks ?? [];
   const counterpart =
     latestMatch && initialUser
       ? latestMatch.participants.find((p) => p.userId !== initialUser.id) ??
@@ -390,6 +392,7 @@ export function HomeClient({
 
       {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
       {error ? <p className="form-error">{error}</p> : null}
+      <DashboardTodoSection tasks={dashboardTasks} />
 
       <section className="weekly-prep-panel" aria-label="本周准备">
         <h2>本周准备</h2>

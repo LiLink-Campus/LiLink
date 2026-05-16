@@ -87,6 +87,60 @@ enum ContactChannelType {
   WECHAT
   QQ
   PHONE
+
+}
+
+enum MeetupSessionStatus {
+  ACTIVE
+  LOCKED
+  CANCELED
+  EXPIRED
+  ARCHIVED
+}
+
+enum MeetupParticipantTurnState {
+  NONE
+  REQUIRED
+  WAITING
+}
+
+enum MeetupMessageType {
+  PROPOSE
+  ACCEPT
+  REJECT
+  FINAL_CONFIRM
+  REVISE_AFTER_LOCK
+  CANCEL
+}
+
+enum MeetupCancelReason {
+  USER_CANCELED
+}
+
+enum MeetupProposalScope {
+  BOTH
+  TIME_ONLY
+  LOCATION_ONLY
+}
+
+enum MeetupProposalStatus {
+  PENDING
+  PARTIALLY_ACCEPTED
+  CONFIRMED
+  REJECTED
+  SUPERSEDED
+}
+
+enum MeetupOptionKind {
+  TIME
+  LOCATION
+}
+
+enum MeetupOptionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  DISABLED
 }
 
 model AdminOperator {
@@ -132,6 +186,7 @@ model User {
   displayName           String?
   preferredContactChannel ContactChannelType   @default(EMAIL)
   preferredLocale       String                 @default("zh-CN")
+  meetupExpirationWeeks Int                    @default(2)
   isTest                Boolean                @default(false)
   acceptedTermsAt       DateTime?
   createdAt             DateTime               @default(now())
@@ -144,6 +199,12 @@ model User {
   blocksInitiated       Block[]                @relation("Blocker")
   blocksReceived        Block[]                @relation("BlockedUser")
   matchParticipants     MatchParticipant[]
+  meetupSessionsStarted MeetupSession[]        @relation("MeetupSessionStartedBy")
+  meetupSessionsCanceled MeetupSession[]       @relation("MeetupSessionCanceledBy")
+  meetupSessionsFinalConfirm MeetupSession[]   @relation("MeetupSessionFinalConfirmUser")
+  meetupParticipants    MeetupParticipant[]    @relation("MeetupParticipantUser")
+  meetupMessages        MeetupMessage[]        @relation("MeetupMessageActor")
+  meetupProposals       MeetupProposal[]       @relation("MeetupProposalActor")
   auditLogs             AuditLog[]             @relation("Actor")
   dashboardSnapshots    UserCycleDashboardSnapshot[]
   contactMethods        UserContactMethod[]
@@ -298,6 +359,7 @@ model Match {
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   participants MatchParticipant[]
+  meetupSession MeetupSession?
   reports      Report[]
 
   @@index([cycleId, createdAt])
@@ -315,6 +377,7 @@ model MatchParticipant {
   introducedContactType  ContactChannelType?
   introducedContactValue String?
   createdAt          DateTime  @default(now())
+  meetupParticipants MeetupParticipant[]
 
   @@unique([matchId, userId])
   @@unique([cycleId, userId])
@@ -420,4 +483,136 @@ model OutboundEmail {
   updatedAt       DateTime                     @updatedAt
 
   @@index([status, nextAttemptAt, createdAt])
+}
+
+model MeetupSession {
+  id                           String              @id @default(cuid())
+  matchId                      String              @unique
+  match                        Match               @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  status                       MeetupSessionStatus @default(ACTIVE)
+
+  currentProposalId            String?             @unique
+  currentProposal              MeetupProposal?     @relation("MeetupSessionCurrentProposal", fields: [currentProposalId], references: [id], onDelete: SetNull)
+  confirmedTimeOptionId        String?             @unique
+  confirmedTimeOption          MeetupOption?       @relation("MeetupSessionConfirmedTime", fields: [confirmedTimeOptionId], references: [id], onDelete: SetNull)
+  confirmedLocationOptionId    String?             @unique
+  confirmedLocationOption      MeetupOption?       @relation("MeetupSessionConfirmedLocation", fields: [confirmedLocationOptionId], references: [id], onDelete: SetNull)
+  finalConfirmRequiredByUserId String?
+  finalConfirmRequiredByUser   User?               @relation("MeetupSessionFinalConfirmUser", fields: [finalConfirmRequiredByUserId], references: [id], onDelete: SetNull)
+
+  startedByUserId              String
+  startedByUser                User                @relation("MeetupSessionStartedBy", fields: [startedByUserId], references: [id], onDelete: Cascade)
+  canceledByUserId             String?
+  canceledByUser               User?               @relation("MeetupSessionCanceledBy", fields: [canceledByUserId], references: [id], onDelete: SetNull)
+  cancelReason                 MeetupCancelReason?
+  cancelNote                   String?
+
+  reopenedFromLockedAt         DateTime?
+  reopenedFromLockedStartsAt   DateTime?
+  lockVersion                  Int                 @default(0)
+
+  lastActiveAt                 DateTime            @default(now())
+  effectiveExpirationWeeks     Int?
+  expiresAt                    DateTime?
+  archiveEligibleAt            DateTime?
+  lockedAt                     DateTime?
+  canceledAt                   DateTime?
+  expiredAt                    DateTime?
+  archivedAt                   DateTime?
+  createdAt                    DateTime            @default(now())
+  updatedAt                    DateTime            @updatedAt
+  participants                 MeetupParticipant[]
+  messages                     MeetupMessage[]
+  proposals                    MeetupProposal[]    @relation("MeetupSessionProposals")
+  options                      MeetupOption[]      @relation("MeetupSessionOptions")
+
+  @@index([status, lastActiveAt])
+  @@index([status, expiresAt])
+  @@index([status, archiveEligibleAt])
+  @@index([startedByUserId, createdAt])
+  @@index([finalConfirmRequiredByUserId])
+}
+
+model MeetupParticipant {
+  id                        String                     @id @default(cuid())
+  sessionId                 String
+  session                   MeetupSession              @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId                    String
+  user                      User                       @relation("MeetupParticipantUser", fields: [userId], references: [id], onDelete: Cascade)
+  matchParticipantId        String
+  matchParticipant          MatchParticipant           @relation(fields: [matchParticipantId], references: [id], onDelete: Cascade)
+  turnState                 MeetupParticipantTurnState @default(NONE)
+  responseRequiredAt        DateTime?
+  responseRequiredMessageId String?
+  responseRequiredMessage   MeetupMessage?             @relation("MeetupParticipantResponseRequired", fields: [responseRequiredMessageId], references: [id], onDelete: SetNull)
+  revisionUsedAt            DateTime?
+  lastSeenAt                DateTime?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+
+  @@unique([sessionId, userId])
+  @@unique([sessionId, matchParticipantId])
+  @@index([userId, turnState])
+  @@index([responseRequiredAt])
+  @@index([responseRequiredMessageId])
+}
+
+model MeetupMessage {
+  id                           String                @id @default(cuid())
+  sessionId                    String
+  session                      MeetupSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  actorUserId                  String
+  actor                        User                  @relation("MeetupMessageActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  type                         MeetupMessageType
+  notePreset                   String?
+  noteText                     String?
+  createdAt                    DateTime              @default(now())
+  proposal                     MeetupProposal?
+  responseRequiredParticipants MeetupParticipant[]   @relation("MeetupParticipantResponseRequired")
+
+  @@index([sessionId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model MeetupProposal {
+  id                String                @id @default(cuid())
+  sessionId         String
+  session           MeetupSession         @relation("MeetupSessionProposals", fields: [sessionId], references: [id], onDelete: Cascade)
+  messageId         String                @unique
+  message           MeetupMessage         @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  actorUserId       String
+  actorUser         User                  @relation("MeetupProposalActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  scope             MeetupProposalScope
+  status            MeetupProposalStatus  @default(PENDING)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  options           MeetupOption[]
+  currentForSession MeetupSession?        @relation("MeetupSessionCurrentProposal")
+
+  @@index([sessionId, status, createdAt])
+  @@index([sessionId, actorUserId])
+}
+
+model MeetupOption {
+  id                          String              @id @default(cuid())
+  proposalId                  String
+  proposal                    MeetupProposal      @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  sessionId                   String
+  session                     MeetupSession       @relation("MeetupSessionOptions", fields: [sessionId], references: [id], onDelete: Cascade)
+  kind                        MeetupOptionKind
+  status                      MeetupOptionStatus  @default(PENDING)
+  startsAt                    DateTime?
+  endsAt                      DateTime?
+  toleranceMinutes            Int                 @default(10)
+  locationCandidateId         String?
+  placeName                   String?
+  latitude                    Float?
+  longitude                   Float?
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
+  confirmedTimeForSession     MeetupSession?      @relation("MeetupSessionConfirmedTime")
+  confirmedLocationForSession MeetupSession?      @relation("MeetupSessionConfirmedLocation")
+
+  @@index([sessionId, kind, status])
+  @@index([proposalId, kind])
 }
