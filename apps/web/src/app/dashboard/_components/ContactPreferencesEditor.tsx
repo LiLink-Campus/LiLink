@@ -22,9 +22,18 @@ type ContactPreferencesSavePayload = {
   }>;
 };
 
+type ContactPreferencesEditorState = {
+  email: string;
+  preferredContactChannel: ContactChannelType;
+  contactMethods: ContactMethodValues;
+  snapshot: string;
+};
+
 type ContactAutosaveState = "idle" | "pending" | "saving" | "saved" | "error";
 
 const CONTACT_AUTOSAVE_DELAY_MS = 300;
+const DEFAULT_PHONE_COUNTRY_CODE = "+86";
+const DEFAULT_PHONE_COUNTRY_LABEL = "中国 +86";
 
 const EMPTY_CONTACT_METHOD_VALUES: ContactMethodValues = {
   WECHAT: "",
@@ -57,6 +66,68 @@ function buildContactPreferencesSavePayload(
   };
 }
 
+function buildContactPreferencesEditorState(
+  payload: ContactPreferencesPayload,
+): ContactPreferencesEditorState {
+  const contactMethods = contactMethodValuesFromPayload(payload);
+  const savePayload = buildContactPreferencesSavePayload(
+    payload.preferredContactChannel,
+    contactMethods,
+  );
+
+  return {
+    email: payload.email,
+    preferredContactChannel: savePayload.preferredContactChannel,
+    contactMethods,
+    snapshot: JSON.stringify(savePayload),
+  };
+}
+
+function parseContactPreferencesSaveSnapshot(
+  snapshot: string,
+): ContactPreferencesSavePayload {
+  return JSON.parse(snapshot) as ContactPreferencesSavePayload;
+}
+
+function phoneInputValueFromContactValue(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith(DEFAULT_PHONE_COUNTRY_CODE)) {
+    return trimmed.slice(DEFAULT_PHONE_COUNTRY_CODE.length).trimStart();
+  }
+
+  return value;
+}
+
+function contactValueFromPhoneInputValue(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed || trimmed.startsWith("+")) {
+    return value;
+  }
+
+  return `${DEFAULT_PHONE_COUNTRY_CODE} ${trimmed}`;
+}
+
+function contactInputValue(type: EditableContactChannelType, value: string) {
+  if (type === "PHONE") {
+    return phoneInputValueFromContactValue(value);
+  }
+
+  return value;
+}
+
+function contactValueFromInput(
+  type: EditableContactChannelType,
+  value: string,
+) {
+  if (type === "PHONE") {
+    return contactValueFromPhoneInputValue(value);
+  }
+
+  return value;
+}
+
 function contactAutosaveStatusText(saveState: ContactAutosaveState) {
   if (saveState === "pending") {
     return "准备保存…";
@@ -86,7 +157,7 @@ function contactValidationMessage(contactMethods: ContactMethodValues) {
 
   const phone = contactMethods.PHONE.trim();
   if (phone && !phone.startsWith("+")) {
-    return "手机号请使用国际格式，例如 +86 138 0013 8000。";
+    return "手机号请使用国际格式，例如 中国 +86 138 0013 8000。";
   }
 
   return null;
@@ -97,25 +168,15 @@ export function ContactPreferencesEditor({
 }: {
   initialContactPreferences: ContactPreferencesPayload;
 }) {
-  const initialContactMethodValues = useMemo(
-    () => contactMethodValuesFromPayload(initialContactPreferences),
+  const initialContactState = useMemo(
+    () => buildContactPreferencesEditorState(initialContactPreferences),
     [initialContactPreferences],
   );
-  const initialContactPayload = useMemo(
-    () =>
-      buildContactPreferencesSavePayload(
-        initialContactPreferences.preferredContactChannel,
-        initialContactMethodValues,
-      ),
-    [
-      initialContactMethodValues,
-      initialContactPreferences.preferredContactChannel,
-    ],
-  );
+  const [contactEmail, setContactEmail] = useState(initialContactState.email);
   const [preferredContactChannel, setPreferredContactChannel] =
-    useState<ContactChannelType>(initialContactPayload.preferredContactChannel);
+    useState<ContactChannelType>(initialContactState.preferredContactChannel);
   const [contactMethods, setContactMethods] = useState<ContactMethodValues>(
-    initialContactMethodValues,
+    initialContactState.contactMethods,
   );
   const [contactSaveError, setContactSaveError] = useState<string | null>(null);
   const [contactSaveState, setContactSaveState] =
@@ -126,12 +187,8 @@ export function ContactPreferencesEditor({
   const contactUnmountedRef = useRef(false);
   const lastFailedContactSnapshotRef = useRef<string | null>(null);
   const lastHandledContactManualRetryTickRef = useRef(0);
-  const lastSavedContactSnapshotRef = useRef(
-    JSON.stringify(initialContactPayload),
-  );
-  const latestContactSnapshotRef = useRef(
-    JSON.stringify(initialContactPayload),
-  );
+  const lastSavedContactSnapshotRef = useRef(initialContactState.snapshot);
+  const latestContactSnapshotRef = useRef(initialContactState.snapshot);
   const contactSavePayload = useMemo(
     () =>
       buildContactPreferencesSavePayload(
@@ -150,9 +207,64 @@ export function ContactPreferencesEditor({
   );
   const contactStatus = contactAutosaveStatusText(contactSaveState);
 
+  const resetContactPreferences = useEffectEvent(
+    (payload: ContactPreferencesPayload) => {
+      const nextState = buildContactPreferencesEditorState(payload);
+      contactSaveAbortRef.current?.abort();
+      lastFailedContactSnapshotRef.current = null;
+      lastSavedContactSnapshotRef.current = nextState.snapshot;
+      latestContactSnapshotRef.current = nextState.snapshot;
+      setContactEmail(nextState.email);
+      setPreferredContactChannel(nextState.preferredContactChannel);
+      setContactMethods(nextState.contactMethods);
+      setContactSaveState("idle");
+      setContactSaveError(null);
+    },
+  );
+
   useEffect(() => {
     latestContactSnapshotRef.current = contactSnapshot;
   }, [contactSnapshot]);
+
+  useEffect(() => {
+    if (
+      latestContactSnapshotRef.current !== lastSavedContactSnapshotRef.current
+    ) {
+      return;
+    }
+
+    resetContactPreferences(initialContactPreferences);
+  }, [initialContactPreferences]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+    const baselineSnapshot = lastSavedContactSnapshotRef.current;
+
+    void fetchApi<ContactPreferencesPayload>("/me/contact-preferences", {
+      signal: abortController.signal,
+    })
+      .then((payload) => {
+        if (
+          contactUnmountedRef.current ||
+          abortController.signal.aborted ||
+          latestContactSnapshotRef.current !== baselineSnapshot ||
+          lastSavedContactSnapshotRef.current !== baselineSnapshot
+        ) {
+          return;
+        }
+
+        resetContactPreferences(payload);
+      })
+      .catch((caughtError) => {
+        if (caughtError instanceof Error && caughtError.name === "AbortError") {
+          return;
+        }
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, []);
 
   function updateContactMethod(
     type: EditableContactChannelType,
@@ -176,71 +288,69 @@ export function ContactPreferencesEditor({
     setPreferredContactChannel(type);
   }
 
-  const saveContactPreferences = useEffectEvent(
-    async (payload: ContactPreferencesSavePayload, snapshot: string) => {
-      if (
-        contactUnmountedRef.current ||
-        snapshot === lastSavedContactSnapshotRef.current
-      ) {
+  const saveContactPreferences = useEffectEvent(async (snapshot: string) => {
+    if (
+      contactUnmountedRef.current ||
+      snapshot === lastSavedContactSnapshotRef.current
+    ) {
+      return;
+    }
+
+    const payload = parseContactPreferencesSaveSnapshot(snapshot);
+    contactSaveAbortRef.current?.abort();
+    const abortController = new AbortController();
+    contactSaveAbortRef.current = abortController;
+    setContactSaveState("saving");
+    setContactSaveError(null);
+
+    try {
+      const result = await fetchApi<ContactPreferencesPayload>(
+        "/me/contact-preferences",
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          signal: abortController.signal,
+        },
+      );
+
+      if (contactUnmountedRef.current) {
         return;
       }
 
-      contactSaveAbortRef.current?.abort();
-      const abortController = new AbortController();
-      contactSaveAbortRef.current = abortController;
-      setContactSaveState("saving");
-      setContactSaveError(null);
-
-      try {
-        const result = await fetchApi<ContactPreferencesPayload>(
-          "/me/contact-preferences",
-          {
-            method: "PUT",
-            body: JSON.stringify(payload),
-            signal: abortController.signal,
-          },
-        );
-
-        if (contactUnmountedRef.current) {
-          return;
-        }
-
-        const savedContactMethods = contactMethodValuesFromPayload(result);
-        const savedPayload = buildContactPreferencesSavePayload(
-          result.preferredContactChannel,
-          savedContactMethods,
-        );
-        lastSavedContactSnapshotRef.current = JSON.stringify(savedPayload);
-        lastFailedContactSnapshotRef.current = null;
-
-        if (latestContactSnapshotRef.current === snapshot) {
-          setPreferredContactChannel(result.preferredContactChannel);
-          setContactMethods(savedContactMethods);
-          setContactSaveState("saved");
-        }
-      } catch (caughtError) {
-        if (caughtError instanceof Error && caughtError.name === "AbortError") {
-          return;
-        }
-
-        if (latestContactSnapshotRef.current !== snapshot) {
-          return;
-        }
-
-        lastFailedContactSnapshotRef.current = snapshot;
-        setContactSaveState("error");
-        setContactSaveError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "联系方式保存失败。",
-        );
-      } finally {
-        if (contactSaveAbortRef.current === abortController) {
-          contactSaveAbortRef.current = null;
-        }
+      if (latestContactSnapshotRef.current !== snapshot) {
+        return;
       }
-    },
-  );
+
+      const savedState = buildContactPreferencesEditorState(result);
+      lastSavedContactSnapshotRef.current = savedState.snapshot;
+      latestContactSnapshotRef.current = savedState.snapshot;
+      lastFailedContactSnapshotRef.current = null;
+      setContactEmail(savedState.email);
+      setPreferredContactChannel(savedState.preferredContactChannel);
+      setContactMethods(savedState.contactMethods);
+      setContactSaveState("saved");
+    } catch (caughtError) {
+      if (caughtError instanceof Error && caughtError.name === "AbortError") {
+        return;
+      }
+
+      if (latestContactSnapshotRef.current !== snapshot) {
+        return;
+      }
+
+      lastFailedContactSnapshotRef.current = snapshot;
+      setContactSaveState("error");
+      setContactSaveError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "联系方式保存失败。",
+      );
+    } finally {
+      if (contactSaveAbortRef.current === abortController) {
+        contactSaveAbortRef.current = null;
+      }
+    }
+  });
 
   useEffect(() => {
     if (!contactAutosaveReady.current) {
@@ -250,10 +360,11 @@ export function ContactPreferencesEditor({
 
     if (contactSnapshot === lastSavedContactSnapshotRef.current) {
       lastFailedContactSnapshotRef.current = null;
+      contactSaveAbortRef.current?.abort();
       setContactSaveState((current) =>
-        current === "error" || current === "pending" ? "idle" : current,
+        current === "idle" || current === "saved" ? current : "idle",
       );
-      setContactSaveError(null);
+      setContactSaveError((current) => (current == null ? current : null));
       return;
     }
 
@@ -273,13 +384,13 @@ export function ContactPreferencesEditor({
     setContactSaveError(null);
 
     const timeoutId = window.setTimeout(() => {
-      void saveContactPreferences(contactSavePayload, contactSnapshot);
+      void saveContactPreferences(contactSnapshot);
     }, CONTACT_AUTOSAVE_DELAY_MS);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [contactSavePayload, contactSnapshot, contactValidationError]);
+  }, [contactSnapshot, contactValidationError]);
 
   useEffect(() => {
     if (
@@ -298,21 +409,17 @@ export function ContactPreferencesEditor({
     }
 
     lastFailedContactSnapshotRef.current = null;
-    void saveContactPreferences(contactSavePayload, contactSnapshot);
-  }, [
-    contactManualRetryTick,
-    contactSavePayload,
-    contactSnapshot,
-    contactValidationError,
-  ]);
+    void saveContactPreferences(contactSnapshot);
+  }, [contactManualRetryTick, contactSnapshot, contactValidationError]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    contactUnmountedRef.current = false;
+
+    return () => {
       contactUnmountedRef.current = true;
       contactSaveAbortRef.current?.abort();
-    },
-    [],
-  );
+    };
+  }, []);
 
   return (
     <section className="app-card contact-preferences-card">
@@ -328,7 +435,7 @@ export function ContactPreferencesEditor({
       <div className="contact-preferences-summary">
         <p>
           当前注册邮箱
-          <strong>{initialContactPreferences.email}</strong>
+          <strong>{contactEmail}</strong>
         </p>
         <span>不填写其他方式时，引荐后仍展示邮箱。</span>
       </div>
@@ -338,6 +445,36 @@ export function ContactPreferencesEditor({
           const invalid =
             contactMethods[type].trim().length > 120 ||
             (type === "PHONE" && contactValidationError?.startsWith("手机号"));
+          const inputId = buildDashboardFieldId("contact", type);
+          const phoneCountryCodeId = buildDashboardFieldId(
+            "contact-country-code",
+            type,
+          );
+          const input = (
+            <input
+              aria-describedby={
+                type === "PHONE" ? phoneCountryCodeId : undefined
+              }
+              autoComplete={type === "PHONE" ? "tel-national" : undefined}
+              className="contact-method-input"
+              id={inputId}
+              inputMode={type === "PHONE" ? "tel" : undefined}
+              name={`contact-${type}`}
+              type={type === "PHONE" ? "tel" : "text"}
+              value={contactInputValue(type, contactMethods[type])}
+              placeholder={
+                type === "PHONE"
+                  ? "138 0013 8000"
+                  : `填写${CONTACT_CHANNEL_LABELS[type]}`
+              }
+              onChange={(event) =>
+                updateContactMethod(
+                  type,
+                  contactValueFromInput(type, event.target.value),
+                )
+              }
+            />
+          );
 
           return (
             <label
@@ -351,21 +488,19 @@ export function ContactPreferencesEditor({
               <span className="contact-method-label">
                 {CONTACT_CHANNEL_LABELS[type]}
               </span>
-              <input
-                className="contact-method-input"
-                id={buildDashboardFieldId("contact", type)}
-                name={`contact-${type}`}
-                type={type === "PHONE" ? "tel" : "text"}
-                value={contactMethods[type]}
-                placeholder={
-                  type === "PHONE"
-                    ? "+86 138 0013 8000"
-                    : `填写${CONTACT_CHANNEL_LABELS[type]}`
-                }
-                onChange={(event) =>
-                  updateContactMethod(type, event.target.value)
-                }
-              />
+              {type === "PHONE" ? (
+                <span className="contact-phone-input-shell">
+                  <span
+                    className="contact-phone-country-code"
+                    id={phoneCountryCodeId}
+                  >
+                    {DEFAULT_PHONE_COUNTRY_LABEL}
+                  </span>
+                  {input}
+                </span>
+              ) : (
+                input
+              )}
             </label>
           );
         })}

@@ -35,7 +35,7 @@ export function ReferralSettingsClient({
         <div className="referral-rule-list">
           <p>没有填写其他方式时，默认展示注册邮箱。</p>
           <p>填写微信号、QQ 号或手机号后，可以选择其中一种展示给对方。</p>
-          <p>手机号请使用国际格式，例如 +86 138 0013 8000。</p>
+          <p>手机号请使用国际格式，例如 中国 +86 138 0013 8000。</p>
         </div>
       </section>
     </div>
