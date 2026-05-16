@@ -234,6 +234,7 @@ function createDashboardPrismaMock({
   currentCycle = null,
   currentParticipation = null,
   lastRevealedParticipation = null,
+  dashboardMeetupMatch = null,
 }: {
   revealedCycles: Array<{
     id: string;
@@ -268,6 +269,12 @@ function createDashboardPrismaMock({
       codename: string;
       revealAt: Date;
     };
+  } | null;
+  dashboardMeetupMatch?: {
+    id: string;
+    introducedAt: Date | null;
+    participants: Array<{ userId: string }>;
+    meetupSession: Record<string, unknown> | null;
   } | null;
 }) {
   const matchParticipants = recentMatches as Array<
@@ -326,6 +333,9 @@ function createDashboardPrismaMock({
     matchCycle: {
       findFirst: jest.fn().mockResolvedValue(currentCycle),
       findMany: jest.fn().mockResolvedValue(revealedCycles),
+    },
+    match: {
+      findUnique: jest.fn().mockResolvedValue(dashboardMeetupMatch),
     },
     cycleParticipation: {
       findFirst: jest.fn().mockResolvedValue(lastRevealedParticipation),
@@ -431,8 +441,50 @@ function createDashboardSnapshotServiceMock() {
   };
 }
 
+function buildDashboardMeetupSession(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id: 'session-1',
+    matchId: 'match-1',
+    status: 'ACTIVE',
+    currentProposalId: 'proposal-1',
+    confirmedTimeOptionId: null,
+    confirmedLocationOptionId: null,
+    finalConfirmRequiredByUserId: null,
+    reopenedFromLockedStartsAt: null,
+    lockedAt: null,
+    canceledAt: null,
+    canceledByUserId: null,
+    effectiveExpirationWeeks: 1,
+    expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+    archiveEligibleAt: null,
+    lastActiveAt: new Date('2026-05-14T10:00:00.000Z'),
+    confirmedTimeOption: null,
+    confirmedLocationOption: null,
+    participants: [
+      {
+        userId: 'user-1',
+        turnState: 'REQUIRED',
+        revisionUsedAt: null,
+        lastSeenAt: null,
+        user: { displayName: 'User 1' },
+      },
+      {
+        userId: 'user-2',
+        turnState: 'WAITING',
+        revisionUsedAt: null,
+        lastSeenAt: null,
+        user: { displayName: 'User 2' },
+      },
+    ],
+    ...overrides,
+  };
+}
+
 describe('AccountService', () => {
   afterEach(() => {
+    jest.useRealTimers();
     clearStickyParticipationCache();
   });
 
@@ -2289,6 +2341,436 @@ describe('AccountService', () => {
     });
   });
 
+  it('expires dashboard meetup sessions with CAS and writes audit', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-14T10:00:00.000Z'));
+
+    const revealedCycles = [
+      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
+    ];
+    const expiredSession = buildDashboardMeetupSession({
+      status: 'EXPIRED',
+      currentProposalId: null,
+      finalConfirmRequiredByUserId: null,
+      expiresAt: null,
+      participants: [
+        {
+          userId: 'user-1',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 1' },
+        },
+        {
+          userId: 'user-2',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 2' },
+        },
+      ],
+    });
+    const session = buildDashboardMeetupSession({
+      currentProposalId: 'proposal-1',
+      expiresAt: new Date('2026-05-14T09:59:00.000Z'),
+    });
+    const prisma = createDashboardPrismaMock({
+      revealedCycles,
+      recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
+      recentMatches: [
+        buildHistoryMatchParticipant({
+          cycleId: 'cycle-1',
+          matchId: 'match-1',
+          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        }),
+      ],
+      lastRevealedParticipation: {
+        cycleId: 'cycle-1',
+        status: 'OPTED_IN',
+        cycle: revealedCycles[0],
+      },
+      dashboardMeetupMatch: {
+        id: 'match-1',
+        introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
+        meetupSession: session,
+      },
+    });
+    const tx = {
+      meetupSession: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(expiredSession),
+      },
+      meetupProposal: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      meetupOption: {
+        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      meetupParticipant: {
+        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    (prisma as { $transaction?: jest.Mock }).$transaction = jest.fn(
+      (callback: (transaction: typeof tx) => unknown) => callback(tx),
+    );
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.meetupSummary).toMatchObject({
+      sessionId: 'session-1',
+      status: 'EXPIRED',
+      terminalText: expect.any(String) as string,
+    });
+    expect(dashboard.tasks).toEqual([]);
+    expect(tx.meetupSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'session-1',
+        status: 'ACTIVE',
+        currentProposalId: 'proposal-1',
+        finalConfirmRequiredByUserId: null,
+        expiresAt: {
+          lte: new Date('2026-05-14T10:00:00.000Z'),
+        },
+      },
+      data: expect.objectContaining({
+        status: 'EXPIRED',
+        currentProposalId: null,
+        finalConfirmRequiredByUserId: null,
+      }) as object,
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        actorId: null,
+        action: 'meetup.expired',
+        metadata: {
+          sessionId: 'session-1',
+          matchId: 'match-1',
+        },
+      },
+    });
+  });
+
+  it('archives dashboard meetup sessions with CAS and writes audit', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-14T10:00:00.000Z'));
+
+    const revealedCycles = [
+      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
+    ];
+    const archivedSession = buildDashboardMeetupSession({
+      status: 'ARCHIVED',
+      currentProposalId: null,
+      finalConfirmRequiredByUserId: null,
+      expiresAt: null,
+      archiveEligibleAt: new Date('2026-05-14T09:59:00.000Z'),
+      participants: [
+        {
+          userId: 'user-1',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 1' },
+        },
+        {
+          userId: 'user-2',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 2' },
+        },
+      ],
+    });
+    const session = buildDashboardMeetupSession({
+      status: 'LOCKED',
+      currentProposalId: null,
+      finalConfirmRequiredByUserId: null,
+      expiresAt: null,
+      archiveEligibleAt: new Date('2026-05-14T09:59:00.000Z'),
+      confirmedTimeOptionId: 'time-1',
+      confirmedLocationOptionId: 'location-1',
+      confirmedTimeOption: {
+        startsAt: new Date('2026-05-14T08:00:00.000Z'),
+        endsAt: new Date('2026-05-14T09:00:00.000Z'),
+      },
+      confirmedLocationOption: {
+        placeName: 'Cafe',
+      },
+    });
+    const prisma = createDashboardPrismaMock({
+      revealedCycles,
+      recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
+      recentMatches: [
+        buildHistoryMatchParticipant({
+          cycleId: 'cycle-1',
+          matchId: 'match-1',
+          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        }),
+      ],
+      lastRevealedParticipation: {
+        cycleId: 'cycle-1',
+        status: 'OPTED_IN',
+        cycle: revealedCycles[0],
+      },
+      dashboardMeetupMatch: {
+        id: 'match-1',
+        introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
+        meetupSession: session,
+      },
+    });
+    const tx = {
+      meetupSession: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(archivedSession),
+      },
+      meetupParticipant: {
+        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    (prisma as { $transaction?: jest.Mock }).$transaction = jest.fn(
+      (callback: (transaction: typeof tx) => unknown) => callback(tx),
+    );
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.meetupSummary).toMatchObject({
+      sessionId: 'session-1',
+      status: 'ARCHIVED',
+      terminalText: expect.any(String) as string,
+    });
+    expect(tx.meetupSession.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'session-1',
+        status: 'LOCKED',
+        currentProposalId: null,
+        finalConfirmRequiredByUserId: null,
+        archiveEligibleAt: {
+          lte: new Date('2026-05-14T10:00:00.000Z'),
+        },
+      },
+      data: expect.objectContaining({
+        status: 'ARCHIVED',
+        currentProposalId: null,
+        finalConfirmRequiredByUserId: null,
+      }) as object,
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        actorId: null,
+        action: 'meetup.archived',
+        metadata: {
+          sessionId: 'session-1',
+          matchId: 'match-1',
+        },
+      },
+    });
+  });
+
+  it('does not write dashboard lifecycle side effects when CAS loses to a terminal state', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-14T10:00:00.000Z'));
+
+    const revealedCycles = [
+      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
+    ];
+    const canceledSession = buildDashboardMeetupSession({
+      status: 'CANCELED',
+      currentProposalId: null,
+      finalConfirmRequiredByUserId: null,
+      canceledAt: new Date('2026-05-14T09:59:30.000Z'),
+      canceledByUserId: 'user-2',
+      expiresAt: null,
+      participants: [
+        {
+          userId: 'user-1',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 1' },
+        },
+        {
+          userId: 'user-2',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 2' },
+        },
+      ],
+    });
+    const session = buildDashboardMeetupSession({
+      currentProposalId: 'proposal-1',
+      expiresAt: new Date('2026-05-14T09:59:00.000Z'),
+    });
+    const prisma = createDashboardPrismaMock({
+      revealedCycles,
+      recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
+      recentMatches: [
+        buildHistoryMatchParticipant({
+          cycleId: 'cycle-1',
+          matchId: 'match-1',
+          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        }),
+      ],
+      lastRevealedParticipation: {
+        cycleId: 'cycle-1',
+        status: 'OPTED_IN',
+        cycle: revealedCycles[0],
+      },
+      dashboardMeetupMatch: {
+        id: 'match-1',
+        introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
+        meetupSession: session,
+      },
+    });
+    const tx = {
+      meetupSession: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(canceledSession),
+      },
+      meetupProposal: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      meetupOption: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      meetupParticipant: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      auditLog: {
+        create: jest.fn().mockResolvedValue(undefined),
+      },
+    };
+    (prisma as { $transaction?: jest.Mock }).$transaction = jest.fn(
+      (callback: (transaction: typeof tx) => unknown) => callback(tx),
+    );
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.meetupSummary).toMatchObject({
+      sessionId: 'session-1',
+      status: 'CANCELED',
+      terminalText: expect.any(String) as string,
+    });
+    expect(tx.meetupProposal.updateMany).not.toHaveBeenCalled();
+    expect(tx.meetupOption.updateMany).not.toHaveBeenCalled();
+    expect(tx.meetupParticipant.updateMany).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a dashboard todo when the counterpart cancels a confirmed meetup', async () => {
+    const revealedCycles = [
+      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
+    ];
+    const canceledAt = new Date('2026-05-14T09:59:30.000Z');
+    const canceledSession = buildDashboardMeetupSession({
+      status: 'CANCELED',
+      currentProposalId: null,
+      confirmedTimeOptionId: 'time-1',
+      confirmedLocationOptionId: 'location-1',
+      finalConfirmRequiredByUserId: null,
+      lockedAt: new Date('2026-05-13T10:00:00.000Z'),
+      canceledAt,
+      canceledByUserId: 'user-2',
+      expiresAt: null,
+      lastActiveAt: canceledAt,
+      confirmedTimeOption: {
+        startsAt: new Date('2026-05-15T08:00:00.000Z'),
+        endsAt: new Date('2026-05-15T09:00:00.000Z'),
+      },
+      confirmedLocationOption: {
+        placeName: 'Cafe',
+      },
+      participants: [
+        {
+          userId: 'user-1',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: new Date('2026-05-14T09:00:00.000Z'),
+          user: { displayName: 'User 1' },
+        },
+        {
+          userId: 'user-2',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 2' },
+        },
+      ],
+    });
+    const prisma = createDashboardPrismaMock({
+      revealedCycles,
+      recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
+      recentMatches: [
+        buildHistoryMatchParticipant({
+          cycleId: 'cycle-1',
+          matchId: 'match-1',
+          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        }),
+      ],
+      lastRevealedParticipation: {
+        cycleId: 'cycle-1',
+        status: 'OPTED_IN',
+        cycle: revealedCycles[0],
+      },
+      dashboardMeetupMatch: {
+        id: 'match-1',
+        introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
+        meetupSession: canceledSession,
+      },
+    });
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.tasks).toEqual([
+      {
+        id: 'meetup-canceled:session-1',
+        type: 'MEETUP',
+        priority: 11,
+        title: '第一次见面已取消',
+        text: '对方取消了该次见面',
+        href: '/dashboard/meetup/session-1',
+        userTurnStatus: 'NONE',
+        progressStatus: 'CANCELED',
+        matchId: 'match-1',
+        sessionId: 'session-1',
+        updatedAt: '2026-05-14T09:59:30.000Z',
+      },
+    ]);
+  });
+
   it('limits reported history matches and keeps the match id for reuse', async () => {
     const revealedCycles = [
       buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
@@ -2408,6 +2890,235 @@ describe('AccountService', () => {
         participants: [],
       },
     });
+  });
+
+  it('converges expired dashboard meetup sessions with a guarded transition and audit log', async () => {
+    const revealedCycles = [
+      buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
+    ];
+    const expiredSession = buildDashboardMeetupSession();
+    const loadedExpiredSession = buildDashboardMeetupSession({
+      status: 'EXPIRED',
+      currentProposalId: null,
+      finalConfirmRequiredByUserId: null,
+      expiresAt: null,
+      participants: [
+        {
+          userId: 'user-1',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 1' },
+        },
+        {
+          userId: 'user-2',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 2' },
+        },
+      ],
+    });
+    const meetupSessionUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const meetupProposalUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const meetupOptionUpdateMany = jest.fn().mockResolvedValue({ count: 2 });
+    const meetupParticipantUpdateMany = jest
+      .fn()
+      .mockResolvedValue({ count: 2 });
+    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
+    const tx = {
+      meetupSession: {
+        updateMany: meetupSessionUpdateMany,
+        findUniqueOrThrow: jest.fn().mockResolvedValue(loadedExpiredSession),
+      },
+      meetupProposal: {
+        updateMany: meetupProposalUpdateMany,
+      },
+      meetupOption: {
+        updateMany: meetupOptionUpdateMany,
+      },
+      meetupParticipant: {
+        updateMany: meetupParticipantUpdateMany,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
+    const prisma = {
+      ...createDashboardPrismaMock({
+        revealedCycles,
+        recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
+        recentMatches: [
+          buildHistoryMatchParticipant({
+            cycleId: 'cycle-1',
+            matchId: 'match-1',
+            introducedAt: new Date('2026-04-01T13:00:00.000Z'),
+          }),
+        ],
+        lastRevealedParticipation: {
+          cycleId: 'cycle-1',
+          status: 'OPTED_IN',
+          cycle: revealedCycles[0],
+        },
+        dashboardMeetupMatch: {
+          id: 'match-1',
+          introducedAt: new Date('2026-04-01T13:00:00.000Z'),
+          participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
+          meetupSession: expiredSession,
+        },
+      }),
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.meetupSummary?.status).toBe('EXPIRED');
+    expect(meetupSessionUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'session-1',
+        status: 'ACTIVE',
+        currentProposalId: 'proposal-1',
+        finalConfirmRequiredByUserId: null,
+        expiresAt: {
+          lte: expect.any(Date) as Date,
+        },
+      },
+      data: expect.objectContaining({
+        status: 'EXPIRED',
+        currentProposalId: null,
+        finalConfirmRequiredByUserId: null,
+      }) as object,
+    });
+    expect(meetupProposalUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'proposal-1',
+        sessionId: 'session-1',
+        status: 'PENDING',
+      },
+      data: {
+        status: 'SUPERSEDED',
+      },
+    });
+    expect(meetupParticipantUpdateMany).toHaveBeenCalledWith({
+      where: { sessionId: 'session-1' },
+      data: {
+        turnState: 'NONE',
+        responseRequiredAt: null,
+        responseRequiredMessageId: null,
+      },
+    });
+    expect(auditLogCreate).toHaveBeenCalledWith({
+      data: {
+        actorId: null,
+        action: 'meetup.expired',
+        metadata: {
+          sessionId: 'session-1',
+          matchId: 'match-1',
+        },
+      },
+    });
+  });
+
+  it('does not clear dashboard meetup turns or audit when expiry transition loses the race', async () => {
+    const revealedCycles = [
+      buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
+    ];
+    const expiredSession = buildDashboardMeetupSession();
+    const canceledSession = buildDashboardMeetupSession({
+      status: 'CANCELED',
+      currentProposalId: null,
+      finalConfirmRequiredByUserId: null,
+      expiresAt: null,
+      canceledAt: new Date('2026-05-14T10:00:00.000Z'),
+      canceledByUserId: 'user-2',
+      participants: [
+        {
+          userId: 'user-1',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 1' },
+        },
+        {
+          userId: 'user-2',
+          turnState: 'NONE',
+          revisionUsedAt: null,
+          lastSeenAt: null,
+          user: { displayName: 'User 2' },
+        },
+      ],
+    });
+    const meetupSessionUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const meetupProposalUpdateMany = jest.fn();
+    const meetupParticipantUpdateMany = jest.fn();
+    const auditLogCreate = jest.fn();
+    const tx = {
+      meetupSession: {
+        updateMany: meetupSessionUpdateMany,
+        findUniqueOrThrow: jest.fn().mockResolvedValue(canceledSession),
+      },
+      meetupProposal: {
+        updateMany: meetupProposalUpdateMany,
+      },
+      meetupOption: {
+        updateMany: jest.fn(),
+      },
+      meetupParticipant: {
+        updateMany: meetupParticipantUpdateMany,
+      },
+      auditLog: {
+        create: auditLogCreate,
+      },
+    };
+    const prisma = {
+      ...createDashboardPrismaMock({
+        revealedCycles,
+        recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
+        recentMatches: [
+          buildHistoryMatchParticipant({
+            cycleId: 'cycle-1',
+            matchId: 'match-1',
+            introducedAt: new Date('2026-04-01T13:00:00.000Z'),
+          }),
+        ],
+        lastRevealedParticipation: {
+          cycleId: 'cycle-1',
+          status: 'OPTED_IN',
+          cycle: revealedCycles[0],
+        },
+        dashboardMeetupMatch: {
+          id: 'match-1',
+          introducedAt: new Date('2026-04-01T13:00:00.000Z'),
+          participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
+          meetupSession: expiredSession,
+        },
+      }),
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    };
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.meetupSummary?.status).toBe('CANCELED');
+    expect(meetupSessionUpdateMany).toHaveBeenCalledTimes(1);
+    expect(meetupProposalUpdateMany).not.toHaveBeenCalled();
+    expect(meetupParticipantUpdateMany).not.toHaveBeenCalled();
+    expect(auditLogCreate).not.toHaveBeenCalled();
   });
 
   it('treats a missing current-cycle participation as opted out on dashboard load', async () => {

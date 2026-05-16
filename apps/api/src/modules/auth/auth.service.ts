@@ -11,6 +11,7 @@ import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
 import { Prisma, PrismaClient } from '../../common/prisma/client';
 import {
   DEFAULT_LOCALE,
+  DEFAULT_MEETUP_EXPIRATION_WEEKS,
   normalizeLocale,
   type SupportedLocale,
 } from '@lilink/shared';
@@ -111,6 +112,7 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
+      user.meetupExpirationWeeks,
       localeCookie,
     );
   }
@@ -180,6 +182,7 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
+      user.meetupExpirationWeeks,
       localeCookie,
     );
   }
@@ -210,6 +213,7 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
+      user.meetupExpirationWeeks,
       localeCookie,
     );
   }
@@ -457,6 +461,7 @@ export class AuthService {
     email: string,
     displayName: string | null,
     preferredLocale: unknown = DEFAULT_LOCALE,
+    meetupExpirationWeeks: unknown = DEFAULT_MEETUP_EXPIRATION_WEEKS,
     localeCookie?: SupportedLocale | null,
   ) {
     const token = this.jwtService.sign({
@@ -472,8 +477,20 @@ export class AuthService {
         email,
         displayName,
         preferredLocale: localeCookie ?? normalizeLocale(preferredLocale),
+        meetupExpirationWeeks: this.normalizeMeetupExpirationWeeks(
+          meetupExpirationWeeks,
+        ),
       },
     };
+  }
+
+  private normalizeMeetupExpirationWeeks(value: unknown) {
+    return typeof value === 'number' &&
+      Number.isInteger(value) &&
+      value >= 1 &&
+      value <= 4
+      ? value
+      : DEFAULT_MEETUP_EXPIRATION_WEEKS;
   }
 
   private async assertRegistrationCapacity(tx: TransactionClient) {
