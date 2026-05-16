@@ -1,5 +1,18 @@
 import { DashboardSnapshotService } from './dashboard-snapshot.service';
 
+type DashboardSnapshotUpsertArg = {
+  where: { userId_cycleId: { userId: string; cycleId: string } };
+  create: {
+    matchPayload: {
+      participants: Array<{
+        userId: string;
+        email: string | null;
+        contact: { type: string; label: string; value: string } | null;
+      }>;
+    };
+  };
+};
+
 describe('DashboardSnapshotService', () => {
   it('wraps whole-cycle snapshot rebuilds in a transaction when no store is provided', async () => {
     const tx = {
@@ -344,7 +357,9 @@ describe('DashboardSnapshotService', () => {
   });
 
   it('stores the introduced contact snapshot instead of the registration email', async () => {
-    const upsert = jest.fn().mockResolvedValue(undefined);
+    const upsert: jest.MockedFunction<
+      (args: DashboardSnapshotUpsertArg) => Promise<void>
+    > = jest.fn().mockResolvedValue(undefined);
     const store = {
       match: {
         findUnique: jest.fn().mockResolvedValue({
@@ -410,29 +425,30 @@ describe('DashboardSnapshotService', () => {
 
     await service.syncMatchSnapshots('match-1', store as never);
 
-    expect(upsert).toHaveBeenCalledWith(
+    const upsertArg = upsert.mock.calls
+      .map(([arg]) => arg)
+      .find(
+        (arg) =>
+          arg.where.userId_cycleId.userId === 'user-1' &&
+          arg.where.userId_cycleId.cycleId === 'cycle-1',
+      );
+    expect(upsertArg).toBeDefined();
+    if (!upsertArg) {
+      throw new Error('Expected a dashboard snapshot upsert for user-1');
+    }
+    expect(upsertArg.where.userId_cycleId).toEqual({
+      userId: 'user-1',
+      cycleId: 'cycle-1',
+    });
+    expect(upsertArg.create.matchPayload.participants).toContainEqual(
       expect.objectContaining({
-        where: {
-          userId_cycleId: {
-            userId: 'user-1',
-            cycleId: 'cycle-1',
-          },
+        userId: 'user-2',
+        email: null,
+        contact: {
+          type: 'PHONE',
+          label: '手机号',
+          value: '+14155552671',
         },
-        create: expect.objectContaining({
-          matchPayload: expect.objectContaining({
-            participants: expect.arrayContaining([
-              expect.objectContaining({
-                userId: 'user-2',
-                email: null,
-                contact: {
-                  type: 'PHONE',
-                  label: '手机号',
-                  value: '+14155552671',
-                },
-              }),
-            ]),
-          }),
-        }),
       }),
     );
   });

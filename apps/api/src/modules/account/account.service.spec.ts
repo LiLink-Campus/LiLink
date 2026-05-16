@@ -226,6 +226,15 @@ function buildDashboardSnapshotRecord({
   };
 }
 
+type IntroductionEmailPayload = {
+  requester: {
+    publicContact: { type: string; label: string; value: string };
+  };
+  recipient: {
+    publicContact: { type: string; label: string; value: string };
+  };
+};
+
 function createDashboardPrismaMock({
   revealedCycles,
   recentParticipations = [],
@@ -3485,8 +3494,11 @@ describe('AccountService', () => {
         html: '<p>recipient</p>',
       },
     ];
+    const buildIntroductionEmails: jest.MockedFunction<
+      (payload: IntroductionEmailPayload) => typeof queuedEmails
+    > = jest.fn().mockReturnValue(queuedEmails);
     const mailService = {
-      buildIntroductionEmails: jest.fn().mockReturnValue(queuedEmails),
+      buildIntroductionEmails,
       flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
     };
     const participantUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -3523,9 +3535,7 @@ describe('AccountService', () => {
                   email: 'user-2@example.com',
                   displayName: 'User 2',
                   preferredContactChannel: 'PHONE',
-                  contactMethods: [
-                    { type: 'PHONE', value: '+14155552671' },
-                  ],
+                  contactMethods: [{ type: 'PHONE', value: '+14155552671' }],
                   profile: { headline: 'world' },
                   school: { name: 'School B' },
                   questionnaireResponse: null,
@@ -3565,31 +3575,26 @@ describe('AccountService', () => {
     await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
       ok: true,
     });
-    expect(mailService.buildIntroductionEmails).toHaveBeenCalledWith(
-      expect.objectContaining({
-        requester: expect.objectContaining({
-          publicContact: {
-            type: 'WECHAT',
-            label: '微信号',
-            value: 'wx_user_1',
-          },
-        }),
-        recipient: expect.objectContaining({
-          publicContact: {
-            type: 'PHONE',
-            label: '手机号',
-            value: '+14155552671',
-          },
-        }),
-      }),
-    );
+    expect(mailService.buildIntroductionEmails).toHaveBeenCalledTimes(1);
+    const introductionEmailPayload =
+      mailService.buildIntroductionEmails.mock.calls[0][0];
+    expect(introductionEmailPayload.requester.publicContact).toEqual({
+      type: 'WECHAT',
+      label: '微信号',
+      value: 'wx_user_1',
+    });
+    expect(introductionEmailPayload.recipient.publicContact).toEqual({
+      type: 'PHONE',
+      label: '手机号',
+      value: '+14155552671',
+    });
     expect(participantUpdateMany).toHaveBeenCalledWith({
       where: {
         id: 'participant-1',
         contactRequestedAt: null,
       },
       data: {
-        contactRequestedAt: expect.any(Date),
+        contactRequestedAt: expect.any(Date) as unknown as Date,
         introducedContactType: 'WECHAT',
         introducedContactValue: 'wx_user_1',
       },

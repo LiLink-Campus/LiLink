@@ -80,7 +80,10 @@ export class AccountController {
     @Req() request: AuthenticatedRequest,
     @Body() body: UpdateContactPreferencesDto,
   ) {
-    return this.accountService.updateContactPreferences(request.user!.sub, body);
+    return this.accountService.updateContactPreferences(
+      request.user!.sub,
+      body,
+    );
   }
 
   @Put('locale')

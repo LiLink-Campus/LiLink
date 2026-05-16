@@ -263,7 +263,9 @@ function normalizeContactPreferencesInput(input: UpdateContactPreferencesDto) {
     isEditableContactChannel(input.preferredContactChannel) &&
     !methods.has(input.preferredContactChannel)
   ) {
-    throw new BadRequestException('Selected contact channel must have a value.');
+    throw new BadRequestException(
+      'Selected contact channel must have a value.',
+    );
   }
 
   return methods;
