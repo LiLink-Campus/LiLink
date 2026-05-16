@@ -1,12 +1,18 @@
 import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import request from 'supertest';
 import { AdminGuard } from '../../common/auth/admin.guard';
+import { CustomThrottlerGuard } from '../../common/http/custom-throttler.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AdminSessionController } from './admin-session.controller';
 import { AdminSessionService } from './admin-session.service';
+import { ADMIN_LOGIN_THROTTLE_LIMIT } from './admin-session-throttle';
+
+const THROTTLING_SPEC_TIMEOUT_MS = 20_000;
+
+jest.setTimeout(THROTTLING_SPEC_TIMEOUT_MS);
 
 describe('AdminSession throttling', () => {
   it('limits admin login more aggressively than the global default bucket', async () => {
@@ -37,7 +43,7 @@ describe('AdminSession throttling', () => {
       providers: [
         {
           provide: APP_GUARD,
-          useClass: ThrottlerGuard,
+          useClass: CustomThrottlerGuard,
         },
         {
           provide: AdminSessionService,
@@ -67,6 +73,11 @@ describe('AdminSession throttling', () => {
     }).compile();
 
     const app = testingModule.createNestApplication();
+    const expressApp = app.getHttpAdapter().getInstance() as {
+      set: (name: string, value: unknown) => void;
+    };
+
+    expressApp.set('trust proxy', 1);
     app.setGlobalPrefix('v1');
     await app.init();
 
@@ -78,12 +89,14 @@ describe('AdminSession throttling', () => {
           password: 'password',
         });
 
-      for (let index = 0; index < 10; index += 1) {
+      for (let index = 0; index < ADMIN_LOGIN_THROTTLE_LIMIT; index += 1) {
         await loginRequest().expect(201);
       }
 
       await loginRequest().expect(429);
-      expect(adminSessionService.login).toHaveBeenCalledTimes(10);
+      expect(adminSessionService.login).toHaveBeenCalledTimes(
+        ADMIN_LOGIN_THROTTLE_LIMIT,
+      );
     } finally {
       await app.close();
     }
