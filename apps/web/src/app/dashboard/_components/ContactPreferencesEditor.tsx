@@ -7,13 +7,7 @@ import {
   type ContactChannelType,
   type EditableContactChannelType,
 } from "@lilink/shared";
-import {
-  useEffect,
-  useEffectEvent,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { buildDashboardFieldId } from "../_lib/format";
 import type { ContactPreferencesPayload } from "../_lib/types";
@@ -130,6 +124,8 @@ export function ContactPreferencesEditor({
   const contactAutosaveReady = useRef(false);
   const contactSaveAbortRef = useRef<AbortController | null>(null);
   const contactUnmountedRef = useRef(false);
+  const lastFailedContactSnapshotRef = useRef<string | null>(null);
+  const lastHandledContactManualRetryTickRef = useRef(0);
   const lastSavedContactSnapshotRef = useRef(
     JSON.stringify(initialContactPayload),
   );
@@ -215,6 +211,7 @@ export function ContactPreferencesEditor({
           savedContactMethods,
         );
         lastSavedContactSnapshotRef.current = JSON.stringify(savedPayload);
+        lastFailedContactSnapshotRef.current = null;
 
         if (latestContactSnapshotRef.current === snapshot) {
           setPreferredContactChannel(result.preferredContactChannel);
@@ -230,6 +227,7 @@ export function ContactPreferencesEditor({
           return;
         }
 
+        lastFailedContactSnapshotRef.current = snapshot;
         setContactSaveState("error");
         setContactSaveError(
           caughtError instanceof Error
@@ -251,10 +249,11 @@ export function ContactPreferencesEditor({
     }
 
     if (contactSnapshot === lastSavedContactSnapshotRef.current) {
-      if (contactSaveError) {
-        setContactSaveState("idle");
-        setContactSaveError(null);
-      }
+      lastFailedContactSnapshotRef.current = null;
+      setContactSaveState((current) =>
+        current === "error" || current === "pending" ? "idle" : current,
+      );
+      setContactSaveError(null);
       return;
     }
 
@@ -265,6 +264,11 @@ export function ContactPreferencesEditor({
       return;
     }
 
+    if (contactSnapshot === lastFailedContactSnapshotRef.current) {
+      return;
+    }
+
+    lastFailedContactSnapshotRef.current = null;
     setContactSaveState("pending");
     setContactSaveError(null);
 
@@ -275,17 +279,17 @@ export function ContactPreferencesEditor({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [
-    contactSaveError,
-    contactSavePayload,
-    contactSnapshot,
-    contactValidationError,
-  ]);
+  }, [contactSavePayload, contactSnapshot, contactValidationError]);
 
   useEffect(() => {
-    if (contactManualRetryTick === 0) {
+    if (
+      contactManualRetryTick === 0 ||
+      contactManualRetryTick === lastHandledContactManualRetryTickRef.current
+    ) {
       return;
     }
+
+    lastHandledContactManualRetryTickRef.current = contactManualRetryTick;
 
     if (contactValidationError) {
       setContactSaveState("error");
@@ -293,6 +297,7 @@ export function ContactPreferencesEditor({
       return;
     }
 
+    lastFailedContactSnapshotRef.current = null;
     void saveContactPreferences(contactSavePayload, contactSnapshot);
   }, [
     contactManualRetryTick,
@@ -332,8 +337,7 @@ export function ContactPreferencesEditor({
         {EDITABLE_CONTACT_CHANNEL_TYPES.map((type) => {
           const invalid =
             contactMethods[type].trim().length > 120 ||
-            (type === "PHONE" &&
-              contactValidationError?.startsWith("手机号"));
+            (type === "PHONE" && contactValidationError?.startsWith("手机号"));
 
           return (
             <label

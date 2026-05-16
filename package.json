@@ -7,6 +7,9 @@
     "apps/web",
     "packages/shared"
   ],
+  "engines": {
+    "node": ">=22.22.1"
+  },
   "scripts": {
     "postinstall": "node scripts/postinstall-prisma-generate.cjs",
     "dev": "npm run build:shared && concurrently -k -n shared,web,api \"npm run dev:shared\" \"npm run dev:web:raw\" \"npm run dev:api:raw\"",
