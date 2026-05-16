@@ -11,6 +11,12 @@ export interface Announcement {
  */
 export const announcements: Announcement[] = [
   {
+    id: "2026-05-16-maintenance-reopen-time",
+    title: "维护与开放时间",
+    content: "预计 2026 年 5 月 18 日早上 9 点开放",
+    date: "2026-05-16",
+  },
+  {
     id: "2026-04-29-nationality-language-weight-matching",
     title: "新增国籍、语言和体重匹配项",
     content:
