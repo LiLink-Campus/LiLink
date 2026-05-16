@@ -67,7 +67,7 @@ jobs:
       CRON_SECRET: abcdef1234567890
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_DB: lilink
           POSTGRES_USER: lilink
