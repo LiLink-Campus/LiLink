@@ -15,6 +15,10 @@ import {
 import { CreateSchoolDto, ListSchoolsQueryDto, UpdateSchoolDto } from './dto';
 import { AdminAuditService } from './admin-audit.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
+import {
+  ADMIN_LIST_PAGE_MAX,
+  ADMIN_LIST_PAGE_SIZE_MAX,
+} from '../../common/validation/input-limits';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -310,8 +314,16 @@ export class AdminSchoolService {
   }
 
   private normalizePagination(query: { page?: number; pageSize?: number }) {
-    const page = query.page ?? 1;
-    const pageSize = Math.min(query.pageSize ?? 12, 50);
+    const page = this.normalizePositiveInteger(
+      query.page,
+      1,
+      ADMIN_LIST_PAGE_MAX,
+    );
+    const pageSize = this.normalizePositiveInteger(
+      query.pageSize,
+      12,
+      ADMIN_LIST_PAGE_SIZE_MAX,
+    );
 
     return {
       page,
@@ -332,6 +344,18 @@ export class AdminSchoolService {
       pageSize: pagination.pageSize,
       totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
     };
+  }
+
+  private normalizePositiveInteger(
+    value: number | undefined,
+    fallback: number,
+    max: number,
+  ) {
+    if (!Number.isSafeInteger(value) || value == null || value < 1) {
+      return fallback;
+    }
+
+    return Math.min(value, max);
   }
 
   private async syncQuestionnaireResponses(

@@ -13,16 +13,22 @@ import {
   DISPLAY_NAME_MAX_LENGTH,
   DISPLAY_NAME_MIN_LENGTH,
 } from '../../common/validation/display-name';
+import {
+  EMAIL_MAX_LENGTH,
+  PROFILE_FULL_NAME_MAX_LENGTH,
+} from '../../common/validation/input-limits';
 
 const PASSWORD_MAX_LENGTH = 128;
 
 export class RequestCodeDto {
   @IsEmail()
+  @MaxLength(EMAIL_MAX_LENGTH)
   email!: string;
 }
 
 export class RegisterDto {
   @IsEmail()
+  @MaxLength(EMAIL_MAX_LENGTH)
   email!: string;
 
   @IsString()
@@ -43,6 +49,7 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_FULL_NAME_MAX_LENGTH)
   fullName?: string;
 
   @IsBoolean()
@@ -52,6 +59,7 @@ export class RegisterDto {
 
 export class LoginDto {
   @IsEmail()
+  @MaxLength(EMAIL_MAX_LENGTH)
   email!: string;
 
   @IsString()
@@ -61,11 +69,13 @@ export class LoginDto {
 
 export class RequestPasswordResetCodeDto {
   @IsEmail()
+  @MaxLength(EMAIL_MAX_LENGTH)
   email!: string;
 }
 
 export class ResetPasswordDto {
   @IsEmail()
+  @MaxLength(EMAIL_MAX_LENGTH)
   email!: string;
 
   @IsString()
