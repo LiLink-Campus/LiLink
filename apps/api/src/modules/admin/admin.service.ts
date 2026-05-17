@@ -22,6 +22,10 @@ import { AdminAuditService } from './admin-audit.service';
 import { AdminSchoolService } from './admin-school.service';
 import { generateSeedTestUserPassword } from './seed-test-user-password';
 import {
+  ADMIN_LIST_PAGE_MAX,
+  ADMIN_LIST_PAGE_SIZE_MAX,
+} from '../../common/validation/input-limits';
+import {
   AdminUpdateUserDto,
   BatchReviewReportsDto,
   ListAuditLogsQueryDto,
@@ -1744,8 +1748,16 @@ export class AdminService {
   }
 
   private normalizePagination(query: { page?: number; pageSize?: number }) {
-    const page = query.page ?? 1;
-    const pageSize = Math.min(query.pageSize ?? 12, 50);
+    const page = this.normalizePositiveInteger(
+      query.page,
+      1,
+      ADMIN_LIST_PAGE_MAX,
+    );
+    const pageSize = this.normalizePositiveInteger(
+      query.pageSize,
+      12,
+      ADMIN_LIST_PAGE_SIZE_MAX,
+    );
 
     return {
       page,
@@ -1766,6 +1778,18 @@ export class AdminService {
       pageSize: pagination.pageSize,
       totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
     };
+  }
+
+  private normalizePositiveInteger(
+    value: number | undefined,
+    fallback: number,
+    max: number,
+  ) {
+    if (!Number.isSafeInteger(value) || value == null || value < 1) {
+      return fallback;
+    }
+
+    return Math.min(value, max);
   }
 
   private assertTestUserBulkOpsAllowed() {

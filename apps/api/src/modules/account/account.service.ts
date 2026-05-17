@@ -44,6 +44,7 @@ import {
   DISPLAY_NAME_MAX_LENGTH,
   DISPLAY_NAME_MIN_LENGTH,
 } from '../../common/validation/display-name';
+import { CONTACT_METHOD_VALUE_MAX_LENGTH } from '../../common/validation/input-limits';
 import {
   AcknowledgeQuestionnaireItemsDto,
   DashboardMeetupSummaryResponseDto,
@@ -63,7 +64,6 @@ import {
 } from './dto';
 
 const DASHBOARD_HISTORY_LIMIT = 3;
-const CONTACT_METHOD_VALUE_MAX_LENGTH = 120;
 const EDITABLE_CONTACT_CHANNEL_SET = new Set<ContactChannelType>(
   EDITABLE_CONTACT_CHANNEL_TYPES,
 );
