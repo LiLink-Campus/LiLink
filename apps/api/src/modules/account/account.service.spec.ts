@@ -1486,6 +1486,41 @@ describe('AccountService', () => {
     );
   });
 
+  it('normalizes profile display names before updating the user row', async () => {
+    const userUpdate = jest.fn().mockResolvedValue(undefined);
+    const profileFindUnique = jest.fn().mockResolvedValue(null);
+    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
+    const service = new AccountService(
+      {
+        user: {
+          update: userUpdate,
+        },
+        userProfile: {
+          findUnique: profileFindUnique,
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      dashboardSnapshotService as never,
+    );
+
+    await expect(
+      service.updateProfile('user-1', { displayName: '  New Name  ' }),
+    ).resolves.toBeNull();
+
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { displayName: 'New Name' },
+    });
+    expect(
+      dashboardSnapshotService.syncUserMatchSnapshots,
+    ).toHaveBeenCalledWith('user-1');
+
+    await expect(
+      service.updateProfile('user-1', { displayName: 'A'.repeat(31) }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('submits a complete questionnaire and clears any draft payload', async () => {
     const upsert = jest.fn().mockResolvedValue({ id: 'response-1' });
     const userUpdate = jest.fn().mockResolvedValue(undefined);
@@ -1745,7 +1780,7 @@ describe('AccountService', () => {
         user: {
           findUniqueOrThrow: jest.fn().mockResolvedValue({
             id: 'user-1',
-            displayName: null,
+            displayName: 'Draft User',
             school: {
               id: 'school-bupt',
               name: '北京邮电大学玛丽女王海南学院',
@@ -1783,7 +1818,7 @@ describe('AccountService', () => {
 
     await expect(
       service.saveQuestionnaire('user-1', {
-        displayName: 'A',
+        displayName: 'Draft User',
         answers: {
           current_question: 'partial-answer',
         },
@@ -1822,7 +1857,7 @@ describe('AccountService', () => {
       string,
       unknown
     >;
-    expect(createdDraftPayload.displayName).toBe('A');
+    expect(createdDraftPayload.displayName).toBe('Draft User');
     expect(createdDraftPayload.softAnswers).toEqual({
       current_question: 'partial-answer',
     });
@@ -1838,7 +1873,7 @@ describe('AccountService', () => {
       string,
       unknown
     >;
-    expect(updatedDraftPayload.displayName).toBe('A');
+    expect(updatedDraftPayload.displayName).toBe('Draft User');
   });
 
   it('updates the nickname and draft together when saving an incomplete questionnaire', async () => {

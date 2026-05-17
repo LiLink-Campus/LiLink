@@ -9,6 +9,10 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+} from '../../common/validation/display-name';
 
 const PASSWORD_MAX_LENGTH = 128;
 
@@ -34,7 +38,7 @@ export class RegisterDto {
   password!: string;
 
   @IsString()
-  @Length(2, 30)
+  @Length(DISPLAY_NAME_MIN_LENGTH, DISPLAY_NAME_MAX_LENGTH)
   displayName!: string;
 
   @IsOptional()

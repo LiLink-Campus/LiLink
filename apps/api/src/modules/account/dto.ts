@@ -6,6 +6,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Length,
   Max,
   Min,
   MinLength,
@@ -31,11 +32,15 @@ import {
   type SupportedLocale,
   type WeeklyIntent,
 } from '@lilink/shared';
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+} from '../../common/validation/display-name';
 
 export class UpdateProfileDto {
   @IsOptional()
   @IsString()
-  @MinLength(2)
+  @Length(DISPLAY_NAME_MIN_LENGTH, DISPLAY_NAME_MAX_LENGTH)
   displayName?: string;
 
   @IsOptional()
@@ -107,6 +112,7 @@ export class SaveQuestionnaireDto {
 
   @IsOptional()
   @IsString()
+  @Length(DISPLAY_NAME_MIN_LENGTH, DISPLAY_NAME_MAX_LENGTH)
   displayName?: string;
 }
 
