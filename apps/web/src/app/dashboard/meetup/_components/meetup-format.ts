@@ -1,8 +1,6 @@
 import type {
-  MeetupMessage,
   MeetupOption,
   MeetupProgressStatus,
-  MeetupProposal,
   MeetupProposalScope,
   MeetupSessionResponse,
 } from "../../../../lib/api";
@@ -92,63 +90,10 @@ export function optionSecondaryText(option: MeetupOption) {
   return "系统候选地点";
 }
 
-function proposalSummary(proposal: MeetupProposal) {
-  const timeCount = proposal.options.filter(
-    (option) => option.kind === "TIME",
-  ).length;
-  const locationCount = proposal.options.filter(
-    (option) => option.kind === "LOCATION",
-  ).length;
-  const parts = [];
-  if (timeCount > 0) parts.push(`${timeCount} 个时间`);
-  if (locationCount > 0) parts.push(`${locationCount} 个地点`);
-  return parts.length > 0 ? parts.join(" · ") : SCOPE_LABELS[proposal.scope];
-}
-
 export function sessionIsTerminal(session: MeetupSessionResponse) {
   return (
     session.status === "CANCELED" ||
     session.status === "EXPIRED" ||
     session.status === "ARCHIVED"
   );
-}
-
-/* ──────────────────────────────────────────────────────────────
-   V2 helpers · ledger row summary (used by the negotiation log)
-   ────────────────────────────────────────────────────────────── */
-
-/**
- * Convenience for ledger rows: given a message, return a one-line action
- * summary suitable for the dual-column actor ledger.
- */
-export function ledgerActionSummary(
-  session: MeetupSessionResponse,
-  message: MeetupMessage,
-): string {
-  switch (message.type) {
-    case "PROPOSE": {
-      const summary = message.proposal ? proposalSummary(message.proposal) : null;
-      return summary ? `发起方案：${summary}` : "发起方案";
-    }
-    case "REVISE_AFTER_LOCK": {
-      const summary = message.proposal ? proposalSummary(message.proposal) : null;
-      return summary ? `修改已确认安排：${summary}` : "修改已确认安排";
-    }
-    case "ACCEPT": {
-      const accepted: string[] = [];
-      if (session.confirmedTimeOptionId) accepted.push("时间");
-      if (session.confirmedLocationOptionId) accepted.push("地点");
-      return accepted.length
-        ? `接受 ${accepted.join("、")} 选项`
-        : "接受所选选项";
-    }
-    case "REJECT":
-      return "拒绝当前方案，交还对方";
-    case "FINAL_CONFIRM":
-      return "完成最终确认 · 安排已锁定";
-    case "CANCEL":
-      return "退出本次见面安排";
-    default:
-      return "更新协商状态";
-  }
 }

@@ -29,8 +29,6 @@ export type FocusCardProps = {
   body?: ReactNode;
   meta?: FocusCardMetaChip[];
   progress?: FocusCardProgress;
-  previewLabel?: string;
-  preview?: ReactNode;
   actions?: FocusCardAction[];
   tone?: FocusCardTone;
 };
@@ -91,8 +89,6 @@ export function FocusCard({
   body,
   meta,
   progress,
-  previewLabel,
-  preview,
   actions,
   tone = "default",
 }: FocusCardProps) {

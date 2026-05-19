@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { TeaTimeIllustration } from "./illustrations";
 
 export type MatchStateAction = {
   label: ReactNode;

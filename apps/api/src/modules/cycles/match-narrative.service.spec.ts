@@ -62,8 +62,7 @@ describe('MatchNarrativeService', () => {
   ].join('');
 
   beforeAll(() => {
-    (global as typeof globalThis & { fetch: typeof fetch }).fetch =
-      fetchMock as unknown as typeof fetch;
+    (global as typeof globalThis & { fetch: typeof fetch }).fetch = fetchMock;
   });
 
   beforeEach(() => {

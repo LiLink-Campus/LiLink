@@ -1,10 +1,10 @@
 /**
- * Shared helpers for one-off localhost scripts hitting /v1/admin/*.
+ * Shared auth resolver for one-off localhost scripts hitting /v1/admin/*.
  */
 import { randomUUID, createHmac } from "node:crypto";
 import { loadPrismaClientModule } from "./prisma-client.mjs";
 
-export function mintAdminJwtHs256(secret, payload) {
+function mintAdminJwtHs256(secret, payload) {
   const headerSegment = Buffer.from(
     JSON.stringify({ alg: "HS256", typ: "JWT" }),
   ).toString("base64url");
@@ -19,7 +19,7 @@ export function mintAdminJwtHs256(secret, payload) {
   return `${data}.${signature}`;
 }
 
-export function extractCookieToken(setCookieHeader, cookieName) {
+function extractCookieToken(setCookieHeader, cookieName) {
   if (!setCookieHeader) {
     return null;
   }

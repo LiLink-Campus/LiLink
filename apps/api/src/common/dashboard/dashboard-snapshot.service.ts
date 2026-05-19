@@ -253,7 +253,7 @@ export class DashboardSnapshotService {
 
     const pendingSync = this.enqueueCycleSnapshotSync(cycleId, () =>
       this.prisma.$transaction(async (tx) => {
-        await this.syncCycleSnapshotsDirect(cycleId, tx as SnapshotStoreClient);
+        await this.syncCycleSnapshotsDirect(cycleId, tx);
       }),
     ).finally(() => {
       if (this.inFlightCycleRebuilds.get(cycleId) === pendingSync) {
@@ -283,10 +283,7 @@ export class DashboardSnapshotService {
 
     const pendingSync = this.enqueueCycleSnapshotSync(input.cycleId, () =>
       this.prisma.$transaction(async (tx) => {
-        await this.syncUserCycleSnapshotDirect(
-          input,
-          tx as SnapshotStoreClient,
-        );
+        await this.syncUserCycleSnapshotDirect(input, tx);
       }),
     ).finally(() => {
       this.inFlightUserCycleSyncs.delete(syncKey);

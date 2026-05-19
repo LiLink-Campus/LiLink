@@ -202,7 +202,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isEditableContactChannel(
   type: ContactChannelType | PrismaContactChannelType,
 ): type is EditableContactChannelType {
-  return EDITABLE_CONTACT_CHANNEL_SET.has(type as ContactChannelType);
+  return EDITABLE_CONTACT_CHANNEL_SET.has(type);
 }
 
 function normalizeContactMethodValue(
@@ -282,8 +282,7 @@ function buildContactPreferencesResponse(input: {
 }) {
   return {
     email: input.email,
-    preferredContactChannel:
-      input.preferredContactChannel as ContactChannelType,
+    preferredContactChannel: input.preferredContactChannel,
     methods: input.methods,
   };
 }
@@ -1514,20 +1513,18 @@ export class AccountService {
           create: {
             userId,
             versionId: questionnaire.id,
-            answers: normalizedAnswers as Prisma.InputJsonValue,
+            answers: normalizedAnswers,
             draftAnswers: Prisma.DbNull,
             acknowledgedQuestionnaireVersionId: questionnaire.id,
-            acknowledgedQuestionnaireKeys:
-              acknowledgedQuestionnaireKeys as Prisma.InputJsonValue,
+            acknowledgedQuestionnaireKeys: acknowledgedQuestionnaireKeys,
             submittedAt,
           },
           update: {
             versionId: questionnaire.id,
-            answers: normalizedAnswers as Prisma.InputJsonValue,
+            answers: normalizedAnswers,
             draftAnswers: Prisma.DbNull,
             acknowledgedQuestionnaireVersionId: questionnaire.id,
-            acknowledgedQuestionnaireKeys:
-              acknowledgedQuestionnaireKeys as Prisma.InputJsonValue,
+            acknowledgedQuestionnaireKeys: acknowledgedQuestionnaireKeys,
             submittedAt,
           },
         }),
@@ -2200,8 +2197,7 @@ export class AccountService {
   }
 
   private resolvePublicContact(user: ContactMethodUser): PublicContactSummary {
-    const preferredContactChannel = (user.preferredContactChannel ??
-      'EMAIL') as ContactChannelType;
+    const preferredContactChannel = user.preferredContactChannel ?? 'EMAIL';
 
     if (preferredContactChannel === 'EMAIL') {
       return {

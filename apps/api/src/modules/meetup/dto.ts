@@ -30,7 +30,7 @@ import {
 } from './constants';
 
 export class CreateMeetupProposalDto {
-  @IsIn(MEETUP_PROPOSAL_SCOPES as unknown as string[])
+  @IsIn(MEETUP_PROPOSAL_SCOPES)
   scope!: MeetupProposalScope;
 
   @IsOptional()
