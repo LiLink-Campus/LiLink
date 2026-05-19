@@ -288,12 +288,6 @@ export class ReorderQuestionsDto {
   questionIds!: string[];
 }
 
-export class DeleteQuestionDto {
-  @IsString()
-  @MaxLength(ADMIN_ID_MAX_LENGTH)
-  questionId!: string;
-}
-
 export class ReviewReportDto {
   @IsIn(['OPEN', 'RESOLVED', 'DISMISSED'])
   status!: 'OPEN' | 'RESOLVED' | 'DISMISSED';
