@@ -2,6 +2,11 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
+import {
+  chinaStandardDatetimeLocalValueFromIso,
+  chinaStandardDatetimeToIso,
+  formatChinaStandardDateTime,
+} from "@/lib/china-standard-time";
 import { WEEKLY_INTENT_LABELS } from "../../../lib/weekly-intent";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
@@ -57,20 +62,6 @@ function createEmptyCycleForm() {
 
 function isExistingCycleSelection(id: string | null): id is string {
   return Boolean(id) && id !== ADMIN_NEW_CYCLE_SELECTION;
-}
-
-function toDateTimeInput(value: string) {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
 
 function formatParticipantIntent(participant: CycleParticipantDetail) {
@@ -193,8 +184,10 @@ export default function AdminCyclesPage() {
     setCycleForm({
       cycleId: selectedCycle.id,
       codename: selectedCycle.codename,
-      participationDeadline: toDateTimeInput(selectedCycle.participationDeadline),
-      revealAt: toDateTimeInput(selectedCycle.revealAt),
+      participationDeadline: chinaStandardDatetimeLocalValueFromIso(
+        selectedCycle.participationDeadline,
+      ),
+      revealAt: chinaStandardDatetimeLocalValueFromIso(selectedCycle.revealAt),
       status: selectedCycle.status,
       notes: selectedCycle.notes ?? "",
     });
@@ -386,6 +379,15 @@ export default function AdminCyclesPage() {
       return;
     }
 
+    const participationDeadline = chinaStandardDatetimeToIso(
+      cycleForm.participationDeadline,
+    );
+    const revealAt = chinaStandardDatetimeToIso(cycleForm.revealAt);
+    if (!participationDeadline || !revealAt) {
+      setActionError("请填写有效的北京时间（参与截止与揭晓时间）。");
+      return;
+    }
+
     setPending("save");
 
     try {
@@ -393,6 +395,8 @@ export default function AdminCyclesPage() {
         method: "PUT",
         body: JSON.stringify({
           ...cycleForm,
+          participationDeadline,
+          revealAt,
           cycleId: cycleForm.cycleId || undefined,
         }),
       });
@@ -574,7 +578,7 @@ export default function AdminCyclesPage() {
                   <strong>{cycle.codename}</strong>
                   <span className="domain-chip" style={STATUS_STYLES[cycle.status]}>{CYCLE_STATUS_LABELS[cycle.status]}</span>
                 </div>
-                <p>揭晓：{formatDateTime(cycle.revealAt)}</p>
+                <p>揭晓：{formatChinaStandardDateTime(cycle.revealAt)}</p>
                 <div className="admin-inline-meta">
                   <span>可匹配人数 {cycle._count.participations}</span>
                   <span>匹配数 {cycle._count.matches}</span>
@@ -646,11 +650,11 @@ export default function AdminCyclesPage() {
             </label>
             <div className="form-grid">
               <label>
-                <span>参与截止</span>
+                <span>参与截止（北京时间）</span>
                 <input required type="datetime-local" value={cycleForm.participationDeadline} onChange={(e) => setCycleForm((f) => ({ ...f, participationDeadline: e.target.value }))} />
               </label>
               <label>
-                <span>揭晓时间</span>
+                <span>揭晓时间（北京时间）</span>
                 <input required type="datetime-local" value={cycleForm.revealAt} onChange={(e) => setCycleForm((f) => ({ ...f, revealAt: e.target.value }))} />
               </label>
             </div>
@@ -754,7 +758,7 @@ export default function AdminCyclesPage() {
                             ? <span style={{ color: "var(--sage)" }}>已提交</span>
                             : <span style={{ color: "var(--coral)" }}>未提交</span>}
                         </td>
-                        <td>{p.optedInAt ? formatDateTime(p.optedInAt) : "—"}</td>
+                        <td>{p.optedInAt ? formatChinaStandardDateTime(p.optedInAt) : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -813,8 +817,8 @@ export default function AdminCyclesPage() {
                         <span className="domain-chip">分数 {match.score.toFixed(1)}</span>
                       </div>
                       <div className="admin-inline-meta">
-                        <span>揭晓：{match.revealedAt ? formatDateTime(match.revealedAt) : "待揭晓"}</span>
-                        <span>引荐：{match.introducedAt ? formatDateTime(match.introducedAt) : "未引荐"}</span>
+                        <span>揭晓：{match.revealedAt ? formatChinaStandardDateTime(match.revealedAt) : "待揭晓"}</span>
+                        <span>引荐：{match.introducedAt ? formatChinaStandardDateTime(match.introducedAt) : "未引荐"}</span>
                         <span>举报数：{match.reports.length}</span>
                       </div>
                       <div className="admin-inline-meta" style={{ marginTop: "0.65rem" }}>
@@ -877,7 +881,7 @@ export default function AdminCyclesPage() {
                       <div key={log.id} className="admin-record-item">
                         <div className="admin-record-topline">
                           <strong>{log.action}</strong>
-                          <span className="domain-chip">{formatDateTime(log.createdAt)}</span>
+                          <span className="domain-chip">{formatChinaStandardDateTime(log.createdAt)}</span>
                         </div>
                         <p>{JSON.stringify(log.metadata ?? {})}</p>
                       </div>

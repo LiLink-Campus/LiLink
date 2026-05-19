@@ -11,6 +11,7 @@ import * as argon2 from 'argon2';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
+import { parseDateTimeAsChinaStandardOrInstant } from '../../common/time/china-standard-time';
 import { env } from '../../config/env';
 import { CyclesService } from '../cycles/cycles.service';
 import {
@@ -606,7 +607,20 @@ export class AdminService {
     );
   }
 
+  private parseCycleDateTime(value: string) {
+    try {
+      return parseDateTimeAsChinaStandardOrInstant(value);
+    } catch {
+      throw new BadRequestException('Invalid cycle datetime.');
+    }
+  }
+
   async upsertCycle(input: UpsertCycleDto, adminActorId: string) {
+    const participationDeadline = this.parseCycleDateTime(
+      input.participationDeadline,
+    );
+    const revealAt = this.parseCycleDateTime(input.revealAt);
+
     if ((input.status as string) === 'PREPARING') {
       throw new BadRequestException(
         'PREPARING is an internal cycle state and cannot be set manually.',
@@ -663,8 +677,8 @@ export class AdminService {
         where: { id: input.cycleId },
         data: {
           codename: input.codename,
-          participationDeadline: new Date(input.participationDeadline),
-          revealAt: new Date(input.revealAt),
+          participationDeadline,
+          revealAt,
           status: input.status,
           notes: input.notes,
         },
@@ -683,8 +697,8 @@ export class AdminService {
     const cycle = await this.prisma.matchCycle.create({
       data: {
         codename: input.codename,
-        participationDeadline: new Date(input.participationDeadline),
-        revealAt: new Date(input.revealAt),
+        participationDeadline,
+        revealAt,
         status: input.status,
         notes: input.notes,
       },
