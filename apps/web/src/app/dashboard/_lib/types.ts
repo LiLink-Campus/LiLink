@@ -27,7 +27,7 @@ export type Question = {
   }>;
 };
 
-export type DashboardMatchParticipant = {
+type DashboardMatchParticipant = {
   userId: string;
   displayName: string | null;
   introLine: string | null;
@@ -37,7 +37,7 @@ export type DashboardMatchParticipant = {
   contactRequestedAt: string | null;
 };
 
-export type ContactMethodPayload = {
+type ContactMethodPayload = {
   type: EditableContactChannelType;
   value: string;
 };
@@ -48,7 +48,7 @@ export type ContactPreferencesPayload = {
   methods: ContactMethodPayload[];
 };
 
-export type DashboardPublicContact = {
+type DashboardPublicContact = {
   type: ContactChannelType;
   label: string;
   value: string;

@@ -1095,7 +1095,7 @@ export class MeetupService {
   }
 
   private get db(): MeetupPrismaClient {
-    return this.prisma as unknown as MeetupPrismaClient;
+    return this.prisma;
   }
 
   private buildMeetupSessionUrl(sessionId: string) {

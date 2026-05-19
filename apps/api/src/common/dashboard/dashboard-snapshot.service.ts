@@ -18,6 +18,11 @@ import {
   DashboardHistoryVisibility,
   type DashboardMatchResponseDto,
 } from '../../modules/account/dto';
+import {
+  normalizeConversationTopics,
+  normalizeMatchReason,
+  normalizeMatchReasons,
+} from './match-metadata';
 
 const dashboardSnapshotCycleSelect = {
   id: true,
@@ -248,7 +253,7 @@ export class DashboardSnapshotService {
 
     const pendingSync = this.enqueueCycleSnapshotSync(cycleId, () =>
       this.prisma.$transaction(async (tx) => {
-        await this.syncCycleSnapshotsDirect(cycleId, tx as SnapshotStoreClient);
+        await this.syncCycleSnapshotsDirect(cycleId, tx);
       }),
     ).finally(() => {
       if (this.inFlightCycleRebuilds.get(cycleId) === pendingSync) {
@@ -278,10 +283,7 @@ export class DashboardSnapshotService {
 
     const pendingSync = this.enqueueCycleSnapshotSync(input.cycleId, () =>
       this.prisma.$transaction(async (tx) => {
-        await this.syncUserCycleSnapshotDirect(
-          input,
-          tx as SnapshotStoreClient,
-        );
+        await this.syncUserCycleSnapshotDirect(input, tx);
       }),
     ).finally(() => {
       this.inFlightUserCycleSyncs.delete(syncKey);
@@ -719,16 +721,16 @@ export class DashboardSnapshotService {
       score: input.match.score,
       reasons: input.hideSensitiveFields
         ? []
-        : this.normalizeMatchReasons(input.match.reasons),
+        : normalizeMatchReasons(input.match.reasons),
       reason: input.hideSensitiveFields
         ? null
-        : this.normalizeMatchReason(
+        : normalizeMatchReason(
             input.match.reason,
-            this.normalizeMatchReasons(input.match.reasons),
+            normalizeMatchReasons(input.match.reasons),
           ),
       conversationTopics: input.hideSensitiveFields
         ? []
-        : this.normalizeConversationTopics(input.match.conversationTopics),
+        : normalizeConversationTopics(input.match.conversationTopics),
       introducedAt: this.toIsoString(input.match.introducedAt),
       currentUserRequestedAt: this.toIsoString(
         currentUserParticipant?.contactRequestedAt,
@@ -778,46 +780,6 @@ export class DashboardSnapshotService {
   ): ReportStatus | null {
     return (
       reports.find((report) => report.reporterId === userId)?.status ?? null
-    );
-  }
-
-  private normalizeMatchReasons(rawReasons: Prisma.JsonValue): string[] {
-    if (!Array.isArray(rawReasons)) {
-      return [];
-    }
-
-    return rawReasons.filter(
-      (item): item is string =>
-        typeof item === 'string' && item.trim().length > 0,
-    );
-  }
-
-  private normalizeMatchReason(
-    rawReason: string | null | undefined,
-    normalizedReasons: string[],
-  ) {
-    const trimmedReason = rawReason?.trim();
-    if (trimmedReason) {
-      return trimmedReason;
-    }
-
-    if (normalizedReasons.length === 0) {
-      return null;
-    }
-
-    return normalizedReasons.join(' ');
-  }
-
-  private normalizeConversationTopics(
-    rawTopics: Prisma.JsonValue | null | undefined,
-  ) {
-    if (!Array.isArray(rawTopics)) {
-      return [];
-    }
-
-    return rawTopics.filter(
-      (item): item is string =>
-        typeof item === 'string' && item.trim().length > 0,
     );
   }
 

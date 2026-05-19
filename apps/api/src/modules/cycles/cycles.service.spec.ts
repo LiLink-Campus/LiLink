@@ -780,7 +780,7 @@ describe('CyclesService', () => {
       },
       data: {
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
     });
     expect(matchCreate).toHaveBeenCalledTimes(1);
@@ -1674,7 +1674,7 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'REVEAL_READY',
@@ -1843,7 +1843,7 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'REVEAL_READY',
@@ -2144,7 +2144,7 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'REVEAL_READY',
@@ -2317,7 +2317,7 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'REVEAL_READY',
@@ -2465,7 +2465,7 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'REVEAL_READY',
@@ -2538,7 +2538,7 @@ describe('CyclesService', () => {
       },
       data: {
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
     });
     expect(matchCycleUpdateMany).toHaveBeenNthCalledWith(2, {
@@ -2546,7 +2546,7 @@ describe('CyclesService', () => {
         id: 'cycle-1',
         status: 'PREPARING',
         matches: { none: {} },
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'OPEN',
@@ -2638,10 +2638,10 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
     });
     expect(matchCreate).not.toHaveBeenCalled();
@@ -2650,7 +2650,7 @@ describe('CyclesService', () => {
         id: 'cycle-1',
         status: 'PREPARING',
         matches: { none: {} },
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'OPEN',

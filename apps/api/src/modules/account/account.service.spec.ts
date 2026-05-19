@@ -782,7 +782,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      questionnaireService as never,
+      questionnaireService,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -843,7 +843,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      questionnaireService as never,
+      questionnaireService,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -910,7 +910,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      questionnaireService as never,
+      questionnaireService,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -1602,7 +1602,7 @@ describe('AccountService', () => {
             current_question: 'kept',
           },
           draftAnswers: Prisma.DbNull,
-          submittedAt: expect.any(Date) as unknown as Date,
+          submittedAt: expect.any(Date) as Date,
         }) as object,
         update: expect.objectContaining({
           answers: {
@@ -1610,7 +1610,7 @@ describe('AccountService', () => {
             current_question: 'kept',
           },
           draftAnswers: Prisma.DbNull,
-          submittedAt: expect.any(Date) as unknown as Date,
+          submittedAt: expect.any(Date) as Date,
         }) as object,
       }),
     );
@@ -3602,7 +3602,7 @@ describe('AccountService', () => {
         contactRequestedAt: null,
       },
       data: {
-        contactRequestedAt: expect.any(Date) as unknown as Date,
+        contactRequestedAt: expect.any(Date) as Date,
         introducedContactType: 'WECHAT',
         introducedContactValue: 'wx_user_1',
       },

@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/hooks/codex-post-validate-web-css.mjs",
+            "timeout": 45,
+            "statusMessage": "Validating apps/web CSS"
+          }
+        ]
+      }
+    ]
+  }
+}

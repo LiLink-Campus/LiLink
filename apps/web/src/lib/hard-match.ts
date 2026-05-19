@@ -39,8 +39,6 @@ export {
   HARD_MATCH_LOOKS,
   HARD_MATCH_NATIONALITIES,
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
-  HARD_MATCH_WEIGHT_MAX_KG,
-  HARD_MATCH_WEIGHT_MIN_KG,
   HEIGHT_OPTIONS,
   MONTH_OPTIONS,
   WEIGHT_OPTIONS,
@@ -82,7 +80,7 @@ export type HardMatchFormState = {
   excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
 };
 
-export function createEmptyHardMatchForm(): HardMatchFormState {
+function createEmptyHardMatchForm(): HardMatchFormState {
   return {
     birthYear: "",
     birthMonth: "",
@@ -275,7 +273,7 @@ export function setSchoolGenderExclusion(
   ];
 }
 
-export function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
+function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
   if (
     !formState.birthYear ||
     !formState.birthMonth ||

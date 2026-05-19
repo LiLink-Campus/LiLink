@@ -16,7 +16,7 @@ import {
 import { Type } from 'class-transformer';
 import { QUESTION_REASON_RULE_TYPES } from '../questionnaire/questionnaire-config';
 
-export class ListQueryDto {
+class ListQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -231,11 +231,6 @@ export class ReorderQuestionsDto {
   @ArrayMinSize(1)
   @IsString({ each: true })
   questionIds!: string[];
-}
-
-export class DeleteQuestionDto {
-  @IsString()
-  questionId!: string;
 }
 
 export class ReviewReportDto {

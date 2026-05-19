@@ -13,7 +13,7 @@ type DelegateMethod<TArgs = unknown, TResult = unknown> = (
   args: TArgs,
 ) => Promise<TResult>;
 
-export type MeetupDelegate = {
+type MeetupDelegate = {
   findUnique: DelegateMethod;
   findFirst: DelegateMethod;
   findMany: DelegateMethod;
@@ -49,13 +49,13 @@ export type CountResult = {
   count: number;
 };
 
-export type MeetupUserRecord = {
+type MeetupUserRecord = {
   id: string;
   displayName: string | null;
   meetupExpirationWeeks?: number | null;
 };
 
-export type MatchParticipantRecord = {
+type MatchParticipantRecord = {
   id: string;
   matchId: string;
   userId: string;
@@ -70,6 +70,9 @@ export type MeetupMatchRecord = {
   participants: MatchParticipantRecord[];
 };
 
+/**
+ * @internal Exported for meetup service tests.
+ */
 export type MeetupParticipantRecord = {
   id: string;
   sessionId: string;
@@ -111,7 +114,7 @@ export type MeetupProposalRecord = {
   options: MeetupOptionRecord[];
 };
 
-export type MeetupMessageRecord = {
+type MeetupMessageRecord = {
   id: string;
   sessionId: string;
   actorUserId: string;

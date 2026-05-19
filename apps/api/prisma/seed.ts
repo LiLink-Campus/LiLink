@@ -14,9 +14,13 @@ import {
   HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
-} from '../src/modules/questionnaire/hard-match.constants';
+} from '@lilink/shared';
 
-const apiRoot = path.resolve(__dirname, '..');
+// Nest emits this file to dist/prisma/; __dirname is then apps/api/dist/prisma, not apps/api/prisma.
+const seedDir = __dirname.replace(/\\/g, '/');
+const apiRoot = seedDir.endsWith('/dist/prisma')
+  ? path.resolve(__dirname, '..', '..')
+  : path.resolve(__dirname, '..');
 const repoRoot = path.resolve(apiRoot, '..', '..');
 loadEnv({ path: path.join(repoRoot, '.env') });
 loadEnv({ path: path.join(apiRoot, '.env'), override: true });
@@ -818,11 +822,11 @@ const SEED_ONE_LINER_ROTATION = [
 ] as const;
 
 function seedOneLinerIntroForBulkIndex(index: number): string {
-  return SEED_ONE_LINER_ROTATION[index % SEED_ONE_LINER_ROTATION.length]!;
+  return SEED_ONE_LINER_ROTATION[index % SEED_ONE_LINER_ROTATION.length];
 }
 
 function optionAt<T extends string>(options: readonly T[], index: number): T {
-  return options[index % options.length]!;
+  return options[index % options.length];
 }
 
 function pickWrappedOptions<T extends string>(
@@ -831,7 +835,7 @@ function pickWrappedOptions<T extends string>(
   count: number,
 ): T[] {
   return Array.from({ length: count }, (_, offset) => {
-    return options[(start + offset) % options.length]!;
+    return options[(start + offset) % options.length];
   });
 }
 
@@ -933,7 +937,7 @@ function bulkHardAnswers(index: number): Record<string, unknown> {
   const day = 1 + (index % 28);
   const birthDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-  let partnerAgeMin = 19 + (index % 5);
+  const partnerAgeMin = 19 + (index % 5);
   let partnerAgeMax = 31 + (index % 10);
   if (partnerAgeMax <= partnerAgeMin) {
     partnerAgeMax = partnerAgeMin + 8;
@@ -1348,14 +1352,14 @@ async function seedMatchDemoAccounts(prisma: PrismaClient) {
   );
 
   for (let i = 0; i < BULK_SEED_USER_COUNT; i++) {
-    const meta = schools[i % schools.length]!;
+    const meta = schools[i % schools.length];
     const record = schoolBySlug.get(meta.slug);
     if (!record) {
       continue;
     }
     const scenario = bulkScenarioAt(i);
     const n = i + 1;
-    const domain = meta.domains[0]!;
+    const domain = meta.domains[0];
     const email = `seed.bulk.${String(n).padStart(2, '0')}@${domain}`;
     const fullAnswers = bulkCombinedAnswers(i);
     const q = questionnairePayloadForPreset(

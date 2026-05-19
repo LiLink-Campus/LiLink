@@ -1,7 +1,16 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { takeNextAutosaveQueueItem } = require("../dist");
+const {
+  createAutosaveTimeoutController,
+  takeNextAutosaveQueueItem,
+} = require("../dist");
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 test("takeNextAutosaveQueueItem returns null when nothing is queued", () => {
   assert.equal(
@@ -58,4 +67,23 @@ test("takeNextAutosaveQueueItem keeps the latest queued save available for retry
     }),
     queuedSave,
   );
+});
+
+test("createAutosaveTimeoutController aborts after the timeout", async () => {
+  const autosaveTimeout = createAutosaveTimeoutController(10);
+
+  await wait(20);
+
+  assert.equal(autosaveTimeout.signal.aborted, true);
+  assert.equal(autosaveTimeout.hasTimedOut(), true);
+});
+
+test("createAutosaveTimeoutController clear prevents stale timeout aborts", async () => {
+  const autosaveTimeout = createAutosaveTimeoutController(10);
+
+  autosaveTimeout.clear();
+  await wait(20);
+
+  assert.equal(autosaveTimeout.signal.aborted, false);
+  assert.equal(autosaveTimeout.hasTimedOut(), false);
 });

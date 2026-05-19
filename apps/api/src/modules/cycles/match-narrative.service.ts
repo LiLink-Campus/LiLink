@@ -63,7 +63,7 @@ export type MatchNarrativeSignal = {
   rightAnswerLabels: string[];
 };
 
-export type MatchNarrativeParticipant = {
+type MatchNarrativeParticipant = {
   intro: string;
   questionnaire: MatchNarrativeQuestionAnswer[];
 };

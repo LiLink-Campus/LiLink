@@ -1,12 +1,8 @@
 import type {
   MeetupOption,
-  MeetupOptionStatus,
-  MeetupParticipantTurnState,
   MeetupProgressStatus,
-  MeetupProposal,
   MeetupProposalScope,
   MeetupSessionResponse,
-  MeetupUserTurnStatus,
 } from "../../../../lib/api";
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
@@ -47,41 +43,11 @@ export const PROGRESS_LABELS: Record<MeetupProgressStatus, string> = {
   ARCHIVED: "已归档",
 };
 
-export const TURN_LABELS: Record<MeetupUserTurnStatus, string> = {
-  NOT_STARTED: "可开始",
-  WAITING_FOR_COUNTERPART: "等待对方回应",
-  NEEDS_YOUR_RESPONSE: "需要你回应",
-  NONE: "无需操作",
-};
-
-export const PARTICIPANT_TURN_LABELS: Record<
-  MeetupParticipantTurnState,
-  string
-> = {
-  NONE: "无待办",
-  REQUIRED: "待回应",
-  WAITING: "等待中",
-};
-
 export const SCOPE_LABELS: Record<MeetupProposalScope, string> = {
   BOTH: "时间和地点",
   TIME_ONLY: "只提议时间",
   LOCATION_ONLY: "只提议地点",
 };
-
-export const OPTION_STATUS_LABELS: Record<MeetupOptionStatus, string> = {
-  PENDING: "待选择",
-  CONFIRMED: "已选中",
-  REJECTED: "已拒绝",
-  DISABLED: "未选中",
-};
-
-export function formatMeetupDateTime(iso: string | null | undefined) {
-  if (!iso) return "待确认";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "待确认";
-  return DATE_TIME_FORMATTER.format(date);
-}
 
 export function formatMeetupShortDateTime(iso: string | null | undefined) {
   if (!iso) return "待确认";
@@ -124,34 +90,10 @@ export function optionSecondaryText(option: MeetupOption) {
   return "系统候选地点";
 }
 
-export function proposalSummary(proposal: MeetupProposal) {
-  const timeCount = proposal.options.filter(
-    (option) => option.kind === "TIME",
-  ).length;
-  const locationCount = proposal.options.filter(
-    (option) => option.kind === "LOCATION",
-  ).length;
-  const parts = [];
-  if (timeCount > 0) parts.push(`${timeCount} 个时间`);
-  if (locationCount > 0) parts.push(`${locationCount} 个地点`);
-  return parts.length > 0 ? parts.join(" · ") : SCOPE_LABELS[proposal.scope];
-}
-
 export function sessionIsTerminal(session: MeetupSessionResponse) {
   return (
     session.status === "CANCELED" ||
     session.status === "EXPIRED" ||
     session.status === "ARCHIVED"
   );
-}
-
-export function disabledActionText(reason: string | null | undefined) {
-  if (!reason) return "当前状态下暂不可操作。";
-  if (reason.includes("REVISION")) return "你已使用过本次安排的修改机会。";
-  if (reason.includes("LOCK") || reason.includes("START")) {
-    return "见面时间已临近或已开始，不能再修改。";
-  }
-  if (reason.includes("EXPIRED")) return "本次协商已过期。";
-  if (reason.includes("TERMINAL")) return "本次安排已结束。";
-  return "当前状态下暂不可操作。";
 }

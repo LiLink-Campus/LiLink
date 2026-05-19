@@ -49,7 +49,7 @@ function createService(tx: ReturnType<typeof createTx>) {
   const prisma = {
     $transaction: <T>(
       callback: (client: MeetupTransactionClient) => Promise<T>,
-    ) => callback(tx as unknown as MeetupTransactionClient),
+    ) => callback(tx),
   };
   const mailService = {
     buildMeetupReminderEmail: jest

@@ -17,15 +17,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {
-  MEETUP_MESSAGE_TYPES,
-  MEETUP_OPTION_KINDS,
-  MEETUP_OPTION_STATUSES,
-  MEETUP_PARTICIPANT_TURN_STATES,
-  MEETUP_PROGRESS_STATUSES,
   MEETUP_PROPOSAL_SCOPES,
-  MEETUP_PROPOSAL_STATUSES,
-  MEETUP_SESSION_STATUSES,
-  MEETUP_USER_TURN_STATUSES,
   type MeetupMessageType,
   type MeetupOptionKind,
   type MeetupOptionStatus,
@@ -38,7 +30,7 @@ import {
 } from './constants';
 
 export class CreateMeetupProposalDto {
-  @IsIn(MEETUP_PROPOSAL_SCOPES as unknown as string[])
+  @IsIn(MEETUP_PROPOSAL_SCOPES)
   scope!: MeetupProposalScope;
 
   @IsOptional()
@@ -96,11 +88,6 @@ export class MeetupLocationOptionInputDto {
   @IsNotEmpty()
   @MaxLength(80)
   locationCandidateId!: string;
-}
-
-export class UpdateMeetupSettingsDto {
-  @IsIn([1, 2, 3, 4])
-  meetupExpirationWeeks!: 1 | 2 | 3 | 4;
 }
 
 export class AcceptMeetupOptionsDto {
@@ -250,15 +237,3 @@ export class MeetupActionAvailabilityDto {
   enabled!: boolean;
   reason!: string | null;
 }
-
-export const meetupResponseEnums = {
-  messageTypes: MEETUP_MESSAGE_TYPES,
-  optionKinds: MEETUP_OPTION_KINDS,
-  optionStatuses: MEETUP_OPTION_STATUSES,
-  participantTurnStates: MEETUP_PARTICIPANT_TURN_STATES,
-  progressStatuses: MEETUP_PROGRESS_STATUSES,
-  proposalScopes: MEETUP_PROPOSAL_SCOPES,
-  proposalStatuses: MEETUP_PROPOSAL_STATUSES,
-  sessionStatuses: MEETUP_SESSION_STATUSES,
-  userTurnStatuses: MEETUP_USER_TURN_STATUSES,
-};

@@ -20,14 +20,17 @@
     "build:web": "npm run build --workspace web",
     "build:api": "npm run build --workspace api",
     "typecheck:web": "npm run build:shared && npm run typecheck --workspace web",
+    "hooks:audit": "node scripts/hooks/audit-hook-configs.mjs",
     "hooks:install": "node scripts/install-git-hooks.mjs",
+    "hooks:sync": "node scripts/hooks/sync-hook-configs.mjs",
     "lint": "npm run lint:shared && npm run lint:web && npm run lint:api",
     "lint:shared": "npm run lint --workspace @lilink/shared",
     "lint:web": "npm run lint --workspace web",
     "lint:api": "npm run lint --workspace api",
     "lint:pre-push": "node scripts/run-pre-push-lint.mjs",
     "lint:staged": "lint-staged",
-    "test:hooks": "node --test scripts/install-git-hooks.test.mjs",
+    "lint:css": "node scripts/web-css-syntax.mjs",
+    "test:hooks": "node --test scripts/install-git-hooks.test.mjs scripts/hooks/hook-registry.test.mjs",
     "test:shared": "npm run test --workspace @lilink/shared",
     "db:bootstrap": "npm run db:bootstrap --workspace api",
     "db:generate": "npm run prisma:generate --workspace api",
@@ -46,11 +49,18 @@
     "lint-staged": "^16.4.0"
   },
   "overrides": {
-    "@prisma/dev@0.24.3": {
-      "@hono/node-server": "1.19.13"
+    "@hono/node-server": "1.19.13",
+    "postcss": "8.5.14",
+    "eslint-plugin-react-hooks": "7.0.1",
+    "typescript-eslint": "8.58.1",
+    "effect": "3.21.0",
+    "path-to-regexp": "8.4.1",
+    "lodash": "4.18.1",
+    "@angular-devkit/core": {
+      "picomatch": "4.0.4"
     },
-    "next@16.2.6": {
-      "postcss": "8.5.10"
+    "fdir": {
+      "picomatch": "4.0.4"
     }
   }
 }

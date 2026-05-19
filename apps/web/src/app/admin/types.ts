@@ -24,12 +24,7 @@ export type AdminCycle = {
   };
 };
 
-export type AdminQuestionSummary = {
-  key: string;
-  prompt: string;
-};
-
-export type AdminQuestionOption = {
+type AdminQuestionOption = {
   value: string;
   label: string;
 };

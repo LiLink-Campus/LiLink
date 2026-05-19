@@ -1,0 +1,30 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.cjs", "scripts/*.mjs"],
+      "project": ["scripts/*.cjs", "scripts/*.mjs"]
+    },
+    "apps/api": {
+      "entry": [
+        "src/main.ts!",
+        "prisma/seed.ts",
+        "scripts/*.mjs",
+        "scripts/*.ts"
+      ],
+      "project": ["src/**/*.ts!", "prisma/**/*.ts", "test/**/*.ts"]
+    },
+    "apps/web": {
+      "entry": [
+        "src/app/**/{page,layout,route}.ts!",
+        "src/app/**/{page,layout,route}.tsx!"
+      ],
+      "project": ["src/**/*.ts!", "src/**/*.tsx!"]
+    },
+    "packages/shared": {
+      "project": ["src/**/*.ts!", "test/**/*.js"]
+    }
+  },
+  "ignoreDependencies": ["@prisma/client", "prisma", "tailwindcss"],
+  "ignoreBinaries": ["eslint", "nest!"]
+}

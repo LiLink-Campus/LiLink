@@ -86,6 +86,4 @@ const envSchema = z.object({
     .min(16, 'CRON_SECRET must be at least 16 characters.'),
 });
 
-export type AppEnv = z.infer<typeof envSchema>;
-
 export const env = envSchema.parse(process.env);

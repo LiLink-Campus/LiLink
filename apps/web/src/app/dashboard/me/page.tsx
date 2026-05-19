@@ -1,7 +1,14 @@
-import { loadDashboardCore } from "../_lib/bootstrap";
+import { loadDashboardMe } from "../_lib/bootstrap";
 import { MeClient } from "./me-client";
 
 export default async function DashboardMePage() {
-  const { user, dashboard } = await loadDashboardCore();
-  return <MeClient initialUser={user} initialDashboard={dashboard} />;
+  const { user, savedQuestionnaire, contactPreferences } = await loadDashboardMe();
+
+  return (
+    <MeClient
+      initialUser={user}
+      initialSavedQuestionnaire={savedQuestionnaire}
+      initialContactPreferences={contactPreferences}
+    />
+  );
 }

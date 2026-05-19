@@ -375,7 +375,7 @@ export class AdminSchoolService {
 
       const data: Record<string, Prisma.InputJsonValue> = {};
       if (!isDeepStrictEqual(rawAnswers, syncedAnswers)) {
-        data.answers = syncedAnswers as Prisma.InputJsonValue;
+        data.answers = syncedAnswers;
       }
       if (!isDeepStrictEqual(response.draftAnswers, syncedDraftAnswers)) {
         data.draftAnswers = syncedDraftAnswers as Prisma.InputJsonValue;
@@ -441,7 +441,7 @@ export class AdminSchoolService {
       hasExcludedPartnerSchoolGenders
     ) {
       syncedHardMatchForm.excludedPartnerSchoolGenders =
-        syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders as Prisma.InputJsonValue;
+        syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders;
     } else {
       delete syncedHardMatchForm.excludedPartnerSchoolGenders;
     }

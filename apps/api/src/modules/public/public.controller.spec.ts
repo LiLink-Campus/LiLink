@@ -7,7 +7,7 @@ describe('PublicController', () => {
     const publicService = {
       getLandingPayload: jest
         .fn<PublicService['getLandingPayload']>()
-        .mockResolvedValue(landing as never),
+        .mockResolvedValue(landing),
       getEligibleSchools: jest.fn(),
     } satisfies Pick<PublicService, 'getLandingPayload' | 'getEligibleSchools'>;
     const controller = new PublicController(publicService as never);
@@ -22,7 +22,7 @@ describe('PublicController', () => {
       getLandingPayload: jest.fn(),
       getEligibleSchools: jest
         .fn<PublicService['getEligibleSchools']>()
-        .mockResolvedValue(schools as never),
+        .mockResolvedValue(schools),
     } satisfies Pick<PublicService, 'getLandingPayload' | 'getEligibleSchools'>;
     const controller = new PublicController(publicService as never);
 

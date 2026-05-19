@@ -390,9 +390,7 @@ export class AdminService {
         user.questionnaireResponse &&
         typeof user.questionnaireResponse.answers === 'object' &&
         user.questionnaireResponse.answers
-          ? Object.keys(
-              user.questionnaireResponse.answers as Record<string, unknown>,
-            ).length
+          ? Object.keys(user.questionnaireResponse.answers).length
           : 0,
     };
   }
@@ -1639,7 +1637,7 @@ export class AdminService {
       await tx.questionnaireResponse.update({
         where: { id: response.id },
         data: {
-          answers: syncedAnswers as Prisma.InputJsonValue,
+          answers: syncedAnswers,
         },
       });
 

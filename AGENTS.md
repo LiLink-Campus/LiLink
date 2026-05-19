@@ -22,6 +22,13 @@ These instructions apply to the entire repository unless a more specific `AGENTS
 - Do not silently create or change environment files with real credentials.
 - Never print secret values from `.env` files, logs, shell output, or CI output.
 
+## Hook Management
+
+- Maintain hook definitions only in `scripts/hooks/registry.mjs`.
+- Treat `.codex/hooks.json` and `.cursor/hooks.json` as generated adapter files for Codex and Cursor. Do not edit them directly; run `npm run hooks:sync` after registry changes.
+- Run `npm run hooks:install` to install Git config-based hooks and regenerate the Codex/Cursor hook adapters.
+- Run `npm run hooks:audit` when reviewing hook changes to confirm Git, Codex, and Cursor hook configuration still matches the registry.
+
 ## Validation
 
 - Choose checks that match the changed surface area.

@@ -39,17 +39,6 @@ export function HeartIcon({ className }: IconProps) {
   );
 }
 
-export function HistoryIcon({ className }: IconProps) {
-  return (
-    <svg {...baseProps} className={className} aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-      <path d="M3 12a9 9 0 0 1 16-5.6" />
-      <path d="M19 4v3h-3" />
-    </svg>
-  );
-}
-
 export function ProfileIcon({ className }: IconProps) {
   return (
     <svg {...baseProps} className={className} aria-hidden="true">
@@ -67,15 +56,6 @@ export function UserCircleIcon({ className }: IconProps) {
       <circle cx="12" cy="12" r="9" />
       <circle cx="12" cy="10" r="3" />
       <path d="M5.5 19a7 7 0 0 1 13 0" />
-    </svg>
-  );
-}
-
-export function SettingsIcon({ className }: IconProps) {
-  return (
-    <svg {...baseProps} className={className} aria-hidden="true">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
     </svg>
   );
 }
@@ -104,15 +84,6 @@ export function ArrowLeftIcon({ className }: IconProps) {
     <svg {...baseProps} className={className} aria-hidden="true">
       <path d="M19 12H5" />
       <path d="M11 5l-7 7 7 7" />
-    </svg>
-  );
-}
-
-export function BellIcon({ className }: IconProps) {
-  return (
-    <svg {...baseProps} className={className} aria-hidden="true">
-      <path d="M6 8a6 6 0 1 1 12 0c0 4 1.5 6 1.5 6h-15s1.5-2 1.5-6" />
-      <path d="M10 19a2 2 0 0 0 4 0" />
     </svg>
   );
 }
@@ -156,15 +127,46 @@ export function PeopleIcon({ className }: IconProps) {
   );
 }
 
-export function GroupTrioIcon({ className }: IconProps) {
+export function MapPinIcon({ className }: IconProps) {
   return (
     <svg {...baseProps} className={className} aria-hidden="true">
-      <circle cx="6" cy="9" r="2.5" />
-      <circle cx="12" cy="7" r="2.5" />
-      <circle cx="18" cy="9" r="2.5" />
-      <path d="M2 19a4 4 0 0 1 8 0" />
-      <path d="M8 19a4 4 0 0 1 8 0" />
-      <path d="M14 19a4 4 0 0 1 8 0" />
+      <path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13z" />
+      <circle cx="12" cy="9" r="2.5" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+export function ClipboardIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className} aria-hidden="true">
+      <rect x="6" y="4" width="12" height="17" rx="2.5" />
+      <path d="M9 4V3h6v1" />
+      <path d="M9 11h6" />
+      <path d="M9 15h4" />
+    </svg>
+  );
+}
+
+export function SparklesIcon({ className }: IconProps) {
+  return (
+    <svg {...baseProps} className={className} aria-hidden="true">
+      <path d="M12 3v3" />
+      <path d="M12 18v3" />
+      <path d="M3 12h3" />
+      <path d="M18 12h3" />
+      <path d="M5.6 5.6l2.1 2.1" />
+      <path d="M16.3 16.3l2.1 2.1" />
+      <path d="M5.6 18.4l2.1-2.1" />
+      <path d="M16.3 7.7l2.1-2.1" />
     </svg>
   );
 }
