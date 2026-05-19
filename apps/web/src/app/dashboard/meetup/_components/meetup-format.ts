@@ -1,12 +1,10 @@
 import type {
+  MeetupMessage,
   MeetupOption,
-  MeetupOptionStatus,
-  MeetupParticipantTurnState,
   MeetupProgressStatus,
   MeetupProposal,
   MeetupProposalScope,
   MeetupSessionResponse,
-  MeetupUserTurnStatus,
 } from "../../../../lib/api";
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
@@ -47,41 +45,11 @@ export const PROGRESS_LABELS: Record<MeetupProgressStatus, string> = {
   ARCHIVED: "已归档",
 };
 
-export const TURN_LABELS: Record<MeetupUserTurnStatus, string> = {
-  NOT_STARTED: "可开始",
-  WAITING_FOR_COUNTERPART: "等待对方回应",
-  NEEDS_YOUR_RESPONSE: "需要你回应",
-  NONE: "无需操作",
-};
-
-export const PARTICIPANT_TURN_LABELS: Record<
-  MeetupParticipantTurnState,
-  string
-> = {
-  NONE: "无待办",
-  REQUIRED: "待回应",
-  WAITING: "等待中",
-};
-
 export const SCOPE_LABELS: Record<MeetupProposalScope, string> = {
   BOTH: "时间和地点",
   TIME_ONLY: "只提议时间",
   LOCATION_ONLY: "只提议地点",
 };
-
-export const OPTION_STATUS_LABELS: Record<MeetupOptionStatus, string> = {
-  PENDING: "待选择",
-  CONFIRMED: "已选中",
-  REJECTED: "已拒绝",
-  DISABLED: "未选中",
-};
-
-export function formatMeetupDateTime(iso: string | null | undefined) {
-  if (!iso) return "待确认";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "待确认";
-  return DATE_TIME_FORMATTER.format(date);
-}
 
 export function formatMeetupShortDateTime(iso: string | null | undefined) {
   if (!iso) return "待确认";
@@ -124,7 +92,7 @@ export function optionSecondaryText(option: MeetupOption) {
   return "系统候选地点";
 }
 
-export function proposalSummary(proposal: MeetupProposal) {
+function proposalSummary(proposal: MeetupProposal) {
   const timeCount = proposal.options.filter(
     (option) => option.kind === "TIME",
   ).length;
@@ -145,13 +113,42 @@ export function sessionIsTerminal(session: MeetupSessionResponse) {
   );
 }
 
-export function disabledActionText(reason: string | null | undefined) {
-  if (!reason) return "当前状态下暂不可操作。";
-  if (reason.includes("REVISION")) return "你已使用过本次安排的修改机会。";
-  if (reason.includes("LOCK") || reason.includes("START")) {
-    return "见面时间已临近或已开始，不能再修改。";
+/* ──────────────────────────────────────────────────────────────
+   V2 helpers · ledger row summary (used by the negotiation log)
+   ────────────────────────────────────────────────────────────── */
+
+/**
+ * Convenience for ledger rows: given a message, return a one-line action
+ * summary suitable for the dual-column actor ledger.
+ */
+export function ledgerActionSummary(
+  session: MeetupSessionResponse,
+  message: MeetupMessage,
+): string {
+  switch (message.type) {
+    case "PROPOSE": {
+      const summary = message.proposal ? proposalSummary(message.proposal) : null;
+      return summary ? `发起方案：${summary}` : "发起方案";
+    }
+    case "REVISE_AFTER_LOCK": {
+      const summary = message.proposal ? proposalSummary(message.proposal) : null;
+      return summary ? `修改已确认安排：${summary}` : "修改已确认安排";
+    }
+    case "ACCEPT": {
+      const accepted: string[] = [];
+      if (session.confirmedTimeOptionId) accepted.push("时间");
+      if (session.confirmedLocationOptionId) accepted.push("地点");
+      return accepted.length
+        ? `接受 ${accepted.join("、")} 选项`
+        : "接受所选选项";
+    }
+    case "REJECT":
+      return "拒绝当前方案，交还对方";
+    case "FINAL_CONFIRM":
+      return "完成最终确认 · 安排已锁定";
+    case "CANCEL":
+      return "退出本次见面安排";
+    default:
+      return "更新协商状态";
   }
-  if (reason.includes("EXPIRED")) return "本次协商已过期。";
-  if (reason.includes("TERMINAL")) return "本次安排已结束。";
-  return "当前状态下暂不可操作。";
 }

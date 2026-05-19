@@ -1,248 +1,101 @@
 "use client";
 
-import { DEFAULT_MEETUP_EXPIRATION_WEEKS } from "@lilink/shared";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
-import {
-  fetchApi,
-  updateMeetupSettings,
-  type AuthMePayload,
-  type MeetupExpirationWeeks,
-} from "../../../lib/api";
-import { useAuthSession } from "../../auth-session";
-import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
-import { ArrowRightIcon, LogoutIcon } from "../_components/icons";
+import { ArrowRightIcon } from "../_components/icons";
 import { GrassRowIllustration } from "../_components/illustrations";
-import type { DashboardPayload } from "../_lib/types";
+import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
+import type { AuthMePayload } from "../../../lib/api";
+import type { HardMatchFormState } from "../../../lib/hard-match";
+import type { ContactPreferencesPayload, SavedQuestionnairePayload } from "../_lib/types";
 
-const MEETUP_EXPIRATION_OPTIONS: MeetupExpirationWeeks[] = [1, 2, 3, 4];
-
-function normalizeMeetupExpirationWeeks(
-  value: AuthMePayload["meetupExpirationWeeks"],
-): MeetupExpirationWeeks {
-  return MEETUP_EXPIRATION_OPTIONS.includes(value as MeetupExpirationWeeks)
-    ? (value as MeetupExpirationWeeks)
-    : DEFAULT_MEETUP_EXPIRATION_WEEKS;
-}
+type AnswersHardMatchSlice = { hardMatchForm?: Partial<HardMatchFormState> };
 
 export function MeClient({
   initialUser,
-  initialDashboard,
+  initialSavedQuestionnaire,
+  initialContactPreferences,
 }: {
   initialUser: AuthMePayload;
-  initialDashboard: DashboardPayload;
+  initialSavedQuestionnaire: SavedQuestionnairePayload;
+  initialContactPreferences: ContactPreferencesPayload;
 }) {
-  const router = useRouter();
   useDashboardSessionSeed(initialUser);
-  const { setUser } = useAuthSession();
-  const [pending, setPending] = useState(false);
-  const initialMeetupExpirationWeeks = normalizeMeetupExpirationWeeks(
-    initialUser.meetupExpirationWeeks,
-  );
-  const [meetupExpirationWeeks, setMeetupExpirationWeeks] =
-    useState<MeetupExpirationWeeks>(initialMeetupExpirationWeeks);
-  const [savedMeetupExpirationWeeks, setSavedMeetupExpirationWeeks] =
-    useState<MeetupExpirationWeeks>(initialMeetupExpirationWeeks);
-  const [settingsPending, setSettingsPending] = useState(false);
-  const [settingsMessage, setSettingsMessage] = useState<{
-    kind: "success" | "error";
-    text: string;
-  } | null>(null);
-  const hasSavedQuestionnaire = Boolean(
-    initialDashboard.questionnaireSubmittedAt,
-  );
+
   const initial =
-    Array.from(initialUser.displayName?.trim() ?? initialUser.email)[0]?.toUpperCase() ??
-    "NL";
+    Array.from(initialUser.displayName?.trim() ?? initialUser.email)[0]?.toUpperCase() ?? "NL";
 
-  async function handleLogout() {
-    setPending(true);
-    try {
-      await fetchApi("/auth/logout", { method: "POST" });
-    } finally {
-      setUser(null);
-      router.push("/");
-      router.refresh();
-    }
-  }
+  // We use the draft value if it exists, otherwise the submitted answer, otherwise fallback
+  const displayName = initialSavedQuestionnaire?.draft?.displayName ?? initialUser.displayName?.trim() ?? "";
+  const answersHardMatch = (initialSavedQuestionnaire?.answers as AnswersHardMatchSlice | undefined)
+    ?.hardMatchForm;
+  const oneLinerIntro =
+    initialSavedQuestionnaire?.draft?.hardMatchForm?.oneLinerIntro ??
+    answersHardMatch?.oneLinerIntro ??
+    "";
 
-  async function handleMeetupSettingsSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSettingsPending(true);
-    setSettingsMessage(null);
+  // Find preferred contact method
+  const preferredChannel = initialContactPreferences.preferredContactChannel;
+  let contactDisplay = `${initialUser.email} (邮箱)`;
 
-    try {
-      const updatedUser = await updateMeetupSettings({
-        meetupExpirationWeeks,
-      });
-      const updatedMeetupExpirationWeeks = normalizeMeetupExpirationWeeks(
-        updatedUser.meetupExpirationWeeks,
-      );
-      setMeetupExpirationWeeks(updatedMeetupExpirationWeeks);
-      setSavedMeetupExpirationWeeks(updatedMeetupExpirationWeeks);
-      setUser({
-        ...initialUser,
-        ...updatedUser,
-        meetupExpirationWeeks: updatedMeetupExpirationWeeks,
-      });
-      setSettingsMessage({ kind: "success", text: "已保存" });
-      router.refresh();
-    } catch (caughtError) {
-      setSettingsMessage({
-        kind: "error",
-        text:
-          caughtError instanceof Error ? caughtError.message : "保存设置失败。",
-      });
-    } finally {
-      setSettingsPending(false);
-    }
+  if (preferredChannel === "WECHAT") {
+    const wechat = initialContactPreferences.methods.find((m) => m.type === "WECHAT")?.value;
+    if (wechat) contactDisplay = `${wechat} (微信)`;
+  } else if (preferredChannel === "PHONE") {
+    const phone = initialContactPreferences.methods.find((m) => m.type === "PHONE")?.value;
+    if (phone) contactDisplay = `${phone} (手机)`;
+  } else if (preferredChannel === "QQ") {
+    const qq = initialContactPreferences.methods.find((m) => m.type === "QQ")?.value;
+    if (qq) contactDisplay = `${qq} (QQ)`;
   }
 
   return (
-    <div className="app-page-shell">
-      <header className="app-page-header me-page-header">
-        <div className="me-identity">
-          <span className="me-avatar" aria-hidden="true">
-            {initial}
-          </span>
-          <div className="me-identity-text">
-            <p className="eyebrow">My Account</p>
-            <h1>{initialUser.displayName?.trim() || "未命名同学"}</h1>
-            <p>{initialUser.email}</p>
-            <span
-              className={
-                hasSavedQuestionnaire
-                  ? "app-card-status is-on"
-                  : "app-card-status is-warn"
-              }
-            >
-              {hasSavedQuestionnaire ? "匹配资料已保存" : "匹配资料待完成"}
-            </span>
-          </div>
-        </div>
+    <div className="app-page-shell v2-page-shell me-page">
+      <header className="me-hero">
+        <span className="me-hero-avatar" aria-hidden="true">
+          {initial}
+        </span>
+        <h1 className="me-hero-name">
+          {initialUser.displayName?.trim() || "未命名同学"}
+        </h1>
+        <p className="me-hero-email">{initialUser.email}</p>
       </header>
 
-      <section className="app-card" aria-label="见面设置">
-        <div className="app-card-head">
-          <h2 className="app-card-title">见面设置</h2>
-          <span className="app-card-status">账号设置</span>
-        </div>
-        <form className="me-settings-form" onSubmit={handleMeetupSettingsSubmit}>
-          <label className="meetup-field">
-            <span>协商有效期</span>
-            <select
-              value={meetupExpirationWeeks}
-              disabled={settingsPending}
-              onChange={(event) => {
-                setMeetupExpirationWeeks(
-                  Number(event.target.value) as MeetupExpirationWeeks,
-                );
-                setSettingsMessage(null);
-              }}
-            >
-              {MEETUP_EXPIRATION_OPTIONS.map((weeks) => (
-                <option value={weeks} key={weeks}>
-                  {weeks} 周
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="button-primary"
-            type="submit"
-            disabled={
-              settingsPending ||
-              meetupExpirationWeeks === savedMeetupExpirationWeeks
-            }
+      <div className="me-group">
+        <div className="me-card-preview">
+          <div className="me-card-preview-header">
+            <h3>我的引荐名片</h3>
+            <p>匹配成功后，TA 看到的就是这张名片</p>
+          </div>
+          <div className="me-card-preview-content">
+             <div className="me-card-field">
+                <span className="me-card-label">昵称</span>
+                <span className="me-card-value">{displayName || "未填写"}</span>
+             </div>
+             <div className="me-card-field">
+                <span className="me-card-label">一句话介绍</span>
+                <span className="me-card-value">{oneLinerIntro || "未填写"}</span>
+             </div>
+             <div className="me-card-field">
+                <span className="me-card-label">首选联系方式</span>
+                <span className="me-card-value">{contactDisplay}</span>
+             </div>
+          </div>
+          <Link 
+            className="me-card-edit-button"
+            href="/dashboard/me/card"
+            style={{ display: "block", textAlign: "center" }}
           >
-            {settingsPending ? "保存中…" : "保存设置"}
-          </button>
-        </form>
-        {settingsMessage ? (
-          <p
-            className={
-              settingsMessage.kind === "success" ? "form-success" : "form-error"
-            }
-          >
-            {settingsMessage.text}
-          </p>
-        ) : null}
-      </section>
-
-      <section className="app-card" aria-label="账号与帮助">
-        <div className="app-card-head">
-          <h2 className="app-card-title">账号与帮助</h2>
-        </div>
-        <div className="me-card-list">
-          <Link href="/dashboard/profile" className="me-row">
-            <span className="me-row-text">
-              <strong>匹配资料</strong>
-              <span>
-                {hasSavedQuestionnaire ? "匹配资料已保存" : "匹配资料待完成"}
-              </span>
-            </span>
-            <span className="me-row-arrow" aria-hidden="true">
-              <ArrowRightIcon />
-            </span>
-          </Link>
-          <Link href="/dashboard/referral-settings" className="me-row">
-            <span className="me-row-text">
-              <strong>引荐设置</strong>
-              <span>联系方式与展示渠道</span>
-            </span>
-            <span className="me-row-arrow" aria-hidden="true">
-              <ArrowRightIcon />
-            </span>
-          </Link>
-          <Link href="/about" className="me-row">
-            <span className="me-row-text">
-              <strong>关于 LiLink</strong>
-              <span>校园里的，认真相遇</span>
-            </span>
-            <span className="me-row-arrow" aria-hidden="true">
-              <ArrowRightIcon />
-            </span>
-          </Link>
-          <Link href="/faq" className="me-row">
-            <span className="me-row-text">
-              <strong>常见问题</strong>
-              <span>机制、隐私、举报与联络方式</span>
-            </span>
-            <span className="me-row-arrow" aria-hidden="true">
-              <ArrowRightIcon />
-            </span>
-          </Link>
-          <Link href="/forgot-password" className="me-row">
-            <span className="me-row-text">
-              <strong>修改密码</strong>
-              <span>通过学校邮箱验证码重置</span>
-            </span>
-            <span className="me-row-arrow" aria-hidden="true">
-              <ArrowRightIcon />
-            </span>
-          </Link>
-          <Link href="/terms" className="me-row">
-            <span className="me-row-text">
-              <strong>用户协议与隐私政策</strong>
-              <span>注册时同意的两份文件</span>
-            </span>
-            <span className="me-row-arrow" aria-hidden="true">
-              <ArrowRightIcon />
-            </span>
+            编辑名片
           </Link>
         </div>
-      </section>
+      </div>
 
-      <button
-        type="button"
-        className="button-ghost button-block"
-        disabled={pending}
-        onClick={() => void handleLogout()}
-      >
-        <LogoutIcon />
-        {pending ? "退出中…" : "退出登录"}
-      </button>
+      <div className="me-group">
+        <Link href="/forgot-password" className="me-group-row">
+          <span className="me-group-row-title">修改密码</span>
+          <ArrowRightIcon className="me-group-row-arrow" />
+        </Link>
+      </div>
 
       <div className="hub-grass-divider" aria-hidden="true">
         <GrassRowIllustration />

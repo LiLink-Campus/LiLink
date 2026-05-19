@@ -1,17 +1,17 @@
 import type { CookieOptions } from 'express';
-import type { SignOptions } from 'jsonwebtoken';
+import type { JwtSignOptions } from '@nestjs/jwt';
 import { env } from '../../config/env';
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 type SessionConfig = {
-  jwtExpiresIn: SignOptions['expiresIn'];
+  jwtExpiresIn: JwtSignOptions['expiresIn'];
   cookieMaxAgeMs: number;
 };
 
 function createSessionConfig(days: number): SessionConfig {
   return {
-    jwtExpiresIn: `${days}d` as SignOptions['expiresIn'],
+    jwtExpiresIn: `${days}d` as JwtSignOptions['expiresIn'],
     cookieMaxAgeMs: days * MILLISECONDS_PER_DAY,
   };
 }

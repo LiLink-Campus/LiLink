@@ -6,21 +6,18 @@ export const QUESTION_REASON_RULE_TYPES = [
   'MULTI_OVERLAP',
 ] as const;
 
-export type QuestionReasonRuleType =
-  (typeof QUESTION_REASON_RULE_TYPES)[number];
-
 export type QuestionOption = {
   value: string;
   label: string;
 };
 
-export type ExactMatchReasonRule = {
+type ExactMatchReasonRule = {
   type: 'EXACT_MATCH';
   template: string;
   priority?: number;
 };
 
-export type MultiOverlapReasonRule = {
+type MultiOverlapReasonRule = {
   type: 'MULTI_OVERLAP';
   template: string;
   priority?: number;

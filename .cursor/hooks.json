@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "node scripts/hooks/cursor-pre-validate-web-css.mjs",
+        "matcher": "^(Write|str_replace|search_replace|StrReplace)$",
+        "timeout": 45
+      }
+    ]
+  }
+}

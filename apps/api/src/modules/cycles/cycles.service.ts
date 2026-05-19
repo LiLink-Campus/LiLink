@@ -2115,7 +2115,6 @@ export class CyclesService {
       !areHardMatchAnswersCompatible(
         left.hardMatchAnswers,
         right.hardMatchAnswers,
-        revealAt,
       )
     ) {
       return null;

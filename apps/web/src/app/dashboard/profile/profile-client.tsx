@@ -1,6 +1,10 @@
 "use client";
 
-import { takeNextAutosaveQueueItem } from "@lilink/shared";
+import {
+  createAutosaveLifecycleGate,
+  createAutosaveTimeoutController,
+  takeNextAutosaveQueueItem,
+} from "@lilink/shared";
 import {
   type PointerEvent as ReactPointerEvent,
   type TouchEvent as ReactTouchEvent,
@@ -172,6 +176,7 @@ type MultiChoiceSummaryPickerProps = {
 const QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS = [1500, 3000, 5000, 10000];
 const QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS =
   QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS.length;
+const QUESTIONNAIRE_AUTOSAVE_TIMEOUT_MS = 15000;
 const QUESTIONNAIRE_ATTENTION_VIEW_MS = 200;
 const MULTI_CHOICE_REOPEN_GUARD_MS = 350;
 
@@ -623,9 +628,8 @@ export function ProfileClient({
   );
   const [hardMatchForm, setHardMatchForm] =
     useState<HardMatchFormState>(initialHardMatchForm);
-  const [displayName, setDisplayName] = useState(
-    initialDraft?.displayName ?? initialUser.displayName ?? "",
-  );
+  const displayName =
+    initialDraft?.displayName ?? initialUser.displayName ?? "";
   const [questionnaireSaveError, setQuestionnaireSaveError] = useState<
     string | null
   >(null);
@@ -652,7 +656,14 @@ export function ProfileClient({
     payload: QuestionnaireSavePayload;
     snapshot: string;
   } | null>(null);
-  const questionnaireUnmountedRef = useRef(false);
+  const questionnaireAutosaveLifecycleRef = useRef<ReturnType<
+    typeof createAutosaveLifecycleGate
+  > | null>(null);
+  if (questionnaireAutosaveLifecycleRef.current === null) {
+    questionnaireAutosaveLifecycleRef.current = createAutosaveLifecycleGate();
+  }
+  const questionnaireAutosaveLifecycle =
+    questionnaireAutosaveLifecycleRef.current;
   const lastSavedQuestionnaireSnapshotRef = useRef(
     JSON.stringify(
       buildQuestionnaireSavePayload(
@@ -692,6 +703,17 @@ export function ProfileClient({
     window.clearTimeout(questionnaireRetryTimerRef.current);
     questionnaireRetryTimerRef.current = null;
   }
+
+  useEffect(() => {
+    questionnaireAutosaveLifecycle.markMounted();
+
+    return () => {
+      questionnaireAutosaveLifecycle.markUnmounted();
+      clearQuestionnaireRetryTimer();
+      queuedQuestionnaireSaveRef.current = null;
+      questionnaireSaveAbortRef.current?.abort();
+    };
+  }, [questionnaireAutosaveLifecycle]);
 
   function toggleHardSelection(
     field: "partnerGenders" | "partnerLooks",
@@ -869,7 +891,7 @@ export function ProfileClient({
           },
         );
 
-        if (!questionnaireUnmountedRef.current) {
+        if (!questionnaireAutosaveLifecycle.isUnmounted()) {
           setAcknowledgedQuestionnaireKeys(result.acknowledgedKeys);
         }
       } catch {
@@ -983,19 +1005,22 @@ export function ProfileClient({
       let shouldScheduleRetry = false;
       let shouldStopRetryingCurrentSnapshot = false;
       let retryDelayMs: number | null = null;
+      const lifecycleToken = questionnaireAutosaveLifecycle.currentToken();
 
       if (
-        questionnaireUnmountedRef.current ||
+        !questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken) ||
         questionnaireSaveInFlightRef.current ||
         snapshot === lastSavedQuestionnaireSnapshotRef.current
       ) {
         return;
       }
 
-      const abortController = new AbortController();
+      const autosaveTimeout = createAutosaveTimeoutController(
+        QUESTIONNAIRE_AUTOSAVE_TIMEOUT_MS,
+      );
 
       questionnaireSaveInFlightRef.current = true;
-      questionnaireSaveAbortRef.current = abortController;
+      questionnaireSaveAbortRef.current = autosaveTimeout.controller;
       setQuestionnaireSaveState("saving");
       setQuestionnaireSaveError(null);
 
@@ -1005,11 +1030,11 @@ export function ProfileClient({
           {
             method: "PUT",
             body: JSON.stringify(payload),
-            signal: abortController.signal,
+            signal: autosaveTimeout.signal,
           },
         );
 
-        if (questionnaireUnmountedRef.current) {
+        if (!questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken)) {
           return;
         }
 
@@ -1034,7 +1059,15 @@ export function ProfileClient({
           result.saveState === "SUBMITTED" ? "submitted" : "draft-saved",
         );
       } catch (caughtError) {
-        if (caughtError instanceof Error && caughtError.name === "AbortError") {
+        if (!questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken)) {
+          return;
+        }
+
+        if (
+          caughtError instanceof Error &&
+          caughtError.name === "AbortError" &&
+          !autosaveTimeout.hasTimedOut()
+        ) {
           return;
         }
 
@@ -1067,13 +1100,14 @@ export function ProfileClient({
           questionnaireAutosaveFailureMessage(caughtError, retryDelayMs),
         );
       } finally {
+        autosaveTimeout.clear();
         questionnaireSaveAbortRef.current = null;
         questionnaireSaveInFlightRef.current = false;
 
         const nextQueuedSave = takeNextAutosaveQueueItem(
           queuedQuestionnaireSaveRef.current,
           {
-            isUnmounted: questionnaireUnmountedRef.current,
+            isUnmounted: questionnaireAutosaveLifecycle.isUnmounted(),
             lastSavedSnapshot: lastSavedQuestionnaireSnapshotRef.current,
           },
         );
@@ -1087,14 +1121,14 @@ export function ProfileClient({
             clearQuestionnaireRetryTimer();
             questionnaireRetryTimerRef.current = window.setTimeout(() => {
               questionnaireRetryTimerRef.current = null;
-              if (questionnaireUnmountedRef.current) {
+              if (questionnaireAutosaveLifecycle.isUnmounted()) {
                 return;
               }
 
               const retrySave = takeNextAutosaveQueueItem(
                 queuedQuestionnaireSaveRef.current,
                 {
-                  isUnmounted: questionnaireUnmountedRef.current,
+                  isUnmounted: questionnaireAutosaveLifecycle.isUnmounted(),
                   lastSavedSnapshot: lastSavedQuestionnaireSnapshotRef.current,
                 },
               );
@@ -1141,11 +1175,18 @@ export function ProfileClient({
       if (snapshot === lastSavedQuestionnaireSnapshotRef.current) {
         questionnaireRetryAttemptRef.current = 0;
         queuedQuestionnaireSaveRef.current = null;
+        // A concurrent save already persisted this snapshot; clear stale indicator.
+        setQuestionnaireSaveState((current) =>
+          current === "pending" || current === "error" ? "idle" : current,
+        );
+        setQuestionnaireSaveError(null);
         return;
       }
 
       if (questionnaireSaveInFlightRef.current) {
         queuedQuestionnaireSaveRef.current = { payload, snapshot };
+        setQuestionnaireSaveState("saving");
+        setQuestionnaireSaveError(null);
         return;
       }
 
@@ -1160,6 +1201,13 @@ export function ProfileClient({
     }
 
     if (questionnaireSnapshot === lastSavedQuestionnaireSnapshotRef.current) {
+      // Snapshot reverted to the last-saved state (user undid a change).
+      // Clear any stale "pending" or "error" indicator that was set before
+      // the timer could fire, so the UI doesn't stay frozen on a false alarm.
+      setQuestionnaireSaveState((current) =>
+        current === "pending" || current === "error" ? "idle" : current,
+      );
+      setQuestionnaireSaveError(null);
       return;
     }
 
@@ -1187,10 +1235,10 @@ export function ProfileClient({
 
     const retrySave =
       takeNextAutosaveQueueItem(queuedQuestionnaireSaveRef.current, {
-        isUnmounted: questionnaireUnmountedRef.current,
+        isUnmounted: questionnaireAutosaveLifecycle.isUnmounted(),
         lastSavedSnapshot: lastSavedQuestionnaireSnapshotRef.current,
       }) ??
-      (questionnaireUnmountedRef.current ||
+      (questionnaireAutosaveLifecycle.isUnmounted() ||
       questionnaireSaveInFlightRef.current ||
       questionnaireSnapshot === lastSavedQuestionnaireSnapshotRef.current
         ? null
@@ -1212,16 +1260,6 @@ export function ProfileClient({
     questionnaireSavePayload,
     questionnaireSnapshot,
   ]);
-
-  useEffect(
-    () => () => {
-      questionnaireUnmountedRef.current = true;
-      clearQuestionnaireRetryTimer();
-      queuedQuestionnaireSaveRef.current = null;
-      questionnaireSaveAbortRef.current?.abort();
-    },
-    [],
-  );
 
   const questionnaireIncompleteMessage = useMemo(
     () =>
@@ -1250,9 +1288,9 @@ export function ProfileClient({
         : { label: "已保存 · 完整", tone: "on" };
 
   return (
-    <div className="app-page-shell">
-      <header className="app-page-header">
-        <p className="eyebrow">Matching Profile</p>
+    <div className="app-page-shell v2-page-shell">
+      <header className="v2-page-header">
+        <span className="v2-page-header-eyebrow">Matching Profile</span>
         <h1>匹配资料</h1>
         <p>
           {hasSavedQuestionnaire
@@ -1261,16 +1299,18 @@ export function ProfileClient({
               : "匹配以你最近一次正式保存的内容计算；你在这里的修改会自动保存并用于后续轮次。"
             : "在这里填写匹配资料。系统会自动保存草稿；补全全部必答项后，会自动转为正式资料。"}
         </p>
-        <span
-          className={
-            profileStatus.tone === "on"
-              ? "app-card-status is-on"
-              : "app-card-status is-warn"
-          }
-        >
-          {profileStatus.label}
-        </span>
-        <p className="app-muted">{questionnaireStatus}</p>
+        <div className="v2-page-header-row">
+          <span
+            className={
+              profileStatus.tone === "on"
+                ? "app-card-status is-on"
+                : "app-card-status is-warn"
+            }
+          >
+            {profileStatus.label}
+          </span>
+          <span className="app-card-status">{questionnaireStatus}</span>
+        </div>
         {questionnaireSaveError ? (
           <p className="form-error">{questionnaireSaveError}</p>
         ) : null}
@@ -1559,58 +1599,6 @@ export function ProfileClient({
                 />
               </fieldset>
 
-              <fieldset className="question-block">
-                <legend>昵称</legend>
-                <label className="dash-one-liner-label">
-                  <span className="app-muted">
-                    昵称，引荐后会发给对方邮件，可以是真名也可以不是。
-                  </span>
-                  <input
-                    id={buildDashboardFieldId("display-name")}
-                    name="displayName"
-                    type="text"
-                    maxLength={30}
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="输入你的昵称"
-                  />
-                </label>
-              </fieldset>
-
-              <fieldset
-                id={profileAttentionElementId(HARD_MATCH_KEYS.oneLinerIntro)}
-                ref={(node) =>
-                  setAttentionBlockRef(
-                    HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
-                    node,
-                  )
-                }
-                className={attentionBlockClassName(
-                  HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
-                )}
-              >
-                <legend>一句话介绍</legend>
-                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro)}
-                <label className="dash-one-liner-label">
-                  <span className="app-muted">
-                    用一两句话介绍你的兴趣或期待；引荐邮件中会展示给对方。请勿填写隐私敏感信息。
-                  </span>
-                  <textarea
-                    id={buildDashboardFieldId("one-liner-intro")}
-                    name="oneLinerIntro"
-                    rows={3}
-                    maxLength={HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}
-                    value={hardMatchForm.oneLinerIntro}
-                    onChange={(e) =>
-                      setHardMatchForm((f) => ({
-                        ...f,
-                        oneLinerIntro: e.target.value,
-                      }))
-                    }
-                    placeholder="例如：喜欢徒步和电影，希望认识聊得来的朋友。"
-                  />
-                </label>
-              </fieldset>
             </div>
           </div>
         )}

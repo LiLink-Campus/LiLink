@@ -17,6 +17,7 @@ build/
 # Runtime
 logs/
 *.log
+*.bak
 *.pid
 
 # Environment

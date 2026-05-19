@@ -1,7 +1,17 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { takeNextAutosaveQueueItem } = require("../dist");
+const {
+  createAutosaveLifecycleGate,
+  createAutosaveTimeoutController,
+  takeNextAutosaveQueueItem,
+} = require("../dist");
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 test("takeNextAutosaveQueueItem returns null when nothing is queued", () => {
   assert.equal(
@@ -58,4 +68,53 @@ test("takeNextAutosaveQueueItem keeps the latest queued save available for retry
     }),
     queuedSave,
   );
+});
+
+test("createAutosaveTimeoutController aborts after the timeout", async () => {
+  const autosaveTimeout = createAutosaveTimeoutController(10);
+
+  await wait(20);
+
+  assert.equal(autosaveTimeout.signal.aborted, true);
+  assert.equal(autosaveTimeout.hasTimedOut(), true);
+});
+
+test("createAutosaveTimeoutController clear prevents stale timeout aborts", async () => {
+  const autosaveTimeout = createAutosaveTimeoutController(10);
+
+  autosaveTimeout.clear();
+  await wait(20);
+
+  assert.equal(autosaveTimeout.signal.aborted, false);
+  assert.equal(autosaveTimeout.hasTimedOut(), false);
+});
+
+test("createAutosaveLifecycleGate reopens saves after remount", () => {
+  const lifecycle = createAutosaveLifecycleGate();
+
+  lifecycle.markMounted();
+  lifecycle.markUnmounted();
+
+  assert.equal(lifecycle.isUnmounted(), true);
+
+  lifecycle.markMounted();
+
+  assert.equal(lifecycle.isUnmounted(), false);
+});
+
+test("createAutosaveLifecycleGate invalidates stale async completions", () => {
+  const lifecycle = createAutosaveLifecycleGate();
+  const firstToken = lifecycle.currentToken();
+
+  assert.equal(lifecycle.isTokenActive(firstToken), true);
+
+  lifecycle.markUnmounted();
+
+  assert.equal(lifecycle.isTokenActive(firstToken), false);
+
+  const secondToken = lifecycle.markMounted();
+
+  assert.notEqual(secondToken, firstToken);
+  assert.equal(lifecycle.isTokenActive(firstToken), false);
+  assert.equal(lifecycle.isTokenActive(secondToken), true);
 });

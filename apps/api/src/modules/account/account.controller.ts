@@ -21,7 +21,6 @@ import {
   SaveQuestionnaireDto,
   ToggleParticipationDto,
   UpdateContactPreferencesDto,
-  UpdateMeetupSettingsDto,
   UpdateProfileDto,
 } from './dto';
 
@@ -98,14 +97,6 @@ export class AccountController {
     }
 
     return this.accountService.updateLocale(request.user!.sub, { locale });
-  }
-
-  @Put('settings/meetup')
-  updateMeetupSettings(
-    @Req() request: AuthenticatedRequest,
-    @Body() body: UpdateMeetupSettingsDto,
-  ) {
-    return this.accountService.updateMeetupSettings(request.user!.sub, body);
   }
 
   @Get('questionnaire')

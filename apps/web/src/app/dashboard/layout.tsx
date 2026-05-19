@@ -3,7 +3,6 @@ import { getRequestLocaleResult } from "../../lib/locale";
 import { LocaleProvider } from "../locale-context";
 import { AppShell } from "./_components/AppShell";
 import { ToastProvider } from "./_components/ToastProvider";
-import "../protected.css";
 import "./dashboard.css";
 
 export default async function DashboardLayout({

@@ -8,17 +8,6 @@ export function formatCycleRevealAt(iso: string): string {
   }).format(new Date(iso));
 }
 
-export function formatCycleDeadline(iso: string): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Shanghai",
-  }).format(new Date(iso));
-}
-
 export function canEditCurrentCycleParticipation(
   cycle: DashboardCurrentCycle | null,
 ): boolean {

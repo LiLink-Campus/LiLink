@@ -23,6 +23,11 @@ import {
   DEFAULT_MEETUP_EXPIRATION_WEEKS,
   MEETUP_TODO_PRIORITY,
 } from '@lilink/shared';
+import {
+  normalizeConversationTopics,
+  normalizeMatchReason,
+  normalizeMatchReasons,
+} from '../../common/dashboard/match-metadata';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -54,7 +59,6 @@ import {
   ToggleParticipationDto,
   UpdateContactPreferencesDto,
   UpdateLocaleDto,
-  UpdateMeetupSettingsDto,
   UpdateProfileDto,
 } from './dto';
 
@@ -363,27 +367,6 @@ export class AccountService {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { preferredLocale: input.locale },
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        preferredLocale: true,
-        meetupExpirationWeeks: true,
-      },
-    });
-
-    return {
-      ...user,
-      preferredLocale: normalizeLocale(user.preferredLocale),
-      meetupExpirationWeeks:
-        user.meetupExpirationWeeks ?? DEFAULT_MEETUP_EXPIRATION_WEEKS,
-    };
-  }
-
-  async updateMeetupSettings(userId: string, input: UpdateMeetupSettingsDto) {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { meetupExpirationWeeks: input.meetupExpirationWeeks },
       select: {
         id: true,
         email: true,
@@ -1059,46 +1042,6 @@ export class AccountService {
     };
   }
 
-  private normalizeMatchReasons(rawReasons: Prisma.JsonValue): string[] {
-    if (!Array.isArray(rawReasons)) {
-      return [];
-    }
-
-    return rawReasons.filter(
-      (item): item is string =>
-        typeof item === 'string' && item.trim().length > 0,
-    );
-  }
-
-  private normalizeMatchReason(
-    rawReason: string | null | undefined,
-    normalizedReasons: string[],
-  ) {
-    const trimmedReason = rawReason?.trim();
-    if (trimmedReason) {
-      return trimmedReason;
-    }
-
-    if (normalizedReasons.length === 0) {
-      return null;
-    }
-
-    return normalizedReasons.join(' ');
-  }
-
-  private normalizeConversationTopics(
-    rawTopics: Prisma.JsonValue | null | undefined,
-  ) {
-    if (!Array.isArray(rawTopics)) {
-      return [];
-    }
-
-    return rawTopics.filter(
-      (item): item is string =>
-        typeof item === 'string' && item.trim().length > 0,
-    );
-  }
-
   private defaultConversationTopics() {
     return [
       '最近一次让你觉得很放松的周末通常怎么过',
@@ -1187,7 +1130,10 @@ export class AccountService {
     questions: Array<{ key: string }>,
     rawAnswers: Record<string, unknown>,
   ) {
-    const allowedKeys = new Set(questions.map((question) => question.key));
+    const allowedKeys = new Set([
+      ...questions.map((question) => question.key),
+      ...hardMatchQuestionKeys(),
+    ]);
 
     for (const answerKey of Object.keys(rawAnswers)) {
       if (!allowedKeys.has(answerKey)) {
@@ -1995,7 +1941,7 @@ export class AccountService {
     const counterpartContact = this.resolvePublicContact(counterpart.user);
 
     const claimedAt = new Date();
-    const conversationTopics = this.normalizeConversationTopics(
+    const conversationTopics = normalizeConversationTopics(
       participant.match.conversationTopics,
     );
 
@@ -2048,9 +1994,9 @@ export class AccountService {
           publicContact: counterpartContact,
         },
         reason:
-          this.normalizeMatchReason(
+          normalizeMatchReason(
             participant.match.reason,
-            this.normalizeMatchReasons(participant.match.reasons),
+            normalizeMatchReasons(participant.match.reasons),
           ) ?? '你们在多项关系判断与日常偏好上呈现出稳定的相容趋势。',
         conversationTopics:
           conversationTopics.length > 0

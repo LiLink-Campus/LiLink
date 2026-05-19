@@ -100,7 +100,6 @@ export function MatchHistoryList({
                         </p>
                       ) : null}
                       <MatchExplanation
-                        reason={hm.reason}
                         reasons={hm.reasons}
                         conversationTopics={hm.conversationTopics}
                       />

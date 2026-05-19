@@ -17,11 +17,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   CONTACT_CHANNEL_TYPES,
   EDITABLE_CONTACT_CHANNEL_TYPES,
-  MAX_MEETUP_EXPIRATION_WEEKS,
   MEETUP_PROGRESS_STATUSES,
   MEETUP_TODO_PRIORITY,
   MEETUP_USER_TURN_STATUSES,
-  MIN_MEETUP_EXPIRATION_WEEKS,
   SUPPORTED_LOCALES,
   WEEKLY_INTENTS,
   type MeetupProgressStatus,
@@ -110,17 +108,6 @@ export class SaveQuestionnaireDto {
   displayName?: string;
 }
 
-export class SaveQuestionnaireResultDto {
-  @ApiProperty({ enum: ['DRAFT', 'SUBMITTED'] })
-  saveState!: 'DRAFT' | 'SUBMITTED';
-
-  @ApiProperty({ format: 'date-time', nullable: true })
-  questionnaireSubmittedAt!: string | null;
-
-  @ApiProperty()
-  hasDraft!: boolean;
-}
-
 export class AcknowledgeQuestionnaireItemsDto {
   @IsString()
   versionId!: string;
@@ -164,25 +151,6 @@ export class UpdateContactPreferencesDto {
   methods!: ContactMethodDto[];
 }
 
-export class ContactMethodResponseDto {
-  @ApiProperty({ enum: EDITABLE_CONTACT_CHANNEL_TYPES as unknown as string[] })
-  type!: EditableContactChannelType;
-
-  @ApiProperty()
-  value!: string;
-}
-
-export class ContactPreferencesResponseDto {
-  @ApiProperty()
-  email!: string;
-
-  @ApiProperty({ enum: CONTACT_CHANNEL_TYPES as unknown as string[] })
-  preferredContactChannel!: ContactChannelType;
-
-  @ApiProperty({ type: () => ContactMethodResponseDto, isArray: true })
-  methods!: ContactMethodResponseDto[];
-}
-
 export class DashboardPublicContactResponseDto {
   @ApiProperty({ enum: CONTACT_CHANNEL_TYPES as unknown as string[] })
   type!: ContactChannelType;
@@ -192,13 +160,6 @@ export class DashboardPublicContactResponseDto {
 
   @ApiProperty()
   value!: string;
-}
-
-export class UpdateMeetupSettingsDto {
-  @IsInt()
-  @Min(MIN_MEETUP_EXPIRATION_WEEKS)
-  @Max(MAX_MEETUP_EXPIRATION_WEEKS)
-  meetupExpirationWeeks!: 1 | 2 | 3 | 4;
 }
 
 export class ReportMatchDto {

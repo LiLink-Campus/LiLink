@@ -152,16 +152,16 @@ export type HardMatchSchoolGenderExclusion = {
 export type HardMatchKey =
   (typeof HARD_MATCH_KEYS)[keyof typeof HARD_MATCH_KEYS];
 
-export type HardMatchAttentionTab = "self" | "partner";
+type HardMatchAttentionTab = "self" | "partner";
 
-export type HardMatchAttentionField = {
+type HardMatchAttentionField = {
   key: HardMatchKey;
   label: string;
   tab: HardMatchAttentionTab;
   required: boolean;
 };
 
-export const HARD_MATCH_ATTENTION_FIELDS = [
+const HARD_MATCH_ATTENTION_FIELDS = [
   {
     key: HARD_MATCH_KEYS.birthDate,
     label: "出生日期",
@@ -284,9 +284,10 @@ export const HARD_MATCH_ATTENTION_FIELDS = [
   },
 ] as const satisfies ReadonlyArray<HardMatchAttentionField>;
 
-const HARD_MATCH_ATTENTION_FIELD_BY_KEY = new Map<string, HardMatchAttentionField>(
-  HARD_MATCH_ATTENTION_FIELDS.map((field) => [field.key, field]),
-);
+const HARD_MATCH_ATTENTION_FIELD_BY_KEY = new Map<
+  string,
+  HardMatchAttentionField
+>(HARD_MATCH_ATTENTION_FIELDS.map((field) => [field.key, field]));
 
 export function hardMatchAttentionFields() {
   return [...HARD_MATCH_ATTENTION_FIELDS];
@@ -347,10 +348,7 @@ export const AGE_OPTIONS = buildSequentialNumberOptions(
 );
 export const MONTH_OPTIONS = buildSequentialNumberOptions(1, 12);
 
-export function buildBirthYearOptions(
-  referenceDate = new Date(),
-  totalYears = 100,
-) {
+function buildBirthYearOptions(referenceDate = new Date(), totalYears = 100) {
   const currentYear = referenceDate.getFullYear();
   return Array.from(
     { length: totalYears },
@@ -417,7 +415,7 @@ export function readSingleChoice<T extends string>(
   return allowedValues.includes(normalizedValue) ? normalizedValue : null;
 }
 
-export function readNonEmptyString(value: unknown) {
+function readNonEmptyString(value: unknown) {
   if (typeof value !== "string") {
     return null;
   }
@@ -919,7 +917,6 @@ export function calculateAgeOnDate(birthDate: string, referenceDate: Date) {
 export function areHardMatchAnswersCompatible(
   left: HardMatchAnswers,
   right: HardMatchAnswers,
-  revealAt: Date,
 ) {
   const leftNationality = left.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
   const rightNationality = right.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;

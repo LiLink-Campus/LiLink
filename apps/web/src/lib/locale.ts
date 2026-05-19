@@ -10,19 +10,12 @@ import {
 } from "@lilink/shared";
 import { fetchUserApiServer, hasUserSessionCookie } from "./server-api";
 
-export type { SupportedLocale };
-export { DEFAULT_LOCALE, LOCALE_COOKIE_NAME };
-
 type RequestLocaleSource = "cookie" | "user" | "default";
 
 type RequestLocaleResult = {
   locale: SupportedLocale;
   source: RequestLocaleSource;
 };
-
-export async function getRequestLocale() {
-  return (await getRequestLocaleResult()).locale;
-}
 
 export async function getRequestLocaleResult(): Promise<RequestLocaleResult> {
   const cookieStore = await cookies();

@@ -95,19 +95,48 @@ export async function loadDashboardProfile() {
 }
 
 /**
- * Loader for contact details shown after a successful introduction.
+ * Loader for the "Me" settings page: identity, dashboard summary, saved
+ * questionnaire answers (card copy), and contact preferences (referral UX).
+ */
+export async function loadDashboardMe() {
+  await ensureDashboardSession();
+
+  try {
+    const [bootstrap, savedQuestionnaire, contactPreferences] = await Promise.all([
+      fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
+      fetchUserApiServer<SavedQuestionnairePayload>("/me/questionnaire").catch(() => null),
+      fetchUserApiServer<ContactPreferencesPayload>("/me/contact-preferences"),
+    ]);
+    return {
+      user: bootstrap.user,
+      dashboard: bootstrap.dashboard,
+      savedQuestionnaire,
+      contactPreferences,
+    };
+  } catch {
+    redirect("/login");
+  }
+}
+
+/**
+ * Loader for the referral-settings sub-page: contact preferences and
+ * questionnaire (for the referral intro form).
  */
 export async function loadDashboardReferralSettings() {
   await ensureDashboardSession();
 
   try {
-    const [bootstrap, contactPreferences] = await Promise.all([
+    const [bootstrap, contactPreferences, questionnaire, savedQuestionnaire] = await Promise.all([
       fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
       fetchUserApiServer<ContactPreferencesPayload>("/me/contact-preferences"),
+      fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
+      fetchUserApiServer<SavedQuestionnairePayload>("/me/questionnaire").catch(() => null),
     ]);
     return {
       user: bootstrap.user,
       contactPreferences,
+      questionnaire,
+      savedQuestionnaire,
     };
   } catch {
     redirect("/login");

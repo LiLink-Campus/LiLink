@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import {
   applyContactSuccessToDashboard,
@@ -39,30 +39,11 @@ export function useMatchActions({
   const [reportReason, setReportReason] = useState(DEFAULT_REPORT_REASON);
   const [reportDetails, setReportDetails] = useState("");
 
-  const reportSectionRef = useRef<HTMLElement | null>(null);
-  const reportReasonSelectRef = useRef<HTMLSelectElement | null>(null);
-
   // Keep local dashboard state aligned with the latest server snapshot when
   // the RSC tree revalidates (e.g. router.refresh), matching the hub page.
   useEffect(() => {
     setDashboard(initialDashboard);
   }, [initialDashboard]);
-
-  useEffect(() => {
-    if (!reportOpen || !reportTargetMatchId) {
-      return;
-    }
-
-    const frameId = window.requestAnimationFrame(() => {
-      reportSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-      reportReasonSelectRef.current?.focus({ preventScroll: true });
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [reportOpen, reportTargetMatchId]);
 
   function closeReportForm() {
     setReportOpen(false);
@@ -156,11 +137,6 @@ export function useMatchActions({
     }
   }
 
-  // Returned shape is intentionally flat (no nested `report` object).
-  // Wrapping refs together with non-ref callbacks confuses the
-  // react-hooks/refs lint rule into flagging every property access on
-  // the wrapper as "ref access during render", because the wrapper now
-  // looks ref-like to static analysis.
   return {
     dashboard,
     error,
@@ -173,8 +149,6 @@ export function useMatchActions({
     reportTargetMatchId,
     reportReason,
     reportDetails,
-    reportSectionRef,
-    reportReasonSelectRef,
     setReportReason,
     setReportDetails,
     openReportForm,

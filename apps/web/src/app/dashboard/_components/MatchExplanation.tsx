@@ -8,7 +8,6 @@ import { MessageCircleIcon, PeopleIcon, ShieldIcon } from "./icons";
 
 type MatchExplanationProps = {
   note?: string;
-  reason?: string | null;
   reasons?: unknown;
   conversationTopics?: unknown;
   emptyReasonFallback?: string;
@@ -203,7 +202,6 @@ function ReasonHighlightIcon({ icon }: { icon: ReasonHighlight["icon"] }) {
 
 export function MatchExplanation({
   note,
-  reason,
   reasons,
   conversationTopics,
   emptyReasonFallback,
@@ -212,12 +210,10 @@ export function MatchExplanation({
   const copy = MATCH_EXPLANATION_COPY[locale];
   const normalizedReasons = normalizeMatchReasons(reasons);
   const highlights = buildReasonHighlights(normalizedReasons, locale);
-  const summary = reason?.trim() ?? "";
   const topics = normalizeConversationTopics(conversationTopics);
 
   if (
     highlights.length === 0 &&
-    !summary &&
     !emptyReasonFallback &&
     topics.length === 0
   ) {
@@ -227,7 +223,6 @@ export function MatchExplanation({
   return (
     <div className="match-explanation">
       <div className="match-explanation-heading">
-        <ShieldIcon />
         <p className="eyebrow">{copy.reasonHeading}</p>
       </div>
       {note ? <p className="app-card-muted match-explanation-note">{note}</p> : null}
@@ -249,26 +244,19 @@ export function MatchExplanation({
           ))}
         </ul>
       ) : null}
-      {summary ? (
-        <blockquote className="match-reason-summary">
-          <span className="match-reason-quote-mark" aria-hidden="true">
-            “
-          </span>
-          <span>{summary}</span>
-        </blockquote>
-      ) : null}
-      {!summary && highlights.length === 0 && emptyReasonFallback ? (
+      {highlights.length === 0 && emptyReasonFallback ? (
         <p className="app-card-muted">{emptyReasonFallback}</p>
       ) : null}
       {topics.length > 0 ? (
         <div className="conversation-topic-card">
           <div className="conversation-topic-heading">
-            <MessageCircleIcon />
-            <p className="eyebrow">{copy.topicHeading}</p>
+            <p className="eyebrow">不知道怎么开口？</p>
           </div>
           <ul className="conversation-topic-list">
             {topics.map((topic, index) => (
-              <li key={`${index}-${topic.slice(0, 48)}`}>{topic}</li>
+              <li key={`${index}-${topic.slice(0, 48)}`}>
+                {topic}
+              </li>
             ))}
           </ul>
         </div>
