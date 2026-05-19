@@ -3107,6 +3107,12 @@ font-size: 0.95rem;
     background: var(--bg-elevated);
     box-shadow: var(--shadow-md);
     overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.v2-focus-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
 }
 
 .v2-focus-card-content {
@@ -3154,6 +3160,31 @@ top: -20%;
             transparent 70%);
 }
 
+.v2-focus-card::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  height: 50%;
+  background: linear-gradient(to top, color-mix(in srgb, var(--accent) 3%, transparent), transparent);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+}
+
+.v2-focus-card.tone-attention::after {
+  background: linear-gradient(to top, color-mix(in srgb, var(--primary) 4%, transparent), transparent);
+}
+
+.v2-focus-card.tone-waiting::after {
+  background: linear-gradient(to top, color-mix(in srgb, var(--gold) 4%, transparent), transparent);
+}
+
+.v2-focus-card.tone-celebrate::after {
+  background: linear-gradient(to top, color-mix(in srgb, var(--success) 4%, transparent), transparent);
+}
+
 .v2-focus-card>* {
     position: relative;
     z-index: 1;
@@ -3161,11 +3192,54 @@ top: -20%;
 
 .v2-focus-card-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-gap: 0.75rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.25rem;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.v2-focus-card-head-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.v2-focus-card-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-muted);
+  color: var(--fg-muted);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--fg) 4%, transparent);
+}
+
+.v2-focus-card-icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.v2-focus-card.tone-attention .v2-focus-card-icon {
+  background: var(--primary-tint);
+  color: var(--primary);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+
+.v2-focus-card.tone-waiting .v2-focus-card-icon {
+  background: var(--gold-soft);
+  color: #8c6b1c;
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--gold) 15%, transparent);
+}
+
+.v2-focus-card.tone-celebrate .v2-focus-card-icon {
+  background: var(--success-soft);
+  color: var(--success);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--success) 15%, transparent);
 }
 
 .v2-focus-eyebrow {

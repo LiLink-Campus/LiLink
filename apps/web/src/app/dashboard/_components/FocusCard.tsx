@@ -31,6 +31,7 @@ export type FocusCardProps = {
   progress?: FocusCardProgress;
   actions?: FocusCardAction[];
   tone?: FocusCardTone;
+  icon?: ReactNode;
 };
 
 function actionContent(action: FocusCardAction) {
@@ -91,6 +92,7 @@ export function FocusCard({
   progress,
   actions,
   tone = "default",
+  icon,
 }: FocusCardProps) {
   return (
     <section
@@ -98,10 +100,17 @@ export function FocusCard({
       aria-label={eyebrow ?? title}
     >
       <div className="v2-focus-card-content">
-        {eyebrow || step ? (
+        {eyebrow || step || icon ? (
           <header className="v2-focus-card-head">
-            {eyebrow ? <span className="v2-focus-eyebrow">{eyebrow}</span> : null}
-            {step ? <span className="v2-focus-step">{step}</span> : null}
+            <div className="v2-focus-card-head-left">
+              {eyebrow ? <span className="v2-focus-eyebrow">{eyebrow}</span> : null}
+              {step ? <span className="v2-focus-step">{step}</span> : null}
+            </div>
+            {icon ? (
+              <div className="v2-focus-card-icon" aria-hidden="true">
+                {icon}
+              </div>
+            ) : null}
           </header>
         ) : null}
         <h2 className="v2-focus-title">{title}</h2>

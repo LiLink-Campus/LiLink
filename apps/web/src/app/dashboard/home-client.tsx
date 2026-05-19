@@ -16,6 +16,13 @@ import {
   CheckCircleIcon,
   CircleIcon,
   GroupTrioIcon,
+  CalendarIcon,
+  ClockIcon,
+  SparklesIcon,
+  ClipboardIcon,
+  HeartIcon,
+  ProfileIcon,
+  MessageCircleIcon,
 } from "./_components/icons";
 import { OliveSprigIllustration } from "./_components/illustrations";
 import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
@@ -64,6 +71,7 @@ function focusCardPropsFor(
           { label: "去回应", href: focus.task.href, variant: "primary" },
         ],
         tone: "attention",
+        icon: <CalendarIcon />,
       };
     case "MEETUP_WAITING":
       return {
@@ -74,6 +82,7 @@ function focusCardPropsFor(
           { label: "查看提议", href: focus.task.href, variant: "secondary" },
         ],
         tone: "waiting",
+        icon: <ClockIcon />,
       };
     case "MATCH_INTRODUCED_NO_MEETUP": {
       const name = args.counterpartDisplayName ?? "TA";
@@ -90,6 +99,7 @@ function focusCardPropsFor(
           { label: "看看 TA 的名片", href: "/dashboard/match", variant: "link" },
         ],
         tone: "celebrate",
+        icon: <SparklesIcon />,
       };
     }
     case "MATCH_REVEALED_AWAITING_INTRO":
@@ -104,6 +114,7 @@ function focusCardPropsFor(
           { label: "查看匹配详情", href: "/dashboard/match", variant: "primary" },
         ],
         tone: "attention",
+        icon: <SparklesIcon />,
       };
     case "QUESTIONNAIRE_ATTENTION": {
       const summary =
@@ -118,6 +129,7 @@ function focusCardPropsFor(
           { label: "去处理", href: focus.href, variant: "primary" },
         ],
         tone: "attention",
+        icon: <ClipboardIcon />,
       };
     }
     case "QUESTIONNAIRE_INCOMPLETE":
@@ -130,6 +142,7 @@ function focusCardPropsFor(
           { label: "继续填写", href: focus.href, variant: "primary" },
         ],
         tone: "default",
+        icon: <ClipboardIcon />,
       };
     case "INTENT_REQUIRED": {
       const revealLabel = describeRevealMoment(focus.revealAt);
@@ -156,6 +169,7 @@ function focusCardPropsFor(
           },
         ],
         tone: "attention",
+        icon: <HeartIcon />,
       };
     }
     case "OPTED_IN_AWAITING_REVEAL": {
@@ -177,6 +191,7 @@ function focusCardPropsFor(
           },
         ],
         tone: "waiting",
+        icon: <ClockIcon />,
       };
     }
     case "LAST_ROUND_UNMATCHED": {
@@ -200,6 +215,7 @@ function focusCardPropsFor(
               },
         ],
         tone: "default",
+        icon: <CircleIcon />,
       };
     }
     case "CYCLE_LOCKED": {
@@ -214,6 +230,7 @@ function focusCardPropsFor(
           { label: "去完善资料", href: "/dashboard/profile", variant: "secondary" },
         ],
         tone: "default",
+        icon: <ClockIcon />,
       };
     }
     case "CONTACT_PREFERENCES":
@@ -225,6 +242,7 @@ function focusCardPropsFor(
           { label: "去编辑名片", href: "/dashboard/me", variant: "primary" },
         ],
         tone: "default",
+        icon: <ProfileIcon />,
       };
     case "NO_OPEN_CYCLE":
       return {
@@ -235,6 +253,7 @@ function focusCardPropsFor(
           { label: "去完善资料", href: "/dashboard/profile", variant: "secondary" },
         ],
         tone: "default",
+        icon: <CircleIcon />,
       };
   }
 }
