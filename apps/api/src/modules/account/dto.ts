@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -6,7 +7,9 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Length,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -29,43 +32,67 @@ import {
   type SupportedLocale,
   type WeeklyIntent,
 } from '@lilink/shared';
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+} from '../../common/validation/display-name';
+import {
+  CONTACT_METHOD_VALUE_MAX_LENGTH,
+  PROFILE_ARRAY_ITEM_MAX_LENGTH,
+  PROFILE_ARRAY_MAX_ITEMS,
+  PROFILE_BIO_MAX_LENGTH,
+  PROFILE_FULL_NAME_MAX_LENGTH,
+  PROFILE_HEADLINE_MAX_LENGTH,
+  PROFILE_SHORT_TEXT_MAX_LENGTH,
+  QUESTIONNAIRE_ACKNOWLEDGEMENT_KEY_MAX_LENGTH,
+  QUESTIONNAIRE_ACKNOWLEDGEMENT_KEYS_MAX_ITEMS,
+  REPORT_DETAILS_MAX_LENGTH,
+} from '../../common/validation/input-limits';
 
 export class UpdateProfileDto {
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsString()
-  @MinLength(2)
+  @Length(DISPLAY_NAME_MIN_LENGTH, DISPLAY_NAME_MAX_LENGTH)
   displayName?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_FULL_NAME_MAX_LENGTH)
   fullName?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_HEADLINE_MAX_LENGTH)
   headline?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_BIO_MAX_LENGTH)
   bio?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_SHORT_TEXT_MAX_LENGTH)
   schoolYear?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_SHORT_TEXT_MAX_LENGTH)
   programName?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_SHORT_TEXT_MAX_LENGTH)
   pronouns?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_SHORT_TEXT_MAX_LENGTH)
   hometown?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_SHORT_TEXT_MAX_LENGTH)
   genderIdentity?: string;
 
   @IsOptional()
@@ -82,17 +109,23 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(PROFILE_ARRAY_MAX_ITEMS)
   @IsString({ each: true })
+  @MaxLength(PROFILE_ARRAY_ITEM_MAX_LENGTH, { each: true })
   languages?: string[];
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(PROFILE_ARRAY_MAX_ITEMS)
   @IsString({ each: true })
+  @MaxLength(PROFILE_ARRAY_ITEM_MAX_LENGTH, { each: true })
   interests?: string[];
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(PROFILE_ARRAY_MAX_ITEMS)
   @IsString({ each: true })
+  @MaxLength(PROFILE_ARRAY_ITEM_MAX_LENGTH, { each: true })
   interestedIn?: string[];
 }
 
@@ -105,6 +138,7 @@ export class SaveQuestionnaireDto {
 
   @IsOptional()
   @IsString()
+  @Length(DISPLAY_NAME_MIN_LENGTH, DISPLAY_NAME_MAX_LENGTH)
   displayName?: string;
 }
 
@@ -113,7 +147,9 @@ export class AcknowledgeQuestionnaireItemsDto {
   versionId!: string;
 
   @IsArray()
+  @ArrayMaxSize(QUESTIONNAIRE_ACKNOWLEDGEMENT_KEYS_MAX_ITEMS)
   @IsString({ each: true })
+  @MaxLength(QUESTIONNAIRE_ACKNOWLEDGEMENT_KEY_MAX_LENGTH, { each: true })
   keys!: string[];
 }
 
@@ -138,6 +174,7 @@ export class ContactMethodDto {
   type!: EditableContactChannelType;
 
   @IsString()
+  @MaxLength(CONTACT_METHOD_VALUE_MAX_LENGTH)
   value!: string;
 }
 
@@ -146,6 +183,7 @@ export class UpdateContactPreferencesDto {
   preferredContactChannel!: ContactChannelType;
 
   @IsArray()
+  @ArrayMaxSize(EDITABLE_CONTACT_CHANNEL_TYPES.length)
   @ValidateNested({ each: true })
   @Type(() => ContactMethodDto)
   methods!: ContactMethodDto[];
@@ -178,6 +216,7 @@ export class ReportMatchDto {
   @IsOptional()
   @IsString()
   @MinLength(2)
+  @MaxLength(REPORT_DETAILS_MAX_LENGTH)
   details?: string;
 }
 

@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ListAuditLogsQueryDto } from './dto';
+import {
+  ADMIN_LIST_PAGE_MAX,
+  ADMIN_LIST_PAGE_SIZE_MAX,
+} from '../../common/validation/input-limits';
 
 type AuditLogRecord = Prisma.AuditLogGetPayload<{
   include: {
@@ -229,8 +233,16 @@ export class AdminAuditService {
   }
 
   private normalizePagination(query: { page?: number; pageSize?: number }) {
-    const page = query.page ?? 1;
-    const pageSize = Math.min(query.pageSize ?? 20, 50);
+    const page = this.normalizePositiveInteger(
+      query.page,
+      1,
+      ADMIN_LIST_PAGE_MAX,
+    );
+    const pageSize = this.normalizePositiveInteger(
+      query.pageSize,
+      20,
+      ADMIN_LIST_PAGE_SIZE_MAX,
+    );
 
     return {
       page,
@@ -251,5 +263,17 @@ export class AdminAuditService {
       pageSize: pagination.pageSize,
       totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
     };
+  }
+
+  private normalizePositiveInteger(
+    value: number | undefined,
+    fallback: number,
+    max: number,
+  ) {
+    if (!Number.isSafeInteger(value) || value == null || value < 1) {
+      return fallback;
+    }
+
+    return Math.min(value, max);
   }
 }

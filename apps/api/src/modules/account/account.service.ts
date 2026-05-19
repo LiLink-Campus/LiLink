@@ -46,6 +46,11 @@ import { IncompleteQuestionnaireSubmissionException } from '../questionnaire/inc
 import { normalizeQuestionOptions } from '../questionnaire/questionnaire-config';
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+} from '../../common/validation/display-name';
+import { CONTACT_METHOD_VALUE_MAX_LENGTH } from '../../common/validation/input-limits';
+import {
   AcknowledgeQuestionnaireItemsDto,
   DashboardMeetupSummaryResponseDto,
   DashboardHistoryItemResponseDto,
@@ -63,7 +68,6 @@ import {
 } from './dto';
 
 const DASHBOARD_HISTORY_LIMIT = 3;
-const CONTACT_METHOD_VALUE_MAX_LENGTH = 120;
 const EDITABLE_CONTACT_CHANNEL_SET = new Set<ContactChannelType>(
   EDITABLE_CONTACT_CHANNEL_TYPES,
 );
@@ -1100,15 +1104,44 @@ export class AccountService {
     currentDisplayName: string | null | undefined,
     nextDisplayName: string,
   ) {
-    if (nextDisplayName.length < 2) {
+    if (!this.isValidDisplayName(nextDisplayName)) {
       return false;
     }
 
     return (currentDisplayName?.trim() ?? '') !== nextDisplayName;
   }
 
+  private isValidDisplayName(value: string) {
+    return (
+      value.length >= DISPLAY_NAME_MIN_LENGTH &&
+      value.length <= DISPLAY_NAME_MAX_LENGTH
+    );
+  }
+
+  private assertValidDisplayName(value: string) {
+    if (this.isValidDisplayName(value)) {
+      return;
+    }
+
+    throw new BadRequestException(
+      `Display name must be between ${DISPLAY_NAME_MIN_LENGTH} and ${DISPLAY_NAME_MAX_LENGTH} characters.`,
+    );
+  }
+
+  private normalizeProfileDisplayName(value: string) {
+    const trimmedValue = value.trim();
+    this.assertValidDisplayName(trimmedValue);
+    return trimmedValue;
+  }
+
   private normalizeQuestionnaireDisplayName(value: unknown) {
-    return typeof value === 'string' ? value.trim() : undefined;
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const trimmedValue = value.trim();
+    this.assertValidDisplayName(trimmedValue);
+    return trimmedValue;
   }
 
   private resolveQuestionnaireSubmissionDisplayName(
@@ -1282,11 +1315,15 @@ export class AccountService {
 
   async updateProfile(userId: string, input: UpdateProfileDto) {
     const { displayName, ...profileFields } = input;
+    const normalizedDisplayName =
+      displayName !== undefined
+        ? this.normalizeProfileDisplayName(displayName)
+        : undefined;
 
-    if (displayName !== undefined) {
+    if (normalizedDisplayName !== undefined) {
       await this.prisma.user.update({
         where: { id: userId },
-        data: { displayName },
+        data: { displayName: normalizedDisplayName },
       });
     }
 
@@ -1300,7 +1337,10 @@ export class AccountService {
         })
       : await this.prisma.userProfile.findUnique({ where: { userId } });
 
-    if (displayName !== undefined || profileFields.headline !== undefined) {
+    if (
+      normalizedDisplayName !== undefined ||
+      profileFields.headline !== undefined
+    ) {
       await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
     }
 

@@ -1,5 +1,6 @@
 import {
   IsArray,
+  ArrayMaxSize,
   ArrayMinSize,
   IsBoolean,
   IsDateString,
@@ -7,6 +8,8 @@ import {
   IsIn,
   IsInt,
   Length,
+  Max,
+  MaxLength,
   ValidateNested,
   IsOptional,
   IsString,
@@ -15,22 +18,50 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { QUESTION_REASON_RULE_TYPES } from '../questionnaire/questionnaire-config';
+import {
+  ADMIN_CYCLE_CODENAME_MAX_LENGTH,
+  ADMIN_CYCLE_NOTES_MAX_LENGTH,
+  ADMIN_DESCRIPTION_MAX_LENGTH,
+  ADMIN_ID_MAX_LENGTH,
+  ADMIN_LIST_PAGE_MAX,
+  ADMIN_LIST_PAGE_SIZE_MAX,
+  ADMIN_QUESTION_KEY_MAX_LENGTH,
+  ADMIN_QUESTION_OPTION_LABEL_MAX_LENGTH,
+  ADMIN_QUESTION_OPTION_VALUE_MAX_LENGTH,
+  ADMIN_QUESTION_OPTIONS_MAX_ITEMS,
+  ADMIN_QUESTION_PROMPT_MAX_LENGTH,
+  ADMIN_QUESTION_REASON_RULES_MAX_ITEMS,
+  ADMIN_QUESTION_REASON_TEMPLATE_MAX_LENGTH,
+  ADMIN_QUESTION_REORDER_MAX_ITEMS,
+  ADMIN_REPORT_BATCH_MAX_ITEMS,
+  ADMIN_REPORT_REVIEW_NOTES_MAX_LENGTH,
+  ADMIN_SCHOOL_DOMAIN_MAX_ITEMS,
+  ADMIN_SCHOOL_DOMAIN_MAX_LENGTH,
+  ADMIN_SCHOOL_NAME_MAX_LENGTH,
+  ADMIN_SCHOOL_SLUG_MAX_LENGTH,
+  ADMIN_SEARCH_MAX_LENGTH,
+  ADMIN_SETTINGS_VALUE_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
+} from '../../common/validation/input-limits';
 
 class ListQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(ADMIN_LIST_PAGE_MAX)
   page?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(ADMIN_LIST_PAGE_SIZE_MAX)
   pageSize?: number;
 
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_SEARCH_MAX_LENGTH)
   search?: string;
 }
 
@@ -81,14 +112,17 @@ export class ListReportsQueryDto extends ListQueryDto {
 export class ListAuditLogsQueryDto extends ListQueryDto {
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_SEARCH_MAX_LENGTH)
   action?: string;
 }
 
 export class CreateSchoolDto {
   @IsString()
+  @MaxLength(ADMIN_SCHOOL_NAME_MAX_LENGTH)
   name!: string;
 
   @IsString()
+  @MaxLength(ADMIN_SCHOOL_SLUG_MAX_LENGTH)
   @Matches(/^[a-z0-9-]+$/, {
     message: 'Slug must contain only lowercase letters, numbers, and hyphens.',
   })
@@ -96,34 +130,43 @@ export class CreateSchoolDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_DESCRIPTION_MAX_LENGTH)
   description?: string;
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(ADMIN_SCHOOL_DOMAIN_MAX_ITEMS)
   @IsString({ each: true })
+  @MaxLength(ADMIN_SCHOOL_DOMAIN_MAX_LENGTH, { each: true })
   domains!: string[];
 }
 
 export class UpdateSchoolDto {
   @IsString()
+  @MaxLength(ADMIN_SCHOOL_NAME_MAX_LENGTH)
   name!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_DESCRIPTION_MAX_LENGTH)
   description?: string;
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(ADMIN_SCHOOL_DOMAIN_MAX_ITEMS)
   @IsString({ each: true })
+  @MaxLength(ADMIN_SCHOOL_DOMAIN_MAX_LENGTH, { each: true })
   domains!: string[];
 }
 
 export class UpsertCycleDto {
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_ID_MAX_LENGTH)
   cycleId?: string;
 
   @IsString()
+  @MaxLength(ADMIN_CYCLE_CODENAME_MAX_LENGTH)
   codename!: string;
 
   @IsDateString()
@@ -137,11 +180,13 @@ export class UpsertCycleDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_CYCLE_NOTES_MAX_LENGTH)
   notes?: string;
 }
 
 export class RunCycleDto {
   @IsString()
+  @MaxLength(ADMIN_ID_MAX_LENGTH)
   cycleId!: string;
 
   @IsOptional()
@@ -152,9 +197,11 @@ export class RunCycleDto {
 export class QuestionOptionDto {
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_QUESTION_OPTION_VALUE_MAX_LENGTH)
   value?: string;
 
   @IsString()
+  @MaxLength(ADMIN_QUESTION_OPTION_LABEL_MAX_LENGTH)
   label!: string;
 }
 
@@ -163,6 +210,7 @@ export class QuestionReasonRuleDto {
   type!: (typeof QUESTION_REASON_RULE_TYPES)[number];
 
   @IsString()
+  @MaxLength(ADMIN_QUESTION_REASON_TEMPLATE_MAX_LENGTH)
   template!: string;
 
   @IsOptional()
@@ -187,12 +235,15 @@ export class QuestionReasonRuleDto {
 export class UpsertQuestionDto {
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_ID_MAX_LENGTH)
   questionId?: string;
 
   @IsString()
+  @MaxLength(ADMIN_QUESTION_KEY_MAX_LENGTH)
   key!: string;
 
   @IsString()
+  @MaxLength(ADMIN_QUESTION_PROMPT_MAX_LENGTH)
   prompt!: string;
 
   @IsIn(['SINGLE_SELECT', 'MULTI_SELECT', 'SCALE'])
@@ -200,12 +251,14 @@ export class UpsertQuestionDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(ADMIN_QUESTION_OPTIONS_MAX_ITEMS)
   @ValidateNested({ each: true })
   @Type(() => QuestionOptionDto)
   options?: QuestionOptionDto[];
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(ADMIN_QUESTION_REASON_RULES_MAX_ITEMS)
   @ValidateNested({ each: true })
   @Type(() => QuestionReasonRuleDto)
   reasonRules?: QuestionReasonRuleDto[];
@@ -229,8 +282,16 @@ export class UpsertQuestionDto {
 export class ReorderQuestionsDto {
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(ADMIN_QUESTION_REORDER_MAX_ITEMS)
   @IsString({ each: true })
+  @MaxLength(ADMIN_ID_MAX_LENGTH, { each: true })
   questionIds!: string[];
+}
+
+export class DeleteQuestionDto {
+  @IsString()
+  @MaxLength(ADMIN_ID_MAX_LENGTH)
+  questionId!: string;
 }
 
 export class ReviewReportDto {
@@ -239,6 +300,7 @@ export class ReviewReportDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_REPORT_REVIEW_NOTES_MAX_LENGTH)
   notes?: string;
 
   @IsOptional()
@@ -249,7 +311,9 @@ export class ReviewReportDto {
 export class BatchReviewReportsDto {
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(ADMIN_REPORT_BATCH_MAX_ITEMS)
   @IsString({ each: true })
+  @MaxLength(ADMIN_ID_MAX_LENGTH, { each: true })
   reportIds!: string[];
 
   @IsIn(['OPEN', 'RESOLVED', 'DISMISSED'])
@@ -257,6 +321,7 @@ export class BatchReviewReportsDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_REPORT_REVIEW_NOTES_MAX_LENGTH)
   notes?: string;
 
   @IsOptional()
@@ -277,10 +342,12 @@ export class AdminUpdateUserDto {
 
   @IsOptional()
   @IsEmail()
+  @MaxLength(EMAIL_MAX_LENGTH)
   email?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_ID_MAX_LENGTH)
   schoolId?: string | null;
 
   @IsOptional()
@@ -296,5 +363,6 @@ export class ToggleTestFlagDto {
 export class UpdateSettingsDto {
   @IsOptional()
   @IsString()
+  @MaxLength(ADMIN_SETTINGS_VALUE_MAX_LENGTH)
   max_registrations?: string;
 }
