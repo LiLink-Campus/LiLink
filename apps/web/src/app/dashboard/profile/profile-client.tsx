@@ -1257,6 +1257,7 @@ export function ProfileClient({
     void flushQueuedQuestionnaireSave(retrySave.payload, retrySave.snapshot);
   }, [
     questionnaireManualRetryTick,
+    questionnaireAutosaveLifecycle,
     questionnaireSavePayload,
     questionnaireSnapshot,
   ]);

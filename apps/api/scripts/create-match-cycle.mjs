@@ -10,6 +10,8 @@ import { resolveAdminSessionForLocalScripts } from "./admin-token-for-local-scri
 
 loadMonorepoEnv();
 
+const ADMIN_CYCLE_LIST_PAGE_SIZE = 50;
+
 /** @returns {`${string}-${string}-${string}-${string}-${string}`} */
 function nextUniqueCodename(takenCodenamesSet) {
   const base =
@@ -38,6 +40,45 @@ function defaultDeadlineAndReveal() {
   return { deadlineIso: deadline.toISOString(), revealIso: reveal.toISOString() };
 }
 
+async function loadExistingCycleCodenames({ baseUrl, cookieName, token }) {
+  const codenames = new Set();
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const url = new URL(`${baseUrl.replace(/\/$/, "")}/admin/cycles`);
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("pageSize", String(ADMIN_CYCLE_LIST_PAGE_SIZE));
+
+    const response = await fetch(url, {
+      headers: {
+        Cookie: `${cookieName}=${token}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Could not load existing cycles (${response.status}).`);
+    }
+
+    const body = await response.json();
+    const items = Array.isArray(body.items) ? body.items : [];
+    for (const item of items) {
+      if (item && typeof item.codename === "string") {
+        codenames.add(item.codename);
+      }
+    }
+
+    totalPages =
+      typeof body.totalPages === "number" && body.totalPages > 0
+        ? body.totalPages
+        : page;
+    page += 1;
+  } while (page <= totalPages);
+
+  return codenames;
+}
+
 async function main() {
   const { deadlineIso: defaultDl, revealIso: defaultRv } = defaultDeadlineAndReveal();
   const participationDeadline =
@@ -61,22 +102,18 @@ async function main() {
 
   const { token, cookieName, baseUrl } = session;
 
-  const listing = await fetch(`${baseUrl}/admin/cycles?page=1&pageSize=500`, {
-    headers: {
-      Cookie: `${cookieName}=${token}`,
-      Accept: "application/json",
-    },
-  });
-
-  if (!listing.ok) {
-    console.error("Could not load existing cycles.");
+  let codenamesTaken;
+  try {
+    codenamesTaken = await loadExistingCycleCodenames({
+      baseUrl,
+      cookieName,
+      token,
+    });
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
     return;
   }
-
-  const listingJson = await listing.json();
-  const items = Array.isArray(listingJson.items) ? listingJson.items : [];
-  const codenamesTaken = new Set(items.map((c) => c.codename));
 
   const codename = nextUniqueCodename(codenamesTaken);
 

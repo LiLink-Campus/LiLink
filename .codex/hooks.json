@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/hooks/codex-post-validate-web-css.mjs",
+            "command": "node -e \"const { spawnSync } = require('node:child_process'); const path = require('node:path'); const rootResult = spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }); const root = rootResult.stdout.trim(); if (!root) process.exit(rootResult.status ?? 1); const script = path.join(root, 'scripts/hooks/codex-post-validate-web-css.mjs'); const result = spawnSync(process.execPath, [script], { stdio: 'inherit' }); process.exit(result.status ?? 1);\"",
             "timeout": 45,
             "statusMessage": "Validating apps/web CSS"
           }

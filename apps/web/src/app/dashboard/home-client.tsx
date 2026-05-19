@@ -10,19 +10,14 @@ import {
 } from "../../lib/weekly-intent";
 import { FocusCard, type FocusCardProps } from "./_components/FocusCard";
 import { IntentSheet } from "./_components/IntentSheet";
-import { StageStrip } from "./_components/StageStrip";
 import {
-  ArrowRightIcon,
-  CheckCircleIcon,
   CircleIcon,
-  GroupTrioIcon,
   CalendarIcon,
   ClockIcon,
   SparklesIcon,
   ClipboardIcon,
   HeartIcon,
   ProfileIcon,
-  MessageCircleIcon,
 } from "./_components/icons";
 import { OliveSprigIllustration } from "./_components/illustrations";
 import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
@@ -34,7 +29,6 @@ import {
   type FocusContext,
 } from "./_lib/focus";
 import { canEditCurrentCycleParticipation } from "./_lib/format";
-import { profileAttentionHashForKey } from "./_lib/profile-attention";
 import type {
   ContactPreferencesPayload,
   DashboardPayload,
@@ -42,15 +36,6 @@ import type {
 } from "./_lib/types";
 
 const HOME_VISIBLE_REFRESH_TTL_MS = 30_000;
-
-function questionnaireAttentionHref(
-  attention: QuestionnaireAttentionPayload | null,
-) {
-  const key = attention?.pendingKeys?.[0];
-  return key
-    ? `/dashboard/profile${profileAttentionHashForKey(key)}`
-    : "/dashboard/profile";
-}
 
 function focusCardPropsFor(
   focus: FocusContext,
@@ -330,8 +315,6 @@ export function HomeClient({
         null
       : null;
 
-  const questionnaireHref = questionnaireAttentionHref(questionnaireAttention);
-
   const focus = useMemo(
     () =>
       resolveFocus({
@@ -477,10 +460,6 @@ export function HomeClient({
     counterpartDisplayName: counterpart?.displayName ?? null,
   });
 
-  const stageStripTitle = cycle
-    ? `黎安 · ${cycle.codename} · ${canEdit ? "本轮报名中" : "本轮已锁定"}`
-    : "等待下一轮开放";
-
   const participationLabel = !cycle
     ? "本轮未开放"
     : !canEdit
@@ -536,8 +515,8 @@ export function HomeClient({
           </header>
           <h3 className="v2-status-tile-title">匹配资料</h3>
           <p className="v2-status-tile-body">
-            {questionnairePercent === 100 
-              ? '资料已完善，将用于为你寻找相容的人。' 
+            {questionnairePercent === 100
+              ? '资料已完善，将用于为你寻找相容的人。'
               : '完善资料后才能参与匹配。'}
           </p>
           <footer className="v2-status-tile-foot">
@@ -571,10 +550,10 @@ export function HomeClient({
           <footer className="v2-status-tile-foot">
             <div style={{ flex: 1 }} />
             {isOptedIn && canEdit ? (
-              <button 
+              <button
                 type="button"
-                className="v2-status-tile-link" 
-                onClick={withdraw} 
+                className="v2-status-tile-link"
+                onClick={withdraw}
                 disabled={saving}
                 style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--primary-soft)', padding: 0, cursor: 'pointer' }}
               >

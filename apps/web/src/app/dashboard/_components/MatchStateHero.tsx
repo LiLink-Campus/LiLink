@@ -107,7 +107,7 @@ export function MatchStateHero({
               </div>
             ) : null}
           </div>
-          
+
           {contactLine ? <div className="v2-match-hero-contact" style={{ padding: '0.75rem', background: 'var(--bg-soft)', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>{contactLine}</div> : null}
           {body ? <p className="v2-focus-body" style={{ fontSize: '0.9rem', color: 'var(--fg-secondary)', marginBottom: '1rem' }}>{body}</p> : null}
           {children}
@@ -130,7 +130,7 @@ export function MatchStateHero({
           </header>
           <h2 className="v2-focus-title">{title}</h2>
           {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--fg-secondary)', fontSize: '0.9rem' }}>{subtitle}</p> : null}
-          
+
           {typeof score === "number" ? (
             <div className="v2-focus-meta-row">
               <span className="v2-focus-meta-chip">
@@ -138,7 +138,7 @@ export function MatchStateHero({
               </span>
             </div>
           ) : null}
-          
+
           {body ? <p className="v2-focus-body">{body}</p> : null}
           {children}
         </div>

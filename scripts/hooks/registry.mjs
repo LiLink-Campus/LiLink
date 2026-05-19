@@ -11,6 +11,10 @@ export const GIT_HOOK_CONFIGS = Object.freeze([
   }),
 ]);
 
+function repoRootNodeHookCommand(scriptPath) {
+  return `node -e "const { spawnSync } = require('node:child_process'); const path = require('node:path'); const rootResult = spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }); const root = rootResult.stdout.trim(); if (!root) process.exit(rootResult.status ?? 1); const script = path.join(root, '${scriptPath}'); const result = spawnSync(process.execPath, [script], { stdio: 'inherit' }); process.exit(result.status ?? 1);"`;
+}
+
 export const AGENT_HOOK_CONFIG_FILES = Object.freeze([
   Object.freeze({
     tool: "codex",
@@ -23,7 +27,9 @@ export const AGENT_HOOK_CONFIG_FILES = Object.freeze([
             hooks: Object.freeze([
               Object.freeze({
                 type: "command",
-                command: "node scripts/hooks/codex-post-validate-web-css.mjs",
+                command: repoRootNodeHookCommand(
+                  "scripts/hooks/codex-post-validate-web-css.mjs",
+                ),
                 timeout: 45,
                 statusMessage: "Validating apps/web CSS",
               }),
@@ -41,7 +47,9 @@ export const AGENT_HOOK_CONFIG_FILES = Object.freeze([
       hooks: Object.freeze({
         preToolUse: Object.freeze([
           Object.freeze({
-            command: "node scripts/hooks/cursor-pre-validate-web-css.mjs",
+            command: repoRootNodeHookCommand(
+              "scripts/hooks/cursor-pre-validate-web-css.mjs",
+            ),
             matcher: "^(Write|str_replace|search_replace|StrReplace)$",
             timeout: 45,
           }),

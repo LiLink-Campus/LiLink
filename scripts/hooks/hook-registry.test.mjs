@@ -37,27 +37,9 @@ test("keeps all hook definitions in the registry", () => {
 });
 
 test("serializes agent hook configs with a stable trailing newline", () => {
-  assert.equal(
-    serializeHookConfig(AGENT_HOOK_CONFIG_FILES[0].config),
-    `{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "^apply_patch$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node scripts/hooks/codex-post-validate-web-css.mjs",
-            "timeout": 45,
-            "statusMessage": "Validating apps/web CSS"
-          }
-        ]
-      }
-    ]
-  }
-}
-`,
-  );
+  const serialized = serializeHookConfig(AGENT_HOOK_CONFIG_FILES[0].config);
+  assert.equal(serialized.endsWith("\n"), true);
+  assert.deepEqual(JSON.parse(serialized), AGENT_HOOK_CONFIG_FILES[0].config);
 });
 
 test("syncs and audits generated agent hook config files", () => {

@@ -80,7 +80,7 @@ export function MeClient({
                 <span className="me-card-value">{contactDisplay}</span>
              </div>
           </div>
-          <Link 
+          <Link
             className="me-card-edit-button"
             href="/dashboard/me/card"
             style={{ display: "block", textAlign: "center" }}

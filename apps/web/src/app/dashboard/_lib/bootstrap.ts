@@ -102,16 +102,18 @@ export async function loadDashboardMe() {
   await ensureDashboardSession();
 
   try {
-    const [bootstrap, savedQuestionnaire, contactPreferences] = await Promise.all([
+    const [bootstrap, savedQuestionnaire, contactPreferences, questionnaire] = await Promise.all([
       fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
       fetchUserApiServer<SavedQuestionnairePayload>("/me/questionnaire").catch(() => null),
       fetchUserApiServer<ContactPreferencesPayload>("/me/contact-preferences"),
+      fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
     ]);
     return {
       user: bootstrap.user,
       dashboard: bootstrap.dashboard,
       savedQuestionnaire,
       contactPreferences,
+      questionnaire,
     };
   } catch {
     redirect("/login");

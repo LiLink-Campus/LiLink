@@ -9,7 +9,6 @@ import { MatchExplanation } from "../_components/MatchExplanation";
 import { MatchStateHero } from "../_components/MatchStateHero";
 import { MeetupStatusRibbon } from "../_components/MeetupStatusRibbon";
 import { ReportForm } from "../_components/ReportForm";
-import { StageStrip } from "../_components/StageStrip";
 import { useMatchActions } from "../_components/useMatchActions";
 import {
   canEditCurrentCycleParticipation,
@@ -97,14 +96,6 @@ export function MatchClient({
       // requestContact already surfaces the failure via `error`
     }
   }
-
-  const stageStripTitle = currentCycle
-    ? introduced || latestMatch
-      ? `${currentCycle.codename} · 已揭晓`
-      : canEditParticipation
-        ? `${currentCycle.codename} · 报名中`
-        : `${currentCycle.codename} · 已锁定`
-    : "等待下一轮";
 
   const showMeetupRibbon = introduced && meetupSummary !== null;
   const showStartMeetupRibbon = introduced && meetupSummary === null && latestMatch !== null;
@@ -382,14 +373,14 @@ export function MatchClient({
       {hero}
 
       <div className="v2-match-secondary-actions">
-        <Link 
-          href="/dashboard/match/history" 
+        <Link
+          href="/dashboard/match/history"
           className="button-ghost button-block"
         >
           查看过往匹配记录{recentMatchHistory.length > 0 ? ` (${recentMatchHistory.length}轮)` : ''}
         </Link>
         {introduced && latestMatch && !reportHandlingChipLabel(latestMatch.reportStatus) ? (
-          <button 
+          <button
             type="button"
             className="button-ghost button-block"
             onClick={() => toggleReportForm(latestMatch.id)}

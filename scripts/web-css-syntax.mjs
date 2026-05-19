@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
@@ -69,6 +69,41 @@ export function validateCssString(postcss, source, label) {
 export function validateFile(repoRoot, postcss, absPath) {
   const src = readFileSync(absPath, "utf8");
   validateCssString(postcss, src, absPath);
+}
+
+export function findDefaultCssFiles(repoRoot) {
+  const webRoot = path.join(repoRoot, "apps", "web");
+  if (!existsSync(webRoot)) {
+    return [];
+  }
+
+  const files = [];
+  const stack = [webRoot];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) {
+      continue;
+    }
+
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name === ".next") {
+        continue;
+      }
+
+      const abs = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(abs);
+        continue;
+      }
+
+      if (entry.isFile() && entry.name.endsWith(".css")) {
+        files.push(abs);
+      }
+    }
+  }
+
+  return files.sort();
 }
 
 export function extractApplyPatchTargets(patchText) {
@@ -234,13 +269,8 @@ export function validateCodexAfterApplyPatch(payload, repoRoot) {
 function runCli() {
   const repoRoot = getRepoRoot();
   const postcss = loadPostcss(repoRoot);
-  const files = process.argv.slice(2);
-
-  if (files.length === 0) {
-    console.error("Usage: node scripts/web-css-syntax.mjs <css-file> ...");
-    process.exitCode = 2;
-    return;
-  }
+  const files =
+    process.argv.length > 2 ? process.argv.slice(2) : findDefaultCssFiles(repoRoot);
 
   let failed = false;
 

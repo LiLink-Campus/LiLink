@@ -3,12 +3,16 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { fetchApi } from "../../../../lib/api";
-import { HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH } from "../../../../lib/hard-match";
+import {
+  HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
+  type HardMatchFormState,
+} from "../../../../lib/hard-match";
 import type { ContactPreferencesPayload, SavedQuestionnairePayload } from "../../_lib/types";
 
 type MyCardEditorClientProps = {
   initialDisplayName: string;
   initialOneLinerIntro: string;
+  initialHardMatchForm: HardMatchFormState;
   initialContactPreferences: ContactPreferencesPayload;
   userEmail: string;
   savedQuestionnaire: SavedQuestionnairePayload;
@@ -17,6 +21,7 @@ type MyCardEditorClientProps = {
 export function MyCardEditorClient({
   initialDisplayName,
   initialOneLinerIntro,
+  initialHardMatchForm,
   initialContactPreferences,
   userEmail,
   savedQuestionnaire,
@@ -29,9 +34,10 @@ export function MyCardEditorClient({
   const [displayName, setDisplayName] = useState(initialDisplayName);
   const [oneLinerIntro, setOneLinerIntro] = useState(initialOneLinerIntro);
   const [preferredChannel, setPreferredChannel] = useState(initialContactPreferences.preferredContactChannel);
-  
+
   // Contact methods state
   const [wechat, setWechat] = useState(initialContactPreferences.methods.find((m) => m.type === "WECHAT")?.value ?? "");
+  const [qq, setQq] = useState(initialContactPreferences.methods.find((m) => m.type === "QQ")?.value ?? "");
   const [phone, setPhone] = useState(initialContactPreferences.methods.find((m) => m.type === "PHONE")?.value ?? "");
 
   async function handleSubmit(e: FormEvent) {
@@ -43,6 +49,7 @@ export function MyCardEditorClient({
       // 1. Save contact preferences
       const methods = [
         { type: "WECHAT" as const, value: wechat.trim() },
+        { type: "QQ" as const, value: qq.trim() },
         { type: "PHONE" as const, value: phone.trim() },
       ].filter((m) => m.value.length > 0);
 
@@ -56,13 +63,12 @@ export function MyCardEditorClient({
 
       // 2. Save questionnaire draft (display name & intro)
       const baseAnswers = savedQuestionnaire?.draft?.softAnswers ?? savedQuestionnaire?.answers ?? {};
-      const baseHardMatchForm = savedQuestionnaire?.draft?.hardMatchForm ?? savedQuestionnaire?.answers?.hardMatchForm ?? {};
-      
+
       await fetchApi("/me/questionnaire", {
         method: "PUT",
         body: JSON.stringify({
           answers: baseAnswers,
-          hardMatchForm: { ...baseHardMatchForm, oneLinerIntro },
+          hardMatchForm: { ...initialHardMatchForm, oneLinerIntro },
           displayName,
         }),
       });
@@ -143,6 +149,28 @@ export function MyCardEditorClient({
                   onChange={(e) => {
                     setWechat(e.target.value);
                     if (e.target.value) setPreferredChannel("WECHAT");
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="contact-method-input"
+                />
+              </label>
+
+              <label className={`contact-method-card ${preferredChannel === "QQ" ? "is-active" : ""}`}>
+                <input
+                  type="radio"
+                  name="preferredChannel"
+                  value="QQ"
+                  checked={preferredChannel === "QQ"}
+                  onChange={() => setPreferredChannel("QQ")}
+                />
+                <span className="contact-method-name">QQ</span>
+                <input
+                  type="text"
+                  placeholder="QQ 号"
+                  value={qq}
+                  onChange={(e) => {
+                    setQq(e.target.value);
+                    if (e.target.value) setPreferredChannel("QQ");
                   }}
                   onClick={(e) => e.stopPropagation()}
                   className="contact-method-input"

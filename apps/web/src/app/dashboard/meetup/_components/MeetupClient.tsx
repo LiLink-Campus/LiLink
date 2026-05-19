@@ -30,11 +30,10 @@ import {
 import {
   chinaStandardDatetimeLocalValue,
   chinaStandardDatetimeToIso,
-  defaultChinaStandardDatetimeLocalValue,
 } from "@/lib/china-standard-time";
 import { useDashboardSessionSeed } from "../../_components/DashboardSessionSeed";
 import { useToast } from "../../_components/ToastProvider";
-import { MessageCircleIcon, MapPinIcon } from "../../_components/icons";
+import { MapPinIcon } from "../../_components/icons";
 import type { DashboardMeetupSummary } from "../../_lib/types";
 import { MeetupActionCard, resolveMeetupActionState } from "./MeetupActionCard";
 import {
@@ -115,24 +114,6 @@ type MeetupProposalSubmitSummary = {
 
 const MIN_LEAD_MINUTES = 30;
 
-function defaultTimeSlot(index: number): TimeSlot {
-  const daysFromToday = index + 1;
-  return {
-    key: `time-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
-    startsAt: defaultChinaStandardDatetimeLocalValue(daysFromToday, 18, 0),
-    endsAt: defaultChinaStandardDatetimeLocalValue(daysFromToday, 19, 0),
-  };
-}
-
-function defaultLocationSlot(index: number): LocationSlot {
-  return {
-    key: `location-${Date.now()}-${index}-${Math.random()
-      .toString(36)
-      .slice(2)}`,
-    locationCandidateId: "",
-  };
-}
-
 function cleanOptionalText(value: string) {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
@@ -169,7 +150,6 @@ function buildProposalSubmitSummary(
     locationOptions:
       proposal.locationOptions?.map((option) => {
         const candidate = candidateById.get(option.locationCandidateId);
-        // If candidate is not found, it's a custom location, so we just use the ID as the name
         return candidate ? candidate.name : option.locationCandidateId;
       }) ?? [],
     noteText: proposal.noteText ?? proposal.notePreset ?? null,
@@ -736,6 +716,8 @@ function MeetupSessionView({
     canRevise,
     revisionFormOpen,
     noteText,
+    selectedTimeId,
+    selectedLocationId,
     session.id,
     session.currentPlan.startsAt,
     session.currentPlan.endsAt,
@@ -921,12 +903,11 @@ function MeetupProposalForm({
     summary: MeetupProposalSubmitSummary,
   ) => Promise<void>;
 }) {
-  const formId = useId();
-  const [scope, setScope] = useState<MeetupProposalScope>(defaultScope);
+  const scope = defaultScope;
   const [step, setStep] = useState<1 | 2 | 3>(() =>
     defaultScope === "LOCATION_ONLY" ? 2 : 1,
   );
-  
+
   // Time state
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const d = new Date();
@@ -934,12 +915,10 @@ function MeetupProposalForm({
     return d;
   });
   const [selectedTimes, setSelectedTimes] = useState<TimeSlot[]>([]);
-  
+
   // Location state
   const [selectedLocations, setSelectedLocations] = useState<LocationSlot[]>([]);
-  const [customLocation, setCustomLocation] = useState("");
-  const [isAddingCustom, setIsAddingCustom] = useState(false);
-  
+
   const [noteText, setNoteText] = useState("");
   const [candidates, setCandidates] = useState<MeetupLocationCandidate[]>([]);
   const [candidateError, setCandidateError] = useState<string | null>(null);
@@ -987,12 +966,12 @@ function MeetupProposalForm({
     startsAtDate.setHours(slot.startHour, 0, 0, 0);
     const endsAtDate = new Date(selectedDate);
     endsAtDate.setHours(slot.endHour, 0, 0, 0);
-    
+
     const startsAt = chinaStandardDatetimeLocalValue(startsAtDate);
     const endsAt = chinaStandardDatetimeLocalValue(endsAtDate);
-    
+
     const existingIndex = selectedTimes.findIndex(t => t.startsAt === startsAt && t.endsAt === endsAt);
-    
+
     if (existingIndex >= 0) {
       setSelectedTimes(current => current.filter((_, i) => i !== existingIndex));
     } else {
@@ -1032,24 +1011,6 @@ function MeetupProposalForm({
     }
   }
 
-  function addCustomLocation() {
-    if (!customLocation.trim()) return;
-    if (selectedLocations.length >= 3) {
-      setError("最多只能选择 3 个地点");
-      return;
-    }
-    setError(null);
-    setSelectedLocations(current => [
-      ...current,
-      {
-        key: `loc-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        locationCandidateId: customLocation.trim()
-      }
-    ]);
-    setCustomLocation("");
-    setIsAddingCustom(false);
-  }
-
   function buildProposalPayload() {
     const payload: MeetupProposalPayload = { scope };
 
@@ -1082,7 +1043,7 @@ function MeetupProposalForm({
       const locationOptions = selectedLocations.map(slot => ({
         locationCandidateId: slot.locationCandidateId
       }));
-      
+
       const uniqueLocations = new Set(locationOptions.map(opt => opt.locationCandidateId));
       if (uniqueLocations.size !== locationOptions.length) {
         return "同一条提议中的地点不能重复。";
@@ -1173,8 +1134,8 @@ function MeetupProposalForm({
                 {next7Days.map((date, i) => {
                   const isActive = date.toDateString() === selectedDate.toDateString();
                   return (
-                    <div 
-                      key={i} 
+                    <div
+                      key={i}
                       className={`meetup-date-item ${isActive ? 'is-active' : ''}`}
                       onClick={() => setSelectedDate(date)}
                     >
@@ -1196,12 +1157,12 @@ function MeetupProposalForm({
                   endsAtDate.setHours(slot.endHour, 0, 0, 0);
                   const startsAt = chinaStandardDatetimeLocalValue(startsAtDate);
                   const endsAt = chinaStandardDatetimeLocalValue(endsAtDate);
-                  
+
                   const isActive = selectedTimes.some(t => t.startsAt === startsAt && t.endsAt === endsAt);
-                  
+
                   return (
-                    <div 
-                      key={i} 
+                    <div
+                      key={i}
                       className={`meetup-time-slot ${isActive ? 'is-active' : ''}`}
                       onClick={() => handleTimeSlotClick(slot)}
                     >
@@ -1222,7 +1183,7 @@ function MeetupProposalForm({
                     return (
                       <div key={t.key} className="meetup-selected-tag">
                         {startIso && endIso ? formatMeetupTimeRange(startIso, endIso) : ""}
-                        <span 
+                        <span
                           className="meetup-selected-tag-remove"
                           onClick={() => setSelectedTimes(curr => curr.filter(x => x.key !== t.key))}
                         >
@@ -1236,8 +1197,8 @@ function MeetupProposalForm({
             )}
 
             <div className="meetup-wizard-footer">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="meetup-wizard-next"
                 disabled={!canGoNextFrom1}
                 onClick={() => {
@@ -1262,8 +1223,8 @@ function MeetupProposalForm({
                   {candidates.map((c) => {
                     const isActive = selectedLocations.some(l => l.locationCandidateId === c.id);
                     return (
-                      <div 
-                        key={c.id} 
+                      <div
+                        key={c.id}
                         className={`meetup-location-card ${isActive ? 'is-active' : ''}`}
                         onClick={() => handleLocationClick(c.id)}
                       >
@@ -1274,33 +1235,6 @@ function MeetupProposalForm({
                       </div>
                     );
                   })}
-                  
-                  {!isAddingCustom ? (
-                    <div className="meetup-custom-location" onClick={() => setIsAddingCustom(true)}>
-                      + 自定义地点
-                    </div>
-                  ) : (
-                    <div className="meetup-location-card is-active" style={{ padding: '0.5rem', justifyContent: 'center' }}>
-                      <input 
-                        type="text" 
-                        autoFocus
-                        placeholder="输入地点名称" 
-                        value={customLocation}
-                        onChange={e => setCustomLocation(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addCustomLocation();
-                          }
-                        }}
-                        style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.25rem' }}
-                      />
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                        <button type="button" onClick={addCustomLocation} style={{ flex: 1, background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '4px', padding: '0.25rem' }}>确认</button>
-                        <button type="button" onClick={() => setIsAddingCustom(false)} style={{ flex: 1, background: 'var(--bg-soft)', border: 'none', borderRadius: '4px', padding: '0.25rem' }}>取消</button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -1314,7 +1248,7 @@ function MeetupProposalForm({
                     return (
                       <div key={l.key} className="meetup-selected-tag">
                         {c ? c.name : l.locationCandidateId}
-                        <span 
+                        <span
                           className="meetup-selected-tag-remove"
                           onClick={() => setSelectedLocations(curr => curr.filter(x => x.key !== l.key))}
                         >
@@ -1329,8 +1263,8 @@ function MeetupProposalForm({
 
             <div className="meetup-wizard-footer" style={{ display: 'flex', gap: '1rem' }}>
               {wantsTime && (
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="button-secondary"
                   onClick={() => {
                     setError(null);
@@ -1340,8 +1274,8 @@ function MeetupProposalForm({
                   上一步
                 </button>
               )}
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="meetup-wizard-next"
                 disabled={!canGoNextFrom2}
                 onClick={() => {
@@ -1358,7 +1292,7 @@ function MeetupProposalForm({
         {step === 3 && (
           <div className="meetup-wizard-content">
             <div className="meetup-section-title">发送方案</div>
-            
+
             <MeetupProposalPreview
               entries={previewEntries}
               emptyText="先填好上方的时间和地点，对方会看到的内容就会显示在这里。"
@@ -1376,8 +1310,8 @@ function MeetupProposalForm({
             </label>
 
             <div className="meetup-wizard-footer" style={{ display: 'flex', gap: '1rem' }}>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="button-secondary"
                 onClick={() => {
                   setError(null);
@@ -1386,8 +1320,8 @@ function MeetupProposalForm({
               >
                 上一步
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="meetup-wizard-next"
                 disabled={disabled || (wantsTime && !canGoNextFrom1) || (wantsLocation && !canGoNextFrom2)}
               >
@@ -1400,121 +1334,6 @@ function MeetupProposalForm({
     </form>
   );
 }
-function MeetupLocationCandidatePicker({
-  value,
-  candidates,
-  selectedIds,
-  disabled,
-  onChange,
-}: {
-  value: string;
-  candidates: MeetupLocationCandidate[];
-  selectedIds: string[];
-  disabled: boolean;
-  onChange: (candidateId: string) => void;
-}) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [preferCustomTab, setPreferCustomTab] = useState(false);
-  const valueIsCustom = Boolean(
-    value &&
-      candidates.length > 0 &&
-      !candidates.some((candidate) => candidate.id === value),
-  );
-  const isCustom = preferCustomTab || valueIsCustom;
-
-  const selectedCandidate =
-    candidates.find((candidate) => candidate.id === value) ?? null;
-
-  return (
-    <div className="meetup-location-picker">
-      <div className="meetup-location-picker-tabs">
-        <button 
-          type="button" 
-          className={`meetup-location-tab ${!isCustom ? 'is-active' : ''}`}
-          onClick={() => {
-            setPreferCustomTab(false);
-            onChange("");
-          }}
-          disabled={disabled}
-        >
-          从推荐列表选择
-        </button>
-        <button 
-          type="button" 
-          className={`meetup-location-tab ${isCustom ? 'is-active' : ''}`}
-          onClick={() => {
-            setPreferCustomTab(true);
-            onChange("");
-          }}
-          disabled={disabled}
-        >
-          自定义地点
-        </button>
-      </div>
-
-      {!isCustom ? (
-        <label className="meetup-field">
-          <select
-            value={value}
-            disabled={disabled}
-            onChange={(event) => {
-              setDetailsOpen(false);
-              onChange(event.target.value);
-            }}
-          >
-            <option value="">请选择见面地点</option>
-            {candidates.map((candidate) => {
-              const duplicate =
-                selectedIds.includes(candidate.id) && candidate.id !== value;
-              return (
-                <option
-                  value={candidate.id}
-                  disabled={duplicate}
-                  key={candidate.id}
-                >
-                  {candidate.name}
-                </option>
-              );
-            })}
-          </select>
-        </label>
-      ) : (
-        <label className="meetup-field">
-          <input
-            type="text"
-            value={value}
-            disabled={disabled}
-            placeholder="例如：海淀区五道口某某咖啡馆"
-            onChange={(event) => onChange(event.target.value)}
-          />
-        </label>
-      )}
-      
-      {!isCustom && selectedCandidate ? (
-        <div className="meetup-location-detail">
-          <button
-            type="button"
-            className="meetup-detail-toggle"
-            disabled={disabled}
-            aria-expanded={detailsOpen}
-            onClick={() => setDetailsOpen((current) => !current)}
-          >
-            {detailsOpen ? "收起位置参考" : "查看位置参考"}
-          </button>
-          {detailsOpen ? (
-            <p>
-              坐标：{selectedCandidate.latitude.toFixed(6)},{" "}
-              {selectedCandidate.longitude.toFixed(6)}
-            </p>
-          ) : null}
-        </div>
-      ) : !isCustom ? (
-        <p className="meetup-location-empty">请选择见面地点</p>
-      ) : null}
-    </div>
-  );
-}
-
 function ConfirmActionDialog({
   open,
   title,
