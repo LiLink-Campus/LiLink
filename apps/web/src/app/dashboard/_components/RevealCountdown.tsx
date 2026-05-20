@@ -51,23 +51,43 @@ export function RevealCountdown({
     return Number.isNaN(ms) ? null : ms;
   }, [targetIso]);
 
-  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  const [mounted, setMounted] = useState(false);
+  const [nowMs, setNowMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (targetMs === null) return;
-    if (prefersReducedMotion()) return;
+    if (!mounted) return;
 
-    // The initial render uses the lazy-init value; re-sync happens via
-    // the interval ticks. Calling setNowMs synchronously here would
-    // trigger a cascading render (caught by react-hooks/set-state-in-effect).
+    const syncNow = () => {
+      const nextNowMs = Date.now();
+      setNowMs(nextNowMs);
+      return nextNowMs >= targetMs;
+    };
+
+    if (syncNow() || prefersReducedMotion()) return;
+
     const interval = window.setInterval(() => {
-      setNowMs(Date.now());
+      if (syncNow()) {
+        window.clearInterval(interval);
+      }
     }, TICK_INTERVAL_MS);
     return () => window.clearInterval(interval);
-  }, [targetMs]);
+  }, [mounted, targetMs]);
 
   if (targetMs === null) {
     return <span className="v2-countdown v2-countdown-static">暂无开放轮次</span>;
+  }
+
+  if (!mounted || nowMs === null) {
+    return (
+      <span className="v2-countdown v2-countdown-static" suppressHydrationWarning>
+        计算中
+      </span>
+    );
   }
 
   const parts = partsFor(targetMs, nowMs);

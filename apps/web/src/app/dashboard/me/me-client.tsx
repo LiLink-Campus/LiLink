@@ -5,33 +5,34 @@ import { ArrowRightIcon } from "../_components/icons";
 import { GrassRowIllustration } from "../_components/illustrations";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import type { AuthMePayload } from "../../../lib/api";
-import type { HardMatchFormState } from "../../../lib/hard-match";
+import {
+  hardMatchFormFromAnswers,
+  type HardMatchSchoolOption,
+} from "../../../lib/hard-match";
 import type { ContactPreferencesPayload, SavedQuestionnairePayload } from "../_lib/types";
-
-type AnswersHardMatchSlice = { hardMatchForm?: Partial<HardMatchFormState> };
 
 export function MeClient({
   initialUser,
   initialSavedQuestionnaire,
   initialContactPreferences,
+  initialQuestionnaireSchools,
 }: {
   initialUser: AuthMePayload;
   initialSavedQuestionnaire: SavedQuestionnairePayload;
   initialContactPreferences: ContactPreferencesPayload;
+  initialQuestionnaireSchools: HardMatchSchoolOption[];
 }) {
   useDashboardSessionSeed(initialUser);
 
   const initial =
     Array.from(initialUser.displayName?.trim() ?? initialUser.email)[0]?.toUpperCase() ?? "NL";
 
-  // We use the draft value if it exists, otherwise the submitted answer, otherwise fallback
-  const displayName = initialSavedQuestionnaire?.draft?.displayName ?? initialUser.displayName?.trim() ?? "";
-  const answersHardMatch = (initialSavedQuestionnaire?.answers as AnswersHardMatchSlice | undefined)
-    ?.hardMatchForm;
-  const oneLinerIntro =
-    initialSavedQuestionnaire?.draft?.hardMatchForm?.oneLinerIntro ??
-    answersHardMatch?.oneLinerIntro ??
-    "";
+  const displayName = initialUser.displayName?.trim() ?? "";
+  const submittedHardMatchForm = hardMatchFormFromAnswers(
+    initialSavedQuestionnaire?.answers,
+    initialQuestionnaireSchools,
+  );
+  const oneLinerIntro = submittedHardMatchForm.oneLinerIntro;
 
   // Find preferred contact method
   const preferredChannel = initialContactPreferences.preferredContactChannel;

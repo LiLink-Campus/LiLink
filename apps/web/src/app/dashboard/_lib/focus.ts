@@ -75,8 +75,8 @@ function contactPreferencesAreDefault(prefs: ContactPreferencesPayload) {
  *  4. Reveal happened, match exists but not introduced yet
  *  5. Questionnaire has explicit attention items (required fixes)
  *  6. Questionnaire below 100% / never submitted
- *  7. Cycle open and you're not opted in → choose intent
- *  8. You're opted in, intent set, cycle still open → wait for reveal
+ *  7. Cycle open and intent still needs confirmation → choose intent
+ *  8. You're opted in, intent set, cycle still editable → wait for reveal
  *  9. Last round revealed and you weren't matched
  * 10. Cycle locked (after deadline) — nothing actionable
  * 11. Contact preferences are still default (only-email) — gentle nudge
@@ -146,8 +146,8 @@ export function resolveFocus(inputs: FocusInputs): FocusContext {
     };
   }
 
-  // 7: cycle is open and you can participate but haven't chosen intent yet.
-  if (cycle && canEdit && !isOptedIn) {
+  // 7: cycle is open and you can participate, but intent still needs confirmation.
+  if (cycle && canEdit && (!isOptedIn || !intent)) {
     return {
       kind: "INTENT_REQUIRED",
       revealAt: cycle.revealAt,
@@ -155,8 +155,8 @@ export function resolveFocus(inputs: FocusInputs): FocusContext {
     };
   }
 
-  // 8: opted in, intent set, waiting for reveal.
-  if (cycle && isOptedIn && intent) {
+  // 8: opted in, intent set, waiting for reveal while edits are still open.
+  if (cycle && canEdit && isOptedIn && intent) {
     return {
       kind: "OPTED_IN_AWAITING_REVEAL",
       revealAt: cycle.revealAt,
@@ -164,7 +164,16 @@ export function resolveFocus(inputs: FocusInputs): FocusContext {
     };
   }
 
-  // 9: last round we participated in but didn't get matched.
+  // 9: current cycle exists but has passed the deadline / is in late stages.
+  if (cycle && !canEdit) {
+    return {
+      kind: "CYCLE_LOCKED",
+      codename: cycle.codename,
+      revealAt: cycle.revealAt,
+    };
+  }
+
+  // 10: last round we participated in but didn't get matched.
   const lastRound = dashboard.lastRevealedRound;
   if (
     lastRound &&
@@ -178,18 +187,9 @@ export function resolveFocus(inputs: FocusInputs): FocusContext {
     };
   }
 
-  // 10: cycle exists but has passed the deadline / is in late stages.
-  if (cycle && !canEdit) {
-    return {
-      kind: "CYCLE_LOCKED",
-      codename: cycle.codename,
-      revealAt: cycle.revealAt,
-    };
-  }
-
   // 11: contact preferences still on default email-only — gentle nudge.
   if (contactPreferencesAreDefault(contactPreferences)) {
-    return { kind: "CONTACT_PREFERENCES", href: "/dashboard/me/referral-settings" };
+    return { kind: "CONTACT_PREFERENCES", href: "/dashboard/me" };
   }
 
   // 12: nothing else to do — there's no open cycle right now.

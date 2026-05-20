@@ -731,8 +731,8 @@ gap: 1rem;
 }
 
 .meetup-option-item-remove:hover {
-    color: var(--danger);
-    background: var(--danger-soft);
+    color: var(--error);
+    background: var(--error-soft);
 }
 
 .meetup-time-inputs {
@@ -2973,13 +2973,13 @@ white-space: nowrap;
 }
 
 .v2-greeting-pill.tone-warn {
-    background: color-mix(in srgb, var(--warn) 12%, transparent);
-    color: var(--warn);
-    border: 1px solid color-mix(in srgb, var(--warn) 20%, transparent);
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
+    color: var(--warning);
+    border: 1px solid color-mix(in srgb, var(--warning) 20%, transparent);
 }
 
 .v2-greeting-pill.tone-off {
-    background: var(--bg-muted);
+    background: var(--bg-soft);
     color: var(--fg-muted);
     border: 1px solid var(--border);
 }
@@ -3213,7 +3213,7 @@ top: -20%;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: var(--bg-muted);
+  background: var(--bg-soft);
   color: var(--fg-muted);
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--fg) 4%, transparent);
@@ -4098,15 +4098,15 @@ font-size: 0.76rem;
     }
 
     .v2-meetup-ribbon-step.is-complete .v2-meetup-ribbon-step-bar {
-        background: var(--stage-complete);
+        background: var(--success);
     }
 
     .v2-meetup-ribbon-step.is-active .v2-meetup-ribbon-step-bar {
-        background: var(--stage-active);
+        background: var(--accent);
 }
 
 .v2-meetup-ribbon-step.is-pending .v2-meetup-ribbon-step-bar {
-    background: var(--stage-pending-soft);
+    background: var(--bg-soft);
 }
 
 .v2-meetup-ribbon-step-label {
@@ -5759,5 +5759,5 @@ cursor: pointer;
 }
 
 .meetup-selected-tag-remove:hover {
-    color: var(--danger);
+    color: var(--error);
 }

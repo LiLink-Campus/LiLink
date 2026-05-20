@@ -42,6 +42,12 @@ export function MyCardEditorClient({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const trimmedDisplayName = displayName.trim();
+    if (trimmedDisplayName.length < 2) {
+      setError("昵称至少需要 2 个字符。");
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
@@ -69,7 +75,7 @@ export function MyCardEditorClient({
         body: JSON.stringify({
           answers: baseAnswers,
           hardMatchForm: { ...initialHardMatchForm, oneLinerIntro },
-          displayName,
+          displayName: trimmedDisplayName,
         }),
       });
 
@@ -207,7 +213,7 @@ export function MyCardEditorClient({
             <button
               type="submit"
               className="button-primary"
-              disabled={saving || !displayName.trim()}
+              disabled={saving || displayName.trim().length < 2}
               style={{ width: "100%" }}
             >
               {saving ? "保存中…" : "保存名片"}

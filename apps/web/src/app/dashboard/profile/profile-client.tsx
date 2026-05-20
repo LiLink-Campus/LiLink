@@ -1600,6 +1600,45 @@ export function ProfileClient({
                 />
               </fieldset>
 
+              <fieldset
+                id={profileAttentionElementId(HARD_MATCH_KEYS.oneLinerIntro)}
+                ref={(node) =>
+                  setAttentionBlockRef(
+                    HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
+                    node,
+                  )
+                }
+                className={attentionBlockClassName(
+                  HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
+                )}
+              >
+                <legend>一句话介绍</legend>
+                {renderAttentionNote(
+                  HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
+                )}
+                <p className="app-muted">
+                  兴趣或期待，请勿填写隐私敏感信息。
+                </p>
+                <textarea
+                  id={buildDashboardFieldId("one-liner-intro")}
+                  name="oneLinerIntro"
+                  rows={3}
+                  maxLength={HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}
+                  value={hardMatchForm.oneLinerIntro}
+                  onChange={(event) =>
+                    setHardMatchForm((f) => ({
+                      ...f,
+                      oneLinerIntro: event.target.value,
+                    }))
+                  }
+                  placeholder="例如：喜欢徒步和电影，希望认识聊得来的朋友。"
+                />
+                <p className="app-muted">
+                  {hardMatchForm.oneLinerIntro.length}/
+                  {HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}
+                </p>
+              </fieldset>
+
             </div>
           </div>
         )}

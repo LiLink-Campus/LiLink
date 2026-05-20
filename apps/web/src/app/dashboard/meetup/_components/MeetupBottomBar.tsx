@@ -35,7 +35,7 @@ export function MeetupBottomBar({
   secondary?: MeetupBottomSecondary | null;
   hint?: ReactNode;
 }) {
-  if (!primary && !secondary) {
+  if (!primary && !secondary && !hint) {
     return null;
   }
 

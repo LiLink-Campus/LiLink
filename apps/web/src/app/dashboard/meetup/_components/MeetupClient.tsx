@@ -28,7 +28,6 @@ import {
   type MeetupSessionResponse,
 } from "../../../../lib/api";
 import {
-  chinaStandardDatetimeLocalValue,
   chinaStandardDatetimeToIso,
 } from "@/lib/china-standard-time";
 import { useDashboardSessionSeed } from "../../_components/DashboardSessionSeed";
@@ -100,6 +99,13 @@ type TimeSlot = {
   endsAt: string;
 };
 
+type PredefinedTimeSlot = {
+  label: string;
+  startHour: number;
+  endHour: number;
+  endDayOffset?: number;
+};
+
 type LocationSlot = {
   key: string;
   locationCandidateId: string;
@@ -121,6 +127,23 @@ function cleanOptionalText(value: string) {
 
 function errorMessage(caughtError: unknown, fallback: string) {
   return caughtError instanceof Error ? caughtError.message : fallback;
+}
+
+function padDatePart(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function meetupSlotDatetimeLocalValue(
+  date: Date,
+  hour: number,
+  dayOffset = 0,
+) {
+  const slotDate = new Date(date);
+  slotDate.setDate(date.getDate() + dayOffset);
+  const year = slotDate.getFullYear();
+  const month = padDatePart(slotDate.getMonth() + 1);
+  const day = padDatePart(slotDate.getDate());
+  return `${year}-${month}-${day}T${padDatePart(hour)}:00`;
 }
 
 function defaultScopeForSession(session: MeetupSessionResponse) {
@@ -878,13 +901,13 @@ function MeetupCurrentPlanCard({ session }: { session: MeetupSessionResponse }) 
 }
 
 
-const PREDEFINED_TIME_SLOTS = [
+const PREDEFINED_TIME_SLOTS: PredefinedTimeSlot[] = [
   { label: "18:00-19:00", startHour: 18, endHour: 19 },
   { label: "19:00-20:00", startHour: 19, endHour: 20 },
   { label: "20:00-21:00", startHour: 20, endHour: 21 },
   { label: "19:00-22:00", startHour: 19, endHour: 22 },
   { label: "22:00-23:00", startHour: 22, endHour: 23 },
-  { label: "21:00-24:00", startHour: 21, endHour: 24 },
+  { label: "21:00-24:00", startHour: 21, endHour: 0, endDayOffset: 1 },
 ];
 
 function MeetupProposalForm({
@@ -923,10 +946,12 @@ function MeetupProposalForm({
   const [candidates, setCandidates] = useState<MeetupLocationCandidate[]>([]);
   const [candidateError, setCandidateError] = useState<string | null>(null);
   const [loadingCandidates, setLoadingCandidates] = useState(true);
+  const [candidateReloadKey, setCandidateReloadKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let canceled = false;
+    setLoadingCandidates(true);
     fetchMeetupLocationCandidates()
       .then((nextCandidates) => {
         if (canceled) return;
@@ -942,7 +967,7 @@ function MeetupProposalForm({
         if (!canceled) setLoadingCandidates(false);
       });
     return () => { canceled = true; };
-  }, []);
+  }, [candidateReloadKey]);
 
   const wantsTime = scope !== "LOCATION_ONLY";
   const wantsLocation = scope !== "TIME_ONLY";
@@ -961,14 +986,13 @@ function MeetupProposalForm({
 
   const dayNames = ["日", "一", "二", "三", "四", "五", "六"];
 
-  function handleTimeSlotClick(slot: typeof PREDEFINED_TIME_SLOTS[0]) {
-    const startsAtDate = new Date(selectedDate);
-    startsAtDate.setHours(slot.startHour, 0, 0, 0);
-    const endsAtDate = new Date(selectedDate);
-    endsAtDate.setHours(slot.endHour, 0, 0, 0);
-
-    const startsAt = chinaStandardDatetimeLocalValue(startsAtDate);
-    const endsAt = chinaStandardDatetimeLocalValue(endsAtDate);
+  function handleTimeSlotClick(slot: PredefinedTimeSlot) {
+    const startsAt = meetupSlotDatetimeLocalValue(selectedDate, slot.startHour);
+    const endsAt = meetupSlotDatetimeLocalValue(
+      selectedDate,
+      slot.endHour,
+      slot.endDayOffset ?? 0,
+    );
 
     const existingIndex = selectedTimes.findIndex(t => t.startsAt === startsAt && t.endsAt === endsAt);
 
@@ -1101,7 +1125,11 @@ function MeetupProposalForm({
   }, [wantsTime, wantsLocation, selectedTimes, selectedLocations, candidates, noteText]);
 
   const canGoNextFrom1 = selectedTimes.length >= 2 && selectedTimes.length <= 3;
-  const canGoNextFrom2 = selectedLocations.length >= 2 && selectedLocations.length <= 3;
+  const canGoNextFrom2 =
+    !loadingCandidates &&
+    !candidateError &&
+    selectedLocations.length >= 2 &&
+    selectedLocations.length <= 3;
 
   return (
     <form className="meetup-proposal-form" onSubmit={submit}>
@@ -1151,12 +1179,12 @@ function MeetupProposalForm({
               <div className="meetup-section-title">可用时段</div>
               <div className="meetup-time-grid">
                 {PREDEFINED_TIME_SLOTS.map((slot, i) => {
-                  const startsAtDate = new Date(selectedDate);
-                  startsAtDate.setHours(slot.startHour, 0, 0, 0);
-                  const endsAtDate = new Date(selectedDate);
-                  endsAtDate.setHours(slot.endHour, 0, 0, 0);
-                  const startsAt = chinaStandardDatetimeLocalValue(startsAtDate);
-                  const endsAt = chinaStandardDatetimeLocalValue(endsAtDate);
+                  const startsAt = meetupSlotDatetimeLocalValue(selectedDate, slot.startHour);
+                  const endsAt = meetupSlotDatetimeLocalValue(
+                    selectedDate,
+                    slot.endHour,
+                    slot.endDayOffset ?? 0,
+                  );
 
                   const isActive = selectedTimes.some(t => t.startsAt === startsAt && t.endsAt === endsAt);
 
@@ -1218,6 +1246,22 @@ function MeetupProposalForm({
               <div className="meetup-section-title">推荐地点</div>
               {loadingCandidates ? (
                 <p className="app-card-muted">正在加载地点候选…</p>
+              ) : candidateError ? (
+                <div>
+                  <p className="form-error">{candidateError}</p>
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => {
+                      setError(null);
+                      setCandidateError(null);
+                      setLoadingCandidates(true);
+                      setCandidateReloadKey((current) => current + 1);
+                    }}
+                  >
+                    重新加载地点
+                  </button>
+                </div>
               ) : (
                 <div className="meetup-location-grid">
                   {candidates.map((c) => {

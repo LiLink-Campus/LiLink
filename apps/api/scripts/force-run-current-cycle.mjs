@@ -9,12 +9,71 @@ import {
 
 loadMonorepoEnv();
 
+const RUNNABLE_STATUS_ORDER = ["REVEAL_READY", "PREPARING", "OPEN"];
+
+function readTimestamp(cycle, fieldName) {
+  const rawValue = cycle?.[fieldName];
+  if (typeof rawValue !== "string") {
+    return null;
+  }
+
+  const timestamp = new Date(rawValue).valueOf();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function isRunnableCycle(cycle, nowMs) {
+  if (cycle.status === "PREPARING") {
+    const revealAtMs = readTimestamp(cycle, "revealAt");
+    return revealAtMs !== null && revealAtMs <= nowMs;
+  }
+
+  if (cycle.status === "REVEAL_READY") {
+    const revealAtMs = readTimestamp(cycle, "revealAt");
+    return revealAtMs !== null && revealAtMs <= nowMs;
+  }
+
+  if (cycle.status === "OPEN") {
+    const participationDeadlineMs = readTimestamp(
+      cycle,
+      "participationDeadline",
+    );
+    return participationDeadlineMs !== null && participationDeadlineMs <= nowMs;
+  }
+
+  return false;
+}
+
+function compareRunnableCycles(left, right) {
+  if (left.status === "PREPARING" && right.status === "PREPARING") {
+    const leftRevealAtMs = readTimestamp(left, "revealAt") ?? 0;
+    const rightRevealAtMs = readTimestamp(right, "revealAt") ?? 0;
+    if (leftRevealAtMs !== rightRevealAtMs) {
+      return leftRevealAtMs - rightRevealAtMs;
+    }
+
+    const leftUpdatedAtMs = readTimestamp(left, "updatedAt") ?? 0;
+    const rightUpdatedAtMs = readTimestamp(right, "updatedAt") ?? 0;
+    return leftUpdatedAtMs - rightUpdatedAtMs;
+  }
+
+  const sortField =
+    left.status === "OPEN" ? "participationDeadline" : "revealAt";
+  const leftSortMs = readTimestamp(left, sortField) ?? 0;
+  const rightSortMs = readTimestamp(right, sortField) ?? 0;
+  return leftSortMs - rightSortMs;
+}
+
 function pickRunnableCycle(items) {
-  const order = ["REVEAL_READY", "PREPARING", "OPEN"];
-  for (const status of order) {
-    const match = items.find((c) => c.status === status);
-    if (match) {
-      return match;
+  const nowMs = Date.now();
+  for (const status of RUNNABLE_STATUS_ORDER) {
+    const matches = items
+      .filter(
+        (cycle) => cycle.status === status && isRunnableCycle(cycle, nowMs),
+      )
+      .sort(compareRunnableCycles);
+
+    if (matches.length > 0) {
+      return matches[0];
     }
   }
 
@@ -53,7 +112,7 @@ async function main() {
 
   if (!cycle) {
     console.error(
-      "No OPEN / PREPARING / REVEAL_READY cycle found in the latest 50 rounds.",
+      "No runnable OPEN / PREPARING / REVEAL_READY cycle found in the latest 50 rounds.",
     );
     process.exitCode = 1;
     return;

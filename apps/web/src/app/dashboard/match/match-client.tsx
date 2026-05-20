@@ -84,21 +84,27 @@ export function MatchClient({
     !currentCycle.intent &&
     canEditParticipation;
   const meetupTask = findMeetupTaskFor(dashboard?.tasks, latestMatch?.id ?? null);
+  const canStartMeetup = latestMatch !== null && meetupSummary === null;
 
   async function handleDirectInvite() {
     if (!latestMatch) return;
+
+    const meetupStartHref = `/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`;
+    if (introduced) {
+      router.push(meetupStartHref);
+      return;
+    }
+
     try {
       await requestContact(latestMatch.id);
-      router.push(
-        `/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`,
-      );
+      router.push(meetupStartHref);
     } catch {
       // requestContact already surfaces the failure via `error`
     }
   }
 
   const showMeetupRibbon = introduced && meetupSummary !== null;
-  const showStartMeetupRibbon = introduced && meetupSummary === null && latestMatch !== null;
+  const showStartMeetupRibbon = introduced && canStartMeetup;
   const showExplanation =
     counterpart !== null && latestMatch !== null && dashboard?.latestMatchVisibility !== "LIMITED";
 
@@ -141,7 +147,7 @@ export function MatchClient({
   } else if (counterpart && latestMatch) {
     const reportLabel = reportHandlingChipLabel(latestMatch.reportStatus);
     const counterpartName = counterpart.displayName ?? "TA";
-    const initial = avatarInitialFor(counterpart.displayName);
+    const initial = introduced ? avatarInitialFor(counterpart.displayName) : "TA";
     hero = (
       <MatchStateHero
         variant="matched"
@@ -150,7 +156,7 @@ export function MatchClient({
         subtitle={
           introduced
             ? counterpart.schoolName ?? "已引荐双方"
-            : counterpart.schoolName ?? "等你决定如何破冰"
+            : "等你决定如何破冰"
         }
         score={latestMatch.score}
         body={null}
@@ -166,18 +172,22 @@ export function MatchClient({
         }
         actions={
           [
-            {
-              label: saving === "contact" ? "处理中..." : (
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', width: '100%', padding: '0.2rem' }}>
-                  发起见面邀请
-                </span>
-              ),
-              onClick: () => void handleDirectInvite(),
-              variant: "primary",
-              disabled: saving === "contact",
-              loading: saving === "contact",
-              style: { background: 'linear-gradient(135deg, #df6b7c, #b93e5b)', border: 'none', color: '#fff' }
-            },
+            ...(canStartMeetup
+              ? [
+                  {
+                    label: saving === "contact" ? "处理中..." : (
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', width: '100%', padding: '0.2rem' }}>
+                        发起见面邀请
+                      </span>
+                    ),
+                    onClick: () => void handleDirectInvite(),
+                    variant: "primary" as const,
+                    disabled: saving === "contact",
+                    loading: saving === "contact",
+                    style: { background: 'linear-gradient(135deg, #df6b7c, #b93e5b)', border: 'none', color: '#fff' }
+                  },
+                ]
+              : []),
             introduced
               ? {
                   label: (
@@ -222,7 +232,7 @@ export function MatchClient({
           </div>
         ) : null}
 
-        {counterpart?.introLine ? (
+        {introduced && counterpart?.introLine ? (
           <p className="v2-match-hero-body" style={{ marginTop: "-0.25rem", color: 'var(--fg-secondary)', fontSize: '0.9rem' }}>
             <strong>对方介绍：</strong>
             {counterpart.introLine}
@@ -237,6 +247,7 @@ export function MatchClient({
                   ? "以下内容与发至你邮箱的引荐邮件中的一致。"
                   : "以下匹配理由基于你和对方填写的匹配资料生成。"
               }
+              reason={latestMatch.reason}
               reasons={latestMatch.reasons}
               conversationTopics={latestMatch.conversationTopics}
               emptyReasonFallback="暂无匹配理由条目。"
@@ -379,7 +390,9 @@ export function MatchClient({
         >
           查看过往匹配记录{recentMatchHistory.length > 0 ? ` (${recentMatchHistory.length}轮)` : ''}
         </Link>
-        {introduced && latestMatch && !reportHandlingChipLabel(latestMatch.reportStatus) ? (
+        {latestMatch &&
+        dashboard?.latestMatchVisibility !== "LIMITED" &&
+        !reportHandlingChipLabel(latestMatch.reportStatus) ? (
           <button
             type="button"
             className="button-ghost button-block"

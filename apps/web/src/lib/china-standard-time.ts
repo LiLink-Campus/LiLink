@@ -64,12 +64,18 @@ export function chinaStandardDatetimeToIso(value: string) {
   const hour = Number(rawHour);
   const minute = Number(rawMinute);
   const second = rawSecond ? Number(rawSecond) : 0;
+  const originalDay = new Date(Date.UTC(year, month - 1, day));
+  const originalDayIsValid =
+    originalDay.getUTCFullYear() === year &&
+    originalDay.getUTCMonth() === month - 1 &&
+    originalDay.getUTCDate() === day;
 
   if (
     month < 1 ||
     month > 12 ||
+    !originalDayIsValid ||
     hour < 0 ||
-    hour > 23 ||
+    hour > 24 ||
     minute < 0 ||
     minute > 59 ||
     second < 0 ||
@@ -78,15 +84,24 @@ export function chinaStandardDatetimeToIso(value: string) {
     return null;
   }
 
+  if (hour === 24 && (minute !== 0 || second !== 0)) {
+    return null;
+  }
+
+  const dayOffset = hour === 24 && minute === 0 && second === 0 ? 1 : 0;
+  const normalizedHour = hour === 24 ? 0 : hour;
+  const expectedWallTime = new Date(
+    Date.UTC(year, month - 1, day + dayOffset, normalizedHour, minute, second),
+  );
   const utcMs =
-    Date.UTC(year, month - 1, day, hour, minute, second) -
+    Date.UTC(year, month - 1, day + dayOffset, normalizedHour, minute, second) -
     CHINA_STANDARD_TIME_OFFSET_MINUTES * MINUTE_MS;
   const roundTrip = chinaStandardTimeParts(new Date(utcMs));
   if (
-    roundTrip.year !== year ||
-    roundTrip.month !== month ||
-    roundTrip.day !== day ||
-    roundTrip.hour !== hour ||
+    roundTrip.year !== expectedWallTime.getUTCFullYear() ||
+    roundTrip.month !== expectedWallTime.getUTCMonth() + 1 ||
+    roundTrip.day !== expectedWallTime.getUTCDate() ||
+    roundTrip.hour !== normalizedHour ||
     roundTrip.minute !== minute ||
     roundTrip.second !== second
   ) {

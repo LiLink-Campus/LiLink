@@ -44,6 +44,8 @@ function focusCardPropsFor(
     onWithdraw: () => void;
     saving: boolean;
     counterpartDisplayName: string | null;
+    latestMatchVisibility: DashboardPayload["latestMatchVisibility"];
+    latestMatchLimitedReason: DashboardPayload["latestMatchLimitedReason"];
   },
 ): FocusCardProps {
   switch (focus.kind) {
@@ -70,6 +72,25 @@ function focusCardPropsFor(
         icon: <ClockIcon />,
       };
     case "MATCH_INTRODUCED_NO_MEETUP": {
+      if (args.latestMatchVisibility === "LIMITED") {
+        return {
+          eyebrow: "已受限",
+          title: "本轮匹配已受限",
+          body:
+            args.latestMatchLimitedReason === "REPORTED"
+              ? "你已举报本轮匹配对象，对方的可识别信息已隐藏，系统已将该对象从你后续轮次中隔离。"
+              : "你与本轮匹配对象之间存在屏蔽关系，对方的可识别信息已隐藏。",
+          actions: [
+            {
+              label: "查看匹配状态",
+              href: "/dashboard/match",
+              variant: "secondary",
+            },
+          ],
+          tone: "waiting",
+          icon: <ClockIcon />,
+        };
+      }
       const name = args.counterpartDisplayName ?? "TA";
       return {
         eyebrow: "已引荐",
@@ -458,7 +479,13 @@ export function HomeClient({
     onWithdraw: withdraw,
     saving,
     counterpartDisplayName: counterpart?.displayName ?? null,
+    latestMatchVisibility: dashboard.latestMatchVisibility,
+    latestMatchLimitedReason: dashboard.latestMatchLimitedReason,
   });
+  const highlightsImmediateTask =
+    focus.kind === "MEETUP_NEEDS_ACTION" ||
+    (focus.kind === "MATCH_INTRODUCED_NO_MEETUP" &&
+      dashboard.latestMatchVisibility !== "LIMITED");
 
   const participationLabel = !cycle
     ? "本轮未开放"
@@ -478,6 +505,25 @@ export function HomeClient({
       : !questionnaireEligibleToOptIn
         ? "warn"
         : "off";
+  const profileHasBlockingAttention = Boolean(
+    questionnaireAttention &&
+      ((questionnaireAttention.pendingUpdatedKeys?.length ?? 0) > 0 ||
+        (questionnaireAttention.missingRequiredKeys?.length ?? 0) > 0),
+  );
+  const profileReadyForMatching =
+    questionnaireEligibleToOptIn && !profileHasBlockingAttention;
+  const profileComplete = profileReadyForMatching && questionnairePercent >= 100;
+  const profileStatusTone = profileReadyForMatching ? "tone-on" : "tone-warn";
+  const profileStatusLabel = profileComplete
+    ? "已完成"
+    : profileReadyForMatching
+      ? "可参与"
+      : "待完善";
+  const profileStatusBody = profileComplete
+    ? "资料已完善，将用于为你寻找相容的人。"
+    : profileReadyForMatching
+      ? "必填资料已满足参与条件，仍可继续补充可选信息。"
+      : "完善必填资料后才能参与匹配。";
 
   return (
     <div className="app-page-shell v2-page-shell home-dashboard">
@@ -488,7 +534,7 @@ export function HomeClient({
             <OliveSprigIllustration className="olive-sprig" />
           </h1>
           <p className="v2-greeting-sub">
-            {focus.kind === "MEETUP_NEEDS_ACTION" || focus.kind === "MATCH_INTRODUCED_NO_MEETUP"
+            {highlightsImmediateTask
               ? "下面这件事现在最值得花你几分钟。"
               : "新的一周，期待你的相遇。"}
           </p>
@@ -509,16 +555,12 @@ export function HomeClient({
         <div className="v2-status-tile">
           <header className="v2-status-tile-head">
             <span className="v2-status-tile-eyebrow">Profile</span>
-            <span className={`v2-status-tile-pill ${questionnairePercent === 100 ? 'tone-on' : 'tone-warn'}`}>
-              {questionnairePercent === 100 ? '已完成' : '待完善'}
+            <span className={`v2-status-tile-pill ${profileStatusTone}`}>
+              {profileStatusLabel}
             </span>
           </header>
           <h3 className="v2-status-tile-title">匹配资料</h3>
-          <p className="v2-status-tile-body">
-            {questionnairePercent === 100
-              ? '资料已完善，将用于为你寻找相容的人。'
-              : '完善资料后才能参与匹配。'}
-          </p>
+          <p className="v2-status-tile-body">{profileStatusBody}</p>
           <footer className="v2-status-tile-foot">
             <div className="v2-status-tile-stat">
               {questionnairePercent}<span className="v2-status-tile-stat-unit">%</span>
@@ -527,7 +569,7 @@ export function HomeClient({
               <div style={{ width: `${Math.max(0, Math.min(100, questionnairePercent))}%` }} />
             </div>
             <Link href="/dashboard/profile" className="v2-status-tile-link">
-              {questionnairePercent === 100 ? '修改' : '完善'} →
+              {profileReadyForMatching ? '修改' : '完善'} →
             </Link>
           </footer>
         </div>
