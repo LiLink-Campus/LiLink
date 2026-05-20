@@ -11,7 +11,7 @@ type SessionConfig = {
 
 function createSessionConfig(days: number): SessionConfig {
   return {
-    jwtExpiresIn: `${days}d` as JwtSignOptions['expiresIn'],
+    jwtExpiresIn: `${days}d`,
     cookieMaxAgeMs: days * MILLISECONDS_PER_DAY,
   };
 }

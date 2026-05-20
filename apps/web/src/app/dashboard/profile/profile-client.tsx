@@ -656,14 +656,9 @@ export function ProfileClient({
     payload: QuestionnaireSavePayload;
     snapshot: string;
   } | null>(null);
-  const questionnaireAutosaveLifecycleRef = useRef<ReturnType<
-    typeof createAutosaveLifecycleGate
-  > | null>(null);
-  if (questionnaireAutosaveLifecycleRef.current === null) {
-    questionnaireAutosaveLifecycleRef.current = createAutosaveLifecycleGate();
-  }
-  const questionnaireAutosaveLifecycle =
-    questionnaireAutosaveLifecycleRef.current;
+  const [questionnaireAutosaveLifecycle] = useState(
+    createAutosaveLifecycleGate,
+  );
   const lastSavedQuestionnaireSnapshotRef = useRef(
     JSON.stringify(
       buildQuestionnaireSavePayload(
