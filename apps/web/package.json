@@ -7,6 +7,7 @@
     "build": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1' }; execSync('next build', { stdio: 'inherit', env });\"",
     "start": "next start",
     "lint": "eslint",
+    "pwa:icons": "node scripts/generate-pwa-icons.mjs",
     "typecheck": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1' }; execSync('npx next typegen && tsc --noEmit', { stdio: 'inherit', env });\""
   },
   "dependencies": {
