@@ -6,7 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="1000" height="1000" rx="230" ry="230" fill="url(#bg)" />
-  
+
     <g fill="#fff7ee">
       <rect x="240" y="280" width="86" height="440" rx="43" />
       <rect x="240" y="634" width="232" height="86" rx="43" />
