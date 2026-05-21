@@ -41,15 +41,20 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static icons: cache-first.
+  // Static icons: cache-first. Only successful basic responses are cached so a
+  // transient 404/error is not persisted until the cache version is bumped.
   if (url.pathname.startsWith("/icons/")) {
     event.respondWith(
       caches.match(request).then(
         (cached) =>
           cached ??
           fetch(request).then((res) => {
-            const copy = res.clone();
-            caches.open(CACHE).then((cache) => cache.put(request, copy));
+            if (res.ok) {
+              const copy = res.clone();
+              event.waitUntil(
+                caches.open(CACHE).then((cache) => cache.put(request, copy)),
+              );
+            }
             return res;
           }),
       ),

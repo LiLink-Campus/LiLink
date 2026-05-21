@@ -51,7 +51,7 @@ function iconSvg({ rounded, glyphScale, sparkle }) {
   const sparkleEl = sparkle
     ? `<circle cx="710" cy="300" r="40" fill="${INK}" opacity="0.85" />`
     : "";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}" role="img" aria-label="LiLink">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}" role="img" aria-label="LiLink">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${ACCENT}" />
@@ -62,6 +62,9 @@ function iconSvg({ rounded, glyphScale, sparkle }) {
   ${liMark(glyphScale)}
   ${sparkleEl}
 </svg>`;
+  // Strip trailing whitespace left by template interpolation so the committed
+  // icon.svg stays clean (git diff --check).
+  return svg.replace(/[ \t]+$/gm, "");
 }
 
 async function render(svg, size, file, { opaque }) {
