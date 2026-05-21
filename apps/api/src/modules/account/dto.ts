@@ -1,5 +1,6 @@
 import {
   ArrayMaxSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsIn,
@@ -20,6 +21,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   CONTACT_CHANNEL_TYPES,
   EDITABLE_CONTACT_CHANNEL_TYPES,
+  HARD_MATCH_GENDERS,
+  MATCH_ESTIMATE_BANDS,
   MAX_MEETUP_EXPIRATION_WEEKS,
   MEETUP_PROGRESS_STATUSES,
   MEETUP_TODO_PRIORITY,
@@ -27,6 +30,7 @@ import {
   MIN_MEETUP_EXPIRATION_WEEKS,
   SUPPORTED_LOCALES,
   WEEKLY_INTENTS,
+  type MatchEstimateBand,
   type MeetupProgressStatus,
   type MeetupUserTurnStatus,
   type ContactChannelType,
@@ -164,6 +168,45 @@ export class AcknowledgeQuestionnaireItemsDto {
   @IsString({ each: true })
   @MaxLength(QUESTIONNAIRE_ACKNOWLEDGEMENT_KEY_MAX_LENGTH, { each: true })
   keys!: string[];
+}
+
+const MATCH_ESTIMATE_MAX_SCHOOLS = 100;
+const MATCH_ESTIMATE_SCHOOL_ID_MAX_LENGTH = 64;
+
+export class MatchEstimateSchoolGenderDto {
+  @IsString()
+  @MaxLength(MATCH_ESTIMATE_SCHOOL_ID_MAX_LENGTH)
+  schoolId!: string;
+
+  @IsArray()
+  @ArrayMaxSize(HARD_MATCH_GENDERS.length)
+  @ArrayUnique()
+  @IsIn(HARD_MATCH_GENDERS as unknown as string[], { each: true })
+  genders!: string[];
+}
+
+export class MatchEstimateRequestDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MATCH_ESTIMATE_MAX_SCHOOLS)
+  @IsString({ each: true })
+  @MaxLength(MATCH_ESTIMATE_SCHOOL_ID_MAX_LENGTH, { each: true })
+  excludedPartnerSchools?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MATCH_ESTIMATE_MAX_SCHOOLS)
+  @ValidateNested({ each: true })
+  @Type(() => MatchEstimateSchoolGenderDto)
+  excludedPartnerSchoolGenders?: MatchEstimateSchoolGenderDto[];
+}
+
+export class MatchEstimateResponseDto {
+  @ApiProperty({ enum: MATCH_ESTIMATE_BANDS as unknown as string[] })
+  band!: MatchEstimateBand;
+
+  @ApiProperty()
+  lowConfidence!: boolean;
 }
 
 export class ToggleParticipationDto {
