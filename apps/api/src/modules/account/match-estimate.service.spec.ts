@@ -189,14 +189,17 @@ describe('MatchEstimateService', () => {
       service.estimate('me', { excludedPartnerSchools: ['bupt'] }),
     ).resolves.toEqual({ band: 'MEDIUM', lowConfidence: true });
 
-    const findManyArgs = prisma.cycleParticipation.findMany.mock.calls[0][0];
-    expect(findManyArgs.where).toMatchObject({
-      cycleId: 'cycle-1',
-      userId: { not: 'me' },
-      status: 'OPTED_IN',
-      intent: { not: null },
-      user: { status: 'ACTIVE' },
-    });
+    expect(prisma.cycleParticipation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          cycleId: 'cycle-1',
+          userId: { not: 'me' },
+          status: 'OPTED_IN',
+          intent: { not: null },
+          user: { status: 'ACTIVE' },
+        },
+      }),
+    );
   });
 
   it('uses the User.school relation, not the stored hard_school answer', async () => {
