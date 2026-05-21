@@ -11,6 +11,21 @@ export type AdminSchool = {
   };
 };
 
+export type AdminInviteCode = {
+  id: string;
+  code: string;
+  ownerName: string;
+  isActive: boolean;
+  createdAt: string;
+  stats: {
+    total: number;
+    male: number;
+    female: number;
+    nonBinary: number;
+    unknown: number;
+  };
+};
+
 export type AdminCycle = {
   id: string;
   codename: string;
