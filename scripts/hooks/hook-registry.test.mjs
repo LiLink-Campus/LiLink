@@ -32,7 +32,7 @@ test("keeps all hook definitions in the registry", () => {
 
   assert.deepEqual(
     AGENT_HOOK_CONFIG_FILES.map((hookFile) => hookFile.path),
-    [".codex/hooks.json", ".cursor/hooks.json"],
+    [".codex/hooks.json", ".cursor/hooks.json", ".claude/settings.json"],
   );
 });
 
@@ -49,6 +49,7 @@ test("syncs and audits generated agent hook config files", () => {
     assert.deepEqual(syncAgentHookConfigs(repoRoot), [
       ".codex/hooks.json",
       ".cursor/hooks.json",
+      ".claude/settings.json",
     ]);
 
     for (const hookFile of AGENT_HOOK_CONFIG_FILES) {
@@ -66,6 +67,7 @@ test("syncs and audits generated agent hook config files", () => {
       [
         { path: ".codex/hooks.json", ok: true },
         { path: ".cursor/hooks.json", ok: true },
+        { path: ".claude/settings.json", ok: true },
       ],
     );
   } finally {

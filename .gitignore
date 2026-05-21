@@ -39,6 +39,7 @@ Thumbs.db
 .idea/
 .vscode/
 AGENTS.override.md
+.claude/settings.local.json
 *.swp
 .eslintcache
 

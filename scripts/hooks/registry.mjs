@@ -57,6 +57,27 @@ export const AGENT_HOOK_CONFIG_FILES = Object.freeze([
       }),
     }),
   }),
+  Object.freeze({
+    tool: "claude",
+    path: ".claude/settings.json",
+    config: Object.freeze({
+      hooks: Object.freeze({
+        PostToolUse: Object.freeze([
+          Object.freeze({
+            matcher: "Write|Edit|MultiEdit",
+            hooks: Object.freeze([
+              Object.freeze({
+                type: "command",
+                command: repoRootNodeHookCommand(
+                  "scripts/hooks/claude-post-validate-web-css.mjs",
+                ),
+              }),
+            ]),
+          }),
+        ]),
+      }),
+    }),
+  }),
 ]);
 
 export function serializeHookConfig(config) {
