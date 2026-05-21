@@ -866,6 +866,71 @@ describe('MeetupService', () => {
     );
   });
 
+  it('stores custom meetup locations as display-only place names', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+    const loadedSession = buildSession({
+      currentProposal: buildProposal({
+        id: 'proposal-created',
+      }),
+      currentProposalId: 'proposal-created',
+    });
+
+    tx.match.findUnique.mockResolvedValue(buildMatch());
+    tx.meetupSession.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(loadedSession);
+    tx.user.findMany.mockResolvedValue([
+      { id: 'user-a', meetupExpirationWeeks: 2 },
+      { id: 'user-b', meetupExpirationWeeks: 1 },
+    ]);
+    tx.meetupSession.create.mockResolvedValue({ id: 'session-1' });
+    tx.meetupMessage.create.mockResolvedValue({ id: 'message-created' });
+    tx.meetupProposal.create.mockResolvedValue({ id: 'proposal-created' });
+    tx.meetupParticipant.updateMany.mockResolvedValue({ count: 1 });
+    tx.meetupSession.updateMany.mockResolvedValue({ count: 1 });
+    tx.auditLog.create.mockResolvedValue({});
+
+    const proposal = buildProposalInput();
+    proposal.locationOptions = [
+      { locationCandidateId: locationCandidates[0].id },
+      { placeName: 'Library south entrance' },
+    ];
+
+    await service.startSession('user-a', 'match-1', { proposal });
+
+    const optionCreateCalls = tx.meetupOption.createMany.mock
+      .calls as unknown as Array<
+      [
+        {
+          data: Array<{
+            kind: string;
+            locationCandidateId?: string | null;
+            placeName?: string | null;
+            latitude?: number | null;
+            longitude?: number | null;
+          }>;
+        },
+      ]
+    >;
+    const locationOptions =
+      optionCreateCalls[0]?.[0].data.filter(
+        (option) => option.kind === 'LOCATION',
+      ) ?? [];
+
+    expect(locationOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'LOCATION',
+          locationCandidateId: null,
+          placeName: 'Library south entrance',
+          latitude: null,
+          longitude: null,
+        }),
+      ]),
+    );
+  });
+
   it('rejects duplicate location candidates before touching the database', async () => {
     const tx = createTx();
     const { service } = createService(tx);
@@ -877,6 +942,44 @@ describe('MeetupService', () => {
           locationOptions: [
             { locationCandidateId: locationCandidates[0].id },
             { locationCandidateId: locationCandidates[0].id },
+          ],
+        },
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(tx.match.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate custom meetup locations before touching the database', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+
+    await expect(
+      service.startSession('user-a', 'match-1', {
+        proposal: {
+          scope: 'LOCATION_ONLY',
+          locationOptions: [
+            { placeName: 'Library south entrance' },
+            { placeName: '  library   south entrance  ' },
+          ],
+        },
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(tx.match.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects blank custom meetup locations before touching the database', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+
+    await expect(
+      service.startSession('user-a', 'match-1', {
+        proposal: {
+          scope: 'LOCATION_ONLY',
+          locationOptions: [
+            { placeName: 'Library south entrance' },
+            { placeName: '   ' },
           ],
         },
       }),
@@ -1508,7 +1611,9 @@ describe('MeetupService', () => {
 function buildProposalInput(): {
   scope: 'BOTH';
   timeOptions: Array<{ startsAt: string; endsAt: string }>;
-  locationOptions: Array<{ locationCandidateId: string }>;
+  locationOptions: Array<
+    { locationCandidateId: string } | { placeName: string }
+  >;
 } {
   return {
     scope: 'BOTH',

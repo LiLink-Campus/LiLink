@@ -265,9 +265,15 @@ type MeetupTimeOptionInput = {
   toleranceMinutes?: number;
 };
 
-type MeetupLocationOptionInput = {
-  locationCandidateId: string;
-};
+type MeetupLocationOptionInput =
+  | {
+      locationCandidateId: string;
+      placeName?: never;
+    }
+  | {
+      locationCandidateId?: never;
+      placeName: string;
+    };
 
 export type MeetupProposalPayload = {
   scope: MeetupProposalScope;

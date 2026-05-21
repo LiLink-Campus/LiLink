@@ -17,6 +17,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {
+  MAX_MEETUP_PLACE_NAME_LENGTH,
   MEETUP_PROPOSAL_SCOPES,
   type MeetupMessageType,
   type MeetupOptionKind,
@@ -84,10 +85,17 @@ export class MeetupTimeOptionInputDto {
 }
 
 export class MeetupLocationOptionInputDto {
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  @MaxLength(80)
-  locationCandidateId!: string;
+  @MaxLength(MAX_MEETUP_PLACE_NAME_LENGTH)
+  locationCandidateId?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(MAX_MEETUP_PLACE_NAME_LENGTH)
+  placeName?: string;
 }
 
 export class AcceptMeetupOptionsDto {

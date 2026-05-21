@@ -30,6 +30,7 @@ import {
 import {
   chinaStandardDatetimeToIso,
 } from "@/lib/china-standard-time";
+import { MAX_MEETUP_PLACE_NAME_LENGTH } from "@lilink/shared";
 import { useDashboardSessionSeed } from "../../_components/DashboardSessionSeed";
 import { useToast } from "../../_components/ToastProvider";
 import { MapPinIcon } from "../../_components/icons";
@@ -106,10 +107,17 @@ type PredefinedTimeSlot = {
   endDayOffset?: number;
 };
 
-type LocationSlot = {
-  key: string;
-  locationCandidateId: string;
-};
+type LocationSlot =
+  | {
+      key: string;
+      kind: "candidate";
+      locationCandidateId: string;
+    }
+  | {
+      key: string;
+      kind: "custom";
+      placeName: string;
+    };
 
 type MeetupProposalSubmitSummary = {
   scope: MeetupProposalScope;
@@ -123,6 +131,33 @@ const MIN_LEAD_MINUTES = 30;
 function cleanOptionalText(value: string) {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function cleanCustomPlaceName(value: string) {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  return trimmed ? trimmed : null;
+}
+
+function createLocationSlotKey() {
+  return `loc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function locationSlotIdentity(slot: LocationSlot) {
+  return slot.kind === "candidate"
+    ? `candidate:${slot.locationCandidateId}`
+    : `custom:${slot.placeName.toLowerCase()}`;
+}
+
+function locationSlotLabel(
+  slot: LocationSlot,
+  candidates: MeetupLocationCandidate[],
+) {
+  if (slot.kind === "custom") return slot.placeName;
+
+  const candidate = candidates.find(
+    (item) => item.id === slot.locationCandidateId,
+  );
+  return candidate ? candidate.name : slot.locationCandidateId;
 }
 
 function errorMessage(caughtError: unknown, fallback: string) {
@@ -172,6 +207,8 @@ function buildProposalSubmitSummary(
       ) ?? [],
     locationOptions:
       proposal.locationOptions?.map((option) => {
+        if (typeof option.placeName === "string") return option.placeName;
+
         const candidate = candidateById.get(option.locationCandidateId);
         return candidate ? candidate.name : option.locationCandidateId;
       }) ?? [],
@@ -941,6 +978,7 @@ function MeetupProposalForm({
 
   // Location state
   const [selectedLocations, setSelectedLocations] = useState<LocationSlot[]>([]);
+  const [customPlaceName, setCustomPlaceName] = useState("");
 
   const [noteText, setNoteText] = useState("");
   const [candidates, setCandidates] = useState<MeetupLocationCandidate[]>([]);
@@ -1016,7 +1054,11 @@ function MeetupProposalForm({
   }
 
   function handleLocationClick(candidateId: string) {
-    const existingIndex = selectedLocations.findIndex(l => l.locationCandidateId === candidateId);
+    const existingIndex = selectedLocations.findIndex(
+      (location) =>
+        location.kind === "candidate" &&
+        location.locationCandidateId === candidateId,
+    );
     if (existingIndex >= 0) {
       setSelectedLocations(current => current.filter((_, i) => i !== existingIndex));
     } else {
@@ -1028,11 +1070,47 @@ function MeetupProposalForm({
       setSelectedLocations(current => [
         ...current,
         {
-          key: `loc-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          locationCandidateId: candidateId
+          key: createLocationSlotKey(),
+          kind: "candidate",
+          locationCandidateId: candidateId,
         }
       ]);
     }
+  }
+
+  function addCustomLocation() {
+    const placeName = cleanCustomPlaceName(customPlaceName);
+    if (!placeName) {
+      setError("请输入自定义地点。");
+      return;
+    }
+    if (placeName.length > MAX_MEETUP_PLACE_NAME_LENGTH) {
+      setError(`自定义地点不能超过 ${MAX_MEETUP_PLACE_NAME_LENGTH} 个字。`);
+      return;
+    }
+    if (selectedLocations.length >= 3) {
+      setError("最多只能选择 3 个地点");
+      return;
+    }
+
+    const nextLocation: LocationSlot = {
+      key: createLocationSlotKey(),
+      kind: "custom",
+      placeName,
+    };
+    if (
+      selectedLocations.some(
+        (location) =>
+          locationSlotIdentity(location) === locationSlotIdentity(nextLocation),
+      )
+    ) {
+      setError("同一条提议中的地点不能重复。");
+      return;
+    }
+
+    setError(null);
+    setSelectedLocations((current) => [...current, nextLocation]);
+    setCustomPlaceName("");
   }
 
   function buildProposalPayload() {
@@ -1060,15 +1138,16 @@ function MeetupProposalForm({
     }
 
     if (wantsLocation) {
-      if (candidateError) return candidateError;
       if (selectedLocations.length < 2 || selectedLocations.length > 3) {
         return "请提供 2-3 个地点选项。";
       }
-      const locationOptions = selectedLocations.map(slot => ({
-        locationCandidateId: slot.locationCandidateId
-      }));
+      const locationOptions = selectedLocations.map((slot) =>
+        slot.kind === "candidate"
+          ? { locationCandidateId: slot.locationCandidateId }
+          : { placeName: slot.placeName },
+      );
 
-      const uniqueLocations = new Set(locationOptions.map(opt => opt.locationCandidateId));
+      const uniqueLocations = new Set(selectedLocations.map(locationSlotIdentity));
       if (uniqueLocations.size !== locationOptions.length) {
         return "同一条提议中的地点不能重复。";
       }
@@ -1110,12 +1189,10 @@ function MeetupProposalForm({
       });
     }
     if (wantsLocation) {
-      const byId = new Map(candidates.map((c) => [c.id, c]));
       selectedLocations.forEach((slot, index) => {
-        const candidate = byId.get(slot.locationCandidateId);
         entries.push({
           tag: selectedLocations.length === 1 ? "地点" : `地点 ${index + 1}`,
-          value: candidate ? candidate.name : slot.locationCandidateId,
+          value: locationSlotLabel(slot, candidates),
         });
       });
     }
@@ -1126,8 +1203,6 @@ function MeetupProposalForm({
 
   const canGoNextFrom1 = selectedTimes.length >= 2 && selectedTimes.length <= 3;
   const canGoNextFrom2 =
-    !loadingCandidates &&
-    !candidateError &&
     selectedLocations.length >= 2 &&
     selectedLocations.length <= 3;
 
@@ -1265,7 +1340,11 @@ function MeetupProposalForm({
               ) : (
                 <div className="meetup-location-grid">
                   {candidates.map((c) => {
-                    const isActive = selectedLocations.some(l => l.locationCandidateId === c.id);
+                    const isActive = selectedLocations.some(
+                      (location) =>
+                        location.kind === "candidate" &&
+                        location.locationCandidateId === c.id,
+                    );
                     return (
                       <div
                         key={c.id}
@@ -1283,24 +1362,57 @@ function MeetupProposalForm({
               )}
             </div>
 
+            <div className="meetup-custom-location-panel">
+              <label className="meetup-field">
+                <span>自定义地点</span>
+                <input
+                  type="text"
+                  value={customPlaceName}
+                  maxLength={MAX_MEETUP_PLACE_NAME_LENGTH}
+                  disabled={disabled}
+                  placeholder="输入地点名称"
+                  onChange={(event) => setCustomPlaceName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addCustomLocation();
+                    }
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                className="button-secondary meetup-small-button"
+                disabled={
+                  disabled ||
+                  selectedLocations.length >= 3 ||
+                  !cleanCustomPlaceName(customPlaceName)
+                }
+                onClick={addCustomLocation}
+              >
+                添加地点
+              </button>
+            </div>
+
             {selectedLocations.length > 0 && (
               <div>
                 <div className="meetup-section-title">已选地点 ({selectedLocations.length}/3)</div>
                 <div className="meetup-selected-tags">
-                  {selectedLocations.map((l) => {
-                    const c = candidates.find(cand => cand.id === l.locationCandidateId);
-                    return (
-                      <div key={l.key} className="meetup-selected-tag">
-                        {c ? c.name : l.locationCandidateId}
-                        <span
-                          className="meetup-selected-tag-remove"
-                          onClick={() => setSelectedLocations(curr => curr.filter(x => x.key !== l.key))}
-                        >
-                          ×
-                        </span>
-                      </div>
-                    );
-                  })}
+                  {selectedLocations.map((location) => (
+                    <div key={location.key} className="meetup-selected-tag">
+                      {locationSlotLabel(location, candidates)}
+                      <span
+                        className="meetup-selected-tag-remove"
+                        onClick={() =>
+                          setSelectedLocations((current) =>
+                            current.filter((item) => item.key !== location.key),
+                          )
+                        }
+                      >
+                        ×
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

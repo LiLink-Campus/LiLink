@@ -39,6 +39,7 @@ export type MeetupLocationCandidate = {
 
 export const DEFAULT_MEETUP_TOLERANCE_MINUTES = 10;
 export const MIN_MEETUP_PROPOSAL_LEAD_MINUTES = 30;
+export const MAX_MEETUP_PLACE_NAME_LENGTH = 80;
 export const MIN_MEETUP_EXPIRATION_WEEKS = 1;
 export const MAX_MEETUP_EXPIRATION_WEEKS = 4;
 export const DEFAULT_MEETUP_EXPIRATION_WEEKS = 2;
