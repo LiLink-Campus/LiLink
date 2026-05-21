@@ -266,6 +266,50 @@ export function validateCodexAfterApplyPatch(payload, repoRoot) {
   };
 }
 
+export function validateClaudePostToolUse(payload, repoRoot) {
+  const toolName = payload.tool_name;
+  if (toolName !== "Write" && toolName !== "Edit" && toolName !== "MultiEdit") {
+    return { ok: true };
+  }
+
+  const relPathRaw = toolInputPath(payload.tool_input);
+  if (!relPathRaw) {
+    return { ok: true };
+  }
+
+  const cwd = payload.cwd ?? repoRoot;
+  const absPath = path.isAbsolute(relPathRaw)
+    ? path.normalize(relPathRaw)
+    : path.normalize(path.join(cwd, relPathRaw));
+  const rel = normalizeToRepoRel(repoRoot, absPath);
+
+  if (!isWebAppCss(rel) || !existsSync(absPath)) {
+    return { ok: true };
+  }
+
+  const postcss = loadPostcss(repoRoot);
+
+  try {
+    validateFile(repoRoot, postcss, absPath);
+    return { ok: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const reason = `${rel}: ${message}`;
+    return {
+      ok: false,
+      reason,
+      hookStdout: {
+        decision: "block",
+        reason: `Web CSS syntax check failed:\n${reason}`,
+        hookSpecificOutput: {
+          hookEventName: "PostToolUse",
+          additionalContext: `Fix CSS syntax errors, then retry:\n${reason}`,
+        },
+      },
+    };
+  }
+}
+
 function runCli() {
   const repoRoot = getRepoRoot();
   const postcss = loadPostcss(repoRoot);
