@@ -28,7 +28,7 @@ function makeTxPrisma() {
   };
   const prisma = {
     ...tx,
-    $transaction: jest.fn(async (cb: (t: MockTx) => unknown) => cb(tx)),
+    $transaction: jest.fn((cb: (t: MockTx) => unknown) => cb(tx)),
   };
   return { prisma, tx };
 }
@@ -55,9 +55,9 @@ describe('InviteCodeService', () => {
 
       expect(result.ownerName).toBe('张三');
       expect(result.code).toHaveLength(INVITE_CODE_LENGTH);
-      expect([...result.code].every((ch) => INVITE_CODE_ALPHABET.includes(ch))).toBe(
-        true,
-      );
+      expect(
+        [...result.code].every((ch) => INVITE_CODE_ALPHABET.includes(ch)),
+      ).toBe(true);
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(tx.auditLog.create).toHaveBeenCalledWith({
         data: {
@@ -82,7 +82,13 @@ describe('InviteCodeService', () => {
       tx.inviteCode.create.mockImplementation(
         ({ data }: { data: { code: string } }) => {
           calls += 1;
-          if (calls === 1) return Promise.reject({ code: 'P2002' });
+          if (calls === 1) {
+            return Promise.reject(
+              Object.assign(new Error('Unique constraint failed'), {
+                code: 'P2002',
+              }),
+            );
+          }
           return Promise.resolve({
             id: 'ic2',
             code: data.code,
@@ -127,7 +133,9 @@ describe('InviteCodeService', () => {
 
     it('maps a missing record (P2025) to NotFoundException', async () => {
       const { prisma, tx } = makeTxPrisma();
-      tx.inviteCode.update.mockRejectedValue({ code: 'P2025' });
+      tx.inviteCode.update.mockRejectedValue(
+        Object.assign(new Error('Record not found'), { code: 'P2025' }),
+      );
       const service = new InviteCodeService(prisma as never);
       await expect(
         service.setInviteCodeActive('missing', true, 'admin-1'),
@@ -177,8 +185,20 @@ describe('InviteCodeService', () => {
     it('buckets submitted genders, excludes test accounts, ignores drafts, defaults unknown', async () => {
       const { prisma, tx } = makeTxPrisma();
       tx.inviteCode.findMany.mockResolvedValue([
-        { id: 'ic1', code: 'AAAA2345', ownerName: 'A', isActive: true, createdAt: new Date() },
-        { id: 'ic2', code: 'BBBB2345', ownerName: 'B', isActive: true, createdAt: new Date() },
+        {
+          id: 'ic1',
+          code: 'AAAA2345',
+          ownerName: 'A',
+          isActive: true,
+          createdAt: new Date(),
+        },
+        {
+          id: 'ic2',
+          code: 'BBBB2345',
+          ownerName: 'B',
+          isActive: true,
+          createdAt: new Date(),
+        },
       ]);
       tx.inviteCode.count.mockResolvedValue(2);
       tx.user.findMany.mockResolvedValue([
@@ -224,8 +244,8 @@ describe('InviteCodeService', () => {
       });
       expect(tx.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ isTest: false }),
-        }),
+          where: expect.objectContaining({ isTest: false }) as object,
+        }) as object,
       );
     });
 
