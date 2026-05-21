@@ -444,12 +444,12 @@ export type MatchEstimatePayload = {
   excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
 };
 
-export type MatchEstimate = MatchEstimateResult;
+export type MatchEstimate = Extract<MatchEstimateResult, { available: true }>;
 
 /**
  * Estimate the coarse match-odds band for a set of partner-school /
  * partner-gender exclusions, against the current cycle's opted-in pool. Returns
- * only the band and a low-confidence flag — never raw pool counts.
+ * only availability, the band, and a low-confidence flag — never raw pool counts.
  */
 export function fetchMatchEstimate(payload: MatchEstimatePayload) {
   return fetchApi<MatchEstimateResult>("/me/match-estimate", {
