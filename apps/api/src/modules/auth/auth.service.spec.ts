@@ -818,6 +818,130 @@ describe('AuthService', () => {
     );
   });
 
+  function buildRegisterMocks() {
+    const deliveryDedupeKey = 'verification-code:test';
+    const emailCodeFindFirst = jest.fn().mockResolvedValue({
+      id: 'code-1',
+      codeHash: createVerificationCodeDigest({
+        email: 'user@example.com',
+        purpose: 'register',
+        deliveryDedupeKey,
+        code: '123456',
+      }),
+      deliveryDedupeKey,
+    });
+    const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const userCreate = jest.fn().mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      preferredLocale: 'zh-CN',
+    });
+    const tx: RegisterTransaction = {
+      $queryRaw: jest.fn(),
+      $executeRaw: jest.fn(),
+      emailCode: {
+        findFirst: emailCodeFindFirst,
+        updateMany: emailCodeUpdateMany,
+      },
+      systemSetting: { findUnique: jest.fn().mockResolvedValue(null) },
+      user: { count: jest.fn().mockResolvedValue(0), create: userCreate },
+    };
+    const transaction = jest.fn(
+      async (callback: (t: RegisterTransaction) => Promise<unknown>) =>
+        callback(tx),
+    );
+    const prisma = {
+      emailCode: { findFirst: emailCodeFindFirst },
+      systemSetting: { findUnique: jest.fn().mockResolvedValue(null) },
+      user: { count: jest.fn().mockResolvedValue(0) },
+      $transaction: transaction,
+    };
+    const schoolResolver = {
+      resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+    };
+    return { prisma, transaction, userCreate, emailCodeUpdateMany, schoolResolver };
+  }
+
+  const registerInput = {
+    email: 'user@example.com',
+    code: '123456',
+    password: 'Password123',
+    displayName: 'User',
+    acceptedTerms: true,
+  };
+
+  it('persists the resolved invite code id on registration', async () => {
+    const { prisma, userCreate, schoolResolver } = buildRegisterMocks();
+    const resolveActiveCodeId = jest.fn().mockResolvedValue('ic-1');
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      schoolResolver as never,
+      { sign: jest.fn().mockReturnValue('jwt-token') } as never,
+      { resolveActiveCodeId } as never,
+    );
+    mockedArgon2.hash.mockResolvedValue('hashed-password');
+
+    await authService.register({ ...registerInput, inviteCode: 'abcdefgh' });
+
+    expect(resolveActiveCodeId).toHaveBeenCalledWith('abcdefgh');
+    expect(userCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ inviteCodeId: 'ic-1' }) as object,
+      }) as object,
+    );
+  });
+
+  it('stores a null invite code id when none is provided', async () => {
+    const { prisma, userCreate, schoolResolver } = buildRegisterMocks();
+    const resolveActiveCodeId = jest.fn().mockResolvedValue(null);
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      schoolResolver as never,
+      { sign: jest.fn().mockReturnValue('jwt-token') } as never,
+      { resolveActiveCodeId } as never,
+    );
+    mockedArgon2.hash.mockResolvedValue('hashed-password');
+
+    await authService.register(registerInput);
+
+    expect(resolveActiveCodeId).toHaveBeenCalledWith(undefined);
+    expect(userCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ inviteCodeId: null }) as object,
+      }) as object,
+    );
+  });
+
+  it('rejects an invalid invite code without consuming the verification code', async () => {
+    const { prisma, transaction, emailCodeUpdateMany, schoolResolver } =
+      buildRegisterMocks();
+    const resolveActiveCodeId = jest
+      .fn()
+      .mockRejectedValue(
+        new BadRequestException('Invite code is invalid or inactive.'),
+      );
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      schoolResolver as never,
+      { sign: jest.fn() } as never,
+      { resolveActiveCodeId } as never,
+    );
+    mockedArgon2.hash.mockResolvedValue('hashed-password');
+
+    await expect(
+      authService.register({ ...registerInput, inviteCode: 'BADCODE1' }),
+    ).rejects.toMatchObject({
+      message: 'Invite code is invalid or inactive.',
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(emailCodeUpdateMany).not.toHaveBeenCalled();
+  });
+
   it('rejects full registration capacity before code validation or password hashing', async () => {
     const emailCodeFindFirst = jest.fn();
     const prisma = {
