@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000" role="img" aria-label="LiLink">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c8756a" />
+      <stop offset="1" stop-color="#8b3a4a" />
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="1000" rx="230" ry="230" fill="url(#bg)" />
+  
+    <g fill="#fff7ee">
+      <rect x="240" y="280" width="86" height="440" rx="43" />
+      <rect x="240" y="634" width="232" height="86" rx="43" />
+      <rect x="540" y="430" width="86" height="290" rx="43" />
+      <circle cx="583" cy="336" r="52" />
+    </g>
+  <circle cx="710" cy="300" r="40" fill="#fff7ee" opacity="0.85" />
+</svg>
