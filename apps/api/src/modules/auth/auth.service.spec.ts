@@ -860,7 +860,13 @@ describe('AuthService', () => {
     const schoolResolver = {
       resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
     };
-    return { prisma, transaction, userCreate, emailCodeUpdateMany, schoolResolver };
+    return {
+      prisma,
+      transaction,
+      userCreate,
+      emailCodeUpdateMany,
+      schoolResolver,
+    };
   }
 
   const registerInput = {
