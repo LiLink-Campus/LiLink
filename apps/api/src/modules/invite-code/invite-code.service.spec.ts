@@ -218,6 +218,21 @@ describe('InviteCodeService', () => {
         },
         {
           inviteCodeId: 'ic1',
+          questionnaireResponse: {
+            submittedAt: new Date(),
+            answers: { [HARD_MATCH_KEYS.gender]: '非二元' },
+          },
+        },
+        {
+          // Submitted but with an unparseable gender -> unknown bucket.
+          inviteCodeId: 'ic1',
+          questionnaireResponse: {
+            submittedAt: new Date(),
+            answers: { [HARD_MATCH_KEYS.gender]: 'X' },
+          },
+        },
+        {
+          inviteCodeId: 'ic1',
           questionnaireResponse: { submittedAt: null, answers: {} },
         },
         { inviteCodeId: 'ic1', questionnaireResponse: null },
@@ -229,11 +244,11 @@ describe('InviteCodeService', () => {
       const ic2 = page.items.find((item) => item.id === 'ic2');
 
       expect(ic1?.stats).toEqual({
-        total: 4,
+        total: 6,
         male: 1,
         female: 1,
-        nonBinary: 0,
-        unknown: 2,
+        nonBinary: 1,
+        unknown: 3,
       });
       expect(ic2?.stats).toEqual({
         total: 0,
@@ -245,6 +260,17 @@ describe('InviteCodeService', () => {
       expect(tx.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ isTest: false }) as object,
+        }) as object,
+      );
+      // Only the submitted answer and submittedAt are read; draftAnswers is
+      // never selected, so unsubmitted draft edits cannot affect the stats.
+      expect(tx.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({
+            questionnaireResponse: {
+              select: { submittedAt: true, answers: true },
+            },
+          }) as object,
         }) as object,
       );
     });
