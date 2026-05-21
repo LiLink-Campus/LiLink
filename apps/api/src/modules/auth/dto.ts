@@ -15,6 +15,7 @@ import {
 } from '../../common/validation/display-name';
 import {
   EMAIL_MAX_LENGTH,
+  INVITE_CODE_MAX_INPUT_LENGTH,
   PROFILE_FULL_NAME_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 
@@ -55,6 +56,11 @@ export class RegisterDto {
   @IsBoolean()
   @Equals(true, { message: 'Terms must be accepted.' })
   acceptedTerms!: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(INVITE_CODE_MAX_INPUT_LENGTH)
+  inviteCode?: string;
 }
 
 export class LoginDto {

@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin", label: "概览" },
   { href: "/admin/users", label: "用户" },
   { href: "/admin/schools", label: "学校" },
+  { href: "/admin/invite-codes", label: "邀请码" },
   { href: "/admin/cycles", label: "轮次" },
   { href: "/admin/questionnaire", label: "问卷" },
   { href: "/admin/reports", label: "举报" },

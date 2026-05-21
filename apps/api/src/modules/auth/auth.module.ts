@@ -4,6 +4,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { env } from '../../config/env';
 import { userSessionConfig } from '../../common/auth/session-config';
+import { InviteCodeModule } from '../invite-code/invite-code.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { userSessionConfig } from '../../common/auth/session-config';
         expiresIn: userSessionConfig.jwtExpiresIn,
       },
     }),
+    InviteCodeModule,
   ],
   controllers: [AuthController],
   providers: [AuthService],

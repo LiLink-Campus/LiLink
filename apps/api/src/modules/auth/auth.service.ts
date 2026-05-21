@@ -20,6 +20,7 @@ import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
 import { env } from '../../config/env';
 import { RegisterDto, LoginDto, ResetPasswordDto } from './dto';
+import { InviteCodeService } from '../invite-code/invite-code.service';
 
 type TransactionClient = Omit<
   PrismaClient,
@@ -49,6 +50,10 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly schoolResolverService: SchoolResolverService,
     private readonly jwtService: JwtService,
+    // Typed optional so existing unit tests can construct AuthService without a
+    // stub; Nest always injects it in the running app (AuthModule imports
+    // InviteCodeModule).
+    private readonly inviteCodeService?: InviteCodeService,
   ) {}
 
   async requestCode(email: string) {
@@ -70,6 +75,11 @@ export class AuthService {
       'register',
       input.code,
     );
+    // Resolve before consuming the email code so a wrong invite code does not
+    // burn the verification code. Throws for a non-empty invalid/inactive code.
+    const inviteCodeId =
+      (await this.inviteCodeService?.resolveActiveCodeId(input.inviteCode)) ??
+      null;
     const passwordHash = await argon2.hash(input.password);
 
     const user = await this.prisma.$transaction(async (tx) => {
@@ -90,6 +100,7 @@ export class AuthService {
             displayName: input.displayName,
             preferredLocale: localeCookie ?? undefined,
             schoolId: school?.schoolId,
+            inviteCodeId,
             acceptedTermsAt: input.acceptedTerms ? new Date() : null,
             profile: {
               create: {
