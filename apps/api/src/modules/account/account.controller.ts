@@ -14,9 +14,12 @@ import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { AccountService } from './account.service';
+import { MatchEstimateService } from './match-estimate.service';
 import {
   AcknowledgeQuestionnaireItemsDto,
   DashboardResponseDto,
+  MatchEstimateRequestDto,
+  MatchEstimateResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
   SubmitMatchFeedbackDto,
@@ -29,7 +32,10 @@ import {
 @Controller('me')
 @UseGuards(JwtAuthGuard)
 export class AccountController {
-  constructor(private readonly accountService: AccountService) {}
+  constructor(
+    private readonly accountService: AccountService,
+    private readonly matchEstimateService: MatchEstimateService,
+  ) {}
 
   @Get('dashboard')
   @ApiOperation({
@@ -122,6 +128,19 @@ export class AccountController {
       request.user!.sub,
       body,
     );
+  }
+
+  @Post('match-estimate')
+  @ApiOperation({
+    summary:
+      "Estimate the signed-in user's match-odds band for the given partner-school / partner-gender exclusions.",
+  })
+  @ApiOkResponse({ type: MatchEstimateResponseDto })
+  estimateMatch(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: MatchEstimateRequestDto,
+  ) {
+    return this.matchEstimateService.estimate(request.user!.sub, body);
   }
 
   @Put('participation')

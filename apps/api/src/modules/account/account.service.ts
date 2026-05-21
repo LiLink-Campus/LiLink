@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import {
   Prisma,
   type ContactChannelType as PrismaContactChannelType,
@@ -64,6 +68,7 @@ import {
   UpdateLocaleDto,
   UpdateProfileDto,
 } from './dto';
+import { MatchEstimateService } from './match-estimate.service';
 
 const DASHBOARD_HISTORY_LIMIT = 3;
 const EDITABLE_CONTACT_CHANNEL_SET = new Set<ContactChannelType>(
@@ -338,6 +343,8 @@ export class AccountService {
     private readonly mailService: MailService,
     private readonly questionnaireService: QuestionnaireService,
     private readonly dashboardSnapshotService: DashboardSnapshotService,
+    @Optional()
+    private readonly matchEstimateService?: MatchEstimateService,
   ) {}
 
   async getUserSummary(userId: string) {
@@ -1574,7 +1581,7 @@ export class AccountService {
             answers: normalizedAnswers,
             draftAnswers: Prisma.DbNull,
             acknowledgedQuestionnaireVersionId: questionnaire.id,
-            acknowledgedQuestionnaireKeys: acknowledgedQuestionnaireKeys,
+            acknowledgedQuestionnaireKeys,
             submittedAt,
           },
           update: {
@@ -1582,7 +1589,7 @@ export class AccountService {
             answers: normalizedAnswers,
             draftAnswers: Prisma.DbNull,
             acknowledgedQuestionnaireVersionId: questionnaire.id,
-            acknowledgedQuestionnaireKeys: acknowledgedQuestionnaireKeys,
+            acknowledgedQuestionnaireKeys,
             submittedAt,
           },
         }),
@@ -1590,6 +1597,7 @@ export class AccountService {
 
       await this.prisma.$transaction(submittedOperations);
 
+      this.matchEstimateService?.invalidatePrecomputedCycle();
       await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
 
       return {
@@ -1904,6 +1912,8 @@ export class AccountService {
       status: participation.status,
       intent: participation.intent,
     });
+
+    this.matchEstimateService?.invalidatePrecomputedCycle(cycle.id);
 
     return participation;
   }

@@ -4,6 +4,7 @@ import {
   createAutosaveLifecycleGate,
   createAutosaveTimeoutController,
   takeNextAutosaveQueueItem,
+  type MatchEstimateBand,
 } from "@lilink/shared";
 import {
   type PointerEvent as ReactPointerEvent,
@@ -16,8 +17,10 @@ import {
 } from "react";
 import {
   fetchApi,
+  fetchMatchEstimate,
   isApiRequestError,
   type AuthMePayload,
+  type MatchEstimate,
 } from "../../../lib/api";
 import {
   AGE_OPTIONS,
@@ -135,6 +138,22 @@ const HARD_MATCH_FIELD_KEY_GROUPS = {
     HARD_MATCH_KEYS.excludedPartnerSchoolGenders,
   ],
 } as const;
+
+const MATCH_ESTIMATE_DEBOUNCE_MS = 400;
+
+const MATCH_ESTIMATE_BAND_LABELS: Record<MatchEstimateBand, string> = {
+  HIGH: "较高",
+  MEDIUM: "中等",
+  LOW: "较低",
+  VERY_LOW: "极低",
+};
+
+const MATCH_ESTIMATE_BAND_MODIFIERS: Record<MatchEstimateBand, string> = {
+  HIGH: "is-high",
+  MEDIUM: "is-medium",
+  LOW: "is-low",
+  VERY_LOW: "is-very-low",
+};
 
 type QuestionnaireSavePayload = {
   answers: Record<string, unknown>;
@@ -628,8 +647,13 @@ export function ProfileClient({
   );
   const [hardMatchForm, setHardMatchForm] =
     useState<HardMatchFormState>(initialHardMatchForm);
-  const displayName =
-    initialDraft?.displayName ?? initialUser.displayName ?? "";
+  const [matchEstimate, setMatchEstimate] = useState<MatchEstimate | null>(
+    null,
+  );
+  const [matchEstimatePending, setMatchEstimatePending] = useState(false);
+  const [displayName, setDisplayName] = useState(
+    initialDraft?.displayName ?? initialUser.displayName ?? "",
+  );
   const [questionnaireSaveError, setQuestionnaireSaveError] = useState<
     string | null
   >(null);
@@ -681,6 +705,37 @@ export function ProfileClient({
       setHardMatchForm((current) => ({ ...current, birthDay: "" }));
     }
   }, [birthDayOptions, hardMatchForm.birthDay]);
+
+  // Live, debounced match-odds estimate for the current partner exclusions.
+  // Only availability and the band return from the server; raw pool counts stay
+  // server-side.
+  useEffect(() => {
+    let active = true;
+    const handle = window.setTimeout(() => {
+      if (active) setMatchEstimatePending(true);
+      fetchMatchEstimate({
+        excludedPartnerSchools: hardMatchForm.excludedPartnerSchools,
+        excludedPartnerSchoolGenders:
+          hardMatchForm.excludedPartnerSchoolGenders,
+      })
+        .then((result) => {
+          if (active) setMatchEstimate(result.available ? result : null);
+        })
+        .catch(() => {
+          if (active) setMatchEstimate(null);
+        })
+        .finally(() => {
+          if (active) setMatchEstimatePending(false);
+        });
+    }, MATCH_ESTIMATE_DEBOUNCE_MS);
+    return () => {
+      active = false;
+      window.clearTimeout(handle);
+    };
+  }, [
+    hardMatchForm.excludedPartnerSchools,
+    hardMatchForm.excludedPartnerSchoolGenders,
+  ]);
 
   const questionnaireSavePayload = useMemo(
     () => buildQuestionnaireSavePayload(answers, hardMatchForm, displayName),
@@ -1978,6 +2033,25 @@ export function ProfileClient({
                 <p className="app-muted">
                   在每所学校上，勾选你不希望匹配的性别。三项全选即整校排除。
                 </p>
+                {matchEstimate ? (
+                  <p
+                    className={`match-estimate-hint ${MATCH_ESTIMATE_BAND_MODIFIERS[matchEstimate.band]}${matchEstimatePending ? " is-pending" : ""}`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span className="match-estimate-hint-label">
+                      排除后匹配到的概率：
+                    </span>
+                    <strong className="match-estimate-hint-band">
+                      {MATCH_ESTIMATE_BAND_LABELS[matchEstimate.band]}
+                    </strong>
+                    {matchEstimate.lowConfidence ? (
+                      <span className="match-estimate-hint-caveat">
+                        当前候选人较少，仅供参考
+                      </span>
+                    ) : null}
+                  </p>
+                ) : null}
                 <div className="school-exclusion-list">
                   {schoolOptions.map((school, i) => {
                     const activeGenders = activeExcludedGendersFor(
