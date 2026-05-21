@@ -19,6 +19,11 @@ export const metadata: Metadata = {
     title: "LiLink",
     statusBarStyle: "default",
   },
+  // Next emits the modern `mobile-web-app-capable`; keep the legacy Apple meta
+  // explicitly so older iOS launches the home-screen app in standalone mode.
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
   icons: {
     icon: [
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
