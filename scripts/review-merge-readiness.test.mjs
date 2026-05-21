@@ -57,7 +57,7 @@ test("match page hides identity before introduction and keeps safety/report acti
   assert.doesNotMatch(source, /: counterpart\.schoolName \?\? "等你决定如何破冰"/);
   assert.match(source, /\{introduced && counterpart\?\.introLine \?/);
   assert.match(source, /if \(introduced\) \{[\s\S]*?router\.push/);
-  assert.match(source, /reason=\{latestMatch\.reason\}/);
+  assert.match(source, /gender=\{counterpart\.gender\}/);
   assert.doesNotMatch(
     source,
     /\{introduced && latestMatch && !reportHandlingChipLabel\(latestMatch\.reportStatus\) \?/,

@@ -35,6 +35,15 @@ type DashboardMatchParticipant = {
   contact: DashboardPublicContact | null;
   schoolName: string | null;
   contactRequestedAt: string | null;
+  gender?: string | null;
+  partnerGenders?: string[];
+  weeklyIntent?: WeeklyIntent | null;
+};
+
+export type MatchFeedback = {
+  rating: number;
+  comment: string | null;
+  submittedAt: string;
 };
 
 type ContactMethodPayload = {
@@ -57,13 +66,11 @@ type DashboardPublicContact = {
 export type DashboardMatch = {
   id: string;
   score: number;
-  reasons: string[];
-  reason: string | null;
-  conversationTopics: string[];
   introducedAt: string | null;
   currentUserRequestedAt: string | null;
   reportStatus: string | null;
   participants: DashboardMatchParticipant[];
+  currentUserFeedback: MatchFeedback | null;
 };
 
 export type DashboardHistoryItem = {

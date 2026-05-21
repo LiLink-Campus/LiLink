@@ -3,20 +3,17 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 import blossom from 'edmonds-blossom-fixed';
 import { Prisma, QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
-import { env } from '../../config/env';
 import {
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
   HardMatchAnswers,
   areHardMatchAnswersCompatible,
-  isHardMatchKey,
   tryReadHardMatchAnswers,
 } from '../questionnaire/hard-match';
 import {
@@ -27,21 +24,10 @@ import {
 } from '@lilink/shared';
 import {
   type QuestionOption,
-  type QuestionReasonRule,
-  labelForQuestionValue,
   normalizeQuestionAnswer,
   normalizeQuestionOptions,
-  normalizeQuestionReasonRules,
   resolveQuestionOptionValue,
-  renderReasonTemplate,
 } from '../questionnaire/questionnaire-config';
-import {
-  MatchNarrativeService,
-  type MatchNarrativeInput,
-  type MatchNarrativeQuestionAnswer,
-  type MatchNarrativeResult,
-  type MatchNarrativeSignal,
-} from './match-narrative.service';
 
 const BASE_MATCH_SCORE = 48;
 const SINGLE_SELECT_MATCH_BONUS = 6;
@@ -55,9 +41,6 @@ const LOOKS_PREFERENCE_SOFT_BONUS = MULTI_SELECT_OVERLAP_BONUS;
 // outside on both sides adds nothing without dropping the pair.
 const AGE_PREFERENCE_SOFT_BONUS = 6;
 const AGE_PREFERENCE_DECAY_PER_YEAR = 0.25;
-const MAX_MATCH_REASONS = 3;
-const MATCH_NARRATIVE_MAX_CONCURRENCY = 3;
-const MATCH_NARRATIVE_DEFAULT_AFTER_MS = 60 * 60 * 1000;
 const PREPARATION_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
@@ -116,10 +99,6 @@ type CandidatePair = {
   rawScore: number;
   score: number;
   matchingWeight: number;
-  reasons: string[];
-  sharedSignals: MatchNarrativeSignal[];
-  leftQuestions?: PreparedQuestion[];
-  rightQuestions?: PreparedQuestion[];
 };
 
 type RetentionWeightTiers = {
@@ -136,15 +115,10 @@ type QuestionnaireQuestion = {
   weight: number;
   selectionLimit?: number | null;
   options: Prisma.JsonValue | null;
-  reasonRules: Prisma.JsonValue | null;
 };
 
-type PreparedQuestion = Omit<
-  QuestionnaireQuestion,
-  'options' | 'reasonRules'
-> & {
+type PreparedQuestion = Omit<QuestionnaireQuestion, 'options'> & {
   normalizedOptions: QuestionOption[];
-  normalizedReasonRules: QuestionReasonRule[];
 };
 
 type MatchQuestion = QuestionnaireQuestion | PreparedQuestion;
@@ -187,22 +161,6 @@ type CycleRevealResult = {
   createdMatches: number;
 };
 
-type NarrativePersistenceMatch = {
-  id: string;
-  score: number;
-  reasons: Prisma.JsonValue;
-  createdAt: Date;
-  participants: Array<{
-    userId: string;
-    position: number;
-  }>;
-};
-
-type NarrativeAttemptResult = {
-  matchId: string;
-  narrative: MatchNarrativeResult | null;
-};
-
 type MatchScoreBounds = {
   min: number;
   max: number;
@@ -231,7 +189,7 @@ function buildInsufficientParticipantsMessage(
 function isPreparedQuestion(
   question: MatchQuestion,
 ): question is PreparedQuestion {
-  return 'normalizedOptions' in question && 'normalizedReasonRules' in question;
+  return 'normalizedOptions' in question;
 }
 
 function prepareQuestion(question: MatchQuestion): PreparedQuestion {
@@ -247,7 +205,6 @@ function prepareQuestion(question: MatchQuestion): PreparedQuestion {
     weight: question.weight,
     selectionLimit: question.selectionLimit ?? null,
     normalizedOptions: normalizeQuestionOptions(question.options),
-    normalizedReasonRules: normalizeQuestionReasonRules(question.reasonRules),
   };
 }
 
@@ -272,7 +229,6 @@ function normalizePreparedQuestionAnswer(
   const fallbackQuestion = {
     ...question,
     options: question.normalizedOptions,
-    reasonRules: question.normalizedReasonRules,
   };
 
   if (
@@ -361,13 +317,7 @@ export class CyclesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dashboardSnapshotService: DashboardSnapshotService,
-    @Optional()
-    private readonly matchNarrativeService: MatchNarrativeService = new MatchNarrativeService(),
   ) {}
-
-  private narrativeGenerationEnabled() {
-    return env.MATCH_NARRATIVE_GENERATION_ENABLED;
-  }
 
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
     if (!options.cycleId) {
@@ -642,7 +592,6 @@ export class CyclesService {
     try {
       const optedInCount = cycle.participations.length;
       const participants = this.toEligibleParticipants(cycle.participations);
-      const preparedQuestions = prepareQuestions(questionnaire.questions);
       const questionnairesByVersionId =
         await this.loadQuestionnairesByVersionId(participants, questionnaire);
 
@@ -672,9 +621,8 @@ export class CyclesService {
       }
 
       const unmatchedCount = participants.length - selectedPairs.length * 2;
-      const narrativeGenerationEnabled = this.narrativeGenerationEnabled();
 
-      const createdMatchIds = await this.prisma.$transaction(async (tx) => {
+      await this.prisma.$transaction(async (tx) => {
         const activeClaim = await tx.matchCycle.updateMany({
           where: {
             id: cycle.id,
@@ -690,20 +638,11 @@ export class CyclesService {
           throw new PreparationClaimLostError();
         }
 
-        const matchIds: string[] = [];
-
-        for (const [pairIndex, pair] of selectedPairs.entries()) {
-          const match = await tx.match.create({
+        for (const pair of selectedPairs) {
+          await tx.match.create({
             data: {
               cycleId: cycle.id,
               score: pair.score,
-              reasons: pair.reasons,
-              reason: null,
-              conversationTopics: narrativeGenerationEnabled
-                ? Prisma.DbNull
-                : [],
-              narrativeSource: narrativeGenerationEnabled ? null : 'DISABLED',
-              revealedAt: null,
               participants: {
                 create: [
                   {
@@ -720,7 +659,6 @@ export class CyclesService {
               },
             },
           });
-          matchIds[pairIndex] = match.id;
         }
 
         if (selectedPairs.length === 0) {
@@ -753,10 +691,8 @@ export class CyclesService {
             },
           });
 
-          return matchIds;
+          return;
         }
-
-        return matchIds;
       });
 
       if (selectedPairs.length === 0) {
@@ -770,80 +706,15 @@ export class CyclesService {
         };
       }
 
-      if (!narrativeGenerationEnabled) {
-        return this.finalizePreparedCycle({
-          cycleId: cycle.id,
-          claimUpdatedAt,
-          adminActorId: options.adminActorId,
-          force: options.force,
-          createdMatches: selectedPairs.length,
-          unmatchedCount,
-          message: preparationMessage,
-        });
-      }
-
-      const resolvedNarratives = await this.generateNarrativesForPairs(
-        selectedPairs,
-        preparedQuestions,
-      );
-      const completedNarratives = resolvedNarratives
-        .map((narrative, pairIndex) => {
-          const matchId = createdMatchIds[pairIndex];
-          return matchId && narrative ? { matchId, narrative } : null;
-        })
-        .filter(
-          (
-            entry,
-          ): entry is { matchId: string; narrative: MatchNarrativeResult } =>
-            entry !== null,
-        );
-
-      if (completedNarratives.length > 0) {
-        await this.updateMatchNarratives(completedNarratives);
-      }
-
-      const pendingNarrativeCount = await this.countPendingNarratives(cycle.id);
-
-      if (pendingNarrativeCount === 0) {
-        return this.finalizePreparedCycle({
-          cycleId: cycle.id,
-          claimUpdatedAt,
-          adminActorId: options.adminActorId,
-          force: options.force,
-          createdMatches: selectedPairs.length,
-          unmatchedCount,
-          message: preparationMessage,
-        });
-      }
-
-      await this.prisma.$transaction(async (tx) => {
-        await tx.auditLog.create({
-          data: {
-            adminActorId: options.adminActorId,
-            action: 'cycle.preparing',
-            metadata: {
-              cycleId: cycle.id,
-              createdMatches: selectedPairs.length,
-              unmatchedCount,
-              pendingNarrativeCount,
-              forced: options.force ?? false,
-              message:
-                'Cycle created matches and is waiting for pending narratives.',
-            },
-          },
-        });
-
-        await this.dashboardSnapshotService.syncCycleSnapshots(cycle.id, tx);
-      });
-
-      return {
-        ok: true,
+      return this.finalizePreparedCycle({
         cycleId: cycle.id,
-        state: 'PENDING',
+        claimUpdatedAt,
+        adminActorId: options.adminActorId,
+        force: options.force,
         createdMatches: selectedPairs.length,
         unmatchedCount,
-        message: `Cycle created ${selectedPairs.length} match(es) and is still generating ${pendingNarrativeCount} narrative(s).`,
-      };
+        message: preparationMessage,
+      });
     } catch (error) {
       await this.revertPreparationClaimIfEmpty(cycle.id, claimUpdatedAt);
 
@@ -867,17 +738,7 @@ export class CyclesService {
     force?: boolean;
     adminActorId?: string;
   }): Promise<CyclePreparationResult> {
-    const [cycle, questionnaire] = await Promise.all([
-      this.loadCycleForProcessing(options.cycleId),
-      this.prisma.questionnaireVersion.findFirst({
-        where: { isCurrent: true },
-        include: {
-          questions: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      }),
-    ]);
+    const cycle = await this.loadCycleForProcessing(options.cycleId);
 
     if (!cycle) {
       throw new NotFoundException('Cycle not found.');
@@ -907,134 +768,44 @@ export class CyclesService {
       };
     }
 
-    const [pendingMatches, totalMatchCount] = await Promise.all([
-      this.loadPendingNarrativeMatches(cycle.id),
-      this.prisma.match.count({
-        where: { cycleId: cycle.id },
-      }),
-    ]);
+    const totalMatchCount = await this.prisma.match.count({
+      where: { cycleId: cycle.id },
+    });
     const unmatchedCount = Math.max(
       0,
       cycle.participations.length - totalMatchCount * 2,
     );
 
-    if (!this.narrativeGenerationEnabled()) {
-      if (totalMatchCount === 0) {
-        const recoveredPreparation = await this.recoverStaleEmptyPreparation(
-          cycle,
-          options,
-          unmatchedCount,
-        );
+    if (totalMatchCount === 0) {
+      const recoveredPreparation = await this.recoverStaleEmptyPreparation(
+        cycle,
+        options,
+        unmatchedCount,
+      );
 
-        if (recoveredPreparation) {
-          return recoveredPreparation;
-        }
-
-        return {
-          ok: true,
-          cycleId: cycle.id,
-          state: 'PENDING',
-          createdMatches: 0,
-          unmatchedCount,
-          message: 'Cycle is still being prepared.',
-        };
+      if (recoveredPreparation) {
+        return recoveredPreparation;
       }
 
-      await this.disablePendingNarratives(cycle.id);
-
-      return this.finalizePreparedCycle({
+      return {
+        ok: true,
         cycleId: cycle.id,
-        claimUpdatedAt: cycle.updatedAt,
-        adminActorId: options.adminActorId,
-        force: options.force,
-        createdMatches: totalMatchCount,
+        state: 'PENDING',
+        createdMatches: 0,
         unmatchedCount,
-        message: 'Cycle is prepared and waiting for reveal.',
-      });
+        message: 'Cycle is still being prepared.',
+      };
     }
 
-    if (pendingMatches.length === 0) {
-      if (totalMatchCount === 0) {
-        const recoveredPreparation = await this.recoverStaleEmptyPreparation(
-          cycle,
-          options,
-          unmatchedCount,
-        );
-
-        if (recoveredPreparation) {
-          return recoveredPreparation;
-        }
-
-        return {
-          ok: true,
-          cycleId: cycle.id,
-          state: 'PENDING',
-          createdMatches: 0,
-          unmatchedCount,
-          message: 'Cycle is still being prepared.',
-        };
-      }
-
-      return this.finalizePreparedCycle({
-        cycleId: cycle.id,
-        claimUpdatedAt: cycle.updatedAt,
-        adminActorId: options.adminActorId,
-        force: options.force,
-        createdMatches: totalMatchCount,
-        unmatchedCount,
-        message: 'Cycle is prepared and waiting for reveal.',
-      });
-    }
-
-    const preparedQuestions = questionnaire
-      ? prepareQuestions(questionnaire.questions)
-      : [];
-    const participants = this.toEligibleParticipants(cycle.participations);
-    const questionnairesByVersionId = await this.loadQuestionnairesByVersionId(
-      participants,
-      questionnaire,
-    );
-    const participantsById = new Map(
-      participants.map((participant) => [participant.id, participant]),
-    );
-    const resolvedNarratives = await this.resolvePendingNarrativesForMatches(
-      pendingMatches,
-      participantsById,
-      preparedQuestions,
-      cycle.revealAt,
-      questionnairesByVersionId,
-    );
-    const completedNarratives = resolvedNarratives.filter(
-      (entry): entry is { matchId: string; narrative: MatchNarrativeResult } =>
-        entry.narrative != null,
-    );
-
-    if (completedNarratives.length > 0) {
-      await this.updateMatchNarratives(completedNarratives);
-    }
-
-    const remainingPendingCount = await this.countPendingNarratives(cycle.id);
-
-    if (remainingPendingCount === 0) {
-      return this.finalizePreparedCycle({
-        cycleId: cycle.id,
-        claimUpdatedAt: cycle.updatedAt,
-        adminActorId: options.adminActorId,
-        force: options.force,
-        createdMatches: totalMatchCount,
-        unmatchedCount,
-        message: 'Cycle is prepared and waiting for reveal.',
-      });
-    }
-
-    return {
-      ok: true,
+    return this.finalizePreparedCycle({
       cycleId: cycle.id,
-      state: 'PENDING',
+      claimUpdatedAt: cycle.updatedAt,
+      adminActorId: options.adminActorId,
+      force: options.force,
       createdMatches: totalMatchCount,
       unmatchedCount,
-      message: `Cycle still has ${remainingPendingCount} pending narrative(s).`,
-    };
+      message: 'Cycle is prepared and waiting for reveal.',
+    });
   }
 
   private async revealPreparedCycle(options: {
@@ -1158,159 +929,6 @@ export class CyclesService {
     };
   }
 
-  private async generateNarrativesForPairs(
-    selectedPairs: CandidatePair[],
-    preparedQuestions: PreparedQuestion[],
-  ) {
-    return this.mapWithNarrativeConcurrency(
-      selectedPairs,
-      async (pair, pairIndex) => {
-        try {
-          return await this.matchNarrativeService.generateNarrative(
-            this.buildNarrativeInput(pair, preparedQuestions),
-          );
-        } catch (error) {
-          this.logger.warn(
-            this.buildNarrativeErrorMessage(
-              'pair_generation',
-              `${pair.left.id}::${pair.right.id}`,
-              pairIndex,
-              error,
-            ),
-          );
-          return this.matchNarrativeService.buildDefaultNarrative();
-        }
-      },
-    );
-  }
-
-  private async resolvePendingNarrativesForMatches(
-    pendingMatches: NarrativePersistenceMatch[],
-    participantsById: Map<string, EligibleParticipant>,
-    preparedQuestions: PreparedQuestion[],
-    revealAt: Date,
-    questionnairesByVersionId = new Map<string, PreparedQuestion[]>(),
-  ) {
-    return this.mapWithNarrativeConcurrency(
-      pendingMatches,
-      async (pendingMatch, matchIndex) => {
-        if (this.hasNarrativeTimedOut(pendingMatch.createdAt)) {
-          return {
-            matchId: pendingMatch.id,
-            narrative: this.matchNarrativeService.buildDefaultNarrative(),
-          } satisfies NarrativeAttemptResult;
-        }
-
-        const narrativeInput = this.buildNarrativeInputForStoredMatch(
-          pendingMatch,
-          participantsById,
-          preparedQuestions,
-          revealAt,
-          questionnairesByVersionId,
-        );
-
-        if (!narrativeInput) {
-          this.logger.warn(
-            `Narrative retry skipped for match ${pendingMatch.id} because the stored participants are no longer eligible.`,
-          );
-          return {
-            matchId: pendingMatch.id,
-            narrative: this.matchNarrativeService.buildDefaultNarrative(),
-          } satisfies NarrativeAttemptResult;
-        }
-
-        try {
-          return {
-            matchId: pendingMatch.id,
-            narrative:
-              await this.matchNarrativeService.generateNarrative(
-                narrativeInput,
-              ),
-          } satisfies NarrativeAttemptResult;
-        } catch (error) {
-          this.logger.warn(
-            this.buildNarrativeErrorMessage(
-              'match_retry',
-              pendingMatch.id,
-              matchIndex,
-              error,
-            ),
-          );
-          return {
-            matchId: pendingMatch.id,
-            narrative: this.matchNarrativeService.buildDefaultNarrative(),
-          } satisfies NarrativeAttemptResult;
-        }
-      },
-    );
-  }
-
-  private async updateMatchNarratives(
-    completedNarratives: Array<{
-      matchId: string;
-      narrative: MatchNarrativeResult;
-    }>,
-  ) {
-    await this.prisma.$transaction(async (tx) => {
-      for (const entry of completedNarratives) {
-        await tx.match.updateMany({
-          where: {
-            id: entry.matchId,
-            narrativeSource: null,
-          },
-          data: {
-            reason: entry.narrative.reason,
-            conversationTopics: entry.narrative.conversationTopics,
-            narrativeSource: entry.narrative.source,
-          },
-        });
-      }
-    });
-  }
-
-  private async mapWithNarrativeConcurrency<Item, Result>(
-    items: Item[],
-    handler: (item: Item, index: number) => Promise<Result>,
-  ): Promise<Result[]> {
-    if (items.length === 0) {
-      return [];
-    }
-
-    const results = Array<Result>(items.length);
-    const completed = Array<boolean>(items.length).fill(false);
-    const workerCount = Math.min(MATCH_NARRATIVE_MAX_CONCURRENCY, items.length);
-    let nextItemIndex = 0;
-
-    const workers = Array.from({ length: workerCount }, async () => {
-      while (true) {
-        const currentItemIndex = nextItemIndex;
-        nextItemIndex += 1;
-
-        if (currentItemIndex >= items.length) {
-          return;
-        }
-
-        results[currentItemIndex] = await handler(
-          items[currentItemIndex],
-          currentItemIndex,
-        );
-        completed[currentItemIndex] = true;
-      }
-    });
-
-    await Promise.all(workers);
-
-    return results.map((result, index) => {
-      if (!completed[index]) {
-        throw new BadRequestException(
-          'Concurrent narrative processing completed with missing results.',
-        );
-      }
-
-      return result;
-    });
-  }
-
   async previewCycle(cycleId: string) {
     const [cycle, questionnaire] = await Promise.all([
       this.prisma.matchCycle.findUnique({
@@ -1387,7 +1005,6 @@ export class CyclesService {
         leftDisplayName: pair.left.displayName,
         rightDisplayName: pair.right.displayName,
         score: pair.score,
-        reasons: pair.reasons,
       })),
       suggestedPairs: selectedPairs.map((pair) => ({
         leftUserId: pair.left.id,
@@ -1395,7 +1012,6 @@ export class CyclesService {
         leftDisplayName: pair.left.displayName,
         rightDisplayName: pair.right.displayName,
         score: pair.score,
-        reasons: pair.reasons,
       })),
       unmatchedUserIds: participants
         .filter((participant) => !matchedUserIds.has(participant.id))
@@ -1784,7 +1400,7 @@ export class CyclesService {
       input.fallbackQuestions,
       input.questionnairesByVersionId,
     );
-    const scored = this.scorePair(
+    const scored = this.calculatePairRawScore(
       input.left,
       input.right,
       input.fallbackQuestions,
@@ -1795,6 +1411,7 @@ export class CyclesService {
     if (!scored) {
       return null;
     }
+    const score = this.normalizeMatchScore(scored.rawScore, scored.scoreBounds);
 
     const leftUnmatchedStreak = input.unmatchedStreaks.get(input.left.id) ?? 0;
     const rightUnmatchedStreak =
@@ -1806,17 +1423,13 @@ export class CyclesService {
         left: input.left,
         right: input.right,
         rawScore: scored.rawScore,
-        score: scored.score,
+        score,
         matchingWeight: this.calculateRetentionMatchingWeight({
           rawScore: scored.rawScore,
           leftUnmatchedStreak,
           rightUnmatchedStreak,
           tiers: input.retentionWeightTiers,
         }),
-        reasons: scored.reasons,
-        sharedSignals: scored.sharedSignals,
-        leftQuestions: pairQuestionSet.leftQuestions,
-        rightQuestions: pairQuestionSet.rightQuestions,
       },
     };
   }
@@ -2089,7 +1702,7 @@ export class CyclesService {
     return optionIndex / (question.normalizedOptions.length - 1);
   }
 
-  private scorePair(
+  private calculatePairRawScore(
     left: EligibleParticipant,
     right: EligibleParticipant,
     questions: MatchQuestion[],
@@ -2121,9 +1734,6 @@ export class CyclesService {
     }
 
     let rawScore = BASE_MATCH_SCORE;
-    const reasons: Array<{ text: string; priority: number; order: number }> =
-      [];
-    const sharedSignals: MatchNarrativeSignal[] = [];
 
     rawScore +=
       this.calculateLooksPreferenceSimilarity(
@@ -2160,33 +1770,6 @@ export class CyclesService {
         leftAnswer === rightAnswer
       ) {
         rawScore += weight * SINGLE_SELECT_MATCH_BONUS;
-        const matchedLabel =
-          typeof leftAnswer === 'string'
-            ? labelForQuestionValue(
-                leftAnswer,
-                question.leftQuestion.normalizedOptions,
-              )
-            : '';
-
-        if (this.canUseQuestionForNarrative(question.key)) {
-          sharedSignals.push({
-            questionKey: question.key,
-            prompt: question.leftQuestion.prompt,
-            type: 'EXACT_MATCH',
-            weight,
-            sharedLabels: matchedLabel ? [matchedLabel] : [],
-            leftAnswerLabels: matchedLabel ? [matchedLabel] : [],
-            rightAnswerLabels: matchedLabel ? [matchedLabel] : [],
-          });
-        }
-        reasons.push(
-          ...this.buildReasonMessages(
-            question.leftQuestion,
-            leftAnswer,
-            rightAnswer,
-            question.order,
-          ),
-        );
       }
 
       if (
@@ -2204,33 +1787,6 @@ export class CyclesService {
         if (similarity > 0) {
           rawScore += weight * SINGLE_SELECT_MATCH_BONUS * similarity;
         }
-
-        if (leftAnswer === rightAnswer) {
-          const matchedLabel = labelForQuestionValue(
-            leftAnswer,
-            question.leftQuestion.normalizedOptions,
-          );
-
-          if (this.canUseQuestionForNarrative(question.key)) {
-            sharedSignals.push({
-              questionKey: question.key,
-              prompt: question.leftQuestion.prompt,
-              type: 'EXACT_MATCH',
-              weight,
-              sharedLabels: matchedLabel ? [matchedLabel] : [],
-              leftAnswerLabels: matchedLabel ? [matchedLabel] : [],
-              rightAnswerLabels: matchedLabel ? [matchedLabel] : [],
-            });
-          }
-          reasons.push(
-            ...this.buildReasonMessages(
-              question.leftQuestion,
-              leftAnswer,
-              rightAnswer,
-              question.order,
-            ),
-          );
-        }
       }
 
       if (question.type === QuestionType.MULTI_SELECT) {
@@ -2246,318 +1802,14 @@ export class CyclesService {
             (overlap.length / union.length) *
             weight *
             MULTI_SELECT_OVERLAP_BONUS;
-          if (this.canUseQuestionForNarrative(question.key)) {
-            sharedSignals.push({
-              questionKey: question.key,
-              prompt: question.leftQuestion.prompt,
-              type: 'MULTI_OVERLAP',
-              weight,
-              sharedLabels: overlap.map((value) =>
-                labelForQuestionValue(
-                  value,
-                  question.leftQuestion.normalizedOptions,
-                ),
-              ),
-              leftAnswerLabels: leftOptions.map((value) =>
-                labelForQuestionValue(
-                  value,
-                  question.leftQuestion.normalizedOptions,
-                ),
-              ),
-              rightAnswerLabels: rightOptions.map((value) =>
-                labelForQuestionValue(
-                  value,
-                  question.rightQuestion.normalizedOptions,
-                ),
-              ),
-            });
-          }
-          reasons.push(
-            ...this.buildReasonMessages(
-              question.leftQuestion,
-              leftAnswer,
-              rightAnswer,
-              question.order,
-            ),
-          );
         }
       }
     }
-
-    const uniqueReasonMap = new Map<
-      string,
-      { text: string; priority: number; order: number }
-    >();
-
-    for (const reason of reasons) {
-      const existingReason = uniqueReasonMap.get(reason.text);
-      if (
-        !existingReason ||
-        reason.priority > existingReason.priority ||
-        (reason.priority === existingReason.priority &&
-          reason.order < existingReason.order)
-      ) {
-        uniqueReasonMap.set(reason.text, reason);
-      }
-    }
-
-    const uniqueReasons = [...uniqueReasonMap.values()]
-      .sort(
-        (leftReason, rightReason) =>
-          rightReason.priority - leftReason.priority ||
-          leftReason.order - rightReason.order,
-      )
-      .slice(0, MAX_MATCH_REASONS)
-      .map((reason) => reason.text);
 
     return {
       rawScore,
-      score: this.normalizeMatchScore(rawScore, resolvedScoreBounds),
-      sharedSignals,
-      reasons:
-        uniqueReasons.length > 0
-          ? uniqueReasons
-          : ['你们在多项关系与生活方式判断上表现出相容趋势。'],
+      scoreBounds: resolvedScoreBounds,
     };
-  }
-
-  private buildReasonMessages(
-    question: MatchQuestion,
-    leftAnswer: string | string[],
-    rightAnswer: string | string[],
-    order: number,
-  ) {
-    const preparedQuestion = prepareQuestion(question);
-
-    return preparedQuestion.normalizedReasonRules
-      .map((rule) => {
-        if (rule.type === 'EXACT_MATCH') {
-          if (
-            typeof leftAnswer !== 'string' ||
-            typeof rightAnswer !== 'string' ||
-            leftAnswer !== rightAnswer
-          ) {
-            return null;
-          }
-
-          const text = renderReasonTemplate(rule.template, {
-            answer_label: labelForQuestionValue(
-              leftAnswer,
-              preparedQuestion.normalizedOptions,
-            ),
-            question_prompt: preparedQuestion.prompt,
-            question_key: preparedQuestion.key,
-            count: 1,
-          }).trim();
-
-          if (!text) {
-            return null;
-          }
-
-          return {
-            text,
-            priority: rule.priority ?? preparedQuestion.weight,
-            order,
-          };
-        }
-
-        if (!Array.isArray(leftAnswer) || !Array.isArray(rightAnswer)) {
-          return null;
-        }
-
-        const overlap = leftAnswer.filter((value) =>
-          rightAnswer.includes(value),
-        );
-        if (overlap.length < (rule.minOverlap ?? 1)) {
-          return null;
-        }
-
-        const overlapLabels = overlap.map((value) =>
-          labelForQuestionValue(value, preparedQuestion.normalizedOptions),
-        );
-        const maxLabels = rule.maxLabels ?? overlapLabels.length;
-        const visibleLabels = overlapLabels.slice(0, maxLabels);
-        const text = renderReasonTemplate(rule.template, {
-          labels: visibleLabels.join('、'),
-          labels_2: overlapLabels.slice(0, 2).join('、'),
-          labels_3: overlapLabels.slice(0, 3).join('、'),
-          question_prompt: preparedQuestion.prompt,
-          question_key: preparedQuestion.key,
-          count: overlap.length,
-        }).trim();
-
-        if (!text) {
-          return null;
-        }
-
-        return {
-          text,
-          priority: rule.priority ?? preparedQuestion.weight,
-          order,
-        };
-      })
-      .filter(
-        (reason): reason is { text: string; priority: number; order: number } =>
-          reason !== null,
-      );
-  }
-
-  private canUseQuestionForNarrative(questionKey: string) {
-    return !isHardMatchKey(questionKey);
-  }
-
-  private filterNarrativeSignals(signals: MatchNarrativeSignal[]) {
-    return signals.filter((signal) =>
-      this.canUseQuestionForNarrative(signal.questionKey),
-    );
-  }
-
-  private buildNarrativeInput(
-    pair: CandidatePair,
-    preparedQuestions: PreparedQuestion[],
-  ): MatchNarrativeInput {
-    const leftIntent = isWeeklyIntent(pair.left.intent)
-      ? pair.left.intent
-      : 'BOTH';
-    const rightIntent = isWeeklyIntent(pair.right.intent)
-      ? pair.right.intent
-      : 'BOTH';
-
-    return {
-      score: pair.score,
-      intentPair: [leftIntent, rightIntent],
-      heuristicReasons: pair.reasons,
-      sharedSignals: this.filterNarrativeSignals(pair.sharedSignals ?? []),
-      participantA: {
-        intro: pair.left.introLine ?? '',
-        questionnaire: this.buildNarrativeQuestionnaire(
-          pair.left,
-          pair.leftQuestions ?? preparedQuestions,
-        ),
-      },
-      participantB: {
-        intro: pair.right.introLine ?? '',
-        questionnaire: this.buildNarrativeQuestionnaire(
-          pair.right,
-          pair.rightQuestions ?? preparedQuestions,
-        ),
-      },
-    };
-  }
-
-  private buildNarrativeInputForStoredMatch(
-    match: NarrativePersistenceMatch,
-    participantsById: Map<string, EligibleParticipant>,
-    preparedQuestions: PreparedQuestion[],
-    revealAt: Date,
-    questionnairesByVersionId = new Map<string, PreparedQuestion[]>(),
-  ): MatchNarrativeInput | null {
-    const orderedParticipants = [...match.participants].sort(
-      (left, right) => left.position - right.position,
-    );
-    const left = orderedParticipants[0]
-      ? participantsById.get(orderedParticipants[0].userId)
-      : null;
-    const right = orderedParticipants[1]
-      ? participantsById.get(orderedParticipants[1].userId)
-      : null;
-
-    if (!left || !right) {
-      return null;
-    }
-
-    const pairQuestionSet = this.buildPairQuestionSet(
-      left,
-      right,
-      preparedQuestions,
-      questionnairesByVersionId,
-    );
-    const rescoredPair = this.scorePair(
-      left,
-      right,
-      preparedQuestions,
-      revealAt,
-      undefined,
-      pairQuestionSet,
-    );
-
-    return {
-      score: match.score,
-      intentPair: [left.intent, right.intent],
-      heuristicReasons: this.normalizeStoredReasons(match.reasons),
-      sharedSignals: this.filterNarrativeSignals(
-        rescoredPair?.sharedSignals ?? [],
-      ),
-      participantA: {
-        intro: left.introLine ?? '',
-        questionnaire: this.buildNarrativeQuestionnaire(
-          left,
-          pairQuestionSet.leftQuestions,
-        ),
-      },
-      participantB: {
-        intro: right.introLine ?? '',
-        questionnaire: this.buildNarrativeQuestionnaire(
-          right,
-          pairQuestionSet.rightQuestions,
-        ),
-      },
-    };
-  }
-
-  private buildNarrativeQuestionnaire(
-    participant: EligibleParticipant,
-    preparedQuestions: PreparedQuestion[],
-  ): MatchNarrativeQuestionAnswer[] {
-    if (!participant.answers) {
-      return [];
-    }
-
-    return preparedQuestions
-      .filter((question) => !isHardMatchKey(question.key))
-      .map((question) => {
-        const normalizedAnswer = normalizePreparedQuestionAnswer(
-          question,
-          participant.answers[question.key],
-          { invalidAsNull: true },
-        );
-
-        if (normalizedAnswer == null) {
-          return null;
-        }
-
-        const answerValues = Array.isArray(normalizedAnswer)
-          ? normalizedAnswer
-          : [normalizedAnswer];
-        const answerLabels = answerValues.map((value) =>
-          labelForQuestionValue(value, question.normalizedOptions),
-        );
-
-        return {
-          key: question.key,
-          prompt: question.prompt,
-          description: question.description ?? null,
-          type: question.type,
-          weight: question.weight,
-          answerValues,
-          answerLabels,
-        } satisfies MatchNarrativeQuestionAnswer;
-      })
-      .filter(
-        (questionAnswer): questionAnswer is MatchNarrativeQuestionAnswer =>
-          questionAnswer !== null,
-      );
-  }
-
-  private normalizeStoredReasons(rawReasons: Prisma.JsonValue) {
-    if (!Array.isArray(rawReasons)) {
-      return [];
-    }
-
-    return rawReasons.filter(
-      (reason): reason is string =>
-        typeof reason === 'string' && reason.trim().length > 0,
-    );
   }
 
   private selectRetentionPriorityPairs(
@@ -2815,55 +2067,6 @@ export class CyclesService {
     };
   }
 
-  private async disablePendingNarratives(cycleId: string) {
-    await this.prisma.match.updateMany({
-      where: {
-        cycleId,
-        narrativeSource: null,
-      },
-      data: {
-        conversationTopics: [],
-        narrativeSource: 'DISABLED',
-      },
-    });
-  }
-
-  private countPendingNarratives(cycleId: string) {
-    return this.prisma.match.count({
-      where: {
-        cycleId,
-        narrativeSource: null,
-      },
-    });
-  }
-
-  private loadPendingNarrativeMatches(cycleId: string) {
-    return this.prisma.match.findMany({
-      where: {
-        cycleId,
-        narrativeSource: null,
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        score: true,
-        reasons: true,
-        createdAt: true,
-        participants: {
-          select: {
-            userId: true,
-            position: true,
-          },
-          orderBy: { position: 'asc' },
-        },
-      },
-    });
-  }
-
-  private hasNarrativeTimedOut(createdAt: Date) {
-    return Date.now() - createdAt.getTime() >= MATCH_NARRATIVE_DEFAULT_AFTER_MS;
-  }
-
   private logAutomationError(
     stage: 'prepare' | 'reveal',
     cycleId: string,
@@ -2874,16 +2077,5 @@ export class CyclesService {
     this.logger.error(
       `Cycle automation ${stage} failed for cycle ${cycleId}. ${message}`,
     );
-  }
-
-  private buildNarrativeErrorMessage(
-    stage: 'pair_generation' | 'match_retry',
-    key: string,
-    index: number,
-    error: unknown,
-  ) {
-    const message =
-      error instanceof Error ? error.message : 'Unknown narrative error.';
-    return `Narrative ${stage} failed for ${key} at index ${index}. ${message}`;
   }
 }

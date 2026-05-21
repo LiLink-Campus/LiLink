@@ -1,38 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { QuestionType } from '../../common/prisma/client';
 
-export const QUESTION_REASON_RULE_TYPES = [
-  'EXACT_MATCH',
-  'MULTI_OVERLAP',
-] as const;
-
 export type QuestionOption = {
   value: string;
   label: string;
-};
-
-type ExactMatchReasonRule = {
-  type: 'EXACT_MATCH';
-  template: string;
-  priority?: number;
-};
-
-type MultiOverlapReasonRule = {
-  type: 'MULTI_OVERLAP';
-  template: string;
-  priority?: number;
-  minOverlap?: number;
-  maxLabels?: number;
-};
-
-export type QuestionReasonRule = ExactMatchReasonRule | MultiOverlapReasonRule;
-
-type RawQuestionReasonRule = {
-  type?: unknown;
-  template?: unknown;
-  priority?: unknown;
-  minOverlap?: unknown;
-  maxLabels?: unknown;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -46,20 +17,6 @@ function readTrimmedString(value: unknown) {
 
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
-}
-
-function readNonNegativeInteger(value: unknown) {
-  if (value == null) {
-    return null;
-  }
-
-  if (!Number.isInteger(value) || Number(value) < 0) {
-    throw new BadRequestException(
-      'Reason rule numeric settings must be non-negative integers.',
-    );
-  }
-
-  return Number(value);
 }
 
 export function normalizeQuestionOptions(
@@ -162,72 +119,6 @@ export function labelForQuestionValue(
   options: QuestionOption[],
 ) {
   return options.find((option) => option.value === value)?.label ?? value;
-}
-
-export function normalizeQuestionReasonRules(
-  rawRules: unknown,
-): QuestionReasonRule[] {
-  if (rawRules == null) {
-    return [];
-  }
-
-  if (!Array.isArray(rawRules)) {
-    throw new BadRequestException('Question reason rules must be an array.');
-  }
-
-  return rawRules.map((rule, index) => {
-    if (!isRecord(rule)) {
-      throw new BadRequestException(
-        `Reason rule #${index + 1} must be an object.`,
-      );
-    }
-
-    const rawRule = rule as RawQuestionReasonRule;
-    const type = readTrimmedString(rawRule.type);
-    const template = readTrimmedString(rawRule.template);
-
-    if (!type || !QUESTION_REASON_RULE_TYPES.includes(type as never)) {
-      throw new BadRequestException(
-        `Reason rule #${index + 1} has an unsupported type.`,
-      );
-    }
-
-    if (!template) {
-      throw new BadRequestException(
-        `Reason rule #${index + 1} must define a template.`,
-      );
-    }
-
-    const priority = readNonNegativeInteger(rawRule.priority) ?? undefined;
-
-    if (type === 'EXACT_MATCH') {
-      return {
-        type: 'EXACT_MATCH',
-        template,
-        priority,
-      } satisfies ExactMatchReasonRule;
-    }
-
-    return {
-      type: 'MULTI_OVERLAP',
-      template,
-      priority,
-      minOverlap: readNonNegativeInteger(rawRule.minOverlap) ?? undefined,
-      maxLabels: readNonNegativeInteger(rawRule.maxLabels) ?? undefined,
-    } satisfies MultiOverlapReasonRule;
-  });
-}
-
-export function renderReasonTemplate(
-  template: string,
-  values: Record<string, string | number>,
-) {
-  return template.replace(
-    /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g,
-    (_, key: string) => {
-      return values[key] == null ? '' : String(values[key]);
-    },
-  );
 }
 
 type NormalizableQuestion = {

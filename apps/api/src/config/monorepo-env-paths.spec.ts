@@ -25,8 +25,8 @@ jest.mock('dotenv', () => ({
       const target = options?.processEnv ?? process.env;
       const normalizedPath = options?.path?.replace(/\\/g, '/') ?? '';
       const parsed = normalizedPath.endsWith('/apps/api/.env')
-        ? { DEEPSEEK_API_KEY: 'api-file-key' }
-        : { DEEPSEEK_API_KEY: 'root-file-key' };
+        ? { SAMPLE_ENV_KEY: 'api-file-key' }
+        : { SAMPLE_ENV_KEY: 'root-file-key' };
 
       for (const [key, value] of Object.entries(parsed)) {
         if (options?.override || target[key] === undefined) {
@@ -45,7 +45,7 @@ describe('preloadMonorepoEnvIntoProcess', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    process.env = { ...originalEnv, DEEPSEEK_API_KEY: 'shell-key' };
+    process.env = { ...originalEnv, SAMPLE_ENV_KEY: 'shell-key' };
   });
 
   afterAll(() => {
@@ -55,6 +55,6 @@ describe('preloadMonorepoEnvIntoProcess', () => {
   it('lets apps/api/.env override parent process values', () => {
     preloadMonorepoEnvIntoProcess();
 
-    expect(process.env.DEEPSEEK_API_KEY).toBe('api-file-key');
+    expect(process.env.SAMPLE_ENV_KEY).toBe('api-file-key');
   });
 });

@@ -29,14 +29,6 @@ type AdminQuestionOption = {
   label: string;
 };
 
-export type AdminQuestionReasonRule = {
-  type: "EXACT_MATCH" | "MULTI_OVERLAP";
-  template: string;
-  priority?: number;
-  minOverlap?: number;
-  maxLabels?: number;
-};
-
 export type AdminQuestion = {
   id: string;
   key: string;
@@ -44,7 +36,6 @@ export type AdminQuestion = {
   type: "SINGLE_SELECT" | "MULTI_SELECT" | "SCALE";
   selectionLimit: number | null;
   options: AdminQuestionOption[] | null;
-  reasonRules: AdminQuestionReasonRule[] | null;
   order: number;
   weight: number;
 };
@@ -146,12 +137,19 @@ export type CycleParticipantDetail = {
   user: AdminUser;
 };
 
+export type CycleMatchFeedback = {
+  id: string;
+  authorUserId: string;
+  subjectUserId: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CycleMatchDetail = {
   id: string;
   score: number;
-  reasons: string[];
-  reason: string | null;
-  conversationTopics: string[];
   revealedAt: string | null;
   introducedAt: string | null;
   participants: Array<{
@@ -165,6 +163,7 @@ export type CycleMatchDetail = {
     >;
   }>;
   reports: AdminReport[];
+  feedback: CycleMatchFeedback[];
 };
 
 export type AdminCycleDetail = {
@@ -189,7 +188,6 @@ export type AdminCyclePreview = {
     leftDisplayName: string | null;
     rightDisplayName: string | null;
     score: number;
-    reasons: string[];
   }>;
   suggestedPairs: Array<{
     leftUserId: string;
@@ -197,7 +195,6 @@ export type AdminCyclePreview = {
     leftDisplayName: string | null;
     rightDisplayName: string | null;
     score: number;
-    reasons: string[];
   }>;
   unmatchedUserIds: string[];
 };

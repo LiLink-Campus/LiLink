@@ -6,16 +6,17 @@ import {
   limitedHistoryExplanation,
   reportHandlingChipLabel,
 } from "../_lib/format";
-import { MatchExplanation } from "./MatchExplanation";
-import type { DashboardHistoryItem } from "../_lib/types";
+import { CounterpartInfo } from "./CounterpartInfo";
+import type { DashboardHistoryItem, MatchFeedback } from "../_lib/types";
 
 type MatchHistoryListProps = {
   history: DashboardHistoryItem[];
   currentUserId: string;
-  saving: null | "contact" | "report";
+  saving: null | "contact" | "report" | "feedback";
   reportFormIsOpenForMatch: (matchId: string) => boolean;
   onRequestContact: (matchId: string) => void;
   onToggleReport: (matchId: string) => void;
+  onToggleFeedback: (matchId: string, existing: MatchFeedback | null) => void;
 };
 
 /**
@@ -30,6 +31,7 @@ export function MatchHistoryList({
   reportFormIsOpenForMatch,
   onRequestContact,
   onToggleReport,
+  onToggleFeedback,
 }: MatchHistoryListProps) {
   if (history.length === 0) {
     return (
@@ -99,10 +101,11 @@ export function MatchHistoryList({
                           对方介绍：{counterpart.introLine}
                         </p>
                       ) : null}
-                      <MatchExplanation
-                        reason={hm.reason}
-                        reasons={hm.reasons}
-                        conversationTopics={hm.conversationTopics}
+                      <CounterpartInfo
+                        gender={counterpart?.gender}
+                        partnerGenders={counterpart?.partnerGenders}
+                        weeklyIntent={counterpart?.weeklyIntent}
+                        compact
                       />
                       <div className="auth-actions">
                         {introducedRow ? (
@@ -136,6 +139,16 @@ export function MatchHistoryList({
                             </button>
                           );
                         })()}
+                        <button
+                          className="button-secondary"
+                          disabled={saving === "feedback"}
+                          type="button"
+                          onClick={() =>
+                            onToggleFeedback(hm.id, hm.currentUserFeedback)
+                          }
+                        >
+                          {hm.currentUserFeedback ? "查看 / 修改评价" : "填写反馈"}
+                        </button>
                       </div>
                     </>
                   );

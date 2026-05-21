@@ -47,6 +47,7 @@ import {
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEY_MAX_LENGTH,
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEYS_MAX_ITEMS,
   REPORT_DETAILS_MAX_LENGTH,
+  MATCH_FEEDBACK_COMMENT_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 
 export class UpdateProfileDto {
@@ -262,6 +263,41 @@ export class DashboardMatchParticipantResponseDto {
 
   @ApiProperty({ nullable: true, format: 'date-time' })
   contactRequestedAt!: string | null;
+
+  @ApiProperty({ nullable: true })
+  gender!: string | null;
+
+  @ApiProperty({ type: String, isArray: true })
+  partnerGenders!: string[];
+
+  @ApiProperty({ enum: ['FRIEND', 'DATE', 'BOTH'], nullable: true })
+  weeklyIntent!: WeeklyIntent | null;
+}
+
+export class MatchFeedbackResponseDto {
+  @ApiProperty({ minimum: 1, maximum: 5 })
+  rating!: number;
+
+  @ApiProperty({ nullable: true })
+  comment!: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  submittedAt!: string;
+}
+
+export class SubmitMatchFeedbackDto {
+  @ApiProperty({ minimum: 1, maximum: 5 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating!: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(MATCH_FEEDBACK_COMMENT_MAX_LENGTH)
+  comment?: string | null;
 }
 
 export class DashboardMatchResponseDto {
@@ -270,15 +306,6 @@ export class DashboardMatchResponseDto {
 
   @ApiProperty()
   score!: number;
-
-  @ApiProperty({ type: String, isArray: true })
-  reasons!: string[];
-
-  @ApiProperty({ nullable: true })
-  reason!: string | null;
-
-  @ApiProperty({ type: String, isArray: true })
-  conversationTopics!: string[];
 
   @ApiProperty({ nullable: true, format: 'date-time' })
   introducedAt!: string | null;
@@ -297,6 +324,9 @@ export class DashboardMatchResponseDto {
     isArray: true,
   })
   participants!: DashboardMatchParticipantResponseDto[];
+
+  @ApiProperty({ type: () => MatchFeedbackResponseDto, nullable: true })
+  currentUserFeedback!: MatchFeedbackResponseDto | null;
 }
 
 export class DashboardHistoryItemResponseDto {

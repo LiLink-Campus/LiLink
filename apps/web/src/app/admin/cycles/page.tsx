@@ -94,19 +94,6 @@ function buildAdminQueryString(
   return serialized ? `?${serialized}` : "";
 }
 
-function truncateAdminNarrativePreview(value: string | null, maxLength = 56) {
-  const normalizedValue = value?.trim();
-  if (!normalizedValue) {
-    return "";
-  }
-
-  if (normalizedValue.length <= maxLength) {
-    return normalizedValue;
-  }
-
-  return `${normalizedValue.slice(0, maxLength).trim()}…`;
-}
-
 export default function AdminCyclesPage() {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminCycle["status"]>("ALL");
@@ -808,7 +795,6 @@ export default function AdminCyclesPage() {
                 <div className="admin-record-list">
                   {matchesData.items.map((match) => {
                     const isExpanded = expandedMatchId === match.id;
-                    const reasonPreview = truncateAdminNarrativePreview(match.reason);
 
                     return (
                     <div key={match.id} className="admin-record-item">
@@ -820,13 +806,7 @@ export default function AdminCyclesPage() {
                         <span>揭晓：{match.revealedAt ? formatChinaStandardDateTime(match.revealedAt) : "待揭晓"}</span>
                         <span>引荐：{match.introducedAt ? formatChinaStandardDateTime(match.introducedAt) : "未引荐"}</span>
                         <span>举报数：{match.reports.length}</span>
-                      </div>
-                      <div className="admin-inline-meta" style={{ marginTop: "0.65rem" }}>
-                        <span>
-                          文案：
-                          {match.reason?.trim() || match.reasons.length > 0 ? "已生成" : "暂无"}
-                        </span>
-                        {reasonPreview ? <span>{reasonPreview}</span> : null}
+                        <span>反馈数：{match.feedback.length}</span>
                       </div>
                       <div className="auth-actions" style={{ marginTop: "0.75rem" }}>
                         <button
@@ -834,26 +814,33 @@ export default function AdminCyclesPage() {
                           type="button"
                           onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
                         >
-                          {isExpanded ? "收起文案" : "查看文案"}
+                          {isExpanded ? "收起反馈" : "查看反馈"}
                         </button>
                       </div>
                       {isExpanded ? (
-                        <>
-                          {match.reason?.trim() ? (
-                            <p style={{ margin: "0.75rem 0 0" }}>{match.reason}</p>
-                          ) : (
-                            <ul className="admin-reason-list">
-                              {match.reasons.map((r) => <li key={r}>{r}</li>)}
-                            </ul>
-                          )}
-                          {match.conversationTopics.length > 0 ? (
-                            <ul className="admin-reason-list">
-                              {match.conversationTopics.map((topic) => (
-                                <li key={topic}>{topic}</li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </>
+                        match.feedback.length > 0 ? (
+                          <ul className="admin-reason-list" style={{ marginTop: "0.75rem" }}>
+                            {match.feedback.map((fb) => {
+                              const author = match.participants.find(
+                                (p) => p.userId === fb.authorUserId,
+                              );
+                              const authorName =
+                                author?.user.displayName ??
+                                author?.user.email ??
+                                fb.authorUserId;
+                              return (
+                                <li key={fb.id}>
+                                  {authorName} 评分 {fb.rating}/5
+                                  {fb.comment ? `：${fb.comment}` : ""}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : (
+                          <p style={{ margin: "0.75rem 0 0" }}>
+                            双方暂未提交反馈评价。
+                          </p>
+                        )
                       ) : null}
                     </div>
                   )})}
@@ -936,9 +923,6 @@ export default function AdminCyclesPage() {
                       <strong>{pair.leftDisplayName ?? pair.leftUserId} × {pair.rightDisplayName ?? pair.rightUserId}</strong>
                       <span className="domain-chip">分数 {pair.score.toFixed(1)}</span>
                     </div>
-                    <ul className="admin-reason-list">
-                      {pair.reasons.map((r) => <li key={r}>{r}</li>)}
-                    </ul>
                   </div>
                 ))}
                 {allP.length === 0 && <div className="admin-empty-state">当前没有建议匹配。</div>}

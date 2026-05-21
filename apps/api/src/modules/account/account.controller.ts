@@ -19,6 +19,7 @@ import {
   DashboardResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
+  SubmitMatchFeedbackDto,
   ToggleParticipationDto,
   UpdateContactPreferencesDto,
   UpdateProfileDto,
@@ -146,6 +147,19 @@ export class AccountController {
     @Body() body: ReportMatchDto,
   ) {
     return this.accountService.reportMatch(request.user!.sub, matchId, body);
+  }
+
+  @Put('matches/:matchId/feedback')
+  submitMatchFeedback(
+    @Req() request: AuthenticatedRequest,
+    @Param('matchId') matchId: string,
+    @Body() body: SubmitMatchFeedbackDto,
+  ) {
+    return this.accountService.submitMatchFeedback(
+      request.user!.sub,
+      matchId,
+      body,
+    );
   }
 
   private readLocaleCookie(request: AuthenticatedRequest) {

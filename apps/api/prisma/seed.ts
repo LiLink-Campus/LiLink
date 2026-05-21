@@ -54,33 +54,6 @@ function canonicalJson(value: unknown) {
   return JSON.stringify(canonicalizeJson(value));
 }
 
-function exactMatchRule(template: string, priority: number) {
-  return [
-    {
-      type: 'EXACT_MATCH',
-      template,
-      priority,
-    },
-  ];
-}
-
-function multiOverlapRule(
-  template: string,
-  priority: number,
-  maxLabels = 2,
-  minOverlap = 1,
-) {
-  return [
-    {
-      type: 'MULTI_OVERLAP',
-      template,
-      priority,
-      maxLabels,
-      minOverlap,
-    },
-  ];
-}
-
 const OUTING_SPEND_OPTIONS = [
   '无所谓，看当时和心情',
   '更希望 AA',
@@ -245,7 +218,6 @@ type QuestionnaireSeedQuestion = {
   weight: number;
   options: readonly string[];
   selectionLimit?: number;
-  reasonRules: Prisma.InputJsonValue;
 };
 
 const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
@@ -256,10 +228,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 1,
     weight: 4,
     options: RELATIONSHIP_INTENT_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们对进入关系的预期都偏向 {{answer_label}}。',
-      4,
-    ),
   },
   {
     key: 'pace',
@@ -268,10 +236,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 2,
     weight: 3,
     options: PACE_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们都更接受 {{answer_label}} 的推进节奏。',
-      3,
-    ),
   },
   {
     key: 'define_relationship_timing',
@@ -280,7 +244,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 3,
     weight: 3,
     options: DEFINE_RELATIONSHIP_TIMING_OPTIONS,
-    reasonRules: exactMatchRule('你们对“什么时候确认关系”的想法比较接近。', 3),
   },
   {
     key: 'contact_frequency',
@@ -289,10 +252,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 4,
     weight: 3,
     options: CONTACT_FREQUENCY_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们都舒服于 {{answer_label}} 的联系频率。',
-      3,
-    ),
   },
   {
     key: 'weekend',
@@ -301,10 +260,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 5,
     weight: 2,
     options: WEEKEND_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们都更喜欢 {{answer_label}} 的周末状态。',
-      2,
-    ),
   },
   {
     key: 'communication',
@@ -313,10 +268,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 6,
     weight: 4,
     options: COMMUNICATION_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们处理分歧时，都更接受 {{answer_label}}。',
-      4,
-    ),
   },
   {
     key: 'repair_style',
@@ -325,7 +276,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 7,
     weight: 4,
     options: REPAIR_STYLE_OPTIONS,
-    reasonRules: exactMatchRule('你们对冲突后的修复方式比较一致。', 4),
   },
   {
     key: 'apology_expectation',
@@ -334,7 +284,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 8,
     weight: 3,
     options: APOLOGY_EXPECTATION_OPTIONS,
-    reasonRules: exactMatchRule('你们都更在意 {{answer_label}}。', 3),
   },
   {
     key: 'outing_spend_style',
@@ -343,10 +292,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 9,
     weight: 2,
     options: OUTING_SPEND_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们对出去玩时谁来买单或 AA 的期待比较一致，相处时更省心。',
-      2,
-    ),
   },
   {
     key: 'career_relationship_balance',
@@ -355,7 +300,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 10,
     weight: 2,
     options: CAREER_RELATIONSHIP_BALANCE_OPTIONS,
-    reasonRules: exactMatchRule('你们对当前阶段重心的判断接近。', 2),
   },
   {
     key: 'social_energy',
@@ -364,10 +308,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 11,
     weight: 2,
     options: SCALE_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们在主动推进关系这件事上的倾向比较接近。',
-      2,
-    ),
   },
   {
     key: 'emotional_openness',
@@ -376,10 +316,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 12,
     weight: 2,
     options: SCALE_OPTIONS,
-    reasonRules: exactMatchRule(
-      '你们在表达真实情绪这件事上的习惯比较接近。',
-      2,
-    ),
   },
   {
     key: 'space_need',
@@ -388,7 +324,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 13,
     weight: 2,
     options: SCALE_OPTIONS,
-    reasonRules: exactMatchRule('你们对亲密和个人空间的边界感比较接近。', 2),
   },
   {
     key: 'novelty_need',
@@ -397,7 +332,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     order: 14,
     weight: 2,
     options: SCALE_OPTIONS,
-    reasonRules: exactMatchRule('你们对关系中新鲜感的偏好比较接近。', 2),
   },
   {
     key: 'values',
@@ -407,7 +341,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 4,
     options: VALUE_POOL,
     selectionLimit: 4,
-    reasonRules: multiOverlapRule('你们都把 {{labels_2}} 放在重要位置。', 4),
   },
   {
     key: 'green_flags',
@@ -417,7 +350,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 3,
     options: GREEN_FLAG_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们都会被 {{labels_2}} 这类特质打动。', 3),
   },
   {
     key: 'red_flag_sensitivity',
@@ -427,10 +359,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 3,
     options: RED_FLAG_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule(
-      '你们都对 {{labels_2}} 这类相处问题比较敏感。',
-      3,
-    ),
   },
   {
     key: 'support_need',
@@ -440,10 +368,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 3,
     options: SUPPORT_NEED_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule(
-      '你们需要的支持方式里，都包含 {{labels_2}}。',
-      3,
-    ),
   },
   {
     key: 'feeling_cared_for',
@@ -453,10 +377,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 3,
     options: FEELING_CARED_FOR_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule(
-      '你们感到被在乎的方式里，都有 {{labels_2}}。',
-      3,
-    ),
   },
   {
     key: 'ideal_date_style',
@@ -466,7 +386,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 2,
     options: IDEAL_DATE_STYLE_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们都偏好 {{labels_2}} 这类约会方式。', 2),
   },
   {
     key: 'shared_growth_topics',
@@ -476,7 +395,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 2,
     options: SHARED_GROWTH_TOPIC_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们都愿意一起投入 {{labels_2}}。', 2),
   },
   {
     key: 'future_picture',
@@ -486,10 +404,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 2,
     options: FUTURE_PICTURE_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule(
-      '你们对关系未来的期待里，都包含 {{labels_2}}。',
-      2,
-    ),
   },
   {
     key: 'admired_partner_traits',
@@ -499,10 +413,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 1,
     options: ADMIRED_PARTNER_TRAIT_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule(
-      '你们欣赏的对象气质里，都有 {{labels_2}}。',
-      1,
-    ),
   },
   {
     key: 'small_happiness',
@@ -512,10 +422,6 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
     weight: 1,
     options: SMALL_HAPPINESS_OPTIONS,
     selectionLimit: 3,
-    reasonRules: multiOverlapRule(
-      '你们都容易在 {{labels_2}} 这种瞬间里感受到关系感。',
-      1,
-    ),
   },
 ];
 
@@ -529,7 +435,6 @@ function seededQuestionMatchesDefinition(
     required: boolean;
     selectionLimit: number | null;
     options: Prisma.JsonValue | null;
-    reasonRules: Prisma.JsonValue | null;
   },
   definition: QuestionnaireSeedQuestion,
 ) {
@@ -542,9 +447,7 @@ function seededQuestionMatchesDefinition(
     existingQuestion.required === true &&
     existingQuestion.selectionLimit === (definition.selectionLimit ?? null) &&
     canonicalJson(existingQuestion.options) ===
-      canonicalJson(createOptions(definition.options)) &&
-    canonicalJson(existingQuestion.reasonRules) ===
-      canonicalJson(definition.reasonRules)
+      canonicalJson(createOptions(definition.options))
   );
 }
 
@@ -558,7 +461,6 @@ function seededQuestionnaireMatchesDefinitions(
     required: boolean;
     selectionLimit: number | null;
     options: Prisma.JsonValue | null;
-    reasonRules: Prisma.JsonValue | null;
   }>,
 ) {
   if (existingQuestions.length !== QUESTIONNAIRE_DEFINITIONS.length) {
@@ -601,7 +503,6 @@ async function createSeededQuestionnaireVersion() {
             required: true,
             selectionLimit: question.selectionLimit ?? null,
             options: createOptions(question.options),
-            reasonRules: question.reasonRules,
           })),
         },
       },

@@ -83,10 +83,6 @@ if (!match1) {
     data: {
       cycleId: cycle1.id,
       score: 87.4,
-      reasons: ['你们都重视「真诚」与「稳定」', '沟通方式互补，一方直接、一方先听后说', '周末活动偏好高度重合'],
-      reason: '你们对「认真稳定的关系」都有明确预期，沟通修复风格互补，空间需求相近。',
-      conversationTopics: ['对未来的规划', '各自的求学经历', '周末最喜欢做什么'],
-      narrativeSource: 'RULES_FALLBACK',
       revealedAt: c1RevealAt,
       introducedAt: new Date(c1RevealAt.getTime() + 2 * 60 * 60 * 1000),
     },
@@ -105,9 +101,6 @@ if (!match1) {
 
 const matchPayload1 = {
   id: match1.id, score: 87.4,
-  reasons: ['你们都重视「真诚」与「稳定」', '沟通方式互补', '周末活动偏好高度重合'],
-  reason: '你们对「认真稳定的关系」都有明确预期，沟通修复风格互补，空间需求相近。',
-  conversationTopics: ['对未来的规划', '各自的求学经历', '周末最喜欢做什么'],
   introducedAt: new Date(c1RevealAt.getTime() + 2 * 60 * 60 * 1000).toISOString(),
   currentUserRequestedAt: daysAgo(52).toISOString(),
   reportStatus: null,
@@ -169,10 +162,6 @@ if (!match2) {
     data: {
       cycleId: cycle2.id,
       score: 91.2,
-      reasons: ['对稳定认真关系有一致期待', '情绪处理风格互补', '周末喜好高度一致'],
-      reason: '这对组合在核心价值观与生活节奏上匹配度极高，破冰话题自然丰富。',
-      conversationTopics: ['最近在看什么书/剧', '最喜欢的一次短途旅行', '对「认真相处」的定义'],
-      narrativeSource: 'RULES_FALLBACK',
       revealedAt: c2RevealAt,
       introducedAt: new Date(c2RevealAt.getTime() + 1.5 * 60 * 60 * 1000),
     },
@@ -250,9 +239,6 @@ if (!session) {
 // Snapshots for cycle2
 const matchPayload2 = {
   id: match2.id, score: 91.2,
-  reasons: ['对稳定认真关系有一致期待', '情绪处理风格互补', '周末喜好高度一致'],
-  reason: '这对组合在核心价值观与生活节奏上匹配度极高，破冰话题自然丰富。',
-  conversationTopics: ['最近在看什么书/剧', '最喜欢的一次短途旅行', '对「认真相处」的定义'],
   introducedAt: new Date(c2RevealAt.getTime() + 1.5 * 60 * 60 * 1000).toISOString(),
   currentUserRequestedAt: daysAgo(20).toISOString(),
   reportStatus: null,

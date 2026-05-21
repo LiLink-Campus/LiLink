@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { AuthMePayload } from "../../../../lib/api";
 import { useDashboardSessionSeed } from "../../_components/DashboardSessionSeed";
+import { FeedbackForm } from "../../_components/FeedbackForm";
 import { MatchHistoryList } from "../../_components/MatchHistoryList";
 import { ReportForm } from "../../_components/ReportForm";
 import { useMatchActions } from "../../_components/useMatchActions";
@@ -33,6 +34,15 @@ export function MatchHistoryClient({
     closeReportForm,
     toggleReportForm,
     reportFormIsOpenForMatch,
+    feedbackOpen,
+    feedbackTargetMatchId,
+    feedbackRating,
+    feedbackComment,
+    setFeedbackRating,
+    setFeedbackComment,
+    closeFeedbackForm,
+    toggleFeedbackForm,
+    submitFeedback,
   } = useMatchActions({
     initialDashboard,
     currentUserId: initialUser?.id ?? null,
@@ -71,6 +81,7 @@ export function MatchHistoryClient({
           reportFormIsOpenForMatch={reportFormIsOpenForMatch}
           onRequestContact={(id) => void requestContact(id)}
           onToggleReport={(id) => toggleReportForm(id)}
+          onToggleFeedback={(id, existing) => toggleFeedbackForm(id, existing)}
         />
       </section>
 
@@ -83,6 +94,17 @@ export function MatchHistoryClient({
         onDetailsChange={setReportDetails}
         onSubmit={() => void submitReport()}
         onCancel={closeReportForm}
+      />
+
+      <FeedbackForm
+        open={feedbackOpen && feedbackTargetMatchId !== null}
+        rating={feedbackRating}
+        comment={feedbackComment}
+        saving={saving === "feedback"}
+        onRatingChange={setFeedbackRating}
+        onCommentChange={setFeedbackComment}
+        onSubmit={() => void submitFeedback()}
+        onCancel={closeFeedbackForm}
       />
     </div>
   );

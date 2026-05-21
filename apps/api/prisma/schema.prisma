@@ -51,12 +51,6 @@ enum ReportStatus {
   DISMISSED
 }
 
-enum MatchNarrativeSource {
-  DEEPSEEK
-  RULES_FALLBACK
-  DISABLED
-}
-
 enum DashboardSnapshotResult {
   MATCHED
   UNMATCHED
@@ -199,6 +193,8 @@ model User {
   blocksInitiated       Block[]                @relation("Blocker")
   blocksReceived        Block[]                @relation("BlockedUser")
   matchParticipants     MatchParticipant[]
+  matchFeedbackAuthored MatchFeedback[]        @relation("FeedbackAuthor")
+  matchFeedbackReceived MatchFeedback[]        @relation("FeedbackSubject")
   meetupSessionsStarted MeetupSession[]        @relation("MeetupSessionStartedBy")
   meetupSessionsCanceled MeetupSession[]       @relation("MeetupSessionCanceledBy")
   meetupSessionsFinalConfirm MeetupSession[]   @relation("MeetupSessionFinalConfirmUser")
@@ -289,7 +285,6 @@ model Question {
   required    Boolean              @default(true)
   selectionLimit Int?
   options     Json?
-  reasonRules Json?
 
   @@index([versionId, order])
   @@unique([versionId, key])
@@ -350,10 +345,6 @@ model Match {
   cycleId      String
   cycle        MatchCycle         @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   score        Float
-  reasons      Json
-  reason       String?
-  conversationTopics Json?
-  narrativeSource MatchNarrativeSource?
   revealedAt   DateTime?
   introducedAt DateTime?
   createdAt    DateTime           @default(now())
@@ -361,8 +352,26 @@ model Match {
   participants MatchParticipant[]
   meetupSession MeetupSession?
   reports      Report[]
+  feedback     MatchFeedback[]
 
   @@index([cycleId, createdAt])
+}
+
+model MatchFeedback {
+  id            String   @id @default(cuid())
+  matchId       String
+  match         Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  authorUserId  String
+  author        User     @relation("FeedbackAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  subjectUserId String
+  subject       User     @relation("FeedbackSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  rating        Int
+  comment       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([matchId, authorUserId])
+  @@index([subjectUserId])
 }
 
 model MatchParticipant {

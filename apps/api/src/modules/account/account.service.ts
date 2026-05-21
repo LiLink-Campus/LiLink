@@ -23,11 +23,6 @@ import {
   DEFAULT_MEETUP_EXPIRATION_WEEKS,
   MEETUP_TODO_PRIORITY,
 } from '@lilink/shared';
-import {
-  normalizeConversationTopics,
-  normalizeMatchReason,
-  normalizeMatchReasons,
-} from '../../common/dashboard/match-metadata';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -57,10 +52,13 @@ import {
   DashboardHistoryLimitedReason,
   DashboardHistoryResult,
   DashboardHistoryVisibility,
+  DashboardMatchResponseDto,
   DashboardResponseDto,
   DashboardTaskResponseDto,
+  MatchFeedbackResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
+  SubmitMatchFeedbackDto,
   ToggleParticipationDto,
   UpdateContactPreferencesDto,
   UpdateLocaleDto,
@@ -515,6 +513,10 @@ export class AccountService {
         : this.buildDefaultDashboardHistoryItem(revealedCycle);
     });
     const latestMatch = this.readLatestDashboardMatch(latestSnapshot);
+    await this.attachCurrentUserFeedback(userId, [
+      latestMatch,
+      ...recentMatchHistory.map((item) => item.match),
+    ]);
 
     let lastRevealedRound: {
       cycleId: string;
@@ -1045,12 +1047,28 @@ export class AccountService {
     };
   }
 
-  private defaultConversationTopics() {
-    return [
-      '最近一次让你觉得很放松的周末通常怎么过',
-      '你最近在慢慢坚持的一件事是什么',
-      '什么样的聊天节奏会让你觉得相处自然',
-    ];
+  private readPartyGenderInfo(answers: unknown): {
+    gender: string | null;
+    partnerGenders: string[];
+  } {
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+      return { gender: null, partnerGenders: [] };
+    }
+    const record = answers as Record<string, unknown>;
+    const gender = record[HARD_MATCH_KEYS.gender];
+    const partnerGenders = record[HARD_MATCH_KEYS.partnerGenders];
+    return {
+      gender:
+        typeof gender === 'string' && gender.trim().length > 0
+          ? gender.trim()
+          : null,
+      partnerGenders: Array.isArray(partnerGenders)
+        ? partnerGenders.filter(
+            (entry): entry is string =>
+              typeof entry === 'string' && entry.trim().length > 0,
+          )
+        : [],
+    };
   }
 
   private toDashboardHistoryResult(
@@ -1978,8 +1996,21 @@ export class AccountService {
     const counterpartContact = this.resolvePublicContact(counterpart.user);
 
     const claimedAt = new Date();
-    const conversationTopics = normalizeConversationTopics(
-      participant.match.conversationTopics,
+    const introIntents = await this.prisma.cycleParticipation.findMany({
+      where: {
+        cycleId: participant.match.cycleId,
+        userId: { in: [requester.userId, counterpart.userId] },
+      },
+      select: { userId: true, intent: true },
+    });
+    const intentByUserId = new Map(
+      introIntents.map((row) => [row.userId, row.intent]),
+    );
+    const requesterGenderInfo = this.readPartyGenderInfo(
+      requester.user.questionnaireResponse?.answers,
+    );
+    const counterpartGenderInfo = this.readPartyGenderInfo(
+      counterpart.user.questionnaireResponse?.answers,
     );
 
     let queuedEmails: ReturnType<MailService['buildIntroductionEmails']> = [];
@@ -2019,6 +2050,9 @@ export class AccountService {
             requester.user.profile?.headline,
           ),
           publicContact: requesterContact,
+          gender: requesterGenderInfo.gender,
+          partnerGenders: requesterGenderInfo.partnerGenders,
+          weeklyIntent: intentByUserId.get(requester.userId) ?? null,
         },
         recipient: {
           email: counterpart.user.email,
@@ -2029,16 +2063,10 @@ export class AccountService {
             counterpart.user.profile?.headline,
           ),
           publicContact: counterpartContact,
+          gender: counterpartGenderInfo.gender,
+          partnerGenders: counterpartGenderInfo.partnerGenders,
+          weeklyIntent: intentByUserId.get(counterpart.userId) ?? null,
         },
-        reason:
-          normalizeMatchReason(
-            participant.match.reason,
-            normalizeMatchReasons(participant.match.reasons),
-          ) ?? '你们在多项关系判断与日常偏好上呈现出稳定的相容趋势。',
-        conversationTopics:
-          conversationTopics.length > 0
-            ? conversationTopics
-            : this.defaultConversationTopics(),
       });
 
       const claimedMatch = await tx.match.updateMany({
@@ -2107,6 +2135,151 @@ export class AccountService {
 
     return {
       ok: true,
+    };
+  }
+
+  private async attachCurrentUserFeedback(
+    userId: string,
+    matches: Array<DashboardMatchResponseDto | null>,
+  ) {
+    const present = matches.filter(
+      (match): match is DashboardMatchResponseDto => match != null,
+    );
+    if (present.length === 0) {
+      return;
+    }
+
+    const matchIds = [...new Set(present.map((match) => match.id))];
+    const feedbacks = await this.prisma.matchFeedback.findMany({
+      where: {
+        matchId: { in: matchIds },
+        authorUserId: userId,
+      },
+      select: {
+        matchId: true,
+        rating: true,
+        comment: true,
+        updatedAt: true,
+      },
+    });
+    const feedbackByMatchId = new Map(
+      feedbacks.map((feedback) => [feedback.matchId, feedback]),
+    );
+
+    for (const match of present) {
+      const feedback = feedbackByMatchId.get(match.id);
+      match.currentUserFeedback = feedback
+        ? {
+            rating: feedback.rating,
+            comment: feedback.comment,
+            submittedAt: feedback.updatedAt.toISOString(),
+          }
+        : null;
+    }
+  }
+
+  async submitMatchFeedback(
+    userId: string,
+    matchId: string,
+    input: SubmitMatchFeedbackDto,
+  ): Promise<MatchFeedbackResponseDto> {
+    const participant = await this.prisma.matchParticipant.findFirst({
+      where: {
+        matchId,
+        userId,
+      },
+      include: {
+        match: {
+          select: {
+            id: true,
+            revealedAt: true,
+            participants: {
+              select: { userId: true },
+            },
+            reports: {
+              where: { reporterId: userId },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!participant) {
+      throw new NotFoundException('Match was not found for this user.');
+    }
+
+    if (participant.match.revealedAt == null) {
+      throw new BadRequestException('This match is not revealed yet.');
+    }
+
+    const counterpart = participant.match.participants.find(
+      (item) => item.userId !== userId,
+    );
+
+    if (!counterpart) {
+      throw new BadRequestException(
+        'Counterpart was not found for this match.',
+      );
+    }
+
+    if (participant.match.reports.length > 0) {
+      throw new BadRequestException(
+        'This match is no longer available for feedback.',
+      );
+    }
+
+    const block = await this.prisma.block.findFirst({
+      where: {
+        OR: [
+          { blockerId: userId, blockedId: counterpart.userId },
+          { blockerId: counterpart.userId, blockedId: userId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (block) {
+      throw new BadRequestException(
+        'This match is no longer available for feedback.',
+      );
+    }
+
+    const comment =
+      typeof input.comment === 'string' && input.comment.trim().length > 0
+        ? input.comment.trim()
+        : null;
+
+    const feedback = await this.prisma.matchFeedback.upsert({
+      where: {
+        matchId_authorUserId: {
+          matchId,
+          authorUserId: userId,
+        },
+      },
+      update: {
+        rating: input.rating,
+        comment,
+        subjectUserId: counterpart.userId,
+      },
+      create: {
+        matchId,
+        authorUserId: userId,
+        subjectUserId: counterpart.userId,
+        rating: input.rating,
+        comment,
+      },
+    });
+
+    await this.createAuditLog(userId, 'match.feedback_submitted', {
+      matchId,
+      rating: feedback.rating,
+    });
+
+    return {
+      rating: feedback.rating,
+      comment: feedback.comment,
+      submittedAt: feedback.updatedAt.toISOString(),
     };
   }
 

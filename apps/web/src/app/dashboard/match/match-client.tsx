@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import type { AuthMePayload } from "../../../lib/api";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
-import { MatchExplanation } from "../_components/MatchExplanation";
+import { CounterpartInfo } from "../_components/CounterpartInfo";
+import { FeedbackForm } from "../_components/FeedbackForm";
 import { MatchStateHero } from "../_components/MatchStateHero";
 import { MeetupStatusRibbon } from "../_components/MeetupStatusRibbon";
 import { ReportForm } from "../_components/ReportForm";
@@ -56,6 +57,14 @@ export function MatchClient({
     setReportDetails,
     closeReportForm,
     toggleReportForm,
+    feedbackRating,
+    feedbackComment,
+    setFeedbackRating,
+    setFeedbackComment,
+    closeFeedbackForm,
+    toggleFeedbackForm,
+    feedbackFormIsOpenForMatch,
+    submitFeedback,
   } = useMatchActions({
     initialDashboard,
     currentUserId: initialUser?.id ?? null,
@@ -239,18 +248,12 @@ export function MatchClient({
           </p>
         ) : null}
 
-        {showExplanation && latestMatch ? (
+        {showExplanation && counterpart ? (
           <div className="v2-match-hero-section">
-            <MatchExplanation
-              note={
-                introduced
-                  ? "以下内容与发至你邮箱的引荐邮件中的一致。"
-                  : "以下匹配理由基于你和对方填写的匹配资料生成。"
-              }
-              reason={latestMatch.reason}
-              reasons={latestMatch.reasons}
-              conversationTopics={latestMatch.conversationTopics}
-              emptyReasonFallback="暂无匹配理由条目。"
+            <CounterpartInfo
+              gender={counterpart.gender}
+              partnerGenders={counterpart.partnerGenders}
+              weeklyIntent={counterpart.weeklyIntent}
             />
           </div>
         ) : null}
@@ -396,6 +399,25 @@ export function MatchClient({
           <button
             type="button"
             className="button-ghost button-block"
+            onClick={() =>
+              toggleFeedbackForm(
+                latestMatch.id,
+                latestMatch.currentUserFeedback,
+              )
+            }
+            disabled={saving === "feedback"}
+          >
+            {latestMatch.currentUserFeedback
+              ? "查看 / 修改本次评价"
+              : "填写本次反馈评价"}
+          </button>
+        ) : null}
+        {latestMatch &&
+        dashboard?.latestMatchVisibility !== "LIMITED" &&
+        !reportHandlingChipLabel(latestMatch.reportStatus) ? (
+          <button
+            type="button"
+            className="button-ghost button-block"
             onClick={() => toggleReportForm(latestMatch.id)}
             disabled={saving === "report"}
           >
@@ -413,6 +435,17 @@ export function MatchClient({
         onDetailsChange={setReportDetails}
         onSubmit={() => void submitReport()}
         onCancel={closeReportForm}
+      />
+
+      <FeedbackForm
+        open={latestMatch ? feedbackFormIsOpenForMatch(latestMatch.id) : false}
+        rating={feedbackRating}
+        comment={feedbackComment}
+        saving={saving === "feedback"}
+        onRatingChange={setFeedbackRating}
+        onCommentChange={setFeedbackComment}
+        onSubmit={() => void submitFeedback()}
+        onCancel={closeFeedbackForm}
       />
     </div>
   );

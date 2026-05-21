@@ -14,10 +14,7 @@ import { ensureStickyCycleParticipations } from '../../common/participation/stic
 import { parseDateTimeAsChinaStandardOrInstant } from '../../common/time/china-standard-time';
 import { env } from '../../config/env';
 import { CyclesService } from '../cycles/cycles.service';
-import {
-  normalizeQuestionOptions,
-  normalizeQuestionReasonRules,
-} from '../questionnaire/questionnaire-config';
+import { normalizeQuestionOptions } from '../questionnaire/questionnaire-config';
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminSchoolService } from './admin-school.service';
@@ -61,7 +58,6 @@ type QuestionnaireRevisionQuestion = {
   required: boolean;
   selectionLimit: number | null;
   options: Prisma.InputJsonValue | typeof Prisma.DbNull;
-  reasonRules: Prisma.InputJsonValue | typeof Prisma.DbNull;
   order: number;
   weight: number;
 };
@@ -79,7 +75,6 @@ type CurrentQuestionnaireForMutation = {
     required: boolean;
     selectionLimit: number | null;
     options: Prisma.JsonValue | null;
-    reasonRules: Prisma.JsonValue | null;
     order: number;
     weight: number;
   }>;
@@ -833,9 +828,6 @@ export class AdminService {
         select: {
           id: true,
           score: true,
-          reasons: true,
-          reason: true,
-          conversationTopics: true,
           revealedAt: true,
           introducedAt: true,
           participants: {
@@ -864,6 +856,18 @@ export class AdminService {
             select: adminReportListSelect,
             orderBy: { createdAt: 'desc' },
           },
+          feedback: {
+            select: {
+              id: true,
+              authorUserId: true,
+              subjectUserId: true,
+              rating: true,
+              comment: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            orderBy: { createdAt: 'asc' },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: pagination.skip,
@@ -872,28 +876,7 @@ export class AdminService {
       this.prisma.match.count({ where }),
     ]);
 
-    const normalizedItems = items.map((item) => ({
-      ...item,
-      reason:
-        typeof item.reason === 'string' && item.reason.trim().length > 0
-          ? item.reason.trim()
-          : Array.isArray(item.reasons)
-            ? item.reasons
-                .filter(
-                  (reason): reason is string =>
-                    typeof reason === 'string' && reason.trim().length > 0,
-                )
-                .join(' ')
-            : null,
-      conversationTopics: Array.isArray(item.conversationTopics)
-        ? item.conversationTopics.filter(
-            (topic): topic is string =>
-              typeof topic === 'string' && topic.trim().length > 0,
-          )
-        : [],
-    }));
-
-    return this.buildPageResult(normalizedItems, total, pagination);
+    return this.buildPageResult(items, total, pagination);
   }
 
   async getCycleLogs(cycleId: string, query: ListCycleLogsQueryDto = {}) {
@@ -957,7 +940,6 @@ export class AdminService {
       required: question.required,
       selectionLimit: question.selectionLimit,
       options: toNullableJsonInput(question.options),
-      reasonRules: toNullableJsonInput(question.reasonRules),
       order: question.order,
       weight: question.weight,
     };
@@ -993,7 +975,6 @@ export class AdminService {
                 required: question.required,
                 selectionLimit: question.selectionLimit,
                 options: question.options,
-                reasonRules: question.reasonRules,
                 order: question.order,
                 weight: question.weight,
               })),
@@ -1039,7 +1020,6 @@ export class AdminService {
         questions: created.questions.map((question) => ({
           ...question,
           options: normalizeQuestionOptions(question.options),
-          reasonRules: normalizeQuestionReasonRules(question.reasonRules),
         })),
       };
     }
@@ -1049,7 +1029,6 @@ export class AdminService {
       questions: version.questions.map((question) => ({
         ...question,
         options: normalizeQuestionOptions(question.options),
-        reasonRules: normalizeQuestionReasonRules(question.reasonRules),
       })),
     };
   }
@@ -1069,9 +1048,6 @@ export class AdminService {
     }
 
     const normalizedOptions = this.normalizeQuestionOptions(input.options);
-    const normalizedReasonRules = this.normalizeQuestionReasonRules(
-      input.reasonRules,
-    );
     const selectionLimit = this.normalizeSelectionLimit(
       input.type,
       normalizedOptions.length,
@@ -1085,7 +1061,6 @@ export class AdminService {
       required: true,
       selectionLimit,
       options: normalizedOptions as Prisma.InputJsonValue,
-      reasonRules: normalizedReasonRules as Prisma.InputJsonValue,
       order: input.order,
       weight: input.weight ?? 1,
     } satisfies QuestionnaireRevisionQuestion;
@@ -1690,12 +1665,6 @@ export class AdminService {
     }
 
     return normalizedOptions;
-  }
-
-  private normalizeQuestionReasonRules(
-    inputRules?: UpsertQuestionDto['reasonRules'],
-  ) {
-    return normalizeQuestionReasonRules(inputRules ?? []);
   }
 
   private normalizeSelectionLimit(
