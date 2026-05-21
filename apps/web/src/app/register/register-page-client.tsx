@@ -14,6 +14,7 @@ const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 const DISPLAY_NAME_MAX_LENGTH = 30;
 const VERIFICATION_CODE_LENGTH = 6;
+const INVITE_CODE_MAX_LENGTH = 64;
 
 function loginHrefFromSearch(search: string) {
   const nextPath = new URLSearchParams(search).get("next");
@@ -42,6 +43,7 @@ export default function RegisterPageClient() {
   const [displayName, setDisplayName] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [fullName, setFullName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [resolvedSchool, setResolvedSchool] = useState<CodeResponse["school"]>(
     null,
@@ -114,6 +116,7 @@ export default function RegisterPageClient() {
           displayName,
           fullName,
           acceptedTerms,
+          inviteCode: inviteCode.trim() || undefined,
         }),
       });
 
@@ -223,6 +226,15 @@ export default function RegisterPageClient() {
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
                 placeholder="可留空；仅在必要场景用于核验"
+              />
+            </label>
+            <label>
+              <span>邀请码（可选）</span>
+              <input
+                value={inviteCode}
+                maxLength={INVITE_CODE_MAX_LENGTH}
+                onChange={(event) => setInviteCode(event.target.value)}
+                placeholder="如有邀请码可填写"
               />
             </label>
             <label>
