@@ -1,5 +1,9 @@
 import { apiBaseUrl } from "./api-base-url";
-import type { SupportedLocale } from "@lilink/shared";
+import type {
+  HardMatchSchoolGenderExclusion,
+  MatchEstimateResult,
+  SupportedLocale,
+} from "@lilink/shared";
 
 const API_ERROR_EN_TO_ZH: Record<string, string> = {
   "This email domain is not currently accepted.":
@@ -431,4 +435,23 @@ export function fetchAuthMeDeduped(): Promise<AuthMePayload | null> {
       });
   }
   return authMeInflight;
+}
+
+export type MatchEstimatePayload = {
+  excludedPartnerSchools: string[];
+  excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
+};
+
+export type MatchEstimate = MatchEstimateResult;
+
+/**
+ * Estimate the coarse match-odds band for a set of partner-school /
+ * partner-gender exclusions, against the current cycle's opted-in pool. Returns
+ * only the band and a low-confidence flag — never raw pool counts.
+ */
+export function fetchMatchEstimate(payload: MatchEstimatePayload) {
+  return fetchApi<MatchEstimateResult>("/me/match-estimate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
