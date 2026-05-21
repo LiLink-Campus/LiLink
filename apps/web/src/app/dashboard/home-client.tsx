@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchApi, type AuthMePayload } from "../../lib/api";
@@ -9,6 +8,7 @@ import {
   type WeeklyIntent,
 } from "../../lib/weekly-intent";
 import { FocusCard, type FocusCardProps } from "./_components/FocusCard";
+import { SuggestionList } from "./_components/SuggestionList";
 import { IntentSheet } from "./_components/IntentSheet";
 import {
   CircleIcon,
@@ -22,12 +22,14 @@ import {
 import { OliveSprigIllustration } from "./_components/illustrations";
 import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
 import {
+  describeDaysUntilLabel,
   describeDeadlineLabel,
   describeRelativeUntil,
   describeRevealMoment,
   resolveFocus,
   type FocusContext,
 } from "./_lib/focus";
+import { resolveSuggestions } from "./_lib/suggestions";
 import { canEditCurrentCycleParticipation } from "./_lib/format";
 import type {
   ContactPreferencesPayload,
@@ -195,6 +197,12 @@ function focusCardPropsFor(
             disabled: args.saving,
             loading: args.saving,
           },
+          {
+            label: args.saving ? "取消中" : "取消参与",
+            onClick: args.onWithdraw,
+            variant: "link",
+            disabled: args.saving,
+          },
         ],
         tone: "waiting",
         icon: <ClockIcon />,
@@ -327,7 +335,6 @@ export function HomeClient({
   const canEdit = canEditCurrentCycleParticipation(cycle);
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
   const intent = cycle?.intent ?? null;
-  const intentMeta = intent ? WEEKLY_INTENT_LABELS[intent] : null;
 
   const latestMatch = dashboard.latestMatch;
   const counterpart =
@@ -482,129 +489,65 @@ export function HomeClient({
     latestMatchVisibility: dashboard.latestMatchVisibility,
     latestMatchLimitedReason: dashboard.latestMatchLimitedReason,
   });
-  const highlightsImmediateTask =
-    focus.kind === "MEETUP_NEEDS_ACTION" ||
-    (focus.kind === "MATCH_INTRODUCED_NO_MEETUP" &&
-      dashboard.latestMatchVisibility !== "LIMITED");
-
-  const participationLabel = !cycle
-    ? "本轮未开放"
-    : !canEdit
-      ? isOptedIn
-        ? "已锁定·参与中"
-        : "已锁定"
-      : isOptedIn
-        ? "已参与"
-        : !questionnaireEligibleToOptIn
-          ? "暂不可参与"
-          : "未参与";
-  const participationTone: "on" | "warn" | "off" = !cycle
-    ? "off"
-    : isOptedIn
-      ? "on"
-      : !questionnaireEligibleToOptIn
-        ? "warn"
-        : "off";
   const profileHasBlockingAttention = Boolean(
     questionnaireAttention &&
       ((questionnaireAttention.pendingUpdatedKeys?.length ?? 0) > 0 ||
         (questionnaireAttention.missingRequiredKeys?.length ?? 0) > 0),
   );
-  const profileReadyForMatching =
-    questionnaireEligibleToOptIn && !profileHasBlockingAttention;
-  const profileComplete = profileReadyForMatching && questionnairePercent >= 100;
-  const profileStatusTone = profileReadyForMatching ? "tone-on" : "tone-warn";
-  const profileStatusLabel = profileComplete
-    ? "已完成"
-    : profileReadyForMatching
-      ? "可参与"
-      : "待完善";
-  const profileStatusBody = profileComplete
-    ? "资料已完善，将用于为你寻找相容的人。"
-    : profileReadyForMatching
-      ? "必填资料已满足参与条件，仍可继续补充可选信息。"
-      : "完善必填资料后才能参与匹配。";
+
+  // The primary Focus card is rendered as the wine-blushed "现在做" hero only
+  // when there is something actionable now; passive/waiting states stay calm.
+  // The attention/celebrate tones cover urgent + LIMITED-match cases; the
+  // incomplete questionnaire is actionable too but carries a neutral tone.
+  const isPrimaryActionable =
+    focusProps.tone === "attention" ||
+    focusProps.tone === "celebrate" ||
+    focus.kind === "QUESTIONNAIRE_INCOMPLETE";
+
+  const suggestions = resolveSuggestions({
+    primaryFocusKind: focus.kind,
+    questionnaire: {
+      percent: questionnairePercent,
+      eligibleToOptIn: questionnaireEligibleToOptIn,
+      hasBlockingAttention: profileHasBlockingAttention,
+    },
+    contactPreferences,
+  });
+
+  const pendingCount = (isPrimaryActionable ? 1 : 0) + suggestions.length;
+
+  const cycleEyebrow = cycle
+    ? ["本轮", cycle.codename, describeDaysUntilLabel(cycle.revealAt)]
+        .filter(Boolean)
+        .join(" · ")
+    : "本周";
 
   return (
     <div className="app-page-shell v2-page-shell home-dashboard">
       <header className="v2-greeting">
         <div className="v2-greeting-main">
+          <span className="v2-greeting-eyebrow">{cycleEyebrow}</span>
           <h1>
             你好，{initialUser?.displayName ?? "同学"}
             <OliveSprigIllustration className="olive-sprig" />
           </h1>
           <p className="v2-greeting-sub">
-            {highlightsImmediateTask
-              ? "下面这件事现在最值得花你几分钟。"
+            {pendingCount > 0
+              ? `这一周，下面 ${pendingCount} 件事最值得你花几分钟。`
               : "新的一周，期待你的相遇。"}
           </p>
-        </div>
-        <div className="v2-greeting-status">
-          <span className={`v2-greeting-pill tone-${participationTone}`}>
-            {participationLabel}
-          </span>
         </div>
       </header>
 
       {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
       {error ? <p className="form-error">{error}</p> : null}
 
-      <FocusCard {...focusProps} />
+      <FocusCard
+        {...focusProps}
+        variant={isPrimaryActionable ? "donow" : "default"}
+      />
 
-      <div className="v2-status-duet">
-        <div className="v2-status-tile">
-          <header className="v2-status-tile-head">
-            <span className="v2-status-tile-eyebrow">Profile</span>
-            <span className={`v2-status-tile-pill ${profileStatusTone}`}>
-              {profileStatusLabel}
-            </span>
-          </header>
-          <h3 className="v2-status-tile-title">匹配资料</h3>
-          <p className="v2-status-tile-body">{profileStatusBody}</p>
-          <footer className="v2-status-tile-foot">
-            <div className="v2-status-tile-stat">
-              {questionnairePercent}<span className="v2-status-tile-stat-unit">%</span>
-            </div>
-            <div className="v2-status-tile-mini-bar">
-              <div style={{ width: `${Math.max(0, Math.min(100, questionnairePercent))}%` }} />
-            </div>
-            <Link href="/dashboard/profile" className="v2-status-tile-link">
-              {profileReadyForMatching ? '修改' : '完善'} →
-            </Link>
-          </footer>
-        </div>
-
-        <div className="v2-status-tile">
-          <header className="v2-status-tile-head">
-            <span className="v2-status-tile-eyebrow">Cycle</span>
-            <span className={`v2-status-tile-pill tone-${participationTone}`}>
-              {participationLabel}
-            </span>
-          </header>
-          <h3 className="v2-status-tile-title">本轮参与</h3>
-          <p className="v2-status-tile-body">
-            {!cycle
-              ? '当前没有开放中的匹配轮次。'
-              : isOptedIn
-                ? `已选择 ${intentMeta?.primary ?? '意向'}，等待揭晓。`
-                : '尚未参与本轮匹配。'}
-          </p>
-          <footer className="v2-status-tile-foot">
-            <div style={{ flex: 1 }} />
-            {isOptedIn && canEdit ? (
-              <button
-                type="button"
-                className="v2-status-tile-link"
-                onClick={withdraw}
-                disabled={saving}
-                style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--primary-soft)', padding: 0, cursor: 'pointer' }}
-              >
-                {saving ? '取消中...' : '取消参与'}
-              </button>
-            ) : null}
-          </footer>
-        </div>
-      </div>
+      <SuggestionList suggestions={suggestions} />
 
       <IntentSheet
         open={sheetOpen}

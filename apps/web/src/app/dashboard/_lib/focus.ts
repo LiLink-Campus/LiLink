@@ -60,7 +60,7 @@ function meetupTaskIsWaiting(task: DashboardTask) {
   return task.userTurnStatus === "WAITING_FOR_COUNTERPART";
 }
 
-function contactPreferencesAreDefault(prefs: ContactPreferencesPayload) {
+export function contactPreferencesAreDefault(prefs: ContactPreferencesPayload) {
   const hasExtra = prefs.methods.some((m) => m.value.trim().length > 0);
   return !hasExtra && prefs.preferredContactChannel === "EMAIL";
 }
@@ -247,4 +247,19 @@ export function describeRelativeUntil(iso: string | null): string | null {
   }
   const minutes = Math.max(1, Math.floor(diff / (60 * 1000)));
   return `还有 ${minutes} 分钟`;
+}
+
+/**
+ * Compact "D-3" style countdown label for the home greeting eyebrow,
+ * counting whole days until the reveal moment. Returns "D-Day" on the
+ * reveal day and null when the timestamp is missing or already past.
+ */
+export function describeDaysUntilLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  const target = new Date(iso).getTime();
+  if (Number.isNaN(target)) return null;
+  const diff = target - Date.now();
+  if (diff <= 0) return null;
+  const days = Math.floor(diff / DAY_MS);
+  return days <= 0 ? "D-Day" : `D-${days}`;
 }

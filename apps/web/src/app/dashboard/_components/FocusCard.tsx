@@ -32,6 +32,12 @@ export type FocusCardProps = {
   actions?: FocusCardAction[];
   tone?: FocusCardTone;
   icon?: ReactNode;
+  /**
+   * "donow" gives the home page's primary card a soft wine blush plus a
+   * "现在做 · Do Now" kicker (replacing the eyebrow). "default" keeps the
+   * neutral elevated card used elsewhere.
+   */
+  variant?: "default" | "donow";
 };
 
 function actionContent(action: FocusCardAction) {
@@ -93,18 +99,31 @@ export function FocusCard({
   actions,
   tone = "default",
   icon,
+  variant = "default",
 }: FocusCardProps) {
+  const isDoNow = variant === "donow";
   return (
     <section
-      className={`v2-focus-card tone-${tone}`}
+      className={`v2-focus-card tone-${tone}${isDoNow ? " variant-donow" : ""}`}
       aria-label={eyebrow ?? title}
     >
       <div className="v2-focus-card-content">
-        {eyebrow || step || icon ? (
+        {isDoNow || eyebrow || step || icon ? (
           <header className="v2-focus-card-head">
             <div className="v2-focus-card-head-left">
-              {eyebrow ? <span className="v2-focus-eyebrow">{eyebrow}</span> : null}
-              {step ? <span className="v2-focus-step">{step}</span> : null}
+              {isDoNow ? (
+                <span className="v2-donow-kicker">
+                  <span className="v2-donow-kicker-dot" aria-hidden="true" />
+                  现在做<span className="v2-donow-kicker-en">Do Now</span>
+                </span>
+              ) : (
+                <>
+                  {eyebrow ? (
+                    <span className="v2-focus-eyebrow">{eyebrow}</span>
+                  ) : null}
+                  {step ? <span className="v2-focus-step">{step}</span> : null}
+                </>
+              )}
             </div>
             {icon ? (
               <div className="v2-focus-card-icon" aria-hidden="true">
