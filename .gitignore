@@ -2,7 +2,11 @@
 node_modules/
 apps/*/node_modules/
 .npm-cache/
-.codex-local/
+
+# Agent local-only files (personal skills source + per-tool skill symlinks)
+.agent-local/
+.codex/skills/
+.claude/skills/
 
 # Build outputs
 .next/
