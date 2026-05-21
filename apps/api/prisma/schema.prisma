@@ -176,6 +176,18 @@ model SchoolDomain {
   createdAt DateTime @default(now())
 }
 
+model InviteCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  ownerName String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  referrals User[]   @relation("UserInviteCode")
+
+  @@index([isActive, createdAt])
+}
+
 model User {
   id                    String                 @id @default(cuid())
   email                 String                 @unique
@@ -208,9 +220,12 @@ model User {
   auditLogs             AuditLog[]             @relation("Actor")
   dashboardSnapshots    UserCycleDashboardSnapshot[]
   contactMethods        UserContactMethod[]
+  inviteCodeId          String?
+  inviteCode            InviteCode?            @relation("UserInviteCode", fields: [inviteCodeId], references: [id], onDelete: Restrict)
 
   @@index([status, createdAt])
   @@index([schoolId])
+  @@index([inviteCodeId])
 }
 
 model UserContactMethod {
