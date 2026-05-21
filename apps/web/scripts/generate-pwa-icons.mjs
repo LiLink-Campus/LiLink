@@ -45,12 +45,9 @@ function liMark(scale) {
 }
 
 // Build a full icon SVG. `rounded` controls corner radius (any vs maskable/apple).
-function iconSvg({ rounded, glyphScale, sparkle }) {
+function iconSvg({ rounded, glyphScale }) {
   const S = 1000;
   const radius = rounded ? 230 : 0;
-  const sparkleEl = sparkle
-    ? `<circle cx="710" cy="300" r="40" fill="${INK}" opacity="0.85" />`
-    : "";
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}" role="img" aria-label="LiLink">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -60,7 +57,6 @@ function iconSvg({ rounded, glyphScale, sparkle }) {
   </defs>
   <rect width="${S}" height="${S}" rx="${radius}" ry="${radius}" fill="url(#bg)" />
   ${liMark(glyphScale)}
-  ${sparkleEl}
 </svg>`;
   // Strip trailing whitespace left by template interpolation so the committed
   // icon.svg stays clean (git diff --check).
@@ -80,21 +76,21 @@ async function main() {
   await mkdir(outDir, { recursive: true });
 
   // Canonical committed source: the rounded "any" artwork.
-  const sourceSvg = iconSvg({ rounded: true, glyphScale: 1, sparkle: true });
+  const sourceSvg = iconSvg({ rounded: true, glyphScale: 1 });
   await writeFile(path.join(outDir, "icon.svg"), sourceSvg + "\n", "utf8");
 
   // any: rounded plaque.
-  const anySvg = iconSvg({ rounded: true, glyphScale: 1, sparkle: true });
+  const anySvg = iconSvg({ rounded: true, glyphScale: 1 });
   await render(anySvg, 192, "icon-192.png", { opaque: false });
   await render(anySvg, 512, "icon-512.png", { opaque: false });
 
   // maskable: full-bleed square, glyph shrunk into ~66% safe zone.
-  const maskSvg = iconSvg({ rounded: false, glyphScale: 0.66, sparkle: false });
+  const maskSvg = iconSvg({ rounded: false, glyphScale: 0.66 });
   await render(maskSvg, 192, "icon-maskable-192.png", { opaque: true });
   await render(maskSvg, 512, "icon-maskable-512.png", { opaque: true });
 
   // apple-touch: full-bleed square (iOS rounds it), opaque, larger glyph.
-  const appleSvg = iconSvg({ rounded: false, glyphScale: 0.92, sparkle: true });
+  const appleSvg = iconSvg({ rounded: false, glyphScale: 0.92 });
   await render(appleSvg, 180, "apple-touch-icon.png", { opaque: true });
 }
 
