@@ -702,7 +702,8 @@ export function ProfileClient({
   }, [birthDayOptions, hardMatchForm.birthDay]);
 
   // Live, debounced match-odds estimate for the current partner exclusions.
-  // Only the band returns from the server; raw pool counts stay server-side.
+  // Only availability and the band return from the server; raw pool counts stay
+  // server-side.
   useEffect(() => {
     let active = true;
     const handle = window.setTimeout(() => {
@@ -713,7 +714,7 @@ export function ProfileClient({
           hardMatchForm.excludedPartnerSchoolGenders,
       })
         .then((result) => {
-          if (active) setMatchEstimate(result);
+          if (active) setMatchEstimate(result.available ? result : null);
         })
         .catch(() => {
           if (active) setMatchEstimate(null);

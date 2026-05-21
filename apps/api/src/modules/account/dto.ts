@@ -181,7 +181,7 @@ export class MatchEstimateSchoolGenderDto {
   @IsArray()
   @ArrayMaxSize(HARD_MATCH_GENDERS.length)
   @ArrayUnique()
-  @IsIn(HARD_MATCH_GENDERS as unknown as string[], { each: true })
+  @IsIn(HARD_MATCH_GENDERS, { each: true })
   genders!: string[];
 }
 
@@ -202,11 +202,14 @@ export class MatchEstimateRequestDto {
 }
 
 export class MatchEstimateResponseDto {
-  @ApiProperty({ enum: MATCH_ESTIMATE_BANDS as unknown as string[] })
-  band!: MatchEstimateBand;
-
   @ApiProperty()
-  lowConfidence!: boolean;
+  available!: boolean;
+
+  @ApiPropertyOptional({ enum: MATCH_ESTIMATE_BANDS as unknown as string[] })
+  band?: MatchEstimateBand;
+
+  @ApiPropertyOptional()
+  lowConfidence?: boolean;
 }
 
 export class ToggleParticipationDto {
@@ -216,17 +219,17 @@ export class ToggleParticipationDto {
   // Required when opting in; ignored otherwise. Strict contract: opting in
   // without an intent must fail the request rather than silently default.
   @ValidateIf((dto: ToggleParticipationDto) => dto.optIn === true)
-  @IsIn(WEEKLY_INTENTS as unknown as string[])
+  @IsIn(WEEKLY_INTENTS)
   intent?: WeeklyIntent;
 }
 
 export class UpdateLocaleDto {
-  @IsIn(SUPPORTED_LOCALES as unknown as string[])
+  @IsIn(SUPPORTED_LOCALES)
   locale!: SupportedLocale;
 }
 
 export class ContactMethodDto {
-  @IsIn(EDITABLE_CONTACT_CHANNEL_TYPES as unknown as string[])
+  @IsIn(EDITABLE_CONTACT_CHANNEL_TYPES)
   type!: EditableContactChannelType;
 
   @IsString()
@@ -235,7 +238,7 @@ export class ContactMethodDto {
 }
 
 export class UpdateContactPreferencesDto {
-  @IsIn(CONTACT_CHANNEL_TYPES as unknown as string[])
+  @IsIn(CONTACT_CHANNEL_TYPES)
   preferredContactChannel!: ContactChannelType;
 
   @IsArray()

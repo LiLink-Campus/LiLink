@@ -132,6 +132,7 @@ function buildValidAnswers(
 }
 
 function participant(
+  userId: string,
   schoolId: string | null,
   gender: SchoolGenderCount['gender'],
   options: { submitted?: boolean; answers?: Record<string, unknown> } = {},
@@ -139,6 +140,7 @@ function participant(
   const submitted = options.submitted ?? true;
   return {
     user: {
+      id: userId,
       school: schoolId ? { id: schoolId } : null,
       questionnaireResponse: {
         answers: options.answers ?? buildValidAnswers(gender),
@@ -153,7 +155,7 @@ describe('MatchEstimateService', () => {
     return new MatchEstimateService(prisma as unknown as PrismaService);
   }
 
-  it('returns the lowest band with low confidence when there is no live cycle', async () => {
+  it('returns unavailable when there is no live cycle', async () => {
     const prisma: MockPrisma = {
       matchCycle: { findFirst: jest.fn().mockResolvedValue(null) },
       cycleParticipation: { findMany: jest.fn() },
@@ -161,45 +163,63 @@ describe('MatchEstimateService', () => {
     const service = createService(prisma);
 
     await expect(service.estimate('me', {})).resolves.toEqual({
-      band: 'VERY_LOW',
-      lowConfidence: true,
+      available: false,
     });
     expect(prisma.cycleParticipation.findMany).not.toHaveBeenCalled();
   });
 
-  it('counts the current cycle pool by school+gender and excludes the requester', async () => {
+  it('pre-aggregates the current cycle pool and excludes the requester from each estimate', async () => {
     const prisma: MockPrisma = {
-      matchCycle: { findFirst: jest.fn().mockResolvedValue({ id: 'cycle-1' }) },
+      matchCycle: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: 'cycle-1', status: 'OPEN' }),
+      },
       cycleParticipation: {
         findMany: jest.fn().mockResolvedValue([
-          participant('bupt', '男'),
-          participant('bupt', '男'),
-          participant('cuc', '女'),
-          participant('cuc', '女'),
+          participant('me', 'bupt', '男'),
+          participant('user-bupt', 'bupt', '男'),
+          participant('user-cuc-1', 'cuc', '女'),
+          participant('user-cuc-2', 'cuc', '女'),
           // Ignored: unsubmitted questionnaire and unparseable answers.
-          participant('bupt', '男', { submitted: false }),
-          participant('bupt', '男', { answers: { junk: true } }),
+          participant('user-unsubmitted', 'bupt', '男', { submitted: false }),
+          participant('user-junk', 'bupt', '男', { answers: { junk: true } }),
         ]),
       },
     };
     const service = createService(prisma);
 
-    // base 4 (2 bupt/男 + 2 cuc/女); exclude bupt fully -> remaining 2 -> 0.5 -> MEDIUM
+    // Aggregate base is 4, but requester "me" is removed per estimate:
+    // base = 3 (1 bupt/男 + 2 cuc/女). Excluding bupt leaves 2/3 -> HIGH.
     await expect(
       service.estimate('me', { excludedPartnerSchools: ['bupt'] }),
-    ).resolves.toEqual({ band: 'MEDIUM', lowConfidence: true });
+    ).resolves.toEqual({
+      available: true,
+      band: 'HIGH',
+      lowConfidence: true,
+    });
+
+    // Same cycle, different requester/exclusions: reuse the pre-aggregated pool,
+    // but subtract the new requester from their own bucket before estimating.
+    await expect(
+      service.estimate('user-cuc-1', { excludedPartnerSchools: ['cuc'] }),
+    ).resolves.toEqual({
+      available: true,
+      band: 'HIGH',
+      lowConfidence: true,
+    });
 
     expect(prisma.cycleParticipation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           cycleId: 'cycle-1',
-          userId: { not: 'me' },
           status: 'OPTED_IN',
           intent: { not: null },
           user: { status: 'ACTIVE' },
         },
       }),
     );
+    expect(prisma.cycleParticipation.findMany).toHaveBeenCalledTimes(1);
   });
 
   it('uses the User.school relation, not the stored hard_school answer', async () => {
@@ -210,12 +230,14 @@ describe('MatchEstimateService', () => {
     const prisma: MockPrisma = {
       matchCycle: { findFirst: jest.fn().mockResolvedValue({ id: 'cycle-1' }) },
       cycleParticipation: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            participant('bupt', '男', { answers: answersWithWrongSchool }),
-            participant('bupt', '男', { answers: answersWithWrongSchool }),
-          ]),
+        findMany: jest.fn().mockResolvedValue([
+          participant('user-1', 'bupt', '男', {
+            answers: answersWithWrongSchool,
+          }),
+          participant('user-2', 'bupt', '男', {
+            answers: answersWithWrongSchool,
+          }),
+        ]),
       },
     };
     const service = createService(prisma);
@@ -224,6 +246,10 @@ describe('MatchEstimateService', () => {
     // the answers carry a different (stale) hard_school value.
     await expect(
       service.estimate('me', { excludedPartnerSchools: ['bupt'] }),
-    ).resolves.toEqual({ band: 'VERY_LOW', lowConfidence: true });
+    ).resolves.toEqual({
+      available: true,
+      band: 'VERY_LOW',
+      lowConfidence: true,
+    });
   });
 });

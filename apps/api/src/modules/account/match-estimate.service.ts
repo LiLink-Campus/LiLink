@@ -37,15 +37,34 @@ export type MatchEstimateInput = {
   excludedPartnerSchoolGenders?: unknown;
 };
 
+type CandidateBucket = Pick<SchoolGenderCount, 'schoolId' | 'gender'>;
+
+type CandidatePoolAggregate = {
+  counts: SchoolGenderCount[];
+  bucketByUserId: Map<string, CandidateBucket>;
+};
+
+type CandidatePoolCacheEntry = {
+  loadedAt: number;
+  promise: Promise<CandidatePoolAggregate>;
+};
+
+const MATCH_ESTIMATE_AGGREGATE_MAX_AGE_MS = 30_000;
+
 @Injectable()
 export class MatchEstimateService {
+  private readonly aggregateByCycleId = new Map<
+    string,
+    CandidatePoolCacheEntry
+  >();
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Estimate the coarse match-odds band for the user's current partner-school /
-   * partner-gender exclusions, against the live opted-in candidate pool. Only
-   * the band (and a low-confidence flag) is returned — raw pool counts never
-   * leave the server.
+   * partner-gender exclusions, against the live opted-in candidate pool. The
+   * client only receives availability, a band, and a low-confidence flag — raw
+   * pool counts never leave the server.
    */
   async estimate(
     userId: string,
@@ -62,34 +81,69 @@ export class MatchEstimateService {
       select: { id: true },
     });
 
-    // No live cycle means there is no pool to estimate against, which reads as
-    // the lowest band (estimateMatchBand treats an empty pool as VERY_LOW).
-    const counts = cycle
-      ? await this.loadCandidateCounts(cycle.id, userId)
-      : [];
+    if (!cycle) {
+      return { available: false };
+    }
 
-    return estimateMatchBand(counts, exclusions);
+    const aggregate = await this.getCandidatePoolAggregate(cycle.id);
+    const result = estimateMatchBand(
+      this.countsExcludingRequester(aggregate, userId),
+      exclusions,
+    );
+
+    return {
+      available: true,
+      ...result,
+    };
+  }
+
+  invalidatePrecomputedCycle(cycleId?: string) {
+    if (cycleId) {
+      this.aggregateByCycleId.delete(cycleId);
+      return;
+    }
+
+    this.aggregateByCycleId.clear();
+  }
+
+  private getCandidatePoolAggregate(cycleId: string) {
+    const now = Date.now();
+    const cached = this.aggregateByCycleId.get(cycleId);
+    if (
+      cached &&
+      now - cached.loadedAt <= MATCH_ESTIMATE_AGGREGATE_MAX_AGE_MS
+    ) {
+      return cached.promise;
+    }
+
+    const promise = this.loadCandidatePoolAggregate(cycleId).catch((error) => {
+      if (this.aggregateByCycleId.get(cycleId)?.promise === promise) {
+        this.aggregateByCycleId.delete(cycleId);
+      }
+      throw error;
+    });
+    this.aggregateByCycleId.set(cycleId, { loadedAt: now, promise });
+    return promise;
   }
 
   /**
-   * Build the (school, gender) candidate-count matrix for the current cycle's
-   * opted-in eligible pool, excluding the requesting user. School is taken from
-   * the `User.school` relation (cycles.service injects it as the `hard_school`
-   * answer before parsing); gender comes from the parsed hard-match answers.
+   * Precompute the current cycle's eligible candidate matrix once per cycle.
+   * The aggregate stores total (school, gender) counts plus each eligible user's
+   * bucket, so each estimate can subtract the requester without re-reading the
+   * whole pool.
    */
-  private async loadCandidateCounts(
+  private async loadCandidatePoolAggregate(
     cycleId: string,
-    userId: string,
-  ): Promise<SchoolGenderCount[]> {
+  ): Promise<CandidatePoolAggregate> {
     const participations = await this.prisma.cycleParticipation.findMany({
       where: {
         cycleId,
-        userId: { not: userId },
         ...ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
       },
       select: {
         user: {
           select: {
+            id: true,
             school: { select: { id: true } },
             questionnaireResponse: {
               select: { answers: true, submittedAt: true },
@@ -100,6 +154,7 @@ export class MatchEstimateService {
     });
 
     const countsBySchool = new Map<string, Map<HardMatchGender, number>>();
+    const bucketByUserId = new Map<string, CandidateBucket>();
     for (const { user } of participations) {
       const questionnaire = user.questionnaireResponse;
       if (!questionnaire || questionnaire.submittedAt == null) {
@@ -115,6 +170,10 @@ export class MatchEstimateService {
         continue;
       }
 
+      bucketByUserId.set(user.id, {
+        schoolId: hardMatchAnswers.school,
+        gender: hardMatchAnswers.gender,
+      });
       const gendersForSchool =
         countsBySchool.get(hardMatchAnswers.school) ??
         new Map<HardMatchGender, number>();
@@ -129,6 +188,31 @@ export class MatchEstimateService {
     for (const [schoolId, gendersForSchool] of countsBySchool) {
       for (const [gender, count] of gendersForSchool) {
         counts.push({ schoolId, gender, count });
+      }
+    }
+
+    return { counts, bucketByUserId };
+  }
+
+  private countsExcludingRequester(
+    aggregate: CandidatePoolAggregate,
+    userId: string,
+  ): SchoolGenderCount[] {
+    const requesterBucket = aggregate.bucketByUserId.get(userId);
+    if (!requesterBucket) {
+      return aggregate.counts;
+    }
+
+    const counts: SchoolGenderCount[] = [];
+    for (const entry of aggregate.counts) {
+      const count =
+        entry.schoolId === requesterBucket.schoolId &&
+        entry.gender === requesterBucket.gender
+          ? entry.count - 1
+          : entry.count;
+
+      if (count > 0) {
+        counts.push({ ...entry, count });
       }
     }
 
