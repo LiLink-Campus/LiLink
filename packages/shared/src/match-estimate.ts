@@ -50,11 +50,15 @@ export type MatchEstimateExclusions = {
   excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
 };
 
-export type MatchEstimateResult = {
+export type MatchEstimateBandResult = {
   band: MatchEstimateBand;
   /** True when the base pool is too small for the ratio to be meaningful. */
   lowConfidence: boolean;
 };
+
+export type MatchEstimateResult =
+  | ({ available: true } & MatchEstimateBandResult)
+  | { available: false };
 
 /**
  * Count how many candidates survive the exclusions. A candidate `(school,
@@ -105,7 +109,7 @@ export function countRemainingCandidates(
 export function bandForRetentionRatio(
   remaining: number,
   base: number,
-): MatchEstimateResult {
+): MatchEstimateBandResult {
   if (base <= 0) {
     return { band: "VERY_LOW", lowConfidence: true };
   }
@@ -136,7 +140,7 @@ export function bandForRetentionRatio(
 export function estimateMatchBand(
   counts: readonly SchoolGenderCount[],
   exclusions: MatchEstimateExclusions,
-): MatchEstimateResult {
+): MatchEstimateBandResult {
   const base = counts.reduce((sum, entry) => sum + entry.count, 0);
   const remaining = countRemainingCandidates(counts, exclusions);
   return bandForRetentionRatio(remaining, base);
