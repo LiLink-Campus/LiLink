@@ -87,7 +87,6 @@ enum ContactChannelType {
   WECHAT
   QQ
   PHONE
-
 }
 
 enum MeetupSessionStatus {
@@ -177,55 +176,71 @@ model SchoolDomain {
 }
 
 model InviteCode {
-  id        String   @id @default(cuid())
-  code      String   @unique
-  ownerName String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  referrals User[]   @relation("UserInviteCode")
+  id         String    @id @default(cuid())
+  code       String    @unique
+  ownerName  String
+  isActive   Boolean   @default(true)
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  referrals  User[]    @relation("UserInviteCode")
 
   @@index([isActive, createdAt])
+  @@index([campaignId])
 }
 
 model User {
-  id                    String                 @id @default(cuid())
-  email                 String                 @unique
-  passwordHash          String
-  status                UserStatus             @default(PENDING)
-  schoolId              String?
-  school                School?                @relation(fields: [schoolId], references: [id])
-  displayName           String?
-  preferredContactChannel ContactChannelType   @default(EMAIL)
-  preferredLocale       String                 @default("zh-CN")
-  meetupExpirationWeeks Int                    @default(2)
-  isTest                Boolean                @default(false)
-  acceptedTermsAt       DateTime?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  profile               UserProfile?
-  questionnaireResponse QuestionnaireResponse?
-  participations        CycleParticipation[]
-  reportsFiled          Report[]               @relation("Reporter")
-  reportsReceived       Report[]               @relation("ReportedUser")
-  blocksInitiated       Block[]                @relation("Blocker")
-  blocksReceived        Block[]                @relation("BlockedUser")
-  matchParticipants     MatchParticipant[]
-  meetupSessionsStarted MeetupSession[]        @relation("MeetupSessionStartedBy")
-  meetupSessionsCanceled MeetupSession[]       @relation("MeetupSessionCanceledBy")
-  meetupSessionsFinalConfirm MeetupSession[]   @relation("MeetupSessionFinalConfirmUser")
-  meetupParticipants    MeetupParticipant[]    @relation("MeetupParticipantUser")
-  meetupMessages        MeetupMessage[]        @relation("MeetupMessageActor")
-  meetupProposals       MeetupProposal[]       @relation("MeetupProposalActor")
-  auditLogs             AuditLog[]             @relation("Actor")
-  dashboardSnapshots    UserCycleDashboardSnapshot[]
-  contactMethods        UserContactMethod[]
-  inviteCodeId          String?
-  inviteCode            InviteCode?            @relation("UserInviteCode", fields: [inviteCodeId], references: [id], onDelete: Restrict)
+  id                         String                       @id @default(cuid())
+  email                      String                       @unique
+  passwordHash               String
+  status                     UserStatus                   @default(PENDING)
+  schoolId                   String?
+  school                     School?                      @relation(fields: [schoolId], references: [id])
+  displayName                String?
+  preferredContactChannel    ContactChannelType           @default(EMAIL)
+  preferredLocale            String                       @default("zh-CN")
+  meetupExpirationWeeks      Int                          @default(2)
+  isTest                     Boolean                      @default(false)
+  acceptedTermsAt            DateTime?
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  profile                    UserProfile?
+  questionnaireResponse      QuestionnaireResponse?
+  participations             CycleParticipation[]
+  reportsFiled               Report[]                     @relation("Reporter")
+  reportsReceived            Report[]                     @relation("ReportedUser")
+  blocksInitiated            Block[]                      @relation("Blocker")
+  blocksReceived             Block[]                      @relation("BlockedUser")
+  matchParticipants          MatchParticipant[]
+  meetupSessionsStarted      MeetupSession[]              @relation("MeetupSessionStartedBy")
+  meetupSessionsCanceled     MeetupSession[]              @relation("MeetupSessionCanceledBy")
+  meetupSessionsFinalConfirm MeetupSession[]              @relation("MeetupSessionFinalConfirmUser")
+  meetupParticipants         MeetupParticipant[]          @relation("MeetupParticipantUser")
+  meetupMessages             MeetupMessage[]              @relation("MeetupMessageActor")
+  meetupProposals            MeetupProposal[]             @relation("MeetupProposalActor")
+  auditLogs                  AuditLog[]                   @relation("Actor")
+  dashboardSnapshots         UserCycleDashboardSnapshot[]
+  contactMethods             UserContactMethod[]
+  inviteCodeId               String?
+  inviteCode                 InviteCode?                  @relation("UserInviteCode", fields: [inviteCodeId], references: [id], onDelete: Restrict)
+  referralCode               String?                      @unique
+  referredByUserId           String?
+  referredBy                 User?                        @relation("UserReferral", fields: [referredByUserId], references: [id], onDelete: SetNull)
+  referrals                  User[]                       @relation("UserReferral")
+  referralChannel            ReferralChannel?
+  referralCampaignId         String?
+  referralCampaign           Campaign?                    @relation("UserReferralCampaign", fields: [referralCampaignId], references: [id], onDelete: Restrict)
+  firstOptedInAt             DateTime?
+  campaignActivations        CampaignActivation[]
+  coupons                    Coupon[]
 
   @@index([status, createdAt])
   @@index([schoolId])
   @@index([inviteCodeId])
+  @@index([referredByUserId, createdAt])
+  @@index([referralCampaignId, createdAt])
+  @@index([firstOptedInAt])
 }
 
 model UserContactMethod {
@@ -292,22 +307,22 @@ model QuestionnaireVersion {
 }
 
 model Question {
-  id          String               @id @default(cuid())
-  versionId   String
-  version     QuestionnaireVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  key         String
-  prompt      String
-  description String?
-  type        QuestionType
-  weight      Int                  @default(1)
-  order       Int
-  required    Boolean              @default(true)
+  id             String               @id @default(cuid())
+  versionId      String
+  version        QuestionnaireVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  key            String
+  prompt         String
+  description    String?
+  type           QuestionType
+  weight         Int                  @default(1)
+  order          Int
+  required       Boolean              @default(true)
   selectionLimit Int?
-  options     Json?
-  reasonRules Json?
+  options        Json?
+  reasonRules    Json?
 
-  @@index([versionId, order])
   @@unique([versionId, key])
+  @@index([versionId, order])
 }
 
 model QuestionnaireResponse {
@@ -328,17 +343,17 @@ model QuestionnaireResponse {
 }
 
 model MatchCycle {
-  id                    String               @id @default(cuid())
-  codename              String               @unique
+  id                    String                       @id @default(cuid())
+  codename              String                       @unique
   participationDeadline DateTime
   revealAt              DateTime
-  status                MatchCycleStatus     @default(DRAFT)
+  status                MatchCycleStatus             @default(DRAFT)
   notes                 String?
   participations        CycleParticipation[]
   matches               Match[]
   dashboardSnapshots    UserCycleDashboardSnapshot[]
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
 
   @@index([status, revealAt])
 }
@@ -361,38 +376,38 @@ model CycleParticipation {
 }
 
 model Match {
-  id           String             @id @default(cuid())
-  cycleId      String
-  cycle        MatchCycle         @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  score        Float
-  reasons      Json
-  reason       String?
+  id                 String                @id @default(cuid())
+  cycleId            String
+  cycle              MatchCycle            @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  score              Float
+  reasons            Json
+  reason             String?
   conversationTopics Json?
-  narrativeSource MatchNarrativeSource?
-  revealedAt   DateTime?
-  introducedAt DateTime?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  participants MatchParticipant[]
-  meetupSession MeetupSession?
-  reports      Report[]
+  narrativeSource    MatchNarrativeSource?
+  revealedAt         DateTime?
+  introducedAt       DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  participants       MatchParticipant[]
+  meetupSession      MeetupSession?
+  reports            Report[]
 
   @@index([cycleId, createdAt])
 }
 
 model MatchParticipant {
-  id                 String    @id @default(cuid())
-  matchId            String
-  match              Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  cycleId            String
-  userId             String
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  position           Int
-  contactRequestedAt DateTime?
+  id                     String              @id @default(cuid())
+  matchId                String
+  match                  Match               @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  cycleId                String
+  userId                 String
+  user                   User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position               Int
+  contactRequestedAt     DateTime?
   introducedContactType  ContactChannelType?
   introducedContactValue String?
-  createdAt          DateTime  @default(now())
-  meetupParticipants MeetupParticipant[]
+  createdAt              DateTime            @default(now())
+  meetupParticipants     MeetupParticipant[]
 
   @@unique([matchId, userId])
   @@unique([cycleId, userId])
@@ -458,10 +473,10 @@ model UserCycleDashboardSnapshot {
   limitedReason       DashboardSnapshotLimitedReason?
   matchId             String?
   matchPayload        Json?
-  createdAt           DateTime                    @default(now())
-  updatedAt           DateTime                    @updatedAt
-  user                User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cycle               MatchCycle                  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  createdAt           DateTime                        @default(now())
+  updatedAt           DateTime                        @updatedAt
+  user                User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycle               MatchCycle                      @relation(fields: [cycleId], references: [id], onDelete: Cascade)
 
   @@id([userId, cycleId])
   @@index([userId, cycleRevealAt])
@@ -501,45 +516,45 @@ model OutboundEmail {
 }
 
 model MeetupSession {
-  id                           String              @id @default(cuid())
-  matchId                      String              @unique
-  match                        Match               @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  status                       MeetupSessionStatus @default(ACTIVE)
+  id      String              @id @default(cuid())
+  matchId String              @unique
+  match   Match               @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  status  MeetupSessionStatus @default(ACTIVE)
 
-  currentProposalId            String?             @unique
-  currentProposal              MeetupProposal?     @relation("MeetupSessionCurrentProposal", fields: [currentProposalId], references: [id], onDelete: SetNull)
-  confirmedTimeOptionId        String?             @unique
-  confirmedTimeOption          MeetupOption?       @relation("MeetupSessionConfirmedTime", fields: [confirmedTimeOptionId], references: [id], onDelete: SetNull)
-  confirmedLocationOptionId    String?             @unique
-  confirmedLocationOption      MeetupOption?       @relation("MeetupSessionConfirmedLocation", fields: [confirmedLocationOptionId], references: [id], onDelete: SetNull)
+  currentProposalId            String?         @unique
+  currentProposal              MeetupProposal? @relation("MeetupSessionCurrentProposal", fields: [currentProposalId], references: [id], onDelete: SetNull)
+  confirmedTimeOptionId        String?         @unique
+  confirmedTimeOption          MeetupOption?   @relation("MeetupSessionConfirmedTime", fields: [confirmedTimeOptionId], references: [id], onDelete: SetNull)
+  confirmedLocationOptionId    String?         @unique
+  confirmedLocationOption      MeetupOption?   @relation("MeetupSessionConfirmedLocation", fields: [confirmedLocationOptionId], references: [id], onDelete: SetNull)
   finalConfirmRequiredByUserId String?
-  finalConfirmRequiredByUser   User?               @relation("MeetupSessionFinalConfirmUser", fields: [finalConfirmRequiredByUserId], references: [id], onDelete: SetNull)
+  finalConfirmRequiredByUser   User?           @relation("MeetupSessionFinalConfirmUser", fields: [finalConfirmRequiredByUserId], references: [id], onDelete: SetNull)
 
-  startedByUserId              String
-  startedByUser                User                @relation("MeetupSessionStartedBy", fields: [startedByUserId], references: [id], onDelete: Cascade)
-  canceledByUserId             String?
-  canceledByUser               User?               @relation("MeetupSessionCanceledBy", fields: [canceledByUserId], references: [id], onDelete: SetNull)
-  cancelReason                 MeetupCancelReason?
-  cancelNote                   String?
+  startedByUserId  String
+  startedByUser    User                @relation("MeetupSessionStartedBy", fields: [startedByUserId], references: [id], onDelete: Cascade)
+  canceledByUserId String?
+  canceledByUser   User?               @relation("MeetupSessionCanceledBy", fields: [canceledByUserId], references: [id], onDelete: SetNull)
+  cancelReason     MeetupCancelReason?
+  cancelNote       String?
 
-  reopenedFromLockedAt         DateTime?
-  reopenedFromLockedStartsAt   DateTime?
-  lockVersion                  Int                 @default(0)
+  reopenedFromLockedAt       DateTime?
+  reopenedFromLockedStartsAt DateTime?
+  lockVersion                Int       @default(0)
 
-  lastActiveAt                 DateTime            @default(now())
-  effectiveExpirationWeeks     Int?
-  expiresAt                    DateTime?
-  archiveEligibleAt            DateTime?
-  lockedAt                     DateTime?
-  canceledAt                   DateTime?
-  expiredAt                    DateTime?
-  archivedAt                   DateTime?
-  createdAt                    DateTime            @default(now())
-  updatedAt                    DateTime            @updatedAt
-  participants                 MeetupParticipant[]
-  messages                     MeetupMessage[]
-  proposals                    MeetupProposal[]    @relation("MeetupSessionProposals")
-  options                      MeetupOption[]      @relation("MeetupSessionOptions")
+  lastActiveAt             DateTime            @default(now())
+  effectiveExpirationWeeks Int?
+  expiresAt                DateTime?
+  archiveEligibleAt        DateTime?
+  lockedAt                 DateTime?
+  canceledAt               DateTime?
+  expiredAt                DateTime?
+  archivedAt               DateTime?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  participants             MeetupParticipant[]
+  messages                 MeetupMessage[]
+  proposals                MeetupProposal[]    @relation("MeetupSessionProposals")
+  options                  MeetupOption[]      @relation("MeetupSessionOptions")
 
   @@index([status, lastActiveAt])
   @@index([status, expiresAt])
@@ -573,61 +588,244 @@ model MeetupParticipant {
 }
 
 model MeetupMessage {
-  id                           String                @id @default(cuid())
+  id                           String              @id @default(cuid())
   sessionId                    String
-  session                      MeetupSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session                      MeetupSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   actorUserId                  String
-  actor                        User                  @relation("MeetupMessageActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  actor                        User                @relation("MeetupMessageActor", fields: [actorUserId], references: [id], onDelete: Cascade)
   type                         MeetupMessageType
   notePreset                   String?
   noteText                     String?
-  createdAt                    DateTime              @default(now())
+  createdAt                    DateTime            @default(now())
   proposal                     MeetupProposal?
-  responseRequiredParticipants MeetupParticipant[]   @relation("MeetupParticipantResponseRequired")
+  responseRequiredParticipants MeetupParticipant[] @relation("MeetupParticipantResponseRequired")
 
   @@index([sessionId, createdAt])
   @@index([actorUserId, createdAt])
 }
 
 model MeetupProposal {
-  id                String                @id @default(cuid())
+  id                String               @id @default(cuid())
   sessionId         String
-  session           MeetupSession         @relation("MeetupSessionProposals", fields: [sessionId], references: [id], onDelete: Cascade)
-  messageId         String                @unique
-  message           MeetupMessage         @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  session           MeetupSession        @relation("MeetupSessionProposals", fields: [sessionId], references: [id], onDelete: Cascade)
+  messageId         String               @unique
+  message           MeetupMessage        @relation(fields: [messageId], references: [id], onDelete: Cascade)
   actorUserId       String
-  actorUser         User                  @relation("MeetupProposalActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  actorUser         User                 @relation("MeetupProposalActor", fields: [actorUserId], references: [id], onDelete: Cascade)
   scope             MeetupProposalScope
-  status            MeetupProposalStatus  @default(PENDING)
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  status            MeetupProposalStatus @default(PENDING)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
   options           MeetupOption[]
-  currentForSession MeetupSession?        @relation("MeetupSessionCurrentProposal")
+  currentForSession MeetupSession?       @relation("MeetupSessionCurrentProposal")
 
   @@index([sessionId, status, createdAt])
   @@index([sessionId, actorUserId])
 }
 
 model MeetupOption {
-  id                          String              @id @default(cuid())
+  id                          String             @id @default(cuid())
   proposalId                  String
-  proposal                    MeetupProposal      @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  proposal                    MeetupProposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   sessionId                   String
-  session                     MeetupSession       @relation("MeetupSessionOptions", fields: [sessionId], references: [id], onDelete: Cascade)
+  session                     MeetupSession      @relation("MeetupSessionOptions", fields: [sessionId], references: [id], onDelete: Cascade)
   kind                        MeetupOptionKind
-  status                      MeetupOptionStatus  @default(PENDING)
+  status                      MeetupOptionStatus @default(PENDING)
   startsAt                    DateTime?
   endsAt                      DateTime?
-  toleranceMinutes            Int                 @default(10)
+  toleranceMinutes            Int                @default(10)
   locationCandidateId         String?
   placeName                   String?
   latitude                    Float?
   longitude                   Float?
-  createdAt                   DateTime            @default(now())
-  updatedAt                   DateTime            @updatedAt
-  confirmedTimeForSession     MeetupSession?      @relation("MeetupSessionConfirmedTime")
-  confirmedLocationForSession MeetupSession?      @relation("MeetupSessionConfirmedLocation")
+  createdAt                   DateTime           @default(now())
+  updatedAt                   DateTime           @updatedAt
+  confirmedTimeForSession     MeetupSession?     @relation("MeetupSessionConfirmedTime")
+  confirmedLocationForSession MeetupSession?     @relation("MeetupSessionConfirmedLocation")
 
   @@index([sessionId, kind, status])
   @@index([proposalId, kind])
+}
+
+// --- Merchant redemption & promotion system ---
+
+enum ReferralChannel {
+  WECHAT_MOMENTS
+  WECHAT_GROUP
+  WECHAT_PRIVATE
+  COPY_LINK
+  QR
+  OTHER
+}
+
+enum ReferralEventType {
+  CLICK
+  SHARE
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+}
+
+enum CouponBenefitType {
+  FULL_REDUCTION
+  DISCOUNT
+  GIFT
+  CUSTOM
+}
+
+enum CouponStatus {
+  ISSUED
+  REDEEMED
+  EXPIRED
+  VOID
+}
+
+enum MerchantUserRole {
+  OWNER
+  STAFF
+}
+
+model Campaign {
+  id              String               @id @default(cuid())
+  name            String
+  slug            String               @unique
+  status          CampaignStatus       @default(DRAFT)
+  isDefault       Boolean              @default(false)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  description     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  couponTemplates CouponTemplate[]
+  inviteCodes     InviteCode[]
+  referredUsers   User[]               @relation("UserReferralCampaign")
+  activations     CampaignActivation[]
+
+  @@index([status, startsAt])
+}
+
+model CouponTemplate {
+  id          String            @id @default(cuid())
+  campaignId  String
+  campaign    Campaign          @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  merchantId  String
+  merchant    Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  title       String
+  description String?
+  benefitType CouponBenefitType
+  rule        Json?
+  faceValue   Int
+  validDays   Int?
+  validUntil  DateTime?
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  coupons     Coupon[]
+
+  @@index([campaignId, isActive])
+  @@index([merchantId])
+}
+
+model CampaignActivation {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  campaignId       String
+  campaign         Campaign  @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  activatedAt      DateTime  @default(now())
+  couponsGrantedAt DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@unique([userId, campaignId])
+  @@index([campaignId, activatedAt])
+}
+
+model Coupon {
+  id         String         @id @default(cuid())
+  templateId String
+  template   CouponTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  code       String         @unique
+  status     CouponStatus   @default(ISSUED)
+  issuedAt   DateTime       @default(now())
+  expiresAt  DateTime?
+  redemption Redemption?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([userId, templateId])
+  @@index([userId, status])
+  @@index([templateId, status])
+  @@index([status, expiresAt])
+}
+
+model Merchant {
+  id              String           @id @default(cuid())
+  name            String
+  contactInfo     String?
+  promotionBlocks Json?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  users           MerchantUser[]
+  templates       CouponTemplate[]
+  redemptions     Redemption[]
+
+  @@index([isActive])
+}
+
+model MerchantUser {
+  id           String           @id @default(cuid())
+  merchantId   String
+  merchant     Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  email        String           @unique
+  passwordHash String
+  displayName  String?
+  role         MerchantUserRole @default(STAFF)
+  isActive     Boolean          @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  redemptions  Redemption[]
+
+  @@index([merchantId, isActive])
+}
+
+model Redemption {
+  id                   String        @id @default(cuid())
+  couponId             String        @unique
+  coupon               Coupon        @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  merchantId           String
+  merchant             Merchant      @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  merchantUserId       String?
+  merchantUser         MerchantUser? @relation(fields: [merchantUserId], references: [id], onDelete: SetNull)
+  userId               String
+  faceValueSnapshot    Int
+  orderAmount          Int?
+  actualDiscountAmount Int?
+  redeemedAt           DateTime      @default(now())
+  createdAt            DateTime      @default(now())
+
+  @@index([merchantId, redeemedAt])
+  @@index([userId])
+}
+
+model ReferralEvent {
+  id             String            @id @default(cuid())
+  type           ReferralEventType
+  referrerUserId String?
+  inviteCodeId   String?
+  campaignId     String?
+  channel        ReferralChannel?
+  dedupeKey      String?           @unique
+  visitorHash    String?
+  createdAt      DateTime          @default(now())
+
+  @@index([referrerUserId, type, createdAt])
+  @@index([campaignId, type, channel, createdAt])
+  @@index([inviteCodeId, type, createdAt])
 }
