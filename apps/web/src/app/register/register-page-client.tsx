@@ -1,6 +1,10 @@
 "use client";
 
-import { sanitizeSameOriginRelativePath } from "@lilink/shared";
+import {
+  INVITE_CODE_LENGTH,
+  PERSONAL_CODE_LENGTH,
+  sanitizeSameOriginRelativePath,
+} from "@lilink/shared";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
@@ -44,6 +48,9 @@ export default function RegisterPageClient() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [fullName, setFullName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [referralChannel, setReferralChannel] = useState("");
+  const [campaignSlug, setCampaignSlug] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [resolvedSchool, setResolvedSchool] = useState<CodeResponse["school"]>(
     null,
@@ -58,6 +65,31 @@ export default function RegisterPageClient() {
     const localhostHosts = new Set(["localhost", "127.0.0.1", "::1"]);
     setCanRevealDevCode(localhostHosts.has(window.location.hostname));
     setLoginHref(loginHrefFromSearch(window.location.search));
+
+    // Read referral attribution stashed by the /i/[code] landing page.
+    const refCookie = document.cookie
+      .split("; ")
+      .find((entry) => entry.startsWith("lilink_ref="));
+    if (!refCookie) return;
+    try {
+      const parsed = JSON.parse(
+        decodeURIComponent(refCookie.slice("lilink_ref=".length)),
+      ) as { code?: unknown; channel?: unknown; campaignSlug?: unknown };
+      const refCode = typeof parsed.code === "string" ? parsed.code : "";
+      if (refCode.length === INVITE_CODE_LENGTH) {
+        setInviteCode(refCode);
+      } else if (refCode.length === PERSONAL_CODE_LENGTH) {
+        setReferralCode(refCode);
+      }
+      if (typeof parsed.channel === "string") {
+        setReferralChannel(parsed.channel);
+      }
+      if (typeof parsed.campaignSlug === "string") {
+        setCampaignSlug(parsed.campaignSlug);
+      }
+    } catch {
+      // Ignore a malformed referral cookie.
+    }
   }, []);
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
@@ -117,7 +149,11 @@ export default function RegisterPageClient() {
           fullName,
           acceptedTerms,
           inviteCode: inviteCode.trim() || undefined,
+          referralCode: referralCode.trim() || undefined,
+          channel: referralChannel || undefined,
+          campaignSlug: campaignSlug || undefined,
         }),
+
       });
 
       const nextPath = new URLSearchParams(window.location.search).get("next");
