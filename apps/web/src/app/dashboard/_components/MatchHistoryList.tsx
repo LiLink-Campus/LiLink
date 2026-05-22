@@ -86,19 +86,27 @@ export function MatchHistoryList({
                       <span className="app-match-score">
                         匹配度 <strong>{hm.score.toFixed(1)}</strong> / 100
                       </span>
+                      {counterpart?.displayName ? (
+                        <p className="app-card-muted">
+                          对方：{counterpart.displayName}
+                          {counterpart.schoolName
+                            ? ` · ${counterpart.schoolName}`
+                            : ""}
+                        </p>
+                      ) : null}
+                      {counterpart?.introLine ? (
+                        <p className="app-card-muted app-match-intro">
+                          对方介绍：{counterpart.introLine}
+                        </p>
+                      ) : null}
                       {!introducedRow ? (
                         <p className="app-card-muted">
-                          未引荐前不展示对方学校、昵称等可识别信息。
+                          交换联系方式后即可查看对方联络方式。
                         </p>
                       ) : null}
                       {introducedRow && publicContact ? (
                         <p className="form-success app-match-email">
                           联系方式：{publicContact.label} {publicContact.value}
-                        </p>
-                      ) : null}
-                      {introducedRow && counterpart?.introLine ? (
-                        <p className="app-card-muted app-match-intro">
-                          对方介绍：{counterpart.introLine}
                         </p>
                       ) : null}
                       <CounterpartInfo
