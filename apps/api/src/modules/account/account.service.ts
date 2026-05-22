@@ -18,6 +18,12 @@ import {
   contactChannelLabel,
   hardMatchAttentionFields,
   hardMatchAttentionKeys,
+  hardMatchFieldHasValue,
+  hardMatchFieldSignature,
+  hardMatchSignatureFieldKeys,
+  currentHardMatchConfirmSignature,
+  HARD_MATCH_WEIGHT_KEYS,
+  HARD_MATCH_WEIGHT_ACK,
   isWeeklyIntent,
   normalizeLocale,
   type ContactChannelType,
@@ -56,14 +62,16 @@ import {
   DashboardHistoryLimitedReason,
   DashboardHistoryResult,
   DashboardHistoryVisibility,
+  DashboardMatchResponseDto,
   DashboardResponseDto,
   DashboardTaskResponseDto,
+  MatchFeedbackResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
+  SubmitMatchFeedbackDto,
   ToggleParticipationDto,
   UpdateContactPreferencesDto,
   UpdateLocaleDto,
-  UpdateMeetupSettingsDto,
   UpdateProfileDto,
 } from './dto';
 import { MatchEstimateService } from './match-estimate.service';
@@ -307,6 +315,19 @@ function normalizeAcknowledgedQuestionnaireKeys(rawKeys: unknown) {
   ];
 }
 
+function normalizeHardMatchSignatures(raw: unknown): Record<string, string> {
+  if (!isRecord(raw)) {
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string') {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
 function normalizeQuestionOptionsForComparison(
   question: Pick<QuestionnaireAttentionQuestion, 'options'>,
 ) {
@@ -373,27 +394,6 @@ export class AccountService {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { preferredLocale: input.locale },
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        preferredLocale: true,
-        meetupExpirationWeeks: true,
-      },
-    });
-
-    return {
-      ...user,
-      preferredLocale: normalizeLocale(user.preferredLocale),
-      meetupExpirationWeeks:
-        user.meetupExpirationWeeks ?? DEFAULT_MEETUP_EXPIRATION_WEEKS,
-    };
-  }
-
-  async updateMeetupSettings(userId: string, input: UpdateMeetupSettingsDto) {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { meetupExpirationWeeks: input.meetupExpirationWeeks },
       select: {
         id: true,
         email: true,
@@ -539,6 +539,10 @@ export class AccountService {
         : this.buildDefaultDashboardHistoryItem(revealedCycle);
     });
     const latestMatch = this.readLatestDashboardMatch(latestSnapshot);
+    await this.attachCurrentUserFeedback(userId, [
+      latestMatch,
+      ...recentMatchHistory.map((item) => item.match),
+    ]);
 
     let lastRevealedRound: {
       cycleId: string;
@@ -1069,52 +1073,28 @@ export class AccountService {
     };
   }
 
-  private normalizeMatchReasons(rawReasons: Prisma.JsonValue): string[] {
-    if (!Array.isArray(rawReasons)) {
-      return [];
+  private readPartyGenderInfo(answers: unknown): {
+    gender: string | null;
+    partnerGenders: string[];
+  } {
+    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+      return { gender: null, partnerGenders: [] };
     }
-
-    return rawReasons.filter(
-      (item): item is string =>
-        typeof item === 'string' && item.trim().length > 0,
-    );
-  }
-
-  private normalizeMatchReason(
-    rawReason: string | null | undefined,
-    normalizedReasons: string[],
-  ) {
-    const trimmedReason = rawReason?.trim();
-    if (trimmedReason) {
-      return trimmedReason;
-    }
-
-    if (normalizedReasons.length === 0) {
-      return null;
-    }
-
-    return normalizedReasons.join(' ');
-  }
-
-  private normalizeConversationTopics(
-    rawTopics: Prisma.JsonValue | null | undefined,
-  ) {
-    if (!Array.isArray(rawTopics)) {
-      return [];
-    }
-
-    return rawTopics.filter(
-      (item): item is string =>
-        typeof item === 'string' && item.trim().length > 0,
-    );
-  }
-
-  private defaultConversationTopics() {
-    return [
-      '最近一次让你觉得很放松的周末通常怎么过',
-      '你最近在慢慢坚持的一件事是什么',
-      '什么样的聊天节奏会让你觉得相处自然',
-    ];
+    const record = answers as Record<string, unknown>;
+    const gender = record[HARD_MATCH_KEYS.gender];
+    const partnerGenders = record[HARD_MATCH_KEYS.partnerGenders];
+    return {
+      gender:
+        typeof gender === 'string' && gender.trim().length > 0
+          ? gender.trim()
+          : null,
+      partnerGenders: Array.isArray(partnerGenders)
+        ? partnerGenders.filter(
+            (entry): entry is string =>
+              typeof entry === 'string' && entry.trim().length > 0,
+          )
+        : [],
+    };
   }
 
   private toDashboardHistoryResult(
@@ -1226,7 +1206,10 @@ export class AccountService {
     questions: Array<{ key: string }>,
     rawAnswers: Record<string, unknown>,
   ) {
-    const allowedKeys = new Set(questions.map((question) => question.key));
+    const allowedKeys = new Set([
+      ...questions.map((question) => question.key),
+      ...hardMatchQuestionKeys(),
+    ]);
 
     for (const answerKey of Object.keys(rawAnswers)) {
       if (!allowedKeys.has(answerKey)) {
@@ -1292,12 +1275,16 @@ export class AccountService {
     filteredAnswers: Record<string, unknown>;
     acknowledgedVersionId: string | null | undefined;
     acknowledgedKeys: unknown;
+    acknowledgedHardMatchSignatures: unknown;
   }) {
     const acknowledgedKeys =
       args.acknowledgedVersionId === args.currentVersionId
         ? normalizeAcknowledgedQuestionnaireKeys(args.acknowledgedKeys)
         : [];
     const acknowledgedKeySet = new Set(acknowledgedKeys);
+    const storedSignatures = normalizeHardMatchSignatures(
+      args.acknowledgedHardMatchSignatures,
+    );
     const previousQuestionsByKey = new Map(
       args.previousQuestions.map((question) => [question.key, question]),
     );
@@ -1334,12 +1321,39 @@ export class AccountService {
     }
 
     for (const field of hardMatchAttentionFields()) {
-      const updated =
+      const value = args.filteredAnswers[field.key];
+      const present =
+        Object.prototype.hasOwnProperty.call(args.filteredAnswers, field.key) &&
+        hardMatchFieldHasValue(value);
+
+      const enumSignature = hardMatchFieldSignature(field.key);
+      const isWeight = HARD_MATCH_WEIGHT_KEYS.includes(field.key);
+
+      // Whether this hard-match field is confirmed against the CURRENT schema,
+      // decided purely by the stored signature — independent of the soft
+      // questionnaire version, so a soft bump never re-nags a confirmed field.
+      let signatureConfirmed: boolean;
+      if (enumSignature !== null) {
+        signatureConfirmed = storedSignatures[field.key] === enumSignature;
+      } else if (isWeight) {
+        signatureConfirmed =
+          present || storedSignatures[field.key] === HARD_MATCH_WEIGHT_ACK;
+      } else {
+        signatureConfirmed = true;
+      }
+
+      // Newly introduced field (version bumped + key absent), suppressed once
+      // the field is signature-confirmed.
+      const legacyUpdated =
+        !signatureConfirmed &&
         hasVersionUpdate &&
         !Object.prototype.hasOwnProperty.call(args.rawAnswers, field.key);
-      const missingRequired =
-        field.required &&
-        !Object.prototype.hasOwnProperty.call(args.filteredAnswers, field.key);
+      const enumStale =
+        enumSignature !== null && present && !signatureConfirmed;
+      const weightNeedsConfirm = isWeight && !present && !signatureConfirmed;
+      const updated = legacyUpdated || enumStale || weightNeedsConfirm;
+
+      const missingRequired = field.required && !present;
 
       if (!updated && !missingRequired) {
         continue;
@@ -1350,7 +1364,7 @@ export class AccountService {
         prompt: field.label,
         updated,
         missingRequired,
-        acknowledged: !updated || acknowledgedKeySet.has(field.key),
+        acknowledged: signatureConfirmed,
       });
     }
 
@@ -1597,6 +1611,20 @@ export class AccountService {
       );
       const submittedAt = new Date();
 
+      // Submitting is a conscious pass over the whole profile, so it confirms
+      // every enum hard-match field against the current option set AND any
+      // empty / "no limit" weight (clearing the weight nudge on save).
+      const submittedHardMatchSignatures: Record<string, string> = {};
+      for (const key of hardMatchSignatureFieldKeys()) {
+        const sig = hardMatchFieldSignature(key);
+        if (sig) {
+          submittedHardMatchSignatures[key] = sig;
+        }
+      }
+      for (const key of HARD_MATCH_WEIGHT_KEYS) {
+        submittedHardMatchSignatures[key] = HARD_MATCH_WEIGHT_ACK;
+      }
+
       const submittedOperations: Prisma.PrismaPromise<unknown>[] = [];
 
       if (displayNameUpdate !== undefined) {
@@ -1629,6 +1657,18 @@ export class AccountService {
             submittedAt,
           },
         }),
+      );
+
+      // Persist enum + weight signatures via JSONB merge (runs after the
+      // upsert in the same transaction).
+      submittedOperations.push(
+        this.prisma.$executeRaw`
+          UPDATE "QuestionnaireResponse"
+          SET "acknowledgedHardMatchSignatures" =
+            COALESCE("acknowledgedHardMatchSignatures", '{}'::jsonb)
+            || ${JSON.stringify(submittedHardMatchSignatures)}::jsonb
+          WHERE "userId" = ${userId}
+        `,
       );
 
       await this.prisma.$transaction(submittedOperations);
@@ -1772,6 +1812,8 @@ export class AccountService {
         filteredAnswers,
         acknowledgedVersionId: response.acknowledgedQuestionnaireVersionId,
         acknowledgedKeys: response.acknowledgedQuestionnaireKeys,
+        acknowledgedHardMatchSignatures:
+          response.acknowledgedHardMatchSignatures,
       }),
     };
   }
@@ -1826,12 +1868,26 @@ export class AccountService {
       };
     }
 
+    // Hard-match keys carry a signature instead of a bare ack flag: enum
+    // fields store the current option-set signature, weight fields the
+    // empty-ack sentinel. Merged into the JSONB column in the same UPDATE.
+    const hardMatchAcks: Record<string, string> = {};
+    for (const key of requestedKeys) {
+      const sig = currentHardMatchConfirmSignature(key);
+      if (sig) {
+        hardMatchAcks[key] = sig;
+      }
+    }
+
     const updatedRows = await this.prisma.$queryRaw<
       QuestionnaireAcknowledgementRow[]
     >`
       UPDATE "QuestionnaireResponse" AS response
       SET
         "acknowledgedQuestionnaireVersionId" = ${currentQuestionnaire.id},
+        "acknowledgedHardMatchSignatures" =
+          COALESCE(response."acknowledgedHardMatchSignatures", '{}'::jsonb)
+          || ${JSON.stringify(hardMatchAcks)}::jsonb,
         "acknowledgedQuestionnaireKeys" = (
           SELECT COALESCE(
             jsonb_agg(DISTINCT acknowledged_key ORDER BY acknowledged_key),
@@ -2053,8 +2109,21 @@ export class AccountService {
     const counterpartContact = this.resolvePublicContact(counterpart.user);
 
     const claimedAt = new Date();
-    const conversationTopics = this.normalizeConversationTopics(
-      participant.match.conversationTopics,
+    const introIntents = await this.prisma.cycleParticipation.findMany({
+      where: {
+        cycleId: participant.match.cycleId,
+        userId: { in: [requester.userId, counterpart.userId] },
+      },
+      select: { userId: true, intent: true },
+    });
+    const intentByUserId = new Map(
+      introIntents.map((row) => [row.userId, row.intent]),
+    );
+    const requesterGenderInfo = this.readPartyGenderInfo(
+      requester.user.questionnaireResponse?.answers,
+    );
+    const counterpartGenderInfo = this.readPartyGenderInfo(
+      counterpart.user.questionnaireResponse?.answers,
     );
 
     let queuedEmails: ReturnType<MailService['buildIntroductionEmails']> = [];
@@ -2094,6 +2163,9 @@ export class AccountService {
             requester.user.profile?.headline,
           ),
           publicContact: requesterContact,
+          gender: requesterGenderInfo.gender,
+          partnerGenders: requesterGenderInfo.partnerGenders,
+          weeklyIntent: intentByUserId.get(requester.userId) ?? null,
         },
         recipient: {
           email: counterpart.user.email,
@@ -2104,16 +2176,10 @@ export class AccountService {
             counterpart.user.profile?.headline,
           ),
           publicContact: counterpartContact,
+          gender: counterpartGenderInfo.gender,
+          partnerGenders: counterpartGenderInfo.partnerGenders,
+          weeklyIntent: intentByUserId.get(counterpart.userId) ?? null,
         },
-        reason:
-          this.normalizeMatchReason(
-            participant.match.reason,
-            this.normalizeMatchReasons(participant.match.reasons),
-          ) ?? '你们在多项关系判断与日常偏好上呈现出稳定的相容趋势。',
-        conversationTopics:
-          conversationTopics.length > 0
-            ? conversationTopics
-            : this.defaultConversationTopics(),
       });
 
       const claimedMatch = await tx.match.updateMany({
@@ -2182,6 +2248,151 @@ export class AccountService {
 
     return {
       ok: true,
+    };
+  }
+
+  private async attachCurrentUserFeedback(
+    userId: string,
+    matches: Array<DashboardMatchResponseDto | null>,
+  ) {
+    const present = matches.filter(
+      (match): match is DashboardMatchResponseDto => match != null,
+    );
+    if (present.length === 0) {
+      return;
+    }
+
+    const matchIds = [...new Set(present.map((match) => match.id))];
+    const feedbacks = await this.prisma.matchFeedback.findMany({
+      where: {
+        matchId: { in: matchIds },
+        authorUserId: userId,
+      },
+      select: {
+        matchId: true,
+        rating: true,
+        comment: true,
+        updatedAt: true,
+      },
+    });
+    const feedbackByMatchId = new Map(
+      feedbacks.map((feedback) => [feedback.matchId, feedback]),
+    );
+
+    for (const match of present) {
+      const feedback = feedbackByMatchId.get(match.id);
+      match.currentUserFeedback = feedback
+        ? {
+            rating: feedback.rating,
+            comment: feedback.comment,
+            submittedAt: feedback.updatedAt.toISOString(),
+          }
+        : null;
+    }
+  }
+
+  async submitMatchFeedback(
+    userId: string,
+    matchId: string,
+    input: SubmitMatchFeedbackDto,
+  ): Promise<MatchFeedbackResponseDto> {
+    const participant = await this.prisma.matchParticipant.findFirst({
+      where: {
+        matchId,
+        userId,
+      },
+      include: {
+        match: {
+          select: {
+            id: true,
+            revealedAt: true,
+            participants: {
+              select: { userId: true },
+            },
+            reports: {
+              where: { reporterId: userId },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!participant) {
+      throw new NotFoundException('Match was not found for this user.');
+    }
+
+    if (participant.match.revealedAt == null) {
+      throw new BadRequestException('This match is not revealed yet.');
+    }
+
+    const counterpart = participant.match.participants.find(
+      (item) => item.userId !== userId,
+    );
+
+    if (!counterpart) {
+      throw new BadRequestException(
+        'Counterpart was not found for this match.',
+      );
+    }
+
+    if (participant.match.reports.length > 0) {
+      throw new BadRequestException(
+        'This match is no longer available for feedback.',
+      );
+    }
+
+    const block = await this.prisma.block.findFirst({
+      where: {
+        OR: [
+          { blockerId: userId, blockedId: counterpart.userId },
+          { blockerId: counterpart.userId, blockedId: userId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (block) {
+      throw new BadRequestException(
+        'This match is no longer available for feedback.',
+      );
+    }
+
+    const comment =
+      typeof input.comment === 'string' && input.comment.trim().length > 0
+        ? input.comment.trim()
+        : null;
+
+    const feedback = await this.prisma.matchFeedback.upsert({
+      where: {
+        matchId_authorUserId: {
+          matchId,
+          authorUserId: userId,
+        },
+      },
+      update: {
+        rating: input.rating,
+        comment,
+        subjectUserId: counterpart.userId,
+      },
+      create: {
+        matchId,
+        authorUserId: userId,
+        subjectUserId: counterpart.userId,
+        rating: input.rating,
+        comment,
+      },
+    });
+
+    await this.createAuditLog(userId, 'match.feedback_submitted', {
+      matchId,
+      rating: feedback.rating,
+    });
+
+    return {
+      rating: feedback.rating,
+      comment: feedback.comment,
+      submittedAt: feedback.updatedAt.toISOString(),
     };
   }
 

@@ -22,9 +22,9 @@ import {
   MatchEstimateResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
+  SubmitMatchFeedbackDto,
   ToggleParticipationDto,
   UpdateContactPreferencesDto,
-  UpdateMeetupSettingsDto,
   UpdateProfileDto,
 } from './dto';
 
@@ -106,14 +106,6 @@ export class AccountController {
     return this.accountService.updateLocale(request.user!.sub, { locale });
   }
 
-  @Put('settings/meetup')
-  updateMeetupSettings(
-    @Req() request: AuthenticatedRequest,
-    @Body() body: UpdateMeetupSettingsDto,
-  ) {
-    return this.accountService.updateMeetupSettings(request.user!.sub, body);
-  }
-
   @Get('questionnaire')
   getQuestionnaire(@Req() request: AuthenticatedRequest) {
     return this.accountService.getQuestionnaire(request.user!.sub);
@@ -174,6 +166,19 @@ export class AccountController {
     @Body() body: ReportMatchDto,
   ) {
     return this.accountService.reportMatch(request.user!.sub, matchId, body);
+  }
+
+  @Put('matches/:matchId/feedback')
+  submitMatchFeedback(
+    @Req() request: AuthenticatedRequest,
+    @Param('matchId') matchId: string,
+    @Body() body: SubmitMatchFeedbackDto,
+  ) {
+    return this.accountService.submitMatchFeedback(
+      request.user!.sub,
+      matchId,
+      body,
+    );
   }
 
   private readLocaleCookie(request: AuthenticatedRequest) {

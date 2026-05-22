@@ -13,6 +13,7 @@ import {
   DEFAULT_MEETUP_EXPIRATION_WEEKS,
   DEFAULT_MEETUP_TOLERANCE_MINUTES,
   MAX_MEETUP_EXPIRATION_WEEKS,
+  MAX_MEETUP_PLACE_NAME_LENGTH,
   MEETUP_ARCHIVE_AFTER_FINAL_DECISION_MINUTES,
   MIN_MEETUP_EXPIRATION_WEEKS,
   MIN_MEETUP_PROPOSAL_LEAD_MINUTES,
@@ -32,7 +33,6 @@ import {
 import {
   findLocationCandidate,
   locationCandidates,
-  type MeetupLocationCandidate,
 } from './location-candidates';
 import { mapMeetupSessionResponse } from './response-mapper';
 import type {
@@ -114,8 +114,10 @@ type NormalizedTimeOptionInput = {
 };
 
 type NormalizedLocationOptionInput = {
-  locationCandidateId: string;
-  candidate: MeetupLocationCandidate;
+  locationCandidateId: string | null;
+  placeName: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 type NormalizedProposalInput = {
@@ -1095,7 +1097,7 @@ export class MeetupService {
   }
 
   private get db(): MeetupPrismaClient {
-    return this.prisma as unknown as MeetupPrismaClient;
+    return this.prisma;
   }
 
   private buildMeetupSessionUrl(sessionId: string) {
@@ -1329,10 +1331,10 @@ export class MeetupService {
         proposalId: input.proposalId,
         kind: 'LOCATION' as const,
         status: 'PENDING' as const,
-        locationCandidateId: option.candidate.id,
-        placeName: option.candidate.name,
-        latitude: option.candidate.latitude,
-        longitude: option.candidate.longitude,
+        locationCandidateId: option.locationCandidateId,
+        placeName: option.placeName,
+        latitude: option.latitude,
+        longitude: option.longitude,
       })),
     ];
   }
@@ -1758,44 +1760,99 @@ export class MeetupService {
       throw new BadRequestException('MEETUP_LOCATION_OPTIONS_INVALID');
     }
 
-    const seenCandidateIds = new Set<string>();
+    const seenLocationKeys = new Set<string>();
     return rawArray.map((rawOption): NormalizedLocationOptionInput => {
       if (!isRecord(rawOption)) {
         throw new BadRequestException('MEETUP_LOCATION_OPTION_INVALID');
       }
 
       this.assertNoClientLocationSnapshotFields(rawOption);
-      const locationCandidateId = rawOption.locationCandidateId;
-      if (
-        typeof locationCandidateId !== 'string' ||
-        !locationCandidateId.trim()
-      ) {
-        throw new BadRequestException('MEETUP_LOCATION_CANDIDATE_REQUIRED');
+      const locationCandidateId = this.normalizeOptionalText(
+        rawOption.locationCandidateId,
+      );
+      const placeName = this.normalizeOptionalText(rawOption.placeName);
+
+      if (locationCandidateId && placeName) {
+        throw new BadRequestException('MEETUP_LOCATION_OPTION_AMBIGUOUS');
       }
 
-      const normalizedCandidateId = locationCandidateId.trim();
-      if (seenCandidateIds.has(normalizedCandidateId)) {
-        throw new BadRequestException('MEETUP_LOCATION_CANDIDATE_DUPLICATE');
-      }
-      seenCandidateIds.add(normalizedCandidateId);
-
-      const candidate = findLocationCandidate(normalizedCandidateId);
-      if (!candidate) {
-        throw new BadRequestException('MEETUP_LOCATION_CANDIDATE_UNKNOWN');
+      if (locationCandidateId) {
+        return this.normalizeCandidateLocationOption(
+          locationCandidateId,
+          seenLocationKeys,
+        );
       }
 
-      return {
-        locationCandidateId: normalizedCandidateId,
-        candidate,
-      };
+      if (placeName) {
+        return this.normalizeCustomLocationOption(placeName, seenLocationKeys);
+      }
+
+      throw new BadRequestException('MEETUP_LOCATION_OPTION_REQUIRED');
     });
+  }
+
+  private normalizeCandidateLocationOption(
+    locationCandidateId: unknown,
+    seenLocationKeys: Set<string>,
+  ): NormalizedLocationOptionInput {
+    if (
+      typeof locationCandidateId !== 'string' ||
+      !locationCandidateId.trim()
+    ) {
+      throw new BadRequestException('MEETUP_LOCATION_CANDIDATE_REQUIRED');
+    }
+
+    const normalizedCandidateId = locationCandidateId.trim();
+    const duplicateKey = `candidate:${normalizedCandidateId}`;
+    if (seenLocationKeys.has(duplicateKey)) {
+      throw new BadRequestException('MEETUP_LOCATION_CANDIDATE_DUPLICATE');
+    }
+    seenLocationKeys.add(duplicateKey);
+
+    const candidate = findLocationCandidate(normalizedCandidateId);
+    if (!candidate) {
+      throw new BadRequestException('MEETUP_LOCATION_CANDIDATE_UNKNOWN');
+    }
+
+    return {
+      locationCandidateId: candidate.id,
+      placeName: candidate.name,
+      latitude: candidate.latitude,
+      longitude: candidate.longitude,
+    };
+  }
+
+  private normalizeCustomLocationOption(
+    rawPlaceName: unknown,
+    seenLocationKeys: Set<string>,
+  ): NormalizedLocationOptionInput {
+    if (typeof rawPlaceName !== 'string' || !rawPlaceName.trim()) {
+      throw new BadRequestException('MEETUP_LOCATION_PLACE_NAME_REQUIRED');
+    }
+
+    const placeName = rawPlaceName.trim().replace(/\s+/g, ' ');
+    if (placeName.length > MAX_MEETUP_PLACE_NAME_LENGTH) {
+      throw new BadRequestException('MEETUP_LOCATION_PLACE_NAME_TOO_LONG');
+    }
+
+    const duplicateKey = `custom:${placeName.toLowerCase()}`;
+    if (seenLocationKeys.has(duplicateKey)) {
+      throw new BadRequestException('MEETUP_LOCATION_PLACE_NAME_DUPLICATE');
+    }
+    seenLocationKeys.add(duplicateKey);
+
+    return {
+      locationCandidateId: null,
+      placeName,
+      latitude: null,
+      longitude: null,
+    };
   }
 
   private assertNoClientLocationSnapshotFields(
     rawOption: Record<string, unknown>,
   ) {
     const forbiddenFields = [
-      'placeName',
       'latitude',
       'longitude',
       'provider',

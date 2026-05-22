@@ -37,11 +37,10 @@ export function isWeeklyIntent(value: unknown): value is WeeklyIntent {
   return typeof value === "string" && WEEKLY_INTENT_SET.has(value);
 }
 
-export function readWeeklyIntent(value: unknown): WeeklyIntent | null {
-  return isWeeklyIntent(value) ? value : null;
-}
-
-const WEEKLY_INTENT_ATOMS: Record<WeeklyIntent, ReadonlyArray<"FRIEND" | "DATE">> = {
+const WEEKLY_INTENT_ATOMS: Record<
+  WeeklyIntent,
+  ReadonlyArray<"FRIEND" | "DATE">
+> = {
   FRIEND: ["FRIEND"],
   DATE: ["DATE"],
   BOTH: ["FRIEND", "DATE"],

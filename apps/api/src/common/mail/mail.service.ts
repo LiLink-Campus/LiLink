@@ -4,7 +4,11 @@ import { OutboundEmailMessageCategory } from '../prisma/client';
 import nodemailer from 'nodemailer';
 import { env } from '../../config/env';
 import { PrismaService } from '../prisma/prisma.service';
-import type { ContactChannelType } from '@lilink/shared';
+import {
+  WEEKLY_INTENT_LABELS,
+  type ContactChannelType,
+  type WeeklyIntent,
+} from '@lilink/shared';
 
 function escapeHtml(value: string | null | undefined) {
   return String(value ?? '')
@@ -15,24 +19,21 @@ function escapeHtml(value: string | null | undefined) {
     .replaceAll("'", '&#39;');
 }
 
+type IntroductionEmailParty = {
+  email: string;
+  displayName: string | null;
+  schoolName?: string | null;
+  introLine?: string | null;
+  publicContact?: PublicContactInput;
+  gender?: string | null;
+  partnerGenders?: string[];
+  weeklyIntent?: WeeklyIntent | null;
+};
+
 type IntroductionEmailInput = {
   matchId: string;
-  requester: {
-    email: string;
-    displayName: string | null;
-    schoolName?: string | null;
-    introLine?: string | null;
-    publicContact?: PublicContactInput;
-  };
-  recipient: {
-    email: string;
-    displayName: string | null;
-    schoolName?: string | null;
-    introLine?: string | null;
-    publicContact?: PublicContactInput;
-  };
-  reason: string;
-  conversationTopics: string[];
+  requester: IntroductionEmailParty;
+  recipient: IntroductionEmailParty;
 };
 
 type PublicContactInput = {
@@ -265,8 +266,6 @@ export class MailService {
         otherParty: input.recipient,
         otherPartyDisplayName: recipientName,
         leadingSentence: `你已成功请求联系 ${recipientName}。`,
-        reason: input.reason,
-        conversationTopics: input.conversationTopics,
       }),
       this.buildIntroductionEmail({
         dedupeKey: `match-introduction:${input.matchId}:recipient`,
@@ -274,8 +273,6 @@ export class MailService {
         otherParty: input.requester,
         otherPartyDisplayName: requesterName,
         leadingSentence: `${requesterName} 请求与你建立联系。`,
-        reason: input.reason,
-        conversationTopics: input.conversationTopics,
       }),
     ];
   }
@@ -322,11 +319,9 @@ export class MailService {
   private buildIntroductionEmail(input: {
     dedupeKey: string;
     recipientEmail: string;
-    otherParty: IntroductionEmailInput['requester'];
+    otherParty: IntroductionEmailParty;
     otherPartyDisplayName: string;
     leadingSentence: string;
-    reason: string;
-    conversationTopics: string[];
   }) {
     const subject = `LiLink 已为你引荐 ${input.otherPartyDisplayName}`;
     const otherContact = input.otherParty.publicContact ?? {
@@ -337,13 +332,24 @@ export class MailService {
     const otherContactText = `${otherContact.label} ${otherContact.value}`;
     const otherSchool = input.otherParty.schoolName ?? '未填写';
     const otherIntro = input.otherParty.introLine ?? '暂无';
-    const escapedReason = escapeHtml(input.reason);
-    const topics = input.conversationTopics
-      .filter((topic) => topic.trim().length > 0)
-      .map((topic) => topic.trim());
-    const topicsHtml = topics
-      .map((topic) => `<li>${escapeHtml(topic)}</li>`)
-      .join('');
+    const otherGender = input.otherParty.gender?.trim() || null;
+    const otherPartnerGenders = (input.otherParty.partnerGenders ?? []).filter(
+      (gender) => gender.trim().length > 0,
+    );
+    const otherWeeklyIntentLabel = input.otherParty.weeklyIntent
+      ? WEEKLY_INTENT_LABELS[input.otherParty.weeklyIntent].subtitle
+      : null;
+
+    const infoLines: string[] = [];
+    if (otherGender) {
+      infoLines.push(`对方性别：${otherGender}`);
+    }
+    if (otherPartnerGenders.length > 0) {
+      infoLines.push(`对方期望对象性别：${otherPartnerGenders.join('、')}`);
+    }
+    if (otherWeeklyIntentLabel) {
+      infoLines.push(`对方本周意向：${otherWeeklyIntentLabel}`);
+    }
 
     const text = [
       input.leadingSentence,
@@ -351,18 +357,17 @@ export class MailService {
       `对方联系方式：${otherContactText}`,
       `对方学校：${otherSchool}`,
       `对方一句话介绍：${otherIntro}`,
-      '',
-      '本次匹配理由：',
-      input.reason,
-      '',
-      '可以从这些话题开始聊天：',
-      ...topics.map((topic) => `- ${topic}`),
+      ...infoLines,
       '',
       '此邮件由 LiLink 系统自动发送，请勿直接回复。',
       '',
       '— LiLink 团队',
       'https://lilink.top',
     ].join('\n');
+
+    const infoHtml = infoLines
+      .map((line) => `<p class="note">${escapeHtml(line)}</p>`)
+      .join('');
 
     const html = renderHtmlDocument({
       title: subject,
@@ -373,10 +378,7 @@ export class MailService {
         `<p class="note">对方联系方式：<strong>${escapeHtml(otherContactText)}</strong></p>`,
         `<p class="note">对方学校：${escapeHtml(otherSchool)}</p>`,
         `<p class="note">对方一句话介绍：${escapeHtml(otherIntro)}</p>`,
-        '<p class="note">本次匹配理由：</p>',
-        `<p class="note">${escapedReason}</p>`,
-        '<p class="note">可以从这些话题开始聊天：</p>',
-        `<ul class="note">${topicsHtml}</ul>`,
+        infoHtml,
         '<p class="footer">此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
         '<hr>',
         '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',

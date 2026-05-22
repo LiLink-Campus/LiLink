@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import {
   applyContactSuccessToDashboard,
+  applyFeedbackSuccessToDashboard,
   applyReportSuccessToDashboard,
 } from "../_lib/dashboard-mutations";
 import { DEFAULT_REPORT_REASON } from "../_lib/format";
-import type { DashboardPayload } from "../_lib/types";
+import type { DashboardPayload, MatchFeedback } from "../_lib/types";
 
-type SavingKey = null | "contact" | "report";
+type SavingKey = null | "contact" | "report" | "feedback";
 
 type UseMatchActionsOptions = {
   initialDashboard: DashboardPayload | null;
@@ -39,30 +40,18 @@ export function useMatchActions({
   const [reportReason, setReportReason] = useState(DEFAULT_REPORT_REASON);
   const [reportDetails, setReportDetails] = useState("");
 
-  const reportSectionRef = useRef<HTMLElement | null>(null);
-  const reportReasonSelectRef = useRef<HTMLSelectElement | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackTargetMatchId, setFeedbackTargetMatchId] = useState<
+    string | null
+  >(null);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState("");
 
   // Keep local dashboard state aligned with the latest server snapshot when
   // the RSC tree revalidates (e.g. router.refresh), matching the hub page.
   useEffect(() => {
     setDashboard(initialDashboard);
   }, [initialDashboard]);
-
-  useEffect(() => {
-    if (!reportOpen || !reportTargetMatchId) {
-      return;
-    }
-
-    const frameId = window.requestAnimationFrame(() => {
-      reportSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-      reportReasonSelectRef.current?.focus({ preventScroll: true });
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [reportOpen, reportTargetMatchId]);
 
   function closeReportForm() {
     setReportOpen(false);
@@ -103,7 +92,7 @@ export function useMatchActions({
     }
   }
 
-  async function requestContact(matchId: string) {
+  async function requestContact(matchId: string): Promise<boolean> {
     setSaving("contact");
     setSavedMessage(null);
     setError(null);
@@ -116,10 +105,12 @@ export function useMatchActions({
       await refreshDashboardAfterMutation(
         "引荐已提交，但页面刷新失败。请稍后手动刷新查看最新状态。",
       );
+      return true;
     } catch (caughtError) {
       setError(
         caughtError instanceof Error ? caughtError.message : "引荐发送失败。",
       );
+      return false;
     } finally {
       setSaving(null);
     }
@@ -156,11 +147,77 @@ export function useMatchActions({
     }
   }
 
-  // Returned shape is intentionally flat (no nested `report` object).
-  // Wrapping refs together with non-ref callbacks confuses the
-  // react-hooks/refs lint rule into flagging every property access on
-  // the wrapper as "ref access during render", because the wrapper now
-  // looks ref-like to static analysis.
+  function closeFeedbackForm() {
+    setFeedbackOpen(false);
+    setFeedbackTargetMatchId(null);
+    setFeedbackRating(0);
+    setFeedbackComment("");
+  }
+
+  function openFeedbackForm(
+    matchId: string,
+    existing?: { rating: number; comment: string | null } | null,
+  ) {
+    setFeedbackTargetMatchId(matchId);
+    setFeedbackRating(existing?.rating ?? 0);
+    setFeedbackComment(existing?.comment ?? "");
+    setFeedbackOpen(true);
+  }
+
+  function toggleFeedbackForm(
+    matchId: string,
+    existing?: { rating: number; comment: string | null } | null,
+  ) {
+    if (feedbackOpen && feedbackTargetMatchId === matchId) {
+      closeFeedbackForm();
+      return;
+    }
+    openFeedbackForm(matchId, existing);
+  }
+
+  function feedbackFormIsOpenForMatch(matchId: string) {
+    return feedbackOpen && feedbackTargetMatchId === matchId;
+  }
+
+  async function submitFeedback() {
+    const matchId = feedbackTargetMatchId;
+    if (!matchId) return;
+    if (feedbackRating < 1 || feedbackRating > 5) {
+      setError("请先选择 1-5 星评分。");
+      return;
+    }
+    setSaving("feedback");
+    setSavedMessage(null);
+    setError(null);
+    try {
+      const comment = feedbackComment.trim();
+      const saved = await fetchApi<MatchFeedback>(
+        `/me/matches/${matchId}/feedback`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            rating: feedbackRating,
+            ...(comment ? { comment } : {}),
+          }),
+        },
+      );
+      setDashboard((current) =>
+        applyFeedbackSuccessToDashboard(current, matchId, saved),
+      );
+      closeFeedbackForm();
+      setSavedMessage("已保存你对本次匹配的反馈评价。");
+      await refreshDashboardAfterMutation(
+        "反馈已保存，但页面刷新失败。请稍后手动刷新查看最新状态。",
+      );
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error ? caughtError.message : "反馈提交失败。",
+      );
+    } finally {
+      setSaving(null);
+    }
+  }
+
   return {
     dashboard,
     error,
@@ -173,13 +230,22 @@ export function useMatchActions({
     reportTargetMatchId,
     reportReason,
     reportDetails,
-    reportSectionRef,
-    reportReasonSelectRef,
     setReportReason,
     setReportDetails,
     openReportForm,
     closeReportForm,
     toggleReportForm,
     reportFormIsOpenForMatch,
+    feedbackOpen,
+    feedbackTargetMatchId,
+    feedbackRating,
+    feedbackComment,
+    setFeedbackRating,
+    setFeedbackComment,
+    openFeedbackForm,
+    closeFeedbackForm,
+    toggleFeedbackForm,
+    feedbackFormIsOpenForMatch,
+    submitFeedback,
   };
 }

@@ -32,6 +32,8 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
   "Duplicate contact method type.": "联系方式类型重复。",
   "Invite code is invalid or inactive.": "邀请码无效或已停用。",
   "Owner name is required.": "请填写姓名。",
+  MEETUP_LOCATION_OPTION_AMBIGUOUS:
+    "每个地点选项只能二选一：推荐地点或自定义地点，不能同时填写。",
 };
 
 export class ApiRequestError extends Error {
@@ -117,7 +119,7 @@ export type AuthMePayload = {
   meetupExpirationWeeks: MeetupExpirationWeeks;
 };
 
-export type MeetupSessionStatus =
+type MeetupSessionStatus =
   | "ACTIVE"
   | "LOCKED"
   | "CANCELED"
@@ -143,9 +145,9 @@ export type MeetupProgressStatus =
 
 export type MeetupProposalScope = "BOTH" | "TIME_ONLY" | "LOCATION_ONLY";
 
-export type MeetupParticipantTurnState = "NONE" | "REQUIRED" | "WAITING";
+type MeetupParticipantTurnState = "NONE" | "REQUIRED" | "WAITING";
 
-export type MeetupMessageType =
+type MeetupMessageType =
   | "PROPOSE"
   | "ACCEPT"
   | "REJECT"
@@ -153,20 +155,16 @@ export type MeetupMessageType =
   | "REVISE_AFTER_LOCK"
   | "CANCEL";
 
-export type MeetupProposalStatus =
+type MeetupProposalStatus =
   | "PENDING"
   | "PARTIALLY_ACCEPTED"
   | "CONFIRMED"
   | "REJECTED"
   | "SUPERSEDED";
 
-export type MeetupOptionKind = "TIME" | "LOCATION";
+type MeetupOptionKind = "TIME" | "LOCATION";
 
-export type MeetupOptionStatus =
-  | "PENDING"
-  | "CONFIRMED"
-  | "REJECTED"
-  | "DISABLED";
+type MeetupOptionStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "DISABLED";
 
 export type MeetupLocationCandidate = {
   id: string;
@@ -175,12 +173,12 @@ export type MeetupLocationCandidate = {
   longitude: number;
 };
 
-export type MeetupActionAvailability = {
+type MeetupActionAvailability = {
   enabled: boolean;
   reason: string | null;
 };
 
-export type MeetupAvailableActions = {
+type MeetupAvailableActions = {
   propose: MeetupActionAvailability;
   accept: MeetupActionAvailability & {
     requiredOptionKinds: MeetupOptionKind[];
@@ -222,7 +220,7 @@ export type MeetupMessage = {
   proposal: MeetupProposal | null;
 };
 
-export type MeetupParticipant = {
+type MeetupParticipant = {
   userId: string;
   displayName: string | null;
   turnState: MeetupParticipantTurnState;
@@ -230,7 +228,7 @@ export type MeetupParticipant = {
   lastSeenAt: string | null;
 };
 
-export type MeetupCurrentPlan = {
+type MeetupCurrentPlan = {
   timeOption: MeetupOption | null;
   locationOption: MeetupOption | null;
   startsAt: string | null;
@@ -269,15 +267,21 @@ export type MeetupSessionResponse = {
   availableActions: MeetupAvailableActions;
 };
 
-export type MeetupTimeOptionInput = {
+type MeetupTimeOptionInput = {
   startsAt: string;
   endsAt: string;
   toleranceMinutes?: number;
 };
 
-export type MeetupLocationOptionInput = {
-  locationCandidateId: string;
-};
+type MeetupLocationOptionInput =
+  | {
+      locationCandidateId: string;
+      placeName?: never;
+    }
+  | {
+      locationCandidateId?: never;
+      placeName: string;
+    };
 
 export type MeetupProposalPayload = {
   scope: MeetupProposalScope;
@@ -311,16 +315,8 @@ function wrappedProposalRequestBody(proposal: MeetupProposalPayload) {
   return JSON.stringify({ proposal });
 }
 
-export type MeetupSettingsPayload = {
-  meetupExpirationWeeks: MeetupExpirationWeeks;
-};
-
 export function fetchMeetupLocationCandidates() {
   return fetchApi<MeetupLocationCandidate[]>("/me/meetup-location-candidates");
-}
-
-export function fetchMeetupSession(sessionId: string) {
-  return fetchApi<MeetupSessionResponse>(`/me/meetup-sessions/${sessionId}`);
 }
 
 export function startMeetupSession(
@@ -412,13 +408,6 @@ export function cancelMeetupSession(
 export async function markMeetupSessionSeen(sessionId: string) {
   await fetchApi<null>(`/me/meetup-sessions/${sessionId}/seen`, {
     method: "POST",
-  });
-}
-
-export function updateMeetupSettings(payload: MeetupSettingsPayload) {
-  return fetchApi<AuthMePayload>("/me/settings/meetup", {
-    method: "PUT",
-    body: JSON.stringify(payload),
   });
 }
 

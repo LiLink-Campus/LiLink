@@ -18,7 +18,7 @@ import type {
   MeetupSessionRecord,
 } from './types';
 
-export function deriveMeetupUserTurnStatus(
+function deriveMeetupUserTurnStatus(
   session: MeetupSessionRecord | null,
   currentUserId: string,
 ): MeetupUserTurnStatus {
@@ -53,7 +53,7 @@ export function deriveMeetupUserTurnStatus(
   return 'NONE';
 }
 
-export function deriveMeetupProgressStatus(
+function deriveMeetupProgressStatus(
   session: MeetupSessionRecord | null,
 ): MeetupProgressStatus {
   if (!session) {

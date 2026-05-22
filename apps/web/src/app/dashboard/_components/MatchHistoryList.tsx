@@ -6,16 +6,17 @@ import {
   limitedHistoryExplanation,
   reportHandlingChipLabel,
 } from "../_lib/format";
-import { MatchExplanation } from "./MatchExplanation";
-import type { DashboardHistoryItem } from "../_lib/types";
+import { CounterpartInfo } from "./CounterpartInfo";
+import type { DashboardHistoryItem, MatchFeedback } from "../_lib/types";
 
 type MatchHistoryListProps = {
   history: DashboardHistoryItem[];
   currentUserId: string;
-  saving: null | "contact" | "report";
+  saving: null | "contact" | "report" | "feedback";
   reportFormIsOpenForMatch: (matchId: string) => boolean;
   onRequestContact: (matchId: string) => void;
   onToggleReport: (matchId: string) => void;
+  onToggleFeedback: (matchId: string, existing: MatchFeedback | null) => void;
 };
 
 /**
@@ -30,6 +31,7 @@ export function MatchHistoryList({
   reportFormIsOpenForMatch,
   onRequestContact,
   onToggleReport,
+  onToggleFeedback,
 }: MatchHistoryListProps) {
   if (history.length === 0) {
     return (
@@ -84,9 +86,22 @@ export function MatchHistoryList({
                       <span className="app-match-score">
                         匹配度 <strong>{hm.score.toFixed(1)}</strong> / 100
                       </span>
+                      {counterpart?.displayName ? (
+                        <p className="app-card-muted">
+                          对方：{counterpart.displayName}
+                          {counterpart.schoolName
+                            ? ` · ${counterpart.schoolName}`
+                            : ""}
+                        </p>
+                      ) : null}
+                      {counterpart?.introLine ? (
+                        <p className="app-card-muted app-match-intro">
+                          对方介绍：{counterpart.introLine}
+                        </p>
+                      ) : null}
                       {!introducedRow ? (
                         <p className="app-card-muted">
-                          未引荐前不展示对方学校、昵称等可识别信息。
+                          交换联系方式后即可查看对方联络方式。
                         </p>
                       ) : null}
                       {introducedRow && publicContact ? (
@@ -94,15 +109,11 @@ export function MatchHistoryList({
                           联系方式：{publicContact.label} {publicContact.value}
                         </p>
                       ) : null}
-                      {introducedRow && counterpart?.introLine ? (
-                        <p className="app-card-muted app-match-intro">
-                          对方介绍：{counterpart.introLine}
-                        </p>
-                      ) : null}
-                      <MatchExplanation
-                        reason={hm.reason}
-                        reasons={hm.reasons}
-                        conversationTopics={hm.conversationTopics}
+                      <CounterpartInfo
+                        gender={counterpart?.gender}
+                        partnerGenders={counterpart?.partnerGenders}
+                        weeklyIntent={counterpart?.weeklyIntent}
+                        compact
                       />
                       <div className="auth-actions">
                         {introducedRow ? (
@@ -136,6 +147,16 @@ export function MatchHistoryList({
                             </button>
                           );
                         })()}
+                        <button
+                          className="button-secondary"
+                          disabled={saving === "feedback"}
+                          type="button"
+                          onClick={() =>
+                            onToggleFeedback(hm.id, hm.currentUserFeedback)
+                          }
+                        >
+                          {hm.currentUserFeedback ? "查看 / 修改评价" : "填写反馈"}
+                        </button>
                       </div>
                     </>
                   );

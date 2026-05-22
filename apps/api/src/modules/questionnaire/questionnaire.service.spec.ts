@@ -154,9 +154,6 @@ describe('QuestionnaireService', () => {
               type: QuestionType.SINGLE_SELECT,
               required: true,
               options: [{ value: 'fast', label: 'Fast' }],
-              reasonRules: [
-                { type: 'EXACT_MATCH', template: 'same', priority: 3 },
-              ],
             },
           ],
         }),
@@ -181,9 +178,6 @@ describe('QuestionnaireService', () => {
           {
             key: 'pace',
             options: [{ value: 'fast', label: 'Fast' }],
-            reasonRules: [
-              { type: 'EXACT_MATCH', template: 'same', priority: 3 },
-            ],
           },
         ],
       },

@@ -1,10 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { Prisma, QuestionType } from '../../common/prisma/client';
+import { QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotModule } from '../../common/dashboard/dashboard-snapshot.module';
 import { CyclesService } from './cycles.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
-import { env } from '../../config/env';
 import { CyclesModule } from './cycles.module';
 
 type EligibleParticipantStub = {
@@ -38,8 +37,6 @@ type CandidatePairStub = {
   left: { id: string };
   right: { id: string };
   score: number;
-  reasons: string[];
-  sharedSignals?: unknown[];
 };
 
 type CyclesServiceTestHarness = {
@@ -53,14 +50,46 @@ type CyclesServiceTestHarness = {
       weight: number;
       selectionLimit?: number | null;
       options: Array<{ value: string; label: string }>;
-      reasonRules: unknown[];
+    }>,
+    revealAt: Date,
+  ) => {
+    score: number;
+  } | null;
+  calculatePairRawScore: (
+    left: EligibleParticipantStub,
+    right: EligibleParticipantStub,
+    questions: Array<{
+      key: string;
+      prompt: string;
+      type: QuestionType;
+      weight: number;
+      selectionLimit?: number | null;
+      options: Array<{ value: string; label: string }>;
+    }>,
+    revealAt: Date,
+  ) => {
+    rawScore: number;
+    scoreBounds: { min: number; max: number };
+  } | null;
+  normalizeMatchScore: (
+    rawScore: number,
+    scoreBounds: { min: number; max: number },
+  ) => number;
+  calculateRawScoreForTest: (
+    left: EligibleParticipantStub,
+    right: EligibleParticipantStub,
+    questions: Array<{
+      key: string;
+      prompt: string;
+      type: QuestionType;
+      weight: number;
+      selectionLimit?: number | null;
+      options: Array<{ value: string; label: string }>;
     }>,
     revealAt: Date,
   ) => {
     rawScore: number;
     score: number;
-    reasons: string[];
-    sharedSignals?: unknown[];
   } | null;
   toEligibleParticipants: (
     participations: unknown[],
@@ -74,27 +103,6 @@ type CyclesServiceTestHarness = {
   ) => Promise<{
     candidates: CandidatePairStub[];
     selectedPairs: CandidatePairStub[];
-  }>;
-  generateNarrativesForPairs: (
-    selectedPairs: CandidatePairStub[],
-    preparedQuestions: unknown[],
-  ) => Promise<unknown[]>;
-  buildNarrativeQuestionnaire: (
-    participant: EligibleParticipantStub,
-    preparedQuestions: Array<{
-      key: string;
-      prompt: string;
-      description: string | null;
-      type: QuestionType;
-      weight: number;
-      selectionLimit: number | null;
-      normalizedOptions: Array<{ value: string; label: string }>;
-      normalizedReasonRules: unknown[];
-    }>,
-  ) => Array<{
-    key: string;
-    answerValues: string[];
-    answerLabels: string[];
   }>;
 };
 
@@ -180,13 +188,6 @@ const RELATIONSHIP_QUESTION = {
     { value: 'serious', label: '认真稳定的关系' },
     { value: 'slow', label: '先认真了解再决定' },
   ],
-  reasonRules: [
-    {
-      type: 'EXACT_MATCH' as const,
-      template: '你们对进入关系的期待很一致。',
-      priority: 3,
-    },
-  ],
 };
 
 const VALUE_QUESTION = {
@@ -199,15 +200,6 @@ const VALUE_QUESTION = {
     { value: 'stability', label: '稳定' },
     { value: 'humor', label: '幽默感' },
     { value: 'growth', label: '上进' },
-  ],
-  reasonRules: [
-    {
-      type: 'MULTI_OVERLAP' as const,
-      template: '你们都把 {{labels_2}} 放在重要位置。',
-      priority: 2,
-      minOverlap: 1,
-      maxLabels: 2,
-    },
   ],
 };
 
@@ -223,17 +215,7 @@ const SCALE_QUESTION = {
     { value: 'like', label: '比较像我' },
     { value: 'very_like', label: '非常像我' },
   ],
-  reasonRules: [
-    {
-      type: 'EXACT_MATCH' as const,
-      template: '你们在开放度上都选择了 {{answer_label}}。',
-      priority: 2,
-    },
-  ],
 };
-
-const originalNarrativeGenerationEnabled =
-  env.MATCH_NARRATIVE_GENERATION_ENABLED;
 
 function createDashboardSnapshotServiceMock() {
   return {
@@ -243,19 +225,38 @@ function createDashboardSnapshotServiceMock() {
 
 function createCyclesService(
   prisma: unknown,
-  matchNarrativeService?: unknown,
   dashboardSnapshotService = createDashboardSnapshotServiceMock(),
 ) {
-  return new CyclesService(
-    prisma as never,
-    dashboardSnapshotService as never,
-    matchNarrativeService as never,
-  );
+  return new CyclesService(prisma as never, dashboardSnapshotService as never);
 }
+
+function bindRawScorePairForTest(service: CyclesService) {
+  const harness = service as unknown as Pick<
+    CyclesServiceTestHarness,
+    'calculatePairRawScore' | 'normalizeMatchScore'
+  >;
+  const calculatePairRawScore = harness.calculatePairRawScore.bind(service);
+  const normalizeMatchScore = harness.normalizeMatchScore.bind(service);
+
+  return (
+    ...args: Parameters<CyclesServiceTestHarness['calculatePairRawScore']>
+  ) => {
+    const scored = calculatePairRawScore(...args);
+    if (!scored) {
+      return null;
+    }
+
+    return {
+      rawScore: scored.rawScore,
+      score: normalizeMatchScore(scored.rawScore, scored.scoreBounds),
+    };
+  };
+}
+
+const MOCK_RAW_SCORE_BOUNDS = { min: 70, max: 100 };
 
 describe('CyclesService', () => {
   afterEach(() => {
-    env.MATCH_NARRATIVE_GENERATION_ENABLED = originalNarrativeGenerationEnabled;
     clearStickyParticipationCache();
   });
 
@@ -267,113 +268,6 @@ describe('CyclesService', () => {
 
     expect(Array.isArray(imports)).toBe(true);
     expect(imports).toContain(DashboardSnapshotModule);
-  });
-
-  it('syncs dashboard snapshots when preparation waits for pending narratives', async () => {
-    env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
-
-    const tx = {
-      cycleParticipation: {
-        findMany: jest.fn().mockResolvedValue([]),
-        createMany: jest.fn(),
-      },
-      match: {
-        create: jest.fn().mockResolvedValue({ id: 'match-1' }),
-      },
-      matchCycle: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-      },
-      auditLog: {
-        create: jest.fn().mockResolvedValue(undefined),
-      },
-    };
-    const prisma = {
-      matchCycle: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'cycle-1',
-          status: 'OPEN',
-          participationDeadline: new Date(Date.now() - 60_000),
-          revealAt: new Date(Date.now() + 60_000),
-          createdAt: new Date('2026-04-20T12:00:00.000Z'),
-          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
-          participations: [],
-        }),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-      },
-      cycleParticipation: {
-        findMany: jest.fn().mockResolvedValue([]),
-        createMany: jest.fn(),
-      },
-      questionnaireVersion: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'questionnaire-1',
-          questions: [],
-        }),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(1),
-      },
-      matchParticipant: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      $transaction: jest.fn(
-        async (callback: (transaction: typeof tx) => Promise<unknown>) =>
-          callback(tx),
-      ),
-    };
-    const dashboardSnapshotService = createDashboardSnapshotServiceMock();
-    const service = createCyclesService(
-      prisma,
-      {
-        generateNarrative: jest.fn(),
-        buildDefaultNarrative: jest.fn(),
-      },
-      dashboardSnapshotService,
-    );
-    const testHarness = service as unknown as Pick<
-      CyclesServiceTestHarness,
-      'toEligibleParticipants' | 'calculatePairs' | 'generateNarrativesForPairs'
-    >;
-
-    jest
-      .spyOn(testHarness, 'toEligibleParticipants')
-      .mockReturnValue([
-        createBroadParticipant('user-1', {}),
-        createBroadParticipant('user-2', {}),
-      ]);
-    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
-      candidates: [],
-      selectedPairs: [
-        {
-          left: { id: 'user-1' },
-          right: { id: 'user-2' },
-          score: 88,
-          reasons: ['reason'],
-        },
-      ],
-    });
-    jest
-      .spyOn(testHarness, 'generateNarrativesForPairs')
-      .mockResolvedValue([null]);
-
-    const result = await service.runRevealCycle({ cycleId: 'cycle-1' });
-
-    expect(result).toMatchObject({
-      ok: true,
-      cycleId: 'cycle-1',
-      state: 'PENDING',
-      createdMatches: 1,
-    });
-
-    expect(dashboardSnapshotService.syncCycleSnapshots).toHaveBeenCalledWith(
-      'cycle-1',
-      tx,
-    );
   });
 
   it('rejects preparing a cycle before participation deadline by default', async () => {
@@ -476,11 +370,7 @@ describe('CyclesService', () => {
       ),
     };
     const dashboardSnapshotService = createDashboardSnapshotServiceMock();
-    const service = createCyclesService(
-      prisma,
-      undefined,
-      dashboardSnapshotService,
-    );
+    const service = createCyclesService(prisma, dashboardSnapshotService);
 
     await expect(
       service.runRevealCycle({ cycleId: 'cycle-1', force: true }),
@@ -524,11 +414,7 @@ describe('CyclesService', () => {
       ),
     };
     const dashboardSnapshotService = createDashboardSnapshotServiceMock();
-    const service = createCyclesService(
-      prisma,
-      undefined,
-      dashboardSnapshotService,
-    );
+    const service = createCyclesService(prisma, dashboardSnapshotService);
 
     await expect(
       service.runRevealCycle({ cycleId: 'cycle-1' }),
@@ -656,15 +542,6 @@ describe('CyclesService', () => {
     const service = new CyclesService(
       prisma as never,
       createDashboardSnapshotServiceMock() as never,
-      {
-        generateNarrative: jest.fn().mockResolvedValue({
-          reason:
-            '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
-          conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
-          source: 'DEEPSEEK',
-        }),
-        buildDefaultNarrative: jest.fn(),
-      } as never,
     );
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
@@ -721,7 +598,6 @@ describe('CyclesService', () => {
           left: { id: 'user-1' },
           right: { id: 'user-2' },
           score: 88,
-          reasons: ['reason'],
         },
       ],
     });
@@ -780,7 +656,7 @@ describe('CyclesService', () => {
       },
       data: {
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
     });
     expect(matchCreate).toHaveBeenCalledTimes(1);
@@ -922,124 +798,6 @@ describe('CyclesService', () => {
     });
   });
 
-  it('keeps hard-match fields out of DeepSeek narrative questionnaire input', () => {
-    const service = createCyclesService({});
-    const buildNarrativeQuestionnaire = (
-      service as unknown as Pick<
-        CyclesServiceTestHarness,
-        'buildNarrativeQuestionnaire'
-      >
-    ).buildNarrativeQuestionnaire.bind(service);
-
-    const questionnaireAnswers = buildNarrativeQuestionnaire(
-      createBroadParticipant('user-1', {
-        relationship_intent: 'serious',
-        values: ['honesty', 'stability'],
-        hard_birth_date: '2000-05-10',
-        hard_school: SCHOOL_BUPT,
-        hard_gender: '非二元',
-      }),
-      [
-        {
-          key: 'relationship_intent',
-          prompt: 'Intent',
-          description: null,
-          type: QuestionType.SINGLE_SELECT,
-          weight: 3,
-          selectionLimit: null,
-          normalizedOptions: RELATIONSHIP_QUESTION.options,
-          normalizedReasonRules: [],
-        },
-        {
-          key: 'values',
-          prompt: 'Values',
-          description: null,
-          type: QuestionType.MULTI_SELECT,
-          weight: 2,
-          selectionLimit: null,
-          normalizedOptions: VALUE_QUESTION.options,
-          normalizedReasonRules: [],
-        },
-        {
-          key: 'hard_birth_date',
-          prompt: 'Birth date',
-          description: null,
-          type: QuestionType.SINGLE_SELECT,
-          weight: 1,
-          selectionLimit: null,
-          normalizedOptions: [],
-          normalizedReasonRules: [],
-        },
-        {
-          key: 'hard_school',
-          prompt: 'School',
-          description: null,
-          type: QuestionType.SINGLE_SELECT,
-          weight: 1,
-          selectionLimit: null,
-          normalizedOptions: [],
-          normalizedReasonRules: [],
-        },
-      ],
-    );
-
-    expect(questionnaireAnswers).toEqual([
-      expect.objectContaining({
-        key: 'relationship_intent',
-        answerValues: ['serious'],
-        answerLabels: ['认真稳定的关系'],
-      }),
-      expect.objectContaining({
-        key: 'values',
-        answerValues: ['honesty', 'stability'],
-        answerLabels: ['真诚', '稳定'],
-      }),
-    ]);
-  });
-
-  it('keeps hard-match fields out of DeepSeek narrative shared signals', () => {
-    const service = createCyclesService({});
-    const scorePair = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
-    ).scorePair.bind(service);
-
-    const result = scorePair(
-      createBroadParticipant('user-1', {
-        relationship_intent: 'serious',
-        hard_school: SCHOOL_BUPT,
-      }),
-      createBroadParticipant('user-2', {
-        relationship_intent: 'serious',
-        hard_school: SCHOOL_BUPT,
-      }),
-      [
-        {
-          key: 'relationship_intent',
-          prompt: 'Intent',
-          type: QuestionType.SINGLE_SELECT,
-          weight: 3,
-          options: RELATIONSHIP_QUESTION.options,
-          reasonRules: [],
-        },
-        {
-          key: 'hard_school',
-          prompt: 'School',
-          type: QuestionType.SINGLE_SELECT,
-          weight: 1,
-          options: [{ value: SCHOOL_BUPT, label: '北京邮电大学' }],
-          reasonRules: [],
-        },
-      ],
-      new Date('2026-04-10T00:00:00.000Z'),
-    );
-
-    expect(result?.sharedSignals).toEqual([
-      expect.objectContaining({
-        questionKey: 'relationship_intent',
-      }),
-    ]);
-  });
-
   it('ignores questionnaire drafts that were never formally submitted', () => {
     const service = createCyclesService({});
     const toEligibleParticipants = (
@@ -1150,9 +908,7 @@ describe('CyclesService', () => {
 
   it('blocks pairing when weekly intents are incompatible (FRIEND vs DATE)', () => {
     const service = createCyclesService({});
-    const scorePair = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
-    ).scorePair.bind(service);
+    const scorePair = bindRawScorePairForTest(service);
 
     const friendOnly = createBroadParticipant('user-friend', {}, 'FRIEND');
     const dateOnly = createBroadParticipant('user-date', {}, 'DATE');
@@ -1184,9 +940,7 @@ describe('CyclesService', () => {
     // 岁". With age as a hard filter the pair was dropped; soft scoring
     // keeps it in the candidate set instead.
     const service = createCyclesService({});
-    const scorePair = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
-    ).scorePair.bind(service);
+    const scorePair = bindRawScorePairForTest(service);
 
     const left = createBroadParticipant('age-soft-left', {});
     const rightWithMisreadWindow = createBroadParticipant('age-soft-right', {});
@@ -1208,9 +962,7 @@ describe('CyclesService', () => {
 
   it('scores pairs whose ages fall inside the partner window higher than pairs that fall fully outside', () => {
     const service = createCyclesService({});
-    const scorePair = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
-    ).scorePair.bind(service);
+    const scorePair = bindRawScorePairForTest(service);
     const revealAt = new Date('2026-04-10T00:00:00.000Z');
 
     const inside = createBroadParticipant('age-inside', {});
@@ -1240,9 +992,7 @@ describe('CyclesService', () => {
     //   ... (decay 0.25 per year, floors at 0)
     // Average × AGE_PREFERENCE_SOFT_BONUS (=6) is added to rawScore.
     const service = createCyclesService({});
-    const scorePair = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
-    ).scorePair.bind(service);
+    const scorePair = bindRawScorePairForTest(service);
     const revealAt = new Date('2026-04-10T00:00:00.000Z');
 
     const me = createBroadParticipant('age-decay-me', {});
@@ -1294,99 +1044,9 @@ describe('CyclesService', () => {
     expect(inside!.rawScore - partial!.rawScore).toBeCloseTo(3, 5);
   });
 
-  it('builds reasons from configured question templates instead of hard-coded keys', () => {
-    const service = createCyclesService({});
-    const scorePair = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
-    ).scorePair.bind(service);
-
-    const result = scorePair(
-      {
-        id: 'user-1',
-        displayName: 'A',
-        hardMatchAnswers: {
-          birthDate: '2000-05-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '女',
-          partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 170,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢徒步。',
-          school: SCHOOL_BUPT,
-          excludedPartnerSchools: [],
-        },
-        answers: {
-          relationship_intent: 'serious',
-        },
-        intent: 'BOTH',
-      },
-      {
-        id: 'user-2',
-        displayName: 'B',
-        hardMatchAnswers: {
-          birthDate: '1999-07-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '男',
-          partnerGenders: ['女'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 165,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢阅读。',
-          school: SCHOOL_CUC,
-          excludedPartnerSchools: [],
-        },
-        answers: {
-          relationship_intent: 'serious',
-        },
-        intent: 'BOTH',
-      },
-      [
-        {
-          key: 'relationship_intent',
-          prompt: 'Intent',
-          type: QuestionType.SINGLE_SELECT,
-          weight: 3,
-          options: [
-            { value: 'serious', label: '认真稳定的关系' },
-            { value: 'slow', label: '先认识、慢慢发展' },
-          ],
-          reasonRules: [
-            {
-              type: 'EXACT_MATCH',
-              template: '你们对进入关系的期待很一致。',
-              priority: 3,
-            },
-          ],
-        },
-      ],
-      new Date('2026-04-10T00:00:00.000Z'),
-    );
-
-    expect(result).toMatchObject({
-      rawScore: 75,
-      score: 100,
-      reasons: ['你们对进入关系的期待很一致。'],
-    });
-    expect(result?.sharedSignals).toEqual([
-      expect.objectContaining({
-        questionKey: 'relationship_intent',
-        type: 'EXACT_MATCH',
-      }),
-    ]);
-  });
-
   it('normalizes multi-select scoring so broad selections are not rewarded', () => {
     const service = createCyclesService({});
-    const scorePair = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
-    ).scorePair.bind(service);
+    const scorePair = bindRawScorePairForTest(service);
 
     const focusedMatch = scorePair(
       createBroadParticipant('user-1', {
@@ -1421,9 +1081,7 @@ describe('CyclesService', () => {
 
   it('gives adjacent scale answers partial credit', () => {
     const service = createCyclesService({});
-    const scorePair = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
-    ).scorePair.bind(service);
+    const scorePair = bindRawScorePairForTest(service);
 
     const adjacentMatch = scorePair(
       createBroadParticipant('user-1', {
@@ -1458,9 +1116,7 @@ describe('CyclesService', () => {
 
   it('keeps looks preferences out of hard filtering', () => {
     const service = createCyclesService({});
-    const scorePair = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'scorePair'>
-    ).scorePair.bind(service);
+    const scorePair = bindRawScorePairForTest(service);
 
     const left = createBroadParticipant('user-1', {});
     const right = createBroadParticipant('user-2', {});
@@ -1492,7 +1148,6 @@ describe('CyclesService', () => {
       description: null,
       selectionLimit: null,
       normalizedOptions: VALUE_QUESTION.options,
-      normalizedReasonRules: VALUE_QUESTION.reasonRules,
     };
     const participants = [
       {
@@ -1521,807 +1176,6 @@ describe('CyclesService', () => {
       left: { id: 'user-1' },
       right: { id: 'user-2' },
       score: 83.6,
-      reasons: ['你们都把 真诚、稳定 放在重要位置。'],
-    });
-  });
-
-  it('fills pending narratives while a cycle stays in PREPARING', async () => {
-    env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
-
-    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
-    const cycleParticipation = {
-      findMany: jest.fn().mockResolvedValue([]),
-      createMany: jest.fn(),
-    };
-    const pendingMatch = {
-      id: 'match-1',
-      score: 88,
-      reasons: ['reason'],
-      createdAt: new Date(Date.now() - 5 * 60_000),
-      participants: [
-        { userId: 'user-1', position: 1 },
-        { userId: 'user-2', position: 2 },
-      ],
-    };
-    const prisma = {
-      matchCycle: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'cycle-1',
-          status: 'PREPARING',
-          participationDeadline: new Date(Date.now() - 2 * 60_000),
-          revealAt: new Date(Date.now() + 60_000),
-          createdAt: new Date('2026-04-20T12:00:00.000Z'),
-          updatedAt: new Date('2026-04-20T12:10:00.000Z'),
-          participations: [],
-        }),
-        updateMany: matchCycleUpdateMany,
-      },
-      cycleParticipation,
-      questionnaireVersion: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'questionnaire-1',
-          questions: [],
-        }),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([pendingMatch]),
-        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
-      },
-      auditLog: {
-        create: auditLogCreate,
-      },
-      $transaction: jest.fn(
-        async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({
-            match: {
-              updateMany: matchUpdateMany,
-            },
-            matchCycle: {
-              updateMany: matchCycleUpdateMany,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
-      ),
-    };
-    const matchNarrativeService = {
-      generateNarrative: jest.fn().mockResolvedValue({
-        reason:
-          '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
-        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
-        source: 'DEEPSEEK',
-      }),
-      buildDefaultNarrative: jest.fn(),
-    };
-    const service = createCyclesService(prisma, matchNarrativeService);
-    const testHarness = service as unknown as Pick<
-      CyclesServiceTestHarness,
-      'toEligibleParticipants'
-    >;
-
-    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
-      {
-        id: 'user-1',
-        displayName: 'A',
-        hardMatchAnswers: {
-          birthDate: '2000-05-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '女',
-          partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 165,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢徒步。',
-          school: SCHOOL_BUPT,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-      {
-        id: 'user-2',
-        displayName: 'B',
-        hardMatchAnswers: {
-          birthDate: '1999-07-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '男',
-          partnerGenders: ['女'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 178,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢阅读。',
-          school: SCHOOL_CUC,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-    ]);
-
-    await expect(
-      service.runRevealCycle({ cycleId: 'cycle-1' }),
-    ).resolves.toMatchObject({
-      ok: true,
-      cycleId: 'cycle-1',
-      state: 'PREPARED',
-      createdMatches: 1,
-    });
-
-    expect(matchNarrativeService.generateNarrative).toHaveBeenCalledTimes(1);
-    expect(matchNarrativeService.buildDefaultNarrative).not.toHaveBeenCalled();
-    expect(matchUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'match-1',
-        narrativeSource: null,
-      },
-      data: {
-        reason:
-          '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
-        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
-        narrativeSource: 'DEEPSEEK',
-      },
-    });
-    expect(matchCycleUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'cycle-1',
-        status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
-      },
-      data: {
-        status: 'REVEAL_READY',
-      },
-    });
-    const preparedAuditLogCalls = auditLogCreate.mock.calls as Array<
-      [
-        {
-          data: {
-            action: string;
-          };
-        },
-      ]
-    >;
-    const finalizedPreparedCall = preparedAuditLogCalls.find(
-      ([call]) => call.data.action === 'cycle.prepared',
-    );
-    expect(finalizedPreparedCall).toBeDefined();
-  });
-
-  it('disables pending narratives while a cycle stays in PREPARING', async () => {
-    env.MATCH_NARRATIVE_GENERATION_ENABLED = false;
-
-    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
-    const cycleParticipation = {
-      findMany: jest.fn().mockResolvedValue([]),
-      createMany: jest.fn(),
-    };
-    const pendingMatch = {
-      id: 'match-1',
-      score: 88,
-      reasons: ['reason'],
-      createdAt: new Date(Date.now() - 5 * 60_000),
-      participants: [
-        { userId: 'user-1', position: 1 },
-        { userId: 'user-2', position: 2 },
-      ],
-    };
-    const prisma = {
-      matchCycle: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'cycle-1',
-          status: 'PREPARING',
-          participationDeadline: new Date(Date.now() - 2 * 60_000),
-          revealAt: new Date(Date.now() + 60_000),
-          createdAt: new Date('2026-04-20T12:00:00.000Z'),
-          updatedAt: new Date('2026-04-20T12:10:00.000Z'),
-          participations: [],
-        }),
-        updateMany: matchCycleUpdateMany,
-      },
-      cycleParticipation,
-      questionnaireVersion: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'questionnaire-1',
-          questions: [],
-        }),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([pendingMatch]),
-        updateMany: matchUpdateMany,
-        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
-      },
-      auditLog: {
-        create: auditLogCreate,
-      },
-      $transaction: jest.fn(
-        async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({
-            match: {
-              updateMany: matchUpdateMany,
-            },
-            matchCycle: {
-              updateMany: matchCycleUpdateMany,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
-      ),
-    };
-    const matchNarrativeService = {
-      generateNarrative: jest.fn().mockResolvedValue({
-        reason:
-          '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
-        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
-        source: 'DEEPSEEK',
-      }),
-      buildDefaultNarrative: jest.fn(),
-    };
-    const service = createCyclesService(prisma, matchNarrativeService);
-    const testHarness = service as unknown as Pick<
-      CyclesServiceTestHarness,
-      'toEligibleParticipants'
-    >;
-
-    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
-      {
-        id: 'user-1',
-        displayName: 'A',
-        hardMatchAnswers: {
-          birthDate: '2000-05-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '女',
-          partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 165,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢徒步。',
-          school: SCHOOL_BUPT,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-      {
-        id: 'user-2',
-        displayName: 'B',
-        hardMatchAnswers: {
-          birthDate: '1999-07-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '男',
-          partnerGenders: ['女'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 178,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢阅读。',
-          school: SCHOOL_CUC,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-    ]);
-
-    await expect(
-      service.runRevealCycle({ cycleId: 'cycle-1' }),
-    ).resolves.toMatchObject({
-      ok: true,
-      cycleId: 'cycle-1',
-      state: 'PREPARED',
-      createdMatches: 1,
-    });
-
-    expect(matchNarrativeService.generateNarrative).not.toHaveBeenCalled();
-    expect(matchNarrativeService.buildDefaultNarrative).not.toHaveBeenCalled();
-    expect(matchUpdateMany).toHaveBeenCalledWith({
-      where: {
-        cycleId: 'cycle-1',
-        narrativeSource: null,
-      },
-      data: {
-        conversationTopics: [],
-        narrativeSource: 'DISABLED',
-      },
-    });
-    expect(matchCycleUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'cycle-1',
-        status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
-      },
-      data: {
-        status: 'REVEAL_READY',
-      },
-    });
-    const preparedAuditLogCalls = auditLogCreate.mock.calls as Array<
-      [
-        {
-          data: {
-            action: string;
-          };
-        },
-      ]
-    >;
-    const finalizedPreparedCall = preparedAuditLogCalls.find(
-      ([call]) => call.data.action === 'cycle.prepared',
-    );
-    expect(finalizedPreparedCall).toBeDefined();
-  });
-
-  it('uses the default narrative after one hour instead of retrying forever', async () => {
-    env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
-
-    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const matchCycleUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
-    const cycleParticipation = {
-      findMany: jest.fn().mockResolvedValue([]),
-      createMany: jest.fn(),
-    };
-    const prisma = {
-      matchCycle: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'cycle-1',
-          status: 'PREPARING',
-          participationDeadline: new Date(Date.now() - 2 * 60_000),
-          revealAt: new Date(Date.now() + 60_000),
-          createdAt: new Date('2026-04-20T12:00:00.000Z'),
-          updatedAt: new Date('2026-04-20T12:10:00.000Z'),
-          participations: [],
-        }),
-        updateMany: matchCycleUpdateMany,
-      },
-      cycleParticipation,
-      questionnaireVersion: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'questionnaire-1',
-          questions: [],
-        }),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([
-          {
-            id: 'match-1',
-            score: 88,
-            reasons: ['reason'],
-            createdAt: new Date(Date.now() - 61 * 60_000),
-            participants: [
-              { userId: 'user-1', position: 1 },
-              { userId: 'user-2', position: 2 },
-            ],
-          },
-        ]),
-        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
-      },
-      auditLog: {
-        create: auditLogCreate,
-      },
-      $transaction: jest.fn(
-        async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({
-            match: {
-              updateMany: matchUpdateMany,
-            },
-            matchCycle: {
-              updateMany: matchCycleUpdateMany,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
-      ),
-    };
-    const defaultNarrative = {
-      reason:
-        '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，这意味着彼此在建立信任、理解边界和推进交流时，更容易形成自然、清楚而持续的互动基础，也更容易把后续相处落到舒服、平衡且可继续发展的日常节奏里。',
-      conversationTopics: [
-        '最近一次让你觉得很放松的周末通常怎么过',
-        '你最近在慢慢坚持的一件事是什么',
-        '什么样的聊天节奏会让你觉得相处自然',
-      ],
-      source: 'RULES_FALLBACK' as const,
-    };
-    const matchNarrativeService = {
-      generateNarrative: jest.fn(),
-      buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
-    };
-    const service = createCyclesService(prisma, matchNarrativeService);
-
-    await expect(
-      service.runRevealCycle({ cycleId: 'cycle-1' }),
-    ).resolves.toMatchObject({
-      ok: true,
-      cycleId: 'cycle-1',
-      state: 'PREPARED',
-      createdMatches: 1,
-    });
-
-    expect(matchNarrativeService.generateNarrative).not.toHaveBeenCalled();
-    expect(matchNarrativeService.buildDefaultNarrative).toHaveBeenCalledTimes(
-      1,
-    );
-    expect(matchUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'match-1',
-        narrativeSource: null,
-      },
-      data: {
-        reason: defaultNarrative.reason,
-        conversationTopics: defaultNarrative.conversationTopics,
-        narrativeSource: 'RULES_FALLBACK',
-      },
-    });
-  });
-
-  it('falls back immediately when narrative generation fails during preparation', async () => {
-    env.MATCH_NARRATIVE_GENERATION_ENABLED = true;
-
-    const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
-    const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
-    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
-    const finalizePreparationClaim = jest.fn().mockResolvedValue({ count: 1 });
-    const cycleParticipation = {
-      findMany: jest.fn().mockResolvedValue([]),
-      createMany: jest.fn(),
-    };
-    const defaultNarrative = {
-      reason:
-        '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，这意味着彼此在建立信任、理解边界和推进交流时，更容易形成自然、清楚而持续的互动基础。',
-      conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
-      source: 'RULES_FALLBACK' as const,
-    };
-    const prisma = {
-      matchCycle: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'cycle-1',
-          status: 'OPEN',
-          participationDeadline: new Date(Date.now() - 2 * 60_000),
-          revealAt: new Date(Date.now() + 60_000),
-          createdAt: new Date('2026-04-20T12:00:00.000Z'),
-          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
-          participations: [],
-        }),
-        updateMany: claimPreparation,
-        update: jest.fn(),
-      },
-      cycleParticipation,
-      questionnaireVersion: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'questionnaire-1',
-          questions: [],
-        }),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      $transaction: jest.fn(
-        async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({
-            cycleParticipation,
-            match: {
-              create: matchCreate,
-              updateMany: matchUpdateMany,
-            },
-            matchCycle: {
-              updateMany: finalizePreparationClaim,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
-      ),
-    };
-    let matchWasCreatedBeforeNarrative = false;
-    const matchNarrativeService = {
-      generateNarrative: jest.fn().mockImplementation(() => {
-        matchWasCreatedBeforeNarrative = matchCreate.mock.calls.length === 1;
-        return Promise.reject(new Error('DeepSeek is unavailable.'));
-      }),
-      buildDefaultNarrative: jest.fn().mockReturnValue(defaultNarrative),
-    };
-    const service = createCyclesService(prisma, matchNarrativeService);
-    const testHarness = service as unknown as Pick<
-      CyclesServiceTestHarness,
-      'toEligibleParticipants' | 'calculatePairs'
-    >;
-
-    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
-      {
-        id: 'user-1',
-        displayName: 'A',
-        hardMatchAnswers: {
-          birthDate: '2000-05-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '女',
-          partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 165,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢徒步。',
-          school: SCHOOL_BUPT,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-      {
-        id: 'user-2',
-        displayName: 'B',
-        hardMatchAnswers: {
-          birthDate: '1999-07-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '男',
-          partnerGenders: ['女'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 178,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢阅读。',
-          school: SCHOOL_CUC,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-    ]);
-    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
-      candidates: [],
-      selectedPairs: [
-        {
-          left: { id: 'user-1' },
-          right: { id: 'user-2' },
-          score: 88,
-          reasons: ['reason'],
-        },
-      ],
-    });
-
-    await expect(
-      service.runRevealCycle({ cycleId: 'cycle-1' }),
-    ).resolves.toMatchObject({
-      ok: true,
-      cycleId: 'cycle-1',
-      state: 'PREPARED',
-      createdMatches: 1,
-    });
-
-    expect(matchNarrativeService.generateNarrative).toHaveBeenCalledTimes(1);
-    expect(matchNarrativeService.buildDefaultNarrative).toHaveBeenCalledTimes(
-      1,
-    );
-    expect(matchWasCreatedBeforeNarrative).toBe(true);
-    const matchCreateCalls = matchCreate.mock.calls as Array<
-      [
-        {
-          data: {
-            reason: string | null;
-            conversationTopics: string[] | typeof Prisma.DbNull;
-            narrativeSource: string | null;
-          };
-        },
-      ]
-    >;
-    expect(matchCreateCalls[0]?.[0].data.reason).toBeNull();
-    expect(matchCreateCalls[0]?.[0].data.conversationTopics).toBe(
-      Prisma.DbNull,
-    );
-    expect(matchCreateCalls[0]?.[0].data.narrativeSource).toBeNull();
-    expect(matchUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'match-1',
-        narrativeSource: null,
-      },
-      data: {
-        reason: defaultNarrative.reason,
-        conversationTopics: defaultNarrative.conversationTopics,
-        narrativeSource: 'RULES_FALLBACK',
-      },
-    });
-    expect(finalizePreparationClaim).toHaveBeenCalledWith({
-      where: {
-        id: 'cycle-1',
-        status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
-      },
-      data: {
-        status: 'REVEAL_READY',
-      },
-    });
-    const fallbackAuditLogCalls = auditLogCreate.mock.calls as Array<
-      [
-        {
-          data: {
-            action: string;
-          };
-        },
-      ]
-    >;
-    const fallbackPreparedCall = fallbackAuditLogCalls.find(
-      ([call]) => call.data.action === 'cycle.prepared',
-    );
-    expect(fallbackPreparedCall).toBeDefined();
-  });
-
-  it('skips narrative generation when match narratives are disabled', async () => {
-    env.MATCH_NARRATIVE_GENERATION_ENABLED = false;
-
-    const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
-    const finalizePreparationClaim = jest.fn().mockResolvedValue({ count: 1 });
-    const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
-    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
-    const cycleParticipation = {
-      findMany: jest.fn().mockResolvedValue([]),
-      createMany: jest.fn(),
-    };
-    const prisma = {
-      matchCycle: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'cycle-1',
-          status: 'OPEN',
-          participationDeadline: new Date(Date.now() - 2 * 60_000),
-          revealAt: new Date(Date.now() + 60_000),
-          createdAt: new Date('2026-04-20T12:00:00.000Z'),
-          updatedAt: new Date('2026-04-20T12:00:00.000Z'),
-          participations: [],
-        }),
-        updateMany: claimPreparation,
-        update: jest.fn(),
-      },
-      cycleParticipation,
-      questionnaireVersion: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'questionnaire-1',
-          questions: [],
-        }),
-      },
-      match: {
-        findMany: jest.fn().mockResolvedValue([]),
-        count: jest.fn().mockResolvedValue(0),
-      },
-      $transaction: jest.fn(
-        async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({
-            cycleParticipation,
-            match: {
-              create: matchCreate,
-              updateMany: matchUpdateMany,
-            },
-            matchCycle: {
-              updateMany: finalizePreparationClaim,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
-      ),
-    };
-    const matchNarrativeService = {
-      generateNarrative: jest.fn(),
-      buildDefaultNarrative: jest.fn(),
-    };
-    const service = createCyclesService(prisma, matchNarrativeService);
-    const testHarness = service as unknown as Pick<
-      CyclesServiceTestHarness,
-      'toEligibleParticipants' | 'calculatePairs'
-    >;
-
-    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
-      {
-        id: 'user-1',
-        displayName: 'A',
-        hardMatchAnswers: {
-          birthDate: '2000-05-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '女',
-          partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 165,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢徒步。',
-          school: SCHOOL_BUPT,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-      {
-        id: 'user-2',
-        displayName: 'B',
-        hardMatchAnswers: {
-          birthDate: '1999-07-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '男',
-          partnerGenders: ['女'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 178,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢阅读。',
-          school: SCHOOL_CUC,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-    ]);
-    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
-      candidates: [],
-      selectedPairs: [
-        {
-          left: { id: 'user-1' },
-          right: { id: 'user-2' },
-          score: 88,
-          reasons: ['reason'],
-        },
-      ],
-    });
-
-    await expect(
-      service.runRevealCycle({ cycleId: 'cycle-1' }),
-    ).resolves.toMatchObject({
-      ok: true,
-      cycleId: 'cycle-1',
-      state: 'PREPARED',
-      createdMatches: 1,
-    });
-
-    expect(matchNarrativeService.generateNarrative).not.toHaveBeenCalled();
-    expect(matchNarrativeService.buildDefaultNarrative).not.toHaveBeenCalled();
-    expect(matchUpdateMany).not.toHaveBeenCalled();
-    const matchCreateCalls = matchCreate.mock.calls as Array<
-      [
-        {
-          data: {
-            reason: string | null;
-            conversationTopics: string[];
-            narrativeSource: string | null;
-          };
-        },
-      ]
-    >;
-    expect(matchCreateCalls[0]?.[0].data).toMatchObject({
-      reason: null,
-      conversationTopics: [],
-      narrativeSource: 'DISABLED',
-    });
-    expect(finalizePreparationClaim).toHaveBeenCalledWith({
-      where: {
-        id: 'cycle-1',
-        status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
-      },
-      data: {
-        status: 'REVEAL_READY',
-      },
     });
   });
 
@@ -2380,16 +1234,7 @@ describe('CyclesService', () => {
           }),
       ),
     };
-    const matchNarrativeService = {
-      generateNarrative: jest.fn().mockResolvedValue({
-        reason:
-          '你们在沟通取向、关系节奏和价值判断上的整体方向比较接近，因此更容易在后续交流里形成自然、清楚而持续的互动基础。',
-        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
-        source: 'DEEPSEEK',
-      }),
-      buildDefaultNarrative: jest.fn(),
-    };
-    const service = createCyclesService(prisma, matchNarrativeService);
+    const service = createCyclesService(prisma);
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
       'toEligibleParticipants' | 'calculatePairs'
@@ -2446,7 +1291,6 @@ describe('CyclesService', () => {
           left: { id: 'user-1' },
           right: { id: 'user-2' },
           score: 88,
-          reasons: ['reason'],
         },
       ],
     });
@@ -2465,7 +1309,7 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'REVEAL_READY',
@@ -2508,10 +1352,6 @@ describe('CyclesService', () => {
     const service = new CyclesService(
       prisma as never,
       createDashboardSnapshotServiceMock() as never,
-      {
-        generateNarrative: jest.fn(),
-        buildDefaultNarrative: jest.fn(),
-      } as never,
     );
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
@@ -2538,7 +1378,7 @@ describe('CyclesService', () => {
       },
       data: {
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
     });
     expect(matchCycleUpdateMany).toHaveBeenNthCalledWith(2, {
@@ -2546,7 +1386,7 @@ describe('CyclesService', () => {
         id: 'cycle-1',
         status: 'PREPARING',
         matches: { none: {} },
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'OPEN',
@@ -2598,10 +1438,6 @@ describe('CyclesService', () => {
     const service = new CyclesService(
       prisma as never,
       createDashboardSnapshotServiceMock() as never,
-      {
-        generateNarrative: jest.fn(),
-        buildDefaultNarrative: jest.fn(),
-      } as never,
     );
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
@@ -2620,7 +1456,6 @@ describe('CyclesService', () => {
           left: { id: 'user-1' },
           right: { id: 'user-2' },
           score: 88,
-          reasons: ['reason'],
         },
       ],
     });
@@ -2638,10 +1473,10 @@ describe('CyclesService', () => {
       where: {
         id: 'cycle-1',
         status: 'PREPARING',
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
     });
     expect(matchCreate).not.toHaveBeenCalled();
@@ -2650,7 +1485,7 @@ describe('CyclesService', () => {
         id: 'cycle-1',
         status: 'PREPARING',
         matches: { none: {} },
-        updatedAt: expect.any(Date) as unknown as Date,
+        updatedAt: expect.any(Date) as Date,
       },
       data: {
         status: 'OPEN',
@@ -2693,10 +1528,6 @@ describe('CyclesService', () => {
     const service = new CyclesService(
       prisma as never,
       createDashboardSnapshotServiceMock() as never,
-      {
-        generateNarrative: jest.fn(),
-        buildDefaultNarrative: jest.fn(),
-      } as never,
     );
 
     await expect(
@@ -2709,25 +1540,8 @@ describe('CyclesService', () => {
       message: 'Cycle is still being prepared.',
     });
 
-    expect(prisma.match.findMany).toHaveBeenCalledWith({
-      where: {
-        cycleId: 'cycle-1',
-        narrativeSource: null,
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        score: true,
-        reasons: true,
-        createdAt: true,
-        participants: {
-          select: {
-            userId: true,
-            position: true,
-          },
-          orderBy: { position: 'asc' },
-        },
-      },
+    expect(prisma.match.count).toHaveBeenCalledWith({
+      where: { cycleId: 'cycle-1' },
     });
   });
 
@@ -2774,10 +1588,6 @@ describe('CyclesService', () => {
     const service = new CyclesService(
       prisma as never,
       createDashboardSnapshotServiceMock() as never,
-      {
-        generateNarrative: jest.fn(),
-        buildDefaultNarrative: jest.fn(),
-      } as never,
     );
     const prepareCycleSpy = jest
       .spyOn(service as never, 'prepareCycle')
@@ -2802,101 +1612,6 @@ describe('CyclesService', () => {
       force: undefined,
       adminActorId: undefined,
     });
-  });
-
-  it('limits narrative generation concurrency during reveal', async () => {
-    const service = new CyclesService(
-      {
-        matchCycle: {},
-        questionnaireVersion: {},
-        $transaction: jest.fn(),
-      } as never,
-      createDashboardSnapshotServiceMock() as never,
-      {
-        generateNarrative: jest.fn(),
-      } as never,
-    );
-    const testHarness = service as unknown as Pick<
-      CyclesServiceTestHarness,
-      'generateNarrativesForPairs'
-    >;
-    let activeNarrativeCalls = 0;
-    let maxActiveNarrativeCalls = 0;
-    const pendingResolvers: Array<() => void> = [];
-
-    (
-      service as unknown as {
-        matchNarrativeService: {
-          generateNarrative: (input: unknown) => Promise<unknown>;
-        };
-      }
-    ).matchNarrativeService.generateNarrative = jest.fn(
-      () =>
-        new Promise((resolve) => {
-          activeNarrativeCalls += 1;
-          maxActiveNarrativeCalls = Math.max(
-            maxActiveNarrativeCalls,
-            activeNarrativeCalls,
-          );
-          pendingResolvers.push(() => {
-            activeNarrativeCalls -= 1;
-            resolve({
-              reason: 'reason paragraph',
-              conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
-              source: 'RULES_FALLBACK',
-            });
-          });
-        }),
-    );
-
-    const generationPromise = testHarness.generateNarrativesForPairs(
-      [
-        {
-          left: { id: 'user-1' },
-          right: { id: 'user-2' },
-          score: 88,
-          reasons: ['ab'],
-        },
-        {
-          left: { id: 'user-3' },
-          right: { id: 'user-4' },
-          score: 87,
-          reasons: ['cd'],
-        },
-        {
-          left: { id: 'user-5' },
-          right: { id: 'user-6' },
-          score: 86,
-          reasons: ['ef'],
-        },
-        {
-          left: { id: 'user-7' },
-          right: { id: 'user-8' },
-          score: 85,
-          reasons: ['gh'],
-        },
-        {
-          left: { id: 'user-9' },
-          right: { id: 'user-10' },
-          score: 84,
-          reasons: ['ij'],
-        },
-      ],
-      [],
-    );
-
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    expect(maxActiveNarrativeCalls).toBe(3);
-    expect(pendingResolvers).toHaveLength(3);
-
-    while (pendingResolvers.length > 0) {
-      const currentBatch = pendingResolvers.splice(0);
-      currentBatch.forEach((resolveNarrative) => resolveNarrative());
-      await new Promise<void>((resolve) => setImmediate(resolve));
-    }
-
-    await expect(generationPromise).resolves.toHaveLength(5);
-    expect(maxActiveNarrativeCalls).toBe(3);
   });
 
   it('logs per-cycle automation failures instead of swallowing them silently', async () => {
@@ -3078,7 +1793,6 @@ describe('CyclesService', () => {
           left: { id: 'user-1' },
           right: { id: 'user-2' },
           score: 88,
-          reasons: ['reason'],
         },
       ],
     });
@@ -3175,19 +1889,11 @@ describe('CyclesService', () => {
       left: { id: 'user-a' },
       right: { id: 'user-b' },
       score: 100,
-      reasons: [
-        '你们对进入关系的期待很一致。',
-        '你们都把 真诚、稳定 放在重要位置。',
-      ],
     });
     expect(result.selectedPairs[1]).toMatchObject({
       left: { id: 'user-c' },
       right: { id: 'user-d' },
       score: 100,
-      reasons: [
-        '你们对进入关系的期待很一致。',
-        '你们都把 幽默感、上进 放在重要位置。',
-      ],
     });
   });
 
@@ -3199,7 +1905,7 @@ describe('CyclesService', () => {
     ).calculatePairs.bind(service);
     const scorePairHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'scorePair'
+      'calculatePairRawScore'
     >;
     const participants = [
       createBroadParticipant('user-a', {}),
@@ -3209,32 +1915,26 @@ describe('CyclesService', () => {
     ];
 
     jest
-      .spyOn(scorePairHarness, 'scorePair')
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
       .mockImplementation(
         (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
           const pairKey = [left.id, right.id].sort().join('::');
-          const scoreByPairKey: Record<
-            string,
-            { rawScore: number; score: number; reasons: string[] }
-          > = {
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
             'user-a::user-b': {
               rawScore: 95,
-              score: 95,
-              reasons: ['ab'],
             },
             'user-a::user-c': {
               rawScore: 60,
-              score: 60,
-              reasons: ['ac'],
             },
             'user-b::user-d': {
               rawScore: 60,
-              score: 60,
-              reasons: ['bd'],
             },
           };
 
-          return scoreByPairKey[pairKey] ?? null;
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
         },
       );
 
@@ -3249,18 +1949,15 @@ describe('CyclesService', () => {
       result.selectedPairs.map((pair) => ({
         pairKey: [pair.left.id, pair.right.id].sort().join('::'),
         score: pair.score,
-        reasons: pair.reasons,
       })),
     ).toEqual([
       {
         pairKey: 'user-a::user-c',
         score: 60,
-        reasons: ['ac'],
       },
       {
         pairKey: 'user-b::user-d',
         score: 60,
-        reasons: ['bd'],
       },
     ]);
   });
@@ -3273,7 +1970,7 @@ describe('CyclesService', () => {
     ).calculatePairs.bind(service);
     const scorePairHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'scorePair'
+      'calculatePairRawScore'
     >;
     const participants = [
       createBroadParticipant('user-a', {}),
@@ -3283,32 +1980,26 @@ describe('CyclesService', () => {
     ];
 
     jest
-      .spyOn(scorePairHarness, 'scorePair')
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
       .mockImplementation(
         (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
           const pairKey = [left.id, right.id].sort().join('::');
-          const scoreByPairKey: Record<
-            string,
-            { rawScore: number; score: number; reasons: string[] }
-          > = {
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
             'user-a::user-b': {
               rawScore: 100,
-              score: 100,
-              reasons: ['ab'],
             },
             'user-a::user-c': {
               rawScore: 40,
-              score: 40,
-              reasons: ['ac'],
             },
             'user-b::user-d': {
               rawScore: 40,
-              score: 40,
-              reasons: ['bd'],
             },
           };
 
-          return scoreByPairKey[pairKey] ?? null;
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
         },
       );
 
@@ -3352,7 +2043,7 @@ describe('CyclesService', () => {
     ).calculatePairs.bind(service);
     const scorePairHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'scorePair'
+      'calculatePairRawScore'
     >;
     const participants = [
       createBroadParticipant('user-priority', {}),
@@ -3361,27 +2052,23 @@ describe('CyclesService', () => {
     ];
 
     jest
-      .spyOn(scorePairHarness, 'scorePair')
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
       .mockImplementation(
         (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
           const pairKey = [left.id, right.id].sort().join('::');
-          const scoreByPairKey: Record<
-            string,
-            { rawScore: number; score: number; reasons: string[] }
-          > = {
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
             'user-a::user-b': {
               rawScore: 100,
-              score: 100,
-              reasons: ['highest-compatibility'],
             },
             'user-a::user-priority': {
               rawScore: 60,
-              score: 60,
-              reasons: ['retention-priority'],
             },
           };
 
-          return scoreByPairKey[pairKey] ?? null;
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
         },
       );
 
@@ -3397,7 +2084,6 @@ describe('CyclesService', () => {
       left: { id: 'user-priority' },
       right: { id: 'user-a' },
       score: 60,
-      reasons: ['retention-priority'],
     });
   });
 
@@ -3438,7 +2124,7 @@ describe('CyclesService', () => {
     ).calculatePairs.bind(service);
     const scorePairHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'scorePair'
+      'calculatePairRawScore'
     >;
     const participants = [
       createBroadParticipant('user-priority', {}),
@@ -3447,27 +2133,23 @@ describe('CyclesService', () => {
     ];
 
     jest
-      .spyOn(scorePairHarness, 'scorePair')
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
       .mockImplementation(
         (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
           const pairKey = [left.id, right.id].sort().join('::');
-          const scoreByPairKey: Record<
-            string,
-            { rawScore: number; score: number; reasons: string[] }
-          > = {
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
             'user-a::user-b': {
               rawScore: 100,
-              score: 100,
-              reasons: ['highest-compatibility'],
             },
             'user-a::user-priority': {
               rawScore: 60,
-              score: 60,
-              reasons: ['skipped-week-does-not-reset'],
             },
           };
 
-          return scoreByPairKey[pairKey] ?? null;
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
         },
       );
 
@@ -3523,7 +2205,7 @@ describe('CyclesService', () => {
     ).calculatePairs.bind(service);
     const scorePairHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'scorePair'
+      'calculatePairRawScore'
     >;
     const participants = [
       createBroadParticipant('user-priority', {}),
@@ -3532,27 +2214,23 @@ describe('CyclesService', () => {
     ];
 
     jest
-      .spyOn(scorePairHarness, 'scorePair')
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
       .mockImplementation(
         (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
           const pairKey = [left.id, right.id].sort().join('::');
-          const scoreByPairKey: Record<
-            string,
-            { rawScore: number; score: number; reasons: string[] }
-          > = {
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
             'user-a::user-b': {
               rawScore: 100,
-              score: 100,
-              reasons: ['highest-compatibility'],
             },
             'user-a::user-priority': {
               rawScore: 60,
-              score: 60,
-              reasons: ['below-threshold'],
             },
           };
 
-          return scoreByPairKey[pairKey] ?? null;
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
         },
       );
 
@@ -3579,7 +2257,7 @@ describe('CyclesService', () => {
     ).calculatePairs.bind(service);
     const scorePairHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'scorePair'
+      'calculatePairRawScore'
     >;
     const participants = [
       createBroadParticipant('user-a', {}),
@@ -3589,37 +2267,29 @@ describe('CyclesService', () => {
     ];
 
     jest
-      .spyOn(scorePairHarness, 'scorePair')
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
       .mockImplementation(
         (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
           const pairKey = [left.id, right.id].sort().join('::');
-          const scoreByPairKey: Record<
-            string,
-            { rawScore: number; score: number; reasons: string[] }
-          > = {
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
             'user-a::user-b': {
               rawScore: 100,
-              score: 90,
-              reasons: ['ab'],
             },
             'user-c::user-d': {
               rawScore: 100,
-              score: 90,
-              reasons: ['cd'],
             },
             'user-a::user-c': {
               rawScore: 101,
-              score: 90.1,
-              reasons: ['ac'],
             },
             'user-b::user-d': {
               rawScore: 98,
-              score: 89.9,
-              reasons: ['bd'],
             },
           };
 
-          return scoreByPairKey[pairKey] ?? null;
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
         },
       );
 
@@ -3645,14 +2315,14 @@ describe('CyclesService', () => {
     ).calculatePairs.bind(service);
     const scorePairHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'scorePair'
+      'calculatePairRawScore'
     >;
     const participants = Array.from({ length: 260 }, (_, index) =>
       createBroadParticipant(`user-${String(index).padStart(3, '0')}`, {}),
     );
 
     jest
-      .spyOn(scorePairHarness, 'scorePair')
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
       .mockImplementation(
         (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
           const pairKey = [left.id, right.id].sort().join('::');
@@ -3662,9 +2332,7 @@ describe('CyclesService', () => {
 
           return {
             rawScore: 100,
-            score: 100,
-            reasons: ['spread'],
-            sharedSignals: [],
+            scoreBounds: MOCK_RAW_SCORE_BOUNDS,
           };
         },
       );
@@ -3691,14 +2359,14 @@ describe('CyclesService', () => {
     ).calculatePairs.bind(service);
     const scorePairHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'scorePair'
+      'calculatePairRawScore'
     >;
     const participants = Array.from({ length: 260 }, (_, index) =>
       createBroadParticipant(`user-${String(index).padStart(3, '0')}`, {}),
     );
 
     jest
-      .spyOn(scorePairHarness, 'scorePair')
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
       .mockImplementation(
         (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
           const pairKey = [left.id, right.id].sort().join('::');
@@ -3708,9 +2376,7 @@ describe('CyclesService', () => {
 
           return {
             rawScore: 100,
-            score: 100,
-            reasons: ['only-compatible'],
-            sharedSignals: [],
+            scoreBounds: MOCK_RAW_SCORE_BOUNDS,
           };
         },
       );
@@ -3743,7 +2409,7 @@ describe('CyclesService', () => {
     ).calculatePairs.bind(service);
     const scorePairHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
-      'scorePair'
+      'calculatePairRawScore'
     >;
     const participants = [
       createBroadParticipant('user-a', {}),
@@ -3753,32 +2419,26 @@ describe('CyclesService', () => {
     ];
 
     jest
-      .spyOn(scorePairHarness, 'scorePair')
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
       .mockImplementation(
         (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
           const pairKey = [left.id, right.id].sort().join('::');
-          const scoreByPairKey: Record<
-            string,
-            { rawScore: number; score: number; reasons: string[] }
-          > = {
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
             'user-a::user-b': {
               rawScore: 98,
-              score: 98,
-              reasons: ['ab'],
             },
             'user-a::user-c': {
               rawScore: 94,
-              score: 94,
-              reasons: ['ac'],
             },
             'user-b::user-d': {
               rawScore: 91,
-              score: 91,
-              reasons: ['bd'],
             },
           };
 
-          return scoreByPairKey[pairKey] ?? null;
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
         },
       );
 
@@ -3855,7 +2515,6 @@ describe('CyclesService', () => {
       left: { id: 'user-b' },
       right: { id: 'user-c' },
       score: 96.4,
-      reasons: ['你们对进入关系的期待很一致。', '你们都把 真诚 放在重要位置。'],
     });
   });
 });

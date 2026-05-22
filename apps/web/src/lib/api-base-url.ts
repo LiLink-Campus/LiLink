@@ -1,6 +1,6 @@
 const DEFAULT_API_BASE_URL = "http://localhost:4000/v1";
 
-export function resolveApiBaseUrl() {
+function resolveApiBaseUrl() {
   const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
 
   if (configuredApiBaseUrl) {

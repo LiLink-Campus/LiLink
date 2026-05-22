@@ -376,18 +376,6 @@ async function seedScenario(scenario, password) {
       data: {
         cycleId: cycle.id,
         score: 0.91,
-        reasons: [
-          '你们都偏向先轻松认识，再用一次线下见面确认节奏。',
-          '你们都选择了散步、咖啡这类低压力场景。',
-        ],
-        reason:
-          '你们在相处节奏和第一次见面的偏好上比较接近，适合先从一次明确但轻松的线下破冰开始。',
-        conversationTopics: [
-          '最近怎么放松',
-          '理想的第一次见面',
-          '这一周想坚持的小事',
-        ],
-        narrativeSource: 'RULES_FALLBACK',
         revealedAt: revealAt,
         introducedAt: now,
       },
@@ -427,9 +415,6 @@ async function seedScenario(scenario, password) {
     const matchPayload = {
       id: match.id,
       score: match.score,
-      reasons: match.reasons,
-      reason: match.reason,
-      conversationTopics: match.conversationTopics,
       introducedAt: now.toISOString(),
       currentUserRequestedAt: now.toISOString(),
       reportStatus: null,
