@@ -2,6 +2,7 @@ import { apiBaseUrl } from "./api-base-url";
 import type {
   HardMatchSchoolGenderExclusion,
   MatchEstimateResult,
+  MerchantPromotionBlock,
   SupportedLocale,
 } from "@lilink/shared";
 
@@ -513,4 +514,52 @@ export type MyCoupon = {
 
 export function fetchMyCoupons() {
   return fetchApi<{ items: MyCoupon[] }>("/me/coupons");
+}
+
+// --- Merchant portal (separate session from user/admin) ---
+
+export type MerchantSessionUser = {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: string;
+  merchantId: string;
+  merchantName: string;
+};
+
+export function merchantLogin(email: string, password: string) {
+  return fetchApi<{ ok: boolean; merchantUser: MerchantSessionUser }>(
+    "/merchant/auth/login",
+    { method: "POST", body: JSON.stringify({ email, password }) },
+  );
+}
+
+export function merchantLogout() {
+  return fetchApi<{ ok: boolean }>("/merchant/auth/logout", { method: "POST" });
+}
+
+export function fetchMerchantMe() {
+  return fetchApi<{ ok: boolean; merchantUser: MerchantSessionUser }>(
+    "/merchant/auth/me",
+  );
+}
+
+export type RedeemResult = "SUCCESS" | "ALREADY_USED" | "INVALID";
+
+export type RedeemResponse = {
+  result: RedeemResult;
+  coupon: {
+    title: string;
+    benefitText: string;
+    faceValue: number;
+    userDisplayName: string | null;
+  } | null;
+  merchantPromotion: MerchantPromotionBlock[] | null;
+};
+
+export function redeemCoupon(code: string) {
+  return fetchApi<RedeemResponse>("/merchant/redeem", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
 }
