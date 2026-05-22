@@ -22,6 +22,9 @@ import { ReferralModule } from './modules/referral/referral.module';
 import { MerchantModule } from './modules/merchant/merchant.module';
 import { CampaignModule } from './modules/campaign/campaign.module';
 import { CouponModule } from './modules/coupon/coupon.module';
+import { MerchantSessionModule } from './modules/merchant-session/merchant-session.module';
+import { RedemptionModule } from './modules/redemption/redemption.module';
+import { PromotionDashboardModule } from './modules/promotion-dashboard/promotion-dashboard.module';
 import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
 import { authEmailThrottler } from './modules/auth/auth-throttle';
 
@@ -66,6 +69,9 @@ import { authEmailThrottler } from './modules/auth/auth-throttle';
     MerchantModule,
     CampaignModule,
     CouponModule,
+    MerchantSessionModule,
+    RedemptionModule,
+    PromotionDashboardModule,
   ],
 })
 export class AppModule {}

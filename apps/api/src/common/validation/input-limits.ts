@@ -51,3 +51,9 @@ export const COUPON_TEMPLATE_DESCRIPTION_MAX_LENGTH = 500;
 // faceValue is a nominal amount in cents; cap at 1,000,000.00 (¥1M) to bound input.
 export const COUPON_FACE_VALUE_MAX = 100_000_000;
 export const COUPON_VALID_DAYS_MAX = 3_650;
+export const MERCHANT_USER_PASSWORD_MIN = 8;
+export const MERCHANT_USER_PASSWORD_MAX = 200;
+export const MERCHANT_USER_DISPLAY_NAME_MAX = 80;
+// Redemption short code: 8 (recruiter) / 10 (personal + coupon); accept a bit
+// of slack for trimming/casing on input.
+export const REDEEM_CODE_MAX_LENGTH = 16;

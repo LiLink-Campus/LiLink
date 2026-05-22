@@ -230,8 +230,12 @@ describe('ReferralService', () => {
       prisma.campaign.findFirst.mockResolvedValue({ id: 'camp-default' });
       const service = new ReferralService(prisma as never);
 
+      prisma.user.findUnique.mockResolvedValue({ isTest: false });
+
       await service.recordShareEvent('user-1', 'WECHAT_MOMENTS');
 
+      // campaignId comes from the active default (resolveEventCampaignId), not
+      // the referrer's own frozen source campaign.
       expect(prisma.referralEvent.create).toHaveBeenCalledWith({
         data: {
           type: 'SHARE',
@@ -240,8 +244,17 @@ describe('ReferralService', () => {
           channel: 'WECHAT_MOMENTS',
         },
       });
-      // Must not read the referrer's own (frozen) source campaign.
-      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('skips the SHARE event for a test referrer', async () => {
+      const prisma = makePrisma();
+      prisma.campaign.findFirst.mockResolvedValue({ id: 'camp-default' });
+      prisma.user.findUnique.mockResolvedValue({ isTest: true });
+      const service = new ReferralService(prisma as never);
+
+      await service.recordShareEvent('user-1', 'WECHAT_MOMENTS');
+
+      expect(prisma.referralEvent.create).not.toHaveBeenCalled();
     });
 
     it('uses the ?c= campaign when it is ACTIVE', async () => {

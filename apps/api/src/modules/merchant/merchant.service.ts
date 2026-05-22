@@ -3,8 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as argon2 from 'argon2';
 import {
   MerchantPromotionBlock,
+  MerchantUserRole,
   validateMerchantPromotionBlocks,
 } from '@lilink/shared';
 import { Prisma } from '../../common/prisma/client';
@@ -15,8 +17,10 @@ import {
 } from '../../common/validation/input-limits';
 import {
   CreateMerchantDto,
+  CreateMerchantUserDto,
   ListMerchantsQueryDto,
   UpdateMerchantDto,
+  UpdateMerchantUserDto,
 } from './dto';
 
 interface MerchantRecord {
@@ -158,6 +162,147 @@ export class MerchantService {
     };
   }
 
+  // ---- Merchant users (admin-managed login accounts) ----
+
+  async createMerchantUser(
+    merchantId: string,
+    input: CreateMerchantUserDto,
+    adminActorId: string,
+  ) {
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { id: merchantId },
+      select: { id: true },
+    });
+    if (!merchant) throw new NotFoundException('Merchant not found.');
+
+    const email = input.email.trim().toLowerCase();
+    const passwordHash = await argon2.hash(input.password);
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const created = await tx.merchantUser.create({
+          data: {
+            merchantId,
+            email,
+            passwordHash,
+            displayName: input.displayName?.trim() || null,
+            role: input.role as MerchantUserRole,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            adminActorId,
+            action: 'merchant_user.created',
+            metadata: { merchantUserId: created.id, merchantId },
+          },
+        });
+        return this.toMerchantUserView(created);
+      });
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new BadRequestException(
+          'A merchant user with this email already exists.',
+        );
+      }
+      throw error;
+    }
+  }
+
+  async listMerchantUsers(merchantId: string) {
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { id: merchantId },
+      select: { id: true },
+    });
+    if (!merchant) throw new NotFoundException('Merchant not found.');
+
+    const users = await this.prisma.merchantUser.findMany({
+      where: { merchantId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        merchantId: true,
+        email: true,
+        displayName: true,
+        role: true,
+        isActive: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    return { items: users.map((user) => this.toMerchantUserView(user)) };
+  }
+
+  /**
+   * Patch a merchant user. Supplying password re-hashes it (reset); the hash is
+   * never returned and the audit records "password" rather than the column.
+   */
+  async updateMerchantUser(
+    id: string,
+    input: UpdateMerchantUserDto,
+    adminActorId: string,
+  ) {
+    const data: Prisma.MerchantUserUpdateInput = {};
+    if (input.isActive !== undefined) data.isActive = input.isActive;
+    if (input.displayName !== undefined) {
+      data.displayName = input.displayName.trim() || null;
+    }
+    if (input.role !== undefined) data.role = input.role as MerchantUserRole;
+    if (input.password !== undefined) {
+      data.passwordHash = await argon2.hash(input.password);
+    }
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('No updatable fields supplied.');
+    }
+    const fields = Object.keys(data).map((field) =>
+      field === 'passwordHash' ? 'password' : field,
+    );
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.merchantUser.update({ where: { id }, data });
+        await tx.auditLog.create({
+          data: {
+            adminActorId,
+            action: 'merchant_user.updated',
+            metadata: { merchantUserId: id, fields },
+          },
+        });
+        return this.toMerchantUserView(updated);
+      });
+    } catch (error) {
+      if (this.isRecordNotFoundError(error)) {
+        throw new NotFoundException('Merchant user not found.');
+      }
+      throw error;
+    }
+  }
+
+  private toMerchantUserView(user: {
+    id: string;
+    merchantId: string;
+    email: string;
+    displayName: string | null;
+    role: string;
+    isActive: boolean;
+    lastLoginAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      id: user.id,
+      merchantId: user.merchantId,
+      email: user.email,
+      displayName: user.displayName,
+      role: user.role,
+      isActive: user.isActive,
+      lastLoginAt: user.lastLoginAt,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
   private toMerchantView(merchant: MerchantRecord) {
     return {
       id: merchant.id,
@@ -180,6 +325,15 @@ export class MerchantService {
     const int = Math.floor(value);
     if (int < 1) return fallback;
     return Math.min(int, max);
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === 'P2002'
+    );
   }
 
   private isRecordNotFoundError(error: unknown): boolean {

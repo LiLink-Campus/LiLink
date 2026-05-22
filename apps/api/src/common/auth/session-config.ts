@@ -30,6 +30,9 @@ export const userSessionConfig = createSessionConfig(env.USER_SESSION_TTL_DAYS);
 export const adminSessionConfig = createSessionConfig(
   env.ADMIN_SESSION_TTL_DAYS,
 );
+export const merchantSessionConfig = createSessionConfig(
+  env.MERCHANT_SESSION_TTL_DAYS,
+);
 
 export function createSessionCookieOptions(maxAge: number): CookieOptions {
   return {
