@@ -921,6 +921,52 @@ describe('AuthService', () => {
     );
   });
 
+  it('freezes referral attribution and assigns a personal code on registration', async () => {
+    const { prisma, userCreate, schoolResolver } = buildRegisterMocks();
+    const resolveActiveCodeId = jest.fn().mockResolvedValue(null);
+    const resolveRegistrationAttribution = jest.fn().mockResolvedValue({
+      referredByUserId: 'ref-1',
+      referralChannel: 'WECHAT_GROUP',
+      referralCampaignId: 'camp-1',
+    });
+    const assignReferralCodeIfMissing = jest
+      .fn()
+      .mockResolvedValue('PERSONAL10');
+    const authService = new AuthService(
+      prisma as never,
+      {} as never,
+      schoolResolver as never,
+      { sign: jest.fn().mockReturnValue('jwt-token') } as never,
+      { resolveActiveCodeId } as never,
+      { resolveRegistrationAttribution, assignReferralCodeIfMissing } as never,
+    );
+    mockedArgon2.hash.mockResolvedValue('hashed-password');
+
+    await authService.register({
+      ...registerInput,
+      referralCode: 'PERSONALXYZ',
+      channel: 'WECHAT_GROUP',
+      campaignSlug: 'spring',
+    });
+
+    expect(resolveRegistrationAttribution).toHaveBeenCalledWith({
+      inviteCodeId: null,
+      referralCode: 'PERSONALXYZ',
+      channel: 'WECHAT_GROUP',
+      campaignSlug: 'spring',
+    });
+    expect(userCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          referredByUserId: 'ref-1',
+          referralChannel: 'WECHAT_GROUP',
+          referralCampaignId: 'camp-1',
+        }) as object,
+      }) as object,
+    );
+    expect(assignReferralCodeIfMissing).toHaveBeenCalledWith('user-1');
+  });
+
   it('rejects an invalid invite code without consuming the verification code', async () => {
     const { prisma, transaction, emailCodeUpdateMany, schoolResolver } =
       buildRegisterMocks();

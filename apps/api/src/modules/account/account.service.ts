@@ -1943,6 +1943,17 @@ export class AccountService {
       },
     });
 
+    if (input.optIn) {
+      // Stable "ever opted in" signal used for merchant-promotion activation
+      // gating: written once on the first opt-in and never cleared on opt-out
+      // (unlike CycleParticipation.optedInAt). The null guard in updateMany
+      // keeps it idempotent across repeated opt-ins.
+      await this.prisma.user.updateMany({
+        where: { id: userId, firstOptedInAt: null },
+        data: { firstOptedInAt: new Date() },
+      });
+    }
+
     await this.createAuditLog(userId, 'participation.updated', {
       cycleId: cycle.id,
       status: participation.status,

@@ -630,6 +630,7 @@ describe('AccountService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       questionnaireResponse: {
         findUnique: findUniqueResponse,
@@ -669,6 +670,7 @@ describe('AccountService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       questionnaireResponse: {
         findUnique: jest.fn().mockResolvedValue({
@@ -707,6 +709,7 @@ describe('AccountService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       questionnaireResponse: {
         findUnique: jest.fn().mockResolvedValue({
@@ -759,6 +762,7 @@ describe('AccountService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       questionnaireResponse: {
         findUnique: jest.fn().mockResolvedValue(
@@ -821,6 +825,7 @@ describe('AccountService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       questionnaireResponse: {
         findUnique: jest.fn().mockResolvedValue(
@@ -887,6 +892,7 @@ describe('AccountService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       questionnaireResponse: {
         findUnique: jest.fn().mockResolvedValue(
@@ -938,6 +944,7 @@ describe('AccountService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       questionnaireResponse: {
         findUnique: jest
@@ -1005,6 +1012,7 @@ describe('AccountService', () => {
         findUnique: jest
           .fn()
           .mockResolvedValue({ status: 'ACTIVE', schoolId: 'school-bupt' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       questionnaireResponse: {
         findUnique: jest.fn().mockResolvedValue({
