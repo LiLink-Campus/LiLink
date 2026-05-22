@@ -213,6 +213,13 @@ function CampaignStatusControls({
   const [status, setStatus] = useState(campaign.status);
   const [isDefault, setIsDefault] = useState(campaign.isDefault);
 
+  // Keep local controls in sync when the list refreshes (e.g. another campaign
+  // became the default, flipping this one's isDefault server-side).
+  useEffect(() => {
+    setStatus(campaign.status);
+    setIsDefault(campaign.isDefault);
+  }, [campaign.status, campaign.isDefault]);
+
   return (
     <div
       style={{
@@ -293,7 +300,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
           merchantId,
           title: title.trim(),
           benefitType,
-          faceValue: Number(faceValue),
+          faceValue: Math.round(Number(faceValue) * 100),
           validDays: validDays ? Number(validDays) : undefined,
         }),
       });
@@ -377,9 +384,10 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
         <input
           type="number"
           min={0}
+          step="0.01"
           value={faceValue}
           onChange={(event) => setFaceValue(event.target.value)}
-          placeholder="名义面值（分）"
+          placeholder="名义面值（元）"
         />
         <input
           type="number"

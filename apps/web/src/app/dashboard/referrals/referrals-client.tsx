@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "../_components/ToastProvider";
 import {
   fetchMyReferral,
   recordShareEvent,
@@ -21,6 +22,7 @@ export function ReferralsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     let active = true;
@@ -45,7 +47,11 @@ export function ReferralsClient() {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(channel);
-      setTimeout(() => setCopied((current) => (current === channel ? null : current)), 2000);
+      showToast("分享链接已复制");
+      setTimeout(
+        () => setCopied((current) => (current === channel ? null : current)),
+        2000,
+      );
     } catch {
       // Clipboard may be unavailable; the share is still recorded below.
     }
@@ -68,6 +74,13 @@ export function ReferralsClient() {
   }
   if (!data) return null;
 
+  // QR encodes the invite link (scanning opens /i/[code]); prefer the QR
+  // channel link, falling back to the first available channel link.
+  const qrUrl =
+    data.links.find((link) => link.channel === "QR")?.url ??
+    data.links[0]?.url ??
+    null;
+
   return (
     <main className="app-page-shell v2-page-shell">
       <header className="me-hero">
@@ -81,6 +94,21 @@ export function ReferralsClient() {
             <h3>我的邀请码</h3>
             <p>{data.referralCode ?? "尚未生成"}</p>
           </div>
+          {qrUrl && (
+            <div
+              className="me-card-preview-content"
+              style={{ textAlign: "center" }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`}
+                alt="邀请二维码"
+                width={180}
+                height={180}
+                style={{ margin: "0 auto", display: "block" }}
+              />
+            </div>
+          )}
         </div>
       </section>
 

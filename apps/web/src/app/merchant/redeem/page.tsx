@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { COUPON_CODE_LENGTH } from "@lilink/shared";
 import {
   fetchMerchantMe,
   merchantLogout,
@@ -24,18 +25,30 @@ export default function MerchantRedeemPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     fetchMerchantMe()
-      .then((response) => setMe(response.merchantUser))
-      .catch(() => {
-        window.location.href = "/merchant/login";
+      .then((response) => {
+        if (active) setMe(response.merchantUser);
       })
-      .finally(() => setChecking(false));
+      .catch(() => {
+        if (active) window.location.href = "/merchant/login";
+      })
+      .finally(() => {
+        if (active) setChecking(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function redeem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalized = code.trim().toUpperCase();
     if (!normalized) return;
+    if (normalized.length !== COUPON_CODE_LENGTH) {
+      setError(`券码应为 ${COUPON_CODE_LENGTH} 位，请检查后重试。`);
+      return;
+    }
     setPending(true);
     setError(null);
     setResult(null);
@@ -130,6 +143,9 @@ export default function MerchantRedeemPage() {
                 {result.coupon.title}
               </p>
               <p style={{ margin: "0.25rem 0" }}>{result.coupon.benefitText}</p>
+              <p style={{ margin: "0.25rem 0" }}>
+                面值 {(result.coupon.faceValue / 100).toFixed(2)} 元
+              </p>
               {result.coupon.userDisplayName && (
                 <p style={{ margin: "0.25rem 0", opacity: 0.85 }}>
                   持券人：{result.coupon.userDisplayName}
