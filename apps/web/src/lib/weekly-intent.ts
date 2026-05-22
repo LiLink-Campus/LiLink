@@ -1,11 +1,10 @@
 import {
   WEEKLY_INTENTS,
   WEEKLY_INTENT_LABELS,
-  isWeeklyIntent,
   type WeeklyIntent,
 } from "@lilink/shared";
 
-export { WEEKLY_INTENTS, WEEKLY_INTENT_LABELS, isWeeklyIntent };
+export { WEEKLY_INTENTS, WEEKLY_INTENT_LABELS };
 export type { WeeklyIntent };
 
 type WeeklyIntentVisual = {
@@ -37,7 +36,3 @@ export const WEEKLY_INTENT_VISUALS: Record<WeeklyIntent, WeeklyIntentVisual> = {
     accent: "#8a64ff",
   },
 };
-
-export function readWeeklyIntent(value: unknown): WeeklyIntent | null {
-  return isWeeklyIntent(value) ? value : null;
-}

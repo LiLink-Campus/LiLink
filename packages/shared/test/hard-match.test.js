@@ -265,14 +265,7 @@ test("areHardMatchAnswersCompatible checks both directions", () => {
     [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
   });
 
-  assert.equal(
-    areHardMatchAnswersCompatible(
-      left,
-      right,
-      new Date("2026-04-11T00:00:00.000Z"),
-    ),
-    true,
-  );
+  assert.equal(areHardMatchAnswersCompatible(left, right), true);
 
   const excluded = parseHardMatchAnswers({
     [HARD_MATCH_KEYS.birthDate]: "2004-03-20",
@@ -290,14 +283,7 @@ test("areHardMatchAnswersCompatible checks both directions", () => {
     [HARD_MATCH_KEYS.excludedPartnerSchools]: ["school-bupt"],
   });
 
-  assert.equal(
-    areHardMatchAnswersCompatible(
-      left,
-      excluded,
-      new Date("2026-04-11T00:00:00.000Z"),
-    ),
-    false,
-  );
+  assert.equal(areHardMatchAnswersCompatible(left, excluded), false);
 
   const excludedBySchoolGender = parseHardMatchAnswers({
     [HARD_MATCH_KEYS.birthDate]: "2004-03-20",
@@ -319,11 +305,7 @@ test("areHardMatchAnswersCompatible checks both directions", () => {
   });
 
   assert.equal(
-    areHardMatchAnswersCompatible(
-      left,
-      excludedBySchoolGender,
-      new Date("2026-04-11T00:00:00.000Z"),
-    ),
+    areHardMatchAnswersCompatible(left, excludedBySchoolGender),
     false,
   );
 });
@@ -379,42 +361,21 @@ test("areHardMatchAnswersCompatible applies nationality language and nullable we
 
   assert.ok(left);
   assert.ok(right);
-  assert.equal(
-    areHardMatchAnswersCompatible(
-      left,
-      right,
-      new Date("2026-04-11T00:00:00.000Z"),
-    ),
-    true,
-  );
+  assert.equal(areHardMatchAnswersCompatible(left, right), true);
 
   const languageMismatch = parseHardMatchAnswers({
     ...rightAnswers,
     [HARD_MATCH_KEYS.languages]: ["德语"],
   });
   assert.ok(languageMismatch);
-  assert.equal(
-    areHardMatchAnswersCompatible(
-      left,
-      languageMismatch,
-      new Date("2026-04-11T00:00:00.000Z"),
-    ),
-    false,
-  );
+  assert.equal(areHardMatchAnswersCompatible(left, languageMismatch), false);
 
   const weightMismatch = parseHardMatchAnswers({
     ...rightAnswers,
     [HARD_MATCH_KEYS.weightKg]: 95,
   });
   assert.ok(weightMismatch);
-  assert.equal(
-    areHardMatchAnswersCompatible(
-      left,
-      weightMismatch,
-      new Date("2026-04-11T00:00:00.000Z"),
-    ),
-    false,
-  );
+  assert.equal(areHardMatchAnswersCompatible(left, weightMismatch), false);
 });
 
 test("areHardMatchAnswersCompatible accepts legacy objects without new optional fields", () => {
@@ -467,14 +428,7 @@ test("areHardMatchAnswersCompatible accepts legacy objects without new optional 
     delete legacyRight[key];
   }
 
-  assert.equal(
-    areHardMatchAnswersCompatible(
-      legacyLeft,
-      legacyRight,
-      new Date("2026-04-11T00:00:00.000Z"),
-    ),
-    true,
-  );
+  assert.equal(areHardMatchAnswersCompatible(legacyLeft, legacyRight), true);
 });
 
 test("areHardMatchAnswersCompatible treats age range as a soft preference", () => {
@@ -517,11 +471,7 @@ test("areHardMatchAnswersCompatible treats age range as a soft preference", () =
   assert.ok(left);
   assert.ok(rightWithMisreadAgeWindow);
   assert.equal(
-    areHardMatchAnswersCompatible(
-      left,
-      rightWithMisreadAgeWindow,
-      new Date("2026-04-11T00:00:00.000Z"),
-    ),
+    areHardMatchAnswersCompatible(left, rightWithMisreadAgeWindow),
     true,
   );
 });

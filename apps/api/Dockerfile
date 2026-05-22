@@ -53,8 +53,6 @@ COPY --from=build /app/apps/api/dist ./dist
 COPY --from=build /app/apps/api/prisma ./prisma
 COPY --from=build /app/apps/api/prisma.config.ts ./prisma.config.ts
 COPY --from=build /app/apps/api/scripts ./scripts
-RUN mkdir -p /app/src/modules/questionnaire
-COPY --from=build /app/apps/api/src/modules/questionnaire/hard-match.constants.ts /app/src/modules/questionnaire/hard-match.constants.ts
 COPY --from=build /app/apps/api/package.json ./
 COPY --from=build /app/packages/shared ./packages/shared
 

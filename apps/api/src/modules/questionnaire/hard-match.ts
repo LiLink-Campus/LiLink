@@ -38,28 +38,20 @@ import {
 } from '@lilink/shared';
 import { IncompleteQuestionnaireSubmissionException } from './incomplete-questionnaire-submission.exception';
 
+/**
+ * @internal Exported for hard-match tests.
+ */
+export { HARD_MATCH_GENDERS };
+
 export {
-  HARD_MATCH_GENDERS,
-  HARD_MATCH_LANGUAGES,
-  HARD_MATCH_HEIGHT_MAX_CM,
-  HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
-  HARD_MATCH_NATIONALITIES,
-  HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
-  HARD_MATCH_WEIGHT_MAX_KG,
-  HARD_MATCH_WEIGHT_MIN_KG,
   areHardMatchAnswersCompatible,
   hardMatchQuestionKeys,
   isHardMatchKey,
   readQuestionnaireOneLiner,
   type HardMatchAnswers,
-  type HardMatchGender,
   type HardMatchKey,
-  type HardMatchLanguage,
-  type HardMatchLooks,
-  type HardMatchNationality,
-  type HardMatchSchoolId,
 };
 
 const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
@@ -135,6 +127,9 @@ export type HardMatchDraftForm = {
   excludedPartnerSchoolGenders: HardMatchSchoolGenderExclusion[];
 };
 
+/**
+ * @internal Exported for hard-match tests.
+ */
 export function createEmptyHardMatchDraftForm(): HardMatchDraftForm {
   return {
     birthYear: '',
@@ -247,10 +242,6 @@ function readAllowedStringArrayWithDefault<T extends string>(
   return normalizedValues.length > 0 ? normalizedValues : [...defaultValues];
 }
 
-function nullableNumberFromDraftText(value: string): number | null {
-  return value.trim().length === 0 ? null : Number(value);
-}
-
 export function sanitizeHardMatchDraftForm(
   rawForm: unknown,
   allowedSchoolIds: readonly string[],
@@ -344,47 +335,6 @@ export function sanitizeHardMatchDraftForm(
     excludedPartnerSchoolGenders:
       excludedPartnerPreferences.excludedPartnerSchoolGenders,
   };
-}
-
-export function buildHardMatchAnswerRecordFromDraftForm(
-  form: HardMatchDraftForm,
-  schoolId: string,
-  allowedSchoolIds: readonly string[],
-) {
-  const rawAnswers: Record<string, unknown> = {
-    [HARD_MATCH_KEYS.partnerAgeMin]: Number(form.partnerAgeMin),
-    [HARD_MATCH_KEYS.partnerAgeMax]: Number(form.partnerAgeMax),
-    [HARD_MATCH_KEYS.gender]: form.gender,
-    [HARD_MATCH_KEYS.partnerGenders]: form.partnerGenders,
-    [HARD_MATCH_KEYS.nationality]: form.nationality,
-    [HARD_MATCH_KEYS.partnerNationalities]: form.partnerNationalities,
-    [HARD_MATCH_KEYS.languages]: form.languages,
-    [HARD_MATCH_KEYS.partnerLanguages]: form.partnerLanguages,
-    [HARD_MATCH_KEYS.looks]: form.looks,
-    [HARD_MATCH_KEYS.partnerLooks]: form.partnerLooks,
-    [HARD_MATCH_KEYS.heightCm]: Number(form.heightCm),
-    [HARD_MATCH_KEYS.partnerHeightMin]: Number(form.partnerHeightMin),
-    [HARD_MATCH_KEYS.partnerHeightMax]: Number(form.partnerHeightMax),
-    [HARD_MATCH_KEYS.weightKg]: nullableNumberFromDraftText(form.weightKg),
-    [HARD_MATCH_KEYS.partnerWeightMin]: nullableNumberFromDraftText(
-      form.partnerWeightMin,
-    ),
-    [HARD_MATCH_KEYS.partnerWeightMax]: nullableNumberFromDraftText(
-      form.partnerWeightMax,
-    ),
-    [HARD_MATCH_KEYS.oneLinerIntro]: form.oneLinerIntro,
-    [HARD_MATCH_KEYS.school]: schoolId,
-    [HARD_MATCH_KEYS.excludedPartnerSchools]: form.excludedPartnerSchools,
-    [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]:
-      form.excludedPartnerSchoolGenders,
-  };
-
-  if (form.birthYear && form.birthMonth && form.birthDay) {
-    rawAnswers[HARD_MATCH_KEYS.birthDate] =
-      `${form.birthYear}-${form.birthMonth.padStart(2, '0')}-${form.birthDay.padStart(2, '0')}`;
-  }
-
-  return normalizeHardMatchAnswers(rawAnswers, allowedSchoolIds);
 }
 
 function readRequiredIntegerInput(value: unknown, key: HardMatchKey): number {

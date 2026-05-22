@@ -2,6 +2,11 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
+import {
+  chinaStandardDatetimeLocalValueFromIso,
+  chinaStandardDatetimeToIso,
+  formatChinaStandardDateTime,
+} from "@/lib/china-standard-time";
 import { WEEKLY_INTENT_LABELS } from "../../../lib/weekly-intent";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
@@ -59,20 +64,6 @@ function isExistingCycleSelection(id: string | null): id is string {
   return Boolean(id) && id !== ADMIN_NEW_CYCLE_SELECTION;
 }
 
-function toDateTimeInput(value: string) {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
 function formatParticipantIntent(participant: CycleParticipantDetail) {
   if (participant.status !== "OPTED_IN") {
     return "—";
@@ -101,19 +92,6 @@ function buildAdminQueryString(
 
   const serialized = searchParams.toString();
   return serialized ? `?${serialized}` : "";
-}
-
-function truncateAdminNarrativePreview(value: string | null, maxLength = 56) {
-  const normalizedValue = value?.trim();
-  if (!normalizedValue) {
-    return "";
-  }
-
-  if (normalizedValue.length <= maxLength) {
-    return normalizedValue;
-  }
-
-  return `${normalizedValue.slice(0, maxLength).trim()}…`;
 }
 
 export default function AdminCyclesPage() {
@@ -193,8 +171,10 @@ export default function AdminCyclesPage() {
     setCycleForm({
       cycleId: selectedCycle.id,
       codename: selectedCycle.codename,
-      participationDeadline: toDateTimeInput(selectedCycle.participationDeadline),
-      revealAt: toDateTimeInput(selectedCycle.revealAt),
+      participationDeadline: chinaStandardDatetimeLocalValueFromIso(
+        selectedCycle.participationDeadline,
+      ),
+      revealAt: chinaStandardDatetimeLocalValueFromIso(selectedCycle.revealAt),
       status: selectedCycle.status,
       notes: selectedCycle.notes ?? "",
     });
@@ -386,6 +366,15 @@ export default function AdminCyclesPage() {
       return;
     }
 
+    const participationDeadline = chinaStandardDatetimeToIso(
+      cycleForm.participationDeadline,
+    );
+    const revealAt = chinaStandardDatetimeToIso(cycleForm.revealAt);
+    if (!participationDeadline || !revealAt) {
+      setActionError("请填写有效的北京时间（参与截止与揭晓时间）。");
+      return;
+    }
+
     setPending("save");
 
     try {
@@ -393,6 +382,8 @@ export default function AdminCyclesPage() {
         method: "PUT",
         body: JSON.stringify({
           ...cycleForm,
+          participationDeadline,
+          revealAt,
           cycleId: cycleForm.cycleId || undefined,
         }),
       });
@@ -574,7 +565,7 @@ export default function AdminCyclesPage() {
                   <strong>{cycle.codename}</strong>
                   <span className="domain-chip" style={STATUS_STYLES[cycle.status]}>{CYCLE_STATUS_LABELS[cycle.status]}</span>
                 </div>
-                <p>揭晓：{formatDateTime(cycle.revealAt)}</p>
+                <p>揭晓：{formatChinaStandardDateTime(cycle.revealAt)}</p>
                 <div className="admin-inline-meta">
                   <span>可匹配人数 {cycle._count.participations}</span>
                   <span>匹配数 {cycle._count.matches}</span>
@@ -646,11 +637,11 @@ export default function AdminCyclesPage() {
             </label>
             <div className="form-grid">
               <label>
-                <span>参与截止</span>
+                <span>参与截止（北京时间）</span>
                 <input required type="datetime-local" value={cycleForm.participationDeadline} onChange={(e) => setCycleForm((f) => ({ ...f, participationDeadline: e.target.value }))} />
               </label>
               <label>
-                <span>揭晓时间</span>
+                <span>揭晓时间（北京时间）</span>
                 <input required type="datetime-local" value={cycleForm.revealAt} onChange={(e) => setCycleForm((f) => ({ ...f, revealAt: e.target.value }))} />
               </label>
             </div>
@@ -754,7 +745,7 @@ export default function AdminCyclesPage() {
                             ? <span style={{ color: "var(--sage)" }}>已提交</span>
                             : <span style={{ color: "var(--coral)" }}>未提交</span>}
                         </td>
-                        <td>{p.optedInAt ? formatDateTime(p.optedInAt) : "—"}</td>
+                        <td>{p.optedInAt ? formatChinaStandardDateTime(p.optedInAt) : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -804,7 +795,6 @@ export default function AdminCyclesPage() {
                 <div className="admin-record-list">
                   {matchesData.items.map((match) => {
                     const isExpanded = expandedMatchId === match.id;
-                    const reasonPreview = truncateAdminNarrativePreview(match.reason);
 
                     return (
                     <div key={match.id} className="admin-record-item">
@@ -813,16 +803,10 @@ export default function AdminCyclesPage() {
                         <span className="domain-chip">分数 {match.score.toFixed(1)}</span>
                       </div>
                       <div className="admin-inline-meta">
-                        <span>揭晓：{match.revealedAt ? formatDateTime(match.revealedAt) : "待揭晓"}</span>
-                        <span>引荐：{match.introducedAt ? formatDateTime(match.introducedAt) : "未引荐"}</span>
+                        <span>揭晓：{match.revealedAt ? formatChinaStandardDateTime(match.revealedAt) : "待揭晓"}</span>
+                        <span>引荐：{match.introducedAt ? formatChinaStandardDateTime(match.introducedAt) : "未引荐"}</span>
                         <span>举报数：{match.reports.length}</span>
-                      </div>
-                      <div className="admin-inline-meta" style={{ marginTop: "0.65rem" }}>
-                        <span>
-                          文案：
-                          {match.reason?.trim() || match.reasons.length > 0 ? "已生成" : "暂无"}
-                        </span>
-                        {reasonPreview ? <span>{reasonPreview}</span> : null}
+                        <span>反馈数：{match.feedback.length}</span>
                       </div>
                       <div className="auth-actions" style={{ marginTop: "0.75rem" }}>
                         <button
@@ -830,26 +814,33 @@ export default function AdminCyclesPage() {
                           type="button"
                           onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
                         >
-                          {isExpanded ? "收起文案" : "查看文案"}
+                          {isExpanded ? "收起反馈" : "查看反馈"}
                         </button>
                       </div>
                       {isExpanded ? (
-                        <>
-                          {match.reason?.trim() ? (
-                            <p style={{ margin: "0.75rem 0 0" }}>{match.reason}</p>
-                          ) : (
-                            <ul className="admin-reason-list">
-                              {match.reasons.map((r) => <li key={r}>{r}</li>)}
-                            </ul>
-                          )}
-                          {match.conversationTopics.length > 0 ? (
-                            <ul className="admin-reason-list">
-                              {match.conversationTopics.map((topic) => (
-                                <li key={topic}>{topic}</li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </>
+                        match.feedback.length > 0 ? (
+                          <ul className="admin-reason-list" style={{ marginTop: "0.75rem" }}>
+                            {match.feedback.map((fb) => {
+                              const author = match.participants.find(
+                                (p) => p.userId === fb.authorUserId,
+                              );
+                              const authorName =
+                                author?.user.displayName ??
+                                author?.user.email ??
+                                fb.authorUserId;
+                              return (
+                                <li key={fb.id}>
+                                  {authorName} 评分 {fb.rating}/5
+                                  {fb.comment ? `：${fb.comment}` : ""}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : (
+                          <p style={{ margin: "0.75rem 0 0" }}>
+                            双方暂未提交反馈评价。
+                          </p>
+                        )
                       ) : null}
                     </div>
                   )})}
@@ -877,7 +868,7 @@ export default function AdminCyclesPage() {
                       <div key={log.id} className="admin-record-item">
                         <div className="admin-record-topline">
                           <strong>{log.action}</strong>
-                          <span className="domain-chip">{formatDateTime(log.createdAt)}</span>
+                          <span className="domain-chip">{formatChinaStandardDateTime(log.createdAt)}</span>
                         </div>
                         <p>{JSON.stringify(log.metadata ?? {})}</p>
                       </div>
@@ -932,9 +923,6 @@ export default function AdminCyclesPage() {
                       <strong>{pair.leftDisplayName ?? pair.leftUserId} × {pair.rightDisplayName ?? pair.rightUserId}</strong>
                       <span className="domain-chip">分数 {pair.score.toFixed(1)}</span>
                     </div>
-                    <ul className="admin-reason-list">
-                      {pair.reasons.map((r) => <li key={r}>{r}</li>)}
-                    </ul>
                   </div>
                 ))}
                 {allP.length === 0 && <div className="admin-empty-state">当前没有建议匹配。</div>}

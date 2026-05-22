@@ -2,7 +2,12 @@
 node_modules/
 apps/*/node_modules/
 .npm-cache/
-.codex-local/
+
+# Agent local-only files (personal skills source + per-tool skill symlinks)
+.agent-local/
+.codex/skills/
+.claude/skills/
+.claude/worktrees/
 
 # Build outputs
 .next/
@@ -17,6 +22,7 @@ build/
 # Runtime
 logs/
 *.log
+*.bak
 *.pid
 
 # Environment
@@ -38,6 +44,7 @@ Thumbs.db
 .idea/
 .vscode/
 AGENTS.override.md
+.claude/settings.local.json
 *.swp
 .eslintcache
 
@@ -59,6 +66,8 @@ apps/api/src/generated/prisma/
 .turbo/
 tmp/
 *.pem
+.superpowers/
+docs/superpowers/
 
 # Anonymous user DB exports (see apps/api/scripts/export-anonymous-user-data.mjs).
 /anonymous-user-export*.json

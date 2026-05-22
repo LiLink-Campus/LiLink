@@ -8,17 +8,6 @@ export function formatCycleRevealAt(iso: string): string {
   }).format(new Date(iso));
 }
 
-export function formatCycleDeadline(iso: string): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Shanghai",
-  }).format(new Date(iso));
-}
-
 export function canEditCurrentCycleParticipation(
   cycle: DashboardCurrentCycle | null,
 ): boolean {
@@ -29,27 +18,6 @@ export function canEditCurrentCycleParticipation(
   return (
     cycle.status === "OPEN" &&
     new Date(cycle.participationDeadline).getTime() > Date.now()
-  );
-}
-
-export function normalizeMatchReasons(reasons: unknown): string[] {
-  if (!Array.isArray(reasons)) {
-    return [];
-  }
-  return reasons.filter(
-    (item): item is string =>
-      typeof item === "string" && item.trim().length > 0,
-  );
-}
-
-export function normalizeConversationTopics(topics: unknown): string[] {
-  if (!Array.isArray(topics)) {
-    return [];
-  }
-
-  return topics.filter(
-    (item): item is string =>
-      typeof item === "string" && item.trim().length > 0,
   );
 }
 

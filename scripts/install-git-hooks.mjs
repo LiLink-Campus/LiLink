@@ -3,24 +3,16 @@
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
+import { GIT_HOOK_CONFIGS } from "./hooks/registry.mjs";
+import { syncAgentHookConfigs } from "./hooks/sync-hook-configs.mjs";
+
 export const MINIMUM_GIT_VERSION = Object.freeze({
   major: 2,
   minor: 54,
   patch: 0,
 });
 
-export const HOOK_CONFIGS = Object.freeze([
-  Object.freeze({
-    name: "lilink-pre-commit-lint",
-    event: "pre-commit",
-    command: "npm run lint:staged",
-  }),
-  Object.freeze({
-    name: "lilink-pre-push-lint",
-    event: "pre-push",
-    command: "npm run lint:pre-push",
-  }),
-]);
+export const HOOK_CONFIGS = GIT_HOOK_CONFIGS;
 
 export function parseGitVersion(gitVersionOutput) {
   if (typeof gitVersionOutput !== "string" || gitVersionOutput.trim() === "") {
@@ -86,6 +78,12 @@ function installHooks() {
   console.log("Installed LiLink Git config-based hooks:");
   for (const hookConfig of HOOK_CONFIGS) {
     console.log(`- ${hookConfig.event}: ${hookConfig.command}`);
+  }
+
+  const syncedFiles = syncAgentHookConfigs();
+  console.log("Synced LiLink agent hook config files:");
+  for (const syncedFile of syncedFiles) {
+    console.log(`- ${syncedFile}`);
   }
 }
 

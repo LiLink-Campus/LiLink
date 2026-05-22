@@ -292,9 +292,6 @@ describe('DashboardSnapshotService', () => {
           id: 'match-1',
           cycleId: 'cycle-1',
           score: 88,
-          reasons: ['reason'],
-          reason: 'reason',
-          conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
           introducedAt: null,
           revealedAt: null,
           cycle: {

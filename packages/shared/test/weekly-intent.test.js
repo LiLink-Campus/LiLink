@@ -5,7 +5,6 @@ const {
   WEEKLY_INTENTS,
   WEEKLY_INTENT_LABELS,
   isWeeklyIntent,
-  readWeeklyIntent,
   areWeeklyIntentsCompatible,
 } = require("../dist");
 
@@ -32,12 +31,6 @@ test("isWeeklyIntent narrows valid strings only", () => {
   assert.equal(isWeeklyIntent(null), false);
   assert.equal(isWeeklyIntent(undefined), false);
   assert.equal(isWeeklyIntent(123), false);
-});
-
-test("readWeeklyIntent returns null for invalid input", () => {
-  assert.equal(readWeeklyIntent("BOTH"), "BOTH");
-  assert.equal(readWeeklyIntent("HOOKUP"), null);
-  assert.equal(readWeeklyIntent(undefined), null);
 });
 
 test("areWeeklyIntentsCompatible enforces the BOTH-bridges-all rule", () => {

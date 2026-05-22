@@ -152,16 +152,16 @@ export type HardMatchSchoolGenderExclusion = {
 export type HardMatchKey =
   (typeof HARD_MATCH_KEYS)[keyof typeof HARD_MATCH_KEYS];
 
-export type HardMatchAttentionTab = "self" | "partner";
+type HardMatchAttentionTab = "self" | "partner";
 
-export type HardMatchAttentionField = {
+type HardMatchAttentionField = {
   key: HardMatchKey;
   label: string;
   tab: HardMatchAttentionTab;
   required: boolean;
 };
 
-export const HARD_MATCH_ATTENTION_FIELDS = [
+const HARD_MATCH_ATTENTION_FIELDS = [
   {
     key: HARD_MATCH_KEYS.birthDate,
     label: "出生日期",
@@ -284,9 +284,10 @@ export const HARD_MATCH_ATTENTION_FIELDS = [
   },
 ] as const satisfies ReadonlyArray<HardMatchAttentionField>;
 
-const HARD_MATCH_ATTENTION_FIELD_BY_KEY = new Map<string, HardMatchAttentionField>(
-  HARD_MATCH_ATTENTION_FIELDS.map((field) => [field.key, field]),
-);
+const HARD_MATCH_ATTENTION_FIELD_BY_KEY = new Map<
+  string,
+  HardMatchAttentionField
+>(HARD_MATCH_ATTENTION_FIELDS.map((field) => [field.key, field]));
 
 export function hardMatchAttentionFields() {
   return [...HARD_MATCH_ATTENTION_FIELDS];
@@ -298,6 +299,63 @@ export function hardMatchAttentionKeys() {
 
 export function hardMatchAttentionFieldForKey(key: string) {
   return HARD_MATCH_ATTENTION_FIELD_BY_KEY.get(key) ?? null;
+}
+
+// ── Hard-match option-set signatures (honest progress) ──────────────
+// Collision-free, order-insensitive, stable for the same set. Used to detect
+// when a field's allowed option set changed since the user last confirmed it,
+// so stale defaults stop masquerading as a confirmed answer.
+export function computeOptionSetSignature(values: readonly string[]): string {
+  return `v1:${JSON.stringify([...new Set(values)].sort())}`;
+}
+
+// True only when a field carries a real value. Empty string / null / empty
+// array all count as "no value" — shared by the present + missing-required
+// checks so multi-select fields are not mistaken for "filled".
+export function hardMatchFieldHasValue(value: unknown): boolean {
+  if (value == null || value === "") return false;
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+// Enum-driven hard-match fields whose option set can grow over time.
+const HARD_MATCH_SIGNATURE_SOURCES: Record<string, readonly string[]> = {
+  [HARD_MATCH_KEYS.gender]: HARD_MATCH_GENDERS,
+  [HARD_MATCH_KEYS.partnerGenders]: HARD_MATCH_GENDERS,
+  [HARD_MATCH_KEYS.looks]: HARD_MATCH_LOOKS,
+  [HARD_MATCH_KEYS.partnerLooks]: HARD_MATCH_LOOKS,
+  [HARD_MATCH_KEYS.nationality]: HARD_MATCH_NATIONALITIES,
+  [HARD_MATCH_KEYS.partnerNationalities]: HARD_MATCH_NATIONALITIES,
+  [HARD_MATCH_KEYS.languages]: HARD_MATCH_LANGUAGES,
+  [HARD_MATCH_KEYS.partnerLanguages]: HARD_MATCH_LANGUAGES,
+};
+
+export function hardMatchSignatureFieldKeys(): string[] {
+  return Object.keys(HARD_MATCH_SIGNATURE_SOURCES);
+}
+
+export function hardMatchFieldSignature(key: string): string | null {
+  const source = HARD_MATCH_SIGNATURE_SOURCES[key];
+  return source ? computeOptionSetSignature(source) : null;
+}
+
+export const HARD_MATCH_WEIGHT_KEYS: readonly string[] = [
+  HARD_MATCH_KEYS.weightKg,
+  HARD_MATCH_KEYS.partnerWeightMin,
+  HARD_MATCH_KEYS.partnerWeightMax,
+];
+
+// Sentinel stored when a user explicitly confirms an empty / "no limit" weight.
+export const HARD_MATCH_WEIGHT_ACK = "empty-ack";
+
+// The signature a key carries once confirmed against the current schema:
+// enum fields → their option-set signature; weight fields → the empty-ack
+// sentinel; everything else is not tracked by this mechanism.
+export function currentHardMatchConfirmSignature(key: string): string | null {
+  const enumSignature = hardMatchFieldSignature(key);
+  if (enumSignature) return enumSignature;
+  if (HARD_MATCH_WEIGHT_KEYS.includes(key)) return HARD_MATCH_WEIGHT_ACK;
+  return null;
 }
 
 export type HardMatchAnswers = {
@@ -347,10 +405,7 @@ export const AGE_OPTIONS = buildSequentialNumberOptions(
 );
 export const MONTH_OPTIONS = buildSequentialNumberOptions(1, 12);
 
-export function buildBirthYearOptions(
-  referenceDate = new Date(),
-  totalYears = 100,
-) {
+function buildBirthYearOptions(referenceDate = new Date(), totalYears = 100) {
   const currentYear = referenceDate.getFullYear();
   return Array.from(
     { length: totalYears },
@@ -417,7 +472,7 @@ export function readSingleChoice<T extends string>(
   return allowedValues.includes(normalizedValue) ? normalizedValue : null;
 }
 
-export function readNonEmptyString(value: unknown) {
+function readNonEmptyString(value: unknown) {
   if (typeof value !== "string") {
     return null;
   }
@@ -919,7 +974,6 @@ export function calculateAgeOnDate(birthDate: string, referenceDate: Date) {
 export function areHardMatchAnswersCompatible(
   left: HardMatchAnswers,
   right: HardMatchAnswers,
-  revealAt: Date,
 ) {
   const leftNationality = left.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
   const rightNationality = right.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;

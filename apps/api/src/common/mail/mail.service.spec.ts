@@ -103,13 +103,17 @@ describe('MailService', () => {
         requester: {
           email: 'user-1@example.com',
           displayName: 'User 1',
+          gender: '男',
+          partnerGenders: ['女', '非二元'],
+          weeklyIntent: 'FRIEND',
         },
         recipient: {
           email: 'user-2@example.com',
           displayName: 'User 2',
+          gender: '女',
+          partnerGenders: ['男'],
+          weeklyIntent: 'DATE',
         },
-        reason: 'reason paragraph',
-        conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
       }),
     ).toEqual([
       expect.objectContaining({
@@ -159,15 +163,19 @@ describe('MailService', () => {
         displayName: '<script>alert(1)</script>',
         schoolName: 'A&B School',
         introLine: 'Hello <b>world</b>',
+        gender: '男',
+        partnerGenders: ['女'],
+        weeklyIntent: 'BOTH',
       },
       recipient: {
         email: 'recipient@example.com',
         displayName: '<img src=x onerror=alert(2)>',
         schoolName: 'R&D School',
         introLine: 'Intro <i>text</i>',
+        gender: '女 <strong>1</strong>',
+        partnerGenders: ['男 <strong>1</strong>', '非二元'],
+        weeklyIntent: 'DATE',
       },
-      reason: 'Reason <strong>1</strong>',
-      conversationTopics: ['Topic <strong>1</strong>', 'Topic 2', 'Topic 3'],
     });
 
     expect(requesterEmail.html).toContain('&lt;img src=x onerror=alert(2)&gt;');
@@ -175,17 +183,21 @@ describe('MailService', () => {
     expect(requesterEmail.html).not.toContain('<img src=x onerror=alert(2)>');
     expect(requesterEmail.html).not.toContain('<i>text</i>');
     expect(requesterEmail.html).toContain(
-      'Reason &lt;strong&gt;1&lt;/strong&gt;',
+      '对方性别：女 &lt;strong&gt;1&lt;/strong&gt;',
     );
     expect(requesterEmail.html).toContain(
-      'Topic &lt;strong&gt;1&lt;/strong&gt;',
+      '对方期望对象性别：男 &lt;strong&gt;1&lt;/strong&gt;、非二元',
     );
+    expect(requesterEmail.html).toContain('对方本周意向：浪漫约会');
 
     expect(recipientEmail.html).toContain(
       '&lt;script&gt;alert(1)&lt;/script&gt;',
     );
     expect(recipientEmail.html).toContain('Hello &lt;b&gt;world&lt;/b&gt;');
     expect(recipientEmail.html).toContain('A&amp;B School');
+    expect(recipientEmail.html).toContain('对方性别：男');
+    expect(recipientEmail.html).toContain('对方期望对象性别：女');
+    expect(recipientEmail.html).toContain('对方本周意向：都可以');
   });
 
   it('renders the other party selected public contact in introduction email', () => {
@@ -201,6 +213,9 @@ describe('MailService', () => {
           label: '微信号',
           value: 'wx_user_1',
         },
+        gender: '女',
+        partnerGenders: ['男'],
+        weeklyIntent: 'BOTH',
       },
       recipient: {
         email: 'recipient@example.com',
@@ -210,19 +225,32 @@ describe('MailService', () => {
           label: '手机号',
           value: '+14155552671',
         },
+        gender: '男',
+        partnerGenders: ['女', '非二元'],
+        weeklyIntent: 'FRIEND',
       },
-      reason: 'reason paragraph',
-      conversationTopics: ['topic 1'],
     } as never);
 
     expect(requesterEmail.text).toContain('对方联系方式：手机号 +14155552671');
+    expect(requesterEmail.text).toContain('对方性别：男');
+    expect(requesterEmail.text).toContain('对方期望对象性别：女、非二元');
+    expect(requesterEmail.text).toContain('对方本周意向：认识朋友');
     expect(requesterEmail.html).toContain(
       '对方联系方式：<strong>手机号 +14155552671</strong>',
     );
+    expect(requesterEmail.html).toContain('对方性别：男');
+    expect(requesterEmail.html).toContain('对方期望对象性别：女、非二元');
+    expect(requesterEmail.html).toContain('对方本周意向：认识朋友');
     expect(recipientEmail.text).toContain('对方联系方式：微信号 wx_user_1');
+    expect(recipientEmail.text).toContain('对方性别：女');
+    expect(recipientEmail.text).toContain('对方期望对象性别：男');
+    expect(recipientEmail.text).toContain('对方本周意向：都可以');
     expect(recipientEmail.html).toContain(
       '对方联系方式：<strong>微信号 wx_user_1</strong>',
     );
+    expect(recipientEmail.html).toContain('对方性别：女');
+    expect(recipientEmail.html).toContain('对方期望对象性别：男');
+    expect(recipientEmail.html).toContain('对方本周意向：都可以');
   });
 
   it('builds a verification email payload with a small retry budget', () => {
