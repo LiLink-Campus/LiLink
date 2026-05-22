@@ -73,6 +73,22 @@ test("match page hides identity before introduction and keeps safety/report acti
   );
 });
 
+test("direct meetup invite only navigates after contact request succeeds", () => {
+  const matchPage = readRepoFile("apps/web/src/app/dashboard/match/match-client.tsx");
+  const matchActions = readRepoFile(
+    "apps/web/src/app/dashboard/_components/useMatchActions.ts",
+  );
+
+  assert.match(
+    matchActions,
+    /async function requestContact\(matchId: string\): Promise<boolean>/,
+  );
+  assert.match(matchActions, /return true;/);
+  assert.match(matchActions, /return false;/);
+  assert.match(matchPage, /const contactRequested = await requestContact/);
+  assert.match(matchPage, /if \(!contactRequested\) return;/);
+});
+
 test("profile and card editors expose and validate required public card fields", () => {
   const profile = readRepoFile("apps/web/src/app/dashboard/profile/profile-client.tsx");
   const card = readRepoFile("apps/web/src/app/dashboard/me/card/card-client.tsx");

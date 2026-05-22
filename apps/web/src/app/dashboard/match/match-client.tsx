@@ -106,12 +106,10 @@ export function MatchClient({
       return;
     }
 
-    try {
-      await requestContact(latestMatch.id);
-      router.push(meetupStartHref);
-    } catch {
-      // requestContact already surfaces the failure via `error`
-    }
+    const contactRequested = await requestContact(latestMatch.id);
+    if (!contactRequested) return;
+
+    router.push(meetupStartHref);
   }
 
   const showMeetupRibbon = introduced && meetupSummary !== null;

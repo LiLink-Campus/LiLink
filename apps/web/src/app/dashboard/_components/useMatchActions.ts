@@ -92,7 +92,7 @@ export function useMatchActions({
     }
   }
 
-  async function requestContact(matchId: string) {
+  async function requestContact(matchId: string): Promise<boolean> {
     setSaving("contact");
     setSavedMessage(null);
     setError(null);
@@ -105,10 +105,12 @@ export function useMatchActions({
       await refreshDashboardAfterMutation(
         "引荐已提交，但页面刷新失败。请稍后手动刷新查看最新状态。",
       );
+      return true;
     } catch (caughtError) {
       setError(
         caughtError instanceof Error ? caughtError.message : "引荐发送失败。",
       );
+      return false;
     } finally {
       setSaving(null);
     }
