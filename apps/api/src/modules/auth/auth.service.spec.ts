@@ -949,12 +949,15 @@ describe('AuthService', () => {
       campaignSlug: 'spring',
     });
 
-    expect(resolveRegistrationAttribution).toHaveBeenCalledWith({
-      inviteCodeId: null,
-      referralCode: 'PERSONALXYZ',
-      channel: 'WECHAT_GROUP',
-      campaignSlug: 'spring',
-    });
+    expect(resolveRegistrationAttribution).toHaveBeenCalledWith(
+      {
+        inviteCodeId: null,
+        referralCode: 'PERSONALXYZ',
+        channel: 'WECHAT_GROUP',
+        campaignSlug: 'spring',
+      },
+      expect.anything(),
+    );
     expect(userCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

@@ -85,21 +85,6 @@ export class AuthService {
     const inviteCodeId =
       (await this.inviteCodeService?.resolveActiveCodeId(input.inviteCode)) ??
       null;
-    // Resolve and freeze the referral attribution. A recruiter code takes
-    // priority and discards any personal code; the campaign is snapshotted now
-    // and never re-derived later (activation reads only the frozen value).
-    const attribution = (await this.referralService?.resolveRegistrationAttribution(
-      {
-        inviteCodeId,
-        referralCode: input.referralCode,
-        channel: input.channel,
-        campaignSlug: input.campaignSlug,
-      },
-    )) ?? {
-      referredByUserId: null,
-      referralChannel: null,
-      referralCampaignId: null,
-    };
     const passwordHash = await argon2.hash(input.password);
 
     const user = await this.prisma.$transaction(async (tx) => {
@@ -110,6 +95,24 @@ export class AuthService {
         'register',
         input.code,
       );
+
+      // Resolve + freeze the referral attribution inside the transaction so the
+      // campaign snapshot is consistent with the committed user row. A recruiter
+      // code takes priority and discards any personal code; the frozen campaign
+      // is never re-derived later (activation reads it as-is).
+      const attribution = (await this.referralService?.resolveRegistrationAttribution(
+        {
+          inviteCodeId,
+          referralCode: input.referralCode,
+          channel: input.channel,
+          campaignSlug: input.campaignSlug,
+        },
+        tx,
+      )) ?? {
+        referredByUserId: null,
+        referralChannel: null,
+        referralCampaignId: null,
+      };
 
       try {
         return await tx.user.create({
