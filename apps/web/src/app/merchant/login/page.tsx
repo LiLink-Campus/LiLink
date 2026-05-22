@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { merchantLogin } from "../../../lib/api";
+import "../merchant.css";
 
 export default function MerchantLoginPage() {
   const [email, setEmail] = useState("");
@@ -24,39 +25,45 @@ export default function MerchantLoginPage() {
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: "0 auto", padding: "3rem 1.5rem" }}>
-      <h1 style={{ fontSize: "1.5rem", marginBottom: "1.5rem" }}>商家核销登录</h1>
-      <form
-        onSubmit={submit}
-        style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-      >
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="商家账号邮箱"
-          autoComplete="username"
-          required
-          style={{ padding: "0.75rem", fontSize: "1rem" }}
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="密码"
-          autoComplete="current-password"
-          required
-          style={{ padding: "0.75rem", fontSize: "1rem" }}
-        />
-        {error && <p style={{ color: "#c0392b" }}>{error}</p>}
-        <button
-          type="submit"
-          disabled={pending || !email.trim() || !password}
-          style={{ padding: "0.85rem", fontSize: "1.05rem", fontWeight: 600 }}
-        >
-          {pending ? "登录中……" : "登录"}
-        </button>
-      </form>
+    <main className="mc-center">
+      <div className="mc-card">
+        <h1 className="mc-title">商家核销登录</h1>
+        <p className="mc-subtitle">登录后即可为顾客核销优惠券</p>
+        <form className="mc-form" onSubmit={submit}>
+          <label className="mc-field">
+            <span className="mc-label">商家账号邮箱</span>
+            <input
+              className="mc-input"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="name@example.com"
+              autoComplete="username"
+              required
+            />
+          </label>
+          <label className="mc-field">
+            <span className="mc-label">密码</span>
+            <input
+              className="mc-input"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="请输入密码"
+              autoComplete="current-password"
+              required
+            />
+          </label>
+          {error && <p className="mc-error">{error}</p>}
+          <button
+            className="mc-btn"
+            type="submit"
+            disabled={pending || !email.trim() || !password}
+          >
+            {pending ? "登录中……" : "登录"}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
