@@ -105,17 +105,6 @@ export function fetchAdminApiServer<T>(
   });
 }
 
-export async function requireUserSession<T>(
-  load: () => Promise<T>,
-  loginPath = "/login",
-) {
-  if (!(await hasUserSessionCookie())) {
-    redirect(loginPath);
-  }
-
-  return load();
-}
-
 async function resolveForwardedSiteOrigin(): Promise<string | null> {
   const headerList = await headers();
   const hostHeader =

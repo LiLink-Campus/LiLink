@@ -67,14 +67,6 @@ function createOptions(labels) {
   return labels.map((label) => ({ value: label, label }));
 }
 
-function exactMatchRule(template, priority) {
-  return [{ type: 'EXACT_MATCH', template, priority }];
-}
-
-function multiOverlapRule(template, priority, maxLabels = 2, minOverlap = 1) {
-  return [{ type: 'MULTI_OVERLAP', template, priority, maxLabels, minOverlap }];
-}
-
 const QUESTIONNAIRE_DEFINITIONS = [
   {
     key: 'relationship_intent',
@@ -83,7 +75,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 1,
     weight: 4,
     options: ['认真稳定的关系', '先认真了解再决定', '轻松认识，顺其自然'],
-    reasonRules: exactMatchRule('你们对进入关系的预期都偏向 {{answer_label}}。', 4),
   },
   {
     key: 'pace',
@@ -92,7 +83,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 2,
     weight: 3,
     options: ['慢热', '平衡', '主动推进'],
-    reasonRules: exactMatchRule('你们都更接受 {{answer_label}} 的推进节奏。', 3),
   },
   {
     key: 'define_relationship_timing',
@@ -101,7 +91,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 3,
     weight: 3,
     options: ['熟悉后尽快明确', '相处一段时间再确认', '不急着定义关系'],
-    reasonRules: exactMatchRule('你们对"什么时候确认关系"的想法比较接近。', 3),
   },
   {
     key: 'contact_frequency',
@@ -110,7 +99,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 4,
     weight: 3,
     options: ['高互动', '适中', '保持留白'],
-    reasonRules: exactMatchRule('你们都舒服于 {{answer_label}} 的联系频率。', 3),
   },
   {
     key: 'weekend',
@@ -119,7 +107,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 5,
     weight: 2,
     options: ['出门探索', '轻社交', '安静恢复'],
-    reasonRules: exactMatchRule('你们都更喜欢 {{answer_label}} 的周末状态。', 2),
   },
   {
     key: 'communication',
@@ -128,7 +115,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 6,
     weight: 4,
     options: ['当场说清楚', '先冷静再沟通', '给彼此缓冲时间'],
-    reasonRules: exactMatchRule('你们处理分歧时，都更接受 {{answer_label}}。', 4),
   },
   {
     key: 'repair_style',
@@ -137,7 +123,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 7,
     weight: 4,
     options: ['先讲清楚逻辑', '先安抚情绪', '先给空间再回来聊'],
-    reasonRules: exactMatchRule('你们对冲突后的修复方式比较一致。', 4),
   },
   {
     key: 'apology_expectation',
@@ -146,7 +131,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 8,
     weight: 3,
     options: ['及时道歉', '解释清楚', '后续行动'],
-    reasonRules: exactMatchRule('你们都更在意 {{answer_label}}。', 3),
   },
   {
     key: 'outing_spend_style',
@@ -161,7 +145,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
       '更愿意自己多出或主动请客',
       '不太希望总是只有我出钱（不强求对方全包）',
     ],
-    reasonRules: exactMatchRule('你们对出去玩时谁来买单或 AA 的期待比较一致，相处时更省心。', 2),
   },
   {
     key: 'career_relationship_balance',
@@ -170,7 +153,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 10,
     weight: 2,
     options: ['感情优先', '尽量平衡', '更看重学业或事业'],
-    reasonRules: exactMatchRule('你们对当前阶段重心的判断接近。', 2),
   },
   {
     key: 'social_energy',
@@ -179,7 +161,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 11,
     weight: 2,
     options: ['非常不像我', '比较不像我', '看情况', '比较像我', '非常像我'],
-    reasonRules: exactMatchRule('你们在主动推进关系这件事上的倾向比较接近。', 2),
   },
   {
     key: 'emotional_openness',
@@ -188,7 +169,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 12,
     weight: 2,
     options: ['非常不像我', '比较不像我', '看情况', '比较像我', '非常像我'],
-    reasonRules: exactMatchRule('你们在表达真实情绪这件事上的习惯比较接近。', 2),
   },
   {
     key: 'space_need',
@@ -197,7 +177,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 13,
     weight: 2,
     options: ['非常不像我', '比较不像我', '看情况', '比较像我', '非常像我'],
-    reasonRules: exactMatchRule('你们对亲密和个人空间的边界感比较接近。', 2),
   },
   {
     key: 'novelty_need',
@@ -206,7 +185,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     order: 14,
     weight: 2,
     options: ['非常不像我', '比较不像我', '看情况', '比较像我', '非常像我'],
-    reasonRules: exactMatchRule('你们对关系中新鲜感的偏好比较接近。', 2),
   },
   {
     key: 'values',
@@ -216,7 +194,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 4,
     options: ['真诚', '稳定', '责任感', '尊重边界', '好奇心', '上进', '温柔', '幽默感'],
     selectionLimit: 4,
-    reasonRules: multiOverlapRule('你们都把 {{labels_2}} 放在重要位置。', 4),
   },
   {
     key: 'green_flags',
@@ -226,7 +203,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 3,
     options: ['说到做到', '情绪稳定', '边界清楚', '愿意表达', '有上进心', '会照顾人', '松弛幽默'],
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们都会被 {{labels_2}} 这类特质打动。', 3),
   },
   {
     key: 'red_flag_sensitivity',
@@ -236,7 +212,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 3,
     options: ['冷处理', '阴阳怪气', '控制欲', '失联', '迟到失约', '情绪爆炸', '不尊重边界'],
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们都对 {{labels_2}} 这类相处问题比较敏感。', 3),
   },
   {
     key: 'support_need',
@@ -246,7 +221,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 3,
     options: ['陪我聊天', '给出建议', '直接帮我做事', '带我放松', '给我空间', '明确表达在乎'],
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们需要的支持方式里，都包含 {{labels_2}}。', 3),
   },
   {
     key: 'feeling_cared_for',
@@ -256,7 +230,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 3,
     options: ['及时回复', '主动约我', '记住细节', '明确表达喜欢', '实际照顾', '稳定陪伴', '尊重我的节奏'],
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们感到被在乎的方式里，都有 {{labels_2}}。', 3),
   },
   {
     key: 'ideal_date_style',
@@ -266,7 +239,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 2,
     options: ['散步聊天', '探店吃饭', '运动户外', '看展看电影', '宅家陪伴', '短途出行', '一起做正事'],
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们都偏好 {{labels_2}} 这类约会方式。', 2),
   },
   {
     key: 'shared_growth_topics',
@@ -276,7 +248,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 2,
     options: ['学业事业', '健身作息', '情绪成熟', '旅行体验', '审美兴趣', '社交拓展', '财务规划'],
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们都愿意一起投入 {{labels_2}}。', 2),
   },
   {
     key: 'future_picture',
@@ -286,7 +257,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 2,
     options: ['稳定陪伴', '个人成长', '经济安全', '自由感', '家庭连接', '新鲜体验', '共同目标'],
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们对关系未来的期待里，都包含 {{labels_2}}。', 2),
   },
   {
     key: 'admired_partner_traits',
@@ -296,7 +266,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 1,
     options: ['温柔耐心', '有主见', '自律可靠', '直接坦诚', '有趣松弛', '有边界感', '有行动力'],
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们欣赏的对象气质里，都有 {{labels_2}}。', 1),
   },
   {
     key: 'small_happiness',
@@ -306,7 +275,6 @@ const QUESTIONNAIRE_DEFINITIONS = [
     weight: 1,
     options: ['一起吃饭', '深夜长聊', '散步吹风', '一起学习', '肢体靠近', '分享日常', '临时起意的小冒险'],
     selectionLimit: 3,
-    reasonRules: multiOverlapRule('你们都容易在 {{labels_2}} 这种瞬间里感受到关系感。', 1),
   },
 ];
 
@@ -379,7 +347,6 @@ async function seedQuestionnaire() {
         required: true,
         selectionLimit: q.selectionLimit ?? null,
         options: optionsPayload,
-        reasonRules: q.reasonRules,
       },
       create: {
         versionId: version.id,
@@ -391,7 +358,6 @@ async function seedQuestionnaire() {
         required: true,
         selectionLimit: q.selectionLimit ?? null,
         options: optionsPayload,
-        reasonRules: q.reasonRules,
       },
     });
   }

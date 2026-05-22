@@ -12,6 +12,9 @@ const MILLISECONDS_PER_SECOND = 1000;
 export * from '../../generated/prisma/client';
 export { PrismaClient };
 
+/**
+ * @internal Exported for configuration tests.
+ */
 export function readDatabaseUrl() {
   const databaseUrl = process.env[DATABASE_URL_ENV]?.trim();
 
@@ -52,6 +55,9 @@ function readNonNegativeIntegerEnv(name: string, defaultValue: number) {
   return value;
 }
 
+/**
+ * @internal Exported for configuration tests.
+ */
 export function createPostgresPoolConfig(): PoolConfig {
   const poolTimeoutSeconds = readNonNegativeIntegerEnv(
     DATABASE_POOL_TIMEOUT_SECONDS_ENV,
@@ -74,6 +80,9 @@ export function createPrismaClientOptions() {
   };
 }
 
+/**
+ * @internal Used by CLI scripts that run outside Nest dependency injection.
+ */
 export function createPrismaClient() {
   return new PrismaClient(createPrismaClientOptions());
 }

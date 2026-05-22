@@ -5,6 +5,8 @@ const buildFileArgs = (files) => files.map(quotePath).join(" ");
 export default {
   "apps/api/**/*.{ts,tsx}": (files) =>
     `npm exec --workspace api -- eslint --fix -- ${buildFileArgs(files)}`,
+  "apps/web/**/*.css": (files) =>
+    `node scripts/web-css-syntax.mjs ${buildFileArgs(files)}`,
   "apps/web/**/*.{js,jsx,ts,tsx}": (files) =>
     `npm exec --workspace web -- eslint --fix -- ${buildFileArgs(files)}`,
   "packages/shared/**/*.ts": () => "npm run lint:shared",

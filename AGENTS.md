@@ -22,6 +22,21 @@ These instructions apply to the entire repository unless a more specific `AGENTS
 - Do not silently create or change environment files with real credentials.
 - Never print secret values from `.env` files, logs, shell output, or CI output.
 
+## Hook Management
+
+- Maintain hook definitions only in `scripts/hooks/registry.mjs`.
+- Treat `.codex/hooks.json`, `.cursor/hooks.json`, and `.claude/settings.json` as generated adapter files for Codex, Cursor, and Claude Code. Do not edit them directly; run `npm run hooks:sync` after registry changes.
+- To register a new hook, add it to `scripts/hooks/registry.mjs` (a `GIT_HOOK_CONFIGS` entry for a Git hook, or an `AGENT_HOOK_CONFIG_FILES` entry for an agent adapter), then run `npm run hooks:sync` (or `npm run hooks:install`) and commit the regenerated files.
+- `.claude/settings.json` is generated and committed; put personal Claude settings in `.claude/settings.local.json` (gitignored), not in `settings.json`.
+- Run `npm run hooks:install` to install Git config-based hooks and regenerate the Codex/Cursor/Claude hook adapters.
+- Run `npm run hooks:audit` when reviewing hook changes to confirm Git, Codex, Cursor, and Claude hook configuration still matches the registry.
+
+## Skills
+
+- Personal agent skills live under `.agent-local/skills/<name>/SKILL.md` and are gitignored — they are per-developer, not team-shared.
+- Run `npm run skills:link` to create project-level symlinks (`.codex/skills/<name>`, `.claude/skills/<name>`) so Codex and Claude Code auto-discover them from the single source. The command is idempotent and is a no-op when `.agent-local/skills` is absent.
+- Cursor has no SKILL.md system; it reads rules from `AGENTS.md` and `.cursor/rules`.
+
 ## Validation
 
 - Choose checks that match the changed surface area.
@@ -40,7 +55,7 @@ These instructions apply to the entire repository unless a more specific `AGENTS
 ## Git Hygiene
 
 - Keep commits focused on the requested change.
-- Do not commit local-only files such as `.env`, `.env.*`, `AGENTS.override.md`, `.codex-local/`, build output, dependency folders, or logs.
+- Do not commit local-only files such as `.env`, `.env.*`, `AGENTS.override.md`, `.agent-local/`, `.codex/skills/`, `.claude/skills/`, `.claude/settings.local.json`, build output, dependency folders, or logs.
 - Before staging, inspect `git status --short` and avoid adding unrelated untracked files.
 - Comments and docstrings in code should be concise and written in English.
 

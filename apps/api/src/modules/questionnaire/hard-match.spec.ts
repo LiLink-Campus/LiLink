@@ -173,26 +173,14 @@ describe('hard-match helpers', () => {
     } as const;
     const right = tryReadHardMatchAnswers(rightAnswers)!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        right,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(true);
+    expect(areHardMatchAnswersCompatible(left, right)).toBe(true);
 
     const mismatchedRight = tryReadHardMatchAnswers({
       ...rightAnswers,
       [HARD_MATCH_KEYS.partnerGenders]: ['非二元'],
     })!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        mismatchedRight,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(false);
+    expect(areHardMatchAnswersCompatible(left, mismatchedRight)).toBe(false);
   });
 
   it('keeps the pair compatible even when the partnerAge window excludes both ages', () => {
@@ -218,13 +206,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        right,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(true);
+    expect(areHardMatchAnswersCompatible(left, right)).toBe(true);
   });
 
   it('still returns compatible for participants with an out-of-life-expectancy birthDate', () => {
@@ -252,13 +234,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        ancientRight,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(true);
+    expect(areHardMatchAnswersCompatible(left, ancientRight)).toBe(true);
   });
 
   it('rejects when height is out of partner range', () => {
@@ -273,13 +249,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        tooTallRight,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(false);
+    expect(areHardMatchAnswersCompatible(left, tooTallRight)).toBe(false);
   });
 
   it('does not treat looks preferences as hard filters', () => {
@@ -303,13 +273,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        right,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(true);
+    expect(areHardMatchAnswersCompatible(left, right)).toBe(true);
   });
 
   it('applies nationality, language, and nullable weight filters', () => {
@@ -343,39 +307,21 @@ describe('hard-match helpers', () => {
     } as const;
     const right = tryReadHardMatchAnswers(rightAnswers)!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        right,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(true);
+    expect(areHardMatchAnswersCompatible(left, right)).toBe(true);
 
     const languageMismatch = tryReadHardMatchAnswers({
       ...rightAnswers,
       [HARD_MATCH_KEYS.languages]: ['德语'],
     })!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        languageMismatch,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(false);
+    expect(areHardMatchAnswersCompatible(left, languageMismatch)).toBe(false);
 
     const weightMismatch = tryReadHardMatchAnswers({
       ...rightAnswers,
       [HARD_MATCH_KEYS.weightKg]: 95,
     })!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        weightMismatch,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(false);
+    expect(areHardMatchAnswersCompatible(left, weightMismatch)).toBe(false);
   });
 
   it('rejects when either side excludes the other school id', () => {
@@ -397,13 +343,7 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        excludedRight,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(false);
+    expect(areHardMatchAnswersCompatible(left, excludedRight)).toBe(false);
   });
 
   it('rejects when a school-specific gender exclusion matches the counterpart', () => {
@@ -434,12 +374,6 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
 
-    expect(
-      areHardMatchAnswersCompatible(
-        left,
-        right,
-        new Date('2026-05-20T00:00:00.000Z'),
-      ),
-    ).toBe(false);
+    expect(areHardMatchAnswersCompatible(left, right)).toBe(false);
   });
 });

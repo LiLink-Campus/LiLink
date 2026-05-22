@@ -2,8 +2,6 @@ import { QuestionType } from '../../common/prisma/client';
 import {
   normalizeQuestionAnswer,
   normalizeQuestionOptions,
-  normalizeQuestionReasonRules,
-  renderReasonTemplate,
 } from './questionnaire-config';
 
 describe('questionnaire-config', () => {
@@ -28,33 +26,6 @@ describe('questionnaire-config', () => {
         '慢热',
       ),
     ).toBe('slow_burn');
-  });
-
-  it('parses reason rules and renders template placeholders', () => {
-    const rules = normalizeQuestionReasonRules([
-      {
-        type: 'MULTI_OVERLAP',
-        template: '你们都把 {{labels_2}} 放在重要位置。',
-        priority: 4,
-        minOverlap: 1,
-        maxLabels: 2,
-      },
-    ]);
-
-    expect(rules).toEqual([
-      {
-        type: 'MULTI_OVERLAP',
-        template: '你们都把 {{labels_2}} 放在重要位置。',
-        priority: 4,
-        minOverlap: 1,
-        maxLabels: 2,
-      },
-    ]);
-    expect(
-      renderReasonTemplate(rules[0].template, {
-        labels_2: '真诚、稳定',
-      }),
-    ).toBe('你们都把 真诚、稳定 放在重要位置。');
   });
 
   it('rejects multi-select answers that exceed the question limit', () => {

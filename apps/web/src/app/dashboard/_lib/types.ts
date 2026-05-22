@@ -27,7 +27,7 @@ export type Question = {
   }>;
 };
 
-export type DashboardMatchParticipant = {
+type DashboardMatchParticipant = {
   userId: string;
   displayName: string | null;
   introLine: string | null;
@@ -35,9 +35,18 @@ export type DashboardMatchParticipant = {
   contact: DashboardPublicContact | null;
   schoolName: string | null;
   contactRequestedAt: string | null;
+  gender?: string | null;
+  partnerGenders?: string[];
+  weeklyIntent?: WeeklyIntent | null;
 };
 
-export type ContactMethodPayload = {
+export type MatchFeedback = {
+  rating: number;
+  comment: string | null;
+  submittedAt: string;
+};
+
+type ContactMethodPayload = {
   type: EditableContactChannelType;
   value: string;
 };
@@ -48,7 +57,7 @@ export type ContactPreferencesPayload = {
   methods: ContactMethodPayload[];
 };
 
-export type DashboardPublicContact = {
+type DashboardPublicContact = {
   type: ContactChannelType;
   label: string;
   value: string;
@@ -57,13 +66,11 @@ export type DashboardPublicContact = {
 export type DashboardMatch = {
   id: string;
   score: number;
-  reasons: string[];
-  reason: string | null;
-  conversationTopics: string[];
   introducedAt: string | null;
   currentUserRequestedAt: string | null;
   reportStatus: string | null;
   participants: DashboardMatchParticipant[];
+  currentUserFeedback: MatchFeedback | null;
 };
 
 export type DashboardHistoryItem = {

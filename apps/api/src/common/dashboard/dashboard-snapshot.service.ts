@@ -11,8 +11,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { readQuestionnaireOneLiner } from '../../modules/questionnaire/hard-match';
 import {
   CONTACT_CHANNEL_LABELS,
+  HARD_MATCH_KEYS,
   contactChannelLabel,
   type ContactChannelType,
+  type WeeklyIntent,
 } from '@lilink/shared';
 import {
   DashboardHistoryVisibility,
@@ -30,9 +32,6 @@ const dashboardSnapshotMatchSelect = {
   id: true,
   cycleId: true,
   score: true,
-  reasons: true,
-  reason: true,
-  conversationTopics: true,
   revealedAt: true,
   introducedAt: true,
   cycle: {
@@ -101,6 +100,7 @@ type SnapshotParticipation = Prisma.CycleParticipationGetPayload<{
   select: {
     userId: true;
     status: true;
+    intent: true;
   };
 }>;
 
@@ -248,7 +248,7 @@ export class DashboardSnapshotService {
 
     const pendingSync = this.enqueueCycleSnapshotSync(cycleId, () =>
       this.prisma.$transaction(async (tx) => {
-        await this.syncCycleSnapshotsDirect(cycleId, tx as SnapshotStoreClient);
+        await this.syncCycleSnapshotsDirect(cycleId, tx);
       }),
     ).finally(() => {
       if (this.inFlightCycleRebuilds.get(cycleId) === pendingSync) {
@@ -278,10 +278,7 @@ export class DashboardSnapshotService {
 
     const pendingSync = this.enqueueCycleSnapshotSync(input.cycleId, () =>
       this.prisma.$transaction(async (tx) => {
-        await this.syncUserCycleSnapshotDirect(
-          input,
-          tx as SnapshotStoreClient,
-        );
+        await this.syncUserCycleSnapshotDirect(input, tx);
       }),
     ).finally(() => {
       this.inFlightUserCycleSyncs.delete(syncKey);
@@ -374,6 +371,7 @@ export class DashboardSnapshotService {
       select: {
         userId: true,
         status: true,
+        intent: true,
       },
     });
 
@@ -496,12 +494,28 @@ export class DashboardSnapshotService {
           },
         })
       : [];
+    const matchParticipantIds = match
+      ? match.participants.map((participant) => participant.userId)
+      : [];
+    const intentByUserId =
+      matchParticipantIds.length > 0
+        ? this.buildIntentByUserId(
+            await store.cycleParticipation.findMany({
+              where: {
+                cycleId: input.cycleId,
+                userId: { in: matchParticipantIds },
+              },
+              select: { userId: true, intent: true },
+            }),
+          )
+        : new Map<string, WeeklyIntent | null>();
     const snapshot = this.buildSnapshotPayload({
       userId: input.userId,
       cycle,
       participationStatus: participation.status,
       match,
       blockedPairKeys: this.buildBlockedPairKeySet(blocks),
+      intentByUserId,
     });
 
     await store.userCycleDashboardSnapshot.upsert({
@@ -553,6 +567,7 @@ export class DashboardSnapshotService {
         select: {
           userId: true,
           status: true,
+          intent: true,
         },
       }),
       store.block.findMany({
@@ -572,6 +587,7 @@ export class DashboardSnapshotService {
         participation,
       ]),
     );
+    const intentByUserId = this.buildIntentByUserId(participations);
     const blockedPairKeys = this.buildBlockedPairKeySet(blocks);
 
     for (const userId of userIds) {
@@ -586,6 +602,7 @@ export class DashboardSnapshotService {
         participationStatus: participation.status,
         match,
         blockedPairKeys,
+        intentByUserId,
       });
 
       await store.userCycleDashboardSnapshot.upsert({
@@ -608,6 +625,7 @@ export class DashboardSnapshotService {
     blocks: SnapshotBlock[];
   }) {
     const blockedPairKeys = this.buildBlockedPairKeySet(input.blocks);
+    const intentByUserId = this.buildIntentByUserId(input.participations);
     const matchByUserId = new Map<string, SnapshotMatch>();
 
     for (const match of input.matches) {
@@ -623,6 +641,7 @@ export class DashboardSnapshotService {
         participationStatus: participation.status,
         match: matchByUserId.get(participation.userId) ?? null,
         blockedPairKeys,
+        intentByUserId,
       }),
     );
   }
@@ -630,6 +649,17 @@ export class DashboardSnapshotService {
   private buildBlockedPairKeySet(blocks: SnapshotBlock[]) {
     return new Set(
       blocks.map((block) => createPairKey(block.blockerId, block.blockedId)),
+    );
+  }
+
+  private buildIntentByUserId(
+    participations: Array<{ userId: string; intent: WeeklyIntent | null }>,
+  ) {
+    return new Map<string, WeeklyIntent | null>(
+      participations.map((participation) => [
+        participation.userId,
+        participation.intent,
+      ]),
     );
   }
 
@@ -643,6 +673,7 @@ export class DashboardSnapshotService {
     participationStatus: ParticipationStatus;
     match: SnapshotMatch | null;
     blockedPairKeys: Set<string>;
+    intentByUserId: Map<string, WeeklyIntent | null>;
   }): SnapshotPayload {
     if (!input.match) {
       return {
@@ -687,6 +718,7 @@ export class DashboardSnapshotService {
       currentUserId: input.userId,
       hideSensitiveFields: visibility === DashboardHistoryVisibility.LIMITED,
       reportStatus,
+      intentByUserId: input.intentByUserId,
     });
 
     return {
@@ -708,6 +740,7 @@ export class DashboardSnapshotService {
     currentUserId: string;
     hideSensitiveFields: boolean;
     reportStatus: ReportStatus | null;
+    intentByUserId: Map<string, WeeklyIntent | null>;
   }): DashboardMatchResponseDto {
     const currentUserParticipant =
       input.match.participants.find(
@@ -717,23 +750,12 @@ export class DashboardSnapshotService {
     return {
       id: input.match.id,
       score: input.match.score,
-      reasons: input.hideSensitiveFields
-        ? []
-        : this.normalizeMatchReasons(input.match.reasons),
-      reason: input.hideSensitiveFields
-        ? null
-        : this.normalizeMatchReason(
-            input.match.reason,
-            this.normalizeMatchReasons(input.match.reasons),
-          ),
-      conversationTopics: input.hideSensitiveFields
-        ? []
-        : this.normalizeConversationTopics(input.match.conversationTopics),
       introducedAt: this.toIsoString(input.match.introducedAt),
       currentUserRequestedAt: this.toIsoString(
         currentUserParticipant?.contactRequestedAt,
       ),
       reportStatus: input.reportStatus,
+      currentUserFeedback: null,
       participants: input.hideSensitiveFields
         ? []
         : input.match.participants.map((participant) => {
@@ -758,6 +780,14 @@ export class DashboardSnapshotService {
               contactRequestedAt: this.toIsoString(
                 participant.contactRequestedAt,
               ),
+              gender: this.readHardGender(
+                participant.user.questionnaireResponse?.answers,
+              ),
+              partnerGenders: this.readHardPartnerGenders(
+                participant.user.questionnaireResponse?.answers,
+              ),
+              weeklyIntent:
+                input.intentByUserId.get(participant.userId) ?? null,
             };
           }),
     };
@@ -781,46 +811,6 @@ export class DashboardSnapshotService {
     );
   }
 
-  private normalizeMatchReasons(rawReasons: Prisma.JsonValue): string[] {
-    if (!Array.isArray(rawReasons)) {
-      return [];
-    }
-
-    return rawReasons.filter(
-      (item): item is string =>
-        typeof item === 'string' && item.trim().length > 0,
-    );
-  }
-
-  private normalizeMatchReason(
-    rawReason: string | null | undefined,
-    normalizedReasons: string[],
-  ) {
-    const trimmedReason = rawReason?.trim();
-    if (trimmedReason) {
-      return trimmedReason;
-    }
-
-    if (normalizedReasons.length === 0) {
-      return null;
-    }
-
-    return normalizedReasons.join(' ');
-  }
-
-  private normalizeConversationTopics(
-    rawTopics: Prisma.JsonValue | null | undefined,
-  ) {
-    if (!Array.isArray(rawTopics)) {
-      return [];
-    }
-
-    return rawTopics.filter(
-      (item): item is string =>
-        typeof item === 'string' && item.trim().length > 0,
-    );
-  }
-
   private displayIntroLine(
     answers: Prisma.JsonValue | null | undefined,
     profileHeadline: string | null | undefined,
@@ -834,6 +824,34 @@ export class DashboardSnapshotService {
     return trimmedHeadline ? trimmedHeadline : null;
   }
 
+  private readHardGender(
+    answers: Prisma.JsonValue | null | undefined,
+  ): string | null {
+    if (!isRecord(answers)) {
+      return null;
+    }
+    const value = answers[HARD_MATCH_KEYS.gender];
+    return typeof value === 'string' && value.trim().length > 0
+      ? value.trim()
+      : null;
+  }
+
+  private readHardPartnerGenders(
+    answers: Prisma.JsonValue | null | undefined,
+  ): string[] {
+    if (!isRecord(answers)) {
+      return [];
+    }
+    const value = answers[HARD_MATCH_KEYS.partnerGenders];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value.filter(
+      (entry): entry is string =>
+        typeof entry === 'string' && entry.trim().length > 0,
+    );
+  }
+
   private toIsoString(value: Date | null | undefined) {
     return value ? value.toISOString() : null;
   }
@@ -843,6 +861,20 @@ export class DashboardSnapshotService {
       return null;
     }
 
-    return rawPayload as unknown as DashboardMatchResponseDto;
+    const payload = rawPayload as unknown as DashboardMatchResponseDto;
+    return {
+      ...payload,
+      currentUserFeedback: payload.currentUserFeedback ?? null,
+      participants: Array.isArray(payload.participants)
+        ? payload.participants.map((participant) => ({
+            ...participant,
+            gender: participant.gender ?? null,
+            partnerGenders: Array.isArray(participant.partnerGenders)
+              ? participant.partnerGenders
+              : [],
+            weeklyIntent: participant.weeklyIntent ?? null,
+          }))
+        : [],
+    };
   }
 }

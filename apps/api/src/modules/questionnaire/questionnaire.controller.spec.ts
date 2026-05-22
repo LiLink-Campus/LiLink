@@ -7,7 +7,7 @@ describe('QuestionnaireController', () => {
     const questionnaireService = {
       getCurrentVersion: jest
         .fn<QuestionnaireService['getCurrentVersion']>()
-        .mockResolvedValue(current as never),
+        .mockResolvedValue(current),
     } satisfies Pick<QuestionnaireService, 'getCurrentVersion'>;
     const controller = new QuestionnaireController(
       questionnaireService as never,
