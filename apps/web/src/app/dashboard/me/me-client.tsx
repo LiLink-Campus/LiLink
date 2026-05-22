@@ -92,6 +92,17 @@ export function MeClient({
       </div>
 
       <div className="me-group">
+        <Link href="/dashboard/referrals" className="me-group-row">
+          <span className="me-group-row-title">我的邀请</span>
+          <ArrowRightIcon className="me-group-row-arrow" />
+        </Link>
+        <Link href="/dashboard/coupons" className="me-group-row">
+          <span className="me-group-row-title">我的优惠券</span>
+          <ArrowRightIcon className="me-group-row-arrow" />
+        </Link>
+      </div>
+
+      <div className="me-group">
         <Link href="/forgot-password" className="me-group-row">
           <span className="me-group-row-title">修改密码</span>
           <ArrowRightIcon className="me-group-row-arrow" />
