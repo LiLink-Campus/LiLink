@@ -160,11 +160,15 @@ export default function AdminMerchantsPage() {
               <div className="qb-card-title">
                 <strong>{merchant.name}</strong>
                 <span className="qb-card-meta">
-                  {merchant.isActive ? "启用中" : "已停用"}
-                  {merchant.contactInfo ? ` · ${merchant.contactInfo}` : ""}
-                  {` · 券模板 ${merchant.templateCount} · 核销 ${merchant.redemptionCount}`}
+                  {merchant.contactInfo ? `${merchant.contactInfo} · ` : ""}
+                  {`券模板 ${merchant.templateCount} · 核销 ${merchant.redemptionCount}`}
                 </span>
               </div>
+              <span
+                className={`qb-badge ${merchant.isActive ? "is-active" : "is-off"}`}
+              >
+                {merchant.isActive ? "启用中" : "已停用"}
+              </span>
               <div className="qb-card-actions">
                 <button
                   type="button"
@@ -320,7 +324,7 @@ function MerchantDetailPanel({
   }
 
   return (
-    <div style={{ padding: "0.75rem 0", borderTop: "1px solid var(--border, #eee)" }}>
+    <div className="qb-subpanel">
       {error && <p className="form-error">{error}</p>}
 
       <h4>登录账号</h4>
@@ -337,6 +341,7 @@ function MerchantDetailPanel({
             </span>
             <button
               type="button"
+              className="button-secondary"
               disabled={pending === `user-${user.id}`}
               onClick={() => void toggleUser(user)}
             >
