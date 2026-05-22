@@ -30,10 +30,13 @@
 
 ## 二、待办清单（需后续技术人员判断 / 实施）
 
-### A. 需运行数据库（验证 + 收尾）⚠️ 优先
-- [ ] 启动 Docker Desktop → `npm run infra:up` 起 postgres → 配 `apps/api/.env`（按 `.env.example`）→ `npm run db:migrate`（apply M0 迁移）→ `db:seed-defaults`。
-- [ ] 跑现有 e2e 确认无回归；补 M1 e2e：注册带个人码 → 冻结归属 → `/me/referral` 漏斗；落地 `click` UV 去重；`share` 上报。
+### A. 需运行数据库（验证 + 收尾）
+- [x] **已完成（2026-05-22）**：Docker Desktop 的 WSL Integration（Ubuntu 发行版）启用后，复用现有 `lilink-postgres`、建独立库 `lilink_merchant`（不碰主仓库 `lilink` 库）、配 dev 占位 `apps/api/.env`（DATABASE_URL 指 `lilink_merchant`）、`prisma migrate deploy` 全量 apply（含 M0 merchant 迁移 + partial unique index）。已用 psql 验证 8 张表 + partial index 定义 + User 5 个新列落库。
+- [x] **已完成**：现有 e2e 全过（3 suites / 15 tests），确认 schema/代码改动无回归。
+- [ ] 补 M1 邀请追踪 e2e：注册带个人码 → 生成 referralCode + 冻结归属 → `GET /me/referral` 漏斗；落地 `click` UV 去重 + bot 过滤；`share` 上报。（先 `npm run db:seed-defaults` 提供 school 域名）
 - [ ] 存量数据回填迁移：为存量 user 生成 `referralCode`；从 `CycleParticipation.optedInAt` 最早值回填 `firstOptedInAt`。
+
+> 注：dev 用 `apps/api/.env`（gitignored，占位密码非真实凭证）+ 独立库 `lilink_merchant`；主仓库的 `lilink` 库未受影响。
 
 ### B. M1 收尾（codex 标注的 should-fix，建议有 e2e 时做）
 - [ ] **setParticipation 同事务**：`firstOptedInAt` 回填与 `cycleParticipation.upsert` 放同一 `$transaction`（当前非事务，后果可被下次 opt-in 自愈）。需重构 setParticipation + 其 20+ 单测的 prisma mock，并用 e2e 验证事务原子性（单测 mock 无法验证回滚）。
