@@ -17,6 +17,16 @@ const CHANNEL_LABELS: Record<string, string> = {
   OTHER: "其他",
 };
 
+const FUNNEL_STEPS: {
+  key: keyof MyReferralOverview["funnel"];
+  label: string;
+}[] = [
+  { key: "invited", label: "已邀请注册" },
+  { key: "activated", label: "已激活" },
+  { key: "granted", label: "已领券" },
+  { key: "redeemed", label: "已核销" },
+];
+
 export function ReferralsClient() {
   const [data, setData] = useState<MyReferralOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,14 +71,17 @@ export function ReferralsClient() {
   if (loading) {
     return (
       <main className="app-page-shell v2-page-shell">
-        <p style={{ padding: "2rem" }}>加载中……</p>
+        <div className="me-state">
+          <span className="me-state-spinner" />
+          <span>加载中……</span>
+        </div>
       </main>
     );
   }
   if (error) {
     return (
       <main className="app-page-shell v2-page-shell">
-        <p style={{ padding: "2rem" }}>{error}</p>
+        <div className="me-state is-error">{error}</div>
       </main>
     );
   }
@@ -80,6 +93,7 @@ export function ReferralsClient() {
     data.links.find((link) => link.channel === "QR")?.url ??
     data.links[0]?.url ??
     null;
+  const funnelMax = Math.max(data.funnel.invited, 1);
 
   return (
     <main className="app-page-shell v2-page-shell">
@@ -99,14 +113,15 @@ export function ReferralsClient() {
               className="me-card-preview-content"
               style={{ textAlign: "center" }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`}
-                alt="邀请二维码"
-                width={180}
-                height={180}
-                style={{ margin: "0 auto", display: "block" }}
-              />
+              <div className="me-qr">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`}
+                  alt="邀请二维码"
+                  width={180}
+                  height={180}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -124,7 +139,9 @@ export function ReferralsClient() {
             </span>
             <button
               type="button"
-              className="me-card-value"
+              className={`me-share-btn${
+                copied === link.channel ? " is-copied" : ""
+              }`}
               onClick={() => void shareLink(link.channel, link.url)}
             >
               {copied === link.channel ? "已复制" : "复制链接"}
@@ -137,21 +154,20 @@ export function ReferralsClient() {
         <div className="me-card-preview-header">
           <h3>我的邀请漏斗</h3>
         </div>
-        <div className="me-card-field">
-          <span className="me-card-label">已邀请注册</span>
-          <span className="me-card-value">{data.funnel.invited}</span>
-        </div>
-        <div className="me-card-field">
-          <span className="me-card-label">已激活</span>
-          <span className="me-card-value">{data.funnel.activated}</span>
-        </div>
-        <div className="me-card-field">
-          <span className="me-card-label">已领券</span>
-          <span className="me-card-value">{data.funnel.granted}</span>
-        </div>
-        <div className="me-card-field">
-          <span className="me-card-label">已核销</span>
-          <span className="me-card-value">{data.funnel.redeemed}</span>
+        <div className="me-funnel">
+          {FUNNEL_STEPS.map((step) => {
+            const value = data.funnel[step.key];
+            const pct = Math.round((value / funnelMax) * 100);
+            return (
+              <div key={step.key} className="me-funnel-row">
+                <span className="me-funnel-label">{step.label}</span>
+                <div className="me-funnel-track">
+                  <div className="me-funnel-bar" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="me-funnel-value">{value}</span>
+              </div>
+            );
+          })}
         </div>
       </section>
     </main>
