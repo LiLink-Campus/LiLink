@@ -36,6 +36,15 @@
 - coupon 模块：`GET /me/coupons`（`effectiveCouponStatus` 分区 + 核销码可见）；spec 5/5。
 - `deleteAllTestUsers` 扩展：按 `Redemption→Coupon→CampaignActivation→ReferralEvent` 顺序清理（Restrict 外键），`referredByUserId` 为 SET NULL 不需手动解。
 - 验证：`nest build` green；api 单测 **421/421**。§A 优惠规则 `rule` 仍走 `validateCouponRule` stub；§B 核销求值未启用。
+- 提交：M2 `b16ccd6`，已 push + CI 绿。
+
+### M3 商家核销 + M4 数据看板 + 全套 web ✅（已 push + CI 绿）
+**M3 商家核销 api**（codex 审查：0 核销 Blocker；修复 2 Blocker/4 should-fix/nit）：MerchantUser 账号后台 CRUD（argon2、审计不暴露 passwordHash）、商家登录 merchant-session（独立 cookie + `MERCHANT_JWT_SECRET` + 登录限流 + timing dummy）、`MerchantGuard`（merchant user 与 merchant 双 active）、`POST /merchant/redeem` 事务内条件 `updateMany` 三态（仅本商家模板 + ACTIVE 持券 + 未过期；count 0 区分 ALREADY_USED/INVALID 不泄露存在性）+ 推广位返回；§B 金额求值 stub。
+**M4 数据看板 api**（`admin/promotion`，AdminGuard）：funnel（6 步 + byGender + conversions）/ leaderboard（个人码/运营码分性别分页）/ coupons（按商家）/ redemptions（按商家 + Asia/Shanghai 天）；campaignId + 时间范围必选、isTest 排除、最大跨度保护。
+**web**（codex 审查：1 Blocker + 7 should-fix 修复）：用户端 `/i/[code]` 落地页（长度路由 + click + cookie + ch/c 校验）、注册回传（成功后清 cookie）、`dashboard/referrals`（分享 toast + 个人码二维码 + 漏斗）、`dashboard/coupons`（分区）；商家端 `/merchant/login` + `/merchant/redeem`（三态 + 面值 + 推广位）；后台 `/admin/campaigns`（活动 + 券包，面值元输入）、`/admin/merchants`（商家 + 账号 + 推广位 JSON）、`/admin/promotion`（看板 + 分页 + Shanghai 日期）+ 侧栏入口。
+- 提交：M3+M4 `a3800cb`、ci.yml fix `42fbfd8`（需 workflow scope，由用户 push）、web 多 commit 至 `269f9c4`，均 push 到 `origin/feat/merchant-system`。
+- 验证：api 单测 **446/446** + e2e + lint:api + web typecheck/lint 全绿；CI 绿。
+- ci.yml：`api-tests` job 与 `.env.example` / `docker-compose.yml` 已补 `MERCHANT_JWT_SECRET`。
 
 ---
 
@@ -71,8 +80,9 @@
 
 ### F. 后续里程碑（依赖前序，部分依赖 §A/§B）
 - [x] **M2 优惠券 — api ✅**（见上「已完成」；待提交 + codex 审查）：活动 + 券包后台、`CampaignActivation` + 激活自动发券（ISSUED，幂等 `tryGrantCoupons`）、`GET /me/coupons` 已实现。**剩 web**：`dashboard/coupons`（用户券页）+ 后台活动/券包/商家管理页。
-- [ ] **M3 商家核销**：商家与账号后台 + 推广位编辑、`MerchantGuard` + 商家登录（独立 cookie/secret/限流）、核销页 SQL 级三态（含 `user.status==ACTIVE` 校验、不泄露券存在性）+ 核销成功页商家推广位。
-- [ ] **M4 数据看板**：拉新漏斗 / 邀请排行榜（个人码 + 运营码两榜，分性别）/ 券情况（按商家）/ 商家核销明细对账（按商家+天，面值合计）。
+- [x] **M3 商家核销 ✅**（api + web 已实现，见上「已完成」）：商家与账号后台 + 推广位编辑、`MerchantGuard` + 商家登录、核销页 SQL 级三态 + 推广位。§B 核销消费额求值仍 stub（待 §E）。
+- [x] **M4 数据看板 ✅**（api + web 已实现）：漏斗 / 排行榜（分性别分页）/ 券情况（按商家）/ 对账（按商家+天）。
+- 注：web leaderboard 漏斗口径为 register 队列（注释说明，与「各步独立 count」边界微差）；referrals 二维码用外部 qrserver（生产可换 qrcode 库）；推广位编辑为 JSON textarea（MVP，可换可视化编辑器）。
 
 ### G. 其它待判断的小决策
 - [ ] `visitorHash` 的 salt 当前复用 `JWT_SECRET`；是否要专用 env（如 `REFERRAL_VISITOR_SALT`）。
