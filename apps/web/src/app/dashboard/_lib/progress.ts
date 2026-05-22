@@ -151,6 +151,9 @@ export function computeQuestionnaireProgress(args: {
   fallbackDisplayName: string | null;
 }): {
   percent: number;
+  confirmedPercent: number;
+  unconfirmedPercent: number;
+  unconfirmedCount: number;
   submitted: boolean;
   eligibleToOptIn: boolean;
   hasIncompleteDraft: boolean;
@@ -178,14 +181,33 @@ export function computeQuestionnaireProgress(args: {
     HARD_MATCH_WEIGHT * hardCompletion.ratio +
     SOFT_QUESTION_WEIGHT * args.questions.length * softRatio;
 
-  const reviewAdjustedWeighted = Math.max(
-    0,
-    weighted -
-      pendingUpdateReviewWeight(args.questions, args.savedQuestionnaire),
+  const reviewWeight = pendingUpdateReviewWeight(
+    args.questions,
+    args.savedQuestionnaire,
   );
+  const reviewAdjustedWeighted = Math.max(0, weighted - reviewWeight);
   const ratio =
     totalWeight === 0 ? 0 : reviewAdjustedWeighted / totalWeight;
   const percent = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+
+  // Honest split: confirmed = current (review-adjusted) percent; unconfirmed =
+  // the weight currently subtracted because it still needs the user's review
+  // (pending soft-question updates today; hard-match/weight via the backend
+  // plan). unconfirmedCount mirrors the attention payload.
+  const confirmedPercent = percent;
+  const unconfirmedRatio =
+    totalWeight === 0 ? 0 : Math.min(reviewWeight, weighted) / totalWeight;
+  const unconfirmedPercent = Math.max(
+    0,
+    Math.min(100 - confirmedPercent, Math.round(unconfirmedRatio * 100)),
+  );
+  const attention = args.savedQuestionnaire?.attention ?? null;
+  const unconfirmedCount = attention
+    ? new Set([
+        ...attention.pendingUpdatedKeys,
+        ...attention.missingRequiredKeys,
+      ]).size
+    : 0;
 
   // Mirrors AccountService.assertQuestionnaireReadyForOptIn: opting in
   // requires a previous successful submission AND a current draft (if any)
@@ -198,5 +220,13 @@ export function computeQuestionnaireProgress(args: {
   const hasIncompleteDraft =
     submitted && args.savedQuestionnaire?.draft != null && !currentlyComplete;
 
-  return { percent, submitted, eligibleToOptIn, hasIncompleteDraft };
+  return {
+    percent,
+    confirmedPercent,
+    unconfirmedPercent,
+    unconfirmedCount,
+    submitted,
+    eligibleToOptIn,
+    hasIncompleteDraft,
+  };
 }

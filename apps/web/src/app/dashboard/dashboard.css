@@ -5957,3 +5957,373 @@ cursor: pointer;
 .match-estimate-hint.is-very-low .match-estimate-hint-band {
   color: var(--error);
 }
+
+/* ── V2 Countdown banner · always-on next-match countdown ── */
+.v2-countdown {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-lg);
+  background: var(--gold-soft);
+  border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+}
+.v2-countdown.is-none {
+  background: var(--bg-soft);
+  border-color: var(--border);
+}
+.v2-countdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--gold) 18%, var(--bg-elevated));
+  color: #8c6b1c;
+}
+.v2-countdown-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.v2-countdown.is-none .v2-countdown-icon {
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+}
+.v2-countdown-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+.v2-countdown-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.v2-countdown-sub {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--fg-secondary);
+}
+.v2-countdown-chip {
+  flex-shrink: 0;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  color: #8c6b1c;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── V2 NOW alerts · time-sensitive match / meetup prompts ── */
+.v2-now {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.v2-now-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary-ink);
+}
+.v2-now-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.v2-now-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1.05rem;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: inherit;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.v2-now-row:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+.v2-now-row.tone-attention {
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.v2-now-row.tone-celebrate {
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+}
+.v2-now-row.tone-waiting {
+  border-color: color-mix(in srgb, var(--gold) 30%, transparent);
+}
+.v2-now-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.7rem;
+  flex-shrink: 0;
+  background: var(--primary-tint);
+  color: var(--primary);
+}
+.v2-now-row.tone-celebrate .v2-now-icon {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.v2-now-row.tone-waiting .v2-now-icon {
+  background: var(--gold-soft);
+  color: #8c6b1c;
+}
+.v2-now-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.v2-now-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+.v2-now-title {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.v2-now-body {
+  font-size: 0.82rem;
+  color: var(--fg-secondary);
+}
+.v2-now-cta {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary-ink);
+  white-space: nowrap;
+}
+
+/* ── V2 Weekly to-do checklist ── */
+.v2-todo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.v2-todo-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.v2-todo-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.v2-todo-count {
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+}
+.v2-todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.v2-todo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.v2-todo-row:last-child {
+  border-bottom: none;
+}
+.v2-todo-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1.5px solid var(--border);
+  background: var(--bg-elevated);
+  color: transparent;
+}
+.v2-todo-row.status-done .v2-todo-check {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success);
+}
+.v2-todo-row.status-attention .v2-todo-check {
+  background: var(--gold-soft);
+  border-color: var(--gold);
+  color: #8c6b1c;
+}
+.v2-todo-row.status-todo .v2-todo-check {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+.v2-todo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+  background: var(--bg-soft);
+  color: var(--fg-muted);
+}
+.v2-todo-icon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+.v2-todo-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.v2-todo-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.v2-todo-sub {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--fg-secondary);
+  line-height: 1.5;
+}
+.v2-todo-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.45rem;
+}
+.v2-todo-progress-bar {
+  flex: 1;
+  display: flex;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+.v2-todo-progress-bar .seg-confirmed {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+}
+.v2-todo-progress-bar .seg-unconfirmed {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--gold) 0,
+    var(--gold) 4px,
+    color-mix(in srgb, var(--gold) 35%, var(--bg-elevated)) 4px,
+    color-mix(in srgb, var(--gold) 35%, var(--bg-elevated)) 8px
+  );
+}
+.v2-todo-progress-val {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary-ink);
+  font-variant-numeric: tabular-nums;
+}
+.v2-todo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+@media (max-width: 560px) {
+  .v2-todo-row {
+    flex-wrap: wrap;
+  }
+  .v2-todo-actions {
+    width: 100%;
+    padding-left: 2.2rem;
+  }
+}
+
+/* ── V2 Match waiting strip · compact empty/waiting states ── */
+.v2-match-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+.v2-match-strip-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+.v2-match-strip-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 0.45rem;
+  background: var(--gold);
+}
+.v2-match-strip-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.v2-match-strip-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.v2-match-strip-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--fg-secondary);
+  line-height: 1.55;
+}
+.v2-match-strip-chip {
+  flex-shrink: 0;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--gold-soft);
+  color: #8c6b1c;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.v2-match-strip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}

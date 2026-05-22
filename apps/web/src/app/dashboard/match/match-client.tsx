@@ -8,6 +8,7 @@ import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { CounterpartInfo } from "../_components/CounterpartInfo";
 import { FeedbackForm } from "../_components/FeedbackForm";
 import { MatchStateHero } from "../_components/MatchStateHero";
+import { MatchWaitingStrip } from "../_components/MatchWaitingStrip";
 import { MeetupStatusRibbon } from "../_components/MeetupStatusRibbon";
 import { ReportForm } from "../_components/ReportForm";
 import { useMatchActions } from "../_components/useMatchActions";
@@ -15,6 +16,7 @@ import {
   canEditCurrentCycleParticipation,
   reportHandlingChipLabel,
 } from "../_lib/format";
+import { describeRevealMoment } from "../_lib/focus";
 import type { DashboardPayload, DashboardTask } from "../_lib/types";
 
 function avatarInitialFor(displayName: string | null | undefined) {
@@ -125,11 +127,9 @@ export function MatchClient({
     !latestMatch
   ) {
     hero = (
-      <MatchStateHero
-        variant="empty"
+      <MatchWaitingStrip
         title="本轮未匹配到对象"
-        subtitle={`「${dashboard.lastRevealedRound.codename}」`}
-        body="本轮可配对人数不足或没有与你强相容的组合，因此没有为你生成匹配对象。下一轮开放报名时，回到首页即可再次参与；更新问卷也能提高下次成功率。"
+        subtitle={`「${dashboard.lastRevealedRound.codename}」本轮可配对人数不足或没有与你强相容的组合。下一轮开放报名时回到首页即可再次参与，更新问卷也能提高下次成功率。`}
         actions={[
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
           { label: "查看历史", href: "/dashboard/match/history", variant: "secondary" },
@@ -156,16 +156,15 @@ export function MatchClient({
   } else if (counterpart && latestMatch) {
     const reportLabel = reportHandlingChipLabel(latestMatch.reportStatus);
     const counterpartName = counterpart.displayName ?? "TA";
-    const initial = introduced ? avatarInitialFor(counterpart.displayName) : "TA";
+    const initial = avatarInitialFor(counterpart.displayName);
     hero = (
       <MatchStateHero
         variant="matched"
         avatarInitial={initial}
-        title={introduced ? counterpartName : "本轮为你匹配到 TA"}
+        title={counterpartName}
         subtitle={
-          introduced
-            ? counterpart.schoolName ?? "已引荐双方"
-            : "等你决定如何破冰"
+          counterpart.schoolName ??
+          (introduced ? "已引荐双方" : "等你决定如何破冰")
         }
         score={latestMatch.score}
         body={null}
@@ -241,7 +240,7 @@ export function MatchClient({
           </div>
         ) : null}
 
-        {introduced && counterpart?.introLine ? (
+        {counterpart?.introLine ? (
           <p className="v2-match-hero-body" style={{ marginTop: "-0.25rem", color: 'var(--fg-secondary)', fontSize: '0.9rem' }}>
             <strong>对方介绍：</strong>
             {counterpart.introLine}
@@ -291,13 +290,11 @@ export function MatchClient({
     );
   } else if (hasMissingIntent) {
     hero = (
-      <MatchStateHero
-        variant="empty"
+      <MatchWaitingStrip
         title="待选择本周意向"
-        body="当前这轮还没有保存可用的匹配意向。回到首页用本周参与开关确认 Friend、Date 或 Both 后，系统会按这次确认后的设置参与匹配。"
-        actions={[
-          { label: "返回首页选择", href: "/dashboard", variant: "primary" },
-        ]}
+        subtitle="当前这轮还没有保存可用的匹配意向。回到首页确认 Friend / Date / Both 后即按该设置参与匹配。"
+        revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
+        actions={[{ label: "返回首页选择", href: "/dashboard", variant: "primary" }]}
       />
     );
   } else if (
@@ -306,10 +303,10 @@ export function MatchClient({
     currentCycleIsLocked
   ) {
     hero = (
-      <MatchStateHero
-        variant="empty"
+      <MatchWaitingStrip
         title="本轮已锁定"
-        body="本轮报名已经截止，而且这轮没有保存可用的匹配意向，因此系统不会按本轮为你参与匹配。你仍可继续完善匹配资料，等待下一轮开放后再选择 Friend、Date 或 Both。"
+        subtitle="本轮报名已截止，且这轮没有保存可用的匹配意向，系统不会按本轮为你参与匹配。可继续完善匹配资料，等待下一轮开放。"
+        revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
         actions={[
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "secondary" },
         ]}
@@ -322,14 +319,14 @@ export function MatchClient({
       currentCycle.status === "REVEAL_READY")
   ) {
     hero = (
-      <MatchStateHero
-        variant="waiting"
+      <MatchWaitingStrip
         title={hasSavedQuestionnaire ? "等待本轮揭晓" : "还没有匹配结果"}
-        body={
+        subtitle={
           hasSavedQuestionnaire
-            ? "你已填写匹配资料并已参加本轮。揭晓后将在此显示匹配说明与后续操作；在此前可在「匹配资料」中修改信息。"
-            : "本轮揭晓后将在此显示匹配说明与后续操作。"
+            ? "你已填写匹配资料并已参加本轮。揭晓后这里会显示匹配说明与后续操作；在此前可在「匹配资料」中修改信息。"
+            : "本轮揭晓后这里会显示匹配说明与后续操作。"
         }
+        revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
         actions={[
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "secondary" },
         ]}
@@ -337,14 +334,14 @@ export function MatchClient({
     );
   } else if (currentCycleIsLocked) {
     hero = (
-      <MatchStateHero
-        variant="empty"
+      <MatchWaitingStrip
         title={hasSavedQuestionnaire ? "本轮已锁定" : "继续完善匹配资料"}
-        body={
+        subtitle={
           hasSavedQuestionnaire
-            ? "本轮报名已经截止，当前不能再参加或修改本周意向。你可以继续完善匹配资料，等待下一轮开放。"
-            : "本轮报名已经截止。你仍可继续填写和完善匹配资料，为下一轮开放后的报名做准备。"
+            ? "本轮报名已截止，当前不能再参加或修改本周意向。可继续完善匹配资料，等待下一轮开放。"
+            : "本轮报名已截止。仍可继续填写完善匹配资料，为下一轮开放报名做准备。"
         }
+        revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
         actions={[
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
         ]}
@@ -352,14 +349,14 @@ export function MatchClient({
     );
   } else {
     hero = (
-      <MatchStateHero
-        variant="waiting"
+      <MatchWaitingStrip
         title={hasSavedQuestionnaire ? "等待匹配" : "还没有匹配结果"}
-        body={
+        subtitle={
           hasSavedQuestionnaire
             ? "你已保存问卷。若尚未参加本轮，可回到首页打开本周参与开关报名；揭晓后返回此处查看结果。"
             : "请先在「匹配资料」完成问卷，然后回到首页报名参加当前轮次。"
         }
+        revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
         actions={[
           { label: "返回首页", href: "/dashboard", variant: "primary" },
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "secondary" },
@@ -376,7 +373,7 @@ export function MatchClient({
           <p className="v2-greeting-sub" style={{ fontSize: '0.85rem', color: 'var(--fg-secondary)' }}>
             {introduced
               ? "已完成本轮引荐。联系方式已在上方展示，你也可以直接发起见面邀请。"
-              : "系统已为你生成匹配对象。可先「交换联系方式」完成双方引荐，或直接发起见面邀请。"}
+              : "对方名片已在上方展示。交换联系方式后即可看到联络方式，也可以直接发起见面邀请。"}
           </p>
         </div>
       </header>
