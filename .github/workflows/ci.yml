@@ -62,6 +62,7 @@ jobs:
       DATABASE_URL: "postgresql://lilink:lilink@127.0.0.1:5432/lilink?schema=public"
       JWT_SECRET: 1234567890abcdef
       ADMIN_JWT_SECRET: abcdef1234567890
+      MERCHANT_JWT_SECRET: merchant1234567890abcdef
       ADMIN_COOKIE_NAME: lilink_admin_token
       SMTP_FROM: "LiLink <hello@lilink.zone>"
       CRON_SECRET: abcdef1234567890
