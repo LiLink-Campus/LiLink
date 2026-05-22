@@ -6,8 +6,9 @@ import {
   JwtAuthGuard,
   type AuthenticatedRequest,
 } from '../../common/auth/jwt-auth.guard';
+import { isBotUserAgent } from '../../common/http/bot-user-agent';
 import { getRealClientIp } from '../../common/http/client-ip';
-import { createPublicReadThrottle } from '../../common/http/public-read-throttle';
+import { createReferralClickThrottle } from '../../common/http/referral-click-throttle';
 import { env } from '../../config/env';
 import { CreateReferralClickDto, CreateReferralEventDto } from './dto';
 import { ReferralService } from './referral.service';
@@ -31,27 +32,32 @@ export class ReferralController {
     await this.referralService.recordShareEvent(
       request.user!.sub,
       dto.channel as ReferralChannel,
+      dto.campaignSlug,
     );
     return { ok: true };
   }
 
-  // Public + throttled, no auth. Derives an anonymous visitor hash from the
-  // real client IP + UA (salted with JWT_SECRET) purely for UV dedupe; the raw
-  // IP/UA are never persisted.
-  @Throttle(createPublicReadThrottle())
+  // Public + throttled, no auth. Bots / link-preview prefetch (incl. empty UA)
+  // are skipped so they don't pollute the funnel. A salted visitor hash from the
+  // real client IP + UA drives UV dedup; raw IP/UA are never persisted.
+  @Throttle(createReferralClickThrottle())
   @Post('referral/click')
   recordClick(
     @Req() request: AuthenticatedRequest,
     @Body() dto: CreateReferralClickDto,
   ) {
-    const ip = getRealClientIp(request);
     const userAgent = String(request.headers['user-agent'] ?? '');
+    if (isBotUserAgent(userAgent)) {
+      return { result: 'OK' as const };
+    }
+    const ip = getRealClientIp(request);
     const visitorHash = createHash('sha256')
       .update(`${env.JWT_SECRET}\n${ip}\n${userAgent}`)
       .digest('hex');
     return this.referralService.recordClickEvent({
       code: dto.code,
       channel: dto.channel,
+      campaignSlug: dto.campaignSlug,
       visitorHash,
     });
   }

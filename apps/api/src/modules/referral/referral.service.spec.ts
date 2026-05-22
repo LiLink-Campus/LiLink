@@ -213,9 +213,9 @@ describe('ReferralService', () => {
   });
 
   describe('recordShareEvent', () => {
-    it('writes a SHARE event tagged with the referrer campaign, not deduped', async () => {
+    it('attributes the SHARE to the active default campaign, not the referrer source', async () => {
       const prisma = makePrisma();
-      prisma.user.findUnique.mockResolvedValue({ referralCampaignId: 'camp-1' });
+      prisma.campaign.findFirst.mockResolvedValue({ id: 'camp-default' });
       const service = new ReferralService(prisma as never);
 
       await service.recordShareEvent('user-1', 'WECHAT_MOMENTS');
@@ -224,17 +224,35 @@ describe('ReferralService', () => {
         data: {
           type: 'SHARE',
           referrerUserId: 'user-1',
-          campaignId: 'camp-1',
+          campaignId: 'camp-default',
           channel: 'WECHAT_MOMENTS',
         },
       });
+      // Must not read the referrer's own (frozen) source campaign.
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('uses the ?c= campaign when it is ACTIVE', async () => {
+      const prisma = makePrisma();
+      prisma.campaign.findUnique.mockResolvedValue({ id: 'camp-spring', status: 'ACTIVE' });
+      const service = new ReferralService(prisma as never);
+
+      await service.recordShareEvent('user-1', 'WECHAT_GROUP', 'spring');
+
+      expect(prisma.referralEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ campaignId: 'camp-spring' }) as object,
+        }) as object,
+      );
+      expect(prisma.campaign.findFirst).not.toHaveBeenCalled();
     });
   });
 
   describe('recordClickEvent', () => {
-    it('records a CLICK for a 10-char personal code', async () => {
+    it('records a CLICK for a 10-char personal code, attributed to the current campaign', async () => {
       const prisma = makePrisma();
-      prisma.user.findUnique.mockResolvedValue({ id: 'ref-1', referralCampaignId: 'camp-1' });
+      prisma.user.findUnique.mockResolvedValue({ id: 'ref-1' });
+      prisma.campaign.findFirst.mockResolvedValue({ id: 'camp-default' });
       const service = new ReferralService(prisma as never);
 
       const result = await service.recordClickEvent({
@@ -250,7 +268,7 @@ describe('ReferralService', () => {
             type: 'CLICK',
             referrerUserId: 'ref-1',
             inviteCodeId: null,
-            campaignId: 'camp-1',
+            campaignId: 'camp-default',
             channel: 'WECHAT_GROUP',
             visitorHash: 'vh',
           }) as object,
@@ -260,7 +278,8 @@ describe('ReferralService', () => {
 
     it('records a CLICK for an 8-char recruiter code', async () => {
       const prisma = makePrisma();
-      prisma.inviteCode.findUnique.mockResolvedValue({ id: 'ic-1', campaignId: 'camp-2' });
+      prisma.inviteCode.findUnique.mockResolvedValue({ id: 'ic-1' });
+      prisma.campaign.findFirst.mockResolvedValue({ id: 'camp-default' });
       const service = new ReferralService(prisma as never);
 
       const result = await service.recordClickEvent({ code: 'ABCD2345', visitorHash: 'vh' });
@@ -296,7 +315,8 @@ describe('ReferralService', () => {
 
     it('treats a dedupeKey collision as an already-counted visit (still OK)', async () => {
       const prisma = makePrisma();
-      prisma.user.findUnique.mockResolvedValue({ id: 'ref-1', referralCampaignId: null });
+      prisma.user.findUnique.mockResolvedValue({ id: 'ref-1' });
+      prisma.campaign.findFirst.mockResolvedValue({ id: 'camp-default' });
       prisma.referralEvent.create.mockRejectedValue(
         Object.assign(new Error('dup'), { code: 'P2002' }),
       );
@@ -325,7 +345,7 @@ describe('ReferralService', () => {
         invited: 2,
         registered: 2,
         activated: 1,
-        claimed: 1,
+        granted: 1,
         redeemed: 0,
       });
     });
@@ -342,7 +362,7 @@ describe('ReferralService', () => {
         invited: 0,
         registered: 0,
         activated: 0,
-        claimed: 0,
+        granted: 0,
         redeemed: 0,
       });
       expect(prisma.campaignActivation.findMany).not.toHaveBeenCalled();

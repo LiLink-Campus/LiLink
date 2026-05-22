@@ -41,7 +41,7 @@ export interface MyReferralOverview {
     invited: number;
     registered: number;
     activated: number;
-    claimed: number;
+    granted: number;
     redeemed: number;
   };
 }
@@ -170,16 +170,13 @@ export class ReferralService {
   async recordShareEvent(
     referrerUserId: string,
     channel: ReferralChannel,
+    campaignSlug?: string | null,
   ): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: referrerUserId },
-      select: { referralCampaignId: true },
-    });
     await this.prisma.referralEvent.create({
       data: {
         type: 'SHARE',
         referrerUserId,
-        campaignId: user?.referralCampaignId ?? null,
+        campaignId: await this.resolveEventCampaignId(campaignSlug),
         channel,
       },
     });
@@ -187,40 +184,41 @@ export class ReferralService {
 
   /**
    * Record a landing-page click. The code is routed by length (8 = recruiter,
-   * 10 = personal); other lengths or unknown codes are INVALID. CLICK is
-   * UV-deduped per (code, day, visitor): a unique dedupeKey collision is a
-   * same-visitor repeat and is silently ignored.
+   * 10 = personal); other lengths or unknown codes are INVALID. The campaign is
+   * the *current* campaign of this link (`?c=` when ACTIVE, else the active
+   * default) — NOT the referrer's own source campaign, so the funnel attributes
+   * the click to the running campaign. CLICK is UV-deduped per (code, day,
+   * visitor): a dedupeKey collision is a same-visitor repeat and is ignored.
    */
   async recordClickEvent(input: {
     code: string;
     channel?: string | null;
+    campaignSlug?: string | null;
     visitorHash: string;
   }): Promise<{ result: 'OK' | 'INVALID' }> {
     const code = input.code.trim().toUpperCase();
     let referrerUserId: string | null = null;
     let inviteCodeId: string | null = null;
-    let campaignId: string | null = null;
 
     if (code.length === PERSONAL_CODE_LENGTH) {
       const referrer = await this.prisma.user.findUnique({
         where: { referralCode: code },
-        select: { id: true, referralCampaignId: true },
+        select: { id: true },
       });
       if (!referrer) return { result: 'INVALID' };
       referrerUserId = referrer.id;
-      campaignId = referrer.referralCampaignId;
     } else if (code.length === INVITE_CODE_LENGTH) {
       const inviteCode = await this.prisma.inviteCode.findUnique({
         where: { code },
-        select: { id: true, campaignId: true },
+        select: { id: true },
       });
       if (!inviteCode) return { result: 'INVALID' };
       inviteCodeId = inviteCode.id;
-      campaignId = inviteCode.campaignId;
     } else {
       return { result: 'INVALID' };
     }
 
+    const campaignId = await this.resolveEventCampaignId(input.campaignSlug);
     const day = new Date().toISOString().slice(0, 10);
     const dedupeKey = createHash('sha256')
       .update(`${code}\n${day}\n${input.visitorHash}`)
@@ -242,6 +240,29 @@ export class ReferralService {
       // Already recorded for this visitor today -> dedupe, no-op.
     }
     return { result: 'OK' };
+  }
+
+  /**
+   * The campaign a share/click belongs to: the link's `?c=` campaign when it is
+   * ACTIVE, otherwise the current ACTIVE default. This is the running campaign
+   * the funnel attributes the event to — independent of the referrer's own
+   * frozen source campaign.
+   */
+  private async resolveEventCampaignId(
+    campaignSlug?: string | null,
+  ): Promise<string | null> {
+    if (campaignSlug) {
+      const campaign = await this.prisma.campaign.findUnique({
+        where: { slug: campaignSlug },
+        select: { id: true, status: true },
+      });
+      if (campaign && campaign.status === 'ACTIVE') return campaign.id;
+    }
+    const fallback = await this.prisma.campaign.findFirst({
+      where: { isDefault: true, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    return fallback?.id ?? null;
   }
 
   /**
@@ -267,10 +288,10 @@ export class ReferralService {
     const invited = referredIds.length;
 
     let activated = 0;
-    let claimed = 0;
+    let granted = 0;
     let redeemed = 0;
     if (referredIds.length > 0) {
-      const [activatedUsers, claimedUsers, redeemedUsers] = await Promise.all([
+      const [activatedUsers, grantedUsers, redeemedUsers] = await Promise.all([
         this.prisma.campaignActivation.findMany({
           where: { userId: { in: referredIds } },
           select: { userId: true },
@@ -291,14 +312,14 @@ export class ReferralService {
         }),
       ]);
       activated = activatedUsers.length;
-      claimed = claimedUsers.length;
+      granted = grantedUsers.length;
       redeemed = redeemedUsers.length;
     }
 
     return {
       referralCode,
       links,
-      funnel: { invited, registered: invited, activated, claimed, redeemed },
+      funnel: { invited, registered: invited, activated, granted, redeemed },
     };
   }
 
