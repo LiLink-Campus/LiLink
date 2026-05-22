@@ -100,19 +100,20 @@ export class AuthService {
       // campaign snapshot is consistent with the committed user row. A recruiter
       // code takes priority and discards any personal code; the frozen campaign
       // is never re-derived later (activation reads it as-is).
-      const attribution = (await this.referralService?.resolveRegistrationAttribution(
-        {
-          inviteCodeId,
-          referralCode: input.referralCode,
-          channel: input.channel,
-          campaignSlug: input.campaignSlug,
-        },
-        tx,
-      )) ?? {
-        referredByUserId: null,
-        referralChannel: null,
-        referralCampaignId: null,
-      };
+      const attribution =
+        (await this.referralService?.resolveRegistrationAttribution(
+          {
+            inviteCodeId,
+            referralCode: input.referralCode,
+            channel: input.channel,
+            campaignSlug: input.campaignSlug,
+          },
+          tx,
+        )) ?? {
+          referredByUserId: null,
+          referralChannel: null,
+          referralCampaignId: null,
+        };
 
       try {
         return await tx.user.create({

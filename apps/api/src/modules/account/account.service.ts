@@ -37,6 +37,7 @@ import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snaps
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
+import { ActivationService } from '../activation/activation.service';
 import {
   HARD_MATCH_KEYS,
   buildHardMatchAnswerRecordFromFormInput,
@@ -364,6 +365,8 @@ export class AccountService {
     private readonly dashboardSnapshotService: DashboardSnapshotService,
     @Optional()
     private readonly matchEstimateService?: MatchEstimateService,
+    @Optional()
+    private readonly activationService?: ActivationService,
   ) {}
 
   async getUserSummary(userId: string) {
@@ -1676,6 +1679,11 @@ export class AccountService {
       this.matchEstimateService?.invalidatePrecomputedCycle();
       await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
 
+      // Submitting the questionnaire is one of the two activation signals; try
+      // to grant activation-reward coupons (a no-op until the user has also
+      // opted in, and self-contained — it never throws into this flow).
+      await this.activationService?.tryGrantCoupons(userId);
+
       return {
         saveState: 'SUBMITTED' as const,
         questionnaireSubmittedAt: submittedAt.toISOString(),
@@ -2008,6 +2016,9 @@ export class AccountService {
         where: { id: userId, firstOptedInAt: null },
         data: { firstOptedInAt: new Date() },
       });
+      // Opting in is the second activation signal; try to grant coupons (a
+      // no-op until the questionnaire is also submitted; never throws here).
+      await this.activationService?.tryGrantCoupons(userId);
     }
 
     await this.createAuditLog(userId, 'participation.updated', {

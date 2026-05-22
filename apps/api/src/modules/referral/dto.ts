@@ -1,4 +1,10 @@
-import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { REFERRAL_CHANNELS } from '@lilink/shared';
 
 const REFERRAL_CODE_MAX_INPUT_LENGTH = 16;

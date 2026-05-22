@@ -19,6 +19,9 @@ import { AdminSessionModule } from './modules/admin-session/admin-session.module
 import { MeetupModule } from './modules/meetup/meetup.module';
 import { InviteCodeModule } from './modules/invite-code/invite-code.module';
 import { ReferralModule } from './modules/referral/referral.module';
+import { MerchantModule } from './modules/merchant/merchant.module';
+import { CampaignModule } from './modules/campaign/campaign.module';
+import { CouponModule } from './modules/coupon/coupon.module';
 import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
 import { authEmailThrottler } from './modules/auth/auth-throttle';
 
@@ -60,6 +63,9 @@ import { authEmailThrottler } from './modules/auth/auth-throttle';
     AdminSessionModule,
     InviteCodeModule,
     ReferralModule,
+    MerchantModule,
+    CampaignModule,
+    CouponModule,
   ],
 })
 export class AppModule {}
