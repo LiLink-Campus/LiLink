@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useState } from "react";
 import { COUPON_CODE_LENGTH } from "@lilink/shared";
 import {
   fetchMerchantMe,
@@ -9,11 +9,71 @@ import {
   type MerchantSessionUser,
   type RedeemResponse,
 } from "../../../lib/api";
+import "../merchant.css";
 
-const RESULT_BANNER: Record<string, { bg: string; label: string }> = {
-  SUCCESS: { bg: "#27ae60", label: "核销成功" },
-  ALREADY_USED: { bg: "#f39c12", label: "该券已使用" },
-  INVALID: { bg: "#c0392b", label: "无效券码" },
+function CheckIcon() {
+  return (
+    <svg
+      className="mc-result-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+    </svg>
+  );
+}
+
+function WarnIcon() {
+  return (
+    <svg
+      className="mc-result-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3.5 21 19H3z" />
+      <path d="M12 10v4" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+function CrossIcon() {
+  return (
+    <svg
+      className="mc-result-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="m9 9 6 6" />
+      <path d="m15 9-6 6" />
+    </svg>
+  );
+}
+
+const RESULT_META: Record<
+  string,
+  { cls: string; label: string; icon: ReactNode }
+> = {
+  SUCCESS: { cls: "is-success", label: "核销成功", icon: <CheckIcon /> },
+  ALREADY_USED: { cls: "is-warning", label: "该券已使用", icon: <WarnIcon /> },
+  INVALID: { cls: "is-error", label: "无效券码", icon: <CrossIcon /> },
 };
 
 export default function MerchantRedeemPage() {
@@ -71,116 +131,93 @@ export default function MerchantRedeemPage() {
 
   if (checking) {
     return (
-      <main style={{ padding: "3rem 1.5rem", textAlign: "center" }}>
-        加载中……
-      </main>
+      <div className="mc-shell">
+        <p className="mc-loading">加载中……</p>
+      </div>
     );
   }
   if (!me) return null;
 
-  const banner = result ? RESULT_BANNER[result.result] : null;
+  const meta = result ? RESULT_META[result.result] : null;
 
   return (
-    <main style={{ maxWidth: 480, margin: "0 auto", padding: "2rem 1.5rem" }}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <strong>{me.merchantName} · 核销</strong>
-        <button type="button" onClick={logout} style={{ fontSize: "0.85rem" }}>
+    <div className="mc-shell">
+      <header className="mc-topbar">
+        <span className="mc-topbar-name">{me.merchantName} · 核销</span>
+        <button type="button" className="mc-btn-ghost" onClick={logout}>
           退出
         </button>
       </header>
 
-      <form
-        onSubmit={redeem}
-        style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-      >
-        <input
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          placeholder="输入券码"
-          autoCapitalize="characters"
-          style={{
-            padding: "1rem",
-            fontSize: "1.4rem",
-            textAlign: "center",
-            letterSpacing: "0.15em",
-          }}
-        />
-        <button
-          type="submit"
-          disabled={pending || !code.trim()}
-          style={{ padding: "1rem", fontSize: "1.2rem", fontWeight: 700 }}
-        >
-          {pending ? "核销中……" : "核销"}
-        </button>
-      </form>
+      <main className="mc-redeem-body">
+        <form className="mc-form" onSubmit={redeem}>
+          <input
+            className="mc-input mc-code-input"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            placeholder="输入券码"
+            autoCapitalize="characters"
+            autoComplete="off"
+          />
+          <button
+            className="mc-btn"
+            type="submit"
+            disabled={pending || !code.trim()}
+          >
+            {pending ? "核销中……" : "核销"}
+          </button>
+        </form>
 
-      {error && <p style={{ color: "#c0392b", marginTop: "1rem" }}>{error}</p>}
+        {error && <p className="mc-error">{error}</p>}
 
-      {banner && (
-        <div
-          style={{
-            marginTop: "1.5rem",
-            padding: "1.5rem",
-            borderRadius: 12,
-            background: banner.bg,
-            color: "#fff",
-            textAlign: "center",
-          }}
-        >
-          <p style={{ fontSize: "1.4rem", fontWeight: 700, margin: 0 }}>
-            {banner.label}
-          </p>
-          {result?.result === "SUCCESS" && result.coupon && (
-            <div style={{ marginTop: "0.75rem" }}>
-              <p style={{ margin: "0.25rem 0", fontSize: "1.1rem" }}>
-                {result.coupon.title}
-              </p>
-              <p style={{ margin: "0.25rem 0" }}>{result.coupon.benefitText}</p>
-              <p style={{ margin: "0.25rem 0" }}>
-                面值 {(result.coupon.faceValue / 100).toFixed(2)} 元
-              </p>
-              {result.coupon.userDisplayName && (
-                <p style={{ margin: "0.25rem 0", opacity: 0.85 }}>
-                  持券人：{result.coupon.userDisplayName}
+        {meta && (
+          <div className={`mc-result ${meta.cls}`}>
+            {meta.icon}
+            <span className="mc-result-label">{meta.label}</span>
+            {result?.result === "SUCCESS" && result.coupon && (
+              <div className="mc-coupon">
+                <p className="mc-coupon-title">{result.coupon.title}</p>
+                <p>{result.coupon.benefitText}</p>
+                <p className="mc-coupon-face">
+                  面值 {(result.coupon.faceValue / 100).toFixed(2)} 元
                 </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {result?.result === "SUCCESS" &&
-        result.merchantPromotion &&
-        result.merchantPromotion.length > 0 && (
-          <section style={{ marginTop: "1.5rem", textAlign: "center" }}>
-            {result.merchantPromotion.map((block, index) => (
-              <div
-                key={`${block.type}-${index}`}
-                style={{ marginBottom: "1rem" }}
-              >
-                {block.type === "TEXT" && <p>{block.text}</p>}
-                {(block.type === "IMAGE" || block.type === "QRCODE") && (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={block.imageUrl}
-                      alt={block.caption ?? "商家推广"}
-                      style={{ maxWidth: 200, margin: "0 auto", display: "block" }}
-                    />
-                    {block.caption && <p>{block.caption}</p>}
-                  </>
+                {result.coupon.userDisplayName && (
+                  <p className="mc-coupon-holder">
+                    持券人：{result.coupon.userDisplayName}
+                  </p>
                 )}
               </div>
-            ))}
-          </section>
+            )}
+          </div>
         )}
-    </main>
+
+        {result?.result === "SUCCESS" &&
+          result.merchantPromotion &&
+          result.merchantPromotion.length > 0 && (
+            <section className="mc-promo">
+              {result.merchantPromotion.map((block, index) => (
+                <div className="mc-promo-card" key={`${block.type}-${index}`}>
+                  {block.type === "TEXT" && (
+                    <p className="mc-promo-text">{block.text}</p>
+                  )}
+                  {(block.type === "IMAGE" || block.type === "QRCODE") && (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        className="mc-promo-img"
+                        src={block.imageUrl}
+                        alt={block.caption ?? "商家推广"}
+                      />
+                      {block.caption && (
+                        <p className="mc-promo-caption">{block.caption}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </section>
+          )}
+      </main>
+    </div>
   );
 }
