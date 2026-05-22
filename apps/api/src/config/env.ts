@@ -48,12 +48,6 @@ const envSchema = z.object({
       (s) => s.length === 0 || /^https?:\/\//i.test(s),
       'MAIL_LIST_UNSUBSCRIBE_URL must be empty or an http(s) URL.',
     ),
-  DEEPSEEK_API_KEY: z.string().default(''),
-  DEEPSEEK_MODEL: z.string().trim().min(1).default('deepseek-v4-flash'),
-  MATCH_NARRATIVE_GENERATION_ENABLED: z
-    .enum(['true', 'false'])
-    .default('false')
-    .transform((value) => value === 'true'),
   SMTP_MAX_CONNECTIONS: z.coerce.number().int().min(1).max(100).default(10),
   SMTP_MAX_MESSAGES: z.coerce.number().int().min(1).max(1000).default(100),
   SMTP_CONNECTION_TIMEOUT_MS: z.coerce
@@ -85,7 +79,5 @@ const envSchema = z.object({
     .string()
     .min(16, 'CRON_SECRET must be at least 16 characters.'),
 });
-
-export type AppEnv = z.infer<typeof envSchema>;
 
 export const env = envSchema.parse(process.env);

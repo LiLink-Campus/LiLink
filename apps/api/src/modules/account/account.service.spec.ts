@@ -1,7 +1,32 @@
 import { BadRequestException } from '@nestjs/common';
+import {
+  hardMatchFieldSignature,
+  hardMatchSignatureFieldKeys,
+  HARD_MATCH_WEIGHT_ACK,
+  HARD_MATCH_WEIGHT_KEYS,
+} from '@lilink/shared';
 import { Prisma } from '../../common/prisma/client';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
+
+// A fully-confirmed hard-match signature map: every enum field signed against
+// the current option set, plus an explicit empty-weight confirmation. Fixtures
+// attach this so they don't trip the (intended) "stale default" attention.
+function buildConfirmedHardMatchSignatures(
+  exclude: readonly string[] = [],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const key of hardMatchSignatureFieldKeys()) {
+    if (exclude.includes(key)) continue;
+    const sig = hardMatchFieldSignature(key);
+    if (sig) map[key] = sig;
+  }
+  for (const key of HARD_MATCH_WEIGHT_KEYS) {
+    if (exclude.includes(key)) continue;
+    map[key] = HARD_MATCH_WEIGHT_ACK;
+  }
+  return map;
+}
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 
@@ -37,7 +62,6 @@ function buildQuestionnaireServiceWithSchema(payload: {
         value: o.value,
         label: o.label ?? o.value,
       })),
-      reasonRules: { rules: [] },
     })),
     schools: payload.schools.map((s) => ({
       id: s.id,
@@ -345,6 +369,9 @@ function createDashboardPrismaMock({
     },
     match: {
       findUnique: jest.fn().mockResolvedValue(dashboardMeetupMatch),
+    },
+    matchFeedback: {
+      findMany: jest.fn().mockResolvedValue([]),
     },
     cycleParticipation: {
       findFirst: jest.fn().mockResolvedValue(lastRevealedParticipation),
@@ -786,7 +813,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      questionnaireService as never,
+      questionnaireService,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -848,7 +875,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      questionnaireService as never,
+      questionnaireService,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -916,7 +943,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      questionnaireService as never,
+      questionnaireService,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -1191,6 +1218,8 @@ describe('AccountService', () => {
             },
             acknowledgedQuestionnaireVersionId: null,
             acknowledgedQuestionnaireKeys: null,
+            acknowledgedHardMatchSignatures:
+              buildConfirmedHardMatchSignatures(),
             submittedAt: new Date('2026-04-18T12:00:00.000Z'),
             version: {
               questions: [
@@ -1281,6 +1310,8 @@ describe('AccountService', () => {
             },
             acknowledgedQuestionnaireVersionId: null,
             acknowledgedQuestionnaireKeys: null,
+            acknowledgedHardMatchSignatures:
+              buildConfirmedHardMatchSignatures(),
             submittedAt: new Date('2026-04-18T12:00:00.000Z'),
             version: {
               questions: [
@@ -1375,6 +1406,9 @@ describe('AccountService', () => {
             },
             acknowledgedQuestionnaireVersionId: null,
             acknowledgedQuestionnaireKeys: null,
+            acknowledgedHardMatchSignatures: buildConfirmedHardMatchSignatures([
+              HARD_MATCH_KEYS.partnerLanguages,
+            ]),
             submittedAt: new Date('2026-04-18T12:00:00.000Z'),
             version: {
               questions: [
@@ -1434,6 +1468,165 @@ describe('AccountService', () => {
         ],
       },
     });
+  });
+
+  it('flags stale-signature enum fields and unconfirmed empty weights', async () => {
+    const service = new AccountService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({ schoolId: 'school-bupt' }),
+        },
+        questionnaireResponse: {
+          findUnique: jest.fn().mockResolvedValue({
+            versionId: 'version-current',
+            answers: {
+              ...buildSubmittedQuestionnaireResponse().answers,
+              current_question: 'kept',
+            },
+            acknowledgedQuestionnaireVersionId: 'version-current',
+            acknowledgedQuestionnaireKeys: ['current_question'],
+            // Confirmed EXCEPT: looks carries a stale signature, and the empty
+            // weights were never explicitly confirmed.
+            acknowledgedHardMatchSignatures: {
+              ...buildConfirmedHardMatchSignatures([
+                HARD_MATCH_KEYS.weightKg,
+                HARD_MATCH_KEYS.partnerWeightMin,
+                HARD_MATCH_KEYS.partnerWeightMax,
+              ]),
+              [HARD_MATCH_KEYS.looks]: 'v1:stale-signature',
+            },
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            version: {
+              questions: [
+                {
+                  key: 'current_question',
+                  prompt: 'Current question',
+                  description: null,
+                  type: 'SINGLE_SELECT',
+                  required: true,
+                  selectionLimit: null,
+                  options: [{ value: 'kept', label: 'Kept' }],
+                },
+              ],
+            },
+          }),
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'kept', label: 'Kept' }],
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          ],
+        }),
+        sanitizeStoredAnswers: jest
+          .fn()
+          .mockReturnValue({ current_question: 'kept' }),
+      } as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const result = (await service.getQuestionnaire('user-1')) as {
+      attention: { pendingUpdatedKeys: string[] };
+    };
+    const pending = result.attention.pendingUpdatedKeys;
+
+    expect(pending).toEqual(
+      expect.arrayContaining([
+        HARD_MATCH_KEYS.looks,
+        HARD_MATCH_KEYS.weightKg,
+        HARD_MATCH_KEYS.partnerWeightMin,
+        HARD_MATCH_KEYS.partnerWeightMax,
+      ]),
+    );
+    // Confirmed enum fields and the unchanged soft question stay quiet.
+    expect(pending).not.toContain(HARD_MATCH_KEYS.gender);
+    expect(pending).not.toContain('current_question');
+  });
+
+  it('clears the weight nudge once the empty weight is acknowledged', async () => {
+    const service = new AccountService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({ schoolId: 'school-bupt' }),
+        },
+        questionnaireResponse: {
+          findUnique: jest.fn().mockResolvedValue({
+            versionId: 'version-current',
+            answers: {
+              ...buildSubmittedQuestionnaireResponse().answers,
+              current_question: 'kept',
+            },
+            acknowledgedQuestionnaireVersionId: 'version-current',
+            acknowledgedQuestionnaireKeys: ['current_question'],
+            // Fully confirmed, including explicit empty-weight acknowledgement.
+            acknowledgedHardMatchSignatures:
+              buildConfirmedHardMatchSignatures(),
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            version: {
+              questions: [
+                {
+                  key: 'current_question',
+                  prompt: 'Current question',
+                  description: null,
+                  type: 'SINGLE_SELECT',
+                  required: true,
+                  selectionLimit: null,
+                  options: [{ value: 'kept', label: 'Kept' }],
+                },
+              ],
+            },
+          }),
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'kept', label: 'Kept' }],
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          ],
+        }),
+        sanitizeStoredAnswers: jest
+          .fn()
+          .mockReturnValue({ current_question: 'kept' }),
+      } as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const result = (await service.getQuestionnaire('user-1')) as {
+      attention: { pendingUpdatedKeys: string[] };
+    };
+
+    expect(result.attention.pendingUpdatedKeys).not.toContain(
+      HARD_MATCH_KEYS.partnerWeightMin,
+    );
+    expect(result.attention.pendingUpdatedKeys).not.toContain(
+      HARD_MATCH_KEYS.looks,
+    );
   });
 
   it('persists questionnaire attention acknowledgement keys per current version', async () => {
@@ -1547,6 +1740,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       {
         $transaction: transaction,
+        $executeRaw: jest.fn().mockResolvedValue(1),
         user: {
           findUniqueOrThrow: jest.fn().mockResolvedValue({
             id: 'user-1',
@@ -1645,7 +1839,7 @@ describe('AccountService', () => {
             current_question: 'kept',
           },
           draftAnswers: Prisma.DbNull,
-          submittedAt: expect.any(Date) as unknown as Date,
+          submittedAt: expect.any(Date) as Date,
         }) as object,
         update: expect.objectContaining({
           answers: {
@@ -1653,7 +1847,7 @@ describe('AccountService', () => {
             current_question: 'kept',
           },
           draftAnswers: Prisma.DbNull,
-          submittedAt: expect.any(Date) as unknown as Date,
+          submittedAt: expect.any(Date) as Date,
         }) as object,
       }),
     );
@@ -1694,6 +1888,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       {
         $transaction: transaction,
+        $executeRaw: jest.fn().mockResolvedValue(1),
         user: {
           findUniqueOrThrow: jest.fn().mockResolvedValue({
             id: 'user-1',
@@ -1765,7 +1960,8 @@ describe('AccountService', () => {
     expect(transaction).toHaveBeenCalledTimes(1);
     const submittedOperations = transaction.mock.calls[0]?.[0];
     expect(submittedOperations).toBeDefined();
-    expect(submittedOperations).toHaveLength(1);
+    // upsert + the hard-match signature JSONB merge (no user row rewrite).
+    expect(submittedOperations).toHaveLength(2);
     expect(upsert).toHaveBeenCalledTimes(1);
   });
 
@@ -1915,6 +2111,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       {
         $transaction: transaction,
+        $executeRaw: jest.fn().mockResolvedValue(1),
         user: {
           findUniqueOrThrow: jest.fn().mockResolvedValue({
             id: 'user-1',
@@ -3380,151 +3577,6 @@ describe('AccountService', () => {
     });
   });
 
-  it('queues introduction emails with the stored narrative reason and topics', async () => {
-    const createMany = jest.fn().mockResolvedValue({ count: 2 });
-    const queuedEmails = [
-      {
-        dedupeKey: 'match-introduction:match-1:requester',
-        recipientEmail: 'user-1@example.com',
-        subject: 'subject-1',
-        html: '<p>requester</p>',
-      },
-      {
-        dedupeKey: 'match-introduction:match-1:recipient',
-        recipientEmail: 'user-2@example.com',
-        subject: 'subject-2',
-        html: '<p>recipient</p>',
-      },
-    ];
-    const mailService = {
-      buildIntroductionEmails: jest.fn().mockReturnValue(queuedEmails),
-      flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
-    };
-    const prisma = {
-      matchParticipant: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'participant-1',
-          userId: 'user-1',
-          match: {
-            id: 'match-1',
-            revealedAt: new Date('2026-05-08T12:00:00.000Z'),
-            introducedAt: null,
-            reasons: ['reason'],
-            reason:
-              '你们在相处节奏和价值判断上都强调稳定与真诚，因此更容易在建立信任后形成持续而自然的交流。',
-            conversationTopics: [
-              '最近怎么放松',
-              '理想陪伴节奏',
-              '想坚持的小事',
-            ],
-            participants: [
-              {
-                userId: 'user-1',
-                user: {
-                  email: 'user-1@example.com',
-                  displayName: 'User 1',
-                  profile: { headline: 'hello' },
-                  school: { name: 'School A' },
-                  questionnaireResponse: {
-                    answers: {
-                      [HARD_MATCH_KEYS.oneLinerIntro]:
-                        '喜欢读书和散步，也愿意认真沟通。',
-                    },
-                  },
-                },
-              },
-              {
-                userId: 'user-2',
-                user: {
-                  email: 'user-2@example.com',
-                  displayName: 'User 2',
-                  profile: { headline: 'world' },
-                  school: { name: 'School B' },
-                  questionnaireResponse: {
-                    answers: {
-                      [HARD_MATCH_KEYS.oneLinerIntro]:
-                        '平时爱看展，也很看重稳定陪伴。',
-                    },
-                  },
-                },
-              },
-            ],
-          },
-        }),
-      },
-      block: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      auditLog: {
-        create: jest.fn().mockResolvedValue(undefined),
-      },
-      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-        callback({
-          $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
-          block: {
-            findFirst: jest.fn().mockResolvedValue(null),
-          },
-          match: {
-            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          },
-          matchParticipant: {
-            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          },
-          outboundEmail: {
-            createMany,
-          },
-        }),
-      ),
-    };
-    const service = new AccountService(
-      prisma as never,
-      mailService as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
-      ok: true,
-    });
-    expect(mailService.buildIntroductionEmails).toHaveBeenCalledWith({
-      matchId: 'match-1',
-      requester: {
-        email: 'user-1@example.com',
-        displayName: 'User 1',
-        schoolName: 'School A',
-        introLine: '喜欢读书和散步，也愿意认真沟通。',
-        publicContact: {
-          type: 'EMAIL',
-          label: '邮箱',
-          value: 'user-1@example.com',
-        },
-      },
-      recipient: {
-        email: 'user-2@example.com',
-        displayName: 'User 2',
-        schoolName: 'School B',
-        introLine: '平时爱看展，也很看重稳定陪伴。',
-        publicContact: {
-          type: 'EMAIL',
-          label: '邮箱',
-          value: 'user-2@example.com',
-        },
-      },
-      reason:
-        '你们在相处节奏和价值判断上都强调稳定与真诚，因此更容易在建立信任后形成持续而自然的交流。',
-      conversationTopics: ['最近怎么放松', '理想陪伴节奏', '想坚持的小事'],
-    });
-    expect(createMany).toHaveBeenCalledWith({
-      data: queuedEmails,
-    });
-    expect(mailService.flushQueuedEmails).toHaveBeenCalledWith({
-      dedupeKeys: [
-        'match-introduction:match-1:requester',
-        'match-introduction:match-1:recipient',
-      ],
-    });
-  });
-
   it('uses each participant selected contact channel when requesting contact', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 2 });
     const queuedEmails = [
@@ -3595,6 +3647,9 @@ describe('AccountService', () => {
       block: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      cycleParticipation: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       auditLog: {
         create: jest.fn().mockResolvedValue(undefined),
       },
@@ -3645,7 +3700,7 @@ describe('AccountService', () => {
         contactRequestedAt: null,
       },
       data: {
-        contactRequestedAt: expect.any(Date) as unknown as Date,
+        contactRequestedAt: expect.any(Date) as Date,
         introducedContactType: 'WECHAT',
         introducedContactValue: 'wx_user_1',
       },
@@ -3718,6 +3773,9 @@ describe('AccountService', () => {
       block: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      cycleParticipation: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       auditLog: {
         create: jest.fn().mockResolvedValue(undefined),
       },
@@ -3759,109 +3817,6 @@ describe('AccountService', () => {
     expect(createMany).not.toHaveBeenCalled();
     expect(mailService.buildIntroductionEmails).not.toHaveBeenCalled();
     expect(mailService.flushQueuedEmails).not.toHaveBeenCalled();
-  });
-
-  it('falls back to legacy reasons and default topics when narrative fields are missing', async () => {
-    const queuedEmails = [
-      {
-        dedupeKey: 'match-introduction:match-1:requester',
-        recipientEmail: 'user-1@example.com',
-        subject: 'subject-1',
-        html: '<p>requester</p>',
-      },
-      {
-        dedupeKey: 'match-introduction:match-1:recipient',
-        recipientEmail: 'user-2@example.com',
-        subject: 'subject-2',
-        html: '<p>recipient</p>',
-      },
-    ];
-    const mailService = {
-      buildIntroductionEmails: jest.fn().mockReturnValue(queuedEmails),
-      flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
-    };
-    const prisma = {
-      matchParticipant: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'participant-1',
-          userId: 'user-1',
-          match: {
-            id: 'match-1',
-            revealedAt: new Date('2026-05-08T12:00:00.000Z'),
-            introducedAt: null,
-            reasons: ['你们都重视稳定。', '你们都偏好真诚沟通。'],
-            reason: null,
-            conversationTopics: null,
-            participants: [
-              {
-                userId: 'user-1',
-                user: {
-                  email: 'user-1@example.com',
-                  displayName: 'User 1',
-                  profile: { headline: 'hello' },
-                  school: { name: 'School A' },
-                  questionnaireResponse: null,
-                },
-              },
-              {
-                userId: 'user-2',
-                user: {
-                  email: 'user-2@example.com',
-                  displayName: 'User 2',
-                  profile: { headline: 'world' },
-                  school: { name: 'School B' },
-                  questionnaireResponse: null,
-                },
-              },
-            ],
-          },
-        }),
-      },
-      block: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      auditLog: {
-        create: jest.fn().mockResolvedValue(undefined),
-      },
-      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-        callback({
-          $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
-          block: {
-            findFirst: jest.fn().mockResolvedValue(null),
-          },
-          match: {
-            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          },
-          matchParticipant: {
-            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          },
-          outboundEmail: {
-            createMany: jest.fn().mockResolvedValue({ count: 2 }),
-          },
-        }),
-      ),
-    };
-    const service = new AccountService(
-      prisma as never,
-      mailService as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
-      ok: true,
-    });
-
-    expect(mailService.buildIntroductionEmails).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reason: '你们都重视稳定。 你们都偏好真诚沟通。',
-        conversationTopics: [
-          '最近一次让你觉得很放松的周末通常怎么过',
-          '你最近在慢慢坚持的一件事是什么',
-          '什么样的聊天节奏会让你觉得相处自然',
-        ],
-      }),
-    );
   });
 
   it('creates only a one-way block when a match is reported', async () => {

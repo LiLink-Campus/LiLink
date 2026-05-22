@@ -17,7 +17,6 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { QUESTION_REASON_RULE_TYPES } from '../questionnaire/questionnaire-config';
 import {
   ADMIN_CYCLE_CODENAME_MAX_LENGTH,
   ADMIN_CYCLE_NOTES_MAX_LENGTH,
@@ -30,8 +29,6 @@ import {
   ADMIN_QUESTION_OPTION_VALUE_MAX_LENGTH,
   ADMIN_QUESTION_OPTIONS_MAX_ITEMS,
   ADMIN_QUESTION_PROMPT_MAX_LENGTH,
-  ADMIN_QUESTION_REASON_RULES_MAX_ITEMS,
-  ADMIN_QUESTION_REASON_TEMPLATE_MAX_LENGTH,
   ADMIN_QUESTION_REORDER_MAX_ITEMS,
   ADMIN_REPORT_BATCH_MAX_ITEMS,
   ADMIN_REPORT_REVIEW_NOTES_MAX_LENGTH,
@@ -44,7 +41,7 @@ import {
   EMAIL_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 
-export class ListQueryDto {
+class ListQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -205,33 +202,6 @@ export class QuestionOptionDto {
   label!: string;
 }
 
-export class QuestionReasonRuleDto {
-  @IsIn(QUESTION_REASON_RULE_TYPES)
-  type!: (typeof QUESTION_REASON_RULE_TYPES)[number];
-
-  @IsString()
-  @MaxLength(ADMIN_QUESTION_REASON_TEMPLATE_MAX_LENGTH)
-  template!: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  priority?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  minOverlap?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  maxLabels?: number;
-}
-
 export class UpsertQuestionDto {
   @IsOptional()
   @IsString()
@@ -257,13 +227,6 @@ export class UpsertQuestionDto {
   options?: QuestionOptionDto[];
 
   @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(ADMIN_QUESTION_REASON_RULES_MAX_ITEMS)
-  @ValidateNested({ each: true })
-  @Type(() => QuestionReasonRuleDto)
-  reasonRules?: QuestionReasonRuleDto[];
-
-  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -286,12 +249,6 @@ export class ReorderQuestionsDto {
   @IsString({ each: true })
   @MaxLength(ADMIN_ID_MAX_LENGTH, { each: true })
   questionIds!: string[];
-}
-
-export class DeleteQuestionDto {
-  @IsString()
-  @MaxLength(ADMIN_ID_MAX_LENGTH)
-  questionId!: string;
 }
 
 export class ReviewReportDto {

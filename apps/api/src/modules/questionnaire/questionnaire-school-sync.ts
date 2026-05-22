@@ -121,7 +121,7 @@ export function syncQuestionnaireSchoolAnswers(
     hasExcludedPartnerSchoolGenders
   ) {
     nextAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders] =
-      excludedPartnerPreferences.excludedPartnerSchoolGenders as Prisma.InputJsonValue;
+      excludedPartnerPreferences.excludedPartnerSchoolGenders;
   } else {
     delete nextAnswers[HARD_MATCH_KEYS.excludedPartnerSchoolGenders];
   }

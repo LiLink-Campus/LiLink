@@ -11,7 +11,6 @@ import { IncompleteQuestionnaireSubmissionException } from './incomplete-questio
 import {
   normalizeQuestionAnswer,
   normalizeQuestionOptions,
-  normalizeQuestionReasonRules,
 } from './questionnaire-config';
 
 type QuestionnaireQuestion = {
@@ -22,7 +21,6 @@ type QuestionnaireQuestion = {
   required: boolean;
   selectionLimit?: number | null;
   options: Prisma.JsonValue | null;
-  reasonRules?: Prisma.JsonValue | null;
 };
 
 type QuestionnaireSchoolOption = {
@@ -51,7 +49,6 @@ type CurrentQuestionnairePayload = {
     required: boolean;
     selectionLimit: number | null;
     options: ReturnType<typeof normalizeQuestionOptions>;
-    reasonRules: ReturnType<typeof normalizeQuestionReasonRules>;
   }>;
   schools: QuestionnaireSchoolOption[];
 };
@@ -133,7 +130,6 @@ export class QuestionnaireService {
       questions: questionnaire.questions.map((question) => ({
         ...question,
         options: normalizeQuestionOptions(question.options),
-        reasonRules: normalizeQuestionReasonRules(question.reasonRules),
       })),
       schools,
     } satisfies CurrentQuestionnairePayload;

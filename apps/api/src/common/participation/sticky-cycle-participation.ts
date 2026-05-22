@@ -27,6 +27,9 @@ type StickyParticipationCycle = {
   status: MatchCycleStatus;
 };
 
+/**
+ * @internal Test hook for resetting the module-level cycle cache.
+ */
 export function clearStickyParticipationCache() {
   processedCycleTimestamps.clear();
 }

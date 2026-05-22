@@ -26,7 +26,7 @@ function runNpmScript(scriptName) {
   }
 }
 
-export function ensureBuiltApi(requiredRelativePaths = []) {
+function ensureBuiltApi(requiredRelativePaths = []) {
   const requiredPaths = [
     builtClientModulePath,
     ...requiredRelativePaths.map((relativePath) =>
@@ -51,7 +51,7 @@ export function ensureBuiltApi(requiredRelativePaths = []) {
   }
 }
 
-export async function loadPrismaClientModule() {
-  ensureBuiltApi();
+export async function loadPrismaClientModule(requiredRelativePaths = []) {
+  ensureBuiltApi(requiredRelativePaths);
   return import(pathToFileURL(builtClientModulePath).href);
 }

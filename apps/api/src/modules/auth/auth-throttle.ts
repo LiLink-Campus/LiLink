@@ -43,6 +43,9 @@ const AUTH_THROTTLE_ROUTE_SIGNATURES = new Set([
   'POST:/v1/auth/login',
 ]);
 
+/**
+ * @internal Exported for throttling tests.
+ */
 export const publicAuthRouteThrottles: Record<
   PublicAuthRouteKey,
   PublicAuthRouteThrottle
@@ -98,6 +101,9 @@ function getRequestSignature(request: AuthThrottleRequest): string | null {
   return `${method}:${normalizedPath}`;
 }
 
+/**
+ * @internal Exported for throttling tests.
+ */
 export function isPublicAuthThrottleRequest(
   request: AuthThrottleRequest,
 ): boolean {
@@ -109,6 +115,9 @@ export function isPublicAuthThrottleRequest(
   return AUTH_THROTTLE_ROUTE_SIGNATURES.has(signature);
 }
 
+/**
+ * @internal Exported for throttling tests.
+ */
 export const getAuthEmailThrottleTracker: ThrottlerGetTrackerFunction = (
   request: AuthThrottleRequest,
 ) => {
@@ -120,9 +129,7 @@ export const getAuthEmailThrottleTracker: ThrottlerGetTrackerFunction = (
   return `ip:${getRealClientIp(request)}`;
 };
 
-export function shouldSkipAuthEmailThrottle(
-  context: ExecutionContext,
-): boolean {
+function shouldSkipAuthEmailThrottle(context: ExecutionContext): boolean {
   const request = context.switchToHttp().getRequest<AuthThrottleRequest>();
   return !isPublicAuthThrottleRequest(request);
 }

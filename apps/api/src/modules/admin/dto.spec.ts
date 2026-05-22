@@ -2,7 +2,7 @@ import { validate } from 'class-validator';
 import {
   BatchReviewReportsDto,
   CreateSchoolDto,
-  ListQueryDto,
+  ListSchoolsQueryDto,
   QuestionOptionDto,
   UpdateSettingsDto,
   UpsertQuestionDto,
@@ -20,7 +20,7 @@ import {
 
 describe('admin DTOs', () => {
   it('rejects oversized list query controls', async () => {
-    const dto = Object.assign(new ListQueryDto(), {
+    const dto = Object.assign(new ListSchoolsQueryDto(), {
       page: ADMIN_LIST_PAGE_MAX + 1,
       pageSize: ADMIN_LIST_PAGE_SIZE_MAX + 1,
       search: 'S'.repeat(ADMIN_SEARCH_MAX_LENGTH + 1),

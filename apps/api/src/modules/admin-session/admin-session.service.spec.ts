@@ -27,7 +27,7 @@ describe('AdminSessionService', () => {
       prisma as never,
     );
 
-    jest.mocked(argon2.verify).mockResolvedValue(false as never);
+    jest.mocked(argon2.verify).mockResolvedValue(false);
 
     await expect(
       service.login('admin@example.com', 'bad-password'),
@@ -56,7 +56,7 @@ describe('AdminSessionService', () => {
       prisma as never,
     );
 
-    jest.mocked(argon2.verify).mockResolvedValue(true as never);
+    jest.mocked(argon2.verify).mockResolvedValue(true);
 
     await expect(
       service.login('admin@example.com', 'any-password'),
@@ -87,7 +87,7 @@ describe('AdminSessionService', () => {
       prisma as never,
     );
 
-    jest.mocked(argon2.verify).mockResolvedValue(true as never);
+    jest.mocked(argon2.verify).mockResolvedValue(true);
 
     await expect(
       service.login('admin@example.com', 'correct-password'),

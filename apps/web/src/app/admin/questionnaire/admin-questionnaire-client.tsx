@@ -11,10 +11,7 @@ import {
 } from "react";
 import { fetchApi } from "../../../lib/api";
 import { useAdmin } from "../admin-context";
-import type {
-  AdminQuestion,
-  AdminQuestionReasonRule,
-} from "../types";
+import type { AdminQuestion } from "../types";
 
 type QuestionnairePayload = {
   id: string;
@@ -34,7 +31,6 @@ type QuestionFormState = {
   type: AdminQuestion["type"];
   selectionLimit: string;
   options: QuestionOptionFormState[];
-  reasonRules: AdminQuestionReasonRule[];
   order: number;
   weight: number;
 };
@@ -54,28 +50,8 @@ const TYPE_COLORS: Record<
   SCALE: { bg: "var(--gold-soft)", text: "var(--gold)" },
 };
 
-const REASON_RULE_LABELS: Record<AdminQuestionReasonRule["type"], string> = {
-  EXACT_MATCH: "完全一致",
-  MULTI_OVERLAP: "重叠项命中",
-};
-
 function createEmptyOption(): QuestionOptionFormState {
   return { label: "" };
-}
-
-function createEmptyReasonRule(
-  questionType: AdminQuestion["type"],
-): AdminQuestionReasonRule {
-  if (questionType === "MULTI_SELECT") {
-    return {
-      type: "MULTI_OVERLAP",
-      template: "",
-      priority: 1,
-      minOverlap: 1,
-      maxLabels: 2,
-    };
-  }
-  return { type: "EXACT_MATCH", template: "", priority: 1 };
 }
 
 function createEmptyForm(order: number): QuestionFormState {
@@ -86,7 +62,6 @@ function createEmptyForm(order: number): QuestionFormState {
     type: "SINGLE_SELECT",
     selectionLimit: "",
     options: [createEmptyOption(), createEmptyOption()],
-    reasonRules: [],
     order,
     weight: 1,
   };
@@ -103,9 +78,6 @@ function formFromQuestion(question: AdminQuestion): QuestionFormState {
     options: Array.isArray(question.options)
       ? question.options.map((o) => ({ label: o.label }))
       : [createEmptyOption(), createEmptyOption()],
-    reasonRules: Array.isArray(question.reasonRules)
-      ? question.reasonRules.map((r) => ({ ...r }))
-      : [],
     order: question.order,
     weight: question.weight,
   };
@@ -201,11 +173,7 @@ export default function AdminQuestionnairePage({
   function startEditing(question: AdminQuestion) {
     setEditingId(question.id);
     setForm(formFromQuestion(question));
-    setShowAdvanced(
-      (Array.isArray(question.reasonRules) &&
-        question.reasonRules.length > 0) ||
-        question.weight !== 1,
-    );
+    setShowAdvanced(question.weight !== 1);
   }
 
   function startCreating() {
@@ -226,11 +194,7 @@ export default function AdminQuestionnairePage({
       key: `${question.key}_copy`,
       order: questions.length + 1,
     });
-    setShowAdvanced(
-      (Array.isArray(question.reasonRules) &&
-        question.reasonRules.length > 0) ||
-        question.weight !== 1,
-    );
+    setShowAdvanced(question.weight !== 1);
   }
 
   /* ── API calls ─────────────────────────────────────── */
@@ -246,17 +210,6 @@ export default function AdminQuestionnairePage({
         return { value: label, label };
       })
       .filter((o) => o.label);
-
-    const cleanRules = form.reasonRules
-      .map((r) => ({
-        type: r.type,
-        template: r.template.trim(),
-        priority: r.priority,
-        ...(r.type === "MULTI_OVERLAP"
-          ? { minOverlap: r.minOverlap, maxLabels: r.maxLabels }
-          : {}),
-      }))
-      .filter((r) => r.template);
 
     const selectionLimit =
       form.type === "MULTI_SELECT" && form.selectionLimit.trim()
@@ -289,7 +242,6 @@ export default function AdminQuestionnairePage({
           type: form.type,
           selectionLimit,
           options: cleanOptions,
-          reasonRules: cleanRules,
           order: form.order,
           weight: form.weight,
         }),
@@ -442,57 +394,6 @@ export default function AdminQuestionnairePage({
     });
   }
 
-  function updateReasonRule(
-    index: number,
-    updates: Partial<AdminQuestionReasonRule>,
-  ) {
-    setForm((f) => {
-      const next = [...f.reasonRules];
-      next[index] = { ...next[index], ...updates } as AdminQuestionReasonRule;
-      return { ...f, reasonRules: next };
-    });
-  }
-
-  function changeReasonRuleType(
-    index: number,
-    nextType: AdminQuestionReasonRule["type"],
-  ) {
-    setForm((f) => {
-      const next = [...f.reasonRules];
-      const current = next[index];
-      if (nextType === "MULTI_OVERLAP") {
-        next[index] = {
-          type: nextType,
-          template: current.template,
-          priority: current.priority ?? 1,
-          minOverlap: current.minOverlap ?? 1,
-          maxLabels: current.maxLabels ?? 2,
-        };
-      } else {
-        next[index] = {
-          type: nextType,
-          template: current.template,
-          priority: current.priority ?? 1,
-        };
-      }
-      return { ...f, reasonRules: next };
-    });
-  }
-
-  function removeReasonRule(index: number) {
-    setForm((f) => ({
-      ...f,
-      reasonRules: f.reasonRules.filter((_, i) => i !== index),
-    }));
-  }
-
-  function addReasonRule() {
-    setForm((f) => ({
-      ...f,
-      reasonRules: [...f.reasonRules, createEmptyReasonRule(f.type)],
-    }));
-  }
-
   /* ── Render: inline editor ─────────────────────────── */
 
   function renderEditor() {
@@ -609,10 +510,7 @@ export default function AdminQuestionnairePage({
         >
           {showAdvanced ? "▾" : "▸"} 高级设置
           <span className="qb-advanced-hint">
-            权重{form.weight !== 1 ? ` (${form.weight})` : ""}、排序、理由规则
-            {form.reasonRules.length > 0
-              ? ` (${form.reasonRules.length})`
-              : ""}
+            权重{form.weight !== 1 ? ` (${form.weight})` : ""}、排序
           </span>
         </button>
 
@@ -667,118 +565,6 @@ export default function AdminQuestionnairePage({
               ) : null}
             </div>
 
-            <div className="qb-options-section">
-              <div className="qb-section-header">
-                <span className="qb-section-label">理由规则</span>
-                <button
-                  type="button"
-                  className="qb-add-option-btn"
-                  onClick={addReasonRule}
-                >
-                  + 添加规则
-                </button>
-              </div>
-
-              {form.reasonRules.length === 0 && (
-                <p className="qb-hint">
-                  这道题目前只参与打分，不会生成匹配理由。
-                </p>
-              )}
-
-              {form.reasonRules.map((rule, i) => (
-                <div
-                  key={`rule-${form.questionId || "new"}-${i}`}
-                  className="qb-rule-card"
-                >
-                  <div className="qb-editor-grid">
-                    <label className="qb-field">
-                      <span>规则类型</span>
-                      <select
-                        value={rule.type}
-                        onChange={(e) =>
-                          changeReasonRuleType(
-                            i,
-                            e.target.value as AdminQuestionReasonRule["type"],
-                          )
-                        }
-                      >
-                        <option value="EXACT_MATCH">
-                          {REASON_RULE_LABELS.EXACT_MATCH}
-                        </option>
-                        <option value="MULTI_OVERLAP">
-                          {REASON_RULE_LABELS.MULTI_OVERLAP}
-                        </option>
-                      </select>
-                    </label>
-                    <label className="qb-field">
-                      <span>优先级</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={rule.priority ?? 0}
-                        onChange={(e) =>
-                          updateReasonRule(i, {
-                            priority: Number(e.target.value),
-                          })
-                        }
-                      />
-                    </label>
-                  </div>
-                  <label className="qb-field qb-field-full">
-                    <span>模板</span>
-                    <textarea
-                      rows={2}
-                      value={rule.template}
-                      onChange={(e) =>
-                        updateReasonRule(i, { template: e.target.value })
-                      }
-                      placeholder={
-                        rule.type === "MULTI_OVERLAP"
-                          ? "例如：你们都把 {{labels_2}} 放在重要位置。"
-                          : "例如：你们对关系推进节奏的期待很接近。"
-                      }
-                    />
-                  </label>
-                  {rule.type === "MULTI_OVERLAP" && (
-                    <div className="qb-editor-grid">
-                      <label className="qb-field">
-                        <span>最少命中数</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={rule.minOverlap ?? 1}
-                          onChange={(e) =>
-                            updateReasonRule(i, {
-                              minOverlap: Number(e.target.value),
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="qb-field">
-                        <span>最多展示标签数</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={rule.maxLabels ?? 2}
-                          onChange={(e) =>
-                            updateReasonRule(i, {
-                              maxLabels: Number(e.target.value),
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    className="qb-rule-remove"
-                    onClick={() => removeReasonRule(i)}
-                  >
-                    移除规则
-                  </button>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -946,9 +732,6 @@ export default function AdminQuestionnairePage({
                       ` · 最多 ${question.selectionLimit} 项`}
                     {Array.isArray(question.options) &&
                       ` · ${question.options.length} 选项`}
-                    {Array.isArray(question.reasonRules) &&
-                      question.reasonRules.length > 0 &&
-                      ` · ${question.reasonRules.length} 条理由`}
                   </span>
                 </div>
 

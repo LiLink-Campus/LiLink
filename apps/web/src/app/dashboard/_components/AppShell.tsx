@@ -12,10 +12,10 @@ import { fetchApi, type AuthMePayload } from "../../../lib/api";
 import { useAuthSession } from "../../auth-session";
 import { BrandMark } from "../../brand-mark";
 import {
+  ArrowLeftIcon,
   HeartIcon,
   HomeIcon,
   LogoutIcon,
-  MessageCircleIcon,
   ProfileIcon,
   UserCircleIcon,
 } from "./icons";
@@ -30,11 +30,6 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: "/dashboard", label: "首页", Icon: HomeIcon },
   { href: "/dashboard/match", label: "我的匹配", Icon: HeartIcon },
   { href: "/dashboard/profile", label: "匹配资料", Icon: ProfileIcon },
-  {
-    href: "/dashboard/referral-settings",
-    label: "引荐设置",
-    Icon: MessageCircleIcon,
-  },
   { href: "/dashboard/me", label: "我的", Icon: UserCircleIcon },
 ];
 
@@ -50,6 +45,29 @@ function isActiveTab(currentPath: string, href: string) {
     return currentPath === "/dashboard";
   }
   return currentPath === href || currentPath.startsWith(`${href}/`);
+}
+
+/**
+ * Routes where the chrome collapses into a single-minded "focused" mode:
+ * the bottom tabbar disappears and the header becomes a back-button +
+ * title bar. Used by the meetup negotiation flow which needs a fixed
+ * bottom action bar to drive primary actions.
+ */
+function isFocusedPath(currentPath: string): boolean {
+  return currentPath.startsWith("/dashboard/meetup") || currentPath.startsWith("/dashboard/me/card");
+}
+
+function focusedTitleFor(currentPath: string): string {
+  if (currentPath.startsWith("/dashboard/meetup/start")) {
+    return "安排第一次见面";
+  }
+  if (currentPath.startsWith("/dashboard/meetup/")) {
+    return "第一次见面";
+  }
+  if (currentPath.startsWith("/dashboard/me/card")) {
+    return "编辑引荐名片";
+  }
+  return "见面安排";
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -97,8 +115,22 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }
 
+  const focused = isFocusedPath(pathname);
+
+  function handleFocusedBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    if (pathname.startsWith("/dashboard/me/card")) {
+      router.push("/dashboard/me");
+      return;
+    }
+    router.push("/dashboard/match");
+  }
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell${focused ? " is-focused" : ""}`}>
       <aside className="app-sidebar" aria-label="侧边导航">
         <div className="app-sidebar-brand">
           <BrandMark href="/dashboard" />
@@ -130,92 +162,88 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="app-content">
-        <header className="app-header">
-          <BrandMark href="/dashboard" variant="compact" showTagline={false} />
-          <div className="app-header-actions">
+        {focused ? (
+          <header className="v2-focused-header">
             <button
-              ref={triggerRef}
               type="button"
-              className="app-header-avatar"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label={`账号菜单：${user?.displayName ?? user?.email ?? ""}`}
-              onClick={() => setMenuOpen((current) => !current)}
+              className="v2-focused-back"
+              aria-label="返回"
+              onClick={handleFocusedBack}
             >
-              {avatarInitial(user)}
+              <ArrowLeftIcon />
             </button>
-            {menuOpen ? (
-              <div
-                ref={menuRef}
-                className="app-header-avatar-menu"
-                role="menu"
+            <h1 className="v2-focused-title">{focusedTitleFor(pathname)}</h1>
+            <span className="v2-focused-header-spacer" aria-hidden="true" />
+          </header>
+        ) : (
+          <header className="app-header">
+            <BrandMark href="/dashboard" variant="compact" showTagline={false} />
+            <div className="app-header-actions">
+              <button
+                ref={triggerRef}
+                type="button"
+                className="app-header-avatar"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-label={`账号菜单：${user?.displayName ?? user?.email ?? ""}`}
+                onClick={() => setMenuOpen((current) => !current)}
               >
-                <div className="app-header-avatar-menu-info">
-                  <strong>{user?.displayName ?? "未命名同学"}</strong>
-                  <span>{user?.email ?? "未登录"}</span>
+                {avatarInitial(user)}
+              </button>
+              {menuOpen ? (
+                <div
+                  ref={menuRef}
+                  className="app-header-avatar-menu"
+                  role="menu"
+                >
+                  <div className="app-header-avatar-menu-info">
+                    <strong>{user?.displayName ?? "未命名同学"}</strong>
+                    <span>{user?.email ?? "未登录"}</span>
+                  </div>
+                  <Link href="/" role="menuitem" onClick={closeMenu}>
+                    返回首页
+                  </Link>
+                  <Link href="/about" role="menuitem" onClick={closeMenu}>
+                    关于平台
+                  </Link>
+                  <Link href="/faq" role="menuitem" onClick={closeMenu}>
+                    常见问题
+                  </Link>
+                  <button
+                    type="button"
+                    className="danger"
+                    role="menuitem"
+                    onClick={() => void handleLogout()}
+                  >
+                    <LogoutIcon />
+                    退出登录
+                  </button>
                 </div>
-                <Link href="/dashboard" role="menuitem" onClick={closeMenu}>
-                  返回首页
-                </Link>
-                <Link
-                  href="/dashboard/profile"
-                  role="menuitem"
-                  onClick={closeMenu}
-                >
-                  匹配资料
-                </Link>
-                <Link
-                  href="/dashboard/referral-settings"
-                  role="menuitem"
-                  onClick={closeMenu}
-                >
-                  引荐设置
-                </Link>
-                <Link
-                  href="/dashboard/me"
-                  role="menuitem"
-                  onClick={closeMenu}
-                >
-                  历史与设置
-                </Link>
-                <Link href="/about" role="menuitem" onClick={closeMenu}>
-                  关于平台
-                </Link>
-                <Link href="/faq" role="menuitem" onClick={closeMenu}>
-                  常见问题
-                </Link>
-                <button
-                  type="button"
-                  className="danger"
-                  role="menuitem"
-                  onClick={() => void handleLogout()}
-                >
-                  <LogoutIcon />
-                  退出登录
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </header>
+              ) : null}
+            </div>
+          </header>
+        )}
 
         <main className="app-main">{children}</main>
 
-        <nav className="app-tabbar" aria-label="底部导航">
-          {NAV_ITEMS.map(({ href, label, Icon }) => {
-            const active = isActiveTab(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={active ? "app-tab is-active" : "app-tab"}
-                aria-current={active ? "page" : undefined}
-              >
-                <Icon />
-                <span>{label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {focused ? null : (
+          <nav className="app-tabbar" aria-label="底部导航">
+            {NAV_ITEMS.map(({ href, label, Icon }) => {
+              const active = isActiveTab(pathname, href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={active ? "app-tab is-active" : "app-tab"}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon />
+                  <span>{label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </div>
     </div>
   );

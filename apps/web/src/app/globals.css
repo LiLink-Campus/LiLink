@@ -22,7 +22,7 @@
   --fg-muted: #9c8c80;
   --fg-onPrimary: #fff7ee;
 
-  --border: rgba(44, 24, 16, 0.10);
+  --border: rgba(44, 24, 16, 0.1);
   --border-strong: rgba(44, 24, 16, 0.18);
   --border-focus: rgba(139, 58, 74, 0.55);
 
@@ -52,12 +52,25 @@
   --warning: #b6802a;
   --warning-soft: #f6e6c4;
 
+  /* Stage semantics (v2). Use these for any flow / wizard / timeline that
+     needs to communicate "done / current / pending". active = wine primary,
+     complete = success green, pending = soft neutral, muted = below pending. */
+  --stage-active: var(--primary);
+  --stage-active-soft: var(--primary-tint);
+  --stage-active-ink: var(--primary-ink);
+  --stage-complete: var(--success);
+  --stage-complete-soft: var(--success-soft);
+  --stage-pending: var(--fg-muted);
+  --stage-pending-soft: var(--bg-soft);
+  --stage-waiting: var(--gold);
+  --stage-waiting-soft: var(--gold-soft);
+
   --font-display:
-    "Iowan Old Style", "Palatino Linotype", "Book Antiqua",
-    "Songti SC", "STSong", serif;
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Songti SC",
+    "STSong", serif;
   --font-body:
-    "Inter", "Avenir Next", "Segoe UI", "PingFang SC",
-    "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    "Inter", "Avenir Next", "Segoe UI", "PingFang SC", "Noto Sans CJK SC",
+    "Microsoft YaHei", sans-serif;
 
   --radius-xs: 0.5rem;
   --radius-sm: 0.75rem;
@@ -70,7 +83,7 @@
   --shadow-sm: 0 2px 6px rgba(20, 32, 25, 0.06);
   --shadow-md: 0 8px 24px rgba(20, 32, 25, 0.08);
   --shadow-lg: 0 24px 48px rgba(20, 32, 25, 0.12);
-  --shadow-soft: 0 12px 36px rgba(47, 91, 67, 0.10);
+  --shadow-soft: 0 12px 36px rgba(47, 91, 67, 0.1);
 
   --container: 1120px;
   --container-narrow: 720px;
@@ -193,28 +206,38 @@ p:last-child {
 /* ── Animations ────────────────────────────────────────────── */
 
 @keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes orb-drift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50%      { transform: translate(8px, -10px) scale(1.04); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(8px, -10px) scale(1.04);
+  }
 }
 
 .animate-in {
   animation: fade-in-up 0.55s ease-out both;
 }
-
-.delay-1 { animation-delay: 0.08s; }
-.delay-2 { animation-delay: 0.16s; }
-.delay-3 { animation-delay: 0.24s; }
-.delay-4 { animation-delay: 0.32s; }
 
 /* ── Frame ─────────────────────────────────────────────────── */
 
@@ -331,7 +354,9 @@ p:last-child {
   color: var(--fg-secondary);
   background: transparent;
   border: none;
-  transition: color 0.18s, background 0.18s;
+  transition:
+    color 0.18s,
+    background 0.18s;
 }
 
 .site-nav a:hover,
@@ -365,7 +390,9 @@ p:last-child {
   height: 1.5px;
   border-radius: 999px;
   background: var(--fg);
-  transition: transform 0.25s, opacity 0.18s;
+  transition:
+    transform 0.25s,
+    opacity 0.18s;
 }
 
 .site-nav-shell.open .site-nav-toggle span:nth-child(1) {
@@ -401,7 +428,9 @@ p:last-child {
     opacity: 0;
     pointer-events: none;
     transform: translateY(-0.75rem);
-    transition: opacity 0.18s ease, transform 0.18s ease;
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease;
     visibility: hidden;
   }
   .site-nav-shell.open .site-nav {
@@ -442,7 +471,12 @@ p:last-child {
   letter-spacing: 0.01em;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: transform 0.12s ease, background 0.18s, color 0.18s, box-shadow 0.18s, border-color 0.18s;
+  transition:
+    transform 0.12s ease,
+    background 0.18s,
+    color 0.18s,
+    box-shadow 0.18s,
+    border-color 0.18s;
   text-decoration: none;
   white-space: nowrap;
   max-width: 100%;
@@ -527,7 +561,8 @@ p:last-child {
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: clamp(1.25rem, 4vw, 2.5rem) clamp(1rem, 4vw, 2rem) clamp(2rem, 6vw, 4rem);
+  padding: clamp(1.25rem, 4vw, 2.5rem) clamp(1rem, 4vw, 2rem)
+    clamp(2rem, 6vw, 4rem);
   display: flex;
   flex-direction: column;
   gap: clamp(1rem, 3vw, 1.75rem);
@@ -557,9 +592,21 @@ p:last-child {
 
 .home-page {
   background:
-    radial-gradient(ellipse 70% 35% at 50% 0%, rgba(229, 122, 107, 0.10) 0%, transparent 65%),
-    radial-gradient(ellipse 80% 40% at 100% 100%, rgba(201, 168, 106, 0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 30% at 0% 60%, rgba(47, 91, 67, 0.08) 0%, transparent 60%),
+    radial-gradient(
+      ellipse 70% 35% at 50% 0%,
+      rgba(229, 122, 107, 0.1) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 80% 40% at 100% 100%,
+      rgba(201, 168, 106, 0.1) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 30% at 0% 60%,
+      rgba(47, 91, 67, 0.08) 0%,
+      transparent 60%
+    ),
     var(--bg);
 }
 
@@ -568,7 +615,8 @@ p:last-child {
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 2.5rem) clamp(1rem, 3vw, 2rem);
+  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 2.5rem)
+    clamp(1rem, 3vw, 2rem);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -613,7 +661,12 @@ p:last-child {
 
 .home-hero-content h1 em {
   font-style: normal;
-  background: linear-gradient(120deg, var(--primary) 0%, var(--accent) 60%, var(--gold) 100%);
+  background: linear-gradient(
+    120deg,
+    var(--primary) 0%,
+    var(--accent) 60%,
+    var(--gold) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -692,7 +745,8 @@ p:last-child {
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: clamp(0.5rem, 2vw, 1.5rem) clamp(1.25rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.5rem);
+  padding: clamp(0.5rem, 2vw, 1.5rem) clamp(1.25rem, 4vw, 2.5rem)
+    clamp(1.5rem, 4vw, 2.5rem);
 }
 
 .home-mode-grid {
@@ -713,15 +767,21 @@ p:last-child {
   gap: 1rem;
   padding: clamp(1.1rem, 2.5vw, 1.5rem);
   background:
-    radial-gradient(ellipse 70% 100% at 0% 0%, rgba(229, 122, 107, 0.08) 0%, transparent 60%),
+    radial-gradient(
+      ellipse 70% 100% at 0% 0%,
+      rgba(229, 122, 107, 0.08) 0%,
+      transparent 60%
+    ),
     var(--bg-elevated);
   border: 1.5px solid var(--primary);
   border-radius: var(--radius-lg);
   position: relative;
   overflow: hidden;
-  transition: transform 0.18s, box-shadow 0.18s;
+  transition:
+    transform 0.18s,
+    box-shadow 0.18s;
   align-items: center;
-  box-shadow: 0 8px 24px rgba(139, 58, 74, 0.10);
+  box-shadow: 0 8px 24px rgba(139, 58, 74, 0.1);
 }
 
 .mode-card:hover {
@@ -732,7 +792,11 @@ p:last-child {
 .mode-card.is-upcoming {
   border-style: dashed;
   border-color: var(--gold);
-  background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--gold-soft) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--bg-elevated) 0%,
+    var(--gold-soft) 100%
+  );
 }
 
 .mode-card-illustration {
@@ -837,7 +901,10 @@ p:last-child {
   font-size: 0.95rem;
   text-decoration: none;
   align-self: flex-start;
-  transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+  transition:
+    background 0.18s,
+    transform 0.12s,
+    box-shadow 0.18s;
   box-shadow:
     0 6px 16px rgba(139, 58, 74, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
@@ -846,7 +913,7 @@ p:last-child {
 .mode-card-cta:hover {
   background: var(--primary-hover);
   box-shadow:
-    0 8px 20px rgba(139, 58, 74, 0.30),
+    0 8px 20px rgba(139, 58, 74, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
@@ -890,49 +957,6 @@ p:last-child {
 
 /* ── Legacy hero-section (kept for any remaining usages) ─── */
 
-.hero-section {
-  position: relative;
-  width: 100%;
-  max-width: var(--container);
-  margin: 0 auto;
-  padding: clamp(2.5rem, 6vw, 4.5rem) clamp(1.25rem, 4vw, 2.5rem) clamp(2rem, 5vw, 3.5rem);
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: clamp(1.5rem, 4vw, 3rem);
-  align-items: center;
-  overflow: hidden;
-}
-
-.hero-section .orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.orb-one {
-  width: 380px; height: 380px;
-  top: -90px; right: -120px;
-  background: radial-gradient(circle, var(--primary), transparent 70%);
-  opacity: 0.35;
-  animation: orb-drift 12s ease-in-out infinite;
-}
-.orb-two {
-  width: 280px; height: 280px;
-  bottom: -120px; left: -90px;
-  background: radial-gradient(circle, var(--accent), transparent 70%);
-  opacity: 0.28;
-  animation: orb-drift 14s ease-in-out infinite reverse;
-}
-.orb-three {
-  width: 220px; height: 220px;
-  top: 40%; right: 30%;
-  background: radial-gradient(circle, var(--gold), transparent 70%);
-  opacity: 0.26;
-  animation: orb-drift 16s ease-in-out infinite;
-}
-
 .hero-content {
   position: relative;
   z-index: 1;
@@ -950,16 +974,15 @@ p:last-child {
 
 .hero-content h1 em {
   font-style: normal;
-  background: linear-gradient(120deg, var(--primary) 0%, var(--accent) 60%, var(--gold) 100%);
+  background: linear-gradient(
+    120deg,
+    var(--primary) 0%,
+    var(--accent) 60%,
+    var(--gold) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-}
-
-.hero-description {
-  color: var(--fg-secondary);
-  font-size: 1.05rem;
-  line-height: 1.75;
 }
 
 .hero-actions {
@@ -983,60 +1006,6 @@ p:last-child {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--fg-muted);
-}
-
-.hero-card {
-  position: relative;
-  z-index: 1;
-  background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-tinted) 100%);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-soft);
-  padding: clamp(1.5rem, 3.5vw, 2.25rem);
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  align-self: stretch;
-}
-
-.hero-card small {
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.hero-card strong {
-  font-family: var(--font-display);
-  font-size: 1.45rem;
-  line-height: 1.4;
-  color: var(--fg);
-}
-
-.hero-card p {
-  color: var(--fg-secondary);
-  font-size: 0.95rem;
-}
-
-.hero-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border);
-  color: var(--fg-muted);
-  font-size: 0.82rem;
-}
-
-@media (max-width: 880px) {
-  .hero-section {
-    grid-template-columns: 1fr;
-    padding-top: clamp(2rem, 6vw, 3rem);
-  }
-  .hero-card {
-    order: -1;
-  }
 }
 
 /* ── Hero countdown ───────────────────────────────────────── */
@@ -1162,7 +1131,10 @@ p:last-child {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+  transition:
+    transform 0.18s,
+    border-color 0.18s,
+    box-shadow 0.18s;
 }
 
 .story-grid article:hover,
@@ -1200,7 +1172,11 @@ p:last-child {
 }
 
 .statement-block {
-  background: linear-gradient(135deg, var(--primary-tint) 0%, var(--bg-tinted) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--primary-tint) 0%,
+    var(--bg-tinted) 100%
+  );
   border: 1px solid var(--primary-soft);
   border-radius: var(--radius-xl);
   padding: clamp(1.75rem, 4vw, 2.75rem);
@@ -1212,7 +1188,11 @@ p:last-child {
   content: "";
   position: absolute;
   inset: -40px;
-  background: radial-gradient(ellipse at top right, rgba(47, 91, 67, 0.10), transparent 60%);
+  background: radial-gradient(
+    ellipse at top right,
+    rgba(47, 91, 67, 0.1),
+    transparent 60%
+  );
   pointer-events: none;
 }
 
@@ -1234,7 +1214,8 @@ p:last-child {
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: clamp(2rem, 5vw, 3.25rem) clamp(1.25rem, 4vw, 2.5rem) clamp(1rem, 3vw, 2rem);
+  padding: clamp(2rem, 5vw, 3.25rem) clamp(1.25rem, 4vw, 2.5rem)
+    clamp(1rem, 3vw, 2rem);
 }
 
 .page-hero-compact {
@@ -1479,7 +1460,8 @@ p:last-child {
   width: 100%;
   max-width: var(--container-narrow);
   margin: 0 auto;
-  padding: clamp(0.5rem, 2vw, 1.5rem) clamp(1.25rem, 4vw, 2.5rem) clamp(2rem, 5vw, 3.5rem);
+  padding: clamp(0.5rem, 2vw, 1.5rem) clamp(1.25rem, 4vw, 2.5rem)
+    clamp(2rem, 5vw, 3.5rem);
 }
 
 .faq-list {
@@ -1493,7 +1475,9 @@ p:last-child {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s;
 }
 
 .faq-item[open] {
@@ -1514,7 +1498,9 @@ p:last-child {
   font-size: 0.98rem;
 }
 
-.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
 
 .faq-item summary::after {
   content: "+";
@@ -1621,10 +1607,7 @@ p:last-child {
 .auth-form input[type="password"],
 .auth-form input:not([type]),
 .auth-form textarea,
-.auth-form select,
-.field-input,
-.field-select,
-.field-textarea {
+.auth-form select {
   width: 100%;
   padding: 0.78rem 0.95rem;
   font: inherit;
@@ -1632,15 +1615,14 @@ p:last-child {
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .auth-form input:focus,
 .auth-form textarea:focus,
-.auth-form select:focus,
-.field-input:focus,
-.field-select:focus,
-.field-textarea:focus {
+.auth-form select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(47, 91, 67, 0.12);
@@ -1830,11 +1812,6 @@ p:last-child {
   font-size: 0.92rem;
   color: var(--accent);
   letter-spacing: 0.02em;
-}
-
-.schools-panel-desc {
-  color: var(--fg-secondary);
-  margin: 0;
 }
 
 .schools-summary-count {
@@ -2130,18 +2107,31 @@ p:last-child {
 
 .schools-skeleton span {
   height: 0.85rem;
-  background: linear-gradient(90deg, var(--bg-soft), var(--bg-tinted), var(--bg-soft));
+  background: linear-gradient(
+    90deg,
+    var(--bg-soft),
+    var(--bg-tinted),
+    var(--bg-soft)
+  );
   background-size: 200% 100%;
   border-radius: var(--radius-sm);
   animation: shimmer 1.6s linear infinite;
 }
 
-.schools-skeleton span:nth-child(2) { width: 70%; }
-.schools-skeleton span:nth-child(3) { width: 55%; }
+.schools-skeleton span:nth-child(2) {
+  width: 70%;
+}
+.schools-skeleton span:nth-child(3) {
+  width: 55%;
+}
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .schools-error {

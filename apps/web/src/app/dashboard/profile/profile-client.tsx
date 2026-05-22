@@ -1,7 +1,10 @@
 "use client";
 
 import {
+  createAutosaveLifecycleGate,
+  createAutosaveTimeoutController,
   takeNextAutosaveQueueItem,
+  HARD_MATCH_WEIGHT_KEYS,
   type MatchEstimateBand,
 } from "@lilink/shared";
 import {
@@ -13,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   fetchApi,
   fetchMatchEstimate,
@@ -117,7 +121,6 @@ const HARD_MATCH_FIELD_KEY_GROUPS = {
   looks: [HARD_MATCH_KEYS.looks],
   heightCm: [HARD_MATCH_KEYS.heightCm],
   weightKg: [HARD_MATCH_KEYS.weightKg],
-  oneLinerIntro: [HARD_MATCH_KEYS.oneLinerIntro],
   partnerAge: [HARD_MATCH_KEYS.partnerAgeMin, HARD_MATCH_KEYS.partnerAgeMax],
   partnerGenders: [HARD_MATCH_KEYS.partnerGenders],
   partnerNationalities: [HARD_MATCH_KEYS.partnerNationalities],
@@ -193,6 +196,7 @@ type MultiChoiceSummaryPickerProps = {
 const QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS = [1500, 3000, 5000, 10000];
 const QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS =
   QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS.length;
+const QUESTIONNAIRE_AUTOSAVE_TIMEOUT_MS = 15000;
 const QUESTIONNAIRE_ATTENTION_VIEW_MS = 200;
 const MULTI_CHOICE_REOPEN_GUARD_MS = 350;
 
@@ -213,11 +217,11 @@ function initialProfileTab(
 }
 
 function questionnaireAttentionText(item: QuestionnaireAttentionItem) {
-  if (item.updated && item.missingRequired) {
+  if (item.updated && !item.acknowledged && item.missingRequired) {
     return "本题有更新，且当前答案待补完。";
   }
 
-  if (item.updated) {
+  if (item.updated && !item.acknowledged) {
     return "本题有更新。";
   }
 
@@ -627,6 +631,7 @@ export function ProfileClient({
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
   useDashboardSessionSeed(initialUser);
+  const router = useRouter();
 
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;
   const initialSubmittedAnswers = initialSavedQuestionnaire?.answers;
@@ -648,9 +653,7 @@ export function ProfileClient({
     null,
   );
   const [matchEstimatePending, setMatchEstimatePending] = useState(false);
-  const [displayName, setDisplayName] = useState(
-    initialDraft?.displayName ?? initialUser.displayName ?? "",
-  );
+  const displayName = initialDraft?.displayName ?? initialUser.displayName ?? "";
   const [questionnaireSaveError, setQuestionnaireSaveError] = useState<
     string | null
   >(null);
@@ -667,6 +670,9 @@ export function ProfileClient({
   const questionnaireAttention = initialSavedQuestionnaire?.attention ?? null;
   const [acknowledgedQuestionnaireKeys, setAcknowledgedQuestionnaireKeys] =
     useState<string[]>(() => questionnaireAttention?.acknowledgedKeys ?? []);
+  const [acknowledgedHardMatchKeys, setAcknowledgedHardMatchKeys] = useState<
+    string[]
+  >([]);
   const questionBlockRefs = useRef(new Map<string, HTMLFieldSetElement>());
   const questionnaireAutosaveReady = useRef(false);
   const questionnaireSaveAbortRef = useRef<AbortController | null>(null);
@@ -677,7 +683,9 @@ export function ProfileClient({
     payload: QuestionnaireSavePayload;
     snapshot: string;
   } | null>(null);
-  const questionnaireUnmountedRef = useRef(false);
+  const [questionnaireAutosaveLifecycle] = useState(
+    createAutosaveLifecycleGate,
+  );
   const lastSavedQuestionnaireSnapshotRef = useRef(
     JSON.stringify(
       buildQuestionnaireSavePayload(
@@ -749,6 +757,17 @@ export function ProfileClient({
     questionnaireRetryTimerRef.current = null;
   }
 
+  useEffect(() => {
+    questionnaireAutosaveLifecycle.markMounted();
+
+    return () => {
+      questionnaireAutosaveLifecycle.markUnmounted();
+      clearQuestionnaireRetryTimer();
+      queuedQuestionnaireSaveRef.current = null;
+      questionnaireSaveAbortRef.current?.abort();
+    };
+  }, [questionnaireAutosaveLifecycle]);
+
   function toggleHardSelection(
     field: "partnerGenders" | "partnerLooks",
     nextValue: string,
@@ -785,12 +804,20 @@ export function ProfileClient({
 
   const questionAttentionByKey = useMemo(() => {
     const acknowledgedKeys = new Set(acknowledgedQuestionnaireKeys);
+    const acknowledgedHardMatchKeySet = new Set(acknowledgedHardMatchKeys);
+    const hardMatchKeySet = new Set<string>(
+      hardMatchAttentionFields().map((field) => field.key),
+    );
     const attentionByKey = new Map<string, QuestionnaireAttentionItem>();
 
     for (const item of questionnaireAttention?.items ?? []) {
       attentionByKey.set(item.key, {
         ...item,
-        acknowledged: !item.updated || acknowledgedKeys.has(item.key),
+        // Hard-match acknowledgement is decided by the backend signature; only
+        // soft questions fall back to the version-scoped acknowledgedKeys.
+        acknowledged: hardMatchKeySet.has(item.key)
+          ? item.acknowledged || acknowledgedHardMatchKeySet.has(item.key)
+          : !item.updated || acknowledgedKeys.has(item.key),
       });
     }
 
@@ -808,7 +835,8 @@ export function ProfileClient({
         attentionByKey.set(field.key, {
           ...current,
           missingRequired: false,
-          acknowledged: !current.updated || acknowledgedKeys.has(field.key),
+          // Preserve the backend signature-based acknowledgement set above.
+          acknowledged: current.acknowledged,
         });
         continue;
       }
@@ -820,7 +848,7 @@ export function ProfileClient({
           updated: current?.updated ?? false,
           missingRequired: true,
           acknowledged: current?.updated
-            ? acknowledgedKeys.has(field.key)
+            ? current.acknowledged || acknowledgedHardMatchKeySet.has(field.key)
             : true,
         });
       }
@@ -849,6 +877,7 @@ export function ProfileClient({
 
     return attentionByKey;
   }, [
+    acknowledgedHardMatchKeys,
     acknowledgedQuestionnaireKeys,
     answers,
     hardMatchForm,
@@ -862,6 +891,16 @@ export function ProfileClient({
         .filter((item) => item.updated && !item.acknowledged)
         .map((item) => item.key),
     [questionAttentionByKey],
+  );
+
+  // Weight nudges clear only on an explicit save, never by passively scrolling
+  // the field into view, so the auto-acknowledge observer skips weight keys.
+  const autoAcknowledgeKeys = useMemo(
+    () =>
+      pendingUpdatedAttentionKeys.filter(
+        (key) => !HARD_MATCH_WEIGHT_KEYS.includes(key),
+      ),
+    [pendingUpdatedAttentionKeys],
   );
 
   function setAttentionBlockRef(
@@ -925,8 +964,17 @@ export function ProfileClient({
           },
         );
 
-        if (!questionnaireUnmountedRef.current) {
+        if (!questionnaireAutosaveLifecycle.isUnmounted()) {
           setAcknowledgedQuestionnaireKeys(result.acknowledgedKeys);
+          const hardMatchKeySet = new Set<string>(
+            hardMatchAttentionFields().map((field) => field.key),
+          );
+          const hardMatchKeys = keys.filter((key) => hardMatchKeySet.has(key));
+          if (hardMatchKeys.length > 0) {
+            setAcknowledgedHardMatchKeys((current) => [
+              ...new Set([...current, ...hardMatchKeys]),
+            ]);
+          }
         }
       } catch {
         // Keep the marker visible; the next viewport pass can retry.
@@ -938,6 +986,11 @@ export function ProfileClient({
     const attentionHash = window.location.hash;
     const key = profileAttentionKeyFromHash(attentionHash);
     if (!key) {
+      return;
+    }
+
+    if (key === HARD_MATCH_KEYS.oneLinerIntro) {
+      router.replace("/dashboard/me/card");
       return;
     }
 
@@ -970,12 +1023,12 @@ export function ProfileClient({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [activeTab, questions]);
+  }, [activeTab, questions, router]);
 
   useEffect(() => {
     if (
       !questionnaireAttention ||
-      pendingUpdatedAttentionKeys.length === 0 ||
+      autoAcknowledgeKeys.length === 0 ||
       typeof IntersectionObserver === "undefined"
     ) {
       return;
@@ -985,7 +1038,7 @@ export function ProfileClient({
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const keys = pendingUpdatedAttentionKeys.filter(
+          const keys = autoAcknowledgeKeys.filter(
             (key) => questionBlockRefs.current.get(key) === entry.target,
           );
           if (keys.length === 0) {
@@ -1018,7 +1071,7 @@ export function ProfileClient({
     );
 
     const observedNodes = new Set<HTMLFieldSetElement>();
-    for (const key of pendingUpdatedAttentionKeys) {
+    for (const key of autoAcknowledgeKeys) {
       const node = questionBlockRefs.current.get(key);
       if (node && !observedNodes.has(node)) {
         observedNodes.add(node);
@@ -1032,26 +1085,29 @@ export function ProfileClient({
         window.clearTimeout(timer);
       }
     };
-  }, [activeTab, pendingUpdatedAttentionKeys, questionnaireAttention]);
+  }, [activeTab, autoAcknowledgeKeys, questionnaireAttention]);
 
   const flushQueuedQuestionnaireSave = useEffectEvent(
     async (payload: QuestionnaireSavePayload, snapshot: string) => {
       let shouldScheduleRetry = false;
       let shouldStopRetryingCurrentSnapshot = false;
       let retryDelayMs: number | null = null;
+      const lifecycleToken = questionnaireAutosaveLifecycle.currentToken();
 
       if (
-        questionnaireUnmountedRef.current ||
+        !questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken) ||
         questionnaireSaveInFlightRef.current ||
         snapshot === lastSavedQuestionnaireSnapshotRef.current
       ) {
         return;
       }
 
-      const abortController = new AbortController();
+      const autosaveTimeout = createAutosaveTimeoutController(
+        QUESTIONNAIRE_AUTOSAVE_TIMEOUT_MS,
+      );
 
       questionnaireSaveInFlightRef.current = true;
-      questionnaireSaveAbortRef.current = abortController;
+      questionnaireSaveAbortRef.current = autosaveTimeout.controller;
       setQuestionnaireSaveState("saving");
       setQuestionnaireSaveError(null);
 
@@ -1061,11 +1117,11 @@ export function ProfileClient({
           {
             method: "PUT",
             body: JSON.stringify(payload),
-            signal: abortController.signal,
+            signal: autosaveTimeout.signal,
           },
         );
 
-        if (questionnaireUnmountedRef.current) {
+        if (!questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken)) {
           return;
         }
 
@@ -1085,12 +1141,23 @@ export function ProfileClient({
           setAcknowledgedQuestionnaireKeys(
             questions.map((question) => question.key),
           );
+          setAcknowledgedHardMatchKeys(
+            hardMatchAttentionFields().map((field) => field.key),
+          );
         }
         setQuestionnaireSaveState(
           result.saveState === "SUBMITTED" ? "submitted" : "draft-saved",
         );
       } catch (caughtError) {
-        if (caughtError instanceof Error && caughtError.name === "AbortError") {
+        if (!questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken)) {
+          return;
+        }
+
+        if (
+          caughtError instanceof Error &&
+          caughtError.name === "AbortError" &&
+          !autosaveTimeout.hasTimedOut()
+        ) {
           return;
         }
 
@@ -1123,13 +1190,14 @@ export function ProfileClient({
           questionnaireAutosaveFailureMessage(caughtError, retryDelayMs),
         );
       } finally {
+        autosaveTimeout.clear();
         questionnaireSaveAbortRef.current = null;
         questionnaireSaveInFlightRef.current = false;
 
         const nextQueuedSave = takeNextAutosaveQueueItem(
           queuedQuestionnaireSaveRef.current,
           {
-            isUnmounted: questionnaireUnmountedRef.current,
+            isUnmounted: questionnaireAutosaveLifecycle.isUnmounted(),
             lastSavedSnapshot: lastSavedQuestionnaireSnapshotRef.current,
           },
         );
@@ -1143,14 +1211,14 @@ export function ProfileClient({
             clearQuestionnaireRetryTimer();
             questionnaireRetryTimerRef.current = window.setTimeout(() => {
               questionnaireRetryTimerRef.current = null;
-              if (questionnaireUnmountedRef.current) {
+              if (questionnaireAutosaveLifecycle.isUnmounted()) {
                 return;
               }
 
               const retrySave = takeNextAutosaveQueueItem(
                 queuedQuestionnaireSaveRef.current,
                 {
-                  isUnmounted: questionnaireUnmountedRef.current,
+                  isUnmounted: questionnaireAutosaveLifecycle.isUnmounted(),
                   lastSavedSnapshot: lastSavedQuestionnaireSnapshotRef.current,
                 },
               );
@@ -1197,11 +1265,18 @@ export function ProfileClient({
       if (snapshot === lastSavedQuestionnaireSnapshotRef.current) {
         questionnaireRetryAttemptRef.current = 0;
         queuedQuestionnaireSaveRef.current = null;
+        // A concurrent save already persisted this snapshot; clear stale indicator.
+        setQuestionnaireSaveState((current) =>
+          current === "pending" || current === "error" ? "idle" : current,
+        );
+        setQuestionnaireSaveError(null);
         return;
       }
 
       if (questionnaireSaveInFlightRef.current) {
         queuedQuestionnaireSaveRef.current = { payload, snapshot };
+        setQuestionnaireSaveState("saving");
+        setQuestionnaireSaveError(null);
         return;
       }
 
@@ -1216,6 +1291,13 @@ export function ProfileClient({
     }
 
     if (questionnaireSnapshot === lastSavedQuestionnaireSnapshotRef.current) {
+      // Snapshot reverted to the last-saved state (user undid a change).
+      // Clear any stale "pending" or "error" indicator that was set before
+      // the timer could fire, so the UI doesn't stay frozen on a false alarm.
+      setQuestionnaireSaveState((current) =>
+        current === "pending" || current === "error" ? "idle" : current,
+      );
+      setQuestionnaireSaveError(null);
       return;
     }
 
@@ -1243,10 +1325,10 @@ export function ProfileClient({
 
     const retrySave =
       takeNextAutosaveQueueItem(queuedQuestionnaireSaveRef.current, {
-        isUnmounted: questionnaireUnmountedRef.current,
+        isUnmounted: questionnaireAutosaveLifecycle.isUnmounted(),
         lastSavedSnapshot: lastSavedQuestionnaireSnapshotRef.current,
       }) ??
-      (questionnaireUnmountedRef.current ||
+      (questionnaireAutosaveLifecycle.isUnmounted() ||
       questionnaireSaveInFlightRef.current ||
       questionnaireSnapshot === lastSavedQuestionnaireSnapshotRef.current
         ? null
@@ -1265,19 +1347,10 @@ export function ProfileClient({
     void flushQueuedQuestionnaireSave(retrySave.payload, retrySave.snapshot);
   }, [
     questionnaireManualRetryTick,
+    questionnaireAutosaveLifecycle,
     questionnaireSavePayload,
     questionnaireSnapshot,
   ]);
-
-  useEffect(
-    () => () => {
-      questionnaireUnmountedRef.current = true;
-      clearQuestionnaireRetryTimer();
-      queuedQuestionnaireSaveRef.current = null;
-      questionnaireSaveAbortRef.current?.abort();
-    },
-    [],
-  );
 
   const questionnaireIncompleteMessage = useMemo(
     () =>
@@ -1306,9 +1379,9 @@ export function ProfileClient({
         : { label: "已保存 · 完整", tone: "on" };
 
   return (
-    <div className="app-page-shell">
-      <header className="app-page-header">
-        <p className="eyebrow">Matching Profile</p>
+    <div className="app-page-shell v2-page-shell">
+      <header className="v2-page-header">
+        <span className="v2-page-header-eyebrow">Matching Profile</span>
         <h1>匹配资料</h1>
         <p>
           {hasSavedQuestionnaire
@@ -1317,16 +1390,18 @@ export function ProfileClient({
               : "匹配以你最近一次正式保存的内容计算；你在这里的修改会自动保存并用于后续轮次。"
             : "在这里填写匹配资料。系统会自动保存草稿；补全全部必答项后，会自动转为正式资料。"}
         </p>
-        <span
-          className={
-            profileStatus.tone === "on"
-              ? "app-card-status is-on"
-              : "app-card-status is-warn"
-          }
-        >
-          {profileStatus.label}
-        </span>
-        <p className="app-muted">{questionnaireStatus}</p>
+        <div className="v2-page-header-row">
+          <span
+            className={
+              profileStatus.tone === "on"
+                ? "app-card-status is-on"
+                : "app-card-status is-warn"
+            }
+          >
+            {profileStatus.label}
+          </span>
+          <span className="app-card-status">{questionnaireStatus}</span>
+        </div>
         {questionnaireSaveError ? (
           <p className="form-error">{questionnaireSaveError}</p>
         ) : null}
@@ -1615,58 +1690,6 @@ export function ProfileClient({
                 />
               </fieldset>
 
-              <fieldset className="question-block">
-                <legend>昵称</legend>
-                <label className="dash-one-liner-label">
-                  <span className="app-muted">
-                    昵称，引荐后会发给对方邮件，可以是真名也可以不是。
-                  </span>
-                  <input
-                    id={buildDashboardFieldId("display-name")}
-                    name="displayName"
-                    type="text"
-                    maxLength={30}
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="输入你的昵称"
-                  />
-                </label>
-              </fieldset>
-
-              <fieldset
-                id={profileAttentionElementId(HARD_MATCH_KEYS.oneLinerIntro)}
-                ref={(node) =>
-                  setAttentionBlockRef(
-                    HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
-                    node,
-                  )
-                }
-                className={attentionBlockClassName(
-                  HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
-                )}
-              >
-                <legend>一句话介绍</legend>
-                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro)}
-                <label className="dash-one-liner-label">
-                  <span className="app-muted">
-                    用一两句话介绍你的兴趣或期待；引荐邮件中会展示给对方。请勿填写隐私敏感信息。
-                  </span>
-                  <textarea
-                    id={buildDashboardFieldId("one-liner-intro")}
-                    name="oneLinerIntro"
-                    rows={3}
-                    maxLength={HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}
-                    value={hardMatchForm.oneLinerIntro}
-                    onChange={(e) =>
-                      setHardMatchForm((f) => ({
-                        ...f,
-                        oneLinerIntro: e.target.value,
-                      }))
-                    }
-                    placeholder="例如：喜欢徒步和电影，希望认识聊得来的朋友。"
-                  />
-                </label>
-              </fieldset>
             </div>
           </div>
         )}
