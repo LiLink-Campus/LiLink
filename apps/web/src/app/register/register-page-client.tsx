@@ -3,6 +3,7 @@
 import {
   INVITE_CODE_LENGTH,
   PERSONAL_CODE_LENGTH,
+  REFERRAL_CHANNELS,
   sanitizeSameOriginRelativePath,
 } from "@lilink/shared";
 import Link from "next/link";
@@ -81,10 +82,16 @@ export default function RegisterPageClient() {
       } else if (refCode.length === PERSONAL_CODE_LENGTH) {
         setReferralCode(refCode);
       }
-      if (typeof parsed.channel === "string") {
+      if (
+        typeof parsed.channel === "string" &&
+        (REFERRAL_CHANNELS as readonly string[]).includes(parsed.channel)
+      ) {
         setReferralChannel(parsed.channel);
       }
-      if (typeof parsed.campaignSlug === "string") {
+      if (
+        typeof parsed.campaignSlug === "string" &&
+        /^[a-z0-9][a-z0-9-]{0,63}$/.test(parsed.campaignSlug)
+      ) {
         setCampaignSlug(parsed.campaignSlug);
       }
     } catch {
@@ -155,6 +162,9 @@ export default function RegisterPageClient() {
         }),
 
       });
+
+      // Attribution has been consumed; clear the landing cookie.
+      document.cookie = "lilink_ref=; path=/; max-age=0; samesite=lax";
 
       const nextPath = new URLSearchParams(window.location.search).get("next");
       const redirectPath =
