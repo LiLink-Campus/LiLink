@@ -3,7 +3,7 @@ import { ReferralService } from './referral.service';
 
 function makePrisma() {
   return {
-    user: { findUnique: jest.fn(), update: jest.fn() },
+    user: { findUnique: jest.fn(), updateMany: jest.fn() },
     inviteCode: { findUnique: jest.fn() },
     campaign: { findUnique: jest.fn(), findFirst: jest.fn() },
   };
@@ -13,7 +13,7 @@ describe('ReferralService', () => {
   beforeEach(() => jest.resetAllMocks());
 
   describe('assignReferralCodeIfMissing', () => {
-    it('returns the existing code without updating', async () => {
+    it('returns the existing code without writing', async () => {
       const prisma = makePrisma();
       prisma.user.findUnique.mockResolvedValue({ referralCode: 'EXISTING123' });
       const service = new ReferralService(prisma as never);
@@ -21,35 +21,35 @@ describe('ReferralService', () => {
       const code = await service.assignReferralCodeIfMissing('user-1');
 
       expect(code).toBe('EXISTING123');
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
-    it('assigns a fresh 10-char code from the alphabet when missing', async () => {
+    it('assigns a fresh 10-char code via a null-guarded compare-and-set', async () => {
       const prisma = makePrisma();
       prisma.user.findUnique.mockResolvedValue({ referralCode: null });
-      prisma.user.update.mockResolvedValue({});
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
       const service = new ReferralService(prisma as never);
 
       const code = await service.assignReferralCodeIfMissing('user-1');
 
       expect(code).toHaveLength(PERSONAL_CODE_LENGTH);
       expect([...(code ?? '')].every((ch) => HUMAN_CODE_ALPHABET.includes(ch))).toBe(true);
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'user-1', referralCode: null },
         data: { referralCode: code },
       });
     });
 
-    it('retries on a unique-collision (P2002)', async () => {
+    it('retries on a unique-code collision (P2002)', async () => {
       const prisma = makePrisma();
       prisma.user.findUnique.mockResolvedValue({ referralCode: null });
       let calls = 0;
-      prisma.user.update.mockImplementation(() => {
+      prisma.user.updateMany.mockImplementation(() => {
         calls += 1;
         if (calls === 1) {
           return Promise.reject(Object.assign(new Error('dup'), { code: 'P2002' }));
         }
-        return Promise.resolve({});
+        return Promise.resolve({ count: 1 });
       });
       const service = new ReferralService(prisma as never);
 
@@ -59,13 +59,36 @@ describe('ReferralService', () => {
       expect(code).toHaveLength(PERSONAL_CODE_LENGTH);
     });
 
+    it('returns the concurrently-assigned code when the CAS matches 0 rows', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ referralCode: null }) // initial read
+        .mockResolvedValueOnce({ referralCode: 'CONCURRENT9' }); // re-read after CAS
+      prisma.user.updateMany.mockResolvedValue({ count: 0 });
+      const service = new ReferralService(prisma as never);
+
+      const code = await service.assignReferralCodeIfMissing('user-1');
+
+      expect(code).toBe('CONCURRENT9');
+    });
+
     it('returns null when the user does not exist', async () => {
       const prisma = makePrisma();
       prisma.user.findUnique.mockResolvedValue(null);
       const service = new ReferralService(prisma as never);
 
       expect(await service.assignReferralCodeIfMissing('missing')).toBeNull();
-      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('swallows DB errors and never throws into the caller', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockRejectedValue(new Error('connection lost'));
+      const service = new ReferralService(prisma as never);
+
+      await expect(
+        service.assignReferralCodeIfMissing('user-1'),
+      ).resolves.toBeNull();
     });
   });
 
@@ -87,7 +110,6 @@ describe('ReferralService', () => {
         referralChannel: null,
         referralCampaignId: 'camp-recruiter',
       });
-      // Personal code / campaign lookups must not run on the recruiter path.
       expect(prisma.user.findUnique).not.toHaveBeenCalled();
       expect(prisma.campaign.findUnique).not.toHaveBeenCalled();
     });

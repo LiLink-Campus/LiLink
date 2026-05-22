@@ -39,33 +39,48 @@ export class ReferralService {
    * it must never block the caller — the page can re-trigger assignment later).
    */
   async assignReferralCodeIfMissing(userId: string): Promise<string | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { referralCode: true },
-    });
-    if (!user) return null;
-    if (user.referralCode) return user.referralCode;
+    // Whole method is guarded: a referral code is a marketing field, never a
+    // gate, so this must never throw into the caller (registration). The
+    // referral page can re-trigger assignment later.
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { referralCode: true },
+      });
+      if (!user) return null;
+      if (user.referralCode) return user.referralCode;
 
-    for (let attempt = 0; attempt < PERSONAL_CODE_MAX_ATTEMPTS; attempt += 1) {
-      const code = generateHumanCode({ length: PERSONAL_CODE_LENGTH });
-      try {
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: { referralCode: code },
-        });
-        return code;
-      } catch (error) {
-        if (this.isUniqueConstraintError(error)) continue; // collision -> retry
-        this.logger.warn(
-          `Failed to assign referral code to ${userId}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        return null;
+      for (let attempt = 0; attempt < PERSONAL_CODE_MAX_ATTEMPTS; attempt += 1) {
+        const code = generateHumanCode({ length: PERSONAL_CODE_LENGTH });
+        try {
+          // Compare-and-set on the null guard: concurrent callers cannot
+          // overwrite a code another call already assigned.
+          const updated = await this.prisma.user.updateMany({
+            where: { id: userId, referralCode: null },
+            data: { referralCode: code },
+          });
+          if (updated.count === 1) return code;
+          // count 0: a concurrent call already set it -> return that value.
+          const current = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { referralCode: true },
+          });
+          return current?.referralCode ?? null;
+        } catch (error) {
+          if (this.isUniqueConstraintError(error)) continue; // code taken -> retry
+          throw error;
+        }
       }
+      this.logger.warn(`Exhausted referral code attempts for ${userId}.`);
+      return null;
+    } catch (error) {
+      this.logger.warn(
+        `assignReferralCodeIfMissing failed for ${userId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
     }
-    this.logger.warn(`Exhausted referral code attempts for ${userId}.`);
-    return null;
   }
 
   /**
