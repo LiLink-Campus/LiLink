@@ -121,22 +121,7 @@ export function MatchClient({
 
   let hero: ReactNode = null;
 
-  if (
-    dashboard?.lastRevealedRound?.participationStatus === "OPTED_IN" &&
-    !dashboard.lastRevealedRound.matched &&
-    !latestMatch
-  ) {
-    hero = (
-      <MatchWaitingStrip
-        title="本轮未匹配到对象"
-        subtitle={`「${dashboard.lastRevealedRound.codename}」本轮可配对人数不足或没有与你强相容的组合。下一轮开放报名时回到首页即可再次参与，更新问卷也能提高下次成功率。`}
-        actions={[
-          { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
-          { label: "查看历史", href: "/dashboard/match/history", variant: "secondary" },
-        ]}
-      />
-    );
-  } else if (dashboard?.latestMatchVisibility === "LIMITED" && latestMatch) {
+  if (dashboard?.latestMatchVisibility === "LIMITED" && latestMatch) {
     const reportLabel = reportHandlingChipLabel(latestMatch.reportStatus);
     hero = (
       <MatchStateHero
@@ -155,16 +140,17 @@ export function MatchClient({
     );
   } else if (counterpart && latestMatch) {
     const reportLabel = reportHandlingChipLabel(latestMatch.reportStatus);
-    const counterpartName = counterpart.displayName ?? "TA";
-    const initial = avatarInitialFor(counterpart.displayName);
+    const counterpartName = introduced ? counterpart.displayName ?? "TA" : "TA";
+    const initial = introduced ? avatarInitialFor(counterpart.displayName) : "TA";
     hero = (
       <MatchStateHero
         variant="matched"
         avatarInitial={initial}
         title={counterpartName}
         subtitle={
-          counterpart.schoolName ??
-          (introduced ? "已引荐双方" : "等你决定如何破冰")
+          introduced
+            ? counterpart.schoolName ?? "已引荐双方"
+            : "等你决定如何破冰"
         }
         score={latestMatch.score}
         body={null}
@@ -240,7 +226,7 @@ export function MatchClient({
           </div>
         ) : null}
 
-        {counterpart?.introLine ? (
+        {introduced && counterpart?.introLine ? (
           <p className="v2-match-hero-body" style={{ marginTop: "-0.25rem", color: 'var(--fg-secondary)', fontSize: '0.9rem' }}>
             <strong>对方介绍：</strong>
             {counterpart.introLine}
@@ -347,6 +333,21 @@ export function MatchClient({
         ]}
       />
     );
+  } else if (
+    dashboard?.lastRevealedRound?.participationStatus === "OPTED_IN" &&
+    !dashboard.lastRevealedRound.matched &&
+    !latestMatch
+  ) {
+    hero = (
+      <MatchWaitingStrip
+        title="本轮未匹配到对象"
+        subtitle={`「${dashboard.lastRevealedRound.codename}」本轮可配对人数不足或没有与你强相容的组合。下一轮开放报名时回到首页即可再次参与，更新问卷也能提高下次成功率。`}
+        actions={[
+          { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
+          { label: "查看历史", href: "/dashboard/match/history", variant: "secondary" },
+        ]}
+      />
+    );
   } else {
     hero = (
       <MatchWaitingStrip
@@ -375,7 +376,7 @@ export function MatchClient({
               ? "本轮揭晓后这里会显示你的匹配对象与后续操作。"
               : introduced
                 ? "已完成本轮引荐。联系方式已在上方展示，你也可以直接发起见面邀请。"
-                : "对方名片已在上方展示。交换联系方式后即可看到联络方式，也可以直接发起见面邀请。"}
+                : "本轮匹配已揭晓。交换联系方式后即可看到联络方式，也可以直接发起见面邀请。"}
           </p>
         </div>
       </header>

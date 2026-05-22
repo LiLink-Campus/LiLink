@@ -88,12 +88,12 @@ test("audits installed Git hook config against the registry", () => {
     for (const hookConfig of GIT_HOOK_CONFIGS) {
       execFileSync(
         "git",
-        ["-C", repoRoot, "config", "set", `hook.${hookConfig.name}.event`, hookConfig.event],
+        ["-C", repoRoot, "config", `hook.${hookConfig.name}.event`, hookConfig.event],
         { windowsHide: true },
       );
       execFileSync(
         "git",
-        ["-C", repoRoot, "config", "set", `hook.${hookConfig.name}.command`, hookConfig.command],
+        ["-C", repoRoot, "config", `hook.${hookConfig.name}.command`, hookConfig.command],
         { windowsHide: true },
       );
     }

@@ -18,6 +18,12 @@ type MyCardEditorClientProps = {
   savedQuestionnaire: SavedQuestionnairePayload;
 };
 
+type QuestionnaireSaveResponse = {
+  saveState: "DRAFT" | "SUBMITTED";
+  questionnaireSubmittedAt: string | null;
+  hasDraft: boolean;
+};
+
 export function MyCardEditorClient({
   initialDisplayName,
   initialOneLinerIntro,
@@ -47,6 +53,17 @@ export function MyCardEditorClient({
       setError("昵称至少需要 2 个字符。");
       return;
     }
+    const trimmedOneLinerIntro = oneLinerIntro.trim();
+    if (trimmedOneLinerIntro.length === 0) {
+      setError("请填写一句话介绍。");
+      return;
+    }
+    if (trimmedOneLinerIntro.length > HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH) {
+      setError(
+        `一句话介绍请不要超过 ${HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH} 字。`,
+      );
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -70,14 +87,26 @@ export function MyCardEditorClient({
       // 2. Save questionnaire draft (display name & intro)
       const baseAnswers = savedQuestionnaire?.draft?.softAnswers ?? savedQuestionnaire?.answers ?? {};
 
-      await fetchApi("/me/questionnaire", {
-        method: "PUT",
-        body: JSON.stringify({
-          answers: baseAnswers,
-          hardMatchForm: { ...initialHardMatchForm, oneLinerIntro },
-          displayName: trimmedDisplayName,
-        }),
-      });
+      const saveResult = await fetchApi<QuestionnaireSaveResponse>(
+        "/me/questionnaire",
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            answers: baseAnswers,
+            hardMatchForm: {
+              ...initialHardMatchForm,
+              oneLinerIntro: trimmedOneLinerIntro,
+            },
+            displayName: trimmedDisplayName,
+          }),
+        },
+      );
+      if (saveResult.saveState !== "SUBMITTED") {
+        setError(
+          "名片已保存为草稿；请先补全匹配资料后再保存可展示的名片。",
+        );
+        return;
+      }
 
       router.refresh();
       router.back();

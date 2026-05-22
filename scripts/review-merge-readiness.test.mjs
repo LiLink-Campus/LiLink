@@ -27,24 +27,33 @@ test("force-run script only auto-selects cycles whose time gate has passed", () 
   );
 });
 
-test("dashboard focus keeps locked cycles and missing intent ahead of stale tasks", () => {
-  const source = readRepoFile("apps/web/src/app/dashboard/_lib/focus.ts");
+test("match page keeps current-cycle states ahead of stale last-round unmatched copy", () => {
+  const source = readRepoFile("apps/web/src/app/dashboard/match/match-client.tsx");
 
-  assert.match(source, /canEdit && \(!isOptedIn \|\| !intent\)/);
-  assert.match(source, /cycle && canEdit && isOptedIn && intent/);
+  assert.match(source, /const hasMissingIntent =/);
+  assert.match(source, /const currentCycleIsLocked =/);
 
-  const lockedIndex = indexOfOrThrow(
+  const missingIntentIndex = indexOfOrThrow(
     source,
-    "// 9: current cycle exists",
-    "locked cycle branch",
+    "} else if (hasMissingIntent)",
+    "missing-intent branch",
+  );
+  const lockedOptedInIndex = indexOfOrThrow(
+    source,
+    "currentCycle?.participationStatus === \"OPTED_IN\"",
+    "locked opted-in branch",
   );
   const lastRoundIndex = indexOfOrThrow(
     source,
-    "// 10: last round",
-    "last-round branch",
+    "dashboard?.lastRevealedRound?.participationStatus === \"OPTED_IN\"",
+    "last-round unmatched branch",
   );
   assert.ok(
-    lockedIndex < lastRoundIndex,
+    missingIntentIndex < lastRoundIndex,
+    "missing current-cycle intent must not be hidden by last-round unmatched state",
+  );
+  assert.ok(
+    lockedOptedInIndex < lastRoundIndex,
     "locked current cycles must not be hidden by last-round unmatched state",
   );
 });
@@ -71,18 +80,39 @@ test("profile and card editors expose and validate required public card fields",
 
   assert.doesNotMatch(profile, /name="oneLinerIntro"/);
   assert.match(profile, /HARD_MATCH_KEYS\.oneLinerIntro/);
+  assert.match(profile, /acknowledgedHardMatchKeys/);
+  assert.match(profile, /setAcknowledgedHardMatchKeys/);
+  assert.match(profile, /item\.acknowledged \|\| acknowledgedHardMatchKeySet\.has\(item\.key\)/);
+  assert.match(profile, /item\.updated && !item\.acknowledged && item\.missingRequired/);
   assert.match(card, /setOneLinerIntro/);
   assert.match(card, /HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH/);
+  assert.match(card, /trimmedOneLinerIntro/);
+  assert.match(card, /请填写一句话介绍。/);
+  assert.match(card, /saveResult\.saveState !== "SUBMITTED"/);
 
   const contactSave = indexOfOrThrow(card, 'fetchApi("/me/contact-preferences"');
   const displayNameValidation = indexOfOrThrow(card, "trimmedDisplayName.length < 2");
+  const oneLinerValidation = indexOfOrThrow(card, "trimmedOneLinerIntro.length === 0");
   assert.ok(
     displayNameValidation < contactSave,
     "card editor must validate display name before saving contact preferences",
   );
+  assert.ok(
+    oneLinerValidation < contactSave,
+    "card editor must validate one-line intro before saving contact preferences",
+  );
 
   assert.match(me, /hardMatchFormFromAnswers/);
   assert.doesNotMatch(me, /draft\?\.hardMatchForm\?\.oneLinerIntro/);
+});
+
+test("home questionnaire todo links to missing fields before updated defaults", () => {
+  const agenda = readRepoFile("apps/web/src/app/dashboard/_lib/agenda.ts");
+  const focus = readRepoFile("apps/web/src/app/dashboard/_lib/focus.ts");
+
+  assert.match(focus, /type QuestionnaireHrefPreference = "pending" \| "missing"/);
+  assert.match(agenda, /questionnaireHref\(q\.attention, "missing"\)/);
+  assert.match(agenda, /questionnaireHref\(q\.attention, "pending"\)/);
 });
 
 test("meetup proposal flow uses CST wall-clock values and recoverable candidate errors", () => {

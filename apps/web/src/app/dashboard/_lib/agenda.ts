@@ -299,7 +299,6 @@ function profileTodo(inputs: AgendaInputs): AgendaTodo {
 
 function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
   const q = inputs.questionnaire;
-  const href = questionnaireHref(q.attention);
   const missingCount = q.attention?.missingRequiredKeys?.length ?? 0;
   const pendingCount = q.attention?.pendingUpdatedKeys?.length ?? 0;
   const progress: AgendaTodoProgress = {
@@ -316,7 +315,14 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
       title: "匹配资料有必填项待补全",
       subtitle: `还有 ${missingCount} 项必填内容需要补完，才能参与本轮匹配。`,
       progress,
-      actions: [{ label: "去补全", kind: "link", href, variant: "primary" }],
+      actions: [
+        {
+          label: "去补全",
+          kind: "link",
+          href: questionnaireHref(q.attention, "missing"),
+          variant: "primary",
+        },
+      ],
     };
   }
 
@@ -332,7 +338,7 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
         {
           label: `去确认这 ${pendingCount} 项`,
           kind: "link",
-          href,
+          href: questionnaireHref(q.attention, "pending"),
           variant: "primary",
         },
       ],
@@ -347,7 +353,14 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
       title: q.submitted ? "继续完善匹配资料" : "先完成匹配资料",
       subtitle: "填完资料就能参加本轮匹配，算法会据此为你寻找相容的人。",
       progress,
-      actions: [{ label: "继续填写", kind: "link", href, variant: "primary" }],
+      actions: [
+        {
+          label: "继续填写",
+          kind: "link",
+          href: questionnaireHref(q.attention),
+          variant: "primary",
+        },
+      ],
     };
   }
 
@@ -363,8 +376,22 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
     progress,
     actions:
       q.percent >= 100
-        ? [{ label: "查看资料", kind: "link", href, variant: "ghost" }]
-        : [{ label: "继续", kind: "link", href, variant: "secondary" }],
+        ? [
+            {
+              label: "查看资料",
+              kind: "link",
+              href: questionnaireHref(q.attention),
+              variant: "ghost",
+            },
+          ]
+        : [
+            {
+              label: "继续",
+              kind: "link",
+              href: questionnaireHref(q.attention),
+              variant: "secondary",
+            },
+          ],
   };
 }
 

@@ -8,8 +8,17 @@ import type {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function questionnaireHref(attention: QuestionnaireAttentionPayload | null) {
-  const key = attention?.pendingKeys?.[0];
+type QuestionnaireHrefPreference = "pending" | "missing";
+
+export function questionnaireHref(
+  attention: QuestionnaireAttentionPayload | null,
+  preference: QuestionnaireHrefPreference = "pending",
+) {
+  const preferredKeys =
+    preference === "missing"
+      ? attention?.missingRequiredKeys
+      : attention?.pendingUpdatedKeys;
+  const key = preferredKeys?.[0] ?? attention?.pendingKeys?.[0];
   if (key === HARD_MATCH_KEYS.oneLinerIntro) {
     return "/dashboard/me/card";
   }

@@ -217,11 +217,11 @@ function initialProfileTab(
 }
 
 function questionnaireAttentionText(item: QuestionnaireAttentionItem) {
-  if (item.updated && item.missingRequired) {
+  if (item.updated && !item.acknowledged && item.missingRequired) {
     return "本题有更新，且当前答案待补完。";
   }
 
-  if (item.updated) {
+  if (item.updated && !item.acknowledged) {
     return "本题有更新。";
   }
 
@@ -653,9 +653,7 @@ export function ProfileClient({
     null,
   );
   const [matchEstimatePending, setMatchEstimatePending] = useState(false);
-  const [displayName, setDisplayName] = useState(
-    initialDraft?.displayName ?? initialUser.displayName ?? "",
-  );
+  const displayName = initialDraft?.displayName ?? initialUser.displayName ?? "";
   const [questionnaireSaveError, setQuestionnaireSaveError] = useState<
     string | null
   >(null);
@@ -672,6 +670,9 @@ export function ProfileClient({
   const questionnaireAttention = initialSavedQuestionnaire?.attention ?? null;
   const [acknowledgedQuestionnaireKeys, setAcknowledgedQuestionnaireKeys] =
     useState<string[]>(() => questionnaireAttention?.acknowledgedKeys ?? []);
+  const [acknowledgedHardMatchKeys, setAcknowledgedHardMatchKeys] = useState<
+    string[]
+  >([]);
   const questionBlockRefs = useRef(new Map<string, HTMLFieldSetElement>());
   const questionnaireAutosaveReady = useRef(false);
   const questionnaireSaveAbortRef = useRef<AbortController | null>(null);
@@ -803,6 +804,7 @@ export function ProfileClient({
 
   const questionAttentionByKey = useMemo(() => {
     const acknowledgedKeys = new Set(acknowledgedQuestionnaireKeys);
+    const acknowledgedHardMatchKeySet = new Set(acknowledgedHardMatchKeys);
     const hardMatchKeySet = new Set<string>(
       hardMatchAttentionFields().map((field) => field.key),
     );
@@ -814,7 +816,7 @@ export function ProfileClient({
         // Hard-match acknowledgement is decided by the backend signature; only
         // soft questions fall back to the version-scoped acknowledgedKeys.
         acknowledged: hardMatchKeySet.has(item.key)
-          ? item.acknowledged
+          ? item.acknowledged || acknowledgedHardMatchKeySet.has(item.key)
           : !item.updated || acknowledgedKeys.has(item.key),
       });
     }
@@ -846,7 +848,7 @@ export function ProfileClient({
           updated: current?.updated ?? false,
           missingRequired: true,
           acknowledged: current?.updated
-            ? acknowledgedKeys.has(field.key)
+            ? current.acknowledged || acknowledgedHardMatchKeySet.has(field.key)
             : true,
         });
       }
@@ -875,6 +877,7 @@ export function ProfileClient({
 
     return attentionByKey;
   }, [
+    acknowledgedHardMatchKeys,
     acknowledgedQuestionnaireKeys,
     answers,
     hardMatchForm,
@@ -963,6 +966,15 @@ export function ProfileClient({
 
         if (!questionnaireAutosaveLifecycle.isUnmounted()) {
           setAcknowledgedQuestionnaireKeys(result.acknowledgedKeys);
+          const hardMatchKeySet = new Set<string>(
+            hardMatchAttentionFields().map((field) => field.key),
+          );
+          const hardMatchKeys = keys.filter((key) => hardMatchKeySet.has(key));
+          if (hardMatchKeys.length > 0) {
+            setAcknowledgedHardMatchKeys((current) => [
+              ...new Set([...current, ...hardMatchKeys]),
+            ]);
+          }
         }
       } catch {
         // Keep the marker visible; the next viewport pass can retry.
@@ -1128,6 +1140,9 @@ export function ProfileClient({
         if (result.saveState === "SUBMITTED") {
           setAcknowledgedQuestionnaireKeys(
             questions.map((question) => question.key),
+          );
+          setAcknowledgedHardMatchKeys(
+            hardMatchAttentionFields().map((field) => field.key),
           );
         }
         setQuestionnaireSaveState(
