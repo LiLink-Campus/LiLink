@@ -6341,3 +6341,185 @@ cursor: pointer;
   flex-wrap: wrap;
   gap: 0.6rem;
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Merchant promo · coupons / referrals (UI refactor)
+   Flat selectors on globals.css tokens.
+   ────────────────────────────────────────────────────────────── */
+
+/* Shared load / empty / error state */
+.me-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--fg-secondary);
+}
+
+.me-state.is-error {
+  color: var(--error);
+}
+
+.me-state-spinner {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 3px solid var(--primary-soft);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: me-spin 0.8s linear infinite;
+}
+
+@keyframes me-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Coupon cards */
+.me-coupon {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.me-coupon.is-archived {
+  border-left-color: var(--neutral);
+  opacity: 0.72;
+}
+
+.me-coupon-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.me-coupon-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--fg);
+}
+
+.me-coupon-merchant {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  color: var(--fg-secondary);
+}
+
+.me-badge {
+  flex-shrink: 0;
+  padding: 0.18rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.me-badge.is-muted {
+  background: var(--neutral-soft);
+  color: var(--fg-muted);
+}
+
+.me-coupon-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.me-coupon-row-label {
+  color: var(--fg-secondary);
+}
+
+.me-coupon-code {
+  padding: 0.35rem 0.65rem;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 1.05rem;
+  letter-spacing: 0.1em;
+  color: var(--primary-ink);
+  background: var(--bg-soft);
+  border-radius: var(--radius-xs);
+}
+
+/* Referrals · QR + share button + funnel */
+.me-qr {
+  display: inline-block;
+  padding: 0.75rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.me-share-btn {
+  padding: 0.4rem 0.95rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.me-share-btn:hover {
+  background: var(--primary-tint);
+}
+
+.me-share-btn.is-copied {
+  color: var(--success);
+  background: var(--success-soft);
+  border-color: transparent;
+}
+
+.me-funnel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.25rem 0;
+}
+
+.me-funnel-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 2.5rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.me-funnel-label {
+  font-size: 0.85rem;
+  color: var(--fg-secondary);
+}
+
+.me-funnel-track {
+  height: 0.65rem;
+  background: var(--bg-soft);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.me-funnel-bar {
+  height: 100%;
+  min-width: 0.65rem;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: var(--radius-pill);
+}
+
+.me-funnel-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--fg);
+}

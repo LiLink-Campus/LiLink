@@ -42,14 +42,17 @@ export function CouponsClient() {
   if (loading) {
     return (
       <main className="app-page-shell v2-page-shell">
-        <p style={{ padding: "2rem" }}>加载中……</p>
+        <div className="me-state">
+          <span className="me-state-spinner" />
+          <span>加载中……</span>
+        </div>
       </main>
     );
   }
   if (error) {
     return (
       <main className="app-page-shell v2-page-shell">
-        <p style={{ padding: "2rem" }}>{error}</p>
+        <div className="me-state is-error">{error}</div>
       </main>
     );
   }
@@ -70,29 +73,28 @@ export function CouponsClient() {
           <h3>可用（{issued.length}）</h3>
         </div>
         {issued.length === 0 ? (
-          <p style={{ padding: "0 1rem" }}>
+          <div className="me-state">
             暂无可用优惠券。完善资料并报名匹配周期后即可获得。
-          </p>
+          </div>
         ) : (
           issued.map((coupon) => (
-            <div key={coupon.id} className="me-card-preview">
-              <div className="me-card-preview-header">
-                <h3>{coupon.title}</h3>
-                <p>
-                  {coupon.merchantName} · {coupon.benefitText}
-                </p>
+            <div key={coupon.id} className="me-coupon">
+              <div className="me-coupon-head">
+                <div>
+                  <p className="me-coupon-title">{coupon.title}</p>
+                  <p className="me-coupon-merchant">
+                    {coupon.merchantName} · {coupon.benefitText}
+                  </p>
+                </div>
+                <span className="me-badge">可用</span>
               </div>
-              <div className="me-card-preview-content">
-                <div className="me-card-field">
-                  <span className="me-card-label">核销码</span>
-                  <span className="me-card-value">{coupon.code}</span>
-                </div>
-                <div className="me-card-field">
-                  <span className="me-card-label">有效期</span>
-                  <span className="me-card-value">
-                    {formatExpiry(coupon.expiresAt)}
-                  </span>
-                </div>
+              <div className="me-coupon-row">
+                <span className="me-coupon-row-label">核销码</span>
+                <span className="me-coupon-code">{coupon.code}</span>
+              </div>
+              <div className="me-coupon-row">
+                <span className="me-coupon-row-label">有效期</span>
+                <span>{formatExpiry(coupon.expiresAt)}</span>
               </div>
             </div>
           ))
@@ -105,13 +107,16 @@ export function CouponsClient() {
             <h3>已使用 / 已过期（{archived.length}）</h3>
           </div>
           {archived.map((coupon) => (
-            <div key={coupon.id} className="me-card-field">
-              <span className="me-card-label">
-                {coupon.title} · {coupon.merchantName}
-              </span>
-              <span className="me-card-value">
-                {STATUS_LABELS[coupon.status] ?? coupon.status}
-              </span>
+            <div key={coupon.id} className="me-coupon is-archived">
+              <div className="me-coupon-head">
+                <div>
+                  <p className="me-coupon-title">{coupon.title}</p>
+                  <p className="me-coupon-merchant">{coupon.merchantName}</p>
+                </div>
+                <span className="me-badge is-muted">
+                  {STATUS_LABELS[coupon.status] ?? coupon.status}
+                </span>
+              </div>
             </div>
           ))}
         </section>
