@@ -1,10 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { createHash } from 'crypto';
 import {
   generateHumanCode,
+  INVITE_CODE_LENGTH,
   PERSONAL_CODE_LENGTH,
+  REFERRAL_CHANNELS,
   readReferralChannel,
   type ReferralChannel,
 } from '@lilink/shared';
+import { env } from '../../config/env';
 import { PrismaClient } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -28,6 +32,18 @@ export interface RegistrationAttribution {
   referralChannel: ReferralChannel | null;
   // Frozen at registration; never re-derived afterwards.
   referralCampaignId: string | null;
+}
+
+export interface MyReferralOverview {
+  referralCode: string | null;
+  links: { channel: ReferralChannel; url: string }[];
+  funnel: {
+    invited: number;
+    registered: number;
+    activated: number;
+    claimed: number;
+    redeemed: number;
+  };
 }
 
 @Injectable()
@@ -148,6 +164,142 @@ export class ReferralService {
     }
 
     return { referredByUserId, referralChannel, referralCampaignId };
+  }
+
+  /** Record a share-button click (intent). Not deduped — every tap counts. */
+  async recordShareEvent(
+    referrerUserId: string,
+    channel: ReferralChannel,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: referrerUserId },
+      select: { referralCampaignId: true },
+    });
+    await this.prisma.referralEvent.create({
+      data: {
+        type: 'SHARE',
+        referrerUserId,
+        campaignId: user?.referralCampaignId ?? null,
+        channel,
+      },
+    });
+  }
+
+  /**
+   * Record a landing-page click. The code is routed by length (8 = recruiter,
+   * 10 = personal); other lengths or unknown codes are INVALID. CLICK is
+   * UV-deduped per (code, day, visitor): a unique dedupeKey collision is a
+   * same-visitor repeat and is silently ignored.
+   */
+  async recordClickEvent(input: {
+    code: string;
+    channel?: string | null;
+    visitorHash: string;
+  }): Promise<{ result: 'OK' | 'INVALID' }> {
+    const code = input.code.trim().toUpperCase();
+    let referrerUserId: string | null = null;
+    let inviteCodeId: string | null = null;
+    let campaignId: string | null = null;
+
+    if (code.length === PERSONAL_CODE_LENGTH) {
+      const referrer = await this.prisma.user.findUnique({
+        where: { referralCode: code },
+        select: { id: true, referralCampaignId: true },
+      });
+      if (!referrer) return { result: 'INVALID' };
+      referrerUserId = referrer.id;
+      campaignId = referrer.referralCampaignId;
+    } else if (code.length === INVITE_CODE_LENGTH) {
+      const inviteCode = await this.prisma.inviteCode.findUnique({
+        where: { code },
+        select: { id: true, campaignId: true },
+      });
+      if (!inviteCode) return { result: 'INVALID' };
+      inviteCodeId = inviteCode.id;
+      campaignId = inviteCode.campaignId;
+    } else {
+      return { result: 'INVALID' };
+    }
+
+    const day = new Date().toISOString().slice(0, 10);
+    const dedupeKey = createHash('sha256')
+      .update(`${code}\n${day}\n${input.visitorHash}`)
+      .digest('hex');
+    try {
+      await this.prisma.referralEvent.create({
+        data: {
+          type: 'CLICK',
+          referrerUserId,
+          inviteCodeId,
+          campaignId,
+          channel: readReferralChannel(input.channel),
+          dedupeKey,
+          visitorHash: input.visitorHash,
+        },
+      });
+    } catch (error) {
+      if (!this.isUniqueConstraintError(error)) throw error;
+      // Already recorded for this visitor today -> dedupe, no-op.
+    }
+    return { result: 'OK' };
+  }
+
+  /**
+   * Build the signed-in user's referral overview: personal code, per-channel
+   * share links, and the funnel of people they referred (personal code). The
+   * activated/claimed/redeemed counts read M0 tables and stay 0 until M2/M3
+   * produce activation/coupon/redemption data. Test accounts are excluded.
+   */
+  async getMyReferralOverview(userId: string): Promise<MyReferralOverview> {
+    const referralCode = await this.assignReferralCodeIfMissing(userId);
+    const links = referralCode
+      ? REFERRAL_CHANNELS.map((channel) => ({
+          channel,
+          url: `${env.CLIENT_ORIGIN}/i/${referralCode}?ch=${channel}`,
+        }))
+      : [];
+
+    const referrals = await this.prisma.user.findMany({
+      where: { referredByUserId: userId, isTest: false },
+      select: { id: true },
+    });
+    const referredIds = referrals.map((referral) => referral.id);
+    const invited = referredIds.length;
+
+    let activated = 0;
+    let claimed = 0;
+    let redeemed = 0;
+    if (referredIds.length > 0) {
+      const [activatedUsers, claimedUsers, redeemedUsers] = await Promise.all([
+        this.prisma.campaignActivation.findMany({
+          where: { userId: { in: referredIds } },
+          select: { userId: true },
+          distinct: ['userId'],
+        }),
+        this.prisma.campaignActivation.findMany({
+          where: {
+            userId: { in: referredIds },
+            couponsGrantedAt: { not: null },
+          },
+          select: { userId: true },
+          distinct: ['userId'],
+        }),
+        this.prisma.redemption.findMany({
+          where: { userId: { in: referredIds } },
+          select: { userId: true },
+          distinct: ['userId'],
+        }),
+      ]);
+      activated = activatedUsers.length;
+      claimed = claimedUsers.length;
+      redeemed = redeemedUsers.length;
+    }
+
+    return {
+      referralCode,
+      links,
+      funnel: { invited, registered: invited, activated, claimed, redeemed },
+    };
   }
 
   private isUniqueConstraintError(error: unknown): boolean {
