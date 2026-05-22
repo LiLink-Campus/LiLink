@@ -18,6 +18,12 @@ import {
   contactChannelLabel,
   hardMatchAttentionFields,
   hardMatchAttentionKeys,
+  hardMatchFieldHasValue,
+  hardMatchFieldSignature,
+  hardMatchSignatureFieldKeys,
+  currentHardMatchConfirmSignature,
+  HARD_MATCH_WEIGHT_KEYS,
+  HARD_MATCH_WEIGHT_ACK,
   isWeeklyIntent,
   normalizeLocale,
   type ContactChannelType,
@@ -307,6 +313,19 @@ function normalizeAcknowledgedQuestionnaireKeys(rawKeys: unknown) {
         .filter((key) => key.length > 0),
     ),
   ];
+}
+
+function normalizeHardMatchSignatures(raw: unknown): Record<string, string> {
+  if (!isRecord(raw)) {
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string') {
+      out[key] = value;
+    }
+  }
+  return out;
 }
 
 function normalizeQuestionOptionsForComparison(
@@ -1256,12 +1275,16 @@ export class AccountService {
     filteredAnswers: Record<string, unknown>;
     acknowledgedVersionId: string | null | undefined;
     acknowledgedKeys: unknown;
+    acknowledgedHardMatchSignatures: unknown;
   }) {
     const acknowledgedKeys =
       args.acknowledgedVersionId === args.currentVersionId
         ? normalizeAcknowledgedQuestionnaireKeys(args.acknowledgedKeys)
         : [];
     const acknowledgedKeySet = new Set(acknowledgedKeys);
+    const storedSignatures = normalizeHardMatchSignatures(
+      args.acknowledgedHardMatchSignatures,
+    );
     const previousQuestionsByKey = new Map(
       args.previousQuestions.map((question) => [question.key, question]),
     );
@@ -1298,12 +1321,39 @@ export class AccountService {
     }
 
     for (const field of hardMatchAttentionFields()) {
-      const updated =
+      const value = args.filteredAnswers[field.key];
+      const present =
+        Object.prototype.hasOwnProperty.call(args.filteredAnswers, field.key) &&
+        hardMatchFieldHasValue(value);
+
+      const enumSignature = hardMatchFieldSignature(field.key);
+      const isWeight = HARD_MATCH_WEIGHT_KEYS.includes(field.key);
+
+      // Whether this hard-match field is confirmed against the CURRENT schema,
+      // decided purely by the stored signature — independent of the soft
+      // questionnaire version, so a soft bump never re-nags a confirmed field.
+      let signatureConfirmed: boolean;
+      if (enumSignature !== null) {
+        signatureConfirmed = storedSignatures[field.key] === enumSignature;
+      } else if (isWeight) {
+        signatureConfirmed =
+          present || storedSignatures[field.key] === HARD_MATCH_WEIGHT_ACK;
+      } else {
+        signatureConfirmed = true;
+      }
+
+      // Newly introduced field (version bumped + key absent), suppressed once
+      // the field is signature-confirmed.
+      const legacyUpdated =
+        !signatureConfirmed &&
         hasVersionUpdate &&
         !Object.prototype.hasOwnProperty.call(args.rawAnswers, field.key);
-      const missingRequired =
-        field.required &&
-        !Object.prototype.hasOwnProperty.call(args.filteredAnswers, field.key);
+      const enumStale =
+        enumSignature !== null && present && !signatureConfirmed;
+      const weightNeedsConfirm = isWeight && !present && !signatureConfirmed;
+      const updated = legacyUpdated || enumStale || weightNeedsConfirm;
+
+      const missingRequired = field.required && !present;
 
       if (!updated && !missingRequired) {
         continue;
@@ -1314,7 +1364,7 @@ export class AccountService {
         prompt: field.label,
         updated,
         missingRequired,
-        acknowledged: !updated || acknowledgedKeySet.has(field.key),
+        acknowledged: signatureConfirmed,
       });
     }
 
@@ -1561,6 +1611,17 @@ export class AccountService {
       );
       const submittedAt = new Date();
 
+      // Submitting confirms every enum hard-match field against the current
+      // option set. Merged (not overwritten) so a prior explicit empty-weight
+      // confirmation survives a re-submit.
+      const submittedEnumSignatures: Record<string, string> = {};
+      for (const key of hardMatchSignatureFieldKeys()) {
+        const sig = hardMatchFieldSignature(key);
+        if (sig) {
+          submittedEnumSignatures[key] = sig;
+        }
+      }
+
       const submittedOperations: Prisma.PrismaPromise<unknown>[] = [];
 
       if (displayNameUpdate !== undefined) {
@@ -1593,6 +1654,18 @@ export class AccountService {
             submittedAt,
           },
         }),
+      );
+
+      // Refresh enum signatures via JSONB merge (runs after the upsert in the
+      // same transaction, preserving any stored empty-weight confirmation).
+      submittedOperations.push(
+        this.prisma.$executeRaw`
+          UPDATE "QuestionnaireResponse"
+          SET "acknowledgedHardMatchSignatures" =
+            COALESCE("acknowledgedHardMatchSignatures", '{}'::jsonb)
+            || ${JSON.stringify(submittedEnumSignatures)}::jsonb
+          WHERE "userId" = ${userId}
+        `,
       );
 
       await this.prisma.$transaction(submittedOperations);
@@ -1736,6 +1809,8 @@ export class AccountService {
         filteredAnswers,
         acknowledgedVersionId: response.acknowledgedQuestionnaireVersionId,
         acknowledgedKeys: response.acknowledgedQuestionnaireKeys,
+        acknowledgedHardMatchSignatures:
+          response.acknowledgedHardMatchSignatures,
       }),
     };
   }
@@ -1790,12 +1865,26 @@ export class AccountService {
       };
     }
 
+    // Hard-match keys carry a signature instead of a bare ack flag: enum
+    // fields store the current option-set signature, weight fields the
+    // empty-ack sentinel. Merged into the JSONB column in the same UPDATE.
+    const hardMatchAcks: Record<string, string> = {};
+    for (const key of requestedKeys) {
+      const sig = currentHardMatchConfirmSignature(key);
+      if (sig) {
+        hardMatchAcks[key] = sig;
+      }
+    }
+
     const updatedRows = await this.prisma.$queryRaw<
       QuestionnaireAcknowledgementRow[]
     >`
       UPDATE "QuestionnaireResponse" AS response
       SET
         "acknowledgedQuestionnaireVersionId" = ${currentQuestionnaire.id},
+        "acknowledgedHardMatchSignatures" =
+          COALESCE(response."acknowledgedHardMatchSignatures", '{}'::jsonb)
+          || ${JSON.stringify(hardMatchAcks)}::jsonb,
         "acknowledgedQuestionnaireKeys" = (
           SELECT COALESCE(
             jsonb_agg(DISTINCT acknowledged_key ORDER BY acknowledged_key),

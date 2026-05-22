@@ -1,7 +1,32 @@
 import { BadRequestException } from '@nestjs/common';
+import {
+  hardMatchFieldSignature,
+  hardMatchSignatureFieldKeys,
+  HARD_MATCH_WEIGHT_ACK,
+  HARD_MATCH_WEIGHT_KEYS,
+} from '@lilink/shared';
 import { Prisma } from '../../common/prisma/client';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
+
+// A fully-confirmed hard-match signature map: every enum field signed against
+// the current option set, plus an explicit empty-weight confirmation. Fixtures
+// attach this so they don't trip the (intended) "stale default" attention.
+function buildConfirmedHardMatchSignatures(
+  exclude: readonly string[] = [],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const key of hardMatchSignatureFieldKeys()) {
+    if (exclude.includes(key)) continue;
+    const sig = hardMatchFieldSignature(key);
+    if (sig) map[key] = sig;
+  }
+  for (const key of HARD_MATCH_WEIGHT_KEYS) {
+    if (exclude.includes(key)) continue;
+    map[key] = HARD_MATCH_WEIGHT_ACK;
+  }
+  return map;
+}
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 
@@ -1185,6 +1210,8 @@ describe('AccountService', () => {
             },
             acknowledgedQuestionnaireVersionId: null,
             acknowledgedQuestionnaireKeys: null,
+            acknowledgedHardMatchSignatures:
+              buildConfirmedHardMatchSignatures(),
             submittedAt: new Date('2026-04-18T12:00:00.000Z'),
             version: {
               questions: [
@@ -1275,6 +1302,8 @@ describe('AccountService', () => {
             },
             acknowledgedQuestionnaireVersionId: null,
             acknowledgedQuestionnaireKeys: null,
+            acknowledgedHardMatchSignatures:
+              buildConfirmedHardMatchSignatures(),
             submittedAt: new Date('2026-04-18T12:00:00.000Z'),
             version: {
               questions: [
@@ -1369,6 +1398,9 @@ describe('AccountService', () => {
             },
             acknowledgedQuestionnaireVersionId: null,
             acknowledgedQuestionnaireKeys: null,
+            acknowledgedHardMatchSignatures: buildConfirmedHardMatchSignatures([
+              HARD_MATCH_KEYS.partnerLanguages,
+            ]),
             submittedAt: new Date('2026-04-18T12:00:00.000Z'),
             version: {
               questions: [
@@ -1428,6 +1460,165 @@ describe('AccountService', () => {
         ],
       },
     });
+  });
+
+  it('flags stale-signature enum fields and unconfirmed empty weights', async () => {
+    const service = new AccountService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({ schoolId: 'school-bupt' }),
+        },
+        questionnaireResponse: {
+          findUnique: jest.fn().mockResolvedValue({
+            versionId: 'version-current',
+            answers: {
+              ...buildSubmittedQuestionnaireResponse().answers,
+              current_question: 'kept',
+            },
+            acknowledgedQuestionnaireVersionId: 'version-current',
+            acknowledgedQuestionnaireKeys: ['current_question'],
+            // Confirmed EXCEPT: looks carries a stale signature, and the empty
+            // weights were never explicitly confirmed.
+            acknowledgedHardMatchSignatures: {
+              ...buildConfirmedHardMatchSignatures([
+                HARD_MATCH_KEYS.weightKg,
+                HARD_MATCH_KEYS.partnerWeightMin,
+                HARD_MATCH_KEYS.partnerWeightMax,
+              ]),
+              [HARD_MATCH_KEYS.looks]: 'v1:stale-signature',
+            },
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            version: {
+              questions: [
+                {
+                  key: 'current_question',
+                  prompt: 'Current question',
+                  description: null,
+                  type: 'SINGLE_SELECT',
+                  required: true,
+                  selectionLimit: null,
+                  options: [{ value: 'kept', label: 'Kept' }],
+                },
+              ],
+            },
+          }),
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'kept', label: 'Kept' }],
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          ],
+        }),
+        sanitizeStoredAnswers: jest
+          .fn()
+          .mockReturnValue({ current_question: 'kept' }),
+      } as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const result = (await service.getQuestionnaire('user-1')) as {
+      attention: { pendingUpdatedKeys: string[] };
+    };
+    const pending = result.attention.pendingUpdatedKeys;
+
+    expect(pending).toEqual(
+      expect.arrayContaining([
+        HARD_MATCH_KEYS.looks,
+        HARD_MATCH_KEYS.weightKg,
+        HARD_MATCH_KEYS.partnerWeightMin,
+        HARD_MATCH_KEYS.partnerWeightMax,
+      ]),
+    );
+    // Confirmed enum fields and the unchanged soft question stay quiet.
+    expect(pending).not.toContain(HARD_MATCH_KEYS.gender);
+    expect(pending).not.toContain('current_question');
+  });
+
+  it('clears the weight nudge once the empty weight is acknowledged', async () => {
+    const service = new AccountService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({ schoolId: 'school-bupt' }),
+        },
+        questionnaireResponse: {
+          findUnique: jest.fn().mockResolvedValue({
+            versionId: 'version-current',
+            answers: {
+              ...buildSubmittedQuestionnaireResponse().answers,
+              current_question: 'kept',
+            },
+            acknowledgedQuestionnaireVersionId: 'version-current',
+            acknowledgedQuestionnaireKeys: ['current_question'],
+            // Fully confirmed, including explicit empty-weight acknowledgement.
+            acknowledgedHardMatchSignatures:
+              buildConfirmedHardMatchSignatures(),
+            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+            version: {
+              questions: [
+                {
+                  key: 'current_question',
+                  prompt: 'Current question',
+                  description: null,
+                  type: 'SINGLE_SELECT',
+                  required: true,
+                  selectionLimit: null,
+                  options: [{ value: 'kept', label: 'Kept' }],
+                },
+              ],
+            },
+          }),
+        },
+      } as never,
+      {} as never,
+      {
+        getCurrentVersion: jest.fn().mockResolvedValue({
+          id: 'version-current',
+          questions: [
+            {
+              key: 'current_question',
+              prompt: 'Current question',
+              description: null,
+              type: 'SINGLE_SELECT',
+              required: true,
+              selectionLimit: null,
+              options: [{ value: 'kept', label: 'Kept' }],
+            },
+          ],
+          schools: [
+            { id: 'school-bupt', name: '北京邮电大学玛丽女王海南学院' },
+          ],
+        }),
+        sanitizeStoredAnswers: jest
+          .fn()
+          .mockReturnValue({ current_question: 'kept' }),
+      } as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const result = (await service.getQuestionnaire('user-1')) as {
+      attention: { pendingUpdatedKeys: string[] };
+    };
+
+    expect(result.attention.pendingUpdatedKeys).not.toContain(
+      HARD_MATCH_KEYS.partnerWeightMin,
+    );
+    expect(result.attention.pendingUpdatedKeys).not.toContain(
+      HARD_MATCH_KEYS.looks,
+    );
   });
 
   it('persists questionnaire attention acknowledgement keys per current version', async () => {
@@ -1541,6 +1732,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       {
         $transaction: transaction,
+        $executeRaw: jest.fn().mockResolvedValue(1),
         user: {
           findUniqueOrThrow: jest.fn().mockResolvedValue({
             id: 'user-1',
@@ -1688,6 +1880,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       {
         $transaction: transaction,
+        $executeRaw: jest.fn().mockResolvedValue(1),
         user: {
           findUniqueOrThrow: jest.fn().mockResolvedValue({
             id: 'user-1',
@@ -1759,7 +1952,8 @@ describe('AccountService', () => {
     expect(transaction).toHaveBeenCalledTimes(1);
     const submittedOperations = transaction.mock.calls[0]?.[0];
     expect(submittedOperations).toBeDefined();
-    expect(submittedOperations).toHaveLength(1);
+    // upsert + the hard-match signature JSONB merge (no user row rewrite).
+    expect(submittedOperations).toHaveLength(2);
     expect(upsert).toHaveBeenCalledTimes(1);
   });
 
@@ -1909,6 +2103,7 @@ describe('AccountService', () => {
     const service = new AccountService(
       {
         $transaction: transaction,
+        $executeRaw: jest.fn().mockResolvedValue(1),
         user: {
           findUniqueOrThrow: jest.fn().mockResolvedValue({
             id: 'user-1',

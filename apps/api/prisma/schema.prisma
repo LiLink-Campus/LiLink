@@ -315,6 +315,7 @@ model QuestionnaireResponse {
   draftAnswers                       Json?
   acknowledgedQuestionnaireVersionId String?
   acknowledgedQuestionnaireKeys      Json?
+  acknowledgedHardMatchSignatures    Json?
   submittedAt                        DateTime?
   updatedAt                          DateTime             @updatedAt
 
