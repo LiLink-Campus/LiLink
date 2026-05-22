@@ -1365,3 +1365,249 @@
     flex-wrap: wrap;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Merchant promo admin · badges, sub-panels, dashboard charts
+   Flat selectors on globals.css tokens.
+   ────────────────────────────────────────────────────────────── */
+
+/* Status badges */
+.qb-badge {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.qb-badge.is-active {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.qb-badge.is-draft {
+  background: var(--gold-soft);
+  color: var(--warning);
+}
+
+.qb-badge.is-ended {
+  background: var(--neutral-soft);
+  color: var(--fg-muted);
+}
+
+.qb-badge.is-off {
+  background: var(--error-soft);
+  color: var(--error);
+}
+
+/* Expandable sub-panel (coupon templates / merchant detail) */
+.qb-subpanel {
+  margin-top: 0.25rem;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-tinted);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.qb-subpanel h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--fg);
+}
+
+.qb-subpanel h4 + p {
+  margin-top: 0;
+}
+
+/* Promotion dashboard · metric cards */
+.qb-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.qb-metric {
+  padding: 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+
+.qb-metric-value {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.qb-metric-label {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  color: var(--fg-secondary);
+}
+
+/* Section wrapper */
+.qb-section {
+  margin-top: 1.5rem;
+}
+
+.qb-section > h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+  color: var(--fg);
+}
+
+/* CSS funnel */
+.qb-funnel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.qb-funnel-step {
+  display: grid;
+  grid-template-columns: 4rem 1fr;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.qb-funnel-label {
+  font-size: 0.82rem;
+  color: var(--fg-secondary);
+  text-align: right;
+}
+
+.qb-funnel-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.qb-funnel-bar {
+  height: 1.5rem;
+  min-width: 2px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: var(--radius-sm);
+}
+
+.qb-funnel-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--fg);
+}
+
+.qb-funnel-rate {
+  margin: 0 0 0 4.6rem;
+  font-size: 0.74rem;
+  color: var(--fg-muted);
+}
+
+/* Gender distribution bar */
+.qb-genderbar {
+  display: flex;
+  height: 0.7rem;
+  min-width: 6rem;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-soft);
+}
+
+.qb-genderbar-seg {
+  height: 100%;
+}
+
+.qb-genderbar-seg.is-male {
+  background: var(--primary);
+}
+
+.qb-genderbar-seg.is-female {
+  background: var(--accent);
+}
+
+.qb-genderbar-seg.is-nonbinary {
+  background: var(--gold);
+}
+
+.qb-genderbar-seg.is-unknown {
+  background: var(--neutral);
+}
+
+.qb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--fg-secondary);
+}
+
+.qb-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.qb-legend-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+}
+
+/* Data tables */
+.qb-table-wrap {
+  overflow-x: auto;
+}
+
+.qb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.qb-table th {
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  background: var(--bg-soft);
+  color: var(--fg-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.qb-table td {
+  padding: 0.55rem 0.7rem;
+  border-top: 1px solid var(--border);
+}
+
+.qb-table tbody tr:nth-child(even) {
+  background: var(--bg-tinted);
+}
+
+.qb-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.qb-cell-strong {
+  font-weight: 650;
+  color: var(--primary-ink);
+}
+
+/* Inline mini bar (leaderboard) */
+.qb-minibar-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.qb-minibar {
+  height: 0.5rem;
+  min-width: 2px;
+  max-width: 4rem;
+  background: var(--primary-soft);
+  border-radius: var(--radius-pill);
+}

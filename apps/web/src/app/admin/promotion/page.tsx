@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import type {
   AdminCampaign,
@@ -12,6 +12,21 @@ import type {
 } from "../types";
 
 const PAGE_SIZE = 20;
+
+const STEP_LABELS: Record<string, string> = {
+  invited: "邀请",
+  registered: "注册",
+  activated: "激活",
+  granted: "领券",
+  redeemed: "核销",
+};
+
+const GENDER_LABELS: Record<string, string> = {
+  male: "男",
+  female: "女",
+  nonBinary: "非二元",
+  unknown: "未知",
+};
 
 function isoDay(offsetDays: number) {
   return new Date(Date.now() + offsetDays * 86_400_000)
@@ -25,6 +40,75 @@ function yuan(cents: number) {
 
 function emptyPage<T>(): PaginatedResult<T> {
   return { items: [], total: 0, page: 1, pageSize: PAGE_SIZE, totalPages: 1 };
+}
+
+function stepCount(funnel: PromotionFunnel, key: string) {
+  return funnel.steps.find((step) => step.key === key)?.count ?? 0;
+}
+
+function GenderBar({
+  g,
+}: {
+  g: { male: number; female: number; nonBinary: number; unknown: number };
+}) {
+  const total = g.male + g.female + g.nonBinary + g.unknown;
+  if (total === 0) return <span className="qb-genderbar" />;
+  const pct = (n: number) => `${((n / total) * 100).toFixed(1)}%`;
+  return (
+    <div
+      className="qb-genderbar"
+      title={`男 ${g.male} · 女 ${g.female} · 非二元 ${g.nonBinary} · 未知 ${g.unknown}`}
+    >
+      <span
+        className="qb-genderbar-seg is-male"
+        style={{ width: pct(g.male) }}
+      />
+      <span
+        className="qb-genderbar-seg is-female"
+        style={{ width: pct(g.female) }}
+      />
+      <span
+        className="qb-genderbar-seg is-nonbinary"
+        style={{ width: pct(g.nonBinary) }}
+      />
+      <span
+        className="qb-genderbar-seg is-unknown"
+        style={{ width: pct(g.unknown) }}
+      />
+    </div>
+  );
+}
+
+function GenderLegend() {
+  return (
+    <div className="qb-legend">
+      <span className="qb-legend-item">
+        <span
+          className="qb-legend-dot"
+          style={{ background: "var(--primary)" }}
+        />
+        男
+      </span>
+      <span className="qb-legend-item">
+        <span
+          className="qb-legend-dot"
+          style={{ background: "var(--accent)" }}
+        />
+        女
+      </span>
+      <span className="qb-legend-item">
+        <span className="qb-legend-dot" style={{ background: "var(--gold)" }} />
+        非二元
+      </span>
+      <span className="qb-legend-item">
+        <span
+          className="qb-legend-dot"
+          style={{ background: "var(--neutral)" }}
+        />
+        未知
+      </span>
+    </div>
+  );
 }
 
 export default function AdminPromotionPage() {
@@ -118,6 +202,13 @@ export default function AdminPromotionPage() {
     }
   }
 
+  const funnelMax = funnel?.steps[0]?.count || 1;
+  const invited = funnel ? stepCount(funnel, "invited") : 0;
+  const activated = funnel ? stepCount(funnel, "activated") : 0;
+  const granted = funnel ? stepCount(funnel, "granted") : 0;
+  const redeemed = funnel ? stepCount(funnel, "redeemed") : 0;
+  const maxInvited = Math.max(...leaderboard.items.map((row) => row.invited), 1);
+
   return (
     <div className="qb-container">
       <div className="qb-header">
@@ -129,8 +220,14 @@ export default function AdminPromotionPage() {
         </div>
       </div>
 
-      <div className="qb-search" style={{ flexWrap: "wrap", alignItems: "center" }}>
-        <select value={campaignId} onChange={(event) => setCampaignId(event.target.value)}>
+      <div
+        className="qb-search"
+        style={{ flexWrap: "wrap", alignItems: "center" }}
+      >
+        <select
+          value={campaignId}
+          onChange={(event) => setCampaignId(event.target.value)}
+        >
           <option value="">选择活动…</option>
           {campaigns.map((campaign) => (
             <option key={campaign.id} value={campaign.id}>
@@ -138,8 +235,16 @@ export default function AdminPromotionPage() {
             </option>
           ))}
         </select>
-        <input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-        <input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+        <input
+          type="date"
+          value={from}
+          onChange={(event) => setFrom(event.target.value)}
+        />
+        <input
+          type="date"
+          value={to}
+          onChange={(event) => setTo(event.target.value)}
+        />
         <select
           value={source}
           onChange={(event) =>
@@ -162,78 +267,144 @@ export default function AdminPromotionPage() {
       {error && <p className="form-error">{error}</p>}
 
       {funnel && (
-        <section style={{ marginTop: "1.5rem" }}>
-          <h3>拉新漏斗</h3>
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            {funnel.steps.map((step) => (
-              <div key={step.key} className="qb-stat-pill active">
-                {step.key}
-                <span className="qb-stat-count">{step.count}</span>
+        <>
+          <div className="qb-metrics">
+            <div className="qb-metric">
+              <div className="qb-metric-value">{invited}</div>
+              <div className="qb-metric-label">总邀请</div>
+            </div>
+            <div className="qb-metric">
+              <div className="qb-metric-value">
+                {invited > 0
+                  ? `${Math.round((activated / invited) * 100)}%`
+                  : "—"}
               </div>
-            ))}
+              <div className="qb-metric-label">激活率</div>
+            </div>
+            <div className="qb-metric">
+              <div className="qb-metric-value">{redeemed}</div>
+              <div className="qb-metric-label">已核销</div>
+            </div>
+            <div className="qb-metric">
+              <div className="qb-metric-value">
+                {granted > 0
+                  ? `${Math.round((redeemed / granted) * 100)}%`
+                  : "—"}
+              </div>
+              <div className="qb-metric-label">核销率</div>
+            </div>
           </div>
-          <p className="qb-header-desc" style={{ marginTop: "0.5rem" }}>
-            转化率：
-            {funnel.conversions
-              .map((c) => `${c.from}→${c.to} ${(c.rate * 100).toFixed(1)}%`)
-              .join("　")}
-          </p>
-          <table style={{ width: "100%", marginTop: "0.5rem", fontSize: "0.88rem" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left" }}>性别</th>
-                <th>注册</th>
-                <th>激活</th>
-                <th>领券</th>
-                <th>核销</th>
-              </tr>
-            </thead>
-            <tbody>
-              {funnel.byGender.map((row) => (
-                <tr key={row.gender}>
-                  <td>{row.gender}</td>
-                  {row.steps.map((step) => (
-                    <td key={step.key} style={{ textAlign: "center" }}>
-                      {step.count}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+
+          <section className="qb-section">
+            <h3>拉新漏斗</h3>
+            <div className="qb-funnel">
+              {funnel.steps.map((step, index) => {
+                const conv =
+                  index > 0
+                    ? funnel.conversions.find((c) => c.to === step.key)
+                    : null;
+                const pct = Math.round((step.count / funnelMax) * 100);
+                return (
+                  <Fragment key={step.key}>
+                    {conv && (
+                      <div className="qb-funnel-rate">
+                        ↓ {(conv.rate * 100).toFixed(1)}%
+                      </div>
+                    )}
+                    <div className="qb-funnel-step">
+                      <span className="qb-funnel-label">
+                        {STEP_LABELS[step.key] ?? step.key}
+                      </span>
+                      <div className="qb-funnel-bar-wrap">
+                        <div
+                          className="qb-funnel-bar"
+                          style={{ width: `${pct}%` }}
+                        />
+                        <span className="qb-funnel-count">{step.count}</span>
+                      </div>
+                    </div>
+                  </Fragment>
+                );
+              })}
+            </div>
+          </section>
+
+          {funnel.byGender.length > 0 && (
+            <section className="qb-section">
+              <h3>分性别漏斗</h3>
+              <div className="qb-table-wrap">
+                <table className="qb-table">
+                  <thead>
+                    <tr>
+                      <th>性别</th>
+                      {funnel.byGender[0]?.steps.map((step) => (
+                        <th key={step.key} className="qb-num">
+                          {STEP_LABELS[step.key] ?? step.key}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {funnel.byGender.map((row) => (
+                      <tr key={row.gender}>
+                        <td>{GENDER_LABELS[row.gender] ?? row.gender}</td>
+                        {row.steps.map((step) => (
+                          <td key={step.key} className="qb-num">
+                            {step.count}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       {leaderboard.items.length > 0 && (
-        <section style={{ marginTop: "1.5rem" }}>
+        <section className="qb-section">
           <h3>邀请排行榜（{source === "personal" ? "个人码" : "运营码"}）</h3>
-          <table style={{ width: "100%", fontSize: "0.88rem" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left" }}>来源</th>
-                <th>邀请</th>
-                <th>激活</th>
-                <th>领券</th>
-                <th>核销</th>
-                <th>男/女/非二元/未知</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.items.map((row) => (
-                <tr key={`${row.sourceType}-${row.refLabel}`}>
-                  <td>{row.refLabel}</td>
-                  <td style={{ textAlign: "center" }}>{row.invited}</td>
-                  <td style={{ textAlign: "center" }}>{row.activated}</td>
-                  <td style={{ textAlign: "center" }}>{row.granted}</td>
-                  <td style={{ textAlign: "center" }}>{row.redeemed}</td>
-                  <td style={{ textAlign: "center" }}>
-                    {row.byGender.male}/{row.byGender.female}/
-                    {row.byGender.nonBinary}/{row.byGender.unknown}
-                  </td>
+          <GenderLegend />
+          <div className="qb-table-wrap">
+            <table className="qb-table">
+              <thead>
+                <tr>
+                  <th>来源</th>
+                  <th className="qb-num">邀请</th>
+                  <th className="qb-num">激活</th>
+                  <th className="qb-num">领券</th>
+                  <th className="qb-num">核销</th>
+                  <th>性别分布</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {leaderboard.items.map((row) => (
+                  <tr key={`${row.sourceType}-${row.refLabel}`}>
+                    <td className="qb-cell-strong">{row.refLabel}</td>
+                    <td className="qb-num">
+                      <span className="qb-minibar-cell">
+                        <span
+                          className="qb-minibar"
+                          style={{
+                            width: `${((row.invited / maxInvited) * 4).toFixed(2)}rem`,
+                          }}
+                        />
+                        {row.invited}
+                      </span>
+                    </td>
+                    <td className="qb-num">{row.activated}</td>
+                    <td className="qb-num">{row.granted}</td>
+                    <td className="qb-num">{row.redeemed}</td>
+                    <td>
+                      <GenderBar g={row.byGender} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {leaderboard.totalPages > 1 && (
             <div className="admin-pagination">
               <button
@@ -244,7 +415,8 @@ export default function AdminPromotionPage() {
                 上一页
               </button>
               <span>
-                {leaderboard.page} / {leaderboard.totalPages} · 共 {leaderboard.total}
+                {leaderboard.page} / {leaderboard.totalPages} · 共{" "}
+                {leaderboard.total}
               </span>
               <button
                 disabled={leaderboard.page >= leaderboard.totalPages}
@@ -259,52 +431,58 @@ export default function AdminPromotionPage() {
       )}
 
       {coupons.length > 0 && (
-        <section style={{ marginTop: "1.5rem" }}>
+        <section className="qb-section">
           <h3>券情况（按商家）</h3>
-          <table style={{ width: "100%", fontSize: "0.88rem" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left" }}>商家</th>
-                <th>发放</th>
-                <th>核销</th>
-              </tr>
-            </thead>
-            <tbody>
-              {coupons.map((row) => (
-                <tr key={row.merchantId}>
-                  <td>{row.merchantName}</td>
-                  <td style={{ textAlign: "center" }}>{row.granted}</td>
-                  <td style={{ textAlign: "center" }}>{row.redeemed}</td>
+          <div className="qb-table-wrap">
+            <table className="qb-table">
+              <thead>
+                <tr>
+                  <th>商家</th>
+                  <th className="qb-num">发放</th>
+                  <th className="qb-num">核销</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {coupons.map((row) => (
+                  <tr key={row.merchantId}>
+                    <td>{row.merchantName}</td>
+                    <td className="qb-num">{row.granted}</td>
+                    <td className="qb-num">{row.redeemed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
 
       {redemptions.items.length > 0 && (
-        <section style={{ marginTop: "1.5rem" }}>
+        <section className="qb-section">
           <h3>核销对账（按商家 + 天）</h3>
-          <table style={{ width: "100%", fontSize: "0.88rem" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left" }}>日期</th>
-                <th style={{ textAlign: "left" }}>商家</th>
-                <th>核销单数</th>
-                <th>面值合计</th>
-              </tr>
-            </thead>
-            <tbody>
-              {redemptions.items.map((row) => (
-                <tr key={`${row.day}-${row.merchantId}`}>
-                  <td>{row.day}</td>
-                  <td>{row.merchantName}</td>
-                  <td style={{ textAlign: "center" }}>{row.count}</td>
-                  <td style={{ textAlign: "center" }}>{yuan(row.faceValueTotal)}</td>
+          <div className="qb-table-wrap">
+            <table className="qb-table">
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>商家</th>
+                  <th className="qb-num">核销单数</th>
+                  <th className="qb-num">面值合计</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {redemptions.items.map((row) => (
+                  <tr key={`${row.day}-${row.merchantId}`}>
+                    <td>{row.day}</td>
+                    <td>{row.merchantName}</td>
+                    <td className="qb-num">{row.count}</td>
+                    <td className="qb-num qb-cell-strong">
+                      {yuan(row.faceValueTotal)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {redemptions.totalPages > 1 && (
             <div className="admin-pagination">
               <button
@@ -315,7 +493,8 @@ export default function AdminPromotionPage() {
                 上一页
               </button>
               <span>
-                {redemptions.page} / {redemptions.totalPages} · 共 {redemptions.total}
+                {redemptions.page} / {redemptions.totalPages} · 共{" "}
+                {redemptions.total}
               </span>
               <button
                 disabled={redemptions.page >= redemptions.totalPages}

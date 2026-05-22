@@ -11,6 +11,18 @@ import type {
 } from "../types";
 
 const STATUS_OPTIONS = ["DRAFT", "ACTIVE", "ENDED"] as const;
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: "草稿",
+  ACTIVE: "进行中",
+  ENDED: "已结束",
+};
+
+const STATUS_BADGE: Record<string, string> = {
+  DRAFT: "is-draft",
+  ACTIVE: "is-active",
+  ENDED: "is-ended",
+};
 const BENEFIT_OPTIONS = [
   { value: "FULL_REDUCTION", label: "满减" },
   { value: "DISCOUNT", label: "折扣" },
@@ -146,11 +158,14 @@ export default function AdminCampaignsPage() {
               <div className="qb-card-title">
                 <strong>{campaign.name}</strong>
                 <span className="qb-card-meta">
-                  {campaign.slug} · {campaign.status}
+                  {campaign.slug}
                   {campaign.isDefault ? " · 默认" : ""}
                   {` · 券包 ${campaign.templateCount} · 激活 ${campaign.activationCount}`}
                 </span>
               </div>
+              <span className={`qb-badge ${STATUS_BADGE[campaign.status] ?? ""}`}>
+                {STATUS_LABELS[campaign.status] ?? campaign.status}
+              </span>
               <button
                 type="button"
                 className="button-secondary"
@@ -332,7 +347,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
   }
 
   return (
-    <div style={{ padding: "0.75rem 0", borderTop: "1px solid var(--border, #eee)" }}>
+    <div className="qb-subpanel">
       {error && <p className="form-error">{error}</p>}
 
       <h4>券包（券模板）</h4>
@@ -350,6 +365,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
             </span>
             <button
               type="button"
+              className="button-secondary"
               disabled={pending === `tpl-${template.id}`}
               onClick={() => void toggleTemplate(template)}
             >
