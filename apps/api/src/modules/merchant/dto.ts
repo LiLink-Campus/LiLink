@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsEmail,
   IsIn,
   IsInt,
   IsOptional,
@@ -12,14 +13,23 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { MERCHANT_PROMOTION_MAX_BLOCKS } from '@lilink/shared';
+import {
+  MERCHANT_PROMOTION_MAX_BLOCKS,
+  MERCHANT_USER_ROLES,
+} from '@lilink/shared';
 import {
   ADMIN_LIST_PAGE_MAX,
   ADMIN_LIST_PAGE_SIZE_MAX,
   ADMIN_SEARCH_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
   MERCHANT_CONTACT_MAX_LENGTH,
   MERCHANT_NAME_MAX_LENGTH,
+  MERCHANT_USER_DISPLAY_NAME_MAX,
+  MERCHANT_USER_PASSWORD_MAX,
+  MERCHANT_USER_PASSWORD_MIN,
 } from '../../common/validation/input-limits';
+
+const MERCHANT_USER_ROLE_VALUES = [...MERCHANT_USER_ROLES];
 
 export class CreateMerchantDto {
   @IsString()
@@ -81,4 +91,45 @@ export class ListMerchantsQueryDto {
   @IsOptional()
   @IsIn(['active', 'inactive'])
   status?: 'active' | 'inactive';
+}
+
+export class CreateMerchantUserDto {
+  @IsEmail()
+  @MaxLength(EMAIL_MAX_LENGTH)
+  email!: string;
+
+  @IsString()
+  @MinLength(MERCHANT_USER_PASSWORD_MIN)
+  @MaxLength(MERCHANT_USER_PASSWORD_MAX)
+  password!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(MERCHANT_USER_DISPLAY_NAME_MAX)
+  displayName?: string;
+
+  @IsIn(MERCHANT_USER_ROLE_VALUES)
+  role!: string;
+}
+
+export class UpdateMerchantUserDto {
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  // Supplying a password resets it (re-hashed); omit to leave it unchanged.
+  @IsOptional()
+  @IsString()
+  @MinLength(MERCHANT_USER_PASSWORD_MIN)
+  @MaxLength(MERCHANT_USER_PASSWORD_MAX)
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(MERCHANT_USER_DISPLAY_NAME_MAX)
+  displayName?: string;
+
+  @IsOptional()
+  @IsIn(MERCHANT_USER_ROLE_VALUES)
+  role?: string;
 }

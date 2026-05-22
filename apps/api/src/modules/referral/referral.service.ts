@@ -179,6 +179,14 @@ export class ReferralService {
     channel: ReferralChannel,
     campaignSlug?: string | null,
   ): Promise<void> {
+    // Skip share events from test accounts so they never enter the funnel
+    // (ReferralEvent has no user FK, so test is filtered at write time).
+    const referrer = await this.prisma.user.findUnique({
+      where: { id: referrerUserId },
+      select: { isTest: true },
+    });
+    if (referrer?.isTest) return;
+
     await this.prisma.referralEvent.create({
       data: {
         type: 'SHARE',
