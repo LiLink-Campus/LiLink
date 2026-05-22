@@ -34,6 +34,11 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
   "Owner name is required.": "请填写姓名。",
   MEETUP_LOCATION_OPTION_AMBIGUOUS:
     "每个地点选项只能二选一：推荐地点或自定义地点，不能同时填写。",
+  "Merchant email or password is invalid.": "商家邮箱或密码不正确。",
+  "Merchant authentication is required.": "请先登录商家账号。",
+  "Merchant session is invalid.": "商家登录状态已失效，请重新登录。",
+  "A merchant user with this email already exists.":
+    "该邮箱已被其他商家账号使用。",
 };
 
 export class ApiRequestError extends Error {
@@ -445,4 +450,67 @@ export function fetchMatchEstimate(payload: MatchEstimatePayload) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+// --- Merchant promotion system (user-facing) ---
+
+export type ReferralFunnel = {
+  invited: number;
+  registered: number;
+  activated: number;
+  granted: number;
+  redeemed: number;
+};
+
+export type MyReferralOverview = {
+  referralCode: string | null;
+  links: { channel: string; url: string }[];
+  funnel: ReferralFunnel;
+};
+
+export function fetchMyReferral() {
+  return fetchApi<MyReferralOverview>("/me/referral");
+}
+
+export function recordShareEvent(channel: string, campaignSlug?: string) {
+  return fetchApi<{ ok: boolean }>("/referral/events", {
+    method: "POST",
+    body: JSON.stringify({
+      channel,
+      ...(campaignSlug ? { campaignSlug } : {}),
+    }),
+  });
+}
+
+export type ReferralClickResult = { result: "OK" | "INVALID" };
+
+export function recordReferralClick(payload: {
+  code: string;
+  channel?: string;
+  campaignSlug?: string;
+}) {
+  return fetchApi<ReferralClickResult>("/referral/click", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type MyCouponStatus = "ISSUED" | "REDEEMED" | "EXPIRED" | "VOID";
+
+export type MyCoupon = {
+  id: string;
+  status: MyCouponStatus;
+  code: string;
+  merchantName: string;
+  title: string;
+  benefitType: string;
+  benefitText: string;
+  faceValue: number;
+  issuedAt: string;
+  expiresAt: string | null;
+  redeemedAt: string | null;
+};
+
+export function fetchMyCoupons() {
+  return fetchApi<{ items: MyCoupon[] }>("/me/coupons");
 }
