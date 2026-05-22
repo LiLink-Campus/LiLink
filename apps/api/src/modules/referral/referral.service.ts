@@ -5,7 +5,12 @@ import {
   readReferralChannel,
   type ReferralChannel,
 } from '@lilink/shared';
+import { PrismaClient } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+
+// Accepts either the base client or a transaction client, so attribution can be
+// resolved and frozen inside the registration transaction.
+type ReferralReadClient = Pick<PrismaClient, 'user' | 'inviteCode' | 'campaign'>;
 
 const PERSONAL_CODE_MAX_ATTEMPTS = 8;
 
@@ -96,6 +101,7 @@ export class ReferralService {
    */
   async resolveRegistrationAttribution(
     input: RegistrationSourceInput,
+    client: ReferralReadClient = this.prisma,
   ): Promise<RegistrationAttribution> {
     let referredByUserId: string | null = null;
     let referralChannel: ReferralChannel | null = null;
@@ -103,7 +109,7 @@ export class ReferralService {
 
     if (input.inviteCodeId) {
       // Recruiter path: snapshot the invite code's campaign; ignore personal code.
-      const inviteCode = await this.prisma.inviteCode.findUnique({
+      const inviteCode = await client.inviteCode.findUnique({
         where: { id: input.inviteCodeId },
         select: { campaignId: true },
       });
@@ -111,7 +117,7 @@ export class ReferralService {
     } else if (input.referralCode) {
       const code = input.referralCode.trim().toUpperCase();
       if (code) {
-        const referrer = await this.prisma.user.findUnique({
+        const referrer = await client.user.findUnique({
           where: { referralCode: code },
           select: { id: true },
         });
@@ -119,7 +125,7 @@ export class ReferralService {
           referredByUserId = referrer.id;
           referralChannel = readReferralChannel(input.channel);
           if (input.campaignSlug) {
-            const campaign = await this.prisma.campaign.findUnique({
+            const campaign = await client.campaign.findUnique({
               where: { slug: input.campaignSlug },
               select: { id: true, status: true },
             });
@@ -134,7 +140,7 @@ export class ReferralService {
 
     // No source campaign resolved -> freeze the current ACTIVE default (if any).
     if (!referralCampaignId) {
-      const fallback = await this.prisma.campaign.findFirst({
+      const fallback = await client.campaign.findFirst({
         where: { isDefault: true, status: 'ACTIVE' },
         select: { id: true },
       });
