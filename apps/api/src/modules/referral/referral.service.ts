@@ -14,7 +14,10 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 
 // Accepts either the base client or a transaction client, so attribution can be
 // resolved and frozen inside the registration transaction.
-type ReferralReadClient = Pick<PrismaClient, 'user' | 'inviteCode' | 'campaign'>;
+type ReferralReadClient = Pick<
+  PrismaClient,
+  'user' | 'inviteCode' | 'campaign'
+>;
 
 const PERSONAL_CODE_MAX_ATTEMPTS = 8;
 
@@ -71,7 +74,11 @@ export class ReferralService {
       if (!user) return null;
       if (user.referralCode) return user.referralCode;
 
-      for (let attempt = 0; attempt < PERSONAL_CODE_MAX_ATTEMPTS; attempt += 1) {
+      for (
+        let attempt = 0;
+        attempt < PERSONAL_CODE_MAX_ATTEMPTS;
+        attempt += 1
+      ) {
         const code = generateHumanCode({ length: PERSONAL_CODE_LENGTH });
         try {
           // Compare-and-set on the null guard: concurrent callers cannot
@@ -273,10 +280,11 @@ export class ReferralService {
    */
   async getMyReferralOverview(userId: string): Promise<MyReferralOverview> {
     const referralCode = await this.assignReferralCodeIfMissing(userId);
+    const origin = env.CLIENT_ORIGIN[0]?.replace(/\/+$/, '') ?? '';
     const links = referralCode
       ? REFERRAL_CHANNELS.map((channel) => ({
           channel,
-          url: `${env.CLIENT_ORIGIN}/i/${referralCode}?ch=${channel}`,
+          url: `${origin}/i/${referralCode}?ch=${channel}`,
         }))
       : [];
 

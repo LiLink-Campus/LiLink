@@ -26,6 +26,17 @@
 - 端点：`GET /me/referral`（个人码 + 各渠道分享链接 + 邀请漏斗）、`POST /referral/events`（SHARE，JWT）、`POST /referral/click`（CLICK，公共 + 限流，按 code+day+visitorHash UV 去重；visitorHash = 盐(JWT_SECRET)+ip+ua，原始 IP/UA 不存）。
 - 单元测试：referral 20/20、auth 34/34、account 49/49；`nest build` green。经两轮 codex 检查（Blocker + should-fix 修复）。
 
+### M2 优惠券 — api ✅（待提交；codex 审查中）
+基于已合并的 `origin/main`（#53 首页/问卷/agent 基建）；单元测试级 + 编译通过，集成/e2e 待补。
+- 已合并 `origin/main`（#53）入分支：解决 `schema.prisma` 冲突（保留 merchant 模型/字段 + 采纳 #53 的 `MatchFeedback` / `Match.feedback` / `Question` / 硬匹配签名），`lilink_merchant` 全量迁移，build + 单测 421 + e2e 15 绿。
+- `@lilink/shared`：`validateMerchantPromotionBlocks`（promotionBlocks 结构 / https / 数量上限校验 + 归一化）。
+- merchant 模块：Merchant 实体后台 CRUD（`AdminGuard`，create/list/update，含 promotionBlocks）；spec 8/8。
+- campaign 模块：Campaign CRUD（「单个 ACTIVE+isDefault」partial-unique 的事务内降级其它默认 + ENDED 强制取消默认）+ CouponTemplate CRUD（merchant 存在/启用校验、`validDays`/`validUntil` 互斥、rule 走 stub、`campaignId`/`merchantId` 不可改）；spec 16/16。
+- activation 模块：`tryGrantCoupons` 幂等发券（precondition=`submittedAt`+`firstOptedInAt`、仅 ACTIVE 冻结归属 campaign、`couponsGrantedAt` 幂等闸、预查跳过已发 + `(userId,templateId)` 兜底、coupon code 撞唯一重试、expiresAt 按 validUntil/validDays）；接入 `account.saveQuestionnaire`/`setParticipation`（事务提交后 try/catch、不阻断主流程）；spec 10/10。
+- coupon 模块：`GET /me/coupons`（`effectiveCouponStatus` 分区 + 核销码可见）；spec 5/5。
+- `deleteAllTestUsers` 扩展：按 `Redemption→Coupon→CampaignActivation→ReferralEvent` 顺序清理（Restrict 外键），`referredByUserId` 为 SET NULL 不需手动解。
+- 验证：`nest build` green；api 单测 **421/421**。§A 优惠规则 `rule` 仍走 `validateCouponRule` stub；§B 核销求值未启用。
+
 ---
 
 ## 二、待办清单（需后续技术人员判断 / 实施）
@@ -59,7 +70,7 @@
 - [ ] 启用时：`RedeemCouponDto.orderAmount`、核销事务内 `evaluateCoupon` 校验/计算、`Redemption.orderAmount/actualDiscountAmount` 落库、核销页金额输入。
 
 ### F. 后续里程碑（依赖前序，部分依赖 §A/§B）
-- [ ] **M2 优惠券**：活动 + 券包后台、`CampaignActivation` + 激活自动发券（ISSUED，幂等 `tryGrantCoupons`）、`dashboard/coupons`。
+- [x] **M2 优惠券 — api ✅**（见上「已完成」；待提交 + codex 审查）：活动 + 券包后台、`CampaignActivation` + 激活自动发券（ISSUED，幂等 `tryGrantCoupons`）、`GET /me/coupons` 已实现。**剩 web**：`dashboard/coupons`（用户券页）+ 后台活动/券包/商家管理页。
 - [ ] **M3 商家核销**：商家与账号后台 + 推广位编辑、`MerchantGuard` + 商家登录（独立 cookie/secret/限流）、核销页 SQL 级三态（含 `user.status==ACTIVE` 校验、不泄露券存在性）+ 核销成功页商家推广位。
 - [ ] **M4 数据看板**：拉新漏斗 / 邀请排行榜（个人码 + 运营码两榜，分性别）/ 券情况（按商家）/ 商家核销明细对账（按商家+天，面值合计）。
 
