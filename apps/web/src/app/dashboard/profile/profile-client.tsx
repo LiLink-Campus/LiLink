@@ -4,6 +4,7 @@ import {
   createAutosaveLifecycleGate,
   createAutosaveTimeoutController,
   takeNextAutosaveQueueItem,
+  HARD_MATCH_WEIGHT_KEYS,
   type MatchEstimateBand,
 } from "@lilink/shared";
 import {
@@ -15,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   fetchApi,
   fetchMatchEstimate,
@@ -119,7 +121,6 @@ const HARD_MATCH_FIELD_KEY_GROUPS = {
   looks: [HARD_MATCH_KEYS.looks],
   heightCm: [HARD_MATCH_KEYS.heightCm],
   weightKg: [HARD_MATCH_KEYS.weightKg],
-  oneLinerIntro: [HARD_MATCH_KEYS.oneLinerIntro],
   partnerAge: [HARD_MATCH_KEYS.partnerAgeMin, HARD_MATCH_KEYS.partnerAgeMax],
   partnerGenders: [HARD_MATCH_KEYS.partnerGenders],
   partnerNationalities: [HARD_MATCH_KEYS.partnerNationalities],
@@ -630,6 +631,7 @@ export function ProfileClient({
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
   useDashboardSessionSeed(initialUser);
+  const router = useRouter();
 
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;
   const initialSubmittedAnswers = initialSavedQuestionnaire?.answers;
@@ -801,12 +803,19 @@ export function ProfileClient({
 
   const questionAttentionByKey = useMemo(() => {
     const acknowledgedKeys = new Set(acknowledgedQuestionnaireKeys);
+    const hardMatchKeySet = new Set<string>(
+      hardMatchAttentionFields().map((field) => field.key),
+    );
     const attentionByKey = new Map<string, QuestionnaireAttentionItem>();
 
     for (const item of questionnaireAttention?.items ?? []) {
       attentionByKey.set(item.key, {
         ...item,
-        acknowledged: !item.updated || acknowledgedKeys.has(item.key),
+        // Hard-match acknowledgement is decided by the backend signature; only
+        // soft questions fall back to the version-scoped acknowledgedKeys.
+        acknowledged: hardMatchKeySet.has(item.key)
+          ? item.acknowledged
+          : !item.updated || acknowledgedKeys.has(item.key),
       });
     }
 
@@ -824,7 +833,8 @@ export function ProfileClient({
         attentionByKey.set(field.key, {
           ...current,
           missingRequired: false,
-          acknowledged: !current.updated || acknowledgedKeys.has(field.key),
+          // Preserve the backend signature-based acknowledgement set above.
+          acknowledged: current.acknowledged,
         });
         continue;
       }
@@ -878,6 +888,16 @@ export function ProfileClient({
         .filter((item) => item.updated && !item.acknowledged)
         .map((item) => item.key),
     [questionAttentionByKey],
+  );
+
+  // Weight nudges clear only on an explicit save, never by passively scrolling
+  // the field into view, so the auto-acknowledge observer skips weight keys.
+  const autoAcknowledgeKeys = useMemo(
+    () =>
+      pendingUpdatedAttentionKeys.filter(
+        (key) => !HARD_MATCH_WEIGHT_KEYS.includes(key),
+      ),
+    [pendingUpdatedAttentionKeys],
   );
 
   function setAttentionBlockRef(
@@ -957,6 +977,11 @@ export function ProfileClient({
       return;
     }
 
+    if (key === HARD_MATCH_KEYS.oneLinerIntro) {
+      router.replace("/dashboard/me/card");
+      return;
+    }
+
     const targetTab = profileAttentionTabForKey(key, questions);
     if (!targetTab) {
       return;
@@ -986,12 +1011,12 @@ export function ProfileClient({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [activeTab, questions]);
+  }, [activeTab, questions, router]);
 
   useEffect(() => {
     if (
       !questionnaireAttention ||
-      pendingUpdatedAttentionKeys.length === 0 ||
+      autoAcknowledgeKeys.length === 0 ||
       typeof IntersectionObserver === "undefined"
     ) {
       return;
@@ -1001,7 +1026,7 @@ export function ProfileClient({
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const keys = pendingUpdatedAttentionKeys.filter(
+          const keys = autoAcknowledgeKeys.filter(
             (key) => questionBlockRefs.current.get(key) === entry.target,
           );
           if (keys.length === 0) {
@@ -1034,7 +1059,7 @@ export function ProfileClient({
     );
 
     const observedNodes = new Set<HTMLFieldSetElement>();
-    for (const key of pendingUpdatedAttentionKeys) {
+    for (const key of autoAcknowledgeKeys) {
       const node = questionBlockRefs.current.get(key);
       if (node && !observedNodes.has(node)) {
         observedNodes.add(node);
@@ -1048,7 +1073,7 @@ export function ProfileClient({
         window.clearTimeout(timer);
       }
     };
-  }, [activeTab, pendingUpdatedAttentionKeys, questionnaireAttention]);
+  }, [activeTab, autoAcknowledgeKeys, questionnaireAttention]);
 
   const flushQueuedQuestionnaireSave = useEffectEvent(
     async (payload: QuestionnaireSavePayload, snapshot: string) => {
@@ -1648,45 +1673,6 @@ export function ProfileClient({
                     setHardMatchForm((f) => ({ ...f, weightKg: next }))
                   }
                 />
-              </fieldset>
-
-              <fieldset
-                id={profileAttentionElementId(HARD_MATCH_KEYS.oneLinerIntro)}
-                ref={(node) =>
-                  setAttentionBlockRef(
-                    HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
-                    node,
-                  )
-                }
-                className={attentionBlockClassName(
-                  HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
-                )}
-              >
-                <legend>一句话介绍</legend>
-                {renderAttentionNote(
-                  HARD_MATCH_FIELD_KEY_GROUPS.oneLinerIntro,
-                )}
-                <p className="app-muted">
-                  兴趣或期待，请勿填写隐私敏感信息。
-                </p>
-                <textarea
-                  id={buildDashboardFieldId("one-liner-intro")}
-                  name="oneLinerIntro"
-                  rows={3}
-                  maxLength={HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}
-                  value={hardMatchForm.oneLinerIntro}
-                  onChange={(event) =>
-                    setHardMatchForm((f) => ({
-                      ...f,
-                      oneLinerIntro: event.target.value,
-                    }))
-                  }
-                  placeholder="例如：喜欢徒步和电影，希望认识聊得来的朋友。"
-                />
-                <p className="app-muted">
-                  {hardMatchForm.oneLinerIntro.length}/
-                  {HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}
-                </p>
               </fieldset>
 
             </div>
