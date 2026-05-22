@@ -69,8 +69,10 @@ test("profile and card editors expose and validate required public card fields",
   const card = readRepoFile("apps/web/src/app/dashboard/me/card/card-client.tsx");
   const me = readRepoFile("apps/web/src/app/dashboard/me/me-client.tsx");
 
-  assert.match(profile, /name="oneLinerIntro"/);
-  assert.match(profile, /HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH/);
+  assert.doesNotMatch(profile, /name="oneLinerIntro"/);
+  assert.match(profile, /HARD_MATCH_KEYS\.oneLinerIntro/);
+  assert.match(card, /setOneLinerIntro/);
+  assert.match(card, /HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH/);
 
   const contactSave = indexOfOrThrow(card, 'fetchApi("/me/contact-preferences"');
   const displayNameValidation = indexOfOrThrow(card, "trimmedDisplayName.length < 2");

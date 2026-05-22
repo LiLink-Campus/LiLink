@@ -7,6 +7,7 @@ apps/*/node_modules/
 .agent-local/
 .codex/skills/
 .claude/skills/
+.claude/worktrees/
 
 # Build outputs
 .next/
@@ -65,6 +66,8 @@ apps/api/src/generated/prisma/
 .turbo/
 tmp/
 *.pem
+.superpowers/
+docs/superpowers/
 
 # Anonymous user DB exports (see apps/api/scripts/export-anonymous-user-data.mjs).
 /anonymous-user-export*.json
