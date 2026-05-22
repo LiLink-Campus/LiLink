@@ -931,6 +931,72 @@ describe('MeetupService', () => {
     );
   });
 
+  it('accepts candidate-only location options shaped like ValidationPipe DTO output', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+    const loadedSession = buildSession({
+      currentProposal: buildProposal({
+        id: 'proposal-created',
+      }),
+      currentProposalId: 'proposal-created',
+    });
+
+    tx.match.findUnique.mockResolvedValue(buildMatch());
+    tx.meetupSession.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(loadedSession);
+    tx.user.findMany.mockResolvedValue([
+      { id: 'user-a', meetupExpirationWeeks: 2 },
+      { id: 'user-b', meetupExpirationWeeks: 1 },
+    ]);
+    tx.meetupSession.create.mockResolvedValue({ id: 'session-1' });
+    tx.meetupMessage.create.mockResolvedValue({ id: 'message-created' });
+    tx.meetupProposal.create.mockResolvedValue({ id: 'proposal-created' });
+    tx.meetupParticipant.updateMany.mockResolvedValue({ count: 1 });
+    tx.meetupSession.updateMany.mockResolvedValue({ count: 1 });
+    tx.auditLog.create.mockResolvedValue({});
+
+    await expect(
+      service.startSession('user-a', 'match-1', {
+        proposal: {
+          scope: 'LOCATION_ONLY',
+          locationOptions: [
+            {
+              locationCandidateId: locationCandidates[0].id,
+              placeName: undefined,
+            },
+            {
+              locationCandidateId: locationCandidates[1].id,
+              placeName: undefined,
+            },
+          ],
+        },
+      }),
+    ).resolves.toEqual(expect.objectContaining({ id: 'session-1' }));
+  });
+
+  it('rejects location options that provide both candidate id and place name', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+
+    await expect(
+      service.startSession('user-a', 'match-1', {
+        proposal: {
+          scope: 'LOCATION_ONLY',
+          locationOptions: [
+            {
+              locationCandidateId: locationCandidates[0].id,
+              placeName: 'Library south entrance',
+            },
+            { locationCandidateId: locationCandidates[1].id },
+          ],
+        },
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(tx.match.findUnique).not.toHaveBeenCalled();
+  });
+
   it('rejects duplicate location candidates before touching the database', async () => {
     const tx = createTx();
     const { service } = createService(tx);

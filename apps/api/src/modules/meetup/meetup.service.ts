@@ -1767,25 +1767,24 @@ export class MeetupService {
       }
 
       this.assertNoClientLocationSnapshotFields(rawOption);
-      const hasLocationCandidateId = 'locationCandidateId' in rawOption;
-      const hasPlaceName = 'placeName' in rawOption;
+      const locationCandidateId = this.normalizeOptionalText(
+        rawOption.locationCandidateId,
+      );
+      const placeName = this.normalizeOptionalText(rawOption.placeName);
 
-      if (hasLocationCandidateId && hasPlaceName) {
+      if (locationCandidateId && placeName) {
         throw new BadRequestException('MEETUP_LOCATION_OPTION_AMBIGUOUS');
       }
 
-      if (hasLocationCandidateId) {
+      if (locationCandidateId) {
         return this.normalizeCandidateLocationOption(
-          rawOption.locationCandidateId,
+          locationCandidateId,
           seenLocationKeys,
         );
       }
 
-      if (hasPlaceName) {
-        return this.normalizeCustomLocationOption(
-          rawOption.placeName,
-          seenLocationKeys,
-        );
+      if (placeName) {
+        return this.normalizeCustomLocationOption(placeName, seenLocationKeys);
       }
 
       throw new BadRequestException('MEETUP_LOCATION_OPTION_REQUIRED');
