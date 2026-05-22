@@ -7,6 +7,7 @@ import {
   REFERRAL_CHANNELS,
 } from "@lilink/shared";
 import { recordReferralClick } from "../../../lib/api";
+import "./landing.css";
 
 const REFERRAL_COOKIE = "lilink_ref";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -76,19 +77,30 @@ export function ReferralLandingClient({ code }: { code: string }) {
   }, [code]);
 
   return (
-    <main className="app-page-shell v2-page-shell">
-      <div style={{ textAlign: "center", padding: "4rem 1.5rem" }}>
+    <main className="li-center">
+      <div className="li-card">
         {valid === false ? (
           <>
-            <h1>邀请链接无法识别</h1>
-            <p>你仍然可以直接注册加入 LiLink。</p>
-            <a href="/register">前往注册</a>
+            <h1 className="li-title">邀请链接无法识别</h1>
+            <p className="li-text">
+              该邀请码无效或已过期，你仍然可以直接注册加入 LiLink。
+            </p>
+            <a className="li-cta" href="/register">
+              前往注册
+            </a>
+          </>
+        ) : valid === true ? (
+          <>
+            <h1 className="li-title">欢迎加入 LiLink</h1>
+            <p className="li-text">正在为你跳转到注册页……</p>
+            <a className="li-cta" href="/register">
+              没有自动跳转？点此注册
+            </a>
           </>
         ) : (
           <>
-            <h1>欢迎加入 LiLink</h1>
-            <p>正在为你跳转到注册页……</p>
-            <a href="/register">没有自动跳转？点此注册</a>
+            <h1 className="li-title">正在验证邀请链接……</h1>
+            <p className="li-muted">请稍候</p>
           </>
         )}
       </div>
