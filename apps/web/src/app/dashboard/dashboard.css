@@ -6262,10 +6262,24 @@ cursor: pointer;
 @media (max-width: 560px) {
   .v2-todo-row {
     flex-wrap: wrap;
+    gap: 0.55rem 0.7rem;
+    padding: 0.85rem 0.95rem;
+  }
+  /* Drop the decorative icon on narrow screens so the copy is not squeezed
+     into a cramped column between the status dot and the right edge. */
+  .v2-todo-icon {
+    display: none;
+  }
+  .v2-todo-main {
+    flex: 1 1 calc(100% - 2.1rem);
   }
   .v2-todo-actions {
     width: 100%;
-    padding-left: 2.2rem;
+    padding-left: 2.1rem;
+    gap: 0.5rem;
+  }
+  .v2-todo-actions > * {
+    flex: 1 1 auto;
   }
 }
 
