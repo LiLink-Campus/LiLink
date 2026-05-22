@@ -1611,15 +1611,18 @@ export class AccountService {
       );
       const submittedAt = new Date();
 
-      // Submitting confirms every enum hard-match field against the current
-      // option set. Merged (not overwritten) so a prior explicit empty-weight
-      // confirmation survives a re-submit.
-      const submittedEnumSignatures: Record<string, string> = {};
+      // Submitting is a conscious pass over the whole profile, so it confirms
+      // every enum hard-match field against the current option set AND any
+      // empty / "no limit" weight (clearing the weight nudge on save).
+      const submittedHardMatchSignatures: Record<string, string> = {};
       for (const key of hardMatchSignatureFieldKeys()) {
         const sig = hardMatchFieldSignature(key);
         if (sig) {
-          submittedEnumSignatures[key] = sig;
+          submittedHardMatchSignatures[key] = sig;
         }
+      }
+      for (const key of HARD_MATCH_WEIGHT_KEYS) {
+        submittedHardMatchSignatures[key] = HARD_MATCH_WEIGHT_ACK;
       }
 
       const submittedOperations: Prisma.PrismaPromise<unknown>[] = [];
@@ -1663,7 +1666,7 @@ export class AccountService {
           UPDATE "QuestionnaireResponse"
           SET "acknowledgedHardMatchSignatures" =
             COALESCE("acknowledgedHardMatchSignatures", '{}'::jsonb)
-            || ${JSON.stringify(submittedEnumSignatures)}::jsonb
+            || ${JSON.stringify(submittedHardMatchSignatures)}::jsonb
           WHERE "userId" = ${userId}
         `,
       );
