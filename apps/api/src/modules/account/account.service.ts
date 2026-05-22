@@ -1659,8 +1659,8 @@ export class AccountService {
         }),
       );
 
-      // Refresh enum signatures via JSONB merge (runs after the upsert in the
-      // same transaction, preserving any stored empty-weight confirmation).
+      // Persist enum + weight signatures via JSONB merge (runs after the
+      // upsert in the same transaction).
       submittedOperations.push(
         this.prisma.$executeRaw`
           UPDATE "QuestionnaireResponse"
