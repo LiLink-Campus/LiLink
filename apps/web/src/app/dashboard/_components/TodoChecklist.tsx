@@ -12,6 +12,12 @@ function statusGlyph(status: AgendaTodo["status"]) {
   return "";
 }
 
+function statusLabel(status: AgendaTodo["status"]) {
+  if (status === "done") return "已完成";
+  if (status === "attention") return "需关注";
+  return "待完成";
+}
+
 function actionClassName(variant: AgendaTodoAction["variant"]) {
   if (variant === "primary") return "button-primary";
   if (variant === "secondary") return "button-secondary";
@@ -50,7 +56,11 @@ export function TodoChecklist({
           const Icon = AGENDA_ICONS[todo.icon];
           return (
             <li key={todo.id} className={`v2-todo-row status-${todo.status}`}>
-              <span className="v2-todo-check" aria-hidden="true">
+              <span
+                className="v2-todo-check"
+                role="img"
+                aria-label={statusLabel(todo.status)}
+              >
                 {statusGlyph(todo.status)}
               </span>
               <span className="v2-todo-icon" aria-hidden="true">

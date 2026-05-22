@@ -114,8 +114,12 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
   const meetupSummary = dashboard.meetupSummary ?? null;
   const alerts: AgendaAlert[] = [];
 
+  // Meetup prompts (the two turn states are mutually exclusive).
   const needsAction = tasks.find(
     (t) => t.type === "MEETUP" && meetupTaskIsAttention(t),
+  );
+  const waiting = tasks.find(
+    (t) => t.type === "MEETUP" && meetupTaskIsWaiting(t),
   );
   if (needsAction) {
     alerts.push({
@@ -126,13 +130,7 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
       body: "对方发来了几个时间和地点选项，去看看有没有合适的吧。",
       action: { label: "去回应", href: needsAction.href },
     });
-    return alerts;
-  }
-
-  const waiting = tasks.find(
-    (t) => t.type === "MEETUP" && meetupTaskIsWaiting(t),
-  );
-  if (waiting) {
+  } else if (waiting) {
     alerts.push({
       id: "MEETUP_WAITING",
       tone: "waiting",
@@ -141,9 +139,11 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
       body: "对方回应后，这里会立刻通知你。",
       action: { label: "查看提议", href: waiting.href },
     });
-    return alerts;
   }
 
+  // Match prompts (limited / introduced / revealed are mutually exclusive
+  // sub-states, but kept independent of the meetup prompt above per the
+  // multi-alert contract).
   const latestMatch = dashboard.latestMatch;
   const introduced = Boolean(latestMatch?.introducedAt);
   if (introduced && latestMatch && !meetupSummary) {
@@ -156,24 +156,21 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
         body: "对方的可识别信息已隐藏，可在匹配页查看状态。",
         action: { label: "查看匹配状态", href: "/dashboard/match" },
       });
-      return alerts;
+    } else {
+      const name = counterpartDisplayName ?? "TA";
+      alerts.push({
+        id: "MATCH_INTRODUCED_NO_MEETUP",
+        tone: "celebrate",
+        icon: "sparkles",
+        title: `可以约 ${name} 见面了`,
+        body: "引荐邮件已发出。你可以直接给对方提议 2-3 个时间和地点。",
+        action: {
+          label: "安排见面",
+          href: `/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`,
+        },
+      });
     }
-    const name = counterpartDisplayName ?? "TA";
-    alerts.push({
-      id: "MATCH_INTRODUCED_NO_MEETUP",
-      tone: "celebrate",
-      icon: "sparkles",
-      title: `可以约 ${name} 见面了`,
-      body: "引荐邮件已发出。你可以直接给对方提议 2-3 个时间和地点。",
-      action: {
-        label: "安排见面",
-        href: `/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`,
-      },
-    });
-    return alerts;
-  }
-
-  if (
+  } else if (
     latestMatch &&
     !introduced &&
     dashboard.latestMatchVisibility !== "LIMITED"
@@ -186,7 +183,6 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
       body: "你可以选择交换联系方式，或者直接发起第一次见面。",
       action: { label: "查看匹配详情", href: "/dashboard/match" },
     });
-    return alerts;
   }
 
   return alerts;
@@ -304,23 +300,37 @@ function profileTodo(inputs: AgendaInputs): AgendaTodo {
 function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
   const q = inputs.questionnaire;
   const href = questionnaireHref(q.attention);
+  const missingCount = q.attention?.missingRequiredKeys?.length ?? 0;
+  const pendingCount = q.attention?.pendingUpdatedKeys?.length ?? 0;
   const progress: AgendaTodoProgress = {
     confirmedPercent: q.confirmedPercent,
     unconfirmedPercent: q.unconfirmedPercent,
     unconfirmedCount: q.unconfirmedCount,
   };
 
-  if (q.unconfirmedCount > 0) {
+  if (missingCount > 0) {
+    return {
+      id: "QUESTIONNAIRE",
+      status: "attention",
+      icon: "clipboard",
+      title: "匹配资料有必填项待补全",
+      subtitle: `还有 ${missingCount} 项必填内容需要补完，才能参与本轮匹配。`,
+      progress,
+      actions: [{ label: "去补全", kind: "link", href, variant: "primary" }],
+    };
+  }
+
+  if (pendingCount > 0) {
     return {
       id: "QUESTIONNAIRE",
       status: "attention",
       icon: "clipboard",
       title: "匹配资料有待确认项",
-      subtitle: `${q.unconfirmedCount} 项是问卷更新后的系统默认值，还没经你确认。`,
+      subtitle: `${pendingCount} 项是问卷更新后的系统默认值，还没经你确认。`,
       progress,
       actions: [
         {
-          label: `去确认这 ${q.unconfirmedCount} 项`,
+          label: `去确认这 ${pendingCount} 项`,
           kind: "link",
           href,
           variant: "primary",

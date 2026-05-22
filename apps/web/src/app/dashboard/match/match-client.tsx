@@ -371,9 +371,11 @@ export function MatchClient({
         <div className="v2-greeting-main">
           <h1 style={{ fontSize: '1.4rem', marginBottom: '0.2rem' }}>你本周的匹配对象</h1>
           <p className="v2-greeting-sub" style={{ fontSize: '0.85rem', color: 'var(--fg-secondary)' }}>
-            {introduced
-              ? "已完成本轮引荐。联系方式已在上方展示，你也可以直接发起见面邀请。"
-              : "对方名片已在上方展示。交换联系方式后即可看到联络方式，也可以直接发起见面邀请。"}
+            {!latestMatch
+              ? "本轮揭晓后这里会显示你的匹配对象与后续操作。"
+              : introduced
+                ? "已完成本轮引荐。联系方式已在上方展示，你也可以直接发起见面邀请。"
+                : "对方名片已在上方展示。交换联系方式后即可看到联络方式，也可以直接发起见面邀请。"}
           </p>
         </div>
       </header>
