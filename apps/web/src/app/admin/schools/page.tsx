@@ -278,16 +278,18 @@ export default function AdminSchoolsPage() {
       </div>
 
       {/* Search */}
-      <form className="qb-search" onSubmit={handleSearchSubmit}>
+      <form className="ic-search-bar sch-search-bar" onSubmit={handleSearchSubmit}>
         <input
           value={draftSearch}
           onChange={(event) => setDraftSearch(event.target.value)}
           placeholder="搜索学校名称、slug 或邮箱域名…"
+          aria-label="搜索学校"
         />
         {draftSearch && (
           <button
             type="button"
-            className="qb-search-clear"
+            className="ic-search-clear"
+            aria-label="清除搜索"
             onClick={() => {
               clearSearch();
               setPage(1);
@@ -296,12 +298,23 @@ export default function AdminSchoolsPage() {
             ×
           </button>
         )}
+        <button className="button-primary ic-search-submit" type="submit">
+          搜索
+        </button>
       </form>
 
       {mergeSource && (
-        <div className="form-success" style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>已选择「{mergeSource.name}」为合并来源，点击目标学校卡片上的「合并到此」完成合并。</span>
-          <button type="button" className="button-secondary" onClick={() => setMergeSource(null)} style={{ minHeight: "1.8rem", padding: "0 0.75rem", fontSize: "0.82rem" }}>取消合并</button>
+        <div className="admin-merge-banner form-success">
+          <span>
+            已选择「{mergeSource.name}」为合并来源，点击目标学校卡片上的「合并到此」完成合并。
+          </span>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => setMergeSource(null)}
+          >
+            取消合并
+          </button>
         </div>
       )}
 
@@ -332,91 +345,93 @@ export default function AdminSchoolsPage() {
           return (
             <div
               key={school.id}
-              className={`qb-card${isEditing ? " qb-card-editing" : ""}`}
+              className={`qb-card sch-school-card${isEditing ? " qb-card-editing" : ""}`}
             >
-              <div className="qb-card-header">
-                <span className="qb-order-num" style={{ fontSize: "0.7rem" }}>
-                  {school._count.users}
-                </span>
-
-                <div
-                  className="qb-card-title"
-                  onClick={() => !isEditing && startEditing(school)}
-                >
-                  <strong>{school.name}</strong>
-                  <span className="qb-card-meta">
-                    {school.slug}
-                    {" · "}
-                    {school.domains.length > 0
-                      ? school.domains.map((d) => `@${d.domain}`).join(", ")
-                      : "未配置域名"}
-                    {" · "}
-                    {school._count.users} 用户
+              <div className="qb-card-header sch-card-header">
+                <div className="sch-card-main">
+                  <span className="qb-order-num sch-card-count">
+                    {school._count.users}
                   </span>
-                </div>
 
-                <div className="domain-chip-list" style={{ flexShrink: 0 }}>
-                  {school.domains.slice(0, 2).map((d) => (
-                    <span key={d.id} className="domain-chip">
-                      @{d.domain}
+                  <div
+                    className="qb-card-title sch-card-title"
+                    onClick={() => !isEditing && startEditing(school)}
+                  >
+                    <strong>{school.name}</strong>
+                    <span className="qb-card-meta">
+                      {school.slug} · {school._count.users} 用户
                     </span>
-                  ))}
-                  {school.domains.length > 2 && (
-                    <span className="domain-chip">
-                      +{school.domains.length - 2}
-                    </span>
+                    {!isEditing && school.domains.length > 0 && (
+                      <div className="sch-card-domains">
+                        {school.domains.map((d) => (
+                          <span key={d.id} className="domain-chip sch-domain-chip">
+                            @{d.domain}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {!isEditing && school.domains.length === 0 && (
+                      <p className="sch-card-empty-domains">未配置邮箱域名</p>
+                    )}
+                  </div>
+
+                  {!isEditing && (
+                    <div className="qb-card-actions sch-card-actions">
+                      {mergeSource && mergeSource.id !== school.id ? (
+                        <button
+                          type="button"
+                          className="button-secondary sch-card-action-btn"
+                          title={`合并「${mergeSource.name}」到此学校`}
+                          disabled={pending === "merge"}
+                          onClick={() => void mergeInto(school)}
+                        >
+                          {pending === "merge" ? "合并中…" : "合并到此"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="sch-card-action-btn"
+                          title="选为合并来源"
+                          aria-pressed={mergeSource?.id === school.id}
+                          onClick={() =>
+                            setMergeSource(
+                              mergeSource?.id === school.id ? null : school,
+                            )
+                          }
+                        >
+                          ⇄
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="sch-card-action-btn"
+                        title="编辑"
+                        onClick={() => startEditing(school)}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        className="sch-card-action-btn"
+                        title="删除"
+                        onClick={() => void deleteSchool(school)}
+                        disabled={pending === `delete-${school.id}`}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  {isEditing && (
+                    <button
+                      type="button"
+                      className="qb-collapse-btn sch-card-collapse"
+                      onClick={cancelEditing}
+                    >
+                      收起
+                    </button>
                   )}
                 </div>
-
-                {!isEditing && (
-                  <div className="qb-card-actions">
-                    {mergeSource && mergeSource.id !== school.id ? (
-                      <button
-                        type="button"
-                        title={`合并「${mergeSource.name}」到此学校`}
-                        disabled={pending === "merge"}
-                        onClick={() => void mergeInto(school)}
-                        style={{ fontSize: "0.82rem", padding: "0.15rem 0.5rem" }}
-                      >
-                        {pending === "merge" ? "合并中…" : "合并到此"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        title="选为合并来源"
-                        onClick={() => setMergeSource(mergeSource?.id === school.id ? null : school)}
-                        style={mergeSource?.id === school.id ? { color: "var(--accent)" } : undefined}
-                      >
-                        ⇄
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      title="编辑"
-                      onClick={() => startEditing(school)}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      title="删除"
-                      onClick={() => void deleteSchool(school)}
-                      disabled={pending === `delete-${school.id}`}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-
-                {isEditing && (
-                  <button
-                    type="button"
-                    className="qb-collapse-btn"
-                    onClick={cancelEditing}
-                  >
-                    收起
-                  </button>
-                )}
               </div>
 
               {isEditing && renderEditor()}

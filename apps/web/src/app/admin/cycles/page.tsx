@@ -593,33 +593,32 @@ export default function AdminCyclesPage() {
           </div>
 
           {selectedCycle && (
-            <div className="adm-action-toolbar">
-              <div className="adm-action-group">
-                <span className="adm-action-label">管理</span>
-                <button className="button-secondary" type="button" disabled={pending === "duplicate"} onClick={() => void duplicateCycle()}>
-                  {pending === "duplicate" ? "复制中…" : "复制为草稿"}
-                </button>
-                <button className="button-secondary" type="button" disabled={!cycleDetail} onClick={exportCycleDetail}>导出详情</button>
+            <>
+              <div className="adm-action-toolbar">
+                <div className="adm-action-group">
+                  <span className="adm-action-label">管理</span>
+                  <button className="button-secondary" type="button" disabled={pending === "duplicate"} onClick={() => void duplicateCycle()}>
+                    {pending === "duplicate" ? "复制中…" : "复制为草稿"}
+                  </button>
+                  <button className="button-secondary" type="button" disabled={!cycleDetail} onClick={exportCycleDetail}>导出详情</button>
+                </div>
+                <div className="adm-action-group">
+                  <span className="adm-action-label">执行</span>
+                  <button className="button-secondary" type="button" disabled={pending === "preview"} onClick={() => void previewCycle()}>
+                    {pending === "preview" ? "预演中…" : "预演匹配"}
+                  </button>
+                  <button className="button-primary" type="button" disabled={pending === "run"} onClick={() => void runCycle(false)}>
+                    {pending === "run" ? "执行中…" : "正常执行"}
+                  </button>
+                  <button className="button-ghost" type="button" disabled={pending === "force-run"} onClick={() => void runCycle(true)}>
+                    {pending === "force-run" ? "强制中…" : "强制执行"}
+                  </button>
+                </div>
               </div>
-              <div className="adm-action-group">
-                <span className="adm-action-label">执行</span>
-                <button className="button-secondary" type="button" disabled={pending === "preview"} onClick={() => void previewCycle()}>
-                  {pending === "preview" ? "预演中…" : "预演匹配"}
-                </button>
-                <button className="button-primary" type="button" disabled={pending === "run"} onClick={() => void runCycle(false)}>
-                  {pending === "run" ? "执行中…" : "正常执行"}
-                </button>
-                <button className="button-ghost" type="button" disabled={pending === "force-run"} onClick={() => void runCycle(true)}>
-                  {pending === "force-run" ? "强制中…" : "强制执行"}
-                </button>
-              </div>
-              <p
-                className="qb-header-desc"
-                style={{ marginTop: "0.5rem", maxWidth: "42rem", color: "var(--admin-warn-text, #9a3412)" }}
-              >
+              <p className="adm-action-hint">
                 提示：强制执行会先删除本周期已有匹配再重新生成；请仅在未到揭晓时间或需纠正数据时使用。
               </p>
-            </div>
+            </>
           )}
 
           {selectedCycle && (
@@ -635,7 +634,7 @@ export default function AdminCyclesPage() {
               <span>轮次代号</span>
               <input required value={cycleForm.codename} onChange={(e) => setCycleForm((f) => ({ ...f, codename: e.target.value }))} />
             </label>
-            <div className="form-grid">
+            <div className="admin-form-grid">
               <label>
                 <span>参与截止（北京时间）</span>
                 <input required type="datetime-local" value={cycleForm.participationDeadline} onChange={(e) => setCycleForm((f) => ({ ...f, participationDeadline: e.target.value }))} />

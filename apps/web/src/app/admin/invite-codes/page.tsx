@@ -8,10 +8,160 @@ import type { AdminInviteCode } from "../types";
 
 type StatusFilter = "" | "active" | "inactive";
 
+const STATUS_TABS: { value: StatusFilter; label: string }[] = [
+  { value: "", label: "全部" },
+  { value: "active", label: "启用中" },
+  { value: "inactive", label: "已停用" },
+];
+
 type CreatedInviteCode = {
   code: string;
   ownerName: string;
 };
+
+type GenderStats = AdminInviteCode["stats"];
+
+function GenderBar({ stats }: { stats: GenderStats }) {
+  const { male, female, nonBinary, unknown } = stats;
+  const total = male + female + nonBinary + unknown;
+  if (total === 0) {
+    return <span className="qb-genderbar ic-genderbar-empty" title="暂无注册" />;
+  }
+  const pct = (n: number) => `${((n / total) * 100).toFixed(1)}%`;
+  return (
+    <div
+      className="qb-genderbar"
+      title={`男 ${male} · 女 ${female} · 非二元 ${nonBinary} · 未填 ${unknown}`}
+    >
+      <span className="qb-genderbar-seg is-male" style={{ width: pct(male) }} />
+      <span className="qb-genderbar-seg is-female" style={{ width: pct(female) }} />
+      <span
+        className="qb-genderbar-seg is-nonbinary"
+        style={{ width: pct(nonBinary) }}
+      />
+      <span
+        className="qb-genderbar-seg is-unknown"
+        style={{ width: pct(unknown) }}
+      />
+    </div>
+  );
+}
+
+function GenderLegend() {
+  return (
+    <div className="qb-legend ic-gender-legend">
+      <span className="qb-legend-item">
+        <span className="qb-legend-dot" style={{ background: "var(--primary)" }} />
+        男
+      </span>
+      <span className="qb-legend-item">
+        <span className="qb-legend-dot" style={{ background: "var(--accent)" }} />
+        女
+      </span>
+      <span className="qb-legend-item">
+        <span className="qb-legend-dot" style={{ background: "var(--gold)" }} />
+        非二元
+      </span>
+      <span className="qb-legend-item">
+        <span
+          className="qb-legend-dot"
+          style={{ background: "var(--neutral)" }}
+        />
+        未填问卷
+      </span>
+    </div>
+  );
+}
+
+function GenderCounts({ stats }: { stats: GenderStats }) {
+  if (stats.total === 0) {
+    return <span className="ic-gender-counts is-empty">—</span>;
+  }
+  return (
+    <span className="ic-gender-counts">
+      <span>男 {stats.male}</span>
+      <span>女 {stats.female}</span>
+      <span>非二元 {stats.nonBinary}</span>
+      <span>未填 {stats.unknown}</span>
+    </span>
+  );
+}
+
+function InviteCodeRow({
+  item,
+  pending,
+  onToggle,
+}: {
+  item: AdminInviteCode;
+  pending: string | null;
+  onToggle: (item: AdminInviteCode) => void;
+}) {
+  return (
+    <li className="ic-row">
+      <div className="ic-row-code">
+        <code className="ic-code ic-code-inline">{item.code}</code>
+        <CopyCodeButton code={item.code} />
+      </div>
+      <div className="ic-row-owner">{item.ownerName}</div>
+      <div className="ic-row-status">
+        <span className={`qb-badge ${item.isActive ? "is-active" : "is-off"}`}>
+          {item.isActive ? "启用中" : "已停用"}
+        </span>
+      </div>
+      <div className="ic-row-total">
+        <strong>{item.stats.total}</strong>
+      </div>
+      <div className="ic-row-gender">
+        <GenderBar stats={item.stats} />
+        <GenderCounts stats={item.stats} />
+      </div>
+      <div className="ic-row-actions">
+        <button
+          type="button"
+          className={item.isActive ? "button-secondary" : "button-primary"}
+          disabled={pending === `toggle-${item.id}`}
+          onClick={() => onToggle(item)}
+        >
+          {pending === `toggle-${item.id}`
+            ? "处理中…"
+            : item.isActive
+              ? "停用"
+              : "启用"}
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function CopyCodeButton({
+  code,
+  label = "复制",
+}: {
+  code: string;
+  label?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className={`button-secondary ic-copy-btn${copied ? " is-copied" : ""}`}
+      onClick={() => void copy()}
+    >
+      {copied ? "已复制" : label}
+    </button>
+  );
+}
 
 export default function AdminInviteCodesPage() {
   const [page, setPage] = useState(1);
@@ -37,6 +187,17 @@ export default function AdminInviteCodesPage() {
   });
 
   const codes = useMemo(() => data?.items ?? [], [data]);
+
+  const pageTotals = useMemo(() => {
+    return codes.reduce(
+      (acc, item) => {
+        acc.registrations += item.stats.total;
+        if (item.isActive) acc.active += 1;
+        return acc;
+      },
+      { registrations: 0, active: 0 },
+    );
+  }, [codes]);
 
   async function createCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,186 +254,177 @@ export default function AdminInviteCodesPage() {
         <div>
           <h1>邀请码</h1>
           <p className="qb-header-desc">
-            为拉新同学创建专属邀请码并查看其拉到的人头数（按问卷性别细分）。姓名仅后台可见，不会展示给注册用户。
+            为拉新同学生成专属 8 位运营码，按注册人数与问卷性别统计效果。姓名仅后台可见。
           </p>
         </div>
-        <div className="auth-actions">
-          <button
-            className="button-secondary"
-            onClick={() => void refresh()}
-            type="button"
-            style={{ minHeight: "2.4rem", padding: "0 1rem" }}
-          >
-            刷新
-          </button>
+        <button
+          className="button-secondary"
+          onClick={() => void refresh()}
+          type="button"
+          style={{ minHeight: "2.4rem", padding: "0 1rem" }}
+        >
+          刷新
+        </button>
+      </div>
+
+      <div className="qb-metrics">
+        <div className="qb-metric">
+          <div className="qb-metric-value">{data?.total ?? 0}</div>
+          <div className="qb-metric-label">邀请码总数</div>
+        </div>
+        <div className="qb-metric">
+          <div className="qb-metric-value">{pageTotals.active}</div>
+          <div className="qb-metric-label">本页启用中</div>
+        </div>
+        <div className="qb-metric">
+          <div className="qb-metric-value">{pageTotals.registrations}</div>
+          <div className="qb-metric-label">本页注册人次</div>
         </div>
       </div>
-
-      <div className="qb-stats-row">
-        <span className="qb-stat-pill active">
-          邀请码总数
-          <span className="qb-stat-count">{data?.total ?? 0}</span>
-        </span>
-      </div>
-
-      {/* Create */}
-      <form className="qb-search" onSubmit={createCode}>
-        <input
-          value={ownerName}
-          maxLength={100}
-          onChange={(event) => setOwnerName(event.target.value)}
-          placeholder="输入拉新同学姓名，生成专属邀请码…"
-        />
-        <button
-          className="button-primary"
-          type="submit"
-          disabled={pending === "create" || !ownerName.trim()}
-          style={{ minHeight: "2.4rem", padding: "0 1rem", flexShrink: 0 }}
-        >
-          {pending === "create" ? "生成中…" : "生成邀请码"}
-        </button>
-      </form>
 
       {lastCreated && (
-        <p className="form-success" style={{ marginBottom: "1rem" }}>
-          已为「{lastCreated.ownerName}」生成邀请码：
-          <strong style={{ fontFamily: "monospace", letterSpacing: "0.08em" }}>
-            {lastCreated.code}
-          </strong>
-          （请复制并发给对方）
-        </p>
-      )}
-
-      {/* Search + status filter */}
-      <form className="qb-search" onSubmit={handleSearchSubmit}>
-        <input
-          value={draftSearch}
-          onChange={(event) => setDraftSearch(event.target.value)}
-          placeholder="搜索姓名或邀请码…"
-        />
-        {draftSearch && (
-          <button
-            type="button"
-            className="qb-search-clear"
-            onClick={() => {
-              clearSearch();
-              setPage(1);
-            }}
-          >
-            ×
-          </button>
-        )}
-        <select
-          value={status}
-          onChange={(event) => {
-            setStatus(event.target.value as StatusFilter);
-            setPage(1);
-          }}
-          style={{ minHeight: "2.4rem", flexShrink: 0 }}
-        >
-          <option value="">全部状态</option>
-          <option value="active">仅启用</option>
-          <option value="inactive">仅停用</option>
-        </select>
-      </form>
-
-      {loadError && (
-        <p className="form-error" style={{ marginBottom: "1rem" }}>
-          {loadError}
-        </p>
-      )}
-      {error && (
-        <p className="form-error" style={{ marginBottom: "1rem" }}>
-          {error}
-        </p>
-      )}
-
-      {/* List */}
-      <div className="qb-list">
-        {codes.length === 0 && (
-          <div className="admin-empty-state">
-            {submittedSearch.trim() || status
-              ? "没有找到匹配的邀请码。"
-              : "还没有邀请码，在上方输入姓名生成第一个。"}
+        <div className="ic-created-banner" role="status">
+          <div className="ic-created-copy">
+            <p className="ic-created-eyebrow">刚生成的邀请码</p>
+            <p className="ic-created-owner">拉新同学：{lastCreated.ownerName}</p>
+            <code className="ic-code">{lastCreated.code}</code>
+            <p className="ic-created-hint">请复制后发给对方，用于注册页填写。</p>
           </div>
-        )}
-
-        {codes.map((item) => (
-          <div key={item.id} className="qb-card">
-            <div className="qb-card-header">
-              <span
-                className="qb-order-num"
-                style={{ fontSize: "0.7rem" }}
-                title="该邀请码下的注册人数"
-              >
-                {item.stats.total}
-              </span>
-
-              <div className="qb-card-title">
-                <strong
-                  style={{ fontFamily: "monospace", letterSpacing: "0.08em" }}
-                >
-                  {item.code}
-                </strong>
-                <span className="qb-card-meta">
-                  {item.ownerName}
-                  {" · "}
-                  {item.isActive ? "启用中" : "已停用"}
-                  {" · 总 "}
-                  {item.stats.total}
-                  {" · 男 "}
-                  {item.stats.male}
-                  {" · 女 "}
-                  {item.stats.female}
-                  {" · 非二元 "}
-                  {item.stats.nonBinary}
-                  {" · 未填问卷 "}
-                  {item.stats.unknown}
-                </span>
-              </div>
-
-              <div className="qb-card-actions">
-                <button
-                  type="button"
-                  className={item.isActive ? "button-secondary" : "button-primary"}
-                  disabled={pending === `toggle-${item.id}`}
-                  onClick={() => void toggleActive(item)}
-                  style={{ minHeight: "1.9rem", padding: "0 0.75rem", fontSize: "0.82rem" }}
-                >
-                  {pending === `toggle-${item.id}`
-                    ? "处理中…"
-                    : item.isActive
-                      ? "停用"
-                      : "启用"}
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Pagination */}
-      {data && data.totalPages > 1 && (
-        <div className="admin-pagination">
-          <button
-            disabled={data.page <= 1}
-            onClick={() => setPage(data.page - 1)}
-            type="button"
-          >
-            上一页
-          </button>
-          <span>
-            {data.page} / {data.totalPages} · 共 {data.total} 个邀请码
-          </span>
-          <button
-            disabled={data.page >= data.totalPages}
-            onClick={() => setPage(data.page + 1)}
-            type="button"
-          >
-            下一页
-          </button>
+          <CopyCodeButton code={lastCreated.code} label="复制邀请码" />
         </div>
       )}
+
+      <section className="ic-create-panel admin-highlight-card">
+        <div>
+          <h2>生成新码</h2>
+          <p className="qb-header-desc" style={{ marginTop: "0.35rem" }}>
+            输入拉新同学姓名，系统将分配唯一 8 位码。
+          </p>
+        </div>
+        <form className="ic-create-form" onSubmit={createCode}>
+          <input
+            value={ownerName}
+            maxLength={100}
+            onChange={(event) => setOwnerName(event.target.value)}
+            placeholder="拉新同学姓名"
+            aria-label="拉新同学姓名"
+          />
+          <button
+            className="button-primary"
+            type="submit"
+            disabled={pending === "create" || !ownerName.trim()}
+          >
+            {pending === "create" ? "生成中…" : "生成邀请码"}
+          </button>
+        </form>
+      </section>
+
+      <section className="ic-list-panel" aria-label="邀请码列表">
+        <div className="ic-list-toolbar">
+          <form className="ic-search-bar" onSubmit={handleSearchSubmit}>
+            <input
+              value={draftSearch}
+              onChange={(event) => setDraftSearch(event.target.value)}
+              placeholder="搜索姓名或邀请码…"
+              aria-label="搜索邀请码"
+            />
+            {draftSearch ? (
+              <button
+                type="button"
+                className="ic-search-clear"
+                aria-label="清除搜索"
+                onClick={() => {
+                  clearSearch();
+                  setPage(1);
+                }}
+              >
+                ×
+              </button>
+            ) : null}
+            <button className="button-primary ic-search-submit" type="submit">
+              搜索
+            </button>
+          </form>
+
+          <div className="ic-status-tabs" role="tablist" aria-label="状态筛选">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.value || "all"}
+                type="button"
+                role="tab"
+                aria-selected={status === tab.value}
+                className={status === tab.value ? "ic-status-tab is-active" : "ic-status-tab"}
+                onClick={() => {
+                  setStatus(tab.value);
+                  setPage(1);
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="ic-list-meta">
+          <GenderLegend />
+        </div>
+
+        {(loadError || error) && (
+          <p className="form-error ic-list-error">{loadError ?? error}</p>
+        )}
+
+        <div className="ic-list-scroll">
+          <div className="ic-list-head" aria-hidden="true">
+            <span>邀请码</span>
+            <span>拉新同学</span>
+            <span>状态</span>
+            <span>注册</span>
+            <span>性别分布</span>
+            <span>操作</span>
+          </div>
+
+          {codes.length === 0 ? (
+            <div className="ic-list-empty admin-empty-state">
+              {submittedSearch.trim() || status
+                ? "没有找到匹配的邀请码。"
+                : "还没有邀请码，在上方输入姓名生成第一个。"}
+            </div>
+          ) : (
+            <ul className="ic-list">
+              {codes.map((item) => (
+                <InviteCodeRow
+                  key={item.id}
+                  item={item}
+                  pending={pending}
+                  onToggle={(row) => void toggleActive(row)}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {data && data.totalPages > 1 && (
+          <div className="admin-pagination ic-list-pagination">
+            <button
+              disabled={data.page <= 1}
+              onClick={() => setPage(data.page - 1)}
+              type="button"
+            >
+              上一页
+            </button>
+            <span>
+              {data.page} / {data.totalPages} · 共 {data.total} 个邀请码
+            </span>
+            <button
+              disabled={data.page >= data.totalPages}
+              onClick={() => setPage(data.page + 1)}
+              type="button"
+            >
+              下一页
+            </button>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
