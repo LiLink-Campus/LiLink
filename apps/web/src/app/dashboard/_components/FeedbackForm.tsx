@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 import { useEffect, useId, useRef } from "react";
 import { buildDashboardFieldId } from "../_lib/format";
 
@@ -58,7 +59,7 @@ export function FeedbackForm({
   return (
     <dialog
       ref={dialogRef}
-      className="v2-report-dialog"
+      className={dcx("v2-report-dialog")}
       aria-modal="true"
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
@@ -72,19 +73,19 @@ export function FeedbackForm({
       onClick={handleBackdropClick}
     >
       <div
-        className="v2-report-dialog-inner"
+        className={dcx("v2-report-dialog-inner")}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="v2-report-dialog-head">
-          <span className="v2-report-dialog-eyebrow">反馈</span>
+        <header className={dcx("v2-report-dialog-head")}>
+          <span className={dcx("v2-report-dialog-eyebrow")}>反馈</span>
           <h2 id={titleId}>评价本次匹配</h2>
           <p id={descriptionId}>
             你的评分与文字反馈仅供平台改进匹配，对方不会看到。评分必填，文字可选。
           </p>
         </header>
-        <div className="v2-report-dialog-body">
+        <div className={dcx("v2-report-dialog-body")}>
           <div
-            className="v2-report-dialog-field"
+            className={dcx("v2-report-dialog-field")}
             role="radiogroup"
             aria-label="本次匹配评分"
           >
@@ -121,7 +122,7 @@ export function FeedbackForm({
               })}
             </div>
           </div>
-          <label className="v2-report-dialog-field">
+          <label className={dcx("v2-report-dialog-field")}>
             <span>文字评价（可选）</span>
             <textarea
               id={buildDashboardFieldId("feedback-comment")}
@@ -135,9 +136,9 @@ export function FeedbackForm({
             />
           </label>
         </div>
-        <footer className="v2-report-dialog-foot">
+        <footer className={dcx("v2-report-dialog-foot")}>
           <button
-            className="ui-button ui-button--secondary"
+            className={dcx("ui-button ui-button--secondary")}
             disabled={saving}
             type="button"
             onClick={onCancel}
@@ -145,7 +146,7 @@ export function FeedbackForm({
             取消
           </button>
           <button
-            className="ui-button ui-button--primary"
+            className={dcx("ui-button ui-button--primary")}
             disabled={saving || rating < 1}
             type="button"
             onClick={onSubmit}

@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 import { useEffect, useState } from "react";
 import { useToast } from "../_components/ToastProvider";
 import {
@@ -102,9 +103,9 @@ export function ReferralsClient() {
 
   if (loading) {
     return (
-      <div className="app-page-shell v2-page-shell referrals-page">
-        <div className="me-state">
-          <span className="me-state-spinner" />
+      <div className={dcx("app-page-shell v2-page-shell referrals-page")}>
+        <div className={dcx("me-state")}>
+          <span className={dcx("me-state-spinner")} />
           <span>加载中……</span>
         </div>
       </div>
@@ -112,8 +113,8 @@ export function ReferralsClient() {
   }
   if (error) {
     return (
-      <div className="app-page-shell v2-page-shell referrals-page">
-        <div className="me-state is-error">{error}</div>
+      <div className={dcx("app-page-shell v2-page-shell referrals-page")}>
+        <div className={dcx("me-state is-error")}>{error}</div>
       </div>
     );
   }
@@ -123,28 +124,28 @@ export function ReferralsClient() {
   const canShare = data.links.length > 0;
 
   return (
-    <div className="app-page-shell v2-page-shell referrals-page">
-      <header className="v2-page-header referrals-header">
-        <span className="v2-page-header-eyebrow">
-          <SparklesIcon className="referrals-header-icon" />
+    <div className={dcx("app-page-shell v2-page-shell referrals-page")}>
+      <header className={dcx("v2-page-header referrals-header")}>
+        <span className={dcx("v2-page-header-eyebrow")}>
+          <SparklesIcon className={dcx("referrals-header-icon")} />
           邀请有礼
         </span>
         <h1>我的邀请</h1>
         <p>分享专属链接，邀请同学加入 LiLink，一起解锁校园社交</p>
       </header>
 
-      <section className="referrals-invite-card" aria-label="我的邀请码">
-        <span className="referrals-invite-label">我的邀请码</span>
-        <div className="referrals-code-row">
-          <code className="referrals-code">
+      <section className={dcx("referrals-invite-card")} aria-label="我的邀请码">
+        <span className={dcx("referrals-invite-label")}>我的邀请码</span>
+        <div className={dcx("referrals-code-row")}>
+          <code className={dcx("referrals-code")}>
             {data.referralCode ?? "尚未生成"}
           </code>
           {data.referralCode && (
             <button
               type="button"
-              className={`referrals-icon-btn${
+              className={dcx(`referrals-icon-btn${
                 copiedCode ? " is-copied" : ""
-              }`}
+              }`)}
               aria-label="复制邀请码"
               onClick={() => void copyReferralCode(data.referralCode!)}
             >
@@ -152,12 +153,12 @@ export function ReferralsClient() {
             </button>
           )}
         </div>
-        <p className="referrals-invite-hint">
+        <p className={dcx("referrals-invite-hint")}>
           点击下方按钮，选择微信或其他 App 分享给你的同学。
         </p>
         <button
           type="button"
-          className="referrals-share-cta"
+          className={dcx("referrals-share-cta")}
           disabled={!canShare}
           onClick={() => setShareSheetOpen(true)}
         >
@@ -174,10 +175,10 @@ export function ReferralsClient() {
       />
 
       <section
-        className="referrals-panel"
+        className={dcx("referrals-panel")}
         aria-labelledby="referrals-progress-title"
       >
-        <div className="referrals-panel-head">
+        <div className={dcx("referrals-panel-head")}>
           <h2 id="referrals-progress-title">我邀请的同学</h2>
           <p>
             {funnelTotal > 0
@@ -185,22 +186,22 @@ export function ReferralsClient() {
               : "分享链接给同学，他们注册后会显示在这里"}
           </p>
         </div>
-        <div className="referrals-progress-stats">
+        <div className={dcx("referrals-progress-stats")}>
           {INVITE_PROGRESS.map((step, index) => {
             const value = data.funnel[step.key];
             const Icon = index === 0 ? PeopleIcon : CheckCircleIcon;
 
             return (
-              <div key={step.key} className="referrals-progress-stat">
-                <div className="referrals-progress-stat-inner">
-                  <div className="referrals-progress-icon-wrapper">
-                    <Icon className="referrals-progress-icon" aria-hidden="true" />
+              <div key={step.key} className={dcx("referrals-progress-stat")}>
+                <div className={dcx("referrals-progress-stat-inner")}>
+                  <div className={dcx("referrals-progress-icon-wrapper")}>
+                    <Icon className={dcx("referrals-progress-icon")} aria-hidden="true" />
                   </div>
-                  <p className="referrals-progress-heading">
-                    <strong className="referrals-progress-value">{value}</strong>
-                    <span className="referrals-progress-label">{step.label}</span>
+                  <p className={dcx("referrals-progress-heading")}>
+                    <strong className={dcx("referrals-progress-value")}>{value}</strong>
+                    <span className={dcx("referrals-progress-label")}>{step.label}</span>
                   </p>
-                  <span className="referrals-progress-desc">
+                  <span className={dcx("referrals-progress-desc")}>
                     {step.description}
                   </span>
                 </div>

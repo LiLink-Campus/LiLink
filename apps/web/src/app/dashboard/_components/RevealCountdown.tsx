@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 import { useEffect, useMemo, useState } from "react";
 
 const MINUTE_MS = 60_000;
@@ -79,12 +80,12 @@ export function RevealCountdown({
   }, [mounted, targetMs]);
 
   if (targetMs === null) {
-    return <span className="v2-countdown v2-countdown-static">暂无开放轮次</span>;
+    return <span className={dcx("v2-countdown v2-countdown-static")}>暂无开放轮次</span>;
   }
 
   if (!mounted || nowMs === null) {
     return (
-      <span className="v2-countdown v2-countdown-static" suppressHydrationWarning>
+      <span className={dcx("v2-countdown v2-countdown-static")} suppressHydrationWarning>
         计算中
       </span>
     );
@@ -94,18 +95,18 @@ export function RevealCountdown({
 
   if (parts.expired) {
     return (
-      <span className="v2-countdown v2-countdown-static">{expiredLabel}</span>
+      <span className={dcx("v2-countdown v2-countdown-static")}>{expiredLabel}</span>
     );
   }
 
   return (
-    <span className="v2-countdown" aria-label={`${prefix}揭晓`}>
-      <span className="v2-countdown-num">{parts.days}</span>
-      <span className="v2-countdown-unit">天</span>
-      <span className="v2-countdown-num">{parts.hours}</span>
-      <span className="v2-countdown-unit">时</span>
-      <span className="v2-countdown-num">{parts.minutes}</span>
-      <span className="v2-countdown-unit">分</span>
+    <span className={dcx("v2-countdown")} aria-label={`${prefix}揭晓`}>
+      <span className={dcx("v2-countdown-num")}>{parts.days}</span>
+      <span className={dcx("v2-countdown-unit")}>天</span>
+      <span className={dcx("v2-countdown-num")}>{parts.hours}</span>
+      <span className={dcx("v2-countdown-unit")}>时</span>
+      <span className={dcx("v2-countdown-num")}>{parts.minutes}</span>
+      <span className={dcx("v2-countdown-unit")}>分</span>
     </span>
   );
 }

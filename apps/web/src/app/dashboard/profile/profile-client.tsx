@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 import {
   createAutosaveLifecycleGate,
   createAutosaveTimeoutController,
@@ -231,8 +232,8 @@ function questionnaireAttentionText(item: QuestionnaireAttentionItem) {
 function renderQuestionBlockHeading(title: string) {
   return (
     <>
-      <legend className="question-block-legend">{title}</legend>
-      <div className="question-block-title" aria-hidden="true">
+      <legend className={dcx("question-block-legend")}>{title}</legend>
+      <div className={dcx("question-block-title")} aria-hidden="true">
         <span>{title}</span>
       </div>
     </>
@@ -501,34 +502,34 @@ function MultiChoiceSummaryPicker({
   }
 
   return (
-    <div className="multi-choice-picker">
-      <div className="multi-choice-summary">
-        <div className="multi-choice-copy">
-          <span className="multi-choice-count">
+    <div className={dcx("multi-choice-picker")}>
+      <div className={dcx("multi-choice-summary")}>
+        <div className={dcx("multi-choice-copy")}>
+          <span className={dcx("multi-choice-count")}>
             {hasSelectedValues ? `已选 ${values.length} 项` : emptyLabel}
           </span>
-          <div className="multi-choice-preview">
+          <div className={dcx("multi-choice-preview")}>
             {hasSelectedValues ? (
               <>
                 {previewValues.map((value) => (
-                  <span key={value} className="multi-choice-preview-chip">
+                  <span key={value} className={dcx("multi-choice-preview-chip")}>
                     {value}
                   </span>
                 ))}
                 {hiddenSelectedCount > 0 ? (
-                  <span className="multi-choice-more">
+                  <span className={dcx("multi-choice-more")}>
                     +{hiddenSelectedCount}
                   </span>
                 ) : null}
               </>
             ) : (
-              <span className="multi-choice-empty">{emptyLabel}</span>
+              <span className={dcx("multi-choice-empty")}>{emptyLabel}</span>
             )}
           </div>
         </div>
         <button
           type="button"
-          className="multi-choice-trigger"
+          className={dcx("multi-choice-trigger")}
           aria-haspopup="dialog"
           onClick={handleTriggerClick}
           onPointerDown={handleTriggerPointerDown}
@@ -540,7 +541,7 @@ function MultiChoiceSummaryPicker({
 
       <dialog
         ref={dialogRef}
-        className="multi-choice-dialog"
+        className={dcx("multi-choice-dialog")}
         aria-labelledby={`${id}-dialog-title`}
         onClose={() => setSearch("")}
         onClick={(event) => {
@@ -549,12 +550,12 @@ function MultiChoiceSummaryPicker({
           }
         }}
       >
-        <div className="multi-choice-dialog-inner">
-          <div className="multi-choice-dialog-head">
+        <div className={dcx("multi-choice-dialog-inner")}>
+          <div className={dcx("multi-choice-dialog-head")}>
             <h4 id={`${id}-dialog-title`}>{title}</h4>
             <button
               type="button"
-              className="multi-choice-dialog-close"
+              className={dcx("multi-choice-dialog-close")}
               aria-label="关闭"
               onClick={closeDialog}
             >
@@ -565,7 +566,7 @@ function MultiChoiceSummaryPicker({
           <input
             ref={searchInputRef}
             type="search"
-            className="multi-choice-search"
+            className={dcx("multi-choice-search")}
             value={search}
             placeholder={searchPlaceholder}
             onChange={(event) => setSearch(event.target.value)}
@@ -576,8 +577,8 @@ function MultiChoiceSummaryPicker({
               type="button"
               className={
                 hasSelectedValues
-                  ? "multi-choice-clear"
-                  : "multi-choice-clear is-active"
+                  ? dcx("multi-choice-clear")
+                  : dcx("multi-choice-clear is-active")
               }
               onClick={clearSelection}
             >
@@ -585,7 +586,7 @@ function MultiChoiceSummaryPicker({
             </button>
           ) : null}
 
-          <div className="multi-choice-dialog-options">
+          <div className={dcx("multi-choice-dialog-options")}>
             {filteredOptions.map((option, index) => {
               const active = values.includes(option);
               return (
@@ -593,8 +594,8 @@ function MultiChoiceSummaryPicker({
                   key={option}
                   className={
                     active
-                      ? "multi-choice-dialog-option is-active"
-                      : "multi-choice-dialog-option"
+                      ? dcx("multi-choice-dialog-option is-active")
+                      : dcx("multi-choice-dialog-option")
                   }
                 >
                   <input
@@ -610,13 +611,13 @@ function MultiChoiceSummaryPicker({
             })}
           </div>
 
-          <div className="multi-choice-dialog-footer">
+          <div className={dcx("multi-choice-dialog-footer")}>
             <span>
               {hasSelectedValues ? `已选 ${values.length} 项` : emptyLabel}
             </span>
             <button
               type="button"
-              className="multi-choice-done"
+              className={dcx("multi-choice-done")}
               onClick={closeDialog}
             >
               完成
@@ -943,15 +944,17 @@ export function ProfileClient({
   }
 
   function attentionBlockClassName(keys: readonly string[]) {
-    return attentionItemForKeys(keys)
-      ? "question-block question-block-attention"
-      : "question-block";
+    return dcx(
+      attentionItemForKeys(keys)
+        ? "question-block question-block-attention"
+        : "question-block",
+    );
   }
 
   function renderAttentionNote(keys: readonly string[]) {
     const item = attentionItemForKeys(keys);
     return item ? (
-      <p className="question-attention-note">
+      <p className={dcx("question-attention-note")}>
         {questionnaireAttentionText(item)}
       </p>
     ) : null;
@@ -1390,9 +1393,9 @@ export function ProfileClient({
         : { label: "已保存 · 完整", tone: "on" };
 
   return (
-    <div className="app-page-shell v2-page-shell">
-      <header className="v2-page-header">
-        <span className="v2-page-header-eyebrow">Matching Profile</span>
+    <div className={dcx("app-page-shell v2-page-shell")}>
+      <header className={dcx("v2-page-header")}>
+        <span className={dcx("v2-page-header-eyebrow")}>Matching Profile</span>
         <h1>匹配资料</h1>
         <p>
           {hasSavedQuestionnaire
@@ -1401,7 +1404,7 @@ export function ProfileClient({
               : "匹配以你最近一次正式保存的内容计算；你在这里的修改会自动保存并用于后续轮次。"
             : "在这里填写匹配资料。系统会自动保存草稿；补全全部必答项后，会自动转为正式资料。"}
         </p>
-        <div className="v2-page-header-row">
+        <div className={dcx("v2-page-header-row")}>
           <span
             className={
               profileStatus.tone === "on"
@@ -1411,21 +1414,21 @@ export function ProfileClient({
           >
             {profileStatus.label}
           </span>
-          <span className="semantic-status semantic-status--neutral">{questionnaireStatus}</span>
+          <span className={dcx("semantic-status semantic-status--neutral")}>{questionnaireStatus}</span>
         </div>
         {questionnaireSaveError ? (
-          <p className="ui-form-message ui-form-message--error">{questionnaireSaveError}</p>
+          <p className={dcx("ui-form-message ui-form-message--error")}>{questionnaireSaveError}</p>
         ) : null}
       </header>
 
-      <section className="ui-card ui-card--padded">
-        <div className="app-q-toolbar">
-          <p className="app-muted">
+      <section className={dcx("ui-card ui-card--padded")}>
+        <div className={dcx("app-q-toolbar")}>
+          <p className={dcx("app-muted")}>
             系统会在你停止输入片刻后自动保存当前编辑内容。
           </p>
           {questionnaireSaveError ? (
             <button
-              className="ui-button ui-button--secondary"
+              className={dcx("ui-button ui-button--secondary")}
               type="button"
               onClick={() =>
                 setQuestionnaireManualRetryTick((current) => current + 1)
@@ -1436,20 +1439,20 @@ export function ProfileClient({
           ) : null}
         </div>
         {questionnaireIncompleteMessage ? (
-          <p className="ui-form-message ui-form-message--error" role="alert">
+          <p className={dcx("ui-form-message ui-form-message--error")} role="alert">
             {questionnaireIncompleteMessage}
           </p>
         ) : null}
 
-        <nav aria-label="问卷分组" className="app-section-tabs">
+        <nav aria-label="问卷分组" className={dcx("app-section-tabs")}>
           {PROFILE_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               className={
                 tab.id === activeTab
-                  ? "app-section-tab is-active"
-                  : "app-section-tab"
+                  ? dcx("app-section-tab is-active")
+                  : dcx("app-section-tab")
               }
               aria-pressed={tab.id === activeTab}
               onClick={() => setActiveTab(tab.id)}
@@ -1461,15 +1464,15 @@ export function ProfileClient({
 
         {/* ── 关于你 ── */}
         {activeTab === "self" && (
-          <div className="app-q-group">
-            <div className="app-q-group-header">
-              <span className="app-q-group-icon app-q-group-icon-self">我</span>
+          <div className={dcx("app-q-group")}>
+            <div className={dcx("app-q-group-header")}>
+              <span className={dcx("app-q-group-icon app-q-group-icon-self")}>我</span>
               <div>
                 <h3>关于你</h3>
                 <p>你的基本客观信息</p>
               </div>
             </div>
-            <div className="question-list">
+            <div className={dcx("question-list")}>
               <fieldset
                 id={profileAttentionElementId(HARD_MATCH_KEYS.birthDate)}
                 ref={(node) =>
@@ -1484,7 +1487,7 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("出生日期")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.birthDate)}
-                <div className="form-grid birth-date-grid">
+                <div className={dcx("form-grid birth-date-grid")}>
                   <label>
                     <span>年份</span>
                     <ValuePicker
@@ -1544,7 +1547,7 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("性别")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.gender)}
-                <div className="option-list">
+                <div className={dcx("option-list")}>
                   {HARD_MATCH_GENDERS.map((g, i) => (
                     <label key={g}>
                       <input
@@ -1628,7 +1631,7 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("颜值自评")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.looks)}
-                <div className="option-list">
+                <div className={dcx("option-list")}>
                   {HARD_MATCH_LOOKS.map((l, i) => (
                     <label key={l}>
                       <input
@@ -1707,9 +1710,9 @@ export function ProfileClient({
 
         {/* ── 对方条件 ── */}
         {activeTab === "partner" && (
-          <div className="app-q-group">
-            <div className="app-q-group-header">
-              <span className="app-q-group-icon app-q-group-icon-partner">
+          <div className={dcx("app-q-group")}>
+            <div className={dcx("app-q-group-header")}>
+              <span className={dcx("app-q-group-icon app-q-group-icon-partner")}>
                 TA
               </span>
               <div>
@@ -1717,7 +1720,7 @@ export function ProfileClient({
                 <p>你希望匹配对象满足的条件</p>
               </div>
             </div>
-            <div className="question-list">
+            <div className={dcx("question-list")}>
               <fieldset
                 id={profileAttentionElementId(HARD_MATCH_KEYS.partnerAgeMin)}
                 ref={(node) =>
@@ -1732,11 +1735,11 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("对方年龄理想区间")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerAge)}
-                <p className="app-muted">
+                <p className={dcx("app-muted")}>
                   填对方的<strong>实际年龄</strong>数字（例如 18 到 25），
                   不是与你的年龄差。
                 </p>
-                <div className="form-grid">
+                <div className={dcx("form-grid")}>
                   <label>
                     <span>年龄下限</span>
                     <ValuePicker
@@ -1786,13 +1789,13 @@ export function ProfileClient({
                 {renderAttentionNote(
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerGenders,
                 )}
-                <div className="chip-grid">
+                <div className={dcx("chip-grid")}>
                   {HARD_MATCH_GENDERS.map((g, i) => {
                     const active = hardMatchForm.partnerGenders.includes(g);
                     return (
                       <label
                         key={g}
-                        className={active ? "chip active" : "chip"}
+                        className={dcx(active ? "chip active" : "chip")}
                       >
                         <input
                           checked={active}
@@ -1894,13 +1897,13 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("希望对方的颜值（可多选）")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerLooks)}
-                <div className="chip-grid">
+                <div className={dcx("chip-grid")}>
                   {HARD_MATCH_LOOKS.map((l, i) => {
                     const active = hardMatchForm.partnerLooks.includes(l);
                     return (
                       <label
                         key={l}
-                        className={active ? "chip active" : "chip"}
+                        className={dcx(active ? "chip active" : "chip")}
                       >
                         <input
                           checked={active}
@@ -1932,7 +1935,7 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("希望对方的身高范围（厘米）")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerHeight)}
-                <div className="form-grid">
+                <div className={dcx("form-grid")}>
                   <label>
                     <span>身高下限</span>
                     <ValuePicker
@@ -1986,7 +1989,7 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("希望对方的体重范围（公斤）")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerWeight)}
-                <div className="form-grid">
+                <div className={dcx("form-grid")}>
                   <label>
                     <span>体重下限</span>
                     <ValuePicker
@@ -2042,29 +2045,29 @@ export function ProfileClient({
                 {renderAttentionNote(
                   HARD_MATCH_FIELD_KEY_GROUPS.excludedPartnerSchools,
                 )}
-                <p className="app-muted">
+                <p className={dcx("app-muted")}>
                   在每所学校上，勾选你不希望匹配的性别。三项全选即整校排除。
                 </p>
                 {matchEstimate ? (
                   <p
-                    className={`match-estimate-hint ${MATCH_ESTIMATE_BAND_MODIFIERS[matchEstimate.band]}${matchEstimatePending ? " is-pending" : ""}`}
+                    className={dcx(`match-estimate-hint ${MATCH_ESTIMATE_BAND_MODIFIERS[matchEstimate.band]}${matchEstimatePending ? " is-pending" : ""}`)}
                     role="status"
                     aria-live="polite"
                   >
-                    <span className="match-estimate-hint-label">
+                    <span className={dcx("match-estimate-hint-label")}>
                       排除后匹配到的概率：
                     </span>
-                    <strong className="match-estimate-hint-band">
+                    <strong className={dcx("match-estimate-hint-band")}>
                       {MATCH_ESTIMATE_BAND_LABELS[matchEstimate.band]}
                     </strong>
                     {matchEstimate.lowConfidence ? (
-                      <span className="match-estimate-hint-caveat">
+                      <span className={dcx("match-estimate-hint-caveat")}>
                         当前候选人较少，仅供参考
                       </span>
                     ) : null}
                   </p>
                 ) : null}
-                <div className="school-exclusion-list">
+                <div className={dcx("school-exclusion-list")}>
                   {schoolOptions.map((school, i) => {
                     const activeGenders = activeExcludedGendersFor(
                       hardMatchForm,
@@ -2074,32 +2077,34 @@ export function ProfileClient({
                       activeGenders.length === HARD_MATCH_GENDERS.length;
                     const isPartiallyExcluded =
                       !isFullyExcluded && activeGenders.length > 0;
-                    const rowClass = isFullyExcluded
-                      ? "school-exclusion-row is-fully-excluded"
-                      : isPartiallyExcluded
-                        ? "school-exclusion-row is-partially-excluded"
-                        : "school-exclusion-row";
+                    const rowClass = dcx(
+                      isFullyExcluded
+                        ? "school-exclusion-row is-fully-excluded"
+                        : isPartiallyExcluded
+                          ? "school-exclusion-row is-partially-excluded"
+                          : "school-exclusion-row",
+                    );
                     return (
                       <section key={school.id} className={rowClass}>
-                        <div className="school-exclusion-name">
+                        <div className={dcx("school-exclusion-name")}>
                           <span
-                            className="school-exclusion-name-text"
+                            className={dcx("school-exclusion-name-text")}
                             title={school.name}
                           >
                             {school.name}
                           </span>
                           {isFullyExcluded ? (
-                            <span className="school-exclusion-status is-strong">
+                            <span className={dcx("school-exclusion-status is-strong")}>
                               整校排除
                             </span>
                           ) : isPartiallyExcluded ? (
-                            <span className="school-exclusion-status">
+                            <span className={dcx("school-exclusion-status")}>
                               已排除：{activeGenders.join("、")}
                             </span>
                           ) : null}
                         </div>
                         <div
-                          className="school-exclusion-genders"
+                          className={dcx("school-exclusion-genders")}
                           role="group"
                           aria-label={`${school.name} 排除性别`}
                         >
@@ -2110,8 +2115,8 @@ export function ProfileClient({
                                 key={gender}
                                 className={
                                   active
-                                    ? "school-exclusion-gender is-active"
-                                    : "school-exclusion-gender"
+                                    ? dcx("school-exclusion-gender is-active")
+                                    : dcx("school-exclusion-gender")
                                 }
                               >
                                 <input
@@ -2146,9 +2151,9 @@ export function ProfileClient({
 
         {/* ── 价值观问卷 ── */}
         {activeTab === "values" && questions.length > 0 && (
-          <div className="app-q-group">
-            <div className="app-q-group-header">
-              <span className="app-q-group-icon app-q-group-icon-values">
+          <div className={dcx("app-q-group")}>
+            <div className={dcx("app-q-group-header")}>
+              <span className={dcx("app-q-group-icon app-q-group-icon-values")}>
                 Q
               </span>
               <div>
@@ -2156,7 +2161,7 @@ export function ProfileClient({
                 <p>共 {questions.length} 题，作为匹配算法的核心输入</p>
               </div>
             </div>
-            <div className="question-list">
+            <div className={dcx("question-list")}>
               {questions.map((question, questionIndex) => {
                 const value = answers[question.key];
                 const attentionItem = questionAttentionByKey.get(question.key);
@@ -2165,8 +2170,8 @@ export function ProfileClient({
                   (attentionItem.missingRequired ||
                     (attentionItem.updated && !attentionItem.acknowledged));
                 const questionTitle = (
-                  <div aria-hidden="true" className="question-block-title">
-                    <span className="app-q-num">{questionIndex + 1}</span>
+                  <div aria-hidden="true" className={dcx("question-block-title")}>
+                    <span className={dcx("app-q-num")}>{questionIndex + 1}</span>
                     <span>{question.prompt}</span>
                   </div>
                 );
@@ -2185,27 +2190,27 @@ export function ProfileClient({
                       id={questionnaireQuestionElementId(question.key)}
                       className={attentionBlockClassName([question.key])}
                     >
-                      <legend className="question-block-legend">
+                      <legend className={dcx("question-block-legend")}>
                         {question.prompt}
                       </legend>
                       {questionTitle}
                       {showQuestionAttention && attentionItem ? (
-                        <p className="question-attention-note">
+                        <p className={dcx("question-attention-note")}>
                           {questionnaireAttentionText(attentionItem)}
                         </p>
                       ) : null}
                       {selectionLimit != null ? (
-                        <p className="app-muted">
+                        <p className={dcx("app-muted")}>
                           本题最多选择 {selectionLimit} 项。
                         </p>
                       ) : null}
-                      <div className="chip-grid">
+                      <div className={dcx("chip-grid")}>
                         {question.options?.map((option, optionIndex) => {
                           const active = selected.includes(option.value);
                           return (
                             <label
                               key={option.value}
-                              className={active ? "chip active" : "chip"}
+                              className={dcx(active ? "chip active" : "chip")}
                             >
                               <input
                                 checked={active}
@@ -2263,16 +2268,16 @@ export function ProfileClient({
                     id={questionnaireQuestionElementId(question.key)}
                     className={attentionBlockClassName([question.key])}
                   >
-                    <legend className="question-block-legend">
+                    <legend className={dcx("question-block-legend")}>
                       {question.prompt}
                     </legend>
                     {questionTitle}
                     {showQuestionAttention && attentionItem ? (
-                      <p className="question-attention-note">
+                      <p className={dcx("question-attention-note")}>
                         {questionnaireAttentionText(attentionItem)}
                       </p>
                     ) : null}
-                    <div className="option-list">
+                    <div className={dcx("option-list")}>
                       {question.options?.map((option, optionIndex) => (
                         <label key={option.value}>
                           <input

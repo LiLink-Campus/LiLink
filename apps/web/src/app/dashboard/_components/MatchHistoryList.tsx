@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 import {
   REPORT_FORM_SECTION_ID,
   formatCycleRevealAt,
@@ -35,41 +36,41 @@ export function MatchHistoryList({
 }: MatchHistoryListProps) {
   if (history.length === 0) {
     return (
-      <p className="ui-card-description">
+      <p className={dcx("ui-card-description")}>
         暂无历史记录。等你参与并经过几轮揭晓后，这里会出现最近几次匹配。
       </p>
     );
   }
 
   return (
-    <ul className="app-history-list">
+    <ul className={dcx("app-history-list")}>
       {history.map((item) => {
         const participationLabel =
           item.participationStatus === "OPTED_IN" ? "已参加" : "未参加";
 
         return (
-          <li key={item.cycleId} className="app-history-card">
-            <div className="app-history-card-head">
-              <h3 className="app-history-title">{item.codename}</h3>
-              <p className="app-history-meta">
+          <li key={item.cycleId} className={dcx("app-history-card")}>
+            <div className={dcx("app-history-card-head")}>
+              <h3 className={dcx("app-history-title")}>{item.codename}</h3>
+              <p className={dcx("app-history-meta")}>
                 {formatCycleRevealAt(item.revealAt)} · {participationLabel}
               </p>
             </div>
             {item.result === "NOT_PARTICIPATED" ? (
-              <p className="ui-card-description">该轮你未报名参加。</p>
+              <p className={dcx("ui-card-description")}>该轮你未报名参加。</p>
             ) : null}
             {item.result === "UNMATCHED" ? (
-              <p className="ui-card-description">你参加了该轮，但未匹配到对象。</p>
+              <p className={dcx("ui-card-description")}>你参加了该轮，但未匹配到对象。</p>
             ) : null}
             {item.result === "MATCHED" && item.visibility === "LIMITED" ? (
-              <p className="ui-card-description">
+              <p className={dcx("ui-card-description")}>
                 {limitedHistoryExplanation(item.limitedReason)}
               </p>
             ) : null}
             {item.result === "MATCHED" &&
             item.visibility === "VISIBLE" &&
             item.match ? (
-              <div className="app-history-match-body">
+              <div className={dcx("app-history-match-body")}>
                 {(() => {
                   const hm = item.match;
                   const counterpart =
@@ -83,11 +84,11 @@ export function MatchHistoryList({
                       : null);
                   return (
                     <>
-                      <span className="app-match-score">
+                      <span className={dcx("app-match-score")}>
                         匹配度 <strong>{hm.score.toFixed(1)}</strong> / 100
                       </span>
                       {counterpart?.displayName ? (
-                        <p className="ui-card-description">
+                        <p className={dcx("ui-card-description")}>
                           对方：{counterpart.displayName}
                           {counterpart.schoolName
                             ? ` · ${counterpart.schoolName}`
@@ -95,17 +96,17 @@ export function MatchHistoryList({
                         </p>
                       ) : null}
                       {counterpart?.introLine ? (
-                        <p className="ui-card-description app-match-intro">
+                        <p className={dcx("ui-card-description app-match-intro")}>
                           对方介绍：{counterpart.introLine}
                         </p>
                       ) : null}
                       {!introducedRow ? (
-                        <p className="ui-card-description">
+                        <p className={dcx("ui-card-description")}>
                           交换联系方式后即可查看对方联络方式。
                         </p>
                       ) : null}
                       {introducedRow && publicContact ? (
-                        <p className="ui-form-message ui-form-message--success app-match-email">
+                        <p className={dcx("ui-form-message ui-form-message--success app-match-email")}>
                           联系方式：{publicContact.label} {publicContact.value}
                         </p>
                       ) : null}
@@ -115,12 +116,12 @@ export function MatchHistoryList({
                         weeklyIntent={counterpart?.weeklyIntent}
                         compact
                       />
-                      <div className="auth-actions">
+                      <div className={dcx("auth-actions")}>
                         {introducedRow ? (
-                          <span className="ui-badge ui-badge--neutral">已引荐</span>
+                          <span className={dcx("ui-badge ui-badge--neutral")}>已引荐</span>
                         ) : (
                           <button
-                            className="ui-button ui-button--primary"
+                            className={dcx("ui-button ui-button--primary")}
                             disabled={saving === "contact"}
                             type="button"
                             onClick={() => onRequestContact(hm.id)}
@@ -133,10 +134,10 @@ export function MatchHistoryList({
                             hm.reportStatus,
                           );
                           return label ? (
-                            <span className="ui-badge ui-badge--neutral">{label}</span>
+                            <span className={dcx("ui-badge ui-badge--neutral")}>{label}</span>
                           ) : (
                             <button
-                              className="ui-button ui-button--secondary"
+                              className={dcx("ui-button ui-button--secondary")}
                               aria-controls={REPORT_FORM_SECTION_ID}
                               aria-expanded={reportFormIsOpenForMatch(hm.id)}
                               disabled={saving === "report"}
@@ -148,7 +149,7 @@ export function MatchHistoryList({
                           );
                         })()}
                         <button
-                          className="ui-button ui-button--secondary"
+                          className={dcx("ui-button ui-button--secondary")}
                           disabled={saving === "feedback"}
                           type="button"
                           onClick={() =>
