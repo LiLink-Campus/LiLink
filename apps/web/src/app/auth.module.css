@@ -1,0 +1,162 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding-top: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.panel {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.panelMark {
+  position: absolute;
+  top: 1.4rem;
+  right: 1.4rem;
+  width: 2.4rem;
+  color: var(--color-brand);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.panelMark svg {
+  width: 100%;
+  height: auto;
+}
+
+.grassLine {
+  width: 100%;
+  max-width: var(--container-narrow);
+  color: var(--color-brand);
+  opacity: 0.6;
+  display: flex;
+}
+
+.grassLine svg {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 1.4rem;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.stack > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stack > label > span,
+.stack :global(.ui-field-label) {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.stack input[type="text"],
+.stack input[type="email"],
+.stack input[type="password"],
+.stack input[type="datetime-local"],
+.stack input:not([type]),
+.stack textarea,
+.stack select {
+  width: 100%;
+  padding: 0.78rem 0.95rem;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.stack input:focus,
+.stack textarea:focus,
+.stack select:focus {
+  outline: none;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 4px rgba(139, 58, 74, 0.12);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+  align-items: center;
+}
+
+.stack .actions :global(.ui-button) {
+  flex: 1 1 8rem;
+}
+
+.actions :global(.ui-badge) {
+  align-self: center;
+}
+
+.hint {
+  margin-top: 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+}
+
+.hint a {
+  color: var(--color-brand-ink);
+  border-bottom: 1px solid var(--color-brand-soft);
+}
+
+.devInline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  padding: 0.8rem 1rem;
+  background: var(--color-brand-tint);
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
+  color: var(--color-brand-ink);
+}
+
+.devInline strong {
+  font-weight: 600;
+}
+
+.devNote {
+  padding: 0.55rem 0.8rem;
+  background: var(--color-gold-soft);
+  color: #6f5114;
+  font-size: 0.85rem;
+  border-radius: var(--radius-sm);
+}
+
+.termsCheckboxLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.termsCheckboxLabel input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.25rem;
+  accent-color: var(--color-brand);
+  flex-shrink: 0;
+}
+
+.termsCheckboxLabel a {
+  color: var(--color-brand-ink);
+  border-bottom: 1px solid var(--color-brand-soft);
+}

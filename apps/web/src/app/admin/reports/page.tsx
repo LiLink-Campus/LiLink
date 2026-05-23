@@ -2,9 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
+import { cx } from "../admin-class-names";
+import commonStyles from "../admin-common.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
 import type { AdminReport, AdminReportContext } from "../types";
+
+const adminStyles = [commonStyles];
 
 type ReportFilter = "ALL" | AdminReport["status"];
 
@@ -173,17 +177,17 @@ export default function AdminReportsPage() {
   }
 
   if (loading) {
-    return <div className="admin-empty-state">正在加载举报中心...</div>;
+    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载举报中心...</div>;
   }
 
   return (
-    <div className="admin-page admin-page-stack" style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
-      <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
+    <div className={cx(adminStyles, "admin-page admin-page-stack admin-page-wide")}>
+      <div className={cx(adminStyles, "admin-page-header admin-page-header-large")}>
         <div>
-          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>举报中心</h1>
-          <p style={{ color: "var(--color-text-secondary)", fontSize: "1.05rem" }}>把举报当作审核工单处理，而不是简单列表。先过滤队列，再进入详情判断。</p>
+          <h1 className={cx(adminStyles, "admin-page-title-large")}>举报中心</h1>
+          <p className={cx(adminStyles, "admin-page-description-large")}>把举报当作审核工单处理，而不是简单列表。先过滤队列，再进入详情判断。</p>
         </div>
-        <button className="ui-button ui-button--secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
+        <button className={cx(adminStyles, "ui-button ui-button--secondary admin-large-refresh-control")} onClick={() => void refresh()} type="button">
           刷新
         </button>
       </div>
@@ -191,15 +195,15 @@ export default function AdminReportsPage() {
       {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
       {actionError ? <p className="ui-form-message ui-form-message--error">{actionError}</p> : null}
 
-      <section className="admin-workspace-grid">
-        <article className="ui-card ui-card--padded ui-card--plain admin-list-panel">
-          <div className="admin-section-header">
+      <section className={cx(adminStyles, "admin-workspace-grid")}>
+        <article className={cx(adminStyles, "ui-card ui-card--padded ui-card--plain admin-list-panel")}>
+          <div className={cx(adminStyles, "admin-section-header")}>
             <div>
               <p className="eyebrow">举报</p>
               <h2>举报列表</h2>
             </div>
           </div>
-          <form className="admin-search-bar" onSubmit={handleSearchSubmit}>
+          <form className={cx(adminStyles, "admin-search-bar")} onSubmit={handleSearchSubmit}>
             <input
               value={draftSearch}
               onChange={(event) => setDraftSearch(event.target.value)}
@@ -207,7 +211,7 @@ export default function AdminReportsPage() {
             />
           </form>
 
-          <div className="admin-tabs">
+          <div className={cx(adminStyles, "admin-tabs")}>
             {(["ALL", "OPEN", "RESOLVED", "DISMISSED"] as const).map((status) => (
               <button
                 key={status}
@@ -223,7 +227,7 @@ export default function AdminReportsPage() {
             ))}
           </div>
 
-          <div className="admin-batch-actions">
+          <div className={cx(adminStyles, "admin-batch-actions")}>
             <button
               type="button"
               className="ui-button ui-button--secondary"
@@ -263,17 +267,17 @@ export default function AdminReportsPage() {
             </button>
           </div>
 
-          <div className="admin-record-list">
+          <div className={cx(adminStyles, "admin-record-list")}>
             {reports.map((report) => (
               <div
                 key={report.id}
-                className={
-                  report.id === selectedReportId
-                    ? "admin-record-item admin-record-item-active"
-                    : "admin-record-item"
-                }
+                className={cx(
+                  adminStyles,
+                  "admin-record-item",
+                  report.id === selectedReportId && "admin-record-item-active",
+                )}
               >
-                <div className="admin-record-selection">
+                <div className={cx(adminStyles, "admin-record-selection")}>
                   <input
                     type="checkbox"
                     checked={selectedReportIds.includes(report.id)}
@@ -287,17 +291,17 @@ export default function AdminReportsPage() {
                   />
                   <button
                     type="button"
-                    className="admin-record-button"
+                    className={cx(adminStyles, "admin-record-button")}
                     onClick={() => setSelectedReportId(report.id)}
                   >
-                    <div className="admin-record-topline">
+                    <div className={cx(adminStyles, "admin-record-topline")}>
                       <strong>{report.reason}</strong>
                       <span className="ui-badge ui-badge--neutral">
                         {REPORT_STATUS_LABELS[report.status]}
                       </span>
                     </div>
                     <p>{report.reporter.displayName ?? report.reporter.email} {" → "} {report.reportedUser.displayName ?? report.reportedUser.email}</p>
-                    <div className="admin-inline-meta">
+                    <div className={cx(adminStyles, "admin-inline-meta")}>
                       <span>{formatDateTime(report.createdAt)}</span>
                       <span>{report.createdBlock ? "已自动互相拉黑" : "未自动拉黑"}</span>
                     </div>
@@ -306,11 +310,11 @@ export default function AdminReportsPage() {
               </div>
             ))}
             {reports.length === 0 ? (
-              <div className="admin-empty-state">当前筛选条件下没有举报。</div>
+              <div className={cx(adminStyles, "admin-empty-state")}>当前筛选条件下没有举报。</div>
             ) : null}
           </div>
           {data ? (
-            <div className="admin-pagination">
+            <div className={cx(adminStyles, "admin-pagination")}>
               <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">
                 上一页
               </button>
@@ -328,10 +332,10 @@ export default function AdminReportsPage() {
           ) : null}
         </article>
 
-        <article className="ui-card ui-card--padded ui-card--plain admin-detail-panel">
+        <article className={cx(adminStyles, "ui-card ui-card--padded ui-card--plain admin-detail-panel")}>
           {selectedReport && reportContext ? (
-            <div className="admin-page-stack">
-              <div className="admin-section-header">
+            <div className={cx(adminStyles, "admin-page-stack")}>
+              <div className={cx(adminStyles, "admin-section-header")}>
                 <div>
                   <p className="eyebrow">处理详情</p>
                   <h2>{selectedReport.reason}</h2>
@@ -342,7 +346,7 @@ export default function AdminReportsPage() {
                 </span>
               </div>
 
-              <div className="admin-detail-grid">
+              <div className={cx(adminStyles, "admin-detail-grid")}>
                 <div>
                   <h3>举报人</h3>
                   <p>{reportContext.report.reporter.displayName ?? reportContext.report.reporter.email}</p>
@@ -357,7 +361,7 @@ export default function AdminReportsPage() {
                 </div>
               </div>
 
-              <div className="admin-review-box">
+              <div className={cx(adminStyles, "admin-review-box")}>
                 <h3>举报内容</h3>
                 <p>{selectedReport.details ?? "无补充说明。"}</p>
                 <p>关联 match：{selectedReport.matchId ?? "无"}</p>
@@ -365,8 +369,8 @@ export default function AdminReportsPage() {
                 <p>处理时间：{selectedReport.handledAt ? formatDateTime(selectedReport.handledAt) : "未处理"}</p>
               </div>
 
-              <div className="admin-detail-grid">
-                <div className="admin-review-box">
+              <div className={cx(adminStyles, "admin-detail-grid")}>
+                <div className={cx(adminStyles, "admin-review-box")}>
                   <h3>风险画像</h3>
                   <p>收到举报：{reportContext.riskProfile.receivedReportCount}</p>
                   <p>发起举报：{reportContext.riskProfile.filedReportCount}</p>
@@ -374,7 +378,7 @@ export default function AdminReportsPage() {
                   <p>已结工单：{reportContext.riskProfile.resolvedReportCount}</p>
                   <p>互相拉黑记录：{reportContext.riskProfile.mutualBlocks.length}</p>
                 </div>
-                <div className="admin-review-box">
+                <div className={cx(adminStyles, "admin-review-box")}>
                   <h3>关联 Match 视角</h3>
                   {reportContext.report.match ? (
                     <>
@@ -434,13 +438,13 @@ export default function AdminReportsPage() {
                 </button>
               </div>
 
-              <div className="admin-detail-grid">
+              <div className={cx(adminStyles, "admin-detail-grid")}>
                 <div>
                   <h3>该用户最近收到的举报</h3>
-                  <div className="admin-record-list">
+                  <div className={cx(adminStyles, "admin-record-list")}>
                     {reportContext.report.reportedUser.reportsReceived.map((report) => (
-                      <div key={report.id} className="admin-record-item">
-                        <div className="admin-record-topline">
+                      <div key={report.id} className={cx(adminStyles, "admin-record-item")}>
+                        <div className={cx(adminStyles, "admin-record-topline")}>
                           <strong>{report.reason}</strong>
                           <span className="ui-badge ui-badge--neutral">
                             {REPORT_STATUS_LABELS[report.status]}
@@ -453,10 +457,10 @@ export default function AdminReportsPage() {
                 </div>
                 <div>
                   <h3>处理记录</h3>
-                  <div className="admin-record-list">
+                  <div className={cx(adminStyles, "admin-record-list")}>
                     {reportContext.logs.map((log) => (
-                      <div key={log.id} className="admin-record-item">
-                        <div className="admin-record-topline">
+                      <div key={log.id} className={cx(adminStyles, "admin-record-item")}>
+                        <div className={cx(adminStyles, "admin-record-topline")}>
                           <strong>{log.action}</strong>
                           <span className="ui-badge ui-badge--neutral">{formatDateTime(log.createdAt)}</span>
                         </div>
@@ -464,16 +468,16 @@ export default function AdminReportsPage() {
                       </div>
                     ))}
                     {reportContext.logs.length === 0 ? (
-                      <div className="admin-empty-state">还没有处理日志。</div>
+                      <div className={cx(adminStyles, "admin-empty-state")}>还没有处理日志。</div>
                     ) : null}
                   </div>
                 </div>
               </div>
             </div>
           ) : detailLoading ? (
-            <div className="admin-empty-state">正在加载举报详情...</div>
+            <div className={cx(adminStyles, "admin-empty-state")}>正在加载举报详情...</div>
           ) : (
-            <div className="admin-empty-state">左侧选择举报后可查看详情。</div>
+            <div className={cx(adminStyles, "admin-empty-state")}>左侧选择举报后可查看详情。</div>
           )}
         </article>
       </section>

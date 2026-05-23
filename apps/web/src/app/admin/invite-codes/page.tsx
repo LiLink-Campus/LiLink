@@ -2,9 +2,14 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
+import { cx } from "../admin-class-names";
+import commonStyles from "../admin-common.module.css";
+import inviteStyles from "./admin-invite-codes.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
 import type { AdminInviteCode } from "../types";
+
+const adminStyles = [commonStyles, inviteStyles];
 
 type StatusFilter = "" | "active" | "inactive";
 
@@ -25,22 +30,22 @@ function GenderBar({ stats }: { stats: GenderStats }) {
   const { male, female, nonBinary, unknown } = stats;
   const total = male + female + nonBinary + unknown;
   if (total === 0) {
-    return <span className="qb-genderbar ic-genderbar-empty" title="暂无注册" />;
+    return <span className={cx(adminStyles, "qb-genderbar ic-genderbar-empty")} title="暂无注册" />;
   }
   const pct = (n: number) => `${((n / total) * 100).toFixed(1)}%`;
   return (
     <div
-      className="qb-genderbar"
+      className={cx(adminStyles, "qb-genderbar")}
       title={`男 ${male} · 女 ${female} · 非二元 ${nonBinary} · 未填 ${unknown}`}
     >
-      <span className="qb-genderbar-seg is-male" style={{ width: pct(male) }} />
-      <span className="qb-genderbar-seg is-female" style={{ width: pct(female) }} />
+      <span className={cx(adminStyles, "qb-genderbar-seg is-male")} style={{ width: pct(male) }} />
+      <span className={cx(adminStyles, "qb-genderbar-seg is-female")} style={{ width: pct(female) }} />
       <span
-        className="qb-genderbar-seg is-nonbinary"
+        className={cx(adminStyles, "qb-genderbar-seg is-nonbinary")}
         style={{ width: pct(nonBinary) }}
       />
       <span
-        className="qb-genderbar-seg is-unknown"
+        className={cx(adminStyles, "qb-genderbar-seg is-unknown")}
         style={{ width: pct(unknown) }}
       />
     </div>
@@ -49,23 +54,22 @@ function GenderBar({ stats }: { stats: GenderStats }) {
 
 function GenderLegend() {
   return (
-    <div className="qb-legend ic-gender-legend">
-      <span className="qb-legend-item">
-        <span className="qb-legend-dot" style={{ background: "var(--color-brand)" }} />
+    <div className={cx(adminStyles, "qb-legend ic-gender-legend")}>
+      <span className={cx(adminStyles, "qb-legend-item")}>
+        <span className={cx(adminStyles, "qb-legend-dot admin-legend-dot-brand")} />
         男
       </span>
-      <span className="qb-legend-item">
-        <span className="qb-legend-dot" style={{ background: "var(--color-accent)" }} />
+      <span className={cx(adminStyles, "qb-legend-item")}>
+        <span className={cx(adminStyles, "qb-legend-dot admin-legend-dot-accent")} />
         女
       </span>
-      <span className="qb-legend-item">
-        <span className="qb-legend-dot" style={{ background: "var(--color-gold)" }} />
+      <span className={cx(adminStyles, "qb-legend-item")}>
+        <span className={cx(adminStyles, "qb-legend-dot admin-legend-dot-gold")} />
         非二元
       </span>
-      <span className="qb-legend-item">
+      <span className={cx(adminStyles, "qb-legend-item")}>
         <span
-          className="qb-legend-dot"
-          style={{ background: "var(--color-neutral)" }}
+          className={cx(adminStyles, "qb-legend-dot admin-legend-dot-neutral")}
         />
         未填问卷
       </span>
@@ -75,10 +79,10 @@ function GenderLegend() {
 
 function GenderCounts({ stats }: { stats: GenderStats }) {
   if (stats.total === 0) {
-    return <span className="ic-gender-counts is-empty">—</span>;
+    return <span className={cx(adminStyles, "ic-gender-counts is-empty")}>—</span>;
   }
   return (
-    <span className="ic-gender-counts">
+    <span className={cx(adminStyles, "ic-gender-counts")}>
       <span>男 {stats.male}</span>
       <span>女 {stats.female}</span>
       <span>非二元 {stats.nonBinary}</span>
@@ -97,25 +101,31 @@ function InviteCodeRow({
   onToggle: (item: AdminInviteCode) => void;
 }) {
   return (
-    <li className="ic-row">
-      <div className="ic-row-code">
-        <code className="ic-code ic-code-inline">{item.code}</code>
+    <li className={cx(adminStyles, "ic-row")}>
+      <div className={cx(adminStyles, "ic-row-code")}>
+        <code className={cx(adminStyles, "ic-code ic-code-inline")}>{item.code}</code>
         <CopyCodeButton code={item.code} />
       </div>
-      <div className="ic-row-owner">{item.ownerName}</div>
-      <div className="ic-row-status">
-        <span className={`qb-badge ${item.isActive ? "is-active" : "is-off"}`}>
+      <div className={cx(adminStyles, "ic-row-owner")}>{item.ownerName}</div>
+      <div className={cx(adminStyles, "ic-row-status")}>
+        <span
+          className={cx(
+            adminStyles,
+            "qb-badge",
+            item.isActive ? "is-active" : "is-off",
+          )}
+        >
           {item.isActive ? "启用中" : "已停用"}
         </span>
       </div>
-      <div className="ic-row-total">
+      <div className={cx(adminStyles, "ic-row-total")}>
         <strong>{item.stats.total}</strong>
       </div>
-      <div className="ic-row-gender">
+      <div className={cx(adminStyles, "ic-row-gender")}>
         <GenderBar stats={item.stats} />
         <GenderCounts stats={item.stats} />
       </div>
-      <div className="ic-row-actions">
+      <div className={cx(adminStyles, "ic-row-actions")}>
         <button
           type="button"
           className={item.isActive ? "ui-button ui-button--secondary" : "ui-button ui-button--primary"}
@@ -155,7 +165,11 @@ function CopyCodeButton({
   return (
     <button
       type="button"
-      className={`ui-button ui-button--secondary ic-copy-btn${copied ? " is-copied" : ""}`}
+      className={cx(
+        adminStyles,
+        "ui-button ui-button--secondary ic-copy-btn",
+        copied && "is-copied",
+      )}
       onClick={() => void copy()}
     >
       {copied ? "已复制" : label}
@@ -245,63 +259,62 @@ export default function AdminInviteCodesPage() {
   }
 
   if (loading) {
-    return <div className="admin-empty-state">正在加载邀请码…</div>;
+    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载邀请码…</div>;
   }
 
   return (
-    <div className="qb-container">
-      <div className="qb-header">
+    <div className={cx(adminStyles, "qb-container")}>
+      <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>邀请码</h1>
-          <p className="qb-header-desc">
+          <p className={cx(adminStyles, "qb-header-desc")}>
             为拉新同学生成专属 8 位运营码，按注册人数与问卷性别统计效果。姓名仅后台可见。
           </p>
         </div>
         <button
-          className="ui-button ui-button--secondary"
+          className={cx(adminStyles, "ui-button ui-button--secondary admin-refresh-control")}
           onClick={() => void refresh()}
           type="button"
-          style={{ minHeight: "2.4rem", padding: "0 1rem" }}
         >
           刷新
         </button>
       </div>
 
-      <div className="qb-metrics">
-        <div className="qb-metric">
-          <div className="qb-metric-value">{data?.total ?? 0}</div>
-          <div className="qb-metric-label">邀请码总数</div>
+      <div className={cx(adminStyles, "qb-metrics")}>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{data?.total ?? 0}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>邀请码总数</div>
         </div>
-        <div className="qb-metric">
-          <div className="qb-metric-value">{pageTotals.active}</div>
-          <div className="qb-metric-label">本页启用中</div>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.active}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>本页启用中</div>
         </div>
-        <div className="qb-metric">
-          <div className="qb-metric-value">{pageTotals.registrations}</div>
-          <div className="qb-metric-label">本页注册人次</div>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.registrations}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>本页注册人次</div>
         </div>
       </div>
 
       {lastCreated && (
-        <div className="ic-created-banner" role="status">
-          <div className="ic-created-copy">
-            <p className="ic-created-eyebrow">刚生成的邀请码</p>
-            <p className="ic-created-owner">拉新同学：{lastCreated.ownerName}</p>
-            <code className="ic-code">{lastCreated.code}</code>
-            <p className="ic-created-hint">请复制后发给对方，用于注册页填写。</p>
+        <div className={cx(adminStyles, "ic-created-banner")} role="status">
+          <div className={cx(adminStyles, "ic-created-copy")}>
+            <p className={cx(adminStyles, "ic-created-eyebrow")}>刚生成的邀请码</p>
+            <p className={cx(adminStyles, "ic-created-owner")}>拉新同学：{lastCreated.ownerName}</p>
+            <code className={cx(adminStyles, "ic-code")}>{lastCreated.code}</code>
+            <p className={cx(adminStyles, "ic-created-hint")}>请复制后发给对方，用于注册页填写。</p>
           </div>
           <CopyCodeButton code={lastCreated.code} label="复制邀请码" />
         </div>
       )}
 
-      <section className="ic-create-panel admin-highlight-card">
+      <section className={cx(adminStyles, "ic-create-panel admin-highlight-card")}>
         <div>
           <h2>生成新码</h2>
-          <p className="qb-header-desc" style={{ marginTop: "0.35rem" }}>
+          <p className={cx(adminStyles, "qb-header-desc admin-header-desc-spaced")}>
             输入拉新同学姓名，系统将分配唯一 8 位码。
           </p>
         </div>
-        <form className="ic-create-form" onSubmit={createCode}>
+        <form className={cx(adminStyles, "ic-create-form")} onSubmit={createCode}>
           <input
             value={ownerName}
             maxLength={100}
@@ -319,9 +332,9 @@ export default function AdminInviteCodesPage() {
         </form>
       </section>
 
-      <section className="ic-list-panel" aria-label="邀请码列表">
-        <div className="ic-list-toolbar">
-          <form className="ic-search-bar" onSubmit={handleSearchSubmit}>
+      <section className={cx(adminStyles, "ic-list-panel")} aria-label="邀请码列表">
+        <div className={cx(adminStyles, "ic-list-toolbar")}>
+          <form className={cx(adminStyles, "ic-search-bar")} onSubmit={handleSearchSubmit}>
             <input
               value={draftSearch}
               onChange={(event) => setDraftSearch(event.target.value)}
@@ -331,7 +344,7 @@ export default function AdminInviteCodesPage() {
             {draftSearch ? (
               <button
                 type="button"
-                className="ic-search-clear"
+                className={cx(adminStyles, "ic-search-clear")}
                 aria-label="清除搜索"
                 onClick={() => {
                   clearSearch();
@@ -341,19 +354,23 @@ export default function AdminInviteCodesPage() {
                 ×
               </button>
             ) : null}
-            <button className="ui-button ui-button--primary ic-search-submit" type="submit">
+            <button className={cx(adminStyles, "ui-button ui-button--primary ic-search-submit")} type="submit">
               搜索
             </button>
           </form>
 
-          <div className="ic-status-tabs" role="tablist" aria-label="状态筛选">
+          <div className={cx(adminStyles, "ic-status-tabs")} role="tablist" aria-label="状态筛选">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.value || "all"}
                 type="button"
                 role="tab"
                 aria-selected={status === tab.value}
-                className={status === tab.value ? "ic-status-tab is-active" : "ic-status-tab"}
+                className={cx(
+                  adminStyles,
+                  "ic-status-tab",
+                  status === tab.value && "is-active",
+                )}
                 onClick={() => {
                   setStatus(tab.value);
                   setPage(1);
@@ -365,16 +382,16 @@ export default function AdminInviteCodesPage() {
           </div>
         </div>
 
-        <div className="ic-list-meta">
+        <div className={cx(adminStyles, "ic-list-meta")}>
           <GenderLegend />
         </div>
 
         {(loadError || error) && (
-          <p className="ui-form-message ui-form-message--error ic-list-error">{loadError ?? error}</p>
+          <p className={cx(adminStyles, "ui-form-message ui-form-message--error ic-list-error")}>{loadError ?? error}</p>
         )}
 
-        <div className="ic-list-scroll">
-          <div className="ic-list-head" aria-hidden="true">
+        <div className={cx(adminStyles, "ic-list-scroll")}>
+          <div className={cx(adminStyles, "ic-list-head")} aria-hidden="true">
             <span>邀请码</span>
             <span>拉新同学</span>
             <span>状态</span>
@@ -384,13 +401,13 @@ export default function AdminInviteCodesPage() {
           </div>
 
           {codes.length === 0 ? (
-            <div className="ic-list-empty admin-empty-state">
+            <div className={cx(adminStyles, "ic-list-empty admin-empty-state")}>
               {submittedSearch.trim() || status
                 ? "没有找到匹配的邀请码。"
                 : "还没有邀请码，在上方输入姓名生成第一个。"}
             </div>
           ) : (
-            <ul className="ic-list">
+            <ul className={cx(adminStyles, "ic-list")}>
               {codes.map((item) => (
                 <InviteCodeRow
                   key={item.id}
@@ -404,7 +421,7 @@ export default function AdminInviteCodesPage() {
         </div>
 
         {data && data.totalPages > 1 && (
-          <div className="admin-pagination ic-list-pagination">
+          <div className={cx(adminStyles, "admin-pagination ic-list-pagination")}>
             <button
               disabled={data.page <= 1}
               onClick={() => setPage(data.page - 1)}

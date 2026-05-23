@@ -1,0 +1,62 @@
+.pageShell {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2.5vw, 1.5rem);
+}
+
+.v2PageShell {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.1rem, 2.6vw, 1.6rem);
+}
+
+.homeDashboard {
+  gap: clamp(0.85rem, 2vw, 1.15rem);
+}
+
+.greeting {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.15rem 0 0;
+}
+
+.greetingMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.greeting h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 4vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem;
+}
+
+.greetingSub {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.greetingEyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+}
+
+.oliveSprig {
+  width: 1.4rem;
+  height: 1.4rem;
+  color: var(--color-brand);
+  flex-shrink: 0;
+}

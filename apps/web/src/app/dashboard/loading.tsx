@@ -1,27 +1,29 @@
+import styles from "./loading.module.css";
+
 export default function DashboardLoading() {
   return (
     <div
-      className="app-page-shell app-loading-shell"
+      className={`${styles.pageShell} ${styles.loadingShell}`}
       aria-busy="true"
       aria-label="正在加载 Dashboard"
     >
-      <section className="app-page-header">
-        <div className="app-loading-pill" />
-        <div className="app-loading-line is-title" />
-        <div className="app-loading-line" />
-        <p className="app-loading-status">正在加载…</p>
+      <section className={styles.pageHeader}>
+        <div className={styles.pill} />
+        <div className={`${styles.line} ${styles.title}`} />
+        <div className={styles.line} />
+        <p className={styles.status}>正在加载…</p>
       </section>
 
-      <section className="app-loading-grid">
-        <div className="ui-card ui-card--padded app-loading-card">
-          <div className="app-loading-line is-short" />
-          <div className="app-loading-block" />
-          <div className="app-loading-line" />
+      <section className={styles.grid}>
+        <div className={`ui-card ui-card--padded ${styles.card}`}>
+          <div className={`${styles.line} ${styles.short}`} />
+          <div className={styles.block} />
+          <div className={styles.line} />
         </div>
-        <div className="ui-card ui-card--padded app-loading-card">
-          <div className="app-loading-line is-short" />
-          <div className="app-loading-block" />
-          <div className="app-loading-line" />
+        <div className={`ui-card ui-card--padded ${styles.card}`}>
+          <div className={`${styles.line} ${styles.short}`} />
+          <div className={styles.block} />
+          <div className={styles.line} />
         </div>
       </section>
     </div>

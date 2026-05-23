@@ -1,0 +1,107 @@
+.now {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-brand-ink);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1.05rem;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.row:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.attention {
+  border-color: color-mix(in srgb, var(--color-brand) 30%, transparent);
+}
+
+.celebrate {
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+.waiting {
+  border-color: color-mix(in srgb, var(--color-gold) 30%, transparent);
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.7rem;
+  flex-shrink: 0;
+  background: var(--color-brand-tint);
+  color: var(--color-brand);
+}
+
+.celebrate .icon {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.waiting .icon {
+  background: var(--color-gold-soft);
+  color: #8c6b1c;
+}
+
+.icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.body {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.cta {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-brand-ink);
+  white-space: nowrap;
+}

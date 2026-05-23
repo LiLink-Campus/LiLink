@@ -7,6 +7,9 @@ import {
   type CouponRule,
 } from "@lilink/shared";
 import { fetchApi } from "../../../lib/api";
+import { cx } from "../admin-class-names";
+import commonStyles from "../admin-common.module.css";
+import inviteStyles from "../invite-codes/admin-invite-codes.module.css";
 import {
   AdminRefreshButton,
   BENEFIT_TYPE_LABELS,
@@ -26,6 +29,9 @@ import type {
   AdminMerchant,
   PaginatedResult,
 } from "../types";
+import merchantStyles from "../merchant-admin.module.css";
+
+const adminStyles = [commonStyles, inviteStyles, merchantStyles];
 
 type StatusFilter = "" | "DRAFT" | "ACTIVE" | "ENDED";
 
@@ -122,49 +128,49 @@ export default function AdminCampaignsPage() {
   }
 
   if (loading) {
-    return <div className="admin-empty-state">正在加载活动…</div>;
+    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载活动…</div>;
   }
 
   return (
-    <div className="qb-container">
-      <div className="qb-header">
+    <div className={cx(adminStyles, "qb-container")}>
+      <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>活动与券包</h1>
-          <p className="qb-header-desc">
+          <p className={cx(adminStyles, "qb-header-desc")}>
             标准顺序：建活动 + 券包 → 置 ACTIVE 且设为默认 → 再推广拉新。归属在注册时冻结，活动须在拉新前上线。
           </p>
         </div>
         <AdminRefreshButton onClick={() => void refresh()} />
       </div>
 
-      <div className="qb-metrics">
-        <div className="qb-metric">
-          <div className="qb-metric-value">{data?.total ?? 0}</div>
-          <div className="qb-metric-label">活动总数</div>
+      <div className={cx(adminStyles, "qb-metrics")}>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{data?.total ?? 0}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>活动总数</div>
         </div>
-        <div className="qb-metric">
-          <div className="qb-metric-value">{pageTotals.active}</div>
-          <div className="qb-metric-label">本页进行中</div>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.active}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>本页进行中</div>
         </div>
-        <div className="qb-metric">
-          <div className="qb-metric-value">{pageTotals.templates}</div>
-          <div className="qb-metric-label">本页券模板</div>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.templates}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>本页券模板</div>
         </div>
-        <div className="qb-metric">
-          <div className="qb-metric-value">{pageTotals.activations}</div>
-          <div className="qb-metric-label">本页激活数</div>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.activations}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>本页激活数</div>
         </div>
       </div>
 
-      <section className="ic-create-panel admin-highlight-card">
+      <section className={cx(adminStyles, "ic-create-panel admin-highlight-card")}>
         <div>
           <h2>新建活动</h2>
-          <p className="qb-header-desc" style={{ marginTop: "0.35rem" }}>
-            slug 用于注册链接 <code className="mp-slug">?c=</code>{" "}
+          <p className={cx(adminStyles, "qb-header-desc admin-header-desc-spaced")}>
+            slug 用于注册链接 <code className={cx(adminStyles, "mp-slug")}>?c=</code>{" "}
             参数，仅小写字母、数字与连字符。
           </p>
         </div>
-        <form className="mp-create-form" onSubmit={createCampaign}>
+        <form className={cx(adminStyles, "mp-create-form")} onSubmit={createCampaign}>
           <input
             value={name}
             maxLength={80}
@@ -197,21 +203,25 @@ export default function AdminCampaignsPage() {
       </section>
 
       {(loadError || error) && (
-        <p className="ui-form-message ui-form-message--error" style={{ margin: "1rem 0" }}>
+        <p className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-block")}>
           {loadError ?? error}
         </p>
       )}
 
-      <section className="ic-list-panel mp-list-panel">
-        <div className="mp-list-toolbar">
-          <div className="ic-status-tabs" role="tablist" aria-label="活动状态筛选">
+      <section className={cx(adminStyles, "ic-list-panel mp-list-panel")}>
+        <div className={cx(adminStyles, "mp-list-toolbar")}>
+          <div className={cx(adminStyles, "ic-status-tabs")} role="tablist" aria-label="活动状态筛选">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.value || "all"}
                 type="button"
                 role="tab"
                 aria-selected={statusFilter === tab.value}
-                className={`ic-status-tab${statusFilter === tab.value ? " is-active" : ""}`}
+                className={cx(
+                  adminStyles,
+                  "ic-status-tab",
+                  statusFilter === tab.value && "is-active",
+                )}
                 onClick={() => {
                   setStatusFilter(tab.value);
                   setPage(1);
@@ -223,8 +233,8 @@ export default function AdminCampaignsPage() {
           </div>
         </div>
 
-        <div className="ic-list-meta">
-          <p className="qb-header-desc" style={{ margin: 0 }}>
+        <div className={cx(adminStyles, "ic-list-meta")}>
+          <p className={cx(adminStyles, "qb-header-desc admin-text-reset")}>
             共 {data?.total ?? 0} 个活动
             {pageTotals.defaultCount > 0
               ? ` · 本页默认活动 ${pageTotals.defaultCount} 个`
@@ -232,9 +242,9 @@ export default function AdminCampaignsPage() {
           </p>
         </div>
 
-        <div className="qb-list" style={{ marginTop: "0.85rem" }}>
+        <div className={cx(adminStyles, "qb-list admin-list-top")}>
           {campaigns.length === 0 && (
-            <div className="admin-empty-state ic-list-empty">
+            <div className={cx(adminStyles, "admin-empty-state ic-list-empty")}>
               {statusFilter
                 ? "当前筛选下没有活动，试试切换状态或新建一个。"
                 : "还没有活动，在上方新建第一个。"}
@@ -245,37 +255,45 @@ export default function AdminCampaignsPage() {
             return (
               <div
                 key={campaign.id}
-                className={`qb-card${expanded ? " mp-card-expanded" : ""}`}
+                className={cx(
+                  adminStyles,
+                  "qb-card",
+                  expanded && "mp-card-expanded",
+                )}
               >
-                <div className="qb-card-header">
-                  <div className="qb-card-title">
+                <div className={cx(adminStyles, "qb-card-header")}>
+                  <div className={cx(adminStyles, "qb-card-title")}>
                     <strong>{campaign.name}</strong>
-                    <div className="mp-slug-row">
-                      <code className="mp-slug">{campaign.slug}</code>
+                    <div className={cx(adminStyles, "mp-slug-row")}>
+                      <code className={cx(adminStyles, "mp-slug")}>{campaign.slug}</code>
                       <CopyTextButton
                         text={campaign.slug}
                         label="复制 slug"
                         copiedLabel="已复制"
                       />
                       {campaign.isDefault && (
-                        <span className="qb-badge is-active">默认</span>
+                        <span className={cx(adminStyles, "qb-badge is-active")}>默认</span>
                       )}
                     </div>
-                    <div className="mp-inline-stats">
-                      <span className="mp-inline-stat">
+                    <div className={cx(adminStyles, "mp-inline-stats")}>
+                      <span className={cx(adminStyles, "mp-inline-stat")}>
                         券包 <strong>{campaign.templateCount}</strong>
                       </span>
-                      <span className="mp-inline-stat">
+                      <span className={cx(adminStyles, "mp-inline-stat")}>
                         激活 <strong>{campaign.activationCount}</strong>
                       </span>
                     </div>
                   </div>
                   <span
-                    className={`qb-badge ${CAMPAIGN_STATUS_BADGE[campaign.status] ?? ""}`}
+                    className={cx(
+                      adminStyles,
+                      "qb-badge",
+                      CAMPAIGN_STATUS_BADGE[campaign.status] ?? "",
+                    )}
                   >
                     {CAMPAIGN_STATUS_LABELS[campaign.status] ?? campaign.status}
                   </span>
-                  <div className="mp-card-actions">
+                  <div className={cx(adminStyles, "mp-card-actions")}>
                     <button
                       type="button"
                       className="ui-button ui-button--secondary"
@@ -305,7 +323,7 @@ export default function AdminCampaignsPage() {
         </div>
 
         {data && data.totalPages > 1 && (
-          <div className="admin-pagination ic-list-pagination">
+          <div className={cx(adminStyles, "admin-pagination ic-list-pagination")}>
             <button
               disabled={data.page <= 1}
               onClick={() => setPage(data.page - 1)}
@@ -351,7 +369,7 @@ function CampaignStatusControls({
     status !== campaign.status || isDefault !== campaign.isDefault;
 
   return (
-    <div className="mp-status-row">
+    <div className={cx(adminStyles, "mp-status-row")}>
       <select
         value={status}
         aria-label="活动状态"
@@ -472,28 +490,28 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
   }
 
   return (
-    <div className="qb-subpanel">
+    <div className={cx(adminStyles, "qb-subpanel")}>
       {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
 
       <h4>券包（券模板）</h4>
       {templates === null ? (
-        <p className="qb-header-desc">加载中…</p>
+        <p className={cx(adminStyles, "qb-header-desc")}>加载中…</p>
       ) : templates.length === 0 ? (
-        <p className="qb-header-desc">暂无券模板，在下方为合作商家添加第一张券。</p>
+        <p className={cx(adminStyles, "qb-header-desc")}>暂无券模板，在下方为合作商家添加第一张券。</p>
       ) : (
-        <div className="mp-subpanel-list">
+        <div className={cx(adminStyles, "mp-subpanel-list")}>
           {templates.map((template) => (
-            <div key={template.id} className="mp-subpanel-row">
-              <div className="mp-subpanel-row-main">
-                <span className="mp-subpanel-row-title">{template.title}</span>
-                <span className="mp-subpanel-row-meta">
+            <div key={template.id} className={cx(adminStyles, "mp-subpanel-row")}>
+              <div className={cx(adminStyles, "mp-subpanel-row-main")}>
+                <span className={cx(adminStyles, "mp-subpanel-row-title")}>{template.title}</span>
+                <span className={cx(adminStyles, "mp-subpanel-row-meta")}>
                   {template.merchant?.name ?? template.merchantId} ·{" "}
                   {BENEFIT_TYPE_LABELS[template.benefitType] ?? template.benefitType} ·
                   面值 {(template.faceValue / 100).toFixed(2)} 元
                   {template.validDays ? ` · ${template.validDays} 天有效` : ""}
                 </span>
                 {template.benefitType !== "CUSTOM" && (
-                  <span className="mp-subpanel-row-rule">
+                  <span className={cx(adminStyles, "mp-subpanel-row-rule")}>
                     {renderBenefitText({
                       benefitType: template.benefitType as CouponBenefitType,
                       title: template.title,
@@ -503,9 +521,13 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
                   </span>
                 )}
               </div>
-              <div className="mp-card-actions">
+              <div className={cx(adminStyles, "mp-card-actions")}>
                 <span
-                  className={`qb-badge ${template.isActive ? "is-active" : "is-off"}`}
+                  className={cx(
+                    adminStyles,
+                    "qb-badge",
+                    template.isActive ? "is-active" : "is-off",
+                  )}
                 >
                   {template.isActive ? "启用" : "停用"}
                 </span>
@@ -523,8 +545,8 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
         </div>
       )}
 
-      <h4 style={{ marginTop: "0.5rem" }}>新增券模板</h4>
-      <form className="mp-form-grid" onSubmit={createTemplate}>
+      <h4 className={cx(adminStyles, "campaign-subheading")}>新增券模板</h4>
+      <form className={cx(adminStyles, "mp-form-grid")} onSubmit={createTemplate}>
         <select
           value={merchantId}
           aria-label="合作商家"
@@ -572,7 +594,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
           placeholder="有效天数（可选）"
           aria-label="有效天数"
         />
-        <div className="mp-form-full">
+        <div className={cx(adminStyles, "mp-form-full")}>
           <CouponTierEditor
             benefitType={benefitType}
             tiers={tiers}

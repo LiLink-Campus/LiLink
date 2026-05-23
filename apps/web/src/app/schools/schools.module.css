@@ -1,0 +1,45 @@
+.cta {
+  margin-top: 1.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: center;
+  padding: clamp(1.4rem, 3vw, 2rem);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.cta > * {
+  min-width: 0;
+}
+
+.cta h2,
+.cta p {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.ctaActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ctaActions :global(.ui-button--primary),
+.ctaActions :global(.ui-button--secondary) {
+  width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 760px) {
+  .cta {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    padding: clamp(1.15rem, 5vw, 1.45rem);
+  }
+
+  .cta h2 {
+    font-size: clamp(1.3rem, 8vw, 1.75rem);
+  }
+}

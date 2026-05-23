@@ -2,10 +2,16 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
+import { cx } from "../admin-class-names";
+import commonStyles from "../admin-common.module.css";
+import inviteStyles from "../invite-codes/admin-invite-codes.module.css";
 import { AdminRefreshButton, MERCHANT_ROLE_LABELS } from "../merchant-admin-ui";
+import merchantStyles from "../merchant-admin.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
 import type { AdminMerchant, AdminMerchantUser } from "../types";
+
+const adminStyles = [commonStyles, inviteStyles, merchantStyles];
 
 type StatusFilter = "" | "active" | "inactive";
 
@@ -97,48 +103,48 @@ export default function AdminMerchantsPage() {
   }
 
   if (loading) {
-    return <div className="admin-empty-state">正在加载商家…</div>;
+    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载商家…</div>;
   }
 
   return (
-    <div className="qb-container">
-      <div className="qb-header">
+    <div className={cx(adminStyles, "qb-container")}>
+      <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>商家与账号</h1>
-          <p className="qb-header-desc">
+          <p className={cx(adminStyles, "qb-header-desc")}>
             管理核销商家、商家登录账号与核销成功页的推广位。停用商家会同时阻止其账号登录与核销。
           </p>
         </div>
         <AdminRefreshButton onClick={() => void refresh()} />
       </div>
 
-      <div className="qb-metrics">
-        <div className="qb-metric">
-          <div className="qb-metric-value">{data?.total ?? 0}</div>
-          <div className="qb-metric-label">商家总数</div>
+      <div className={cx(adminStyles, "qb-metrics")}>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{data?.total ?? 0}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>商家总数</div>
         </div>
-        <div className="qb-metric">
-          <div className="qb-metric-value">{pageTotals.active}</div>
-          <div className="qb-metric-label">本页启用中</div>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.active}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>本页启用中</div>
         </div>
-        <div className="qb-metric">
-          <div className="qb-metric-value">{pageTotals.templates}</div>
-          <div className="qb-metric-label">本页券模板</div>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.templates}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>本页券模板</div>
         </div>
-        <div className="qb-metric">
-          <div className="qb-metric-value">{pageTotals.redemptions}</div>
-          <div className="qb-metric-label">本页核销数</div>
+        <div className={cx(adminStyles, "qb-metric")}>
+          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.redemptions}</div>
+          <div className={cx(adminStyles, "qb-metric-label")}>本页核销数</div>
         </div>
       </div>
 
-      <section className="ic-create-panel admin-highlight-card">
+      <section className={cx(adminStyles, "ic-create-panel admin-highlight-card")}>
         <div>
           <h2>新增商家</h2>
-          <p className="qb-header-desc" style={{ marginTop: "0.35rem" }}>
+          <p className={cx(adminStyles, "qb-header-desc")} style={{ marginTop: "0.35rem" }}>
             创建后可展开卡片，配置核销账号与核销成功页推广位。
           </p>
         </div>
-        <form className="mp-create-form" onSubmit={createMerchant}>
+        <form className={cx(adminStyles, "mp-create-form")} onSubmit={createMerchant}>
           <input
             value={name}
             maxLength={80}
@@ -169,9 +175,9 @@ export default function AdminMerchantsPage() {
         </p>
       )}
 
-      <section className="ic-list-panel mp-list-panel">
-        <div className="mp-list-toolbar">
-          <form className="ic-search-bar" onSubmit={handleSearchSubmit}>
+      <section className={cx(adminStyles, "ic-list-panel mp-list-panel")}>
+        <div className={cx(adminStyles, "mp-list-toolbar")}>
+          <form className={cx(adminStyles, "ic-search-bar")} onSubmit={handleSearchSubmit}>
             <input
               value={draftSearch}
               onChange={(event) => setDraftSearch(event.target.value)}
@@ -181,7 +187,7 @@ export default function AdminMerchantsPage() {
             {draftSearch && (
               <button
                 type="button"
-                className="ic-search-clear"
+                className={cx(adminStyles, "ic-search-clear")}
                 aria-label="清除搜索"
                 onClick={() => {
                   clearSearch();
@@ -191,19 +197,23 @@ export default function AdminMerchantsPage() {
                 ×
               </button>
             )}
-            <button className="ui-button ui-button--primary ic-search-submit" type="submit">
+            <button className={cx(adminStyles, "ui-button ui-button--primary ic-search-submit")} type="submit">
               搜索
             </button>
           </form>
 
-          <div className="ic-status-tabs" role="tablist" aria-label="商家状态筛选">
+          <div className={cx(adminStyles, "ic-status-tabs")} role="tablist" aria-label="商家状态筛选">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab.value || "all"}
                 type="button"
                 role="tab"
                 aria-selected={statusFilter === tab.value}
-                className={`ic-status-tab${statusFilter === tab.value ? " is-active" : ""}`}
+                className={cx(
+                  adminStyles,
+                  "ic-status-tab",
+                  statusFilter === tab.value && "is-active",
+                )}
                 onClick={() => {
                   setStatusFilter(tab.value);
                   setPage(1);
@@ -215,8 +225,8 @@ export default function AdminMerchantsPage() {
           </div>
         </div>
 
-        <div className="ic-list-meta">
-          <p className="qb-header-desc" style={{ margin: 0 }}>
+        <div className={cx(adminStyles, "ic-list-meta")}>
+          <p className={cx(adminStyles, "qb-header-desc")} style={{ margin: 0 }}>
             共 {data?.total ?? 0} 个商家
             {submittedSearch.trim()
               ? ` · 搜索「${submittedSearch.trim()}」`
@@ -224,9 +234,9 @@ export default function AdminMerchantsPage() {
           </p>
         </div>
 
-        <div className="qb-list" style={{ marginTop: "0.85rem" }}>
+        <div className={cx(adminStyles, "qb-list")} style={{ marginTop: "0.85rem" }}>
           {merchants.length === 0 && (
-            <div className="admin-empty-state ic-list-empty">
+            <div className={cx(adminStyles, "admin-empty-state ic-list-empty")}>
               {submittedSearch.trim() || statusFilter
                 ? "没有匹配的商家，试试调整搜索或筛选条件。"
                 : "还没有商家，在上方新增第一个。"}
@@ -237,29 +247,37 @@ export default function AdminMerchantsPage() {
             return (
               <div
                 key={merchant.id}
-                className={`qb-card${expanded ? " mp-card-expanded" : ""}`}
+                className={cx(
+                  adminStyles,
+                  "qb-card",
+                  expanded && "mp-card-expanded",
+                )}
               >
-                <div className="qb-card-header">
-                  <div className="qb-card-title">
+                <div className={cx(adminStyles, "qb-card-header")}>
+                  <div className={cx(adminStyles, "qb-card-title")}>
                     <strong>{merchant.name}</strong>
                     {merchant.contactInfo && (
-                      <span className="qb-card-meta">{merchant.contactInfo}</span>
+                      <span className={cx(adminStyles, "qb-card-meta")}>{merchant.contactInfo}</span>
                     )}
-                    <div className="mp-inline-stats">
-                      <span className="mp-inline-stat">
+                    <div className={cx(adminStyles, "mp-inline-stats")}>
+                      <span className={cx(adminStyles, "mp-inline-stat")}>
                         券模板 <strong>{merchant.templateCount}</strong>
                       </span>
-                      <span className="mp-inline-stat">
+                      <span className={cx(adminStyles, "mp-inline-stat")}>
                         核销 <strong>{merchant.redemptionCount}</strong>
                       </span>
                     </div>
                   </div>
                   <span
-                    className={`qb-badge ${merchant.isActive ? "is-active" : "is-off"}`}
+                    className={cx(
+                      adminStyles,
+                      "qb-badge",
+                      merchant.isActive ? "is-active" : "is-off",
+                    )}
                   >
                     {merchant.isActive ? "启用中" : "已停用"}
                   </span>
-                  <div className="mp-card-actions">
+                  <div className={cx(adminStyles, "mp-card-actions")}>
                     <button
                       type="button"
                       className="ui-button ui-button--secondary"
@@ -298,7 +316,7 @@ export default function AdminMerchantsPage() {
         </div>
 
         {data && data.totalPages > 1 && (
-          <div className="admin-pagination ic-list-pagination">
+          <div className={cx(adminStyles, "admin-pagination ic-list-pagination")}>
             <button
               disabled={data.page <= 1}
               onClick={() => setPage(data.page - 1)}
@@ -426,21 +444,21 @@ function MerchantDetailPanel({
   }
 
   return (
-    <div className="qb-subpanel">
+    <div className={cx(adminStyles, "qb-subpanel")}>
       {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
 
       <h4>登录账号</h4>
       {users === null ? (
-        <p className="qb-header-desc">加载账号中…</p>
+        <p className={cx(adminStyles, "qb-header-desc")}>加载账号中…</p>
       ) : users.length === 0 ? (
-        <p className="qb-header-desc">暂无账号，在下方为商家创建第一个核销账号。</p>
+        <p className={cx(adminStyles, "qb-header-desc")}>暂无账号，在下方为商家创建第一个核销账号。</p>
       ) : (
-        <div className="mp-subpanel-list">
+        <div className={cx(adminStyles, "mp-subpanel-list")}>
           {users.map((user) => (
-            <div key={user.id} className="mp-subpanel-row">
-              <div className="mp-subpanel-row-main">
-                <span className="mp-subpanel-row-title">{user.email}</span>
-                <span className="mp-subpanel-row-meta">
+            <div key={user.id} className={cx(adminStyles, "mp-subpanel-row")}>
+              <div className={cx(adminStyles, "mp-subpanel-row-main")}>
+                <span className={cx(adminStyles, "mp-subpanel-row-title")}>{user.email}</span>
+                <span className={cx(adminStyles, "mp-subpanel-row-meta")}>
                   {user.displayName ? `${user.displayName} · ` : ""}
                   {MERCHANT_ROLE_LABELS[user.role] ?? user.role}
                   {user.lastLoginAt
@@ -448,9 +466,13 @@ function MerchantDetailPanel({
                     : ""}
                 </span>
               </div>
-              <div className="mp-card-actions">
+              <div className={cx(adminStyles, "mp-card-actions")}>
                 <span
-                  className={`qb-badge ${user.isActive ? "is-active" : "is-off"}`}
+                  className={cx(
+                    adminStyles,
+                    "qb-badge",
+                    user.isActive ? "is-active" : "is-off",
+                  )}
                 >
                   {user.isActive ? "启用" : "停用"}
                 </span>
@@ -469,7 +491,7 @@ function MerchantDetailPanel({
       )}
 
       <h4 style={{ marginTop: "0.25rem" }}>新增账号</h4>
-      <form className="mp-form-grid" onSubmit={createUser}>
+      <form className={cx(adminStyles, "mp-form-grid")} onSubmit={createUser}>
         <input
           type="email"
           value={email}
@@ -508,21 +530,21 @@ function MerchantDetailPanel({
       </form>
 
       <h4 style={{ marginTop: "1rem" }}>核销成功页推广位</h4>
-      <p className="qb-header-desc" style={{ marginTop: 0 }}>
+      <p className={cx(adminStyles, "qb-header-desc")} style={{ marginTop: 0 }}>
         JSON 数组。文本块{" "}
-        <code className="mp-slug">{`{"type":"TEXT","text":"关注公众号"}`}</code>
+        <code className={cx(adminStyles, "mp-slug")}>{`{"type":"TEXT","text":"关注公众号"}`}</code>
         ，二维码{" "}
-        <code className="mp-slug">{`{"type":"QRCODE","imageUrl":"https://…","caption":"扫码"}`}</code>
+        <code className={cx(adminStyles, "mp-slug")}>{`{"type":"QRCODE","imageUrl":"https://…","caption":"扫码"}`}</code>
         ；图片 URL 必须 https。
       </p>
       <textarea
-        className="mp-json-editor"
+        className={cx(adminStyles, "mp-json-editor")}
         value={promotionJson}
         onChange={(event) => setPromotionJson(event.target.value)}
         rows={6}
         aria-label="推广位 JSON"
       />
-      <div className="mp-card-actions" style={{ marginTop: "0.5rem" }}>
+      <div className={cx(adminStyles, "mp-card-actions")} style={{ marginTop: "0.5rem" }}>
         <button
           className="ui-button ui-button--primary"
           type="button"

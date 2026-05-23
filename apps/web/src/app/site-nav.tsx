@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ButtonLink } from "@/components/ui";
 import { useAuthSession } from "./auth-session";
 import { fetchApi } from "../lib/api";
+import styles from "./site-nav.module.css";
 
 const PUBLIC_NAV_ITEMS = [
   { href: "/about", label: "关于" },
@@ -39,10 +40,10 @@ export function SiteNav() {
   }
 
   return (
-    <div className={menuOpen ? "site-nav-shell open" : "site-nav-shell"}>
+    <div className={menuOpen ? `${styles.shell} ${styles.open}` : styles.shell}>
       <button
         type="button"
-        className="site-nav-toggle"
+        className={styles.toggle}
         aria-expanded={menuOpen}
         aria-label={menuOpen ? "关闭导航菜单" : "打开导航菜单"}
         onClick={() => setMenuOpen((current) => !current)}
@@ -51,13 +52,13 @@ export function SiteNav() {
         <span />
         <span />
       </button>
-      <nav className="site-nav" aria-label="主导航">
+      <nav className={styles.nav} aria-label="主导航">
         {PUBLIC_NAV_ITEMS.map((item) => (
           <Link key={item.href} href={item.href} onClick={closeMenu}>
             {item.label}
           </Link>
         ))}
-        <div className="site-nav-auth-cluster">
+        <div className={styles.authCluster}>
           {authenticatedUser ? (
             <>
               <Link href="/dashboard" onClick={closeMenu}>
@@ -65,7 +66,7 @@ export function SiteNav() {
               </Link>
               <button
                 type="button"
-                className="site-nav-action"
+                className={styles.action}
                 onClick={() => void handleLogout()}
               >
                 退出

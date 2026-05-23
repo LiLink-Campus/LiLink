@@ -9,6 +9,8 @@ import {
   GrassRowIllustration,
   OliveSprigIllustration,
 } from "../dashboard/_components/illustrations";
+import authStyles from "../auth.module.css";
+import layoutStyles from "../public-layout.module.css";
 
 const PASSWORD_MAX_LENGTH = 128;
 
@@ -59,15 +61,17 @@ export default function LoginPageClient() {
   }
 
   return (
-    <main className="page-shell prose-shell auth-shell">
-      <Card className="auth-panel animate-in" layout="plain">
-        <div className="auth-panel-mark" aria-hidden="true">
+    <main
+      className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell}`}
+    >
+      <Card className={`${authStyles.panel} animate-in`} layout="plain">
+        <div className={authStyles.panelMark} aria-hidden="true">
           <OliveSprigIllustration />
         </div>
         <p className="eyebrow">Login</p>
         <h1>回到本周轮次</h1>
         <p>使用你的学校邮箱和密码登录，继续上一次未完成的匹配。</p>
-        <form className="auth-stack" onSubmit={handleSubmit}>
+        <form className={authStyles.stack} onSubmit={handleSubmit}>
           <Field label="学校邮箱">
             <Input
               required
@@ -98,14 +102,14 @@ export default function LoginPageClient() {
             {pending ? "登录中…" : "登录"}
           </Button>
         </form>
-        <p className="auth-hint">
+        <p className={authStyles.hint}>
           <Link href="/forgot-password">忘记密码？</Link>
         </p>
-        <p className="auth-hint">
+        <p className={authStyles.hint}>
           还没有账号？<Link href={registerHref}>立即注册</Link>
         </p>
       </Card>
-      <div className="auth-grass-line" aria-hidden="true">
+      <div className={authStyles.grassLine} aria-hidden="true">
         <GrassRowIllustration />
       </div>
     </main>

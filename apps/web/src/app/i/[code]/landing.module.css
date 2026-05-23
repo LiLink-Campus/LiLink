@@ -1,9 +1,4 @@
-/* ──────────────────────────────────────────────────────────────
-   Invite landing page · branded welcome card + CTA
-   Built on globals.css design tokens. Flat selectors only.
-   ────────────────────────────────────────────────────────────── */
-
-.li-center {
+.center {
   min-height: 100dvh;
   display: grid;
   place-items: center;
@@ -11,7 +6,7 @@
   background: var(--color-canvas);
 }
 
-.li-card {
+.card {
   width: 100%;
   max-width: 26rem;
   padding: clamp(1.75rem, 6vw, 2.5rem);
@@ -22,20 +17,20 @@
   box-shadow: var(--shadow-md);
 }
 
-.li-title {
+.title {
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.6rem;
   color: var(--color-text);
 }
 
-.li-text {
+.text {
   margin: 0.75rem 0 1.5rem;
   color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
-.li-cta {
+.cta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -48,11 +43,11 @@
   transition: background 0.15s ease;
 }
 
-.li-cta:hover {
+.cta:hover {
   background: var(--color-brand-hover);
 }
 
-.li-muted {
+.muted {
   margin: 0.75rem 0 0;
   color: var(--color-text-muted);
   font-size: 0.9rem;

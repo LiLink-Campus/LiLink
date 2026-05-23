@@ -1,5 +1,7 @@
 "use client";
 
+import styles from "./global-error.module.css";
+
 export default function GlobalError({
   reset,
 }: {
@@ -8,37 +10,15 @@ export default function GlobalError({
 }) {
   return (
     <html lang="zh-CN">
-      <body
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          fontFamily: "system-ui, sans-serif",
-          background: "#f4f1ea",
-          color: "#18241d",
-          textAlign: "center",
-          padding: "2rem",
-        }}
-      >
+      <body className={styles.body}>
         <div>
-          <h1 style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>
-            出了点问题
-          </h1>
-          <p style={{ color: "#5a6760", marginBottom: "1.5rem" }}>
+          <h1 className={styles.title}>出了点问题</h1>
+          <p className={styles.message}>
             页面加载时发生了意外错误。
           </p>
           <button
             onClick={reset}
-            style={{
-              padding: "0.7rem 1.5rem",
-              background: "#2f5b43",
-              color: "white",
-              border: "none",
-              borderRadius: "999px",
-              cursor: "pointer",
-              fontSize: "0.95rem",
-            }}
+            className={styles.action}
           >
             重试
           </button>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import styles from "./MatchWaitingStrip.module.css";
 
 export type MatchWaitingAction = {
   label: string;
@@ -23,19 +24,19 @@ export function MatchWaitingStrip({
   actions: MatchWaitingAction[];
 }) {
   return (
-    <section className="v2-match-strip" aria-label={title}>
-      <div className="v2-match-strip-head">
-        <span className="v2-match-strip-dot" aria-hidden="true" />
-        <div className="v2-match-strip-main">
-          <p className="v2-match-strip-title">{title}</p>
-          <p className="v2-match-strip-sub">{subtitle}</p>
+    <section className={styles.strip} aria-label={title}>
+      <div className={styles.head}>
+        <span className={styles.dot} aria-hidden="true" />
+        <div className={styles.main}>
+          <p className={styles.title}>{title}</p>
+          <p className={styles.sub}>{subtitle}</p>
         </div>
         {revealLabel ? (
-          <span className="v2-match-strip-chip">{revealLabel} 揭晓</span>
+          <span className={styles.chip}>{revealLabel} 揭晓</span>
         ) : null}
       </div>
       {actions.length > 0 ? (
-        <div className="v2-match-strip-actions">
+        <div className={styles.actions}>
           {actions.map((action, index) => (
             <Link
               key={`${action.label}-${index}`}

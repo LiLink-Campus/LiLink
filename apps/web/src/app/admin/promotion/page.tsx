@@ -2,10 +2,14 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fetchApi } from "../../../lib/api";
+import { cx } from "../admin-class-names";
+import commonStyles from "../admin-common.module.css";
+import inviteStyles from "../invite-codes/admin-invite-codes.module.css";
 import {
   AdminRefreshButton,
   CAMPAIGN_STATUS_LABELS,
 } from "../merchant-admin-ui";
+import merchantStyles from "../merchant-admin.module.css";
 import type {
   AdminCampaign,
   PaginatedResult,
@@ -14,6 +18,8 @@ import type {
   PromotionLeaderboardRow,
   PromotionRedemptionRow,
 } from "../types";
+
+const adminStyles = [commonStyles, inviteStyles, merchantStyles];
 
 const PAGE_SIZE = 20;
 
@@ -100,7 +106,7 @@ function GenderBar({
 }) {
   const total = g.male + g.female + g.nonBinary + g.unknown;
   if (total === 0) {
-    return <span className="mp-gender-empty">—</span>;
+    return <span className={cx(adminStyles, "mp-gender-empty")}>—</span>;
   }
 
   const segments = [
@@ -113,9 +119,9 @@ function GenderBar({
   const pct = (n: number) => `${((n / total) * 100).toFixed(1)}%`;
 
   return (
-    <div className="mp-gender-cell">
+    <div className={cx(adminStyles, "mp-gender-cell")}>
       <div
-        className="qb-genderbar"
+        className={cx(adminStyles, "qb-genderbar")}
         title={segments
           .map((segment) => `${segment.label} ${segment.count}`)
           .join(" · ")}
@@ -123,12 +129,12 @@ function GenderBar({
         {segments.map((segment) => (
           <span
             key={segment.className}
-            className={`qb-genderbar-seg ${segment.className}`}
+            className={cx(adminStyles, "qb-genderbar-seg", segment.className)}
             style={{ width: pct(segment.count) }}
           />
         ))}
       </div>
-      <span className="mp-gender-counts">
+      <span className={cx(adminStyles, "mp-gender-counts")}>
         {segments.map((segment) => `${segment.label} ${segment.count}`).join(" · ")}
       </span>
     </div>
@@ -137,28 +143,28 @@ function GenderBar({
 
 function GenderLegend() {
   return (
-    <div className="qb-legend ic-gender-legend">
-      <span className="qb-legend-item">
+    <div className={cx(adminStyles, "qb-legend ic-gender-legend")}>
+      <span className={cx(adminStyles, "qb-legend-item")}>
         <span
-          className="qb-legend-dot"
+          className={cx(adminStyles, "qb-legend-dot")}
           style={{ background: "var(--color-brand)" }}
         />
         男
       </span>
-      <span className="qb-legend-item">
+      <span className={cx(adminStyles, "qb-legend-item")}>
         <span
-          className="qb-legend-dot"
+          className={cx(adminStyles, "qb-legend-dot")}
           style={{ background: "var(--color-accent)" }}
         />
         女
       </span>
-      <span className="qb-legend-item">
-        <span className="qb-legend-dot" style={{ background: "var(--color-gold)" }} />
+      <span className={cx(adminStyles, "qb-legend-item")}>
+        <span className={cx(adminStyles, "qb-legend-dot")} style={{ background: "var(--color-gold)" }} />
         非二元
       </span>
-      <span className="qb-legend-item">
+      <span className={cx(adminStyles, "qb-legend-item")}>
         <span
-          className="qb-legend-dot"
+          className={cx(adminStyles, "qb-legend-dot")}
           style={{ background: "var(--color-neutral)" }}
         />
         未知
@@ -168,7 +174,7 @@ function GenderLegend() {
 }
 
 function SectionHint({ children }: { children: string }) {
-  return <p className="mp-section-hint">{children}</p>;
+  return <p className={cx(adminStyles, "mp-section-hint")}>{children}</p>;
 }
 
 function Panel({
@@ -183,12 +189,12 @@ function Panel({
   className?: string;
 }) {
   return (
-    <section className={`mp-panel${className ? ` ${className}` : ""}`}>
-      <div className="mp-panel-head">
+    <section className={cx(adminStyles, "mp-panel", className)}>
+      <div className={cx(adminStyles, "mp-panel-head")}>
         <h3>{title}</h3>
-        {hint ? <p className="mp-panel-sub">{hint}</p> : null}
+        {hint ? <p className={cx(adminStyles, "mp-panel-sub")}>{hint}</p> : null}
       </div>
-      <div className="mp-panel-body">{children}</div>
+      <div className={cx(adminStyles, "mp-panel-body")}>{children}</div>
     </section>
   );
 }
@@ -239,7 +245,7 @@ function FunnelStepList({
   const hasData = stepGroupHasData(steps);
 
   return (
-    <div className={`mp-funnel-v${hasData ? "" : " is-all-empty"}`}>
+    <div className={cx(adminStyles, "mp-funnel-v", !hasData && "is-all-empty")}>
       {steps.map((step, index) => {
         const width =
           step.count > 0 ? Math.max(6, (step.count / max) * 100) : 0;
@@ -250,34 +256,38 @@ function FunnelStepList({
         return (
           <Fragment key={step.key}>
             {index > 0 && showConversion ? (
-              <div className="mp-funnel-v-bridge" aria-hidden>
+              <div className={cx(adminStyles, "mp-funnel-v-bridge")} aria-hidden>
                 <span
-                  className={`mp-funnel-v-bridge-rate${
-                    conversionRate ? "" : " is-muted"
-                  }`}
+                  className={cx(
+                    adminStyles,
+                    "mp-funnel-v-bridge-rate",
+                    !conversionRate && "is-muted",
+                  )}
                 >
                   {conversionRate ?? "—"}
                 </span>
               </div>
             ) : null}
             <div
-              className={`mp-funnel-v-row${
-                step.count === 0 ? " is-empty" : ""
-              }`}
+              className={cx(
+                adminStyles,
+                "mp-funnel-v-row",
+                step.count === 0 && "is-empty",
+              )}
             >
-              <div className="mp-funnel-v-meta">
-                <span className="mp-funnel-v-index">{startIndex + index}</span>
-                <span className="mp-funnel-v-label">
+              <div className={cx(adminStyles, "mp-funnel-v-meta")}>
+                <span className={cx(adminStyles, "mp-funnel-v-index")}>{startIndex + index}</span>
+                <span className={cx(adminStyles, "mp-funnel-v-label")}>
                   {STEP_LABELS[step.key] ?? step.key}
                 </span>
               </div>
-              <div className="mp-funnel-v-track">
+              <div className={cx(adminStyles, "mp-funnel-v-track")}>
                 <div
-                  className={`mp-funnel-v-bar${barClassName ? ` ${barClassName}` : ""}`}
+                  className={cx(adminStyles, "mp-funnel-v-bar", barClassName)}
                   style={{ width: `${width}%` }}
                 />
               </div>
-              <span className="mp-funnel-v-count">{step.count}</span>
+              <span className={cx(adminStyles, "mp-funnel-v-count")}>{step.count}</span>
             </div>
           </Fragment>
         );
@@ -294,32 +304,32 @@ function FunnelChart({ funnel }: { funnel: PromotionFunnel }) {
   return (
     <>
       {!hasData ? (
-        <p className="mp-funnel-empty-note">
+        <p className={cx(adminStyles, "mp-funnel-empty-note")}>
           该时间范围内暂无数据，步骤结构如下。
         </p>
       ) : null}
 
-      <div className="mp-funnel-split">
-        <section className="mp-funnel-group">
-          <header className="mp-funnel-group-head">
-            <h4 className="mp-funnel-group-title">传播链路</h4>
-            <p className="mp-funnel-group-desc">
+      <div className={cx(adminStyles, "mp-funnel-split")}>
+        <section className={cx(adminStyles, "mp-funnel-group")}>
+          <header className={cx(adminStyles, "mp-funnel-group-head")}>
+            <h4 className={cx(adminStyles, "mp-funnel-group-title")}>传播链路</h4>
+            <p className={cx(adminStyles, "mp-funnel-group-desc")}>
               邀请链接的分享意图与落地页点击 UV，仅反映传播曝光。
             </p>
           </header>
           <FunnelStepList steps={reachSteps} startIndex={1} />
         </section>
 
-        <div className="mp-funnel-separator" role="separator">
-          <span className="mp-funnel-separator-label">
+        <div className={cx(adminStyles, "mp-funnel-separator")} role="separator">
+          <span className={cx(adminStyles, "mp-funnel-separator-label")}>
             注册独立统计 · 含自然流与直填码
           </span>
         </div>
 
-        <section className="mp-funnel-group">
-          <header className="mp-funnel-group-head">
-            <h4 className="mp-funnel-group-title">归属用户转化</h4>
-            <p className="mp-funnel-group-desc">
+        <section className={cx(adminStyles, "mp-funnel-group")}>
+          <header className={cx(adminStyles, "mp-funnel-group-head")}>
+            <h4 className={cx(adminStyles, "mp-funnel-group-title")}>归属用户转化</h4>
+            <p className={cx(adminStyles, "mp-funnel-group-desc")}>
               注册时归属本活动的用户 cohort，不要求经过上方分享或点击。
             </p>
           </header>
@@ -347,13 +357,17 @@ function FunnelMetricCell({
 
   return (
     <td
-      className={`qb-num mp-funnel-cell${count === 0 ? " is-zero" : ""}`}
+      className={cx(
+        adminStyles,
+        "qb-num mp-funnel-cell",
+        count === 0 && "is-zero",
+      )}
     >
-      <div className="mp-funnel-cell-inner">
-        <span className="mp-funnel-cell-value">{count}</span>
-        <span className="mp-funnel-cell-track">
+      <div className={cx(adminStyles, "mp-funnel-cell-inner")}>
+        <span className={cx(adminStyles, "mp-funnel-cell-value")}>{count}</span>
+        <span className={cx(adminStyles, "mp-funnel-cell-track")}>
           <span
-            className={`mp-funnel-cell-bar ${rowClass}`}
+            className={cx(adminStyles, "mp-funnel-cell-bar", rowClass)}
             style={{ width: `${width}%` }}
           />
         </span>
@@ -551,11 +565,11 @@ export default function AdminPromotionPage() {
   );
 
   return (
-    <div className="qb-container">
-      <div className="qb-header">
+    <div className={cx(adminStyles, "qb-container")}>
+      <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>推广数据</h1>
-          <p className="qb-header-desc">
+          <p className={cx(adminStyles, "qb-header-desc")}>
             按活动与时间范围查看传播链路、归属用户转化、邀请排行榜与券发放核销对账。日期按中国时区自然日统计，测试账号已排除。
           </p>
         </div>
@@ -565,30 +579,30 @@ export default function AdminPromotionPage() {
         />
       </div>
 
-      <div className="mp-filter-bar mp-filter-bar-sticky">
-        <div className="mp-filter-bar-head">
-          <span className="mp-filter-bar-title">筛选条件</span>
+      <div className={cx(adminStyles, "mp-filter-bar mp-filter-bar-sticky")}>
+        <div className={cx(adminStyles, "mp-filter-bar-head")}>
+          <span className={cx(adminStyles, "mp-filter-bar-title")}>筛选条件</span>
           {selectedCampaign ? (
-            <span className="mp-filter-bar-summary">
+            <span className={cx(adminStyles, "mp-filter-bar-summary")}>
               {selectedCampaign.name}
-              <span className="mp-context-sep">·</span>
+              <span className={cx(adminStyles, "mp-context-sep")}>·</span>
               {CAMPAIGN_STATUS_LABELS[selectedCampaign.status] ??
                 selectedCampaign.status}
-              <span className="mp-context-sep">·</span>
+              <span className={cx(adminStyles, "mp-context-sep")}>·</span>
               {from} 至 {to}
               {loading && hasQueried ? (
                 <>
-                  <span className="mp-context-sep">·</span>
-                  <span className="mp-context-loading">更新中…</span>
+                  <span className={cx(adminStyles, "mp-context-sep")}>·</span>
+                  <span className={cx(adminStyles, "mp-context-loading")}>更新中…</span>
                 </>
               ) : null}
             </span>
           ) : null}
         </div>
 
-        <div className="mp-filter-bar-grid">
-          <div className="mp-filter-row">
-            <div className="mp-filter-field mp-filter-field-wide">
+        <div className={cx(adminStyles, "mp-filter-bar-grid")}>
+          <div className={cx(adminStyles, "mp-filter-row")}>
+            <div className={cx(adminStyles, "mp-filter-field mp-filter-field-wide")}>
               <span>活动</span>
               <select
                 value={campaignId}
@@ -606,8 +620,8 @@ export default function AdminPromotionPage() {
               </select>
             </div>
 
-            <div className="mp-filter-range">
-              <div className="mp-filter-field">
+            <div className={cx(adminStyles, "mp-filter-range")}>
+              <div className={cx(adminStyles, "mp-filter-field")}>
                 <span>开始</span>
                 <input
                   type="date"
@@ -616,8 +630,8 @@ export default function AdminPromotionPage() {
                   onChange={(event) => setFrom(event.target.value)}
                 />
               </div>
-              <span className="mp-filter-range-sep">至</span>
-              <div className="mp-filter-field">
+              <span className={cx(adminStyles, "mp-filter-range-sep")}>至</span>
+              <div className={cx(adminStyles, "mp-filter-field")}>
                 <span>结束</span>
                 <input
                   type="date"
@@ -629,14 +643,16 @@ export default function AdminPromotionPage() {
             </div>
           </div>
 
-          <div className="mp-date-presets" role="group" aria-label="快捷日期">
+          <div className={cx(adminStyles, "mp-date-presets")} role="group" aria-label="快捷日期">
             {DATE_PRESETS.map((preset) => (
               <button
                 key={preset.days}
                 type="button"
-                className={`mp-date-preset${
-                  presetMatches(from, to, preset.days) ? " is-active" : ""
-                }`}
+                className={cx(
+                  adminStyles,
+                  "mp-date-preset",
+                  presetMatches(from, to, preset.days) && "is-active",
+                )}
                 onClick={() => applyPreset(preset.days)}
               >
                 {preset.label}
@@ -649,18 +665,18 @@ export default function AdminPromotionPage() {
       {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
 
       {loading && !hasQueried && (
-        <div className="mp-loading-inline">正在加载推广数据…</div>
+        <div className={cx(adminStyles, "mp-loading-inline")}>正在加载推广数据…</div>
       )}
 
       {!loading && !hasQueried && !campaignId && (
-        <div className="admin-empty-state mp-empty-query">
+        <div className={cx(adminStyles, "admin-empty-state mp-empty-query")}>
           还没有活动数据。请先在「活动券包」页创建活动，再回到此处查看推广效果。
         </div>
       )}
 
       {hasQueried && (
         <>
-          <div className="admin-tabs mp-dashboard-tabs">
+          <div className={cx(adminStyles, "admin-tabs mp-dashboard-tabs")}>
             {DASHBOARD_TABS.map((tab) => (
               <button
                 key={tab.key}
@@ -677,34 +693,34 @@ export default function AdminPromotionPage() {
             <>
               <SectionHint>{PEOPLE_METRIC_HINT}</SectionHint>
 
-              <div className="qb-metrics mp-metrics-inline">
-                <div className="qb-metric">
-                  <div className="qb-metric-value">{shared}</div>
-                  <div className="qb-metric-label">分享</div>
+              <div className={cx(adminStyles, "qb-metrics mp-metrics-inline")}>
+                <div className={cx(adminStyles, "qb-metric")}>
+                  <div className={cx(adminStyles, "qb-metric-value")}>{shared}</div>
+                  <div className={cx(adminStyles, "qb-metric-label")}>分享</div>
                 </div>
-                <div className="qb-metric">
-                  <div className="qb-metric-value">{clicked}</div>
-                  <div className="qb-metric-label">点击 UV</div>
+                <div className={cx(adminStyles, "qb-metric")}>
+                  <div className={cx(adminStyles, "qb-metric-value")}>{clicked}</div>
+                  <div className={cx(adminStyles, "qb-metric-label")}>点击 UV</div>
                 </div>
-                <div className="qb-metric">
-                  <div className="qb-metric-value">{registered}</div>
-                  <div className="qb-metric-label">归属注册</div>
+                <div className={cx(adminStyles, "qb-metric")}>
+                  <div className={cx(adminStyles, "qb-metric-value")}>{registered}</div>
+                  <div className={cx(adminStyles, "qb-metric-label")}>归属注册</div>
                 </div>
-                <div className="qb-metric">
-                  <div className="qb-metric-value">
+                <div className={cx(adminStyles, "qb-metric")}>
+                  <div className={cx(adminStyles, "qb-metric-value")}>
                     {pctRate(activated, registered)}
                   </div>
-                  <div className="qb-metric-label">激活率</div>
+                  <div className={cx(adminStyles, "qb-metric-label")}>激活率</div>
                 </div>
-                <div className="qb-metric">
-                  <div className="qb-metric-value">{redeemedPeople}</div>
-                  <div className="qb-metric-label">核销人数</div>
+                <div className={cx(adminStyles, "qb-metric")}>
+                  <div className={cx(adminStyles, "qb-metric-value")}>{redeemedPeople}</div>
+                  <div className={cx(adminStyles, "qb-metric-label")}>核销人数</div>
                 </div>
-                <div className="qb-metric">
-                  <div className="qb-metric-value">
+                <div className={cx(adminStyles, "qb-metric")}>
+                  <div className={cx(adminStyles, "qb-metric-value")}>
                     {pctRate(redeemedPeople, granted)}
                   </div>
-                  <div className="qb-metric-label">领券核销率</div>
+                  <div className={cx(adminStyles, "qb-metric-label")}>领券核销率</div>
                 </div>
               </div>
 
@@ -724,17 +740,17 @@ export default function AdminPromotionPage() {
                   {!funnel.byGender.some((row) =>
                     row.steps.some((step) => step.count > 0),
                   ) ? (
-                    <p className="mp-funnel-empty-note">
+                    <p className={cx(adminStyles, "mp-funnel-empty-note")}>
                       该时间范围内暂无分性别归属用户数据。
                     </p>
                   ) : null}
-                  <div className="qb-table-wrap admin-table-wrap mp-table-panel mp-gender-table-wrap">
-                    <table className="qb-table admin-table mp-data-table mp-gender-table">
+                  <div className={cx(adminStyles, "qb-table-wrap admin-table-wrap mp-table-panel mp-gender-table-wrap")}>
+                    <table className={cx(adminStyles, "qb-table admin-table mp-data-table mp-gender-table")}>
                       <thead>
                         <tr>
                           <th scope="col">性别</th>
                           {funnel.byGender[0]?.steps.map((step) => (
-                            <th key={step.key} className="qb-num" scope="col">
+                            <th key={step.key} className={cx(adminStyles, "qb-num")} scope="col">
                               {STEP_LABELS[step.key] ?? step.key}
                             </th>
                           ))}
@@ -747,10 +763,14 @@ export default function AdminPromotionPage() {
                           return (
                             <tr
                               key={row.gender}
-                              className={`mp-gender-row ${rowClass}`}
+                              className={cx(
+                                adminStyles,
+                                "mp-gender-row",
+                                rowClass,
+                              )}
                             >
                               <th scope="row">
-                                <span className="mp-gender-chip">
+                                <span className={cx(adminStyles, "mp-gender-chip")}>
                                   {GENDER_LABELS[row.gender] ?? row.gender}
                                 </span>
                               </th>
@@ -775,7 +795,7 @@ export default function AdminPromotionPage() {
 
           {activeTab === "leaderboard" && (
             <Panel title="邀请排行榜" hint={PEOPLE_METRIC_HINT}>
-              <div className="admin-tabs mp-source-tabs">
+              <div className={cx(adminStyles, "admin-tabs mp-source-tabs")}>
                 <button
                   type="button"
                   className={
@@ -799,9 +819,9 @@ export default function AdminPromotionPage() {
               <GenderLegend />
 
               {leaderboardLoading && leaderboard.items.length === 0 ? (
-                <div className="mp-loading-inline">正在加载排行榜…</div>
+                <div className={cx(adminStyles, "mp-loading-inline")}>正在加载排行榜…</div>
               ) : leaderboard.items.length === 0 ? (
-                <div className="admin-empty-state mp-empty-query">
+                <div className={cx(adminStyles, "admin-empty-state mp-empty-query")}>
                   该时间范围内暂无
                   {source === "personal" ? "个人码" : "运营码"}邀请记录。
                   {hasCouponActivity
@@ -810,26 +830,26 @@ export default function AdminPromotionPage() {
                 </div>
               ) : (
                 <>
-                  <div className="qb-table-wrap admin-table-wrap mp-table-panel">
-                    <table className="qb-table admin-table mp-data-table">
+                  <div className={cx(adminStyles, "qb-table-wrap admin-table-wrap mp-table-panel")}>
+                    <table className={cx(adminStyles, "qb-table admin-table mp-data-table")}>
                       <thead>
                         <tr>
                           <th>来源</th>
-                          <th className="qb-num">邀请</th>
-                          <th className="qb-num">激活</th>
-                          <th className="qb-num">领券</th>
-                          <th className="qb-num">核销</th>
+                          <th className={cx(adminStyles, "qb-num")}>邀请</th>
+                          <th className={cx(adminStyles, "qb-num")}>激活</th>
+                          <th className={cx(adminStyles, "qb-num")}>领券</th>
+                          <th className={cx(adminStyles, "qb-num")}>核销</th>
                           <th>性别分布</th>
                         </tr>
                       </thead>
                       <tbody>
                         {leaderboard.items.map((row) => (
                           <tr key={`${row.sourceType}-${row.refLabel}`}>
-                            <td className="qb-cell-strong">{row.refLabel}</td>
-                            <td className="qb-num">
-                              <span className="qb-minibar-cell">
+                            <td className={cx(adminStyles, "qb-cell-strong")}>{row.refLabel}</td>
+                            <td className={cx(adminStyles, "qb-num")}>
+                              <span className={cx(adminStyles, "qb-minibar-cell")}>
                                 <span
-                                  className="qb-minibar"
+                                  className={cx(adminStyles, "qb-minibar")}
                                   style={{
                                     width: `${((row.invited / maxInvited) * 4).toFixed(2)}rem`,
                                   }}
@@ -837,9 +857,9 @@ export default function AdminPromotionPage() {
                                 {row.invited}
                               </span>
                             </td>
-                            <td className="qb-num">{row.activated}</td>
-                            <td className="qb-num">{row.granted}</td>
-                            <td className="qb-num">{row.redeemed}</td>
+                            <td className={cx(adminStyles, "qb-num")}>{row.activated}</td>
+                            <td className={cx(adminStyles, "qb-num")}>{row.granted}</td>
+                            <td className={cx(adminStyles, "qb-num")}>{row.redeemed}</td>
                             <td>
                               <GenderBar g={row.byGender} />
                             </td>
@@ -849,7 +869,7 @@ export default function AdminPromotionPage() {
                     </table>
                   </div>
                   {leaderboard.totalPages > 1 && (
-                    <div className="admin-pagination">
+                    <div className={cx(adminStyles, "admin-pagination")}>
                       <button
                         disabled={leaderboard.page <= 1}
                         onClick={() => void goLeaderboard(leaderboard.page - 1)}
@@ -883,27 +903,27 @@ export default function AdminPromotionPage() {
 
               <Panel title="券情况" hint="按商家汇总发放与核销张数。">
                   {coupons.length === 0 ? (
-                    <div className="admin-empty-state mp-panel-empty">
+                    <div className={cx(adminStyles, "admin-empty-state mp-panel-empty")}>
                       该时间范围内暂无发券记录。
                     </div>
                   ) : (
-                    <div className="qb-table-wrap admin-table-wrap mp-table-panel">
-                      <table className="qb-table admin-table mp-data-table">
+                    <div className={cx(adminStyles, "qb-table-wrap admin-table-wrap mp-table-panel")}>
+                      <table className={cx(adminStyles, "qb-table admin-table mp-data-table")}>
                         <thead>
                           <tr>
                             <th>商家</th>
-                            <th className="qb-num">发放</th>
-                            <th className="qb-num">核销</th>
-                            <th className="qb-num">核销率</th>
+                            <th className={cx(adminStyles, "qb-num")}>发放</th>
+                            <th className={cx(adminStyles, "qb-num")}>核销</th>
+                            <th className={cx(adminStyles, "qb-num")}>核销率</th>
                           </tr>
                         </thead>
                         <tbody>
                           {coupons.map((row) => (
                             <tr key={row.merchantId}>
-                              <td className="qb-cell-strong">{row.merchantName}</td>
-                              <td className="qb-num">{row.granted}</td>
-                              <td className="qb-num">{row.redeemed}</td>
-                              <td className="qb-num mp-rate-cell">
+                              <td className={cx(adminStyles, "qb-cell-strong")}>{row.merchantName}</td>
+                              <td className={cx(adminStyles, "qb-num")}>{row.granted}</td>
+                              <td className={cx(adminStyles, "qb-num")}>{row.redeemed}</td>
+                              <td className={cx(adminStyles, "qb-num mp-rate-cell")}>
                                 {pctRate(row.redeemed, row.granted)}
                               </td>
                             </tr>
@@ -911,11 +931,11 @@ export default function AdminPromotionPage() {
                         </tbody>
                         {coupons.length > 1 && (
                           <tfoot>
-                            <tr className="mp-table-foot">
+                            <tr className={cx(adminStyles, "mp-table-foot")}>
                               <td>合计</td>
-                              <td className="qb-num">{couponTotals.granted}</td>
-                              <td className="qb-num">{couponTotals.redeemed}</td>
-                              <td className="qb-num mp-rate-cell">
+                              <td className={cx(adminStyles, "qb-num")}>{couponTotals.granted}</td>
+                              <td className={cx(adminStyles, "qb-num")}>{couponTotals.redeemed}</td>
+                              <td className={cx(adminStyles, "qb-num mp-rate-cell")}>
                                 {pctRate(couponTotals.redeemed, couponTotals.granted)}
                               </td>
                             </tr>
@@ -928,28 +948,28 @@ export default function AdminPromotionPage() {
 
                 <Panel title="核销对账" hint="按商家与业务日汇总核销单数与面值。">
                   {redemptions.items.length === 0 ? (
-                    <div className="admin-empty-state mp-panel-empty">
+                    <div className={cx(adminStyles, "admin-empty-state mp-panel-empty")}>
                       该时间范围内暂无核销记录。
                     </div>
                   ) : (
                     <>
-                      <div className="qb-table-wrap admin-table-wrap mp-table-panel">
-                        <table className="qb-table admin-table mp-data-table">
+                      <div className={cx(adminStyles, "qb-table-wrap admin-table-wrap mp-table-panel")}>
+                        <table className={cx(adminStyles, "qb-table admin-table mp-data-table")}>
                           <thead>
                             <tr>
                               <th>日期</th>
                               <th>商家</th>
-                              <th className="qb-num">单数</th>
-                              <th className="qb-num">面值</th>
+                              <th className={cx(adminStyles, "qb-num")}>单数</th>
+                              <th className={cx(adminStyles, "qb-num")}>面值</th>
                             </tr>
                           </thead>
                           <tbody>
                             {redemptions.items.map((row) => (
                               <tr key={`${row.day}-${row.merchantId}`}>
-                                <td className="mp-date-cell">{row.day}</td>
-                                <td className="qb-cell-strong">{row.merchantName}</td>
-                                <td className="qb-num">{row.count}</td>
-                                <td className="qb-num qb-cell-strong mp-money-cell">
+                                <td className={cx(adminStyles, "mp-date-cell")}>{row.day}</td>
+                                <td className={cx(adminStyles, "qb-cell-strong")}>{row.merchantName}</td>
+                                <td className={cx(adminStyles, "qb-num")}>{row.count}</td>
+                                <td className={cx(adminStyles, "qb-num qb-cell-strong mp-money-cell")}>
                                   {yuan(row.faceValueTotal)}
                                 </td>
                               </tr>
@@ -957,10 +977,10 @@ export default function AdminPromotionPage() {
                           </tbody>
                           {redemptions.items.length > 1 && (
                             <tfoot>
-                              <tr className="mp-table-foot">
+                              <tr className={cx(adminStyles, "mp-table-foot")}>
                                 <td colSpan={2}>本页合计</td>
-                                <td className="qb-num">{redemptionTotals.count}</td>
-                                <td className="qb-num qb-cell-strong mp-money-cell">
+                                <td className={cx(adminStyles, "qb-num")}>{redemptionTotals.count}</td>
+                                <td className={cx(adminStyles, "qb-num qb-cell-strong mp-money-cell")}>
                                   {yuan(redemptionTotals.faceValueTotal)}
                                 </td>
                               </tr>
@@ -969,7 +989,7 @@ export default function AdminPromotionPage() {
                         </table>
                       </div>
                       {redemptions.totalPages > 1 && (
-                        <div className="admin-pagination">
+                        <div className={cx(adminStyles, "admin-pagination")}>
                           <button
                             disabled={redemptions.page <= 1}
                             onClick={() => void goRedemptions(redemptions.page - 1)}
