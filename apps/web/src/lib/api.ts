@@ -573,28 +573,55 @@ export function fetchMerchantMe() {
 
 export type RedeemResult = RedemptionResult;
 
+/** Coupon snapshot returned by both prepare and redeem endpoints. */
+export type RedeemCouponInfo = {
+  title: string;
+  benefitText: string;
+  faceValue: number;
+  userDisplayName: string | null;
+};
+
+/** Prepare succeeded: coupon info available, ticket issued. */
+export type PrepareRedeemOk = {
+  result: "OK";
+  coupon: RedeemCouponInfo;
+  needAmount: boolean;
+  redeemTicket: string;
+};
+
+/** Prepare failed with a specific reason. */
+export type PrepareRedeemFail = {
+  result: "INVALID" | "ALREADY_USED" | "EXPIRED_CODE";
+};
+
+/** Response from POST /merchant/redeem/prepare */
+export type PrepareRedeemResponse = PrepareRedeemOk | PrepareRedeemFail;
+
+/** Response from POST /merchant/redeem (ticket-based, no merchantPromotion). */
 export type RedeemResponse = {
   result: RedeemResult;
-  coupon: {
-    title: string;
-    benefitText: string;
-    faceValue: number;
-    userDisplayName: string | null;
-  } | null;
+  coupon: RedeemCouponInfo | null;
   // The benefit resolved at redemption (SUCCESS only).
   applied: {
     orderAmount: number | null;
     discountAmount: number;
     gift: string | null;
   } | null;
-  merchantPromotion: MerchantPromotionBlock[] | null;
 };
 
-export function redeemCoupon(code: string, orderAmount?: number) {
+export function prepareRedeem(payload: { code: string; totp: string }) {
+  return fetchApi<PrepareRedeemResponse>("/merchant/redeem/prepare", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function redeemCoupon(payload: {
+  redeemTicket: string;
+  orderAmount?: number;
+}) {
   return fetchApi<RedeemResponse>("/merchant/redeem", {
     method: "POST",
-    body: JSON.stringify(
-      orderAmount === undefined ? { code } : { code, orderAmount },
-    ),
+    body: JSON.stringify(payload),
   });
 }

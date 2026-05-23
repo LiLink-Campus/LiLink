@@ -1,15 +1,30 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
 import { merchantLogin } from "../../../lib/api";
 import styles from "../merchant.module.css";
 
+/** Only same-site relative paths are allowed as next targets. */
+function isSafeSameSitePath(value: string): boolean {
+  // Must start with exactly one slash (rejects // and absolute URLs).
+  return /^\/(?!\/)/.test(value);
+}
+
 export default function MerchantLoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [nextPath, setNextPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    const raw = searchParams.get("next");
+    setNextPath(raw && isSafeSameSitePath(raw) ? raw : null);
+  }, [searchParams]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -17,7 +32,7 @@ export default function MerchantLoginPage() {
     setError(null);
     try {
       await merchantLogin(email.trim(), password);
-      window.location.href = "/merchant/redeem";
+      router.push(nextPath ?? "/merchant/redeem");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "登录失败，请重试。");
     } finally {
