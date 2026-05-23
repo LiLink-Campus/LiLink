@@ -92,7 +92,7 @@ export class MerchantService {
           error instanceof Error ? error.message : 'Invalid promotion blocks.',
         );
       }
-      data.promotionBlocks = blocks as unknown as Prisma.InputJsonValue;
+      data.promotionBlocks = blocks;
     }
 
     if (Object.keys(data).length === 0) {

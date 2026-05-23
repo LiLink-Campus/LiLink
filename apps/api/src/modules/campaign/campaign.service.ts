@@ -257,7 +257,8 @@ export class CampaignService {
         'Provide at most one of validDays / validUntil.',
       );
     }
-    const rule = this.parseRule(input.rule);
+    const benefitType = input.benefitType as CouponBenefitType;
+    const rule = this.parseRule(input.rule, benefitType);
 
     return this.prisma.$transaction(async (tx) => {
       const campaign = await tx.campaign.findUnique({
@@ -280,11 +281,11 @@ export class CampaignService {
           merchantId: input.merchantId,
           title,
           description: input.description?.trim() || null,
-          benefitType: input.benefitType as CouponBenefitType,
+          benefitType,
           faceValue: input.faceValue,
           validDays: input.validDays ?? null,
           validUntil: input.validUntil ? new Date(input.validUntil) : null,
-          rule: rule === undefined ? Prisma.DbNull : rule,
+          rule,
         },
         include: TEMPLATE_INCLUDE,
       });
@@ -324,9 +325,6 @@ export class CampaignService {
     if (input.description !== undefined) {
       data.description = input.description.trim() || null;
     }
-    if (input.benefitType !== undefined) {
-      data.benefitType = input.benefitType as CouponBenefitType;
-    }
     if (input.faceValue !== undefined) data.faceValue = input.faceValue;
     // Switching expiry mode clears the other field so validDays / validUntil
     // never coexist (the contract allows at most one), even across PATCHes that
@@ -340,9 +338,26 @@ export class CampaignService {
       data.validDays = null;
     }
     if (input.isActive !== undefined) data.isActive = input.isActive;
-    if (input.rule !== undefined) {
-      const rule = this.parseRule(input.rule);
-      data.rule = rule === undefined ? Prisma.DbNull : rule;
+
+    // benefitType + rule must stay consistent. If either changes, re-validate
+    // the resulting pair against the current template. Switching to CUSTOM
+    // clears the rule; switching between typed kinds needs a matching new rule.
+    if (input.benefitType !== undefined || input.rule !== undefined) {
+      const current = await this.prisma.couponTemplate.findUnique({
+        where: { id },
+        select: { benefitType: true, rule: true },
+      });
+      if (!current) throw new NotFoundException('Coupon template not found.');
+      const benefitType = (input.benefitType ??
+        current.benefitType) as CouponBenefitType;
+      const effectiveRule =
+        input.rule !== undefined
+          ? input.rule
+          : benefitType === 'CUSTOM'
+            ? null
+            : (current.rule ?? null);
+      if (input.benefitType !== undefined) data.benefitType = benefitType;
+      data.rule = this.parseRule(effectiveRule, benefitType);
     }
 
     if (Object.keys(data).length === 0) {
@@ -375,12 +390,21 @@ export class CampaignService {
 
   // ---- helpers / views ----
 
+  /**
+   * Validate a coupon rule against its benefitType and return a Prisma JSON
+   * value to store. CUSTOM (and a null rule) store DbNull; FULL_REDUCTION /
+   * DISCOUNT / GIFT require and store the normalized tier ladder. Throws
+   * BadRequest on any rule problem.
+   */
   private parseRule(
-    rule: Record<string, unknown> | undefined,
-  ): Prisma.InputJsonValue | undefined {
-    if (rule === undefined) return undefined;
+    rule: unknown,
+    benefitType: CouponBenefitType,
+  ): Prisma.InputJsonValue | typeof Prisma.DbNull {
     try {
-      return validateCouponRule(rule) as Prisma.InputJsonValue;
+      const validated = validateCouponRule(rule ?? null, benefitType);
+      return validated === null
+        ? Prisma.DbNull
+        : (validated as unknown as Prisma.InputJsonValue);
     } catch (error) {
       throw new BadRequestException(
         error instanceof Error ? error.message : 'Invalid coupon rule.',
