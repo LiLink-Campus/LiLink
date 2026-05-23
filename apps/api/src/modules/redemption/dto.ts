@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -11,6 +12,19 @@ import {
   REDEEM_CODE_MAX_LENGTH,
   REDEEM_ORDER_AMOUNT_MAX,
 } from '../../common/validation/input-limits';
+
+// Step 1: verify the scanned short code + the holder's rotating TOTP token.
+// `code` is the public short code; `totp` is the 6-digit rotating token.
+export class PrepareRedeemDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(REDEEM_CODE_MAX_LENGTH)
+  code!: string;
+
+  @IsString()
+  @Matches(/^\d{6}$/)
+  totp!: string;
+}
 
 export class RedeemCouponDto {
   @IsString()
