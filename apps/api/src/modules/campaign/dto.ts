@@ -137,9 +137,10 @@ export class CreateCouponTemplateDto {
   @IsISO8601()
   validUntil?: string;
 
-  // ⏸️ §A: rule payload is loosely accepted now and validated structurally by
-  // validateCouponRule (stub). Replaced with a strong typed DTO once the
-  // benefit-rule DSL is designed.
+  // §A tiered rule (version + tiers[]). Loosely typed here; the service calls
+  // validateCouponRule(rule, benefitType) which enforces the ladder shape and
+  // benefitType consistency. Required for FULL_REDUCTION / DISCOUNT / GIFT;
+  // omitted for CUSTOM.
   @IsOptional()
   @IsObject()
   rule?: Record<string, unknown>;

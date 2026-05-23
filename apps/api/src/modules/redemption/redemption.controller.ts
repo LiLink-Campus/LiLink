@@ -18,6 +18,7 @@ export class RedemptionController {
       body.code,
       request.merchantUser!.merchantId,
       request.merchantUser!.id,
+      body.orderAmount,
     );
   }
 }

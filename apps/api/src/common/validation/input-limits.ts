@@ -57,3 +57,5 @@ export const MERCHANT_USER_DISPLAY_NAME_MAX = 80;
 // Redemption short code: 8 (recruiter) / 10 (personal + coupon); accept a bit
 // of slack for trimming/casing on input.
 export const REDEEM_CODE_MAX_LENGTH = 16;
+// Order amount entered at redemption (cents, §B). Bounded like faceValue.
+export const REDEEM_ORDER_AMOUNT_MAX = COUPON_FACE_VALUE_MAX;

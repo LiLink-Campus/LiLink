@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
-  CouponBenefitType,
   CouponRule,
-  CouponStatus,
   effectiveCouponStatus,
   renderBenefitText,
 } from '@lilink/shared';
@@ -44,7 +42,7 @@ export class CouponService {
         id: coupon.id,
         status: effectiveCouponStatus(
           {
-            status: coupon.status as CouponStatus,
+            status: coupon.status,
             expiresAt: coupon.expiresAt,
           },
           now,
@@ -54,7 +52,7 @@ export class CouponService {
         title: coupon.template.title,
         benefitType: coupon.template.benefitType,
         benefitText: renderBenefitText({
-          benefitType: coupon.template.benefitType as CouponBenefitType,
+          benefitType: coupon.template.benefitType,
           title: coupon.template.title,
           faceValue: coupon.template.faceValue,
           rule: coupon.template.rule as CouponRule | null,
