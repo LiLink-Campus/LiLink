@@ -66,6 +66,7 @@ jobs:
       ADMIN_COOKIE_NAME: lilink_admin_token
       SMTP_FROM: "LiLink <hello@lilink.zone>"
       CRON_SECRET: abcdef1234567890
+      REDEEM_TICKET_SECRET: test-redeem-ticket-secret-0123456789
     services:
       postgres:
         image: postgres:17-alpine

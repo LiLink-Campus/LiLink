@@ -109,8 +109,13 @@ export class RedemptionService {
     if (!coupon) {
       return { result: 'INVALID' };
     }
+    // §8.2: REDEEMED is reported plainly; any other non-ISSUED status (e.g. VOID)
+    // is treated as INVALID so we never reveal whether the code exists.
     if (coupon.status === 'REDEEMED') {
       return { result: 'ALREADY_USED' };
+    }
+    if (coupon.status !== 'ISSUED') {
+      return { result: 'INVALID' };
     }
     if (!coupon.totpSecret || !verifyTotpToken(coupon.totpSecret, totp)) {
       return { result: 'EXPIRED_CODE' };

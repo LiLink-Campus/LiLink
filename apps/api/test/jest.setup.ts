@@ -9,3 +9,4 @@ process.env.ADMIN_COOKIE_NAME ??= 'lilink_admin_token';
 process.env.MERCHANT_COOKIE_NAME ??= 'lilink_merchant_token';
 process.env.SMTP_FROM ??= 'LiLink <hello@lilink.zone>';
 process.env.CRON_SECRET ??= 'abcdef1234567890';
+process.env.REDEEM_TICKET_SECRET ??= 'test-redeem-ticket-secret-0123456789';

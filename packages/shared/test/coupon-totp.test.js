@@ -10,6 +10,8 @@ const {
   COUPON_TOTP,
 } = require("../dist");
 
+// Human-code alphabet excludes I, L, O, 0, 1; coupon code length is 6.
+
 test("token is 6 digits and self-verifies", () => {
   const s = generateTotpSecret();
   const t = generateTotpToken(s);
@@ -46,4 +48,18 @@ test("formatRedeemCode and parseRedeemCode round-trip", () => {
   assert.deepEqual(parseRedeemCode(" k7m2qp-573821 "), { code: "K7M2QP", token: "573821" });
   assert.equal(parseRedeemCode("bad"), null);
   assert.equal(parseRedeemCode("K7M2QP-12"), null);
+});
+
+test("parseRedeemCode rejects locator containing ambiguous chars (I, L, O, 0, 1)", () => {
+  // Each of these locators contains a char excluded from the human-code alphabet.
+  assert.equal(parseRedeemCode("K7M2QI-573821"), null); // I
+  assert.equal(parseRedeemCode("K7M2QL-573821"), null); // L
+  assert.equal(parseRedeemCode("K7M2QO-573821"), null); // O
+  assert.equal(parseRedeemCode("K7M2Q0-573821"), null); // 0
+  assert.equal(parseRedeemCode("K7M2Q1-573821"), null); // 1
+});
+
+test("parseRedeemCode rejects locator with length != 6", () => {
+  assert.equal(parseRedeemCode("K7M2Q-573821"), null);   // 5 chars
+  assert.equal(parseRedeemCode("K7M2QPX-573821"), null); // 7 chars
 });
