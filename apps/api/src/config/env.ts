@@ -88,6 +88,10 @@ const envSchema = z.object({
   CRON_SECRET: z
     .string()
     .min(16, 'CRON_SECRET must be at least 16 characters.'),
+  // Short-lived JWT secret for one-time redeem ticket tokens issued to merchants.
+  REDEEM_TICKET_SECRET: z
+    .string()
+    .min(16, 'REDEEM_TICKET_SECRET must be at least 16 characters.'),
 });
 
 export const env = envSchema.parse(process.env);
