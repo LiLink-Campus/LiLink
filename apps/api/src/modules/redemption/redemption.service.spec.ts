@@ -1,10 +1,10 @@
 import { RedemptionService } from './redemption.service';
+import type { RedeemTicketService } from './redeem-ticket.service';
 
 type MockTx = {
   coupon: { findFirst: jest.Mock; updateMany: jest.Mock; count: jest.Mock };
   redemption: { create: jest.Mock };
   auditLog: { create: jest.Mock };
-  merchant: { findUnique: jest.Mock };
 };
 
 function makeTxPrisma() {
@@ -12,15 +12,29 @@ function makeTxPrisma() {
     coupon: { findFirst: jest.fn(), updateMany: jest.fn(), count: jest.fn() },
     redemption: { create: jest.fn().mockResolvedValue({}) },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
-    merchant: {
-      findUnique: jest.fn().mockResolvedValue({ promotionBlocks: [] }),
-    },
   };
   const prisma = {
     ...tx,
     $transaction: jest.fn((cb: (t: MockTx) => unknown) => cb(tx)),
   };
   return { prisma, tx };
+}
+
+const VALID_TICKET = 'valid-ticket';
+
+// A ticket service that resolves VALID_TICKET to {couponId: 'co1'} for the
+// given merchant, and rejects everything else (forged / expired / cross-merchant).
+function makeTicketService(merchantId = 'm1'): {
+  ticket: RedeemTicketService;
+  verify: jest.Mock;
+} {
+  const verify = jest.fn((token: string, mId: string) =>
+    token === VALID_TICKET && mId === merchantId
+      ? { couponId: 'co1', merchantId }
+      : null,
+  );
+  const ticket = { verify, sign: jest.fn() } as unknown as RedeemTicketService;
+  return { ticket, verify };
 }
 
 function candidate(rule: unknown) {
@@ -47,22 +61,42 @@ const SOCIAL_RULE = {
   ],
 };
 
+// A no-threshold gift coupon: redeeming hands over a gift, no amount needed.
+const GIFT_RULE = {
+  version: 1,
+  tiers: [{ minSpend: 0, benefit: { type: 'GIFT', description: '赠杯垫' } }],
+};
+
 describe('RedemptionService.redeem', () => {
-  it('SUCCESS (no rule): flips ISSUED->REDEEMED, writes Redemption + audit, returns coupon + promotion', async () => {
+  it('INVALID: ticket fails verification (forged / expired / cross-merchant) — no DB touch', async () => {
+    const { prisma, tx } = makeTxPrisma();
+    const { ticket, verify } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
+
+    const result = await service.redeem('bogus-ticket', 'm1', 'mu1');
+
+    expect(verify).toHaveBeenCalledWith('bogus-ticket', 'm1');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.coupon.findFirst).not.toHaveBeenCalled();
+    expect(result.result).toBe('INVALID');
+    expect(result.coupon).toBeNull();
+    expect(result.applied).toBeNull();
+  });
+
+  it('SUCCESS (no rule): looks up coupon by ticket id, flips ISSUED->REDEEMED, writes Redemption + audit', async () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(null));
     tx.coupon.updateMany.mockResolvedValue({ count: 1 });
-    tx.merchant.findUnique.mockResolvedValue({
-      promotionBlocks: [{ type: 'TEXT', text: '关注我们' }],
-    });
-    const service = new RedemptionService(prisma as never, {} as never);
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
 
-    const result = await service.redeem(' abcdefghjk ', 'm1', 'mu1');
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
 
+    // Coupon is reloaded by the id from the ticket, re-asserting the gate.
     expect(tx.coupon.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          code: 'ABCDEFGHJK',
+          id: 'co1',
           status: 'ISSUED',
           template: { is: { merchantId: 'm1' } },
           user: { is: { status: 'ACTIVE' } },
@@ -79,6 +113,7 @@ describe('RedemptionService.redeem', () => {
           faceValueSnapshot: 3000,
           orderAmount: null,
           actualDiscountAmount: null,
+          giftLabel: null,
         }) as object,
       }),
     );
@@ -94,24 +129,59 @@ describe('RedemptionService.redeem', () => {
       discountAmount: 0,
       gift: null,
     });
-    expect(result.merchantPromotion).toEqual([
-      { type: 'TEXT', text: '关注我们' },
-    ]);
+  });
+
+  it('SUCCESS: response carries no merchantPromotion field', async () => {
+    const { prisma, tx } = makeTxPrisma();
+    tx.coupon.findFirst.mockResolvedValue(candidate(null));
+    tx.coupon.updateMany.mockResolvedValue({ count: 1 });
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
+
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
+
+    expect(result).not.toHaveProperty('merchantPromotion');
+  });
+
+  it('SUCCESS (gift coupon): persists the gift label on the Redemption', async () => {
+    const { prisma, tx } = makeTxPrisma();
+    tx.coupon.findFirst.mockResolvedValue(candidate(GIFT_RULE));
+    tx.coupon.updateMany.mockResolvedValue({ count: 1 });
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
+
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
+
+    expect(tx.redemption.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          giftLabel: '赠杯垫',
+          actualDiscountAmount: null,
+        }) as object,
+      }),
+    );
+    expect(result.applied).toEqual({
+      orderAmount: null,
+      discountAmount: 0,
+      gift: '赠杯垫',
+    });
   });
 
   it('SUCCESS (tiered + amount): picks the tier, persists orderAmount + actualDiscountAmount', async () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(SOCIAL_RULE));
     tx.coupon.updateMany.mockResolvedValue({ count: 1 });
-    const service = new RedemptionService(prisma as never, {} as never);
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
 
-    const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1', 6000);
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1', 6000);
 
     expect(tx.redemption.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           orderAmount: 6000,
           actualDiscountAmount: 1200, // 满50减12
+          giftLabel: null,
         }) as object,
       }),
     );
@@ -127,9 +197,10 @@ describe('RedemptionService.redeem', () => {
   it('NEED_AMOUNT: tiered coupon without an amount is not consumed; returns the ladder', async () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(SOCIAL_RULE));
-    const service = new RedemptionService(prisma as never, {} as never);
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
 
-    const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1');
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
 
     expect(tx.coupon.updateMany).not.toHaveBeenCalled();
     expect(tx.redemption.create).not.toHaveBeenCalled();
@@ -141,9 +212,10 @@ describe('RedemptionService.redeem', () => {
   it('BELOW_THRESHOLD: an amount under the lowest tier is not consumed', async () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(SOCIAL_RULE));
-    const service = new RedemptionService(prisma as never, {} as never);
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
 
-    const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1', 2000);
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1', 2000);
 
     expect(tx.coupon.updateMany).not.toHaveBeenCalled();
     expect(tx.redemption.create).not.toHaveBeenCalled();
@@ -151,19 +223,21 @@ describe('RedemptionService.redeem', () => {
     expect(result.coupon).not.toBeNull();
   });
 
-  it('ALREADY_USED: no redeemable match but a REDEEMED coupon for this merchant + ACTIVE user exists', async () => {
+  it('ALREADY_USED: ticket replay — coupon already REDEEMED for this merchant + ACTIVE user', async () => {
     const { prisma, tx } = makeTxPrisma();
+    // The redeemable (ISSUED) reload misses; the REDEEMED probe hits.
     tx.coupon.findFirst.mockResolvedValue(null);
     tx.coupon.count.mockResolvedValue(1);
-    const service = new RedemptionService(prisma as never, {} as never);
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
 
-    const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1');
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
 
-    // The ALREADY_USED probe must carry the same expiry gate as the redeemable
-    // query, so an expired (even if REDEEMED) coupon stays INVALID, not leaked.
+    // The probe scopes to the same coupon id + merchant + ACTIVE holder + expiry.
     expect(tx.coupon.count).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
+          id: 'co1',
           status: 'REDEEMED',
           OR: [
             { expiresAt: null },
@@ -180,25 +254,27 @@ describe('RedemptionService.redeem', () => {
     expect(result.applied).toBeNull();
   });
 
-  it('INVALID: no redeemable match and no matching REDEEMED coupon (no existence leak)', async () => {
+  it('INVALID: ticket valid but coupon no longer passes the gate and was never redeemed', async () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(null);
     tx.coupon.count.mockResolvedValue(0);
-    const service = new RedemptionService(prisma as never, {} as never);
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
 
-    const result = await service.redeem('ZZZZZZZZZZ', 'm1', 'mu1');
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
 
     expect(result.result).toBe('INVALID');
     expect(result.coupon).toBeNull();
   });
 
-  it('concurrent redeem: candidate read ok but the CAS flip loses the race -> ALREADY_USED', async () => {
+  it('concurrent redeem: reload ok but the CAS flip loses the race -> ALREADY_USED', async () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(null));
     tx.coupon.updateMany.mockResolvedValue({ count: 0 }); // someone else flipped it
-    const service = new RedemptionService(prisma as never, {} as never);
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
 
-    const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1');
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
 
     expect(tx.redemption.create).not.toHaveBeenCalled();
     expect(result.result).toBe('ALREADY_USED');
