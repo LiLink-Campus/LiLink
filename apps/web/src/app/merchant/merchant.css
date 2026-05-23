@@ -196,35 +196,3 @@
   font-size: 0.9rem;
 }
 
-/* ── Merchant promotion blocks ─────────────────────────────── */
-.mc-promo {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.mc-promo-card {
-  padding: 1rem;
-  text-align: center;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-}
-
-.mc-promo-text {
-  margin: 0;
-  color: var(--color-text);
-}
-
-.mc-promo-img {
-  max-width: 200px;
-  margin: 0 auto;
-  border-radius: var(--radius-sm);
-}
-
-.mc-promo-caption {
-  margin: 0.5rem 0 0;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-}

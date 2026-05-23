@@ -11,6 +11,7 @@ import {
   type MerchantSessionUser,
   type PrepareRedeemOk,
   type PrepareRedeemResponse,
+  type RedeemResponse,
 } from "../../../lib/api";
 import { RedeemConfirm } from "../_components/RedeemConfirm";
 import "../merchant.css";
@@ -20,7 +21,7 @@ type PageState =
   | { phase: "preparing" }
   | { phase: "prepare-fail"; result: Exclude<PrepareRedeemResponse["result"], "OK">; message: string }
   | { phase: "ready"; prepare: PrepareRedeemOk }
-  | { phase: "done" };
+  | { phase: "done"; redeemResult: RedeemResponse };
 
 const PREPARE_FAIL_MESSAGES: Record<
   Exclude<PrepareRedeemResponse["result"], "OK">,
@@ -30,6 +31,58 @@ const PREPARE_FAIL_MESSAGES: Record<
   ALREADY_USED: "该券已使用。",
   INVALID: "无效的核销码。",
 };
+
+/** Convert cents to yuan string, e.g. 100 → "1.00". */
+function formatYuan(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
+/** Merchant-facing success view showing the applied discount/amount/gift (spec §9.2). */
+function RedeemSuccessView({
+  redeemResult,
+  onContinue,
+}: {
+  redeemResult: RedeemResponse;
+  onContinue: () => void;
+}) {
+  const applied = redeemResult.applied;
+  return (
+    <div className="mc-redeem-body">
+      <div className="mc-result is-success">
+        <span className="mc-result-label">✓ 核销成功</span>
+        {applied && (
+          <div className="mc-coupon">
+            {redeemResult.coupon && (
+              <p className="mc-coupon-title">{redeemResult.coupon.title}</p>
+            )}
+            {applied.gift ? (
+              <p className="mc-coupon-apply">赠品：{applied.gift}</p>
+            ) : applied.discountAmount > 0 ? (
+              <p className="mc-coupon-apply">
+                应减 {formatYuan(applied.discountAmount)} 元
+              </p>
+            ) : null}
+            {applied.orderAmount != null && (
+              <p className="mc-coupon-order">
+                消费 {formatYuan(applied.orderAmount)} 元
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+      <Button
+        block
+        elevation="flat"
+        shape="rounded"
+        size="lg"
+        type="button"
+        onClick={onContinue}
+      >
+        继续核销
+      </Button>
+    </div>
+  );
+}
 
 export default function MerchantRedeemPage() {
   const [me, setMe] = useState<MerchantSessionUser | null>(null);
@@ -174,26 +227,15 @@ export default function MerchantRedeemPage() {
         {pageState.phase === "ready" && (
           <RedeemConfirm
             prepare={pageState.prepare}
-            onSuccess={() => setPageState({ phase: "done" })}
+            onSuccess={(r) => setPageState({ phase: "done", redeemResult: r })}
           />
         )}
 
         {pageState.phase === "done" && (
-          <div className="mc-redeem-body">
-            <div className="mc-result is-success">
-              <span className="mc-result-label">核销完成</span>
-            </div>
-            <Button
-              block
-              elevation="flat"
-              shape="rounded"
-              size="lg"
-              type="button"
-              onClick={reset}
-            >
-              继续核销
-            </Button>
-          </div>
+          <RedeemSuccessView
+            redeemResult={pageState.redeemResult}
+            onContinue={reset}
+          />
         )}
       </main>
     </div>

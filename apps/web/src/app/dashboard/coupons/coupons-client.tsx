@@ -230,7 +230,8 @@ type DialogState =
   | { phase: "error"; message: string }
   | { phase: "not-redeemable" }
   | { phase: "active"; secret: CouponRedeemSecret; token: string; secs: number }
-  | { phase: "redeemed"; status: CouponStatusResponse };
+  | { phase: "redeemed"; status: CouponStatusResponse }
+  | { phase: "expired-or-void"; reason: "EXPIRED" | "VOID" };
 
 function CouponCodeDialog({
   coupon,
@@ -242,7 +243,6 @@ function CouponCodeDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [state, setState] = useState<DialogState>({ phase: "loading" });
   // Keep mutable refs to avoid stale-closure issues in intervals.
-  const secretRef = useRef<CouponRedeemSecret | null>(null);
   const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -286,16 +286,15 @@ function CouponCodeDialog({
       const poll = async () => {
         try {
           const statusResponse = await getCouponStatus(couponId);
-          if (
-            statusResponse.status === "REDEEMED" ||
+          if (statusResponse.status === "REDEEMED") {
+            stopTimers();
+            setState({ phase: "redeemed", status: statusResponse });
+          } else if (
             statusResponse.status === "EXPIRED" ||
             statusResponse.status === "VOID"
           ) {
             stopTimers();
-            if (statusResponse.status === "REDEEMED") {
-              setState({ phase: "redeemed", status: statusResponse });
-            }
-            // For EXPIRED/VOID we leave the active view; onClose can be pressed.
+            setState({ phase: "expired-or-void", reason: statusResponse.status });
           }
         } catch {
           // Polling errors are non-fatal; retry next interval.
@@ -316,12 +315,10 @@ function CouponCodeDialog({
 
     let active = true;
     setState({ phase: "loading" });
-    secretRef.current = null;
 
     // Try local cache first.
     const cached = readCachedSecret(coupon.id);
     if (cached) {
-      secretRef.current = cached;
       startTick(cached);
       startPolling(coupon.id);
       return () => {
@@ -334,7 +331,6 @@ function CouponCodeDialog({
       .then((data) => {
         if (!active) return;
         writeCachedSecret(coupon.id, data);
-        secretRef.current = data;
         startTick(data);
         startPolling(coupon.id);
       })
@@ -398,6 +394,23 @@ function CouponCodeDialog({
               merchantPromotion={state.status.merchantPromotion}
               onClose={onClose}
             />
+          ) : state.phase === "expired-or-void" ? (
+            <div className="coupons-redeemed-success">
+              <span className="coupons-redeemed-icon" aria-hidden="true">
+                {state.reason === "EXPIRED" ? "⏰" : "🚫"}
+              </span>
+              <p className="coupons-redeemed-title">
+                {state.reason === "EXPIRED" ? "优惠券已过期" : "优惠券已作废"}
+              </p>
+              <p className="coupons-dialog-hint">该优惠券无法再使用，请关闭。</p>
+              <button
+                className="ui-button ui-button--primary coupons-dialog-close"
+                onClick={onClose}
+                type="button"
+              >
+                关闭
+              </button>
+            </div>
           ) : (
             // phase === "active"
             <>
