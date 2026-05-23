@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useRef, Fragment, type ReactNode } from "react";
 import { ClipboardIcon } from "../_components/icons";
 import { fetchMyCoupons, type MyCoupon } from "../../../lib/api";
 
@@ -19,43 +19,127 @@ function formatExpiry(iso: string | null) {
 function CouponCard({
   coupon,
   archived = false,
+  onShowCode,
 }: {
   coupon: MyCoupon;
   archived?: boolean;
+  onShowCode?: () => void;
 }) {
+  const showBenefit =
+    !archived &&
+    Boolean(coupon.benefitText) &&
+    coupon.benefitText !== coupon.title;
+
   return (
     <article
       className={`coupons-card${archived ? " is-archived" : ""}`}
       aria-label={coupon.title}
     >
-      <div className="coupons-card-top">
-        <div className="coupons-card-main">
+      <div className="coupons-card-main">
+        <div className="coupons-card-head">
           <p className="coupons-card-title">{coupon.title}</p>
-          <p className="coupons-card-merchant">{coupon.merchantName}</p>
-          {!archived && coupon.benefitText ? (
-            <p className="coupons-card-benefit">{coupon.benefitText}</p>
+        </div>
+        <div className="coupons-card-meta">
+          <span className="coupons-card-merchant">{coupon.merchantName}</span>
+          {!archived ? (
+            <>
+              <span className="coupons-card-meta-sep" aria-hidden="true">
+                ·
+              </span>
+              <span className="coupons-card-expiry">
+                {formatExpiry(coupon.expiresAt)}
+              </span>
+            </>
           ) : null}
         </div>
+        {showBenefit ? (
+          <p className="coupons-card-benefit">
+            {coupon.benefitText.split(" ｜ ").map((tier, index) => (
+              <Fragment key={index}>
+                {index > 0 ? (
+                  <span className="coupons-card-benefit-sep" aria-hidden="true">
+                    ｜
+                  </span>
+                ) : null}
+                <span className="coupons-card-benefit-tier">{tier}</span>
+              </Fragment>
+            ))}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="coupons-card-actions">
         <span className={`coupons-badge${archived ? " is-muted" : ""}`}>
           {archived
             ? (STATUS_LABELS[coupon.status] ?? coupon.status)
             : "可用"}
         </span>
+        {!archived ? (
+          <button
+            type="button"
+            className="button-primary coupons-use-btn"
+            onClick={onShowCode}
+          >
+            查看核销码
+          </button>
+        ) : null}
       </div>
+    </article>
+  );
+}
 
-      {!archived ? (
-        <>
+function CouponCodeDialog({
+  coupon,
+  onClose,
+}: {
+  coupon: MyCoupon | null;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (coupon) {
+      dialog.showModal();
+    } else {
+      dialog.close();
+    }
+  }, [coupon]);
+
+  if (!coupon) return null;
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="coupons-dialog"
+      onClose={onClose}
+      aria-labelledby="coupons-dialog-title"
+    >
+      <div className="coupons-dialog-inner">
+        <div className="coupons-dialog-header">
+          <h2 id="coupons-dialog-title" className="coupons-dialog-title">
+            {coupon.title}
+          </h2>
+          <p className="coupons-dialog-merchant">{coupon.merchantName}</p>
+        </div>
+        <div className="coupons-dialog-body">
           <div className="coupons-code-block">
             <span className="coupons-code-label">核销码</span>
             <code className="coupons-code">{coupon.code}</code>
           </div>
-          <div className="coupons-meta">
-            <span className="coupons-meta-label">有效期</span>
-            <span>{formatExpiry(coupon.expiresAt)}</span>
-          </div>
-        </>
-      ) : null}
-    </article>
+          <p className="coupons-dialog-hint">请向店员出示此核销码</p>
+          <button
+            className="button-primary coupons-dialog-close"
+            onClick={onClose}
+            type="button"
+          >
+            完成
+          </button>
+        </div>
+      </div>
+    </dialog>
   );
 }
 
@@ -107,6 +191,7 @@ export function CouponsClient() {
   const [coupons, setCoupons] = useState<MyCoupon[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCoupon, setSelectedCoupon] = useState<MyCoupon | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -170,7 +255,11 @@ export function CouponsClient() {
         ) : (
           <div className="coupons-list">
             {issued.map((coupon) => (
-              <CouponCard key={coupon.id} coupon={coupon} />
+              <CouponCard 
+                key={coupon.id} 
+                coupon={coupon} 
+                onShowCode={() => setSelectedCoupon(coupon)}
+              />
             ))}
           </div>
         )}
@@ -190,6 +279,11 @@ export function CouponsClient() {
           </div>
         </CouponsPanel>
       ) : null}
+
+      <CouponCodeDialog 
+        coupon={selectedCoupon} 
+        onClose={() => setSelectedCoupon(null)} 
+      />
     </div>
   );
 }
