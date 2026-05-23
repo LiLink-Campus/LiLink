@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
 import { merchantLogin } from "../../../lib/api";
-import "../merchant.css";
+import styles from "../merchant.module.css";
 
 export default function MerchantLoginPage() {
   const [email, setEmail] = useState("");
@@ -26,17 +26,17 @@ export default function MerchantLoginPage() {
   }
 
   return (
-    <main className="mc-center">
+    <main className={styles.center}>
       <Card
         as="div"
-        className="mc-login-card"
+        className={styles.loginCard}
         elevation="md"
         layout="plain"
         padding="spacious"
       >
-        <h1 className="mc-title">商家核销登录</h1>
-        <p className="mc-subtitle">登录后即可为顾客核销优惠券</p>
-        <form className="mc-form" onSubmit={submit}>
+        <h1 className={styles.title}>商家核销登录</h1>
+        <p className={styles.subtitle}>登录后即可为顾客核销优惠券</p>
+        <form className={styles.form} onSubmit={submit}>
           <Field label="商家账号邮箱">
             <Input
               border="subtle"

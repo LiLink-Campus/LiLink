@@ -16,6 +16,8 @@ import {
   OliveSprigIllustration,
 } from "../dashboard/_components/illustrations";
 import { EligibleSchoolsPanel } from "../eligible-schools-panel";
+import authStyles from "../auth.module.css";
+import layoutStyles from "../public-layout.module.css";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -185,9 +187,11 @@ export default function RegisterPageClient() {
   }
 
   return (
-    <main className="page-shell prose-shell auth-shell">
-      <Card className="auth-panel animate-in" layout="plain">
-        <div className="auth-panel-mark" aria-hidden="true">
+    <main
+      className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell}`}
+    >
+      <Card className={`${authStyles.panel} animate-in`} layout="plain">
+        <div className={authStyles.panelMark} aria-hidden="true">
           <OliveSprigIllustration />
         </div>
         <p className="eyebrow">Register · Step {step} / 2</p>
@@ -199,7 +203,7 @@ export default function RegisterPageClient() {
         </p>
 
         {step === 1 ? (
-          <form className="auth-stack" onSubmit={requestCode}>
+          <form className={authStyles.stack} onSubmit={requestCode}>
             <Field label="学校邮箱">
               <Input
                 required
@@ -225,7 +229,7 @@ export default function RegisterPageClient() {
             >
               {pending ? "发送中…" : "发送验证码"}
             </Button>
-            <p className="auth-hint">
+            <p className={authStyles.hint}>
               没找到你的学校？前往
               {" "}
               <Link href="/schools">完整学校列表</Link>
@@ -234,16 +238,16 @@ export default function RegisterPageClient() {
             </p>
           </form>
         ) : (
-          <form className="auth-stack" onSubmit={register}>
-            <div className="dev-inline">
+          <form className={authStyles.stack} onSubmit={register}>
+            <div className={authStyles.devInline}>
               <span>已发送到</span>
               <strong>{email}</strong>
             </div>
-            <p className="auth-hint">
+            <p className={authStyles.hint}>
               几分钟内仍未收到？请检查邮箱的「垃圾邮件」或「拦截邮件」文件夹，部分学校邮箱会自动拦截首次发件人。
             </p>
             {canRevealDevCode && devCode ? (
-              <p className="dev-note">开发环境验证码：{devCode}</p>
+              <p className={authStyles.devNote}>开发环境验证码：{devCode}</p>
             ) : null}
             <Field label="验证码">
               <Input
@@ -304,7 +308,7 @@ export default function RegisterPageClient() {
                 placeholder="再次输入密码"
               />
             </Field>
-            <label className="terms-checkbox-label">
+            <label className={authStyles.termsCheckboxLabel}>
               <input
                 checked={acceptedTerms}
                 type="checkbox"
@@ -316,7 +320,7 @@ export default function RegisterPageClient() {
               </span>
             </label>
             {error ? <FormMessage>{error}</FormMessage> : null}
-            <ActionGroup className="auth-actions">
+            <ActionGroup className={authStyles.actions}>
               <Button
                 variant="secondary"
                 disabled={pending}
@@ -335,11 +339,11 @@ export default function RegisterPageClient() {
           </form>
         )}
 
-        <p className="auth-hint">
+        <p className={authStyles.hint}>
           已有账号？<Link href={loginHref}>立即登录</Link>
         </p>
       </Card>
-      <div className="auth-grass-line" aria-hidden="true">
+      <div className={authStyles.grassLine} aria-hidden="true">
         <GrassRowIllustration />
       </div>
     </main>

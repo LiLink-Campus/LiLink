@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui";
 import { announcements } from "./announcements";
+import styles from "./announcement-dialog.module.css";
 
 const SEEN_KEY = "lilink_seen_announcement";
 
@@ -46,21 +47,21 @@ export function AnnouncementDialog() {
   return (
     <dialog
       ref={dialogRef}
-      className="announcement-dialog"
+      className={styles.dialog}
       onClose={dismiss}
       aria-labelledby="announcement-title"
     >
-      <div className="announcement-dialog-inner">
-        <div className="announcement-dialog-header">
-          <span className="announcement-badge">更新公告</span>
-          <time className="announcement-date">{latest.date}</time>
+      <div className={styles.inner}>
+        <div className={styles.header}>
+          <span className={styles.badge}>更新公告</span>
+          <time className={styles.date}>{latest.date}</time>
         </div>
-        <h2 id="announcement-title" className="announcement-title">
+        <h2 id="announcement-title" className={styles.title}>
           {latest.title}
         </h2>
-        <p className="announcement-body">{latest.content}</p>
+        <p className={styles.body}>{latest.content}</p>
         <Button
-          className="announcement-dismiss"
+          className={styles.dismiss}
           onClick={dismiss}
           type="button"
         >

@@ -4,7 +4,10 @@ import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import brandStyles from "../brand-mark.module.css";
+import { cx } from "./admin-class-names";
 import { AdminProvider, useAdmin, type AdminIdentity } from "./admin-context";
+import shellStyles from "./admin-layout-shell.module.css";
 
 type NavItem = { href: string; label: string };
 
@@ -14,6 +17,7 @@ type NavGroup = {
 };
 
 const OVERVIEW_ITEM: NavItem = { href: "/admin", label: "概览" };
+const adminBrandStyles = [brandStyles, shellStyles];
 
 const NAV_GROUPS: NavGroup[] = [
   {
@@ -63,7 +67,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="admin-gate">
+      <div className={cx(shellStyles, "admin-gate")}>
         <p>加载中...</p>
       </div>
     );
@@ -71,8 +75,8 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 
   if (!authenticated) {
     return (
-      <div className="admin-gate">
-        <div className="admin-gate-card">
+      <div className={cx(shellStyles, "admin-gate")}>
+        <div className={cx(shellStyles, "admin-gate-card")}>
           <h1>运营后台</h1>
           <p>使用管理员账号登录。</p>
           <form
@@ -162,37 +166,48 @@ function AdminSidebar() {
 
   return (
     <aside
-      className={`admin-sidebar${mobileNavOpen ? " is-mobile-nav-open" : ""}`}
+      className={cx(
+        shellStyles,
+        "admin-sidebar",
+        mobileNavOpen && "is-mobile-nav-open",
+      )}
     >
-      <div className="admin-sidebar-mobile-bar">
+      <div className={cx(shellStyles, "admin-sidebar-mobile-bar")}>
         <Link
           href="/admin"
-          className="admin-sidebar-mobile-title"
+          className={cx(shellStyles, "admin-sidebar-mobile-title")}
           aria-label="LiLink 后台首页"
           onClick={() => setMobileNavOpen(false)}
         >
           <span
-            className="brand-glyph admin-brand-glyph admin-brand-glyph-compact"
+            className={cx(
+              adminBrandStyles,
+              "glyph admin-brand-glyph admin-brand-glyph-compact",
+            )}
             aria-hidden="true"
           >
-            <span className="brand-glyph-text">Li</span>
-            <span className="brand-glyph-sparkle" />
+            <span className={cx(brandStyles, "glyphText")}>Li</span>
+            <span className={cx(brandStyles, "glyphSparkle")} />
           </span>
-          <span className="admin-sidebar-mobile-copy">
+          <span className={cx(shellStyles, "admin-sidebar-mobile-copy")}>
             <strong>LiLink 后台</strong>
             <span>{activeLabel}</span>
           </span>
         </Link>
         <button
           type="button"
-          className="admin-sidebar-mobile-toggle"
+          className={cx(shellStyles, "admin-sidebar-mobile-toggle")}
           aria-expanded={mobileNavOpen}
           aria-controls="admin-sidebar-nav"
           aria-label={mobileNavOpen ? "收起菜单" : "展开菜单"}
           onClick={() => setMobileNavOpen((open) => !open)}
         >
           <span
-            className={`admin-sidebar-mobile-toggle-icon${mobileNavOpen ? " is-open" : ""}`}
+            className={cx(
+              shellStyles,
+              "admin-sidebar-mobile-toggle-icon",
+              mobileNavOpen && "is-open",
+            )}
             aria-hidden="true"
           />
         </button>
@@ -200,27 +215,38 @@ function AdminSidebar() {
 
       <Link
         href="/admin"
-        className="admin-sidebar-brand"
+        className={cx(shellStyles, "admin-sidebar-brand")}
         aria-label="LiLink 后台首页"
       >
-        <span className="brand-glyph admin-brand-glyph" aria-hidden="true">
-          <span className="brand-glyph-text">Li</span>
-          <span className="brand-glyph-sparkle" />
+        <span
+          className={cx(adminBrandStyles, "glyph admin-brand-glyph")}
+          aria-hidden="true"
+        >
+          <span className={cx(brandStyles, "glyphText")}>Li</span>
+          <span className={cx(brandStyles, "glyphSparkle")} />
         </span>
-        <span className="admin-brand-copy">
+        <span className={cx(shellStyles, "admin-brand-copy")}>
           <strong>LiLink 后台</strong>
           <small>{admin?.displayName ?? admin?.email ?? "管理员"}</small>
         </span>
       </Link>
       <nav
         id="admin-sidebar-nav"
-        className="admin-sidebar-nav"
+        className={cx(shellStyles, "admin-sidebar-nav")}
         aria-label="后台导航"
       >
-        <div className="admin-sidebar-section admin-sidebar-section-overview">
+        <div
+          className={cx(
+            shellStyles,
+            "admin-sidebar-section admin-sidebar-section-overview",
+          )}
+        >
           <Link
             href={OVERVIEW_ITEM.href}
-            className={isNavActive(pathname, OVERVIEW_ITEM.href) ? "admin-nav-active" : ""}
+            className={cx(
+              shellStyles,
+              isNavActive(pathname, OVERVIEW_ITEM.href) && "admin-nav-active",
+            )}
             onClick={() => setMobileNavOpen(false)}
           >
             {OVERVIEW_ITEM.label}
@@ -228,13 +254,21 @@ function AdminSidebar() {
         </div>
 
         {NAV_GROUPS.map((group) => (
-          <div key={group.label} className="admin-sidebar-section">
-            <p className="admin-sidebar-section-label">{group.label}</p>
+          <div
+            key={group.label}
+            className={cx(shellStyles, "admin-sidebar-section")}
+          >
+            <p className={cx(shellStyles, "admin-sidebar-section-label")}>
+              {group.label}
+            </p>
             {group.items.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={isNavActive(pathname, item.href) ? "admin-nav-active" : ""}
+                className={cx(
+                  shellStyles,
+                  isNavActive(pathname, item.href) && "admin-nav-active",
+                )}
                 onClick={() => setMobileNavOpen(false)}
               >
                 {item.label}
@@ -244,7 +278,7 @@ function AdminSidebar() {
         ))}
       </nav>
       <button
-        className="admin-sidebar-logout"
+        className={cx(shellStyles, "admin-sidebar-logout")}
         onClick={() => void logout()}
         type="button"
       >
@@ -269,9 +303,9 @@ export default function AdminLayoutShell({
       skipInitialRefresh={authChecked}
     >
       <AdminGate>
-        <div className="admin-layout">
+        <div className={cx(shellStyles, "admin-layout")}>
           <AdminSidebar />
-          <div className="admin-main">{children}</div>
+          <div className={cx(shellStyles, "admin-main")}>{children}</div>
         </div>
       </AdminGate>
     </AdminProvider>

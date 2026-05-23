@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import styles from "./MatchStateHero.module.css";
 
 export type MatchStateAction = {
   label: ReactNode;
@@ -31,6 +32,10 @@ export type MatchStateHeroProps = {
   /** Extra inline content (chips, intro, etc.) shown below body. */
   children?: ReactNode;
 };
+
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
 
 function renderAction(action: MatchStateAction, index: number) {
   const variant = action.variant ?? "primary";
@@ -78,42 +83,49 @@ export function MatchStateHero({
 }: MatchStateHeroProps) {
   if (variant === "matched") {
     return (
-      <section className="v2-focus-card tone-celebrate" aria-label={title}>
-        <div className="v2-focus-card-content">
-          <header className="v2-focus-card-head" style={{ marginBottom: '1rem' }}>
-            <span className="v2-focus-eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#eaf4ee', color: '#4a825e', padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.8rem', fontWeight: 500 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '14px', height: '14px', background: '#5a9972', color: 'white', borderRadius: '50%', fontSize: '0.6rem' }}>✓</span> 本轮匹配成功
+      <section className={cx(styles.card, styles.toneCelebrate)} aria-label={title}>
+        <div className={styles.content}>
+          <header className={cx(styles.head, styles.matchedHead)}>
+            <span className={cx(styles.eyebrow, styles.matchedEyebrow)}>
+              <span className={styles.matchedEyebrowIcon}>✓</span> 本轮匹配成功
             </span>
           </header>
-          <div className="v2-match-hero-row" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className={cx(styles.heroRow, styles.matchedRow)}>
+            <div className={styles.matchedIdentityRow}>
               {avatarInitial ? (
-                <span className="v2-match-hero-avatar" aria-hidden="true" style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: '#fdf1f4', color: '#883b4c', display: 'grid', placeItems: 'center', fontSize: '1.75rem', fontWeight: 'bold', border: '1px solid #f8e1e7' }}>
+                <span
+                  className={cx(styles.avatar, styles.matchedAvatar)}
+                  aria-hidden="true"
+                >
                   {avatarInitial}
                 </span>
               ) : null}
-              <div className="v2-match-hero-identity" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <h2 className="v2-focus-title" style={{ fontSize: '1.25rem', margin: 0 }}>{title}</h2>
-                {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>{subtitle}</p> : null}
+              <div className={cx(styles.identity, styles.matchedIdentity)}>
+                <h2 className={cx(styles.title, styles.matchedTitle)}>{title}</h2>
+                {subtitle ? (
+                  <p className={cx(styles.sub, styles.matchedSub)}>{subtitle}</p>
+                ) : null}
               </div>
             </div>
             {typeof score === "number" ? (
-              <div className="v2-match-hero-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#f9fcf9', border: '1px solid #eef5ef', borderRadius: '0.5rem', padding: '0.25rem 0.75rem' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>匹配度</span>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.1rem' }}>
-                  <strong style={{ fontSize: '1.25rem', color: '#3a7d65', fontWeight: 600 }}>{Math.round(score)}</strong>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>/ 100</span>
+              <div className={cx(styles.score, styles.matchedScore)}>
+                <span className={styles.scoreLabel}>匹配度</span>
+                <div className={styles.scoreValue}>
+                  <strong className={styles.scoreNumber}>{Math.round(score)}</strong>
+                  <span className={styles.scoreLabel}>/ 100</span>
                 </div>
               </div>
             ) : null}
           </div>
 
-          {contactLine ? <div className="v2-match-hero-contact" style={{ padding: '0.75rem', background: 'var(--color-surface-muted)', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>{contactLine}</div> : null}
-          {body ? <p className="v2-focus-body" style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>{body}</p> : null}
+          {contactLine ? (
+            <div className={cx(styles.contact, styles.matchedContact)}>{contactLine}</div>
+          ) : null}
+          {body ? <p className={cx(styles.body, styles.matchedBody)}>{body}</p> : null}
           {children}
         </div>
         {actions && actions.length > 0 ? (
-          <div className="v2-focus-actions">
+          <div className={styles.actions}>
             {actions.map((action, index) => renderAction(action, index))}
           </div>
         ) : null}
@@ -123,27 +135,27 @@ export function MatchStateHero({
 
   if (variant === "limited") {
     return (
-      <section className="v2-focus-card tone-waiting" aria-label={title}>
-        <div className="v2-focus-card-content">
-          <header className="v2-focus-card-head">
-            <span className="v2-focus-eyebrow">匹配受限</span>
+      <section className={cx(styles.card, styles.toneWaiting)} aria-label={title}>
+        <div className={styles.content}>
+          <header className={styles.head}>
+            <span className={styles.eyebrow}>匹配受限</span>
           </header>
-          <h2 className="v2-focus-title">{title}</h2>
-          {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>{subtitle}</p> : null}
+          <h2 className={styles.title}>{title}</h2>
+          {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
 
           {typeof score === "number" ? (
-            <div className="v2-focus-meta-row">
-              <span className="v2-focus-meta-chip">
+            <div className={styles.metaRow}>
+              <span className={styles.metaChip}>
                 匹配度 <strong>{score.toFixed(1)} / 100</strong>
               </span>
             </div>
           ) : null}
 
-          {body ? <p className="v2-focus-body">{body}</p> : null}
+          {body ? <p className={styles.body}>{body}</p> : null}
           {children}
         </div>
         {actions && actions.length > 0 ? (
-          <div className="v2-focus-actions">
+          <div className={styles.actions}>
             {actions.map((action, index) => renderAction(action, index))}
           </div>
         ) : null}
@@ -153,18 +165,21 @@ export function MatchStateHero({
 
   // empty / waiting: centered illustration variant
   return (
-    <section className={`v2-focus-card ${variant === 'waiting' ? 'tone-waiting' : 'tone-default'}`} aria-label={title}>
-      <div className="v2-focus-card-content">
-        <header className="v2-focus-card-head">
-          <span className="v2-focus-eyebrow">{variant === 'waiting' ? '等待中' : '暂无匹配'}</span>
+    <section
+      className={cx(styles.card, variant === "waiting" && styles.toneWaiting)}
+      aria-label={title}
+    >
+      <div className={styles.content}>
+        <header className={styles.head}>
+          <span className={styles.eyebrow}>{variant === 'waiting' ? '等待中' : '暂无匹配'}</span>
         </header>
-        <h2 className="v2-focus-title">{title}</h2>
-        {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>{subtitle}</p> : null}
-        {body ? <p className="v2-focus-body">{body}</p> : null}
+        <h2 className={styles.title}>{title}</h2>
+        {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
+        {body ? <p className={styles.body}>{body}</p> : null}
         {children}
       </div>
       {actions && actions.length > 0 ? (
-        <div className="v2-focus-actions">
+        <div className={styles.actions}>
           {actions.map((action, index) => renderAction(action, index))}
         </div>
       ) : null}

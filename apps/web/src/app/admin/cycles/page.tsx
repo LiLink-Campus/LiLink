@@ -8,6 +8,8 @@ import {
   formatChinaStandardDateTime,
 } from "@/lib/china-standard-time";
 import { WEEKLY_INTENT_LABELS } from "../../../lib/weekly-intent";
+import { cx } from "../admin-class-names";
+import commonStyles from "../admin-common.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
 import type {
@@ -19,6 +21,8 @@ import type {
   CycleParticipantDetail,
   PaginatedResult,
 } from "../types";
+
+const adminStyles = [commonStyles];
 
 const STATUS_STYLES: Record<AdminCycle["status"], { bg: string; color: string }> = {
   OPEN: { bg: "var(--sage-soft)", color: "var(--sage)" },
@@ -489,15 +493,15 @@ export default function AdminCyclesPage() {
   }
 
   if (loading) {
-    return <div className="admin-empty-state">正在加载轮次中心...</div>;
+    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载轮次中心...</div>;
   }
 
   return (
-    <div className="qb-container" style={{ maxWidth: "72rem" }}>
-      <div className="qb-header">
+    <div className={cx(adminStyles, "qb-container")} style={{ maxWidth: "72rem" }}>
+      <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>轮次中心</h1>
-          <p className="qb-header-desc">管理轮次列表、编辑详情、执行匹配和查看阶段状态。</p>
+          <p className={cx(adminStyles, "qb-header-desc")}>管理轮次列表、编辑详情、执行匹配和查看阶段状态。</p>
         </div>
         <div className="auth-actions">
           <button
@@ -525,23 +529,23 @@ export default function AdminCyclesPage() {
       {actionError ? <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "0.75rem" }}>{actionError}</p> : null}
       {actionMessage ? <p className="ui-form-message ui-form-message--success" style={{ marginBottom: "0.75rem" }}>{actionMessage}</p> : null}
 
-      <section className="admin-workspace-grid">
+      <section className={cx(adminStyles, "admin-workspace-grid")}>
         {/* ── Cycle list ─── */}
-        <article className="ui-card ui-card--padded ui-card--plain admin-list-panel">
-          <div className="admin-section-header">
+        <article className={cx(adminStyles, "ui-card ui-card--padded ui-card--plain admin-list-panel")}>
+          <div className={cx(adminStyles, "admin-section-header")}>
             <div>
               <p className="eyebrow">轮次列表</p>
               <h2>全部轮次</h2>
             </div>
           </div>
-          <form className="admin-search-bar" onSubmit={handleSearchSubmit}>
+          <form className={cx(adminStyles, "admin-search-bar")} onSubmit={handleSearchSubmit}>
             <input
               value={draftSearch}
               onChange={(event) => setDraftSearch(event.target.value)}
               placeholder="搜索 codename、状态或备注"
             />
           </form>
-          <div className="admin-tabs">
+          <div className={cx(adminStyles, "admin-tabs")}>
             {(["ALL", "DRAFT", "OPEN", "PREPARING", "REVEAL_READY", "REVEALED"] as const).map((s) => (
               <button
                 key={s}
@@ -553,29 +557,33 @@ export default function AdminCyclesPage() {
               </button>
             ))}
           </div>
-          <div className="admin-record-list">
+          <div className={cx(adminStyles, "admin-record-list")}>
             {cycles.map((cycle) => (
               <button
                 key={cycle.id}
                 type="button"
-                className={cycle.id === selectedCycleId ? "admin-record-item admin-record-item-active" : "admin-record-item"}
+                className={cx(
+                  adminStyles,
+                  "admin-record-item",
+                  cycle.id === selectedCycleId && "admin-record-item-active",
+                )}
                 onClick={() => setSelectedCycleId(cycle.id)}
               >
-                <div className="admin-record-topline">
+                <div className={cx(adminStyles, "admin-record-topline")}>
                   <strong>{cycle.codename}</strong>
                   <span className="ui-badge ui-badge--neutral" style={STATUS_STYLES[cycle.status]}>{CYCLE_STATUS_LABELS[cycle.status]}</span>
                 </div>
                 <p>揭晓：{formatChinaStandardDateTime(cycle.revealAt)}</p>
-                <div className="admin-inline-meta">
+                <div className={cx(adminStyles, "admin-inline-meta")}>
                   <span>可匹配人数 {cycle._count.participations}</span>
                   <span>匹配数 {cycle._count.matches}</span>
                 </div>
               </button>
             ))}
-            {cycles.length === 0 && <div className="admin-empty-state">没有找到匹配的轮次。</div>}
+            {cycles.length === 0 && <div className={cx(adminStyles, "admin-empty-state")}>没有找到匹配的轮次。</div>}
           </div>
           {data && (
-            <div className="admin-pagination">
+            <div className={cx(adminStyles, "admin-pagination")}>
               <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">上一页</button>
               <span>{data.page} / {data.totalPages} · 共 {data.total} 个轮次</span>
               <button disabled={data.page >= data.totalPages} onClick={() => setPage(data.page + 1)} type="button">下一页</button>
@@ -584,8 +592,8 @@ export default function AdminCyclesPage() {
         </article>
 
         {/* ── Cycle editor ─── */}
-        <article className="ui-card ui-card--padded ui-card--plain admin-detail-panel">
-          <div className="admin-section-header">
+        <article className={cx(adminStyles, "ui-card ui-card--padded ui-card--plain admin-detail-panel")}>
+          <div className={cx(adminStyles, "admin-section-header")}>
             <div>
               <p className="eyebrow">轮次编辑</p>
               <h2>{cycleForm.cycleId ? "编辑轮次" : "新建轮次"}</h2>
@@ -594,16 +602,16 @@ export default function AdminCyclesPage() {
 
           {selectedCycle && (
             <>
-              <div className="adm-action-toolbar">
-                <div className="adm-action-group">
-                  <span className="adm-action-label">管理</span>
+              <div className={cx(adminStyles, "adm-action-toolbar")}>
+                <div className={cx(adminStyles, "adm-action-group")}>
+                  <span className={cx(adminStyles, "adm-action-label")}>管理</span>
                   <button className="ui-button ui-button--secondary" type="button" disabled={pending === "duplicate"} onClick={() => void duplicateCycle()}>
                     {pending === "duplicate" ? "复制中…" : "复制为草稿"}
                   </button>
                   <button className="ui-button ui-button--secondary" type="button" disabled={!cycleDetail} onClick={exportCycleDetail}>导出详情</button>
                 </div>
-                <div className="adm-action-group">
-                  <span className="adm-action-label">执行</span>
+                <div className={cx(adminStyles, "adm-action-group")}>
+                  <span className={cx(adminStyles, "adm-action-label")}>执行</span>
                   <button className="ui-button ui-button--secondary" type="button" disabled={pending === "preview"} onClick={() => void previewCycle()}>
                     {pending === "preview" ? "预演中…" : "预演匹配"}
                   </button>
@@ -615,14 +623,14 @@ export default function AdminCyclesPage() {
                   </button>
                 </div>
               </div>
-              <p className="adm-action-hint">
+              <p className={cx(adminStyles, "adm-action-hint")}>
                 提示：强制执行会先删除本周期已有匹配再重新生成；请仅在未到揭晓时间或需纠正数据时使用。
               </p>
             </>
           )}
 
           {selectedCycle && (
-            <div className="admin-inline-metrics">
+            <div className={cx(adminStyles, "admin-inline-metrics")}>
               <div><span>状态</span><strong>{CYCLE_STATUS_LABELS[selectedCycle.status]}</strong></div>
               <div><span>可匹配人数</span><strong>{selectedCycle._count.participations}</strong></div>
               <div><span>匹配数</span><strong>{selectedCycle._count.matches}</strong></div>
@@ -634,7 +642,7 @@ export default function AdminCyclesPage() {
               <span>轮次代号</span>
               <input required value={cycleForm.codename} onChange={(e) => setCycleForm((f) => ({ ...f, codename: e.target.value }))} />
             </label>
-            <div className="admin-form-grid">
+            <div className={cx(adminStyles, "admin-form-grid")}>
               <label>
                 <span>参与截止（北京时间）</span>
                 <input required type="datetime-local" value={cycleForm.participationDeadline} onChange={(e) => setCycleForm((f) => ({ ...f, participationDeadline: e.target.value }))} />
@@ -686,7 +694,7 @@ export default function AdminCyclesPage() {
 
       {/* ── Participants (compact table) ─────────────────── */}
       <section className="ui-card ui-card--padded ui-card--plain" style={{ marginTop: "1.25rem" }}>
-        <div className="admin-section-header">
+        <div className={cx(adminStyles, "admin-section-header")}>
           <div>
             <p className="eyebrow">参与者</p>
             <h2>参与者与完成度</h2>
@@ -694,17 +702,17 @@ export default function AdminCyclesPage() {
         </div>
 
         {detailLoading ? (
-          <div className="admin-empty-state">正在加载轮次详情...</div>
+          <div className={cx(adminStyles, "admin-empty-state")}>正在加载轮次详情...</div>
         ) : cycleDetail ? (
-          <div className="admin-page-stack">
-            <div className="admin-inline-metrics">
+          <div className={cx(adminStyles, "admin-page-stack")}>
+            <div className={cx(adminStyles, "admin-inline-metrics")}>
               <div><span>总参与</span><strong>{cycleDetail.summary.participationCount}</strong></div>
               <div><span>可匹配人数</span><strong>{cycleDetail.summary.matchableParticipantCount}</strong></div>
               <div><span>已提交问卷</span><strong>{cycleDetail.summary.submittedQuestionnaireCount}</strong></div>
               <div><span>未提交问卷</span><strong>{cycleDetail.summary.participationCount - cycleDetail.summary.submittedQuestionnaireCount}</strong></div>
             </div>
 
-            <div className="admin-tabs">
+            <div className={cx(adminStyles, "admin-tabs")}>
               {(["ALL", "OPTED_IN", "OPTED_OUT"] as const).map((f) => (
                 <button
                   key={f}
@@ -718,10 +726,10 @@ export default function AdminCyclesPage() {
             </div>
 
             {participantsLoading ? (
-              <div className="admin-empty-state">正在加载参与者列表...</div>
+              <div className={cx(adminStyles, "admin-empty-state")}>正在加载参与者列表...</div>
             ) : participantsData && participantsData.items.length > 0 ? (
-              <div className="admin-table-wrap">
-                <table className="admin-table">
+              <div className={cx(adminStyles, "admin-table-wrap")}>
+                <table className={cx(adminStyles, "admin-table")}>
                   <thead>
                     <tr>
                       <th>用户</th>
@@ -751,11 +759,11 @@ export default function AdminCyclesPage() {
                 </table>
               </div>
             ) : (
-              <div className="admin-empty-state">当前筛选条件下没有参与者。</div>
+              <div className={cx(adminStyles, "admin-empty-state")}>当前筛选条件下没有参与者。</div>
             )}
 
             {participantsData && participantsData.totalPages > 1 && (
-              <div className="admin-pagination">
+              <div className={cx(adminStyles, "admin-pagination")}>
                 <button disabled={participantsData.page <= 1} onClick={() => setParticipantPage(participantsData.page - 1)} type="button">上一页</button>
                 <span>{participantsData.page} / {participantsData.totalPages} · 共 {participantsData.total} 人</span>
                 <button disabled={participantsData.page >= participantsData.totalPages} onClick={() => setParticipantPage(participantsData.page + 1)} type="button">下一页</button>
@@ -763,13 +771,13 @@ export default function AdminCyclesPage() {
             )}
           </div>
         ) : (
-          <div className="admin-empty-state">选择轮次后查看参与者列表。</div>
+          <div className={cx(adminStyles, "admin-empty-state")}>选择轮次后查看参与者列表。</div>
         )}
       </section>
 
       {/* ── Matches & logs ───────────────────────────────── */}
       <section className="ui-card ui-card--padded ui-card--plain" style={{ marginTop: "1.25rem" }}>
-        <div className="admin-section-header">
+        <div className={cx(adminStyles, "admin-section-header")}>
           <div>
             <p className="eyebrow">匹配结果</p>
             <h2>匹配结果与执行记录</h2>
@@ -777,10 +785,10 @@ export default function AdminCyclesPage() {
         </div>
 
         {detailLoading ? (
-          <div className="admin-empty-state">正在加载匹配结果...</div>
+          <div className={cx(adminStyles, "admin-empty-state")}>正在加载匹配结果...</div>
         ) : cycleDetail ? (
-          <div className="admin-page-stack">
-            <div className="admin-inline-metrics">
+          <div className={cx(adminStyles, "admin-page-stack")}>
+            <div className={cx(adminStyles, "admin-inline-metrics")}>
               <div><span>总参与</span><strong>{cycleDetail.summary.participationCount}</strong></div>
               <div><span>可匹配人数</span><strong>{cycleDetail.summary.matchableParticipantCount}</strong></div>
               <div><span>匹配对数</span><strong>{cycleDetail.summary.matchedPairCount}</strong></div>
@@ -788,20 +796,20 @@ export default function AdminCyclesPage() {
             </div>
 
             {matchesLoading ? (
-              <div className="admin-empty-state">正在加载匹配结果...</div>
+              <div className={cx(adminStyles, "admin-empty-state")}>正在加载匹配结果...</div>
             ) : matchesData && matchesData.items.length > 0 ? (
               <>
-                <div className="admin-record-list">
+                <div className={cx(adminStyles, "admin-record-list")}>
                   {matchesData.items.map((match) => {
                     const isExpanded = expandedMatchId === match.id;
 
                     return (
-                    <div key={match.id} className="admin-record-item">
-                      <div className="admin-record-topline">
+                    <div key={match.id} className={cx(adminStyles, "admin-record-item")}>
+                      <div className={cx(adminStyles, "admin-record-topline")}>
                         <strong>{match.participants.map((p) => p.user.displayName ?? p.user.email).join(" × ")}</strong>
                         <span className="ui-badge ui-badge--neutral">分数 {match.score.toFixed(1)}</span>
                       </div>
-                      <div className="admin-inline-meta">
+                      <div className={cx(adminStyles, "admin-inline-meta")}>
                         <span>揭晓：{match.revealedAt ? formatChinaStandardDateTime(match.revealedAt) : "待揭晓"}</span>
                         <span>引荐：{match.introducedAt ? formatChinaStandardDateTime(match.introducedAt) : "未引荐"}</span>
                         <span>举报数：{match.reports.length}</span>
@@ -818,7 +826,7 @@ export default function AdminCyclesPage() {
                       </div>
                       {isExpanded ? (
                         match.feedback.length > 0 ? (
-                          <ul className="admin-reason-list" style={{ marginTop: "0.75rem" }}>
+                          <ul className={cx(adminStyles, "admin-reason-list")} style={{ marginTop: "0.75rem" }}>
                             {match.feedback.map((fb) => {
                               const author = match.participants.find(
                                 (p) => p.userId === fb.authorUserId,
@@ -845,7 +853,7 @@ export default function AdminCyclesPage() {
                   )})}
                 </div>
                 {matchesData.totalPages > 1 && (
-                  <div className="admin-pagination">
+                  <div className={cx(adminStyles, "admin-pagination")}>
                     <button disabled={matchesData.page <= 1} onClick={() => setMatchPage(matchesData.page - 1)} type="button">上一页</button>
                     <span>{matchesData.page} / {matchesData.totalPages} · 共 {matchesData.total} 组</span>
                     <button disabled={matchesData.page >= matchesData.totalPages} onClick={() => setMatchPage(matchesData.page + 1)} type="button">下一页</button>
@@ -853,19 +861,19 @@ export default function AdminCyclesPage() {
                 )}
               </>
             ) : (
-              <div className="admin-empty-state">当前轮次还没有生成匹配。</div>
+              <div className={cx(adminStyles, "admin-empty-state")}>当前轮次还没有生成匹配。</div>
             )}
 
             <div>
               <h3>运行记录</h3>
               {logsLoading ? (
-                <div className="admin-empty-state">正在加载运行日志...</div>
+                <div className={cx(adminStyles, "admin-empty-state")}>正在加载运行日志...</div>
               ) : logsData && logsData.items.length > 0 ? (
                 <>
-                  <div className="admin-record-list">
+                  <div className={cx(adminStyles, "admin-record-list")}>
                     {logsData.items.map((log) => (
-                      <div key={log.id} className="admin-record-item">
-                        <div className="admin-record-topline">
+                      <div key={log.id} className={cx(adminStyles, "admin-record-item")}>
+                        <div className={cx(adminStyles, "admin-record-topline")}>
                           <strong>{log.action}</strong>
                           <span className="ui-badge ui-badge--neutral">{formatChinaStandardDateTime(log.createdAt)}</span>
                         </div>
@@ -874,7 +882,7 @@ export default function AdminCyclesPage() {
                     ))}
                   </div>
                   {logsData.totalPages > 1 && (
-                    <div className="admin-pagination">
+                    <div className={cx(adminStyles, "admin-pagination")}>
                       <button disabled={logsData.page <= 1} onClick={() => setLogPage(logsData.page - 1)} type="button">上一页</button>
                       <span>{logsData.page} / {logsData.totalPages} · 共 {logsData.total} 条</span>
                       <button disabled={logsData.page >= logsData.totalPages} onClick={() => setLogPage(logsData.page + 1)} type="button">下一页</button>
@@ -882,18 +890,18 @@ export default function AdminCyclesPage() {
                   )}
                 </>
               ) : (
-                <div className="admin-empty-state">当前轮次还没有运行日志。</div>
+                <div className={cx(adminStyles, "admin-empty-state")}>当前轮次还没有运行日志。</div>
               )}
             </div>
           </div>
         ) : (
-          <div className="admin-empty-state">选择轮次后查看匹配结果。</div>
+          <div className={cx(adminStyles, "admin-empty-state")}>选择轮次后查看匹配结果。</div>
         )}
       </section>
 
       {/* ── Preview ──────────────────────────────────────── */}
       <section className="ui-card ui-card--padded ui-card--plain" style={{ marginTop: "1.25rem" }}>
-        <div className="admin-section-header">
+        <div className={cx(adminStyles, "admin-section-header")}>
           <div>
             <p className="eyebrow">预演</p>
             <h2>预演匹配</h2>
@@ -908,27 +916,27 @@ export default function AdminCyclesPage() {
           const visibleP = allP.slice(pStart, pStart + PAGE_SIZE_PAIRS);
 
           return (
-            <div className="admin-page-stack">
-              <div className="admin-inline-metrics">
+            <div className={cx(adminStyles, "admin-page-stack")}>
+              <div className={cx(adminStyles, "admin-inline-metrics")}>
                 <div><span>候选组合</span><strong>{cyclePreview.totalCandidateCount ?? cyclePreview.candidates.length}</strong></div>
                 <div><span>建议匹配</span><strong>{allP.length}</strong></div>
                 <div><span>未匹配用户</span><strong>{cyclePreview.unmatchedUserIds.length}</strong></div>
               </div>
 
-              <div className="admin-record-list">
+              <div className={cx(adminStyles, "admin-record-list")}>
                 {visibleP.map((pair) => (
-                  <div key={`${pair.leftUserId}-${pair.rightUserId}`} className="admin-record-item">
-                    <div className="admin-record-topline">
+                  <div key={`${pair.leftUserId}-${pair.rightUserId}`} className={cx(adminStyles, "admin-record-item")}>
+                    <div className={cx(adminStyles, "admin-record-topline")}>
                       <strong>{pair.leftDisplayName ?? pair.leftUserId} × {pair.rightDisplayName ?? pair.rightUserId}</strong>
                       <span className="ui-badge ui-badge--neutral">分数 {pair.score.toFixed(1)}</span>
                     </div>
                   </div>
                 ))}
-                {allP.length === 0 && <div className="admin-empty-state">当前没有建议匹配。</div>}
+                {allP.length === 0 && <div className={cx(adminStyles, "admin-empty-state")}>当前没有建议匹配。</div>}
               </div>
 
               {pTotalPages > 1 && (
-                <div className="admin-pagination">
+                <div className={cx(adminStyles, "admin-pagination")}>
                   <button disabled={pSafePage <= 1} onClick={() => setPairPage(pSafePage - 1)} type="button">上一页</button>
                   <span>{pSafePage} / {pTotalPages} · 共 {allP.length} 组</span>
                   <button disabled={pSafePage >= pTotalPages} onClick={() => setPairPage(pSafePage + 1)} type="button">下一页</button>
@@ -937,7 +945,7 @@ export default function AdminCyclesPage() {
             </div>
           );
         })() : (
-          <div className="admin-empty-state">先选择轮次，再点击「预演匹配」。</div>
+          <div className={cx(adminStyles, "admin-empty-state")}>先选择轮次，再点击「预演匹配」。</div>
         )}
       </section>
     </div>

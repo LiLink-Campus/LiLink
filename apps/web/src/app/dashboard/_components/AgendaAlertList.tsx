@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AgendaAlert } from "../_lib/agenda";
 import { AGENDA_ICONS } from "./agenda-icons";
+import styles from "./AgendaAlertList.module.css";
 
 /**
  * The "需要你关注 · NOW" zone: time-sensitive match / meetup prompts. Renders
@@ -12,22 +13,28 @@ export function AgendaAlertList({ alerts }: { alerts: AgendaAlert[] }) {
   }
 
   return (
-    <section className="v2-now" aria-label="需要你关注">
-      <span className="v2-now-eyebrow">需要你关注 · NOW</span>
-      <ul className="v2-now-list">
+    <section className={styles.now} aria-label="需要你关注">
+      <span className={styles.eyebrow}>需要你关注 · NOW</span>
+      <ul className={styles.list}>
         {alerts.map((alert) => {
           const Icon = AGENDA_ICONS[alert.icon];
+          const toneClass =
+            alert.tone === "celebrate"
+              ? styles.celebrate
+              : alert.tone === "waiting"
+                ? styles.waiting
+                : styles.attention;
           return (
             <li key={alert.id}>
-              <Link className={`v2-now-row tone-${alert.tone}`} href={alert.action.href}>
-                <span className="v2-now-icon" aria-hidden="true">
+              <Link className={`${styles.row} ${toneClass}`} href={alert.action.href}>
+                <span className={styles.icon} aria-hidden="true">
                   <Icon />
                 </span>
-                <span className="v2-now-main">
-                  <span className="v2-now-title">{alert.title}</span>
-                  <span className="v2-now-body">{alert.body}</span>
+                <span className={styles.main}>
+                  <span className={styles.title}>{alert.title}</span>
+                  <span className={styles.body}>{alert.body}</span>
                 </span>
-                <span className="v2-now-cta">{alert.action.label} →</span>
+                <span className={styles.cta}>{alert.action.label} →</span>
               </Link>
             </li>
           );

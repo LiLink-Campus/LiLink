@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import { COUPON_GIFT_DESCRIPTION_MAX, COUPON_RULE_VERSION } from "@lilink/shared";
+import { cx } from "./admin-class-names";
+import commonStyles from "./admin-common.module.css";
+import inviteStyles from "./invite-codes/admin-invite-codes.module.css";
+import merchantStyles from "./merchant-admin.module.css";
+
+const adminStyles = [commonStyles, inviteStyles, merchantStyles];
 
 export const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
   DRAFT: "草稿",
@@ -55,7 +61,7 @@ export function CopyTextButton({
   return (
     <button
       type="button"
-      className={`${className}${copied ? " is-copied" : ""}`}
+      className={cx(adminStyles, className, copied && "is-copied")}
       onClick={() => void copy()}
     >
       {copied ? copiedLabel : label}
@@ -147,7 +153,7 @@ export function CouponTierEditor({
 }) {
   if (benefitType === "CUSTOM") {
     return (
-      <p className="qb-header-desc mp-tier-custom-note">
+      <p className={cx(adminStyles, "qb-header-desc mp-tier-custom-note")}>
         自定义券无结构化规则，优惠说明以券标题展示，核销时不需输入消费金额。
       </p>
     );
@@ -160,10 +166,10 @@ export function CouponTierEditor({
     onChange(tiers.filter((_, i) => i !== index));
 
   return (
-    <div className="mp-tier-editor">
-      <span className="mp-tier-editor-label">优惠阶梯（满 X 时生效，自动取最高达标档）</span>
+    <div className={cx(adminStyles, "mp-tier-editor")}>
+      <span className={cx(adminStyles, "mp-tier-editor-label")}>优惠阶梯（满 X 时生效，自动取最高达标档）</span>
       {tiers.map((tier, index) => (
-        <div className="mp-tier-row" key={index}>
+        <div className={cx(adminStyles, "mp-tier-row")} key={index}>
           <input
             type="number"
             min={0}
@@ -220,7 +226,7 @@ export function CouponTierEditor({
           )}
           <button
             type="button"
-            className="ui-button ui-button--secondary mp-tier-remove"
+            className={cx(adminStyles, "ui-button ui-button--secondary mp-tier-remove")}
             onClick={() => remove(index)}
             disabled={tiers.length <= 1}
             aria-label={`删除第 ${index + 1} 档`}
@@ -229,7 +235,7 @@ export function CouponTierEditor({
           </button>
         </div>
       ))}
-      <button type="button" className="ui-button ui-button--secondary mp-tier-add" onClick={add}>
+      <button type="button" className={cx(adminStyles, "ui-button ui-button--secondary mp-tier-add")} onClick={add}>
         + 添加一档
       </button>
     </div>
@@ -245,7 +251,7 @@ export function AdminRefreshButton({
 }) {
   return (
     <button
-      className="ui-button ui-button--secondary mp-refresh-btn"
+      className={cx(adminStyles, "ui-button ui-button--secondary mp-refresh-btn")}
       disabled={disabled}
       onClick={onClick}
       type="button"

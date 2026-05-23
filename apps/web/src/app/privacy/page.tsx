@@ -1,9 +1,10 @@
 import { Card } from "@/components/ui";
+import layoutStyles from "../public-layout.module.css";
 
 export default function PrivacyPage() {
   return (
-    <main className="page-shell prose-shell">
-      <Card className="prose-panel" layout="plain">
+    <main className={`${layoutStyles.pageShell} ${layoutStyles.proseShell}`}>
+      <Card className={layoutStyles.prosePanel} layout="plain">
         <p className="eyebrow">Privacy</p>
         <h1>隐私原则</h1>
         <p>

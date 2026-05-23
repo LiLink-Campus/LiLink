@@ -1,5 +1,6 @@
 import type { AgendaCountdown } from "../_lib/agenda";
 import { ClockIcon } from "./icons";
+import styles from "./CountdownBanner.module.css";
 
 /**
  * Always-on "next match countdown" strip on the home page. Visible regardless
@@ -14,13 +15,13 @@ export function CountdownBanner({
 }) {
   if (countdown.state === "none") {
     return (
-      <section className="v2-countdown is-none" aria-label="下次匹配倒计时">
-        <span className="v2-countdown-icon" aria-hidden="true">
+      <section className={`${styles.countdown} ${styles.none}`} aria-label="下次匹配倒计时">
+        <span className={styles.icon} aria-hidden="true">
           <ClockIcon />
         </span>
-        <div className="v2-countdown-main">
-          <p className="v2-countdown-title">下一轮尚未配置</p>
-          <p className="v2-countdown-sub">
+        <div className={styles.main}>
+          <p className={styles.title}>下一轮尚未配置</p>
+          <p className={styles.sub}>
             新一轮开放后这里会显示倒计时，你随时可以参加。
           </p>
         </div>
@@ -29,20 +30,20 @@ export function CountdownBanner({
   }
 
   return (
-    <section className="v2-countdown" aria-label="下次匹配倒计时">
-      <span className="v2-countdown-icon" aria-hidden="true">
+    <section className={styles.countdown} aria-label="下次匹配倒计时">
+      <span className={styles.icon} aria-hidden="true">
         <ClockIcon />
       </span>
-      <div className="v2-countdown-main">
-        <p className="v2-countdown-title">
+      <div className={styles.main}>
+        <p className={styles.title}>
           下次匹配揭晓 · {countdown.revealLabel}
         </p>
-        <p className="v2-countdown-sub">
+        <p className={styles.sub}>
           {countdown.codename} · 你可以参加下一周。
         </p>
       </div>
       {countdown.relativeLabel ? (
-        <span className="v2-countdown-chip">{countdown.relativeLabel}</span>
+        <span className={styles.chip}>{countdown.relativeLabel}</span>
       ) : null}
     </section>
   );

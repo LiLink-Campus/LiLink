@@ -26,6 +26,7 @@ import type {
   DashboardPayload,
   QuestionnaireAttentionPayload,
 } from "./_lib/types";
+import styles from "./home-client.module.css";
 
 const HOME_VISIBLE_REFRESH_TTL_MS = 30_000;
 
@@ -269,15 +270,15 @@ export function HomeClient({
     : "本周";
 
   return (
-    <div className="app-page-shell v2-page-shell home-dashboard">
-      <header className="v2-greeting">
-        <div className="v2-greeting-main">
-          <span className="v2-greeting-eyebrow">{cycleEyebrow}</span>
+    <div className={`${styles.pageShell} ${styles.v2PageShell} ${styles.homeDashboard}`}>
+      <header className={styles.greeting}>
+        <div className={styles.greetingMain}>
+          <span className={styles.greetingEyebrow}>{cycleEyebrow}</span>
           <h1>
             你好，{initialUser?.displayName ?? "同学"}
-            <OliveSprigIllustration className="olive-sprig" />
+            <OliveSprigIllustration className={styles.oliveSprig} />
           </h1>
-          <p className="v2-greeting-sub">
+          <p className={styles.greetingSub}>
             {pendingCount > 0
               ? `这一周，下面 ${pendingCount} 件事最值得你花几分钟。`
               : "新的一周，期待你的相遇。"}

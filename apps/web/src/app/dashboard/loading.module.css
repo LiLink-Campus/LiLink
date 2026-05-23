@@ -1,0 +1,157 @@
+.pageShell {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2.5vw, 1.5rem);
+}
+
+.loadingShell {
+  min-height: 60vh;
+}
+
+.pageHeader {
+  position: relative;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: none;
+  padding: clamp(1.6rem, 4vw, 2.4rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.pageHeader::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 60%;
+  height: 180%;
+  background: radial-gradient(ellipse at center,
+            rgba(229, 122, 107, 0.18) 0%,
+            transparent 60%);
+  filter: blur(24px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pageHeader::after {
+  content: "";
+  position: absolute;
+  bottom: -50%;
+  left: -8%;
+  width: 50%;
+  height: 160%;
+  background: radial-gradient(ellipse at center,
+            rgba(201, 168, 106, 0.14) 0%,
+            transparent 60%);
+  filter: blur(24px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pageHeader > * {
+  position: relative;
+  z-index: 1;
+}
+
+.pageHeader h1 {
+  font-size: clamp(1.5rem, 3.5vw, 1.95rem);
+}
+
+.pageHeader > p {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.pageHeader :global(.eyebrow) {
+  margin: 0 0 0.15rem;
+  color: var(--color-brand);
+}
+
+.status {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.92rem;
+}
+
+.card {
+  min-height: 12rem;
+}
+
+.line,
+.pill,
+.block {
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-muted) 0%,
+    var(--color-surface) 45%,
+    var(--color-surface-muted) 90%
+  );
+  background-size: 220% 100%;
+  animation: app-loading-shimmer 1.35s linear infinite;
+}
+
+.line {
+  height: 0.85rem;
+  width: min(100%, 20rem);
+}
+
+.short {
+  width: min(60%, 12rem);
+}
+
+.title {
+  height: 1.8rem;
+  width: min(80%, 26rem);
+  border-radius: var(--radius-md);
+}
+
+.pill {
+  height: 2rem;
+  width: 8rem;
+}
+
+.block {
+  height: 7rem;
+  border-radius: var(--radius-md);
+}
+
+@keyframes app-loading-shimmer {
+  from {
+        background-position: 120% 0;
+    }
+
+    to {
+        background-position: -120% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line,
+  .pill,
+  .block {
+    animation: none;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(0.85rem, 2vw, 1.25rem);
+  align-items: stretch;
+}
+
+.grid > :global(.ui-card) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  }
+}

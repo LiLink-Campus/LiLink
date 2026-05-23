@@ -1,9 +1,10 @@
 import { Card } from "@/components/ui";
+import layoutStyles from "../public-layout.module.css";
 
 export default function TermsPage() {
   return (
-    <main className="page-shell prose-shell">
-      <Card className="prose-panel" layout="plain">
+    <main className={`${layoutStyles.pageShell} ${layoutStyles.proseShell}`}>
+      <Card className={layoutStyles.prosePanel} layout="plain">
         <p className="eyebrow">Terms</p>
         <h1>用户协议</h1>
         <p>

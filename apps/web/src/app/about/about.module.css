@@ -1,0 +1,200 @@
+.philosophy {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 clamp(1.25rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.quote {
+  margin: 0;
+  padding: clamp(1.5rem, 4vw, 2.25rem);
+  background: var(--color-surface);
+  border-left: 4px solid var(--color-brand);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.quote p {
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 2.5vw, 1.45rem);
+  line-height: 1.55;
+  color: var(--color-text);
+}
+
+.quote cite {
+  display: block;
+  margin-top: 0.85rem;
+  font-style: normal;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.mechanism,
+.features {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 3rem) clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 761px) {
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.4rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  transition:
+    transform 0.18s,
+    border-color 0.18s,
+    box-shadow 0.18s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-brand-soft);
+  box-shadow: var(--shadow-md);
+}
+
+.cardIcon {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.45rem;
+  color: var(--color-accent);
+  letter-spacing: -0.01em;
+}
+
+.card h3 {
+  font-size: 1.1rem;
+}
+
+.card p {
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 30rem) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 48rem) {
+  .steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.05rem 1.1rem 1.15rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+  box-shadow: var(--shadow-xs);
+}
+
+.step > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.step h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.step p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.stepNum {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-brand-tint);
+  color: var(--color-brand-ink);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-feature-settings: "lnum";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  text-align: center;
+  flex-shrink: 0;
+  margin-bottom: 0.1rem;
+}
+
+.step h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.step p {
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+}
+
+.cta {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 2.5rem);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ctaIllustration {
+  width: 3.5rem;
+  color: var(--color-brand);
+  opacity: 0.7;
+  margin-bottom: 0.4rem;
+}
+
+.ctaIllustration svg {
+  width: 100%;
+  height: auto;
+}
+
+.cta h2 {
+  margin: 0;
+}
+
+.cta p {
+  color: var(--color-text-secondary);
+  margin: 0 0 0.4rem;
+}

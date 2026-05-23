@@ -10,8 +10,12 @@ import {
   useState,
 } from "react";
 import { fetchApi } from "../../../lib/api";
+import { cx } from "../admin-class-names";
+import commonStyles from "../admin-common.module.css";
 import { useAdmin } from "../admin-context";
 import type { AdminQuestion } from "../types";
+
+const adminStyles = [commonStyles];
 
 type QuestionnairePayload = {
   id: string;
@@ -398,9 +402,9 @@ export default function AdminQuestionnairePage({
 
   function renderEditor() {
     return (
-      <form className="qb-card-body" onSubmit={saveQuestion}>
-        <div className="qb-editor-grid">
-          <label className="qb-field">
+      <form className={cx(adminStyles, "qb-card-body")} onSubmit={saveQuestion}>
+        <div className={cx(adminStyles, "qb-editor-grid")}>
+          <label className={cx(adminStyles, "qb-field")}>
             <span>题目 Key</span>
             <input
               ref={editingId === "new" ? keyInputRef : undefined}
@@ -413,7 +417,7 @@ export default function AdminQuestionnairePage({
               placeholder="例如 relationship_style"
             />
           </label>
-          <label className="qb-field">
+          <label className={cx(adminStyles, "qb-field")}>
             <span>题型</span>
             <select
               value={form.type}
@@ -433,7 +437,7 @@ export default function AdminQuestionnairePage({
           </label>
         </div>
 
-        <label className="qb-field qb-field-full">
+        <label className={cx(adminStyles, "qb-field qb-field-full")}>
           <span>题目内容</span>
           <textarea
             rows={2}
@@ -447,22 +451,22 @@ export default function AdminQuestionnairePage({
         </label>
 
         {/* ── Options ─── */}
-        <div className="qb-options-section">
-          <span className="qb-section-label">选项</span>
-          <div className="qb-options-list">
+        <div className={cx(adminStyles, "qb-options-section")}>
+          <span className={cx(adminStyles, "qb-section-label")}>选项</span>
+          <div className={cx(adminStyles, "qb-options-list")}>
             {form.options.map((option, i) => (
               <div
                 key={`opt-${form.questionId || "new"}-${i}`}
-                className="qb-option-row"
+                className={cx(adminStyles, "qb-option-row")}
               >
-                <span className="qb-option-num">{i + 1}</span>
+                <span className={cx(adminStyles, "qb-option-num")}>{i + 1}</span>
                 <input
-                  className="qb-option-label-input"
+                  className={cx(adminStyles, "qb-option-label-input")}
                   value={option.label}
                   onChange={(e) => updateOptionLabel(i, e.target.value)}
                   placeholder="选项文案"
                 />
-                <div className="qb-option-actions">
+                <div className={cx(adminStyles, "qb-option-actions")}>
                   <button
                     type="button"
                     onClick={() => moveOption(i, "up")}
@@ -482,7 +486,7 @@ export default function AdminQuestionnairePage({
                   {form.options.length > 2 && (
                     <button
                       type="button"
-                      className="qb-option-remove"
+                      className={cx(adminStyles, "qb-option-remove")}
                       onClick={() => removeOption(i)}
                       title="移除选项"
                     >
@@ -495,7 +499,7 @@ export default function AdminQuestionnairePage({
           </div>
           <button
             type="button"
-            className="qb-add-option-btn"
+            className={cx(adminStyles, "qb-add-option-btn")}
             onClick={addOption}
           >
             + 添加选项
@@ -505,19 +509,19 @@ export default function AdminQuestionnairePage({
         {/* ── Advanced toggle ─── */}
         <button
           type="button"
-          className="qb-advanced-toggle"
+          className={cx(adminStyles, "qb-advanced-toggle")}
           onClick={() => setShowAdvanced(!showAdvanced)}
         >
           {showAdvanced ? "▾" : "▸"} 高级设置
-          <span className="qb-advanced-hint">
+          <span className={cx(adminStyles, "qb-advanced-hint")}>
             权重{form.weight !== 1 ? ` (${form.weight})` : ""}、排序
           </span>
         </button>
 
         {showAdvanced && (
-          <div className="qb-advanced-section">
-            <div className="qb-editor-grid">
-              <label className="qb-field">
+          <div className={cx(adminStyles, "qb-advanced-section")}>
+            <div className={cx(adminStyles, "qb-editor-grid")}>
+              <label className={cx(adminStyles, "qb-field")}>
                 <span>排序</span>
                 <input
                   type="number"
@@ -531,7 +535,7 @@ export default function AdminQuestionnairePage({
                   }
                 />
               </label>
-              <label className="qb-field">
+              <label className={cx(adminStyles, "qb-field")}>
                 <span>权重</span>
                 <input
                   type="number"
@@ -546,7 +550,7 @@ export default function AdminQuestionnairePage({
                   />
               </label>
               {form.type === "MULTI_SELECT" ? (
-                <label className="qb-field">
+                <label className={cx(adminStyles, "qb-field")}>
                   <span>最多可选</span>
                   <input
                     type="number"
@@ -568,7 +572,7 @@ export default function AdminQuestionnairePage({
           </div>
         )}
 
-        <div className="qb-editor-actions">
+        <div className={cx(adminStyles, "qb-editor-actions")}>
           <button
             className="ui-button ui-button--primary"
             type="submit"
@@ -595,16 +599,16 @@ export default function AdminQuestionnairePage({
   /* ── Render: page ──────────────────────────────────── */
 
   if (loading) {
-    return <div className="admin-empty-state">正在加载问卷构建器...</div>;
+    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载问卷构建器...</div>;
   }
 
   return (
-    <div className="qb-container">
+    <div className={cx(adminStyles, "qb-container")}>
       {/* Header */}
-      <div className="qb-header">
+      <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>问卷构建器</h1>
-          <p className="qb-header-desc">
+          <p className={cx(adminStyles, "qb-header-desc")}>
             点击题目卡片展开编辑，拖动左侧把手调整排序。
           </p>
         </div>
@@ -629,24 +633,28 @@ export default function AdminQuestionnairePage({
       </div>
 
       {/* Stats / type filter */}
-      <div className="qb-stats-row">
+      <div className={cx(adminStyles, "qb-stats-row")}>
         {(["ALL", "SINGLE_SELECT", "MULTI_SELECT", "SCALE"] as const).map(
           (type) => (
             <button
               key={type}
               type="button"
-              className={`qb-stat-pill${typeFilter === type ? " active" : ""}`}
+              className={cx(
+                adminStyles,
+                "qb-stat-pill",
+                typeFilter === type && "active",
+              )}
               onClick={() => setTypeFilter(type)}
             >
               {type === "ALL" ? "全部" : TYPE_LABELS[type]}
-              <span className="qb-stat-count">{typeCounts[type]}</span>
+              <span className={cx(adminStyles, "qb-stat-count")}>{typeCounts[type]}</span>
             </button>
           ),
         )}
       </div>
 
       {/* Search */}
-      <div className="qb-search">
+      <div className={cx(adminStyles, "qb-search")}>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -655,7 +663,7 @@ export default function AdminQuestionnairePage({
         {search && (
           <button
             type="button"
-            className="qb-search-clear"
+            className={cx(adminStyles, "qb-search-clear")}
             onClick={() => setSearch("")}
           >
             ×
@@ -670,9 +678,9 @@ export default function AdminQuestionnairePage({
       )}
 
       {/* Question list */}
-      <div className="qb-list">
+      <div className={cx(adminStyles, "qb-list")}>
         {sortedQuestions.length === 0 && editingId !== "new" && (
-          <div className="admin-empty-state">
+          <div className={cx(adminStyles, "admin-empty-state")}>
             {isFiltered
               ? "没有匹配的题目。"
               : "问卷还没有题目，点击下方按钮添加第一道。"}
@@ -687,7 +695,8 @@ export default function AdminQuestionnairePage({
             <div
               key={question.id}
               data-question-id={question.id}
-              className={[
+              className={cx(
+                adminStyles,
                 "qb-card",
                 isEditing && "qb-card-editing",
                 isDraggingId === question.id && "qb-card-dragging",
@@ -697,17 +706,15 @@ export default function AdminQuestionnairePage({
                 isDropTarget &&
                   dropPosition === "after" &&
                   "qb-drop-after",
-              ]
-                .filter(Boolean)
-                .join(" ")}
+              )}
               onDragOver={(e) => handleDragOver(e, question.id)}
               onDrop={handleDrop}
             >
-              <div className="qb-card-header">
+              <div className={cx(adminStyles, "qb-card-header")}>
                 {/* Drag handle — hidden when editing or filtering */}
                 {!isEditing && !isFiltered ? (
                   <span
-                    className="qb-drag-handle"
+                    className={cx(adminStyles, "qb-drag-handle")}
                     draggable
                     onDragStart={(e) => handleDragStart(e, question.id)}
                     onDragEnd={handleDragEnd}
@@ -717,14 +724,14 @@ export default function AdminQuestionnairePage({
                   !isEditing && <span style={{ width: 10, flexShrink: 0 }} />
                 )}
 
-                <span className="qb-order-num">{question.order}</span>
+                <span className={cx(adminStyles, "qb-order-num")}>{question.order}</span>
 
                 <div
-                  className="qb-card-title"
+                  className={cx(adminStyles, "qb-card-title")}
                   onClick={() => !isEditing && startEditing(question)}
                 >
                   <strong>{question.prompt || "(未命名题目)"}</strong>
-                  <span className="qb-card-meta">
+                  <span className={cx(adminStyles, "qb-card-meta")}>
                     {question.key}
                     {question.weight !== 1 && ` · 权重 ${question.weight}`}
                     {question.type === "MULTI_SELECT" &&
@@ -736,7 +743,7 @@ export default function AdminQuestionnairePage({
                 </div>
 
                 <span
-                  className="qb-type-badge"
+                  className={cx(adminStyles, "qb-type-badge")}
                   style={{
                     background: TYPE_COLORS[question.type].bg,
                     color: TYPE_COLORS[question.type].text,
@@ -746,7 +753,7 @@ export default function AdminQuestionnairePage({
                 </span>
 
                 {!isEditing && (
-                  <div className="qb-card-actions">
+                  <div className={cx(adminStyles, "qb-card-actions")}>
                     <button
                       type="button"
                       title="编辑"
@@ -775,7 +782,7 @@ export default function AdminQuestionnairePage({
                 {isEditing && (
                   <button
                     type="button"
-                    className="qb-collapse-btn"
+                    className={cx(adminStyles, "qb-collapse-btn")}
                     onClick={cancelEditing}
                   >
                     收起
@@ -790,15 +797,15 @@ export default function AdminQuestionnairePage({
 
         {/* New question card */}
         {editingId === "new" && (
-          <div className="qb-card qb-card-editing">
-            <div className="qb-card-header">
-              <span className="qb-order-num">+</span>
-              <div className="qb-card-title">
+          <div className={cx(adminStyles, "qb-card qb-card-editing")}>
+            <div className={cx(adminStyles, "qb-card-header")}>
+              <span className={cx(adminStyles, "qb-order-num")}>+</span>
+              <div className={cx(adminStyles, "qb-card-title")}>
                 <strong>新增题目</strong>
               </div>
               <button
                 type="button"
-                className="qb-collapse-btn"
+                className={cx(adminStyles, "qb-collapse-btn")}
                 onClick={cancelEditing}
               >
                 取消
@@ -810,7 +817,7 @@ export default function AdminQuestionnairePage({
 
         {/* Add button */}
         {editingId !== "new" && (
-          <button type="button" className="qb-add-btn" onClick={startCreating}>
+          <button type="button" className={cx(adminStyles, "qb-add-btn")} onClick={startCreating}>
             <span>+</span>
             添加题目
           </button>
