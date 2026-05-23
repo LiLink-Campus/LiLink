@@ -17,7 +17,6 @@ import type {
 export type AgendaIconKey =
   | "calendar"
   | "clock"
-  | "sparkles"
   | "heart"
   | "clipboard"
   | "profile"
@@ -161,7 +160,7 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
       alerts.push({
         id: "MATCH_INTRODUCED_NO_MEETUP",
         tone: "celebrate",
-        icon: "sparkles",
+        icon: "heart",
         title: `可以约 ${name} 见面了`,
         body: "引荐邮件已发出。你可以直接给对方提议 2-3 个时间和地点。",
         action: {
@@ -178,7 +177,7 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
     alerts.push({
       id: "MATCH_REVEALED_AWAITING_INTRO",
       tone: "celebrate",
-      icon: "sparkles",
+      icon: "heart",
       title: "本轮为你匹配到了 TA",
       body: "你可以选择交换联系方式，或者直接发起第一次见面。",
       action: { label: "查看匹配详情", href: "/dashboard/match" },

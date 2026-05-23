@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRightIcon } from "../_components/icons";
+import { ArrowRightIcon, ClipboardIcon, SparklesIcon } from "../_components/icons";
 import { GrassRowIllustration } from "../_components/illustrations";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import type { AuthMePayload } from "../../../lib/api";
@@ -91,14 +91,26 @@ export function MeClient({
         </div>
       </div>
 
-      <div className="me-group">
-        <Link href="/dashboard/referrals" className="me-group-row">
-          <span className="me-group-row-title">我的邀请</span>
-          <ArrowRightIcon className="me-group-row-arrow" />
+      <div className="me-shortcut-list">
+        <Link href="/dashboard/referrals" className="me-shortcut-card">
+          <span className="me-shortcut-icon is-referrals" aria-hidden="true">
+            <SparklesIcon />
+          </span>
+          <span className="me-shortcut-copy">
+            <span className="me-shortcut-title">我的邀请</span>
+            <span className="me-shortcut-desc">分享链接，邀请同学加入</span>
+          </span>
+          <ArrowRightIcon className="me-shortcut-arrow" />
         </Link>
-        <Link href="/dashboard/coupons" className="me-group-row">
-          <span className="me-group-row-title">我的优惠券</span>
-          <ArrowRightIcon className="me-group-row-arrow" />
+        <Link href="/dashboard/coupons" className="me-shortcut-card">
+          <span className="me-shortcut-icon is-coupons" aria-hidden="true">
+            <ClipboardIcon />
+          </span>
+          <span className="me-shortcut-copy">
+            <span className="me-shortcut-title">我的优惠券</span>
+            <span className="me-shortcut-desc">查看可用优惠与核销码</span>
+          </span>
+          <ArrowRightIcon className="me-shortcut-arrow" />
         </Link>
       </div>
 

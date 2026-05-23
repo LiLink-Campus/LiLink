@@ -54,7 +54,12 @@ function isActiveTab(currentPath: string, href: string) {
  * bottom action bar to drive primary actions.
  */
 function isFocusedPath(currentPath: string): boolean {
-  return currentPath.startsWith("/dashboard/meetup") || currentPath.startsWith("/dashboard/me/card");
+  return (
+    currentPath.startsWith("/dashboard/meetup") ||
+    currentPath.startsWith("/dashboard/me/card") ||
+    currentPath === "/dashboard/referrals" ||
+    currentPath === "/dashboard/coupons"
+  );
 }
 
 function focusedTitleFor(currentPath: string): string {
@@ -66,6 +71,12 @@ function focusedTitleFor(currentPath: string): string {
   }
   if (currentPath.startsWith("/dashboard/me/card")) {
     return "编辑引荐名片";
+  }
+  if (currentPath === "/dashboard/referrals") {
+    return "我的邀请";
+  }
+  if (currentPath === "/dashboard/coupons") {
+    return "我的优惠券";
   }
   return "见面安排";
 }
@@ -122,7 +133,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       router.back();
       return;
     }
-    if (pathname.startsWith("/dashboard/me/card")) {
+    if (
+      pathname.startsWith("/dashboard/me/card") ||
+      pathname === "/dashboard/referrals" ||
+      pathname === "/dashboard/coupons"
+    ) {
       router.push("/dashboard/me");
       return;
     }

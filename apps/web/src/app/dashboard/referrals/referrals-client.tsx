@@ -3,35 +3,42 @@
 import { useEffect, useState } from "react";
 import { useToast } from "../_components/ToastProvider";
 import {
+  CheckCircleIcon,
+  CopyIcon,
+  PeopleIcon,
+  ShareIcon,
+  SparklesIcon,
+} from "../_components/icons";
+import {
   fetchMyReferral,
   recordShareEvent,
   type MyReferralOverview,
 } from "../../../lib/api";
+import { ReferralShareSheet } from "./ReferralShareSheet";
 
-const CHANNEL_LABELS: Record<string, string> = {
-  WECHAT_MOMENTS: "微信朋友圈",
-  WECHAT_GROUP: "微信群",
-  WECHAT_PRIVATE: "微信私聊",
-  COPY_LINK: "复制链接",
-  QR: "二维码",
-  OTHER: "其他",
-};
-
-const FUNNEL_STEPS: {
-  key: keyof MyReferralOverview["funnel"];
+const INVITE_PROGRESS: {
+  key: "invited" | "activated";
   label: string;
+  description: string;
 }[] = [
-  { key: "invited", label: "已邀请注册" },
-  { key: "activated", label: "已激活" },
-  { key: "granted", label: "已领券" },
-  { key: "redeemed", label: "已核销" },
+  {
+    key: "invited",
+    label: "已注册加入",
+    description: "通过你的链接创建了账号",
+  },
+  {
+    key: "activated",
+    label: "资料已完善",
+    description: "填好问卷并报名匹配周期",
+  },
 ];
 
 export function ReferralsClient() {
   const [data, setData] = useState<MyReferralOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -53,123 +60,155 @@ export function ReferralsClient() {
     };
   }, []);
 
-  async function shareLink(channel: string, url: string) {
+  async function copyReferralCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(true);
+      showToast("邀请码已复制");
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch {
+      showToast("复制失败，请手动选择复制");
+    }
+  }
+
+  async function handleShare(
+    channel:
+      | "WECHAT_MOMENTS"
+      | "WECHAT_GROUP"
+      | "WECHAT_PRIVATE"
+      | "COPY_LINK"
+      | "QR"
+      | "OTHER",
+    url: string,
+  ) {
+    const guides: Record<string, string> = {
+      WECHAT_PRIVATE: "链接已复制，请打开微信粘贴发送",
+      WECHAT_GROUP: "链接已复制，请打开微信群粘贴发送",
+      WECHAT_MOMENTS: "链接已复制，请打开朋友圈粘贴分享",
+      COPY_LINK: "邀请链接已复制",
+      OTHER: "链接已复制，可在任意 App 粘贴分享",
+    };
+
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(channel);
-      showToast("分享链接已复制");
-      setTimeout(
-        () => setCopied((current) => (current === channel ? null : current)),
-        2000,
-      );
+      showToast(guides[channel] ?? "分享链接已复制");
+      void recordShareEvent(channel).catch(() => undefined);
+      return true;
     } catch {
-      // Clipboard may be unavailable; the share is still recorded below.
+      showToast("复制失败，请手动选择复制");
+      return false;
     }
-    void recordShareEvent(channel).catch(() => undefined);
   }
 
   if (loading) {
     return (
-      <main className="app-page-shell v2-page-shell">
+      <div className="app-page-shell v2-page-shell referrals-page">
         <div className="me-state">
           <span className="me-state-spinner" />
           <span>加载中……</span>
         </div>
-      </main>
+      </div>
     );
   }
   if (error) {
     return (
-      <main className="app-page-shell v2-page-shell">
+      <div className="app-page-shell v2-page-shell referrals-page">
         <div className="me-state is-error">{error}</div>
-      </main>
+      </div>
     );
   }
   if (!data) return null;
 
-  // QR encodes the invite link (scanning opens /i/[code]); prefer the QR
-  // channel link, falling back to the first available channel link.
-  const qrUrl =
-    data.links.find((link) => link.channel === "QR")?.url ??
-    data.links[0]?.url ??
-    null;
-  const funnelMax = Math.max(data.funnel.invited, 1);
+  const funnelTotal = data.funnel.invited;
+  const canShare = data.links.length > 0;
 
   return (
-    <main className="app-page-shell v2-page-shell">
-      <header className="me-hero">
-        <h1 className="me-hero-name">我的邀请</h1>
-        <p className="me-hero-email">分享专属链接，邀请同学加入 LiLink</p>
+    <div className="app-page-shell v2-page-shell referrals-page">
+      <header className="v2-page-header referrals-header">
+        <span className="v2-page-header-eyebrow">
+          <SparklesIcon className="referrals-header-icon" />
+          邀请有礼
+        </span>
+        <h1>我的邀请</h1>
+        <p>分享专属链接，邀请同学加入 LiLink，一起解锁校园社交</p>
       </header>
 
-      <section className="me-group">
-        <div className="me-card-preview">
-          <div className="me-card-preview-header">
-            <h3>我的邀请码</h3>
-            <p>{data.referralCode ?? "尚未生成"}</p>
-          </div>
-          {qrUrl && (
-            <div
-              className="me-card-preview-content"
-              style={{ textAlign: "center" }}
-            >
-              <div className="me-qr">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`}
-                  alt="邀请二维码"
-                  width={180}
-                  height={180}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="me-group">
-        <div className="me-card-preview-header">
-          <h3>分享渠道</h3>
-          <p>点击复制带渠道标记的专属链接</p>
-        </div>
-        {data.links.map((link) => (
-          <div key={link.channel} className="me-card-field">
-            <span className="me-card-label">
-              {CHANNEL_LABELS[link.channel] ?? link.channel}
-            </span>
+      <section className="referrals-invite-card" aria-label="我的邀请码">
+        <span className="referrals-invite-label">我的邀请码</span>
+        <div className="referrals-code-row">
+          <code className="referrals-code">
+            {data.referralCode ?? "尚未生成"}
+          </code>
+          {data.referralCode && (
             <button
               type="button"
-              className={`me-share-btn${
-                copied === link.channel ? " is-copied" : ""
+              className={`referrals-icon-btn${
+                copiedCode ? " is-copied" : ""
               }`}
-              onClick={() => void shareLink(link.channel, link.url)}
+              aria-label="复制邀请码"
+              onClick={() => void copyReferralCode(data.referralCode!)}
             >
-              {copied === link.channel ? "已复制" : "复制链接"}
+              {copiedCode ? <CheckCircleIcon /> : <CopyIcon />}
             </button>
-          </div>
-        ))}
+          )}
+        </div>
+        <p className="referrals-invite-hint">
+          点击下方按钮，选择微信或其他 App 分享给你的同学。
+        </p>
+        <button
+          type="button"
+          className="referrals-share-cta"
+          disabled={!canShare}
+          onClick={() => setShareSheetOpen(true)}
+        >
+          <ShareIcon />
+          邀请同学
+        </button>
       </section>
 
-      <section className="me-group">
-        <div className="me-card-preview-header">
-          <h3>我的邀请漏斗</h3>
+      <ReferralShareSheet
+        open={shareSheetOpen}
+        links={data.links}
+        onClose={() => setShareSheetOpen(false)}
+        onShare={handleShare}
+      />
+
+      <section
+        className="referrals-panel"
+        aria-labelledby="referrals-progress-title"
+      >
+        <div className="referrals-panel-head">
+          <h2 id="referrals-progress-title">我邀请的同学</h2>
+          <p>
+            {funnelTotal > 0
+              ? `已有 ${funnelTotal} 位同学通过你的链接注册`
+              : "分享链接给同学，他们注册后会显示在这里"}
+          </p>
         </div>
-        <div className="me-funnel">
-          {FUNNEL_STEPS.map((step) => {
+        <div className="referrals-progress-stats">
+          {INVITE_PROGRESS.map((step, index) => {
             const value = data.funnel[step.key];
-            const pct = Math.round((value / funnelMax) * 100);
+            const Icon = index === 0 ? PeopleIcon : CheckCircleIcon;
+
             return (
-              <div key={step.key} className="me-funnel-row">
-                <span className="me-funnel-label">{step.label}</span>
-                <div className="me-funnel-track">
-                  <div className="me-funnel-bar" style={{ width: `${pct}%` }} />
+              <div key={step.key} className="referrals-progress-stat">
+                <div className="referrals-progress-stat-inner">
+                  <div className="referrals-progress-icon-wrapper">
+                    <Icon className="referrals-progress-icon" aria-hidden="true" />
+                  </div>
+                  <p className="referrals-progress-heading">
+                    <strong className="referrals-progress-value">{value}</strong>
+                    <span className="referrals-progress-label">{step.label}</span>
+                  </p>
+                  <span className="referrals-progress-desc">
+                    {step.description}
+                  </span>
                 </div>
-                <span className="me-funnel-value">{value}</span>
               </div>
             );
           })}
         </div>
       </section>
-    </main>
+    </div>
   );
 }
