@@ -527,7 +527,7 @@ export default function AdminCyclesPage() {
 
       <section className="admin-workspace-grid">
         {/* ── Cycle list ─── */}
-        <article className="ui-card ui-card--padded admin-list-panel">
+        <article className="ui-card ui-card--padded ui-card--plain admin-list-panel">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">轮次列表</p>
@@ -584,7 +584,7 @@ export default function AdminCyclesPage() {
         </article>
 
         {/* ── Cycle editor ─── */}
-        <article className="ui-card ui-card--padded admin-detail-panel">
+        <article className="ui-card ui-card--padded ui-card--plain admin-detail-panel">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">轮次编辑</p>
@@ -685,7 +685,7 @@ export default function AdminCyclesPage() {
       </section>
 
       {/* ── Participants (compact table) ─────────────────── */}
-      <section className="ui-card ui-card--padded" style={{ marginTop: "1.25rem" }}>
+      <section className="ui-card ui-card--padded ui-card--plain" style={{ marginTop: "1.25rem" }}>
         <div className="admin-section-header">
           <div>
             <p className="eyebrow">参与者</p>
@@ -768,7 +768,7 @@ export default function AdminCyclesPage() {
       </section>
 
       {/* ── Matches & logs ───────────────────────────────── */}
-      <section className="ui-card ui-card--padded" style={{ marginTop: "1.25rem" }}>
+      <section className="ui-card ui-card--padded ui-card--plain" style={{ marginTop: "1.25rem" }}>
         <div className="admin-section-header">
           <div>
             <p className="eyebrow">匹配结果</p>
@@ -892,7 +892,7 @@ export default function AdminCyclesPage() {
       </section>
 
       {/* ── Preview ──────────────────────────────────────── */}
-      <section className="ui-card ui-card--padded" style={{ marginTop: "1.25rem" }}>
+      <section className="ui-card ui-card--padded ui-card--plain" style={{ marginTop: "1.25rem" }}>
         <div className="admin-section-header">
           <div>
             <p className="eyebrow">预演</p>

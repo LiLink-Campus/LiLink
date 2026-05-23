@@ -279,6 +279,11 @@ p:last-child {
     background 0.18s;
 }
 
+.site-nav .ui-button {
+  min-height: auto;
+  line-height: inherit;
+}
+
 .site-nav a:hover,
 .site-nav-action:hover {
   color: var(--color-brand-ink);

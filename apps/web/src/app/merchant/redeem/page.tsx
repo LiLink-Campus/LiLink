@@ -184,7 +184,10 @@ export default function MerchantRedeemPage() {
       <main className="mc-redeem-body">
         <form className="mc-form" onSubmit={redeem}>
           <Input
+            border="subtle"
             className="mc-code-input"
+            controlSize="lg"
+            radius="sm"
             value={code}
             onChange={(event) => setCode(event.target.value)}
             placeholder="输入券码"
@@ -192,7 +195,10 @@ export default function MerchantRedeemPage() {
             autoComplete="off"
           />
           <Input
+            border="subtle"
             className="mc-amount-input"
+            controlSize="lg"
+            radius="sm"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
             placeholder="消费金额（元）· 满减/折扣/满赠券必填"
@@ -204,6 +210,9 @@ export default function MerchantRedeemPage() {
           />
           <Button
             block
+            elevation="flat"
+            shape="rounded"
+            size="lg"
             type="submit"
             disabled={pending || !code.trim()}
           >

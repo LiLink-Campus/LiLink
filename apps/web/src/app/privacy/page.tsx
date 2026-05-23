@@ -3,7 +3,7 @@ import { Card } from "@/components/ui";
 export default function PrivacyPage() {
   return (
     <main className="page-shell prose-shell">
-      <Card className="prose-panel">
+      <Card className="prose-panel" layout="plain">
         <p className="eyebrow">Privacy</p>
         <h1>隐私原则</h1>
         <p>

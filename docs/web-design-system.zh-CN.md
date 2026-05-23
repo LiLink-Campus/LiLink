@@ -48,9 +48,10 @@ import {
 
 ```tsx
 <Button variant="secondary" size="sm">刷新</Button>
+<Button size="lg" shape="rounded" elevation="flat">核销</Button>
 <ButtonLink href="/dashboard">开始匹配</ButtonLink>
 
-<Card>
+<Card layout="plain">
   <CardHeader>
     <CardTitle>方案明细</CardTitle>
     <Badge tone="brand">北京时间</Badge>
@@ -61,9 +62,16 @@ import {
 <Field label="学校邮箱">
   <Input type="email" autoComplete="email" />
 </Field>
+<Input controlSize="lg" radius="sm" border="subtle" />
 
 <FormMessage tone="error">保存失败，请重试。</FormMessage>
 ```
+
+`Card` 默认是纵向 stack 卡片；从旧 block-flow 面板迁移时用
+`layout="plain"`，避免 primitive 引入额外子元素间距。`padding="spacious"`
+和 `elevation="md"` 只用于需要保留旧大卡片视觉的页面。`Button` 的
+`shape="rounded"`、`elevation="flat"` 和 `Input` 的 `border="subtle"`
+用于保留既有产品控制样式，不要在业务 CSS 里重新定义按钮或输入框根样式。
 
 ## Semantic APIs
 

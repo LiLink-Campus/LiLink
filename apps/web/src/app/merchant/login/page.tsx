@@ -27,12 +27,21 @@ export default function MerchantLoginPage() {
 
   return (
     <main className="mc-center">
-      <Card as="div" className="mc-login-card">
+      <Card
+        as="div"
+        className="mc-login-card"
+        elevation="md"
+        layout="plain"
+        padding="spacious"
+      >
         <h1 className="mc-title">商家核销登录</h1>
         <p className="mc-subtitle">登录后即可为顾客核销优惠券</p>
         <form className="mc-form" onSubmit={submit}>
           <Field label="商家账号邮箱">
             <Input
+              border="subtle"
+              controlSize="lg"
+              radius="sm"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -43,6 +52,9 @@ export default function MerchantLoginPage() {
           </Field>
           <Field label="密码">
             <Input
+              border="subtle"
+              controlSize="lg"
+              radius="sm"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -54,6 +66,9 @@ export default function MerchantLoginPage() {
           {error && <FormMessage>{error}</FormMessage>}
           <Button
             block
+            elevation="flat"
+            shape="rounded"
+            size="lg"
             type="submit"
             disabled={pending || !email.trim() || !password}
           >
