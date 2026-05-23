@@ -3,6 +3,7 @@ import type {
   HardMatchSchoolGenderExclusion,
   MatchEstimateResult,
   MerchantPromotionBlock,
+  RedemptionResult,
   SupportedLocale,
 } from "@lilink/shared";
 
@@ -544,7 +545,7 @@ export function fetchMerchantMe() {
   );
 }
 
-export type RedeemResult = "SUCCESS" | "ALREADY_USED" | "INVALID";
+export type RedeemResult = RedemptionResult;
 
 export type RedeemResponse = {
   result: RedeemResult;
@@ -554,12 +555,20 @@ export type RedeemResponse = {
     faceValue: number;
     userDisplayName: string | null;
   } | null;
+  // The benefit resolved at redemption (SUCCESS only).
+  applied: {
+    orderAmount: number | null;
+    discountAmount: number;
+    gift: string | null;
+  } | null;
   merchantPromotion: MerchantPromotionBlock[] | null;
 };
 
-export function redeemCoupon(code: string) {
+export function redeemCoupon(code: string, orderAmount?: number) {
   return fetchApi<RedeemResponse>("/merchant/redeem", {
     method: "POST",
-    body: JSON.stringify({ code }),
+    body: JSON.stringify(
+      orderAmount === undefined ? { code } : { code, orderAmount },
+    ),
   });
 }

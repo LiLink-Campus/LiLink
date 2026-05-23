@@ -245,6 +245,33 @@
   font-size: 0.9rem;
 }
 
+.mc-amount-input {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hint under a NEED_AMOUNT / BELOW_THRESHOLD label (inherits result color). */
+.mc-result-hint {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+/* Resolved benefit on a successful redemption: the amount to take off / gift. */
+.mc-coupon-apply {
+  margin-top: 0.4rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.mc-coupon-order {
+  color: var(--fg-secondary);
+  font-size: 0.9rem;
+}
+
 /* ── Merchant promotion blocks ─────────────────────────────── */
 .mc-promo {
   display: flex;
