@@ -236,10 +236,17 @@ export function CouponTierEditor({
   );
 }
 
-export function AdminRefreshButton({ onClick }: { onClick: () => void }) {
+export function AdminRefreshButton({
+  onClick,
+  disabled = false,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       className="button-secondary mp-refresh-btn"
+      disabled={disabled}
       onClick={onClick}
       type="button"
     >
