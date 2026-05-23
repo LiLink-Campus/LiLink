@@ -104,8 +104,11 @@ const RESULT_META: Record<
 export type RedeemConfirmProps = {
   /** Successful prepare response (result === "OK"). */
   prepare: PrepareRedeemOk;
-  /** Called after a successful redemption so the parent can reset. */
-  onSuccess?: () => void;
+  /**
+   * Called after a successful redemption so the parent can reset.
+   * Receives the full redeem response so callers can display applied results.
+   */
+  onSuccess?: (result: RedeemResponse) => void;
 };
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -153,7 +156,7 @@ export function RedeemConfirm({ prepare, onSuccess }: RedeemConfirmProps) {
       });
       setResult(response);
       if (response.result === "SUCCESS") {
-        onSuccess?.();
+        onSuccess?.(response);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "核销失败，请重试。");

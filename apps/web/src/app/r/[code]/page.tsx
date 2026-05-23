@@ -7,6 +7,7 @@ import {
   prepareRedeem,
   type PrepareRedeemOk,
   type PrepareRedeemResponse,
+  type RedeemResponse,
 } from "@/lib/api";
 import { RedeemConfirm } from "../../merchant/_components/RedeemConfirm";
 import "../../merchant/merchant.css";
@@ -17,7 +18,7 @@ type PageState =
   | { phase: "prepare-error"; message: string }
   | { phase: "prepare-fail"; result: Exclude<PrepareRedeemResponse["result"], "OK"> }
   | { phase: "ready"; prepare: PrepareRedeemOk }
-  | { phase: "done" };
+  | { phase: "done"; redeemResult: RedeemResponse };
 
 const PREPARE_FAIL_MESSAGES: Record<
   Exclude<PrepareRedeemResponse["result"], "OK">,
@@ -27,6 +28,42 @@ const PREPARE_FAIL_MESSAGES: Record<
   ALREADY_USED: "该券已使用。",
   INVALID: "无效的核销码。",
 };
+
+/** Convert cents to yuan string, e.g. 100 → "1.00". */
+function formatYuan(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
+/** Success view shown after scan-confirm redemption (spec §9.2). */
+function ScanSuccessView({ redeemResult }: { redeemResult: RedeemResponse }) {
+  const applied = redeemResult.applied;
+  return (
+    <div className="mc-redeem-body">
+      <div className="mc-result is-success">
+        <span className="mc-result-label">✓ 核销成功</span>
+        {applied && (
+          <div className="mc-coupon">
+            {redeemResult.coupon && (
+              <p className="mc-coupon-title">{redeemResult.coupon.title}</p>
+            )}
+            {applied.gift ? (
+              <p className="mc-coupon-apply">赠品：{applied.gift}</p>
+            ) : applied.discountAmount > 0 ? (
+              <p className="mc-coupon-apply">
+                应减 {formatYuan(applied.discountAmount)} 元
+              </p>
+            ) : null}
+            {applied.orderAmount != null && (
+              <p className="mc-coupon-order">
+                消费 {formatYuan(applied.orderAmount)} 元
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /**
  * Scan confirm page — reached when a merchant scans a user's QR code.
@@ -143,11 +180,7 @@ export default function ScanConfirmPage() {
   if (state.phase === "done") {
     return (
       <div className="mc-shell">
-        <div className="mc-redeem-body">
-          <div className="mc-result is-success">
-            <span className="mc-result-label">核销完成</span>
-          </div>
-        </div>
+        <ScanSuccessView redeemResult={state.redeemResult} />
       </div>
     );
   }
@@ -157,7 +190,7 @@ export default function ScanConfirmPage() {
     <div className="mc-shell">
       <RedeemConfirm
         prepare={state.prepare}
-        onSuccess={() => setState({ phase: "done" })}
+        onSuccess={(r) => setState({ phase: "done", redeemResult: r })}
       />
     </div>
   );
