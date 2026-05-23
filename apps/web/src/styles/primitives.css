@@ -77,8 +77,24 @@
   font-size: 0.82rem;
 }
 
+.ui-button--lg {
+  min-height: auto;
+  padding: 0.9rem 1rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
 .ui-button--block {
   width: 100%;
+}
+
+.ui-button--rounded {
+  border-radius: var(--radius-sm);
+}
+
+.ui-button--flat,
+.ui-button--flat:hover:not(:disabled) {
+  box-shadow: none;
 }
 
 .ui-button:active:not(:disabled) {
@@ -112,12 +128,25 @@
   padding: clamp(1.5rem, 3.5vw, 2rem);
 }
 
+.ui-card--spacious {
+  padding: clamp(1.5rem, 5vw, 2.25rem);
+}
+
 .ui-card--compact {
   padding: 1rem;
 }
 
 .ui-card--flush {
   padding: 0;
+}
+
+.ui-card--plain {
+  display: block;
+  gap: normal;
+}
+
+.ui-card--elevated {
+  box-shadow: var(--shadow-md);
 }
 
 .ui-card-header {
@@ -190,6 +219,24 @@
   outline: none;
   border-color: var(--color-brand);
   box-shadow: 0 0 0 4px rgba(139, 58, 74, 0.12);
+}
+
+.ui-control--lg {
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+}
+
+.ui-control--radius-sm {
+  border-radius: var(--radius-sm);
+}
+
+.ui-control--border-subtle {
+  border-color: var(--color-border);
+}
+
+.ui-control--border-subtle:focus {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px var(--color-brand-tint);
 }
 
 .ui-badge {

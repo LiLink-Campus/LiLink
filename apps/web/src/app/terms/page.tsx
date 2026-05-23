@@ -3,7 +3,7 @@ import { Card } from "@/components/ui";
 export default function TermsPage() {
   return (
     <main className="page-shell prose-shell">
-      <Card className="prose-panel">
+      <Card className="prose-panel" layout="plain">
         <p className="eyebrow">Terms</p>
         <h1>用户协议</h1>
         <p>

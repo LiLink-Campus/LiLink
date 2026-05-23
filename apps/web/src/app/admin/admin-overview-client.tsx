@@ -177,7 +177,7 @@ export default function AdminOverviewPage({
 
       {/* Capacity settings */}
       {settings && (
-        <section className="ui-card ui-card--padded" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
+        <section className="ui-card ui-card--padded ui-card--plain" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
           <div className="admin-section-header" style={{ marginBottom: "1rem" }}>
             <div>
               <p className="eyebrow">灰度控制</p>
@@ -216,7 +216,7 @@ export default function AdminOverviewPage({
         style={{ marginBottom: "1.25rem" }}
       >
         {/* Current cycle */}
-        <article className="ui-card ui-card--padded">
+        <article className="ui-card ui-card--padded ui-card--plain">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">轮次雷达</p>
@@ -268,7 +268,7 @@ export default function AdminOverviewPage({
         </article>
 
         {/* Open reports */}
-        <article className="ui-card ui-card--padded">
+        <article className="ui-card ui-card--padded ui-card--plain">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">风险队列</p>
@@ -317,7 +317,7 @@ export default function AdminOverviewPage({
       </section>
 
       {/* Test tools */}
-      <section className="ui-card ui-card--padded" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
+      <section className="ui-card ui-card--padded ui-card--plain" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
         <div className="admin-section-header" style={{ marginBottom: "1rem" }}>
           <div>
             <p className="eyebrow">测试工具</p>

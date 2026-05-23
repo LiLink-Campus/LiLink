@@ -475,7 +475,7 @@ export default function AdminUsersPage() {
 
       <section className="admin-workspace-grid">
         {/* ── User list ─── */}
-        <article className="ui-card ui-card--padded admin-list-panel">
+        <article className="ui-card ui-card--padded ui-card--plain admin-list-panel">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">用户列表</p>
@@ -580,7 +580,7 @@ export default function AdminUsersPage() {
         </article>
 
         {/* ── User detail ─── */}
-        <article className="ui-card ui-card--padded admin-detail-panel">
+        <article className="ui-card ui-card--padded ui-card--plain admin-detail-panel">
           {displayUser ? (
             <div className="admin-page-stack">
               {detailError ? (

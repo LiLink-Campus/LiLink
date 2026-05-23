@@ -94,7 +94,7 @@ export default function ForgotPasswordPageClient() {
 
   return (
     <main className="page-shell prose-shell auth-shell">
-      <Card className="auth-panel animate-in">
+      <Card className="auth-panel animate-in" layout="plain">
         <div className="auth-panel-mark" aria-hidden="true">
           <OliveSprigIllustration />
         </div>

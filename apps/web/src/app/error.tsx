@@ -13,6 +13,7 @@ export default function ErrorPage({
     <main className="page-shell prose-shell">
       <Card
         className="auth-panel"
+        layout="plain"
         style={{ textAlign: "center", padding: "4rem 2rem" }}
       >
         <p className="eyebrow">Error</p>

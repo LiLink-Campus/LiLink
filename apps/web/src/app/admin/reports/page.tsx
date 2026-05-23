@@ -192,7 +192,7 @@ export default function AdminReportsPage() {
       {actionError ? <p className="ui-form-message ui-form-message--error">{actionError}</p> : null}
 
       <section className="admin-workspace-grid">
-        <article className="ui-card ui-card--padded admin-list-panel">
+        <article className="ui-card ui-card--padded ui-card--plain admin-list-panel">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">举报</p>
@@ -328,7 +328,7 @@ export default function AdminReportsPage() {
           ) : null}
         </article>
 
-        <article className="ui-card ui-card--padded admin-detail-panel">
+        <article className="ui-card ui-card--padded ui-card--plain admin-detail-panel">
           {selectedReport && reportContext ? (
             <div className="admin-page-stack">
               <div className="admin-section-header">
