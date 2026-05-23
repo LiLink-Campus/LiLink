@@ -11,11 +11,10 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -w -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "test": "npm run build && node --test 'test/*.test.js' && vitest run"
+    "test": "npm run build && node --test"
   },
   "devDependencies": {
-    "typescript": "^5.7.3",
-    "vitest": "^4.1.7"
+    "typescript": "^5.7.3"
   },
   "dependencies": {
     "otpauth": "^9.5.1"
