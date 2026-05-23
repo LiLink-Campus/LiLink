@@ -3,22 +3,57 @@
 import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminProvider, useAdmin, type AdminIdentity } from "./admin-context";
 
-const NAV_ITEMS = [
-  { href: "/admin", label: "概览" },
-  { href: "/admin/users", label: "用户" },
-  { href: "/admin/schools", label: "学校" },
-  { href: "/admin/invite-codes", label: "邀请码" },
-  { href: "/admin/campaigns", label: "活动券包" },
-  { href: "/admin/merchants", label: "商家" },
-  { href: "/admin/promotion", label: "推广数据" },
-  { href: "/admin/cycles", label: "轮次" },
-  { href: "/admin/questionnaire", label: "问卷" },
-  { href: "/admin/reports", label: "举报" },
-  { href: "/admin/audit", label: "审计" },
+type NavItem = { href: string; label: string };
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const OVERVIEW_ITEM: NavItem = { href: "/admin", label: "概览" };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "平台",
+    items: [
+      { href: "/admin/users", label: "用户" },
+      { href: "/admin/schools", label: "学校" },
+    ],
+  },
+  {
+    label: "商家推广",
+    items: [
+      { href: "/admin/invite-codes", label: "邀请码" },
+      { href: "/admin/campaigns", label: "活动券包" },
+      { href: "/admin/merchants", label: "商家" },
+      { href: "/admin/promotion", label: "推广数据" },
+    ],
+  },
+  {
+    label: "匹配运营",
+    items: [
+      { href: "/admin/cycles", label: "轮次" },
+      { href: "/admin/questionnaire", label: "问卷" },
+    ],
+  },
+  {
+    label: "安全审计",
+    items: [
+      { href: "/admin/reports", label: "举报" },
+      { href: "/admin/audit", label: "审计" },
+    ],
+  },
 ];
+
+function isNavActive(pathname: string, href: string) {
+  return (
+    pathname === href ||
+    (href !== "/admin" && pathname.startsWith(`${href}/`))
+  );
+}
 
 function AdminGate({ children }: { children: React.ReactNode }) {
   const { authenticated, loading, error, login } = useAdmin();
@@ -99,12 +134,70 @@ function AdminGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function getActiveNavLabel(pathname: string) {
+  if (isNavActive(pathname, OVERVIEW_ITEM.href)) {
+    return OVERVIEW_ITEM.label;
+  }
+
+  for (const group of NAV_GROUPS) {
+    for (const item of group.items) {
+      if (isNavActive(pathname, item.href)) {
+        return item.label;
+      }
+    }
+  }
+
+  return "后台";
+}
+
 function AdminSidebar() {
   const pathname = usePathname();
   const { admin, logout } = useAdmin();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const activeLabel = useMemo(() => getActiveNavLabel(pathname), [pathname]);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   return (
-    <aside className="admin-sidebar">
+    <aside
+      className={`admin-sidebar${mobileNavOpen ? " is-mobile-nav-open" : ""}`}
+    >
+      <div className="admin-sidebar-mobile-bar">
+        <Link
+          href="/admin"
+          className="admin-sidebar-mobile-title"
+          aria-label="LiLink 后台首页"
+          onClick={() => setMobileNavOpen(false)}
+        >
+          <span
+            className="brand-glyph admin-brand-glyph admin-brand-glyph-compact"
+            aria-hidden="true"
+          >
+            <span className="brand-glyph-text">Li</span>
+            <span className="brand-glyph-sparkle" />
+          </span>
+          <span className="admin-sidebar-mobile-copy">
+            <strong>LiLink 后台</strong>
+            <span>{activeLabel}</span>
+          </span>
+        </Link>
+        <button
+          type="button"
+          className="admin-sidebar-mobile-toggle"
+          aria-expanded={mobileNavOpen}
+          aria-controls="admin-sidebar-nav"
+          aria-label={mobileNavOpen ? "收起菜单" : "展开菜单"}
+          onClick={() => setMobileNavOpen((open) => !open)}
+        >
+          <span
+            className={`admin-sidebar-mobile-toggle-icon${mobileNavOpen ? " is-open" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+      </div>
+
       <Link
         href="/admin"
         className="admin-sidebar-brand"
@@ -119,20 +212,35 @@ function AdminSidebar() {
           <small>{admin?.displayName ?? admin?.email ?? "管理员"}</small>
         </span>
       </Link>
-      <nav className="admin-sidebar-nav">
-        {NAV_ITEMS.map((item) => (
+      <nav
+        id="admin-sidebar-nav"
+        className="admin-sidebar-nav"
+        aria-label="后台导航"
+      >
+        <div className="admin-sidebar-section admin-sidebar-section-overview">
           <Link
-            key={item.href}
-            href={item.href}
-            className={
-              pathname === item.href ||
-              (item.href !== "/admin" && pathname.startsWith(`${item.href}/`))
-                ? "admin-nav-active"
-                : ""
-            }
+            href={OVERVIEW_ITEM.href}
+            className={isNavActive(pathname, OVERVIEW_ITEM.href) ? "admin-nav-active" : ""}
+            onClick={() => setMobileNavOpen(false)}
           >
-            {item.label}
+            {OVERVIEW_ITEM.label}
           </Link>
+        </div>
+
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label} className="admin-sidebar-section">
+            <p className="admin-sidebar-section-label">{group.label}</p>
+            {group.items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={isNavActive(pathname, item.href) ? "admin-nav-active" : ""}
+                onClick={() => setMobileNavOpen(false)}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
         ))}
       </nav>
       <button

@@ -1,7 +1,24 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  renderBenefitText,
+  type CouponBenefitType,
+  type CouponRule,
+} from "@lilink/shared";
 import { fetchApi } from "../../../lib/api";
+import {
+  AdminRefreshButton,
+  BENEFIT_TYPE_LABELS,
+  buildCouponRule,
+  CAMPAIGN_STATUS_BADGE,
+  CAMPAIGN_STATUS_LABELS,
+  CAMPAIGN_STATUS_OPTIONS,
+  CopyTextButton,
+  CouponTierEditor,
+  emptyTierDraft,
+  type CouponTierDraft,
+} from "../merchant-admin-ui";
 import { useAdminCollection } from "../use-admin-collection";
 import type {
   AdminCampaign,
@@ -10,19 +27,15 @@ import type {
   PaginatedResult,
 } from "../types";
 
-const STATUS_OPTIONS = ["DRAFT", "ACTIVE", "ENDED"] as const;
+type StatusFilter = "" | "DRAFT" | "ACTIVE" | "ENDED";
 
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "草稿",
-  ACTIVE: "进行中",
-  ENDED: "已结束",
-};
+const STATUS_TABS: { value: StatusFilter; label: string }[] = [
+  { value: "", label: "全部" },
+  { value: "DRAFT", label: "草稿" },
+  { value: "ACTIVE", label: "进行中" },
+  { value: "ENDED", label: "已结束" },
+];
 
-const STATUS_BADGE: Record<string, string> = {
-  DRAFT: "is-draft",
-  ACTIVE: "is-active",
-  ENDED: "is-ended",
-};
 const BENEFIT_OPTIONS = [
   { value: "FULL_REDUCTION", label: "满减" },
   { value: "DISCOUNT", label: "折扣" },
@@ -32,6 +45,7 @@ const BENEFIT_OPTIONS = [
 
 export default function AdminCampaignsPage() {
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
@@ -40,9 +54,26 @@ export default function AdminCampaignsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data, loading, error: loadError, refresh } =
-    useAdminCollection<AdminCampaign>("/admin/campaigns", { page, pageSize: 20 });
+    useAdminCollection<AdminCampaign>("/admin/campaigns", {
+      page,
+      pageSize: 20,
+      status: statusFilter || undefined,
+    });
 
   const campaigns = useMemo(() => data?.items ?? [], [data]);
+
+  const pageTotals = useMemo(() => {
+    return campaigns.reduce(
+      (acc, campaign) => {
+        acc.templates += campaign.templateCount;
+        acc.activations += campaign.activationCount;
+        if (campaign.status === "ACTIVE") acc.active += 1;
+        if (campaign.isDefault) acc.defaultCount += 1;
+        return acc;
+      },
+      { templates: 0, activations: 0, active: 0, defaultCount: 0 },
+    );
+  }, [campaigns]);
 
   async function createCampaign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,115 +134,198 @@ export default function AdminCampaignsPage() {
             标准顺序：建活动 + 券包 → 置 ACTIVE 且设为默认 → 再推广拉新。归属在注册时冻结，活动须在拉新前上线。
           </p>
         </div>
-        <button
-          className="button-secondary"
-          onClick={() => void refresh()}
-          type="button"
-          style={{ minHeight: "2.4rem", padding: "0 1rem" }}
-        >
-          刷新
-        </button>
+        <AdminRefreshButton onClick={() => void refresh()} />
       </div>
 
-      <form className="qb-search" onSubmit={createCampaign}>
-        <input
-          value={name}
-          maxLength={80}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="活动名称…"
-        />
-        <input
-          value={slug}
-          maxLength={64}
-          onChange={(event) => setSlug(event.target.value)}
-          placeholder="slug（?c= 用，小写字母数字-）"
-        />
-        <input
-          value={description}
-          maxLength={500}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="说明（可选）"
-        />
-        <button
-          className="button-primary"
-          type="submit"
-          disabled={pending === "create" || !name.trim() || !slug.trim()}
-          style={{ minHeight: "2.4rem", padding: "0 1rem", flexShrink: 0 }}
-        >
-          {pending === "create" ? "创建中…" : "新建活动"}
-        </button>
-      </form>
+      <div className="qb-metrics">
+        <div className="qb-metric">
+          <div className="qb-metric-value">{data?.total ?? 0}</div>
+          <div className="qb-metric-label">活动总数</div>
+        </div>
+        <div className="qb-metric">
+          <div className="qb-metric-value">{pageTotals.active}</div>
+          <div className="qb-metric-label">本页进行中</div>
+        </div>
+        <div className="qb-metric">
+          <div className="qb-metric-value">{pageTotals.templates}</div>
+          <div className="qb-metric-label">本页券模板</div>
+        </div>
+        <div className="qb-metric">
+          <div className="qb-metric-value">{pageTotals.activations}</div>
+          <div className="qb-metric-label">本页激活数</div>
+        </div>
+      </div>
+
+      <section className="ic-create-panel admin-highlight-card">
+        <div>
+          <h2>新建活动</h2>
+          <p className="qb-header-desc" style={{ marginTop: "0.35rem" }}>
+            slug 用于注册链接 <code className="mp-slug">?c=</code>{" "}
+            参数，仅小写字母、数字与连字符。
+          </p>
+        </div>
+        <form className="mp-create-form" onSubmit={createCampaign}>
+          <input
+            value={name}
+            maxLength={80}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="活动名称"
+            aria-label="活动名称"
+          />
+          <input
+            value={slug}
+            maxLength={64}
+            onChange={(event) => setSlug(event.target.value)}
+            placeholder="slug，如 spring-2026"
+            aria-label="活动 slug"
+          />
+          <input
+            value={description}
+            maxLength={500}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="说明（可选）"
+            aria-label="活动说明"
+          />
+          <button
+            className="button-primary"
+            type="submit"
+            disabled={pending === "create" || !name.trim() || !slug.trim()}
+          >
+            {pending === "create" ? "创建中…" : "新建活动"}
+          </button>
+        </form>
+      </section>
 
       {(loadError || error) && (
-        <p className="form-error" style={{ marginBottom: "1rem" }}>
+        <p className="form-error" style={{ margin: "1rem 0" }}>
           {loadError ?? error}
         </p>
       )}
 
-      <div className="qb-list">
-        {campaigns.length === 0 && (
-          <div className="admin-empty-state">还没有活动，在上方新建第一个。</div>
-        )}
-        {campaigns.map((campaign) => (
-          <div key={campaign.id} className="qb-card">
-            <div className="qb-card-header">
-              <div className="qb-card-title">
-                <strong>{campaign.name}</strong>
-                <span className="qb-card-meta">
-                  {campaign.slug}
-                  {campaign.isDefault ? " · 默认" : ""}
-                  {` · 券包 ${campaign.templateCount} · 激活 ${campaign.activationCount}`}
-                </span>
-              </div>
-              <span className={`qb-badge ${STATUS_BADGE[campaign.status] ?? ""}`}>
-                {STATUS_LABELS[campaign.status] ?? campaign.status}
-              </span>
+      <section className="ic-list-panel mp-list-panel">
+        <div className="mp-list-toolbar">
+          <div className="ic-status-tabs" role="tablist" aria-label="活动状态筛选">
+            {STATUS_TABS.map((tab) => (
               <button
+                key={tab.value || "all"}
                 type="button"
-                className="button-secondary"
-                onClick={() =>
-                  setSelectedId((current) =>
-                    current === campaign.id ? null : campaign.id,
-                  )
-                }
-                style={{ minHeight: "1.9rem", padding: "0 0.75rem", fontSize: "0.82rem" }}
+                role="tab"
+                aria-selected={statusFilter === tab.value}
+                className={`ic-status-tab${statusFilter === tab.value ? " is-active" : ""}`}
+                onClick={() => {
+                  setStatusFilter(tab.value);
+                  setPage(1);
+                }}
               >
-                {selectedId === campaign.id ? "收起" : "券包"}
+                {tab.label}
               </button>
-            </div>
-
-            <CampaignStatusControls
-              campaign={campaign}
-              pending={pending === `status-${campaign.id}`}
-              onApply={(status, isDefault) =>
-                void applyStatus(campaign, status, isDefault)
-              }
-            />
-
-            {selectedId === campaign.id && (
-              <CampaignTemplatesPanel campaignId={campaign.id} />
-            )}
+            ))}
           </div>
-        ))}
-      </div>
-
-      {data && data.totalPages > 1 && (
-        <div className="admin-pagination">
-          <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">
-            上一页
-          </button>
-          <span>
-            {data.page} / {data.totalPages} · 共 {data.total} 个活动
-          </span>
-          <button
-            disabled={data.page >= data.totalPages}
-            onClick={() => setPage(data.page + 1)}
-            type="button"
-          >
-            下一页
-          </button>
         </div>
-      )}
+
+        <div className="ic-list-meta">
+          <p className="qb-header-desc" style={{ margin: 0 }}>
+            共 {data?.total ?? 0} 个活动
+            {pageTotals.defaultCount > 0
+              ? ` · 本页默认活动 ${pageTotals.defaultCount} 个`
+              : ""}
+          </p>
+        </div>
+
+        <div className="qb-list" style={{ marginTop: "0.85rem" }}>
+          {campaigns.length === 0 && (
+            <div className="admin-empty-state ic-list-empty">
+              {statusFilter
+                ? "当前筛选下没有活动，试试切换状态或新建一个。"
+                : "还没有活动，在上方新建第一个。"}
+            </div>
+          )}
+          {campaigns.map((campaign) => {
+            const expanded = selectedId === campaign.id;
+            return (
+              <div
+                key={campaign.id}
+                className={`qb-card${expanded ? " mp-card-expanded" : ""}`}
+              >
+                <div className="qb-card-header">
+                  <div className="qb-card-title">
+                    <strong>{campaign.name}</strong>
+                    <div className="mp-slug-row">
+                      <code className="mp-slug">{campaign.slug}</code>
+                      <CopyTextButton
+                        text={campaign.slug}
+                        label="复制 slug"
+                        copiedLabel="已复制"
+                      />
+                      {campaign.isDefault && (
+                        <span className="qb-badge is-active">默认</span>
+                      )}
+                    </div>
+                    <div className="mp-inline-stats">
+                      <span className="mp-inline-stat">
+                        券包 <strong>{campaign.templateCount}</strong>
+                      </span>
+                      <span className="mp-inline-stat">
+                        激活 <strong>{campaign.activationCount}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <span
+                    className={`qb-badge ${CAMPAIGN_STATUS_BADGE[campaign.status] ?? ""}`}
+                  >
+                    {CAMPAIGN_STATUS_LABELS[campaign.status] ?? campaign.status}
+                  </span>
+                  <div className="mp-card-actions">
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() =>
+                        setSelectedId((current) =>
+                          current === campaign.id ? null : campaign.id,
+                        )
+                      }
+                    >
+                      {expanded ? "收起券包" : "管理券包"}
+                    </button>
+                  </div>
+                </div>
+
+                <CampaignStatusControls
+                  campaign={campaign}
+                  pending={pending === `status-${campaign.id}`}
+                  onApply={(status, isDefault) =>
+                    void applyStatus(campaign, status, isDefault)
+                  }
+                />
+
+                {expanded && <CampaignTemplatesPanel campaignId={campaign.id} />}
+              </div>
+            );
+          })}
+        </div>
+
+        {data && data.totalPages > 1 && (
+          <div className="admin-pagination ic-list-pagination">
+            <button
+              disabled={data.page <= 1}
+              onClick={() => setPage(data.page - 1)}
+              type="button"
+            >
+              上一页
+            </button>
+            <span>
+              {data.page} / {data.totalPages} · 共 {data.total} 个活动
+            </span>
+            <button
+              disabled={data.page >= data.totalPages}
+              onClick={() => setPage(data.page + 1)}
+              type="button"
+            >
+              下一页
+            </button>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -228,45 +342,44 @@ function CampaignStatusControls({
   const [status, setStatus] = useState(campaign.status);
   const [isDefault, setIsDefault] = useState(campaign.isDefault);
 
-  // Keep local controls in sync when the list refreshes (e.g. another campaign
-  // became the default, flipping this one's isDefault server-side).
   useEffect(() => {
     setStatus(campaign.status);
     setIsDefault(campaign.isDefault);
   }, [campaign.status, campaign.isDefault]);
 
+  const dirty =
+    status !== campaign.status || isDefault !== campaign.isDefault;
+
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: "0.75rem",
-        alignItems: "center",
-        flexWrap: "wrap",
-        marginTop: "0.5rem",
-      }}
-    >
-      <select value={status} onChange={(event) => setStatus(event.target.value as AdminCampaign["status"])}>
-        {STATUS_OPTIONS.map((option) => (
+    <div className="mp-status-row">
+      <select
+        value={status}
+        aria-label="活动状态"
+        onChange={(event) =>
+          setStatus(event.target.value as AdminCampaign["status"])
+        }
+      >
+        {CAMPAIGN_STATUS_OPTIONS.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {CAMPAIGN_STATUS_LABELS[option] ?? option}
           </option>
         ))}
       </select>
-      <label style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+      <label>
         <input
           type="checkbox"
           checked={isDefault}
           onChange={(event) => setIsDefault(event.target.checked)}
         />
-        设为默认
+        设为默认活动
       </label>
       <button
         type="button"
         className="button-secondary"
-        disabled={pending}
+        disabled={pending || !dirty}
         onClick={() => onApply(status, isDefault)}
       >
-        {pending ? "应用中…" : "应用状态"}
+        {pending ? "保存中…" : "保存状态"}
       </button>
     </div>
   );
@@ -280,6 +393,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
   const [benefitType, setBenefitType] = useState("FULL_REDUCTION");
   const [faceValue, setFaceValue] = useState("");
   const [validDays, setValidDays] = useState("");
+  const [tiers, setTiers] = useState<CouponTierDraft[]>([emptyTierDraft()]);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -306,6 +420,15 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
   async function createTemplate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!merchantId || !title.trim() || !faceValue) return;
+
+    let rule: Record<string, unknown> | null;
+    try {
+      rule = buildCouponRule(benefitType, tiers);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "优惠规则无效。");
+      return;
+    }
+
     setPending("create");
     setError(null);
     try {
@@ -317,11 +440,13 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
           benefitType,
           faceValue: Math.round(Number(faceValue) * 100),
           validDays: validDays ? Number(validDays) : undefined,
+          ...(rule ? { rule } : {}),
         }),
       });
       setTitle("");
       setFaceValue("");
       setValidDays("");
+      setTiers([emptyTierDraft()]);
       await loadTemplates();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "创建券模板失败。");
@@ -352,31 +477,59 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
 
       <h4>券包（券模板）</h4>
       {templates === null ? (
-        <p>加载中…</p>
+        <p className="qb-header-desc">加载中…</p>
       ) : templates.length === 0 ? (
-        <p>暂无券模板。</p>
+        <p className="qb-header-desc">暂无券模板，在下方为合作商家添加第一张券。</p>
       ) : (
-        templates.map((template) => (
-          <div key={template.id} className="me-card-field">
-            <span className="me-card-label">
-              {template.title} · {template.merchant?.name ?? template.merchantId} · 面值{" "}
-              {(template.faceValue / 100).toFixed(2)} 元 ·{" "}
-              {template.isActive ? "启用" : "停用"}
-            </span>
-            <button
-              type="button"
-              className="button-secondary"
-              disabled={pending === `tpl-${template.id}`}
-              onClick={() => void toggleTemplate(template)}
-            >
-              {template.isActive ? "停用" : "启用"}
-            </button>
-          </div>
-        ))
+        <div className="mp-subpanel-list">
+          {templates.map((template) => (
+            <div key={template.id} className="mp-subpanel-row">
+              <div className="mp-subpanel-row-main">
+                <span className="mp-subpanel-row-title">{template.title}</span>
+                <span className="mp-subpanel-row-meta">
+                  {template.merchant?.name ?? template.merchantId} ·{" "}
+                  {BENEFIT_TYPE_LABELS[template.benefitType] ?? template.benefitType} ·
+                  面值 {(template.faceValue / 100).toFixed(2)} 元
+                  {template.validDays ? ` · ${template.validDays} 天有效` : ""}
+                </span>
+                {template.benefitType !== "CUSTOM" && (
+                  <span className="mp-subpanel-row-rule">
+                    {renderBenefitText({
+                      benefitType: template.benefitType as CouponBenefitType,
+                      title: template.title,
+                      faceValue: template.faceValue,
+                      rule: template.rule as CouponRule | null,
+                    })}
+                  </span>
+                )}
+              </div>
+              <div className="mp-card-actions">
+                <span
+                  className={`qb-badge ${template.isActive ? "is-active" : "is-off"}`}
+                >
+                  {template.isActive ? "启用" : "停用"}
+                </span>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  disabled={pending === `tpl-${template.id}`}
+                  onClick={() => void toggleTemplate(template)}
+                >
+                  {template.isActive ? "停用" : "启用"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      <form className="qb-search" onSubmit={createTemplate} style={{ marginTop: "0.5rem" }}>
-        <select value={merchantId} onChange={(event) => setMerchantId(event.target.value)}>
+      <h4 style={{ marginTop: "0.5rem" }}>新增券模板</h4>
+      <form className="mp-form-grid" onSubmit={createTemplate}>
+        <select
+          value={merchantId}
+          aria-label="合作商家"
+          onChange={(event) => setMerchantId(event.target.value)}
+        >
           <option value="">选择商家…</option>
           {merchants.map((merchant) => (
             <option key={merchant.id} value={merchant.id}>
@@ -389,8 +542,13 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
           maxLength={80}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="券标题，如 满50减10"
+          aria-label="券标题"
         />
-        <select value={benefitType} onChange={(event) => setBenefitType(event.target.value)}>
+        <select
+          value={benefitType}
+          aria-label="优惠类型"
+          onChange={(event) => setBenefitType(event.target.value)}
+        >
           {BENEFIT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
@@ -404,6 +562,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
           value={faceValue}
           onChange={(event) => setFaceValue(event.target.value)}
           placeholder="名义面值（元）"
+          aria-label="名义面值"
         />
         <input
           type="number"
@@ -411,13 +570,21 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
           value={validDays}
           onChange={(event) => setValidDays(event.target.value)}
           placeholder="有效天数（可选）"
+          aria-label="有效天数"
         />
+        <div className="mp-form-full">
+          <CouponTierEditor
+            benefitType={benefitType}
+            tiers={tiers}
+            onChange={setTiers}
+          />
+        </div>
         <button
           className="button-primary"
           type="submit"
           disabled={pending === "create" || !merchantId || !title.trim() || !faceValue}
         >
-          新增券模板
+          {pending === "create" ? "创建中…" : "新增券模板"}
         </button>
       </form>
     </div>
