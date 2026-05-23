@@ -1,8 +1,26 @@
 "use client";
 
-import { useEffect, useState, useRef, Fragment, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  Fragment,
+  type ReactNode,
+} from "react";
+import { generateTotpToken, formatRedeemCode, COUPON_TOTP } from "@lilink/shared";
+import type { MerchantPromotionBlock } from "@lilink/shared";
 import { ClipboardIcon } from "../_components/icons";
-import { fetchMyCoupons, type MyCoupon } from "../../../lib/api";
+import {
+  fetchMyCoupons,
+  getCouponRedeemSecret,
+  getCouponStatus,
+  isApiRequestError,
+  type MyCoupon,
+  type CouponRedeemSecret,
+  type CouponStatusResponse,
+} from "../../../lib/api";
+import { QrCode } from "../../../components/qr-code";
 
 const STATUS_LABELS: Record<string, string> = {
   ISSUED: "可用",
@@ -11,10 +29,45 @@ const STATUS_LABELS: Record<string, string> = {
   VOID: "已作废",
 };
 
+/** Convert cents to yuan string (e.g. 100 → "1.00") */
+function formatYuan(cents: number) {
+  return (cents / 100).toFixed(2);
+}
+
 function formatExpiry(iso: string | null) {
   if (!iso) return "长期有效";
   return `${new Date(iso).toLocaleDateString("zh-CN")} 前有效`;
 }
+
+/** Seconds remaining until the next TOTP period boundary. */
+function secsToNextPeriod(at: number = Date.now()) {
+  const period = COUPON_TOTP.period;
+  const elapsed = Math.floor(at / 1000) % period;
+  return period - elapsed;
+}
+
+/** Retrieve or write localStorage cache for coupon redeem-secret. */
+const CACHE_PREFIX = "lilink:coupon-secret:";
+function readCachedSecret(couponId: string): CouponRedeemSecret | null {
+  try {
+    const raw = localStorage.getItem(`${CACHE_PREFIX}${couponId}`);
+    if (!raw) return null;
+    return JSON.parse(raw) as CouponRedeemSecret;
+  } catch {
+    return null;
+  }
+}
+function writeCachedSecret(couponId: string, data: CouponRedeemSecret) {
+  try {
+    localStorage.setItem(`${CACHE_PREFIX}${couponId}`, JSON.stringify(data));
+  } catch {
+    // Storage may be unavailable; continue without caching.
+  }
+}
+
+// -------------------------------------------------------------------
+// Sub-components
+// -------------------------------------------------------------------
 
 function CouponCard({
   coupon,
@@ -88,6 +141,97 @@ function CouponCard({
   );
 }
 
+// -------------------------------------------------------------------
+// Promotion blocks renderer
+// -------------------------------------------------------------------
+
+function PromotionBlock({ block }: { block: MerchantPromotionBlock }) {
+  if (block.type === "TEXT") {
+    return (
+      <div className="coupons-redeemed-promo-block">
+        <p>{block.text}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="coupons-redeemed-promo-block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={block.imageUrl}
+        alt={block.caption ?? (block.type === "QRCODE" ? "商家二维码" : "推广图片")}
+        className="coupons-redeemed-promo-img"
+      />
+      {block.caption ? (
+        <p className="coupons-redeemed-promo-caption">{block.caption}</p>
+      ) : null}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------
+// Success view (coupon has been REDEEMED)
+// -------------------------------------------------------------------
+
+function RedeemedView({
+  applied,
+  merchantPromotion,
+  onClose,
+}: {
+  applied: CouponStatusResponse["applied"];
+  merchantPromotion: MerchantPromotionBlock[] | undefined;
+  onClose: () => void;
+}) {
+  const hasDiscount = applied && applied.discountAmount > 0;
+  const hasGift = applied?.gift;
+
+  return (
+    <div className="coupons-redeemed-success">
+      <span className="coupons-redeemed-icon" aria-hidden="true">✅</span>
+      <p className="coupons-redeemed-title">核销成功</p>
+
+      {hasDiscount ? (
+        <p className="coupons-redeemed-applied">
+          {applied.orderAmount != null ? (
+            <>消费 {formatYuan(applied.orderAmount)} 元，</>
+          ) : null}
+          优惠 {formatYuan(applied.discountAmount)} 元
+        </p>
+      ) : null}
+
+      {hasGift ? (
+        <p className="coupons-redeemed-applied">赠品：{applied!.gift}</p>
+      ) : null}
+
+      {merchantPromotion && merchantPromotion.length > 0 ? (
+        <div className="coupons-redeemed-promotion">
+          {merchantPromotion.map((block, idx) => (
+            <PromotionBlock key={idx} block={block} />
+          ))}
+        </div>
+      ) : null}
+
+      <button
+        className="ui-button ui-button--primary coupons-dialog-close"
+        onClick={onClose}
+        type="button"
+      >
+        完成
+      </button>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------
+// Show-code dialog (TOTP token + QR code + polling)
+// -------------------------------------------------------------------
+
+type DialogState =
+  | { phase: "loading" }
+  | { phase: "error"; message: string }
+  | { phase: "not-redeemable" }
+  | { phase: "active"; secret: CouponRedeemSecret; token: string; secs: number }
+  | { phase: "redeemed"; status: CouponStatusResponse };
+
 function CouponCodeDialog({
   coupon,
   onClose,
@@ -96,11 +240,16 @@ function CouponCodeDialog({
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [state, setState] = useState<DialogState>({ phase: "loading" });
+  // Keep mutable refs to avoid stale-closure issues in intervals.
+  const secretRef = useRef<CouponRedeemSecret | null>(null);
+  const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Open / close native dialog.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-
     if (coupon) {
       dialog.showModal();
     } else {
@@ -108,7 +257,113 @@ function CouponCodeDialog({
     }
   }, [coupon]);
 
+  const stopTimers = useCallback(() => {
+    if (tickIntervalRef.current !== null) {
+      clearInterval(tickIntervalRef.current);
+      tickIntervalRef.current = null;
+    }
+    if (pollIntervalRef.current !== null) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
+
+  // Start the 1-second tick that refreshes the TOTP token + countdown.
+  const startTick = useCallback((secret: CouponRedeemSecret) => {
+    const tick = () => {
+      const now = Date.now();
+      const token = generateTotpToken(secret.secret, now);
+      const secs = secsToNextPeriod(now);
+      setState({ phase: "active", secret, token, secs });
+    };
+    tick();
+    tickIntervalRef.current = setInterval(tick, 1000);
+  }, []);
+
+  // Start polling the status endpoint every 2.5s.
+  const startPolling = useCallback(
+    (couponId: string) => {
+      const poll = async () => {
+        try {
+          const statusResponse = await getCouponStatus(couponId);
+          if (
+            statusResponse.status === "REDEEMED" ||
+            statusResponse.status === "EXPIRED" ||
+            statusResponse.status === "VOID"
+          ) {
+            stopTimers();
+            if (statusResponse.status === "REDEEMED") {
+              setState({ phase: "redeemed", status: statusResponse });
+            }
+            // For EXPIRED/VOID we leave the active view; onClose can be pressed.
+          }
+        } catch {
+          // Polling errors are non-fatal; retry next interval.
+        }
+      };
+      pollIntervalRef.current = setInterval(poll, 2500);
+    },
+    [stopTimers],
+  );
+
+  // Load secret on open, tear down on close.
+  useEffect(() => {
+    if (!coupon) {
+      stopTimers();
+      setState({ phase: "loading" });
+      return;
+    }
+
+    let active = true;
+    setState({ phase: "loading" });
+    secretRef.current = null;
+
+    // Try local cache first.
+    const cached = readCachedSecret(coupon.id);
+    if (cached) {
+      secretRef.current = cached;
+      startTick(cached);
+      startPolling(coupon.id);
+      return () => {
+        active = false; // mark stale
+        stopTimers();
+      };
+    }
+
+    getCouponRedeemSecret(coupon.id)
+      .then((data) => {
+        if (!active) return;
+        writeCachedSecret(coupon.id, data);
+        secretRef.current = data;
+        startTick(data);
+        startPolling(coupon.id);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        if (isApiRequestError(err) && err.status === 404) {
+          setState({ phase: "not-redeemable" });
+        } else {
+          setState({
+            phase: "error",
+            message: err instanceof Error ? err.message : "加载失败",
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+      stopTimers();
+    };
+  }, [coupon, startTick, startPolling, stopTimers]);
+
   if (!coupon) return null;
+
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "https://lilink.app";
+
+  function buildQrValue(code: string, token: string) {
+    return `${origin}/r/${code}#t=${token}`;
+  }
 
   return (
     <dialog
@@ -124,24 +379,67 @@ function CouponCodeDialog({
           </h2>
           <p className="coupons-dialog-merchant">{coupon.merchantName}</p>
         </div>
+
         <div className="coupons-dialog-body">
-          <div className="coupons-code-block">
-            <span className="coupons-code-label">核销码</span>
-            <code className="coupons-code">{coupon.code}</code>
-          </div>
-          <p className="coupons-dialog-hint">请向店员出示此核销码</p>
-          <button
-            className="ui-button ui-button--primary coupons-dialog-close"
-            onClick={onClose}
-            type="button"
-          >
-            完成
-          </button>
+          {state.phase === "loading" ? (
+            <div className="me-state">
+              <span className="me-state-spinner" />
+              <span>加载中……</span>
+            </div>
+          ) : state.phase === "error" ? (
+            <p className="coupons-dialog-hint" style={{ color: "var(--color-danger)" }}>
+              {state.message}
+            </p>
+          ) : state.phase === "not-redeemable" ? (
+            <p className="coupons-dialog-hint">该券暂不支持扫码核销，请向店员报出券码。</p>
+          ) : state.phase === "redeemed" ? (
+            <RedeemedView
+              applied={state.status.applied}
+              merchantPromotion={state.status.merchantPromotion}
+              onClose={onClose}
+            />
+          ) : (
+            // phase === "active"
+            <>
+              <div className="coupons-showcode-qr">
+                <QrCode
+                  value={buildQrValue(state.secret.code, state.token)}
+                  size={180}
+                />
+              </div>
+
+              <div className="coupons-showcode-code">
+                <span className="coupons-showcode-code-label">核销码</span>
+                <code className="coupons-showcode-code-value">
+                  {formatRedeemCode(state.secret.code, state.token)}
+                </code>
+                <span className="coupons-showcode-countdown">
+                  {state.secs}
+                  <span className="coupons-showcode-countdown-secs"> 秒</span>
+                  后刷新
+                </span>
+              </div>
+
+              <p className="coupons-dialog-hint">请向店员出示此核销码</p>
+
+              <button
+                className="ui-button ui-button--primary coupons-dialog-close"
+                onClick={onClose}
+                type="button"
+              >
+                完成
+              </button>
+            </>
+          )}
         </div>
       </div>
     </dialog>
   );
 }
+
+// -------------------------------------------------------------------
+// Page-level components
+// -------------------------------------------------------------------
 
 function CouponsEmptyState() {
   return (
@@ -255,9 +553,9 @@ export function CouponsClient() {
         ) : (
           <div className="coupons-list">
             {issued.map((coupon) => (
-              <CouponCard 
-                key={coupon.id} 
-                coupon={coupon} 
+              <CouponCard
+                key={coupon.id}
+                coupon={coupon}
                 onShowCode={() => setSelectedCoupon(coupon)}
               />
             ))}
@@ -280,9 +578,9 @@ export function CouponsClient() {
         </CouponsPanel>
       ) : null}
 
-      <CouponCodeDialog 
-        coupon={selectedCoupon} 
-        onClose={() => setSelectedCoupon(null)} 
+      <CouponCodeDialog
+        coupon={selectedCoupon}
+        onClose={() => setSelectedCoupon(null)}
       />
     </div>
   );
