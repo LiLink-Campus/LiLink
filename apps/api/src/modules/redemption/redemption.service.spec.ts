@@ -55,7 +55,7 @@ describe('RedemptionService.redeem', () => {
     tx.merchant.findUnique.mockResolvedValue({
       promotionBlocks: [{ type: 'TEXT', text: '关注我们' }],
     });
-    const service = new RedemptionService(prisma as never);
+    const service = new RedemptionService(prisma as never, {} as never);
 
     const result = await service.redeem(' abcdefghjk ', 'm1', 'mu1');
 
@@ -103,7 +103,7 @@ describe('RedemptionService.redeem', () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(SOCIAL_RULE));
     tx.coupon.updateMany.mockResolvedValue({ count: 1 });
-    const service = new RedemptionService(prisma as never);
+    const service = new RedemptionService(prisma as never, {} as never);
 
     const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1', 6000);
 
@@ -127,7 +127,7 @@ describe('RedemptionService.redeem', () => {
   it('NEED_AMOUNT: tiered coupon without an amount is not consumed; returns the ladder', async () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(SOCIAL_RULE));
-    const service = new RedemptionService(prisma as never);
+    const service = new RedemptionService(prisma as never, {} as never);
 
     const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1');
 
@@ -141,7 +141,7 @@ describe('RedemptionService.redeem', () => {
   it('BELOW_THRESHOLD: an amount under the lowest tier is not consumed', async () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(SOCIAL_RULE));
-    const service = new RedemptionService(prisma as never);
+    const service = new RedemptionService(prisma as never, {} as never);
 
     const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1', 2000);
 
@@ -155,7 +155,7 @@ describe('RedemptionService.redeem', () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(null);
     tx.coupon.count.mockResolvedValue(1);
-    const service = new RedemptionService(prisma as never);
+    const service = new RedemptionService(prisma as never, {} as never);
 
     const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1');
 
@@ -184,7 +184,7 @@ describe('RedemptionService.redeem', () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(null);
     tx.coupon.count.mockResolvedValue(0);
-    const service = new RedemptionService(prisma as never);
+    const service = new RedemptionService(prisma as never, {} as never);
 
     const result = await service.redeem('ZZZZZZZZZZ', 'm1', 'mu1');
 
@@ -196,7 +196,7 @@ describe('RedemptionService.redeem', () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(null));
     tx.coupon.updateMany.mockResolvedValue({ count: 0 }); // someone else flipped it
-    const service = new RedemptionService(prisma as never);
+    const service = new RedemptionService(prisma as never, {} as never);
 
     const result = await service.redeem('ABCDEFGHJK', 'm1', 'mu1');
 
