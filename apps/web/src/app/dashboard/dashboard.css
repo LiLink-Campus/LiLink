@@ -435,22 +435,32 @@ transition:
 }
 
 .question-block {
-border: none;
+  border: none;
   border-radius: var(--radius-md);
-padding: 1.25rem 1.25rem 1.5rem;
+  padding: 1.25rem 1.25rem 1.5rem;
   margin: 0;
   background: var(--color-surface-tinted);
   min-width: 0;
   min-inline-size: 0;
-box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-xs);
+  display: flow-root;
 }
 
-.question-block legend {
-  padding: 0 0.4rem;
+.question-block > legend:not(.question-block-legend) {
+  box-sizing: border-box;
+  float: left;
+  width: 100%;
+  margin: 0 0 0.85rem;
+  padding: 0;
   font-family: var(--font-display);
   font-size: 0.95rem;
   font-weight: 600;
+  line-height: 1.35;
   color: var(--color-text);
+}
+
+.question-block > legend:not(.question-block-legend) + * {
+  clear: both;
 }
 
 .question-block-legend {
@@ -1137,10 +1147,14 @@ transition:
 }
 
 .question-attention-note {
-    margin: -0.25rem 0 0.8rem;
+    margin: 0 0 0.8rem;
     color: var(--color-danger);
     font-size: 0.84rem;
     line-height: 1.55;
+}
+
+.question-block-title + .question-attention-note {
+    margin-top: -0.25rem;
 }
 
 /* Match preview card on the home hub */

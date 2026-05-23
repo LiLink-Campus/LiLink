@@ -228,6 +228,17 @@ function questionnaireAttentionText(item: QuestionnaireAttentionItem) {
   return "本题待补完。";
 }
 
+function renderQuestionBlockHeading(title: string) {
+  return (
+    <>
+      <legend className="question-block-legend">{title}</legend>
+      <div className="question-block-title" aria-hidden="true">
+        <span>{title}</span>
+      </div>
+    </>
+  );
+}
+
 function buildQuestionnaireSavePayload(
   answers: Record<string, unknown>,
   hardMatchForm: HardMatchFormState,
@@ -1471,7 +1482,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.birthDate,
                 )}
               >
-                <legend>出生日期</legend>
+                {renderQuestionBlockHeading("出生日期")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.birthDate)}
                 <div className="form-grid birth-date-grid">
                   <label>
@@ -1531,7 +1542,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.gender,
                 )}
               >
-                <legend>性别</legend>
+                {renderQuestionBlockHeading("性别")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.gender)}
                 <div className="option-list">
                   {HARD_MATCH_GENDERS.map((g, i) => (
@@ -1563,7 +1574,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.nationality,
                 )}
               >
-                <legend>国籍</legend>
+                {renderQuestionBlockHeading("国籍")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.nationality)}
                 <ValuePicker
                   id={buildDashboardFieldId("nationality")}
@@ -1590,7 +1601,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.languages,
                 )}
               >
-                <legend>语言（可多选）</legend>
+                {renderQuestionBlockHeading("语言（可多选）")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.languages)}
                 <MultiChoiceSummaryPicker
                   id={buildDashboardFieldId("languages")}
@@ -1615,7 +1626,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.looks,
                 )}
               >
-                <legend>颜值自评</legend>
+                {renderQuestionBlockHeading("颜值自评")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.looks)}
                 <div className="option-list">
                   {HARD_MATCH_LOOKS.map((l, i) => (
@@ -1647,7 +1658,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.heightCm,
                 )}
               >
-                <legend>身高（厘米）</legend>
+                {renderQuestionBlockHeading("身高（厘米）")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.heightCm)}
                 <ValuePicker
                   id={buildDashboardFieldId("height-cm")}
@@ -1675,7 +1686,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.weightKg,
                 )}
               >
-                <legend>体重（公斤）</legend>
+                {renderQuestionBlockHeading("体重（公斤）")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.weightKg)}
                 <ValuePicker
                   id={buildDashboardFieldId("weight-kg")}
@@ -1719,7 +1730,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerAge,
                 )}
               >
-                <legend>对方年龄理想区间</legend>
+                {renderQuestionBlockHeading("对方年龄理想区间")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerAge)}
                 <p className="app-muted">
                   填对方的<strong>实际年龄</strong>数字（例如 18 到 25），
@@ -1771,7 +1782,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerGenders,
                 )}
               >
-                <legend>希望对方的性别（可多选）</legend>
+                {renderQuestionBlockHeading("希望对方的性别（可多选）")}
                 {renderAttentionNote(
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerGenders,
                 )}
@@ -1813,7 +1824,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerNationalities,
                 )}
               >
-                <legend>希望对方的国籍</legend>
+                {renderQuestionBlockHeading("希望对方的国籍")}
                 {renderAttentionNote(
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerNationalities,
                 )}
@@ -1847,7 +1858,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerLanguages,
                 )}
               >
-                <legend>希望对方的语言</legend>
+                {renderQuestionBlockHeading("希望对方的语言")}
                 {renderAttentionNote(
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerLanguages,
                 )}
@@ -1881,7 +1892,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerLooks,
                 )}
               >
-                <legend>希望对方的颜值（可多选）</legend>
+                {renderQuestionBlockHeading("希望对方的颜值（可多选）")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerLooks)}
                 <div className="chip-grid">
                   {HARD_MATCH_LOOKS.map((l, i) => {
@@ -1919,7 +1930,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerHeight,
                 )}
               >
-                <legend>希望对方的身高范围（厘米）</legend>
+                {renderQuestionBlockHeading("希望对方的身高范围（厘米）")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerHeight)}
                 <div className="form-grid">
                   <label>
@@ -1973,7 +1984,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerWeight,
                 )}
               >
-                <legend>希望对方的体重范围（公斤）</legend>
+                {renderQuestionBlockHeading("希望对方的体重范围（公斤）")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerWeight)}
                 <div className="form-grid">
                   <label>
@@ -2027,7 +2038,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.excludedPartnerSchools,
                 )}
               >
-                <legend>按学校排除（可选）</legend>
+                {renderQuestionBlockHeading("按学校排除（可选）")}
                 {renderAttentionNote(
                   HARD_MATCH_FIELD_KEY_GROUPS.excludedPartnerSchools,
                 )}
