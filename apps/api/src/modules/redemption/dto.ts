@@ -11,6 +11,7 @@ import {
 import {
   REDEEM_CODE_MAX_LENGTH,
   REDEEM_ORDER_AMOUNT_MAX,
+  REDEEM_TICKET_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 
 // Step 1: verify the scanned short code + the holder's rotating TOTP token.
@@ -26,11 +27,12 @@ export class PrepareRedeemDto {
   totp!: string;
 }
 
+// Step 2: confirm the redemption with the ticket minted by /redeem/prepare.
 export class RedeemCouponDto {
   @IsString()
   @IsNotEmpty()
-  @MaxLength(REDEEM_CODE_MAX_LENGTH)
-  code!: string;
+  @MaxLength(REDEEM_TICKET_MAX_LENGTH)
+  redeemTicket!: string;
 
   // §B: consumption amount in cents. Required by the server only for
   // amount-dependent (tiered) coupons; otherwise ignored. The amount is

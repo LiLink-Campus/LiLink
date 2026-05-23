@@ -59,3 +59,7 @@ export const MERCHANT_USER_DISPLAY_NAME_MAX = 80;
 export const REDEEM_CODE_MAX_LENGTH = 16;
 // Order amount entered at redemption (cents, §B). Bounded like faceValue.
 export const REDEEM_ORDER_AMOUNT_MAX = COUPON_FACE_VALUE_MAX;
+// Redeem ticket is a short-lived JWT bound to {couponId, merchantId}; bound the
+// accepted length generously to reject oversized input without truncating valid
+// tokens.
+export const REDEEM_TICKET_MAX_LENGTH = 512;

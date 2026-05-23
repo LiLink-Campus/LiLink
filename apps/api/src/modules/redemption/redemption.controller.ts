@@ -29,12 +29,13 @@ export class RedemptionController {
   }
 
   @Post('redeem')
+  @Throttle(REDEEM_THROTTLE)
   redeem(
     @Req() request: MerchantAuthenticatedRequest,
     @Body() body: RedeemCouponDto,
   ) {
     return this.redemptionService.redeem(
-      body.code,
+      body.redeemTicket,
       request.merchantUser!.merchantId,
       request.merchantUser!.id,
       body.orderAmount,

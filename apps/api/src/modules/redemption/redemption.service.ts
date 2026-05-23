@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import {
   CouponBenefitType,
   CouponRule,
-  MerchantPromotionBlock,
   RedemptionResult,
   evaluateCoupon,
   renderBenefitText,
@@ -46,7 +45,6 @@ export interface RedeemResponse {
     discountAmount: number;
     gift: string | null;
   } | null;
-  merchantPromotion: MerchantPromotionBlock[] | null;
 }
 
 @Injectable()
@@ -131,37 +129,44 @@ export class RedemptionService {
   }
 
   /**
-   * Redeem a coupon for the logged-in merchant. Five states:
-   * - SUCCESS: the coupon belongs to this merchant, is unexpired, the holder is
-   *   ACTIVE, its rule evaluates ok for `orderAmount`, and a single conditional
-   *   update flipped ISSUED -> REDEEMED. Writes a Redemption (with orderAmount /
-   *   actualDiscountAmount) + audit and returns the resolved benefit + promotion.
-   * - NEED_AMOUNT / BELOW_THRESHOLD (§B): the code matches a valid coupon of this
-   *   merchant but its tiered rule needs an amount that is missing, or the amount
-   *   meets no tier. The coupon is NOT consumed; the tier ladder is returned so
-   *   staff can act. These only arise after the gate matches, so no existence leak.
-   * - ALREADY_USED: only when a REDEEMED coupon for THIS merchant held by an
-   *   ACTIVE user exists (or a concurrent redeemer won the flip).
-   * - INVALID: everything else (wrong merchant / not found / expired / holder
-   *   not ACTIVE) — never reveals whether the code exists.
+   * Step 2 of the two-step flow: confirm a redemption from a ticket minted by
+   * `prepare`. Five states:
+   * - SUCCESS: the ticket is valid for this merchant, the coupon still belongs
+   *   to this merchant, is unexpired, the holder is ACTIVE, its rule evaluates
+   *   ok for `orderAmount`, and a single conditional update flipped ISSUED ->
+   *   REDEEMED. Writes a Redemption (orderAmount / actualDiscountAmount /
+   *   giftLabel) + audit and returns the resolved benefit.
+   * - NEED_AMOUNT / BELOW_THRESHOLD (§B): the coupon's tiered rule needs an
+   *   amount that is missing, or the amount meets no tier. The coupon is NOT
+   *   consumed; the tier ladder is returned so staff can act.
+   * - ALREADY_USED: the conditional update flipped nothing — the coupon was
+   *   already redeemed, including a replayed 3-min ticket (the CAS makes a ticket
+   *   single-use even though the JWT itself is valid until it expires).
+   * - INVALID: the ticket is missing / forged / expired / for another merchant,
+   *   or the coupon no longer passes the merchant/holder/expiry gate.
    *
    * The merchant-entered `orderAmount` is not anti-fraud (it can be falsified);
    * it drives tier selection + reconciliation. Fraud signals are a separate line.
    */
   async redeem(
-    code: string,
+    redeemTicket: string,
     merchantId: string,
     merchantUserId: string,
     orderAmount?: number,
   ): Promise<RedeemResponse> {
-    const normalizedCode = code.trim().toUpperCase();
+    const payload = this.ticketService.verify(redeemTicket, merchantId);
+    if (!payload) {
+      return this.bare('INVALID');
+    }
     const now = new Date();
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Read the candidate scoped to the redeemable gate.
+      // 1. Reload the coupon by id and re-assert the redeemable gate (defense in
+      //    depth: the holder may have been deactivated / the coupon expired
+      //    since the ticket was minted).
       const candidate = await tx.coupon.findFirst({
         where: {
-          code: normalizedCode,
+          id: payload.couponId,
           status: 'ISSUED',
           OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
           template: { is: { merchantId } },
@@ -184,12 +189,11 @@ export class RedemptionService {
 
       if (!candidate) {
         // No redeemable match: ALREADY_USED only for a REDEEMED, still-unexpired
-        // coupon of this merchant held by an ACTIVE user. Expired coupons (even
-        // if REDEEMED) stay INVALID — same expiry gate as the redeemable query —
-        // so we never leak that an expired code belonged to this merchant.
+        // coupon of this merchant held by an ACTIVE user (covers ticket replay
+        // after a successful redeem). Everything else is INVALID.
         const alreadyUsed = await tx.coupon.count({
           where: {
-            code: normalizedCode,
+            id: payload.couponId,
             status: 'REDEEMED',
             OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
             template: { is: { merchantId } },
@@ -210,12 +214,12 @@ export class RedemptionService {
           result: evaluation.reason,
           coupon: couponView,
           applied: null,
-          merchantPromotion: null,
         };
       }
 
-      // 3. CAS flip ISSUED -> REDEEMED (same gate). A racing redeemer leaves
-      //    count 0 -> ALREADY_USED; Redemption.couponId @unique is the backstop.
+      // 3. CAS flip ISSUED -> REDEEMED (same gate). A racing redeemer or a
+      //    replayed ticket leaves count 0 -> ALREADY_USED; Redemption.couponId
+      //    @unique is the backstop.
       const updated = await tx.coupon.updateMany({
         where: {
           id: candidate.id,
@@ -241,9 +245,10 @@ export class RedemptionService {
           faceValueSnapshot: candidate.template.faceValue,
           orderAmount: orderAmount ?? null,
           actualDiscountAmount: discountAmount,
+          giftLabel: evaluation.gift ?? null,
         },
       });
-      // Gift identity is recorded in the append-only audit log (no extra column).
+      // Gift identity is also recorded in the append-only audit log.
       await tx.auditLog.create({
         data: {
           adminActorId: null,
@@ -259,11 +264,6 @@ export class RedemptionService {
         },
       });
 
-      const merchant = await tx.merchant.findUnique({
-        where: { id: merchantId },
-        select: { promotionBlocks: true },
-      });
-
       return {
         result: 'SUCCESS',
         coupon: couponView,
@@ -272,8 +272,6 @@ export class RedemptionService {
           discountAmount: evaluation.discount,
           gift: evaluation.gift,
         },
-        merchantPromotion: (merchant?.promotionBlocks ??
-          []) as unknown as MerchantPromotionBlock[],
       };
     });
   }
@@ -302,6 +300,6 @@ export class RedemptionService {
   }
 
   private bare(result: RedemptionResult): RedeemResponse {
-    return { result, coupon: null, applied: null, merchantPromotion: null };
+    return { result, coupon: null, applied: null };
   }
 }
