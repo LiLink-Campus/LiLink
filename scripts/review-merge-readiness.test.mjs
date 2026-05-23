@@ -58,13 +58,14 @@ test("match page keeps current-cycle states ahead of stale last-round unmatched 
   );
 });
 
-test("match page hides identity before introduction and keeps safety/report actions available", () => {
+test("match page hides identity before introduction but keeps intro and safety/report actions available", () => {
   const source = readRepoFile("apps/web/src/app/dashboard/match/match-client.tsx");
 
   assert.match(source, /const initial = introduced \? avatarInitialFor\(counterpart\.displayName\) : "TA"/);
   assert.match(source, /avatarInitial=\{initial\}/);
   assert.doesNotMatch(source, /: counterpart\.schoolName \?\? "等你决定如何破冰"/);
-  assert.match(source, /\{introduced && counterpart\?\.introLine \?/);
+  assert.match(source, /\{counterpart\?\.introLine \?/);
+  assert.doesNotMatch(source, /\{introduced && counterpart\?\.introLine \?/);
   assert.match(source, /if \(introduced\) \{[\s\S]*?router\.push/);
   assert.match(source, /gender=\{counterpart\.gender\}/);
   assert.doesNotMatch(
