@@ -224,7 +224,7 @@ export function MatchClient({
           </div>
         ) : null}
 
-        {introduced && counterpart?.introLine ? (
+        {counterpart?.introLine ? (
           <p className="v2-match-hero-body" style={{ marginTop: "-0.25rem", color: 'var(--fg-secondary)', fontSize: '0.9rem' }}>
             <strong>对方介绍：</strong>
             {counterpart.introLine}
