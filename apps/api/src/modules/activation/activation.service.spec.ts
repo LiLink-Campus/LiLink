@@ -215,4 +215,29 @@ describe('ActivationService.tryGrantCoupons', () => {
     const service = new ActivationService(prisma as never);
     await expect(service.tryGrantCoupons('u1')).resolves.toBeUndefined();
   });
+
+  it('newly issued coupon has a non-null totpSecret and a code of length 6', async () => {
+    const { prisma, tx } = makeTxPrisma();
+    prisma.user.findUnique.mockResolvedValue(activatedUser);
+    tx.campaignActivation.upsert.mockResolvedValue({
+      id: 'act1',
+      couponsGrantedAt: null,
+    });
+    tx.couponTemplate.findMany.mockResolvedValue([
+      { id: 't1', validDays: null, validUntil: null },
+    ]);
+    tx.coupon.findMany.mockResolvedValue([]);
+    tx.coupon.create.mockResolvedValue({ id: 'co1' });
+    const service = new ActivationService(prisma as never);
+
+    await service.tryGrantCoupons('u1');
+
+    expect(tx.coupon.create).toHaveBeenCalledTimes(1);
+    const callArg = tx.coupon.create.mock.calls[0][0] as {
+      data: { code: string; totpSecret: unknown };
+    };
+    expect(callArg.data.totpSecret).toBeTruthy();
+    expect(typeof callArg.data.totpSecret).toBe('string');
+    expect(callArg.data.code).toHaveLength(6);
+  });
 });

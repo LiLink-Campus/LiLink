@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { COUPON_CODE_LENGTH, generateHumanCode } from '@lilink/shared';
+import {
+  COUPON_CODE_LENGTH,
+  generateHumanCode,
+  generateTotpSecret,
+} from '@lilink/shared';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -137,9 +141,17 @@ export class ActivationService {
       attempt += 1
     ) {
       const code = generateHumanCode({ length: COUPON_CODE_LENGTH });
+      const totpSecret = generateTotpSecret();
       try {
         const coupon = await tx.coupon.create({
-          data: { userId, templateId, code, status: 'ISSUED', expiresAt },
+          data: {
+            userId,
+            templateId,
+            code,
+            totpSecret,
+            status: 'ISSUED',
+            expiresAt,
+          },
           select: { id: true },
         });
         return coupon.id;
