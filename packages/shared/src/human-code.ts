@@ -1,6 +1,6 @@
 /**
  * Human-friendly short codes shared across recruiter invite codes (8 chars),
- * personal referral codes (10 chars), and coupon redemption codes (10 chars).
+ * personal referral codes (10 chars), and coupon redemption codes (6 chars).
  *
  * The lengths MUST stay distinct: the public landing page `/i/:code` routes by
  * code length (8 -> recruiter invite code, 10 -> personal referral code), so a
