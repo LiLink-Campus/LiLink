@@ -346,14 +346,9 @@ function FunnelChart({ funnel }: { funnel: PromotionFunnel }) {
   );
 }
 
-/** Groups channelBreakdown rows by medium, then lists scenes within each group. */
+/** Groups channelBreakdown rows by medium, then lists scenes within each group.
+ * Only rendered when rows.length > 0 — no empty-state branch needed. */
 function ChannelBreakdownPanel({ rows }: { rows: PromotionChannelBreakdownRow[] }) {
-  if (rows.length === 0) {
-    return (
-      <p className={cx(adminStyles, "mp-funnel-empty-note")}>该时间范围内暂无渠道分解数据。</p>
-    );
-  }
-
   // Group by medium preserving insertion order.
   const byMedium = new Map<ReferralMedium, PromotionChannelBreakdownRow[]>();
   for (const row of rows) {
@@ -366,39 +361,46 @@ function ChannelBreakdownPanel({ rows }: { rows: PromotionChannelBreakdownRow[] 
   }
 
   return (
-    <div className={cx(adminStyles, "qb-table-wrap admin-table-wrap mp-table-panel")}>
-      <table className={cx(adminStyles, "qb-table admin-table mp-data-table")}>
-        <thead>
-          <tr>
-            <th scope="col">媒介</th>
-            <th scope="col">场景</th>
-            <th className={cx(adminStyles, "qb-num")} scope="col">分享</th>
-            <th className={cx(adminStyles, "qb-num")} scope="col">点击</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from(byMedium.entries()).map(([medium, mediumRows]) =>
-            mediumRows.map((row, rowIdx) => (
-              <tr key={`${medium}-${row.scene ?? "null"}`}>
-                {/* Merge medium cell across its rows */}
-                {rowIdx === 0 && (
-                  <th
-                    scope="rowgroup"
-                    rowSpan={mediumRows.length}
-                    className={cx(adminStyles, "qb-cell-strong")}
-                  >
-                    {MEDIUM_LABELS[medium]}
-                  </th>
-                )}
-                <td>{row.scene ? (SCENE_LABELS[row.scene] ?? row.scene) : "—"}</td>
-                <td className={cx(adminStyles, "qb-num")}>{row.share}</td>
-                <td className={cx(adminStyles, "qb-num")}>{row.click}</td>
-              </tr>
-            )),
-          )}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className={cx(adminStyles, "qb-table-wrap admin-table-wrap mp-table-panel")}>
+        <table className={cx(adminStyles, "qb-table admin-table mp-data-table")}>
+          <thead>
+            <tr>
+              <th scope="col">媒介</th>
+              <th scope="col">场景</th>
+              <th className={cx(adminStyles, "qb-num")} scope="col">分享</th>
+              <th className={cx(adminStyles, "qb-num")} scope="col">点击</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from(byMedium.entries()).map(([medium, mediumRows]) =>
+              mediumRows.map((row, rowIdx) => (
+                <tr key={`${medium}-${row.scene ?? "null"}`}>
+                  {/* Merge medium cell across its rows */}
+                  {rowIdx === 0 && (
+                    <th
+                      scope="rowgroup"
+                      rowSpan={mediumRows.length}
+                      className={cx(adminStyles, "qb-cell-strong")}
+                    >
+                      {MEDIUM_LABELS[medium]}
+                    </th>
+                  )}
+                  <td>{row.scene ? (SCENE_LABELS[row.scene] ?? row.scene) : "—"}</td>
+                  <td className={cx(adminStyles, "qb-num")}>{row.share}</td>
+                  <td className={cx(adminStyles, "qb-num")}>{row.click}</td>
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+      </div>
+      {/* Events with null/unknown channel are excluded from this breakdown,
+          so row totals may be less than the funnel SHARE/CLICK counts. */}
+      <p className={cx(adminStyles, "mp-section-hint")}>
+        仅展示已标记渠道，合计可能小于分享/点击总数
+      </p>
+    </>
   );
 }
 
@@ -921,7 +923,9 @@ export default function AdminPromotionPage() {
                       <tbody>
                         {leaderboard.items.map((row) => (
                           <tr key={`${row.sourceType}-${row.refLabel}`}>
-                            <td className={cx(adminStyles, "qb-cell-strong")}>{row.refLabel}</td>
+                            <td className={cx(adminStyles, "qb-cell-strong")}>
+                              {row.sourceType === "DEFAULT" ? "默认活动" : row.refLabel}
+                            </td>
                             <td className={cx(adminStyles, "qb-num")}>
                               <span className={cx(adminStyles, "qb-minibar-cell")}>
                                 <span
