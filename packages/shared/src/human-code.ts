@@ -12,7 +12,7 @@ export const HUMAN_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
 export const INVITE_CODE_LENGTH = 8; // recruiter invite codes (existing system)
 export const PERSONAL_CODE_LENGTH = 10; // per-user personal referral codes
-export const COUPON_CODE_LENGTH = 10; // coupon redemption codes
+export const COUPON_CODE_LENGTH = 6; // coupon redemption codes
 
 /**
  * Generate a random human-friendly code. Uses Web Crypto (available in Node 20+
