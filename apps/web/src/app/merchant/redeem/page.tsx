@@ -68,18 +68,35 @@ function CrossIcon() {
 }
 
 const RESULT_META: Record<
-  string,
-  { cls: string; label: string; icon: ReactNode }
+  RedeemResponse["result"],
+  { cls: string; label: string; icon: ReactNode; hint?: string }
 > = {
   SUCCESS: { cls: "is-success", label: "核销成功", icon: <CheckIcon /> },
   ALREADY_USED: { cls: "is-warning", label: "该券已使用", icon: <WarnIcon /> },
   INVALID: { cls: "is-error", label: "无效券码", icon: <CrossIcon /> },
+  NEED_AMOUNT: {
+    cls: "is-warning",
+    label: "请输入消费金额",
+    icon: <WarnIcon />,
+    hint: "该券为满减/折扣/满赠券，填写消费金额后再核销。",
+  },
+  BELOW_THRESHOLD: {
+    cls: "is-warning",
+    label: "未达使用门槛",
+    icon: <WarnIcon />,
+    hint: "本次消费金额未达到下方任一档门槛，无法核销。",
+  },
 };
+
+function formatYuan(cents: number) {
+  return (cents / 100).toFixed(2);
+}
 
 export default function MerchantRedeemPage() {
   const [me, setMe] = useState<MerchantSessionUser | null>(null);
   const [checking, setChecking] = useState(true);
   const [code, setCode] = useState("");
+  const [amount, setAmount] = useState("");
   const [result, setResult] = useState<RedeemResponse | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,13 +126,26 @@ export default function MerchantRedeemPage() {
       setError(`券码应为 ${COUPON_CODE_LENGTH} 位，请检查后重试。`);
       return;
     }
+    let orderAmount: number | undefined;
+    const trimmedAmount = amount.trim();
+    if (trimmedAmount) {
+      const yuan = Number(trimmedAmount);
+      if (!Number.isFinite(yuan) || yuan < 0) {
+        setError("消费金额无效，请输入大于等于 0 的数字。");
+        return;
+      }
+      orderAmount = Math.round(yuan * 100);
+    }
     setPending(true);
     setError(null);
     setResult(null);
     try {
-      const response = await redeemCoupon(normalized);
+      const response = await redeemCoupon(normalized, orderAmount);
       setResult(response);
-      if (response.result === "SUCCESS") setCode("");
+      if (response.result === "SUCCESS") {
+        setCode("");
+        setAmount("");
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "核销失败，请重试。");
     } finally {
@@ -139,6 +169,7 @@ export default function MerchantRedeemPage() {
   if (!me) return null;
 
   const meta = result ? RESULT_META[result.result] : null;
+  const applied = result?.result === "SUCCESS" ? result.applied : null;
 
   return (
     <div className="mc-shell">
@@ -159,6 +190,17 @@ export default function MerchantRedeemPage() {
             autoCapitalize="characters"
             autoComplete="off"
           />
+          <input
+            className="mc-input mc-amount-input"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            placeholder="消费金额（元）· 满减/折扣/满赠券必填"
+            inputMode="decimal"
+            type="number"
+            min={0}
+            step="0.01"
+            autoComplete="off"
+          />
           <button
             className="mc-btn"
             type="submit"
@@ -170,16 +212,34 @@ export default function MerchantRedeemPage() {
 
         {error && <p className="mc-error">{error}</p>}
 
-        {meta && (
+        {meta && result && (
           <div className={`mc-result ${meta.cls}`}>
             {meta.icon}
             <span className="mc-result-label">{meta.label}</span>
-            {result?.result === "SUCCESS" && result.coupon && (
+
+            {meta.hint && <p className="mc-result-hint">{meta.hint}</p>}
+
+            {result.coupon && (
               <div className="mc-coupon">
                 <p className="mc-coupon-title">{result.coupon.title}</p>
                 <p>{result.coupon.benefitText}</p>
+
+                {applied &&
+                  (applied.gift ? (
+                    <p className="mc-coupon-apply">赠品：{applied.gift}</p>
+                  ) : applied.discountAmount > 0 ? (
+                    <p className="mc-coupon-apply">
+                      应减 {formatYuan(applied.discountAmount)} 元
+                    </p>
+                  ) : null)}
+                {applied && applied.orderAmount != null && (
+                  <p className="mc-coupon-order">
+                    消费 {formatYuan(applied.orderAmount)} 元
+                  </p>
+                )}
+
                 <p className="mc-coupon-face">
-                  面值 {(result.coupon.faceValue / 100).toFixed(2)} 元
+                  面值 {formatYuan(result.coupon.faceValue)} 元
                 </p>
                 {result.coupon.userDisplayName && (
                   <p className="mc-coupon-holder">
