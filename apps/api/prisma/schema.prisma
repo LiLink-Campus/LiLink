@@ -763,6 +763,7 @@ model Coupon {
   status     CouponStatus   @default(ISSUED)
   issuedAt   DateTime       @default(now())
   expiresAt  DateTime?
+  totpSecret String?
   redemption Redemption?
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
@@ -817,6 +818,7 @@ model Redemption {
   faceValueSnapshot    Int
   orderAmount          Int?
   actualDiscountAmount Int?
+  giftLabel            String?
   redeemedAt           DateTime      @default(now())
   createdAt            DateTime      @default(now())
 
