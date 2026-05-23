@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
   IsInt,
@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { REFERRAL_SOURCE_TYPES } from '@lilink/shared';
 import {
   ADMIN_ID_MAX_LENGTH,
   ADMIN_LIST_PAGE_MAX,
@@ -32,7 +33,14 @@ export class PromotionQueryDto {
 }
 
 export class PromotionLeaderboardQueryDto extends PromotionQueryDto {
-  @IsIn(['personal', 'recruiter'])
+  // Accepts canonical UPPERCASE values (PERSONAL, RECRUITER, DEFAULT).
+  // For backward compatibility, lowercase inputs are normalized to uppercase
+  // before validation so that existing clients sending 'personal'/'recruiter'
+  // continue to work.
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
+  @IsIn([...REFERRAL_SOURCE_TYPES])
   source!: string;
 
   @IsOptional()

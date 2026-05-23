@@ -1,8 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
+  deriveReferralSource,
   HARD_MATCH_GENDERS,
   HARD_MATCH_KEYS,
+  isReferralChannel,
   readSingleChoice,
+  ReferralMedium,
+  ReferralScene,
+  splitReferralChannel,
 } from '@lilink/shared';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -34,11 +39,19 @@ interface FunnelStep {
   count: number;
 }
 
+export interface ChannelBreakdownRow {
+  medium: ReferralMedium;
+  scene: ReferralScene | null;
+  share: number;
+  click: number;
+}
+
 export interface PromotionFunnelResponse {
   campaignId: string;
   steps: FunnelStep[];
   byGender: { gender: string; steps: FunnelStep[] }[];
   conversions: { from: string; to: string; rate: number }[];
+  channelBreakdown: ChannelBreakdownRow[];
 }
 
 export interface PromotionLeaderboardRow {
@@ -83,14 +96,21 @@ export class PromotionDashboardService {
     const campaignId = query.campaignId;
     const range = { gte: from, lt: to };
 
-    const [share, click] = await Promise.all([
-      this.prisma.referralEvent.count({
+    // Fetch SHARE + CLICK events with channel for breakdown; total counts are
+    // derived from the same arrays so there are no extra round-trips.
+    const [shareEvents, clickEvents] = await Promise.all([
+      this.prisma.referralEvent.findMany({
         where: { type: 'SHARE', campaignId, createdAt: range },
+        select: { channel: true },
       }),
-      this.prisma.referralEvent.count({
+      this.prisma.referralEvent.findMany({
         where: { type: 'CLICK', campaignId, createdAt: range },
+        select: { channel: true },
       }),
     ]);
+
+    const share = shareEvents.length;
+    const click = clickEvents.length;
 
     // Register cohort: users attributed to this campaign who registered in the
     // range, with gender + downstream activation/grant/redeem flags.
@@ -164,11 +184,17 @@ export class PromotionDashboardService {
       ],
     }));
 
+    const channelBreakdown = this.aggregateChannelBreakdown(
+      shareEvents,
+      clickEvents,
+    );
+
     return {
       campaignId,
       steps,
       byGender,
       conversions: this.computeConversions(steps),
+      channelBreakdown,
     };
   }
 
@@ -181,16 +207,25 @@ export class PromotionDashboardService {
       20,
       ADMIN_LIST_PAGE_SIZE_MAX,
     );
-    const isPersonal = query.source === 'personal';
+    // source is normalized to UPPERCASE by the DTO Transform decorator.
+    const source = query.source;
+
+    // Build a DB-level pre-filter that narrows to the requested source bucket
+    // before pulling the full user list into application memory.
+    const sourceFilter =
+      source === 'PERSONAL'
+        ? { referredByUserId: { not: null }, inviteCodeId: null }
+        : source === 'RECRUITER'
+          ? { inviteCodeId: { not: null } }
+          : // DEFAULT: no personal referrer and no invite code
+            { referredByUserId: null, inviteCodeId: null };
 
     const users = await this.prisma.user.findMany({
       where: {
         isTest: false,
         createdAt: { gte: from, lt: to },
         referralCampaignId: campaignId,
-        ...(isPersonal
-          ? { referredByUserId: { not: null } }
-          : { inviteCodeId: { not: null } }),
+        ...sourceFilter,
       },
       select: {
         referredByUserId: true,
@@ -212,15 +247,34 @@ export class PromotionDashboardService {
 
     const rows = new Map<string, PromotionLeaderboardRow>();
     for (const user of users) {
-      const key = isPersonal ? user.referredByUserId : user.inviteCodeId;
-      if (!key) continue;
-      const refLabel = isPersonal
-        ? (user.referredBy?.displayName ?? user.referredBy?.referralCode ?? key)
-        : (user.inviteCode?.ownerName ?? key);
+      // Use shared helper so source derivation stays consistent across the app.
+      const derivedSource = deriveReferralSource({
+        inviteCodeId: user.inviteCodeId,
+        referredByUserId: user.referredByUserId,
+      });
+
+      // Group key: referrer identity for PERSONAL/RECRUITER; a fixed sentinel
+      // for DEFAULT (all default-attributed users share the one DEFAULT row).
+      const key =
+        derivedSource === 'PERSONAL'
+          ? user.referredByUserId!
+          : derivedSource === 'RECRUITER'
+            ? user.inviteCodeId!
+            : '__DEFAULT__';
+
+      const refLabel =
+        derivedSource === 'PERSONAL'
+          ? (user.referredBy?.displayName ??
+            user.referredBy?.referralCode ??
+            key)
+          : derivedSource === 'RECRUITER'
+            ? (user.inviteCode?.ownerName ?? key)
+            : 'DEFAULT';
+
       const row =
         rows.get(key) ??
         ({
-          sourceType: query.source,
+          sourceType: derivedSource,
           refLabel,
           invited: 0,
           registered: 0,
@@ -369,6 +423,57 @@ export class PromotionDashboardService {
   }
 
   // ---- helpers ----
+
+  /**
+   * Groups SHARE and CLICK events by their derived medium/scene dimensions.
+   * Application-level grouping is acceptable at campus event volumes.
+   */
+  private aggregateChannelBreakdown(
+    shareEvents: { channel: string | null }[],
+    clickEvents: { channel: string | null }[],
+  ): ChannelBreakdownRow[] {
+    // Stable key: "medium:scene" (scene may be "null")
+    const buckets = new Map<
+      string,
+      {
+        medium: ReferralMedium;
+        scene: ReferralScene | null;
+        share: number;
+        click: number;
+      }
+    >();
+
+    const bucketKey = (medium: ReferralMedium, scene: ReferralScene | null) =>
+      `${medium}:${String(scene)}`;
+
+    const ensureBucket = (
+      medium: ReferralMedium,
+      scene: ReferralScene | null,
+    ) => {
+      const k = bucketKey(medium, scene);
+      if (!buckets.has(k)) {
+        buckets.set(k, { medium, scene, share: 0, click: 0 });
+      }
+      return buckets.get(k)!;
+    };
+
+    for (const ev of shareEvents) {
+      if (!isReferralChannel(ev.channel)) continue;
+      const { medium, scene } = splitReferralChannel(ev.channel);
+      ensureBucket(medium, scene).share += 1;
+    }
+    for (const ev of clickEvents) {
+      if (!isReferralChannel(ev.channel)) continue;
+      const { medium, scene } = splitReferralChannel(ev.channel);
+      ensureBucket(medium, scene).click += 1;
+    }
+
+    return [...buckets.values()].sort((a, b) => {
+      const total = b.share + b.click - (a.share + a.click);
+      if (total !== 0) return total;
+      return a.medium.localeCompare(b.medium);
+    });
+  }
 
   private computeConversions(steps: FunnelStep[]) {
     const conversions: { from: string; to: string; rate: number }[] = [];
