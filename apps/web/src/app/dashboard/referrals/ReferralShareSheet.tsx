@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 import { useEffect, useState } from "react";
 import {
   CheckCircleIcon,
@@ -164,27 +165,27 @@ export function ReferralShareSheet({
   }
 
   return (
-    <div className="intent-sheet-root" role="presentation">
+    <div className={dcx("intent-sheet-root")} role="presentation">
       <button
         type="button"
-        className="intent-sheet-backdrop"
+        className={dcx("intent-sheet-backdrop")}
         aria-label="关闭分享选择"
         disabled={sharing}
         onClick={onClose}
       />
       <div
-        className="intent-sheet referrals-share-sheet"
+        className={dcx("intent-sheet referrals-share-sheet")}
         role="dialog"
         aria-modal="true"
         aria-labelledby="referrals-share-sheet-title"
       >
-        <div className="intent-sheet-handle" aria-hidden="true" />
-        <p className="eyebrow">分享邀请</p>
+        <div className={dcx("intent-sheet-handle")} aria-hidden="true" />
+        <p className={dcx("eyebrow")}>分享邀请</p>
         <h2 id="referrals-share-sheet-title">选择分享方式</h2>
-        <p className="app-muted">
+        <p className={dcx("app-muted")}>
           选好渠道后会自动复制专属链接，再粘贴到对应 App 即可。
         </p>
-        <ul className="intent-sheet-options">
+        <ul className={dcx("intent-sheet-options")}>
           {SHARE_CHANNEL_ORDER.map((channel) => {
             const meta = CHANNEL_META[channel];
             const Icon = meta.icon;
@@ -200,22 +201,22 @@ export function ReferralShareSheet({
                   type="button"
                   className={
                     isActive || isCopied
-                      ? "intent-sheet-option is-active"
-                      : "intent-sheet-option"
+                      ? dcx("intent-sheet-option is-active")
+                      : dcx("intent-sheet-option")
                   }
                   disabled={sharing}
                   onClick={() => void handleChoose(channel)}
                 >
-                  <span className="intent-sheet-option-glyph" aria-hidden="true">
+                  <span className={dcx("intent-sheet-option-glyph")} aria-hidden="true">
                     <Icon />
                   </span>
-                  <span className="intent-sheet-option-text">
-                    <span className="intent-sheet-option-primary">{meta.label}</span>
-                    <span className="intent-sheet-option-subtitle">
+                  <span className={dcx("intent-sheet-option-text")}>
+                    <span className={dcx("intent-sheet-option-primary")}>{meta.label}</span>
+                    <span className={dcx("intent-sheet-option-subtitle")}>
                       {isCopied ? meta.guide : meta.hint}
                     </span>
                   </span>
-                  <span className="referrals-share-sheet-action" aria-hidden="true">
+                  <span className={dcx("referrals-share-sheet-action")} aria-hidden="true">
                     {isCopied ? <CheckCircleIcon /> : channel === "QR" ? <QrCodeIcon /> : <CopyIcon />}
                   </span>
                 </button>
@@ -225,8 +226,8 @@ export function ReferralShareSheet({
         </ul>
 
         {activeChannel === "QR" && qrUrl ? (
-          <div className="referrals-share-qr-panel">
-            <div className="referrals-qr-frame">
+          <div className={dcx("referrals-share-qr-panel")}>
+            <div className={dcx("referrals-qr-frame")}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`}
@@ -235,13 +236,13 @@ export function ReferralShareSheet({
                 height={180}
               />
             </div>
-            <p className="referrals-share-qr-guide">{CHANNEL_META.QR.guide}</p>
+            <p className={dcx("referrals-share-qr-guide")}>{CHANNEL_META.QR.guide}</p>
           </div>
         ) : null}
 
         <button
           type="button"
-          className="ui-button ui-button--secondary intent-sheet-cancel"
+          className={dcx("ui-button ui-button--secondary intent-sheet-cancel")}
           disabled={sharing}
           onClick={onClose}
         >

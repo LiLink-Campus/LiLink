@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 import {
   useCallback,
   useEffect,
@@ -46,7 +47,7 @@ function secsToNextPeriod(at: number = Date.now()) {
   return period - elapsed;
 }
 
-/** Retrieve or write localStorage cache for coupon redeem-secret. */
+/** localStorage cache for the per-coupon redeem secret. */
 const CACHE_PREFIX = "lilink:coupon-secret:";
 function readCachedSecret(couponId: string): CouponRedeemSecret | null {
   try {
@@ -66,7 +67,7 @@ function writeCachedSecret(couponId: string, data: CouponRedeemSecret) {
 }
 
 // -------------------------------------------------------------------
-// Sub-components
+// Coupon card
 // -------------------------------------------------------------------
 
 function CouponCard({
@@ -85,44 +86,44 @@ function CouponCard({
 
   return (
     <article
-      className={`coupons-card${archived ? " is-archived" : ""}`}
+      className={dcx(`coupons-card${archived ? " is-archived" : ""}`)}
       aria-label={coupon.title}
     >
-      <div className="coupons-card-main">
-        <div className="coupons-card-head">
-          <p className="coupons-card-title">{coupon.title}</p>
+      <div className={dcx("coupons-card-main")}>
+        <div className={dcx("coupons-card-head")}>
+          <p className={dcx("coupons-card-title")}>{coupon.title}</p>
         </div>
-        <div className="coupons-card-meta">
-          <span className="coupons-card-merchant">{coupon.merchantName}</span>
+        <div className={dcx("coupons-card-meta")}>
+          <span className={dcx("coupons-card-merchant")}>{coupon.merchantName}</span>
           {!archived ? (
             <>
-              <span className="coupons-card-meta-sep" aria-hidden="true">
+              <span className={dcx("coupons-card-meta-sep")} aria-hidden="true">
                 ·
               </span>
-              <span className="coupons-card-expiry">
+              <span className={dcx("coupons-card-expiry")}>
                 {formatExpiry(coupon.expiresAt)}
               </span>
             </>
           ) : null}
         </div>
         {showBenefit ? (
-          <p className="coupons-card-benefit">
+          <p className={dcx("coupons-card-benefit")}>
             {coupon.benefitText.split(" ｜ ").map((tier, index) => (
               <Fragment key={index}>
                 {index > 0 ? (
-                  <span className="coupons-card-benefit-sep" aria-hidden="true">
+                  <span className={dcx("coupons-card-benefit-sep")} aria-hidden="true">
                     ｜
                   </span>
                 ) : null}
-                <span className="coupons-card-benefit-tier">{tier}</span>
+                <span className={dcx("coupons-card-benefit-tier")}>{tier}</span>
               </Fragment>
             ))}
           </p>
         ) : null}
       </div>
 
-      <div className="coupons-card-actions">
-        <span className={`coupons-badge${archived ? " is-muted" : ""}`}>
+      <div className={dcx("coupons-card-actions")}>
+        <span className={dcx(`coupons-badge${archived ? " is-muted" : ""}`)}>
           {archived
             ? (STATUS_LABELS[coupon.status] ?? coupon.status)
             : "可用"}
@@ -130,7 +131,7 @@ function CouponCard({
         {!archived ? (
           <button
             type="button"
-            className="ui-button ui-button--primary coupons-use-btn"
+            className={dcx("ui-button ui-button--primary coupons-use-btn")}
             onClick={onShowCode}
           >
             查看核销码
@@ -148,21 +149,21 @@ function CouponCard({
 function PromotionBlock({ block }: { block: MerchantPromotionBlock }) {
   if (block.type === "TEXT") {
     return (
-      <div className="coupons-redeemed-promo-block">
+      <div className={dcx("coupons-redeemed-promo-block")}>
         <p>{block.text}</p>
       </div>
     );
   }
   return (
-    <div className="coupons-redeemed-promo-block">
+    <div className={dcx("coupons-redeemed-promo-block")}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={block.imageUrl}
         alt={block.caption ?? (block.type === "QRCODE" ? "商家二维码" : "推广图片")}
-        className="coupons-redeemed-promo-img"
+        className={dcx("coupons-redeemed-promo-img")}
       />
       {block.caption ? (
-        <p className="coupons-redeemed-promo-caption">{block.caption}</p>
+        <p className={dcx("coupons-redeemed-promo-caption")}>{block.caption}</p>
       ) : null}
     </div>
   );
@@ -185,12 +186,14 @@ function RedeemedView({
   const hasGift = applied?.gift;
 
   return (
-    <div className="coupons-redeemed-success">
-      <span className="coupons-redeemed-icon" aria-hidden="true">✅</span>
-      <p className="coupons-redeemed-title">核销成功</p>
+    <div className={dcx("coupons-redeemed-success")}>
+      <span className={dcx("coupons-redeemed-icon")} aria-hidden="true">
+        ✅
+      </span>
+      <p className={dcx("coupons-redeemed-title")}>核销成功</p>
 
       {hasDiscount ? (
-        <p className="coupons-redeemed-applied">
+        <p className={dcx("coupons-redeemed-applied")}>
           {applied.orderAmount != null ? (
             <>消费 {formatYuan(applied.orderAmount)} 元，</>
           ) : null}
@@ -199,11 +202,11 @@ function RedeemedView({
       ) : null}
 
       {hasGift ? (
-        <p className="coupons-redeemed-applied">赠品：{applied!.gift}</p>
+        <p className={dcx("coupons-redeemed-applied")}>赠品：{applied!.gift}</p>
       ) : null}
 
       {merchantPromotion && merchantPromotion.length > 0 ? (
-        <div className="coupons-redeemed-promotion">
+        <div className={dcx("coupons-redeemed-promotion")}>
           {merchantPromotion.map((block, idx) => (
             <PromotionBlock key={idx} block={block} />
           ))}
@@ -211,7 +214,7 @@ function RedeemedView({
       ) : null}
 
       <button
-        className="ui-button ui-button--primary coupons-dialog-close"
+        className={dcx("ui-button ui-button--primary coupons-dialog-close")}
         onClick={onClose}
         type="button"
       >
@@ -222,7 +225,7 @@ function RedeemedView({
 }
 
 // -------------------------------------------------------------------
-// Show-code dialog (TOTP token + QR code + polling)
+// Show-code dialog (TOTP token + QR code + status polling)
 // -------------------------------------------------------------------
 
 type DialogState =
@@ -246,7 +249,7 @@ function CouponCodeDialog({
   const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Open / close native dialog.
+  // Open / close the native dialog.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -268,7 +271,7 @@ function CouponCodeDialog({
     }
   }, []);
 
-  // Start the 1-second tick that refreshes the TOTP token + countdown.
+  // 1-second tick that refreshes the TOTP token + countdown.
   const startTick = useCallback((secret: CouponRedeemSecret) => {
     const tick = () => {
       const now = Date.now();
@@ -280,7 +283,7 @@ function CouponCodeDialog({
     tickIntervalRef.current = setInterval(tick, 1000);
   }, []);
 
-  // Start polling the status endpoint every 2.5s.
+  // Poll the status endpoint every 2.5s; stop on a terminal status.
   const startPolling = useCallback(
     (couponId: string) => {
       const poll = async () => {
@@ -305,7 +308,7 @@ function CouponCodeDialog({
     [stopTimers],
   );
 
-  // Load secret on open, tear down on close.
+  // Load the secret on open, tear everything down on close/unmount.
   useEffect(() => {
     if (!coupon) {
       stopTimers();
@@ -316,7 +319,7 @@ function CouponCodeDialog({
     let active = true;
     setState({ phase: "loading" });
 
-    // Try local cache first.
+    // Try the local cache first.
     const cached = readCachedSecret(coupon.id);
     if (cached) {
       startTick(cached);
@@ -364,30 +367,35 @@ function CouponCodeDialog({
   return (
     <dialog
       ref={dialogRef}
-      className="coupons-dialog"
+      className={dcx("coupons-dialog")}
       onClose={onClose}
       aria-labelledby="coupons-dialog-title"
     >
-      <div className="coupons-dialog-inner">
-        <div className="coupons-dialog-header">
-          <h2 id="coupons-dialog-title" className="coupons-dialog-title">
+      <div className={dcx("coupons-dialog-inner")}>
+        <div className={dcx("coupons-dialog-header")}>
+          <h2 id="coupons-dialog-title" className={dcx("coupons-dialog-title")}>
             {coupon.title}
           </h2>
-          <p className="coupons-dialog-merchant">{coupon.merchantName}</p>
+          <p className={dcx("coupons-dialog-merchant")}>{coupon.merchantName}</p>
         </div>
 
-        <div className="coupons-dialog-body">
+        <div className={dcx("coupons-dialog-body")}>
           {state.phase === "loading" ? (
-            <div className="me-state">
-              <span className="me-state-spinner" />
+            <div className={dcx("me-state")}>
+              <span className={dcx("me-state-spinner")} />
               <span>加载中……</span>
             </div>
           ) : state.phase === "error" ? (
-            <p className="coupons-dialog-hint" style={{ color: "var(--color-danger)" }}>
+            <p
+              className={dcx("coupons-dialog-hint")}
+              style={{ color: "var(--color-danger)" }}
+            >
               {state.message}
             </p>
           ) : state.phase === "not-redeemable" ? (
-            <p className="coupons-dialog-hint">该券暂不支持扫码核销，请向店员报出券码。</p>
+            <p className={dcx("coupons-dialog-hint")}>
+              该券暂不支持扫码核销，请向店员报出券码。
+            </p>
           ) : state.phase === "redeemed" ? (
             <RedeemedView
               applied={state.status.applied}
@@ -395,16 +403,16 @@ function CouponCodeDialog({
               onClose={onClose}
             />
           ) : state.phase === "expired-or-void" ? (
-            <div className="coupons-redeemed-success">
-              <span className="coupons-redeemed-icon" aria-hidden="true">
+            <div className={dcx("coupons-redeemed-success")}>
+              <span className={dcx("coupons-redeemed-icon")} aria-hidden="true">
                 {state.reason === "EXPIRED" ? "⏰" : "🚫"}
               </span>
-              <p className="coupons-redeemed-title">
+              <p className={dcx("coupons-redeemed-title")}>
                 {state.reason === "EXPIRED" ? "优惠券已过期" : "优惠券已作废"}
               </p>
-              <p className="coupons-dialog-hint">该优惠券无法再使用，请关闭。</p>
+              <p className={dcx("coupons-dialog-hint")}>该优惠券无法再使用，请关闭。</p>
               <button
-                className="ui-button ui-button--primary coupons-dialog-close"
+                className={dcx("ui-button ui-button--primary coupons-dialog-close")}
                 onClick={onClose}
                 type="button"
               >
@@ -414,29 +422,26 @@ function CouponCodeDialog({
           ) : (
             // phase === "active"
             <>
-              <div className="coupons-showcode-qr">
-                <QrCode
-                  value={buildQrValue(state.secret.code, state.token)}
-                  size={180}
-                />
+              <div className={dcx("coupons-showcode-qr")}>
+                <QrCode value={buildQrValue(state.secret.code, state.token)} size={180} />
               </div>
 
-              <div className="coupons-showcode-code">
-                <span className="coupons-showcode-code-label">核销码</span>
-                <code className="coupons-showcode-code-value">
+              <div className={dcx("coupons-showcode-code")}>
+                <span className={dcx("coupons-showcode-code-label")}>核销码</span>
+                <code className={dcx("coupons-showcode-code-value")}>
                   {formatRedeemCode(state.secret.code, state.token)}
                 </code>
-                <span className="coupons-showcode-countdown">
+                <span className={dcx("coupons-showcode-countdown")}>
                   {state.secs}
-                  <span className="coupons-showcode-countdown-secs"> 秒</span>
+                  <span className={dcx("coupons-showcode-countdown-secs")}> 秒</span>
                   后刷新
                 </span>
               </div>
 
-              <p className="coupons-dialog-hint">请向店员出示此核销码</p>
+              <p className={dcx("coupons-dialog-hint")}>请向店员出示此核销码</p>
 
               <button
-                className="ui-button ui-button--primary coupons-dialog-close"
+                className={dcx("ui-button ui-button--primary coupons-dialog-close")}
                 onClick={onClose}
                 type="button"
               >
@@ -456,12 +461,12 @@ function CouponCodeDialog({
 
 function CouponsEmptyState() {
   return (
-    <div className="coupons-empty" role="status">
-      <span className="coupons-empty-icon" aria-hidden="true">
+    <div className={dcx("coupons-empty")} role="status">
+      <span className={dcx("coupons-empty-icon")} aria-hidden="true">
         <ClipboardIcon />
       </span>
-      <p className="coupons-empty-title">暂无可用优惠券</p>
-      <p className="coupons-empty-desc">
+      <p className={dcx("coupons-empty-title")}>暂无可用优惠券</p>
+      <p className={dcx("coupons-empty-desc")}>
         完善资料并报名匹配周期后，系统会自动为你发放商家优惠。
       </p>
     </div>
@@ -483,15 +488,15 @@ function CouponsPanel({
 }) {
   return (
     <section
-      className={`coupons-panel${muted ? " is-muted" : ""}`}
+      className={dcx(`coupons-panel${muted ? " is-muted" : ""}`)}
       aria-label={title}
     >
-      <div className="coupons-panel-head">
-        <div className="coupons-panel-head-main">
+      <div className={dcx("coupons-panel-head")}>
+        <div className={dcx("coupons-panel-head-main")}>
           <h2>{title}</h2>
           <p>{description}</p>
         </div>
-        <span className="coupons-panel-count">{count} 张</span>
+        <span className={dcx("coupons-panel-count")}>{count} 张</span>
       </div>
       {children}
     </section>
@@ -525,9 +530,9 @@ export function CouponsClient() {
 
   if (loading) {
     return (
-      <div className="app-page-shell v2-page-shell coupons-page">
-        <div className="me-state">
-          <span className="me-state-spinner" />
+      <div className={dcx("app-page-shell v2-page-shell coupons-page")}>
+        <div className={dcx("me-state")}>
+          <span className={dcx("me-state-spinner")} />
           <span>加载中……</span>
         </div>
       </div>
@@ -535,8 +540,8 @@ export function CouponsClient() {
   }
   if (error) {
     return (
-      <div className="app-page-shell v2-page-shell coupons-page">
-        <div className="me-state is-error">{error}</div>
+      <div className={dcx("app-page-shell v2-page-shell coupons-page")}>
+        <div className={dcx("me-state is-error")}>{error}</div>
       </div>
     );
   }
@@ -546,10 +551,10 @@ export function CouponsClient() {
     coupons?.filter((coupon) => coupon.status !== "ISSUED") ?? [];
 
   return (
-    <div className="app-page-shell v2-page-shell coupons-page">
-      <header className="v2-page-header coupons-header">
-        <span className="v2-page-header-eyebrow">
-          <ClipboardIcon className="coupons-header-icon" />
+    <div className={dcx("app-page-shell v2-page-shell coupons-page")}>
+      <header className={dcx("v2-page-header coupons-header")}>
+        <span className={dcx("v2-page-header-eyebrow")}>
+          <ClipboardIcon className={dcx("coupons-header-icon")} />
           商家优惠
         </span>
         <h1>我的优惠券</h1>
@@ -564,7 +569,7 @@ export function CouponsClient() {
         {issued.length === 0 ? (
           <CouponsEmptyState />
         ) : (
-          <div className="coupons-list">
+          <div className={dcx("coupons-list")}>
             {issued.map((coupon) => (
               <CouponCard
                 key={coupon.id}
@@ -583,7 +588,7 @@ export function CouponsClient() {
           count={archived.length}
           muted
         >
-          <div className="coupons-list">
+          <div className={dcx("coupons-list")}>
             {archived.map((coupon) => (
               <CouponCard key={coupon.id} coupon={coupon} archived />
             ))}

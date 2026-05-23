@@ -1,0 +1,104 @@
+/* ──────────────────────────────────────────────────────────────
+   ValuePicker (responsive: bottom sheet on mobile, popover on desktop)
+   ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 760px) {
+  .picker-trigger {
+    font-size: 1rem;
+  }
+}
+
+.picker-root {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.picker-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: left;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        background 0.15s;
+  min-height: 2.95rem;
+}
+
+.picker-trigger.is-placeholder .picker-trigger-text {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.picker-trigger-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.picker-native-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.picker-native-display {
+  pointer-events: none;
+  padding-right: 2.6rem;
+  cursor: pointer;
+}
+
+.picker-native-display.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--color-surface-muted);
+}
+
+.picker-native-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  touch-action: manipulation;
+}
+
+.picker-native-select:disabled {
+  cursor: not-allowed;
+}
+
+.picker-native-wrap:hover .picker-native-display:not(.is-disabled) {
+  border-color: var(--color-brand-soft);
+  background: var(--color-brand-tint);
+}
+
+.picker-native-wrap:focus-within .picker-native-display {
+  outline: none;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 4px rgba(47, 91, 67, 0.12);
+}
+
+.picker-native-caret {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-brand);
+  font-size: 0.9rem;
+  pointer-events: none;
+}

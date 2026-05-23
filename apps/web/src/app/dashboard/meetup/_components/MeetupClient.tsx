@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../../_lib/dashboard-class-names";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -266,19 +267,19 @@ export function MeetupStartClient({
 
   if (!matchId) {
     return (
-      <div className="app-page-shell app-page-shell-narrow v2-page-shell">
-        <section className="v2-meetup-action-card tone-muted">
-          <header className="v2-meetup-action-head">
-            <div className="v2-meetup-action-head-body">
-              <span className="v2-meetup-action-eyebrow">缺少参数</span>
-              <h2 className="v2-meetup-action-title">无法发起见面安排</h2>
+      <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
+        <section className={dcx("v2-meetup-action-card tone-muted")}>
+          <header className={dcx("v2-meetup-action-head")}>
+            <div className={dcx("v2-meetup-action-head-body")}>
+              <span className={dcx("v2-meetup-action-eyebrow")}>缺少参数</span>
+              <h2 className={dcx("v2-meetup-action-title")}>无法发起见面安排</h2>
             </div>
           </header>
-          <p className="v2-meetup-action-subtitle">
+          <p className={dcx("v2-meetup-action-subtitle")}>
             链接里缺少匹配 ID。请从「我的匹配」重新点击「安排第一次见面」。
           </p>
         </section>
-        <Link className="ui-button ui-button--secondary meetup-inline-link" href="/dashboard/match">
+        <Link className={dcx("ui-button ui-button--secondary meetup-inline-link")} href="/dashboard/match">
           返回我的匹配
         </Link>
       </div>
@@ -292,46 +293,46 @@ export function MeetupStartClient({
       meetupSummary.status === "ARCHIVED";
 
     return (
-      <div className="app-page-shell app-page-shell-narrow v2-page-shell">
+      <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
         {terminal ? (
-          <section className="v2-plan-card">
-            <header className="v2-plan-card-head">
+          <section className={dcx("v2-plan-card")}>
+            <header className={dcx("v2-plan-card-head")}>
               <h2>见面安排已结束</h2>
-              <span className="v2-plan-card-pill">历史记录</span>
+              <span className={dcx("v2-plan-card-pill")}>历史记录</span>
             </header>
-            <p className="ui-card-description">
+            <p className={dcx("ui-card-description")}>
               {meetupSummary.terminalText ??
                 "本次见面安排已结束，当前版本暂不支持重新发起。"}
             </p>
-            <Link className="ui-button ui-button--secondary meetup-inline-link" href="/dashboard/match">
+            <Link className={dcx("ui-button ui-button--secondary meetup-inline-link")} href="/dashboard/match">
               返回我的匹配
             </Link>
           </section>
         ) : (
           <section
-            className={`v2-plan-card${meetupSummary.status === "LOCKED" ? " is-locked" : ""}`}
+            className={dcx(`v2-plan-card${meetupSummary.status === "LOCKED" ? " is-locked" : ""}`)}
           >
-            <header className="v2-plan-card-head">
+            <header className={dcx("v2-plan-card-head")}>
               <h2>
                 {meetupSummary.status === "LOCKED"
                   ? "见面安排已确认"
                   : "见面安排进行中"}
               </h2>
               <span
-                className={`v2-plan-card-pill${meetupSummary.status === "LOCKED" ? " tone-locked" : ""}`}
+                className={dcx(`v2-plan-card-pill${meetupSummary.status === "LOCKED" ? " tone-locked" : ""}`)}
               >
                 {PROGRESS_LABELS[meetupSummary.progressStatus]}
               </span>
             </header>
-            <div className="v2-plan-card-grid">
-              <div className="v2-plan-fact">
-                <span className="v2-plan-fact-label">时间</span>
+            <div className={dcx("v2-plan-card-grid")}>
+              <div className={dcx("v2-plan-fact")}>
+                <span className={dcx("v2-plan-fact-label")}>时间</span>
                 <span
-                  className={`v2-plan-fact-value${
+                  className={dcx(`v2-plan-fact-value${
                     meetupSummary.confirmedStartsAt && meetupSummary.confirmedEndsAt
                       ? ""
                       : " is-muted"
-                  }`}
+                  }`)}
                 >
                   {formatMeetupTimeRange(
                     meetupSummary.confirmedStartsAt,
@@ -339,18 +340,18 @@ export function MeetupStartClient({
                   )}
                 </span>
               </div>
-              <div className="v2-plan-fact">
-                <span className="v2-plan-fact-label">地点</span>
+              <div className={dcx("v2-plan-fact")}>
+                <span className={dcx("v2-plan-fact-label")}>地点</span>
                 <span
-                  className={`v2-plan-fact-value${
+                  className={dcx(`v2-plan-fact-value${
                     meetupSummary.confirmedPlaceName ? "" : " is-muted"
-                  }`}
+                  }`)}
                 >
                   {meetupSummary.confirmedPlaceName ?? "地点待确认"}
                 </span>
               </div>
             </div>
-            <Link className="ui-button ui-button--primary meetup-inline-link" href={meetupSummary.href}>
+            <Link className={dcx("ui-button ui-button--primary meetup-inline-link")} href={meetupSummary.href}>
               查看见面安排
             </Link>
           </section>
@@ -360,24 +361,24 @@ export function MeetupStartClient({
   }
 
   return (
-    <div className="app-page-shell app-page-shell-narrow v2-page-shell">
-      <section className="v2-meetup-action-card tone-attention">
-        <header className="v2-meetup-action-head">
-          <div className="v2-meetup-action-head-body">
-            <span className="v2-meetup-action-eyebrow">现在要做</span>
-            <h2 className="v2-meetup-action-title">发起第一条见面方案</h2>
+    <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
+      <section className={dcx("v2-meetup-action-card tone-attention")}>
+        <header className={dcx("v2-meetup-action-head")}>
+          <div className={dcx("v2-meetup-action-head-body")}>
+            <span className={dcx("v2-meetup-action-eyebrow")}>现在要做</span>
+            <h2 className={dcx("v2-meetup-action-title")}>发起第一条见面方案</h2>
           </div>
         </header>
-        <p className="v2-meetup-action-subtitle">
+        <p className={dcx("v2-meetup-action-subtitle")}>
           给对方 2–3 个时间和地点候选；填好后点底部的「发送方案」即可。
         </p>
       </section>
-      <section className="ui-card ui-card--padded">
-        <div className="ui-card-header">
-          <h2 className="ui-card-title">方案明细</h2>
-          <span className="semantic-status semantic-status--neutral">北京时间</span>
+      <section className={dcx("ui-card ui-card--padded")}>
+        <div className={dcx("ui-card-header")}>
+          <h2 className={dcx("ui-card-title")}>方案明细</h2>
+          <span className={dcx("semantic-status semantic-status--neutral")}>北京时间</span>
         </div>
-        {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
+        {error ? <p className={dcx("ui-form-message ui-form-message--error")}>{error}</p> : null}
         <MeetupProposalForm
           defaultScope="BOTH"
           disabled={saving}
@@ -786,10 +787,10 @@ function MeetupSessionView({
 
   return (
     <>
-      <div className="app-page-shell app-page-shell-narrow v2-page-shell">
+      <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
         <MeetupParticipantStrip session={session} currentUserId={currentUserId} />
 
-        {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
+        {error ? <p className={dcx("ui-form-message ui-form-message--error")}>{error}</p> : null}
 
         <MeetupActionCard
           session={session}
@@ -808,10 +809,10 @@ function MeetupSessionView({
         ) : null}
 
         {actionState === "needsPropose" ? (
-          <section className="ui-card ui-card--padded">
-            <div className="ui-card-header">
-              <h2 className="ui-card-title">方案明细</h2>
-              <span className="semantic-status semantic-status--neutral">北京时间</span>
+          <section className={dcx("ui-card ui-card--padded")}>
+            <div className={dcx("ui-card-header")}>
+              <h2 className={dcx("ui-card-title")}>方案明细</h2>
+              <span className={dcx("semantic-status semantic-status--neutral")}>北京时间</span>
             </div>
             <MeetupProposalForm
               key={defaultScopeForSession(session)}
@@ -825,10 +826,10 @@ function MeetupSessionView({
         ) : null}
 
         {actionState === "locked" && revisionFormOpen ? (
-          <section className="ui-card ui-card--padded">
-            <div className="ui-card-header">
-              <h2 className="ui-card-title">修改已确认的安排</h2>
-              <span className="semantic-status semantic-status--neutral is-warn">
+          <section className={dcx("ui-card ui-card--padded")}>
+            <div className={dcx("ui-card-header")}>
+              <h2 className={dcx("ui-card-title")}>修改已确认的安排</h2>
+              <span className={dcx("semantic-status semantic-status--neutral is-warn")}>
                 每人每次安排仅可修改 1 次
               </span>
             </div>
@@ -894,42 +895,42 @@ function MeetupCurrentPlanCard({ session }: { session: MeetupSessionResponse }) 
 
   return (
     <section
-      className={`v2-plan-card${locked ? " is-locked" : ""}`}
+      className={dcx(`v2-plan-card${locked ? " is-locked" : ""}`)}
       aria-label="当前方案"
     >
-      <header className="v2-plan-card-head">
+      <header className={dcx("v2-plan-card-head")}>
         <h2>{locked ? "已确认的安排" : "当前方案"}</h2>
-        <span className={`v2-plan-card-pill${locked ? " tone-locked" : ""}`}>
+        <span className={dcx(`v2-plan-card-pill${locked ? " tone-locked" : ""}`)}>
           {locked ? "已锁定" : "进行中"}
         </span>
       </header>
-      <div className="v2-plan-card-grid">
-        <div className="v2-plan-fact">
-          <span className="v2-plan-fact-label">
+      <div className={dcx("v2-plan-card-grid")}>
+        <div className={dcx("v2-plan-fact")}>
+          <span className={dcx("v2-plan-fact-label")}>
             时间{!locked ? "（待确认）" : ""}
           </span>
           <span
-            className={`v2-plan-fact-value${
+            className={dcx(`v2-plan-fact-value${
               plan.startsAt && plan.endsAt ? "" : " is-muted"
-            }`}
+            }`)}
           >
             {formatMeetupTimeRange(plan.startsAt, plan.endsAt)}
           </span>
           {timePending && plan.startsAt && plan.endsAt ? (
-            <span className="v2-plan-fact-aux">还需对方确认才会锁定</span>
+            <span className={dcx("v2-plan-fact-aux")}>还需对方确认才会锁定</span>
           ) : null}
         </div>
-        <div className="v2-plan-fact">
-          <span className="v2-plan-fact-label">
+        <div className={dcx("v2-plan-fact")}>
+          <span className={dcx("v2-plan-fact-label")}>
             地点{!locked ? "（待确认）" : ""}
           </span>
           <span
-            className={`v2-plan-fact-value${plan.placeName ? "" : " is-muted"}`}
+            className={dcx(`v2-plan-fact-value${plan.placeName ? "" : " is-muted"}`)}
           >
             {plan.placeName ?? "地点待确认"}
           </span>
           {placePending && plan.placeName ? (
-            <span className="v2-plan-fact-aux">还需对方确认才会锁定</span>
+            <span className={dcx("v2-plan-fact-aux")}>还需对方确认才会锁定</span>
           ) : null}
         </div>
       </div>
@@ -1207,43 +1208,43 @@ function MeetupProposalForm({
     selectedLocations.length <= 3;
 
   return (
-    <form className="meetup-proposal-form" onSubmit={submit}>
-      <div className="meetup-wizard">
-        <div className="meetup-wizard-steps">
+    <form className={dcx("meetup-proposal-form")} onSubmit={submit}>
+      <div className={dcx("meetup-wizard")}>
+        <div className={dcx("meetup-wizard-steps")}>
           {wantsTime && (
-            <div className={`meetup-wizard-step ${step === 1 ? 'is-active' : ''}`}>
+            <div className={dcx(`meetup-wizard-step ${step === 1 ? 'is-active' : ''}`)}>
               1. 选择时间
             </div>
           )}
           {wantsLocation && (
-            <div className={`meetup-wizard-step ${step === 2 ? 'is-active' : ''}`}>
+            <div className={dcx(`meetup-wizard-step ${step === 2 ? 'is-active' : ''}`)}>
               {wantsTime ? '2.' : '1.'} 确认地点
             </div>
           )}
-          <div className={`meetup-wizard-step ${step === 3 ? 'is-active' : ''}`}>
+          <div className={dcx(`meetup-wizard-step ${step === 3 ? 'is-active' : ''}`)}>
             {wantsTime && wantsLocation ? '3.' : '2.'} 发送邀约
           </div>
         </div>
 
-        {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
+        {error && <p className={dcx("ui-form-message ui-form-message--error")}>{error}</p>}
 
         {step === 1 && wantsTime && (
-          <div className="meetup-wizard-content">
-            <div className="meetup-date-picker">
-              <div className="meetup-date-header">
+          <div className={dcx("meetup-wizard-content")}>
+            <div className={dcx("meetup-date-picker")}>
+              <div className={dcx("meetup-date-header")}>
                 <span>{selectedDate.getMonth() + 1}月{selectedDate.getDate()}日</span>
               </div>
-              <div className="meetup-date-scroll">
+              <div className={dcx("meetup-date-scroll")}>
                 {next7Days.map((date, i) => {
                   const isActive = date.toDateString() === selectedDate.toDateString();
                   return (
                     <div
                       key={i}
-                      className={`meetup-date-item ${isActive ? 'is-active' : ''}`}
+                      className={dcx(`meetup-date-item ${isActive ? 'is-active' : ''}`)}
                       onClick={() => setSelectedDate(date)}
                     >
                       <span>{dayNames[date.getDay()]}</span>
-                      <div className="meetup-date-circle">{date.getDate()}</div>
+                      <div className={dcx("meetup-date-circle")}>{date.getDate()}</div>
                     </div>
                   );
                 })}
@@ -1251,8 +1252,8 @@ function MeetupProposalForm({
             </div>
 
             <div>
-              <div className="meetup-section-title">可用时段</div>
-              <div className="meetup-time-grid">
+              <div className={dcx("meetup-section-title")}>可用时段</div>
+              <div className={dcx("meetup-time-grid")}>
                 {PREDEFINED_TIME_SLOTS.map((slot, i) => {
                   const startsAt = meetupSlotDatetimeLocalValue(selectedDate, slot.startHour);
                   const endsAt = meetupSlotDatetimeLocalValue(
@@ -1266,7 +1267,7 @@ function MeetupProposalForm({
                   return (
                     <div
                       key={i}
-                      className={`meetup-time-slot ${isActive ? 'is-active' : ''}`}
+                      className={dcx(`meetup-time-slot ${isActive ? 'is-active' : ''}`)}
                       onClick={() => handleTimeSlotClick(slot)}
                     >
                       {slot.label}
@@ -1278,16 +1279,16 @@ function MeetupProposalForm({
 
             {selectedTimes.length > 0 && (
               <div>
-                <div className="meetup-section-title">已选时间 ({selectedTimes.length}/3)</div>
-                <div className="meetup-selected-tags">
+                <div className={dcx("meetup-section-title")}>已选时间 ({selectedTimes.length}/3)</div>
+                <div className={dcx("meetup-selected-tags")}>
                   {selectedTimes.map((t) => {
                     const startIso = chinaStandardDatetimeToIso(t.startsAt);
                     const endIso = chinaStandardDatetimeToIso(t.endsAt);
                     return (
-                      <div key={t.key} className="meetup-selected-tag">
+                      <div key={t.key} className={dcx("meetup-selected-tag")}>
                         {startIso && endIso ? formatMeetupTimeRange(startIso, endIso) : ""}
                         <span
-                          className="meetup-selected-tag-remove"
+                          className={dcx("meetup-selected-tag-remove")}
                           onClick={() => setSelectedTimes(curr => curr.filter(x => x.key !== t.key))}
                         >
                           ×
@@ -1299,10 +1300,10 @@ function MeetupProposalForm({
               </div>
             )}
 
-            <div className="meetup-wizard-footer">
+            <div className={dcx("meetup-wizard-footer")}>
               <button
                 type="button"
-                className="meetup-wizard-next"
+                className={dcx("meetup-wizard-next")}
                 disabled={!canGoNextFrom1}
                 onClick={() => {
                   setError(null);
@@ -1316,17 +1317,17 @@ function MeetupProposalForm({
         )}
 
         {step === 2 && wantsLocation && (
-          <div className="meetup-wizard-content">
+          <div className={dcx("meetup-wizard-content")}>
             <div>
-              <div className="meetup-section-title">推荐地点</div>
+              <div className={dcx("meetup-section-title")}>推荐地点</div>
               {loadingCandidates ? (
-                <p className="ui-card-description">正在加载地点候选…</p>
+                <p className={dcx("ui-card-description")}>正在加载地点候选…</p>
               ) : candidateError ? (
                 <div>
-                  <p className="ui-form-message ui-form-message--error">{candidateError}</p>
+                  <p className={dcx("ui-form-message ui-form-message--error")}>{candidateError}</p>
                   <button
                     type="button"
-                    className="ui-button ui-button--secondary"
+                    className={dcx("ui-button ui-button--secondary")}
                     onClick={() => {
                       setError(null);
                       setCandidateError(null);
@@ -1338,7 +1339,7 @@ function MeetupProposalForm({
                   </button>
                 </div>
               ) : (
-                <div className="meetup-location-grid">
+                <div className={dcx("meetup-location-grid")}>
                   {candidates.map((c) => {
                     const isActive = selectedLocations.some(
                       (location) =>
@@ -1348,13 +1349,13 @@ function MeetupProposalForm({
                     return (
                       <div
                         key={c.id}
-                        className={`meetup-location-card ${isActive ? 'is-active' : ''}`}
+                        className={dcx(`meetup-location-card ${isActive ? 'is-active' : ''}`)}
                         onClick={() => handleLocationClick(c.id)}
                       >
-                        <div className="meetup-location-image">
-                          <MapPinIcon className="w-6 h-6" />
+                        <div className={dcx("meetup-location-image")}>
+                          <MapPinIcon className={dcx("w-6 h-6")} />
                         </div>
-                        <div className="meetup-location-name">{c.name}</div>
+                        <div className={dcx("meetup-location-name")}>{c.name}</div>
                       </div>
                     );
                   })}
@@ -1362,8 +1363,8 @@ function MeetupProposalForm({
               )}
             </div>
 
-            <div className="meetup-custom-location-panel">
-              <label className="meetup-field">
+            <div className={dcx("meetup-custom-location-panel")}>
+              <label className={dcx("meetup-field")}>
                 <span>自定义地点</span>
                 <input
                   type="text"
@@ -1382,7 +1383,7 @@ function MeetupProposalForm({
               </label>
               <button
                 type="button"
-                className="ui-button ui-button--secondary meetup-small-button"
+                className={dcx("ui-button ui-button--secondary meetup-small-button")}
                 disabled={
                   disabled ||
                   selectedLocations.length >= 3 ||
@@ -1396,13 +1397,13 @@ function MeetupProposalForm({
 
             {selectedLocations.length > 0 && (
               <div>
-                <div className="meetup-section-title">已选地点 ({selectedLocations.length}/3)</div>
-                <div className="meetup-selected-tags">
+                <div className={dcx("meetup-section-title")}>已选地点 ({selectedLocations.length}/3)</div>
+                <div className={dcx("meetup-selected-tags")}>
                   {selectedLocations.map((location) => (
-                    <div key={location.key} className="meetup-selected-tag">
+                    <div key={location.key} className={dcx("meetup-selected-tag")}>
                       {locationSlotLabel(location, candidates)}
                       <span
-                        className="meetup-selected-tag-remove"
+                        className={dcx("meetup-selected-tag-remove")}
                         onClick={() =>
                           setSelectedLocations((current) =>
                             current.filter((item) => item.key !== location.key),
@@ -1417,11 +1418,11 @@ function MeetupProposalForm({
               </div>
             )}
 
-            <div className="meetup-wizard-footer" style={{ display: 'flex', gap: '1rem' }}>
+            <div className={dcx("meetup-wizard-footer")} style={{ display: 'flex', gap: '1rem' }}>
               {wantsTime && (
                 <button
                   type="button"
-                  className="ui-button ui-button--secondary"
+                  className={dcx("ui-button ui-button--secondary")}
                   onClick={() => {
                     setError(null);
                     setStep(1);
@@ -1432,7 +1433,7 @@ function MeetupProposalForm({
               )}
               <button
                 type="button"
-                className="meetup-wizard-next"
+                className={dcx("meetup-wizard-next")}
                 disabled={!canGoNextFrom2}
                 onClick={() => {
                   setError(null);
@@ -1446,15 +1447,15 @@ function MeetupProposalForm({
         )}
 
         {step === 3 && (
-          <div className="meetup-wizard-content">
-            <div className="meetup-section-title">发送方案</div>
+          <div className={dcx("meetup-wizard-content")}>
+            <div className={dcx("meetup-section-title")}>发送方案</div>
 
             <MeetupProposalPreview
               entries={previewEntries}
               emptyText="先填好上方的时间和地点，对方会看到的内容就会显示在这里。"
             />
 
-            <label className="meetup-field" style={{ marginTop: '1rem' }}>
+            <label className={dcx("meetup-field")} style={{ marginTop: '1rem' }}>
               <span>给对方的备注（选填）</span>
               <textarea
                 value={noteText}
@@ -1465,10 +1466,10 @@ function MeetupProposalForm({
               />
             </label>
 
-            <div className="meetup-wizard-footer" style={{ display: 'flex', gap: '1rem' }}>
+            <div className={dcx("meetup-wizard-footer")} style={{ display: 'flex', gap: '1rem' }}>
               <button
                 type="button"
-                className="ui-button ui-button--secondary"
+                className={dcx("ui-button ui-button--secondary")}
                 onClick={() => {
                   setError(null);
                   setStep(wantsLocation ? 2 : 1);
@@ -1478,7 +1479,7 @@ function MeetupProposalForm({
               </button>
               <button
                 type="submit"
-                className="meetup-wizard-next"
+                className={dcx("meetup-wizard-next")}
                 disabled={disabled || (wantsTime && !canGoNextFrom1) || (wantsLocation && !canGoNextFrom2)}
               >
                 {disabled ? submittingLabel : submitLabel}
@@ -1531,13 +1532,16 @@ function ConfirmActionDialog({
     }
   }, [open]);
 
-  const confirmClass =
-    confirmTone === "danger" ? "ui-button ui-button--danger" : "ui-button ui-button--primary";
+  const confirmClass = dcx(
+    confirmTone === "danger"
+      ? "ui-button ui-button--danger"
+      : "ui-button ui-button--primary",
+  );
 
   return (
     <dialog
       ref={dialogRef}
-      className="meetup-confirm-dialog"
+      className={dcx("meetup-confirm-dialog")}
       aria-modal="true"
       aria-labelledby={titleId}
       aria-describedby={
@@ -1551,19 +1555,19 @@ function ConfirmActionDialog({
         if (open) onClose();
       }}
     >
-      <div className="meetup-confirm-dialog-inner">
+      <div className={dcx("meetup-confirm-dialog-inner")}>
         <h2 id={titleId}>{title}</h2>
         <p id={descriptionId}>{description}</p>
         {details.length > 0 ? (
-          <ul className="meetup-confirm-dialog-details" id={detailsId}>
+          <ul className={dcx("meetup-confirm-dialog-details")} id={detailsId}>
             {details.map((detail, index) => (
               <li key={`${index}-${detail}`}>{detail}</li>
             ))}
           </ul>
         ) : null}
-        <div className="meetup-action-row">
+        <div className={dcx("meetup-action-row")}>
           <button
-            className="ui-button ui-button--secondary"
+            className={dcx("ui-button ui-button--secondary")}
             type="button"
             disabled={busy}
             onClick={onClose}

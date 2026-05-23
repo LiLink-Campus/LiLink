@@ -1,3 +1,4 @@
+import { dcx } from "../_lib/dashboard-class-names";
 import Link from "next/link";
 import type {
   DashboardMeetupSummary,
@@ -120,33 +121,33 @@ export function MeetupStatusRibbon({
   return (
     <Link
       href={summary.href}
-      className="v2-meetup-ribbon"
+      className={dcx("v2-meetup-ribbon")}
       aria-label="第一次见面安排"
     >
-      <div className="v2-meetup-ribbon-head">
-        <span className="v2-meetup-ribbon-title">
+      <div className={dcx("v2-meetup-ribbon-head")}>
+        <span className={dcx("v2-meetup-ribbon-title")}>
           <small>Meetup</small>
           <strong>第一次见面安排</strong>
         </span>
-        <span className={`v2-meetup-ribbon-pill tone-${pill.tone}`}>
+        <span className={dcx(`v2-meetup-ribbon-pill tone-${pill.tone}`)}>
           {pill.label}
         </span>
       </div>
-      <p className="v2-meetup-ribbon-body">{subtitle}</p>
-      <ol className="v2-meetup-ribbon-steps" aria-hidden="true">
+      <p className={dcx("v2-meetup-ribbon-body")}>{subtitle}</p>
+      <ol className={dcx("v2-meetup-ribbon-steps")} aria-hidden="true">
         {(Object.keys(STEP_LABELS) as StepKey[]).map((key) => (
           <li
             key={key}
-            className={`v2-meetup-ribbon-step is-${stepStates[key]}`}
+            className={dcx(`v2-meetup-ribbon-step is-${stepStates[key]}`)}
           >
-            <span className="v2-meetup-ribbon-step-bar" />
-            <span className="v2-meetup-ribbon-step-label">
+            <span className={dcx("v2-meetup-ribbon-step-bar")} />
+            <span className={dcx("v2-meetup-ribbon-step-label")}>
               {STEP_LABELS[key]}
             </span>
           </li>
         ))}
       </ol>
-      <div className="v2-meetup-ribbon-foot">
+      <div className={dcx("v2-meetup-ribbon-foot")}>
         <span>
           {isLocked ? "查看确认的时间地点" : "进入完整协商面板"}
         </span>
