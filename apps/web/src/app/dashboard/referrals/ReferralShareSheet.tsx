@@ -1,5 +1,6 @@
 "use client";
 
+import { CHANNEL_META, type ReferralChannel } from "@lilink/shared";
 import { dcx } from "../_lib/dashboard-class-names";
 import { useEffect, useState } from "react";
 import {
@@ -13,13 +14,8 @@ import {
 } from "../_components/icons";
 import { recordShareEvent } from "../../../lib/api";
 
-type ShareChannel =
-  | "WECHAT_MOMENTS"
-  | "WECHAT_GROUP"
-  | "WECHAT_PRIVATE"
-  | "COPY_LINK"
-  | "QR"
-  | "OTHER";
+// ReferralChannel re-exported as ShareChannel for local clarity.
+type ShareChannel = ReferralChannel;
 
 type ChannelLink = {
   channel: string;
@@ -35,55 +31,14 @@ const SHARE_CHANNEL_ORDER: ShareChannel[] = [
   "OTHER",
 ];
 
-const CHANNEL_META: Record<
-  ShareChannel,
-  {
-    label: string;
-    hint: string;
-    guide: string;
-    icon: typeof LinkIcon;
-    opensWeChat?: boolean;
-  }
-> = {
-  WECHAT_PRIVATE: {
-    label: "微信私聊",
-    hint: "发给一位同学",
-    guide: "链接已复制，请打开微信粘贴发送",
-    icon: MessageCircleIcon,
-    opensWeChat: true,
-  },
-  WECHAT_GROUP: {
-    label: "微信群",
-    hint: "发到群聊",
-    guide: "链接已复制，请打开微信群粘贴发送",
-    icon: PeopleIcon,
-    opensWeChat: true,
-  },
-  WECHAT_MOMENTS: {
-    label: "微信朋友圈",
-    hint: "适合发动态",
-    guide: "链接已复制，请打开朋友圈粘贴分享",
-    icon: ShareIcon,
-    opensWeChat: true,
-  },
-  COPY_LINK: {
-    label: "复制链接",
-    hint: "任意平台都能用",
-    guide: "邀请链接已复制",
-    icon: LinkIcon,
-  },
-  QR: {
-    label: "面对面扫码",
-    hint: "线下直接邀请",
-    guide: "请同学用微信扫一扫",
-    icon: QrCodeIcon,
-  },
-  OTHER: {
-    label: "其他 App",
-    hint: "小红书、QQ 等",
-    guide: "链接已复制，可在任意 App 粘贴分享",
-    icon: LinkIcon,
-  },
+// Icon map kept local — shared CHANNEL_META intentionally omits React icon refs.
+const CHANNEL_ICONS: Record<ShareChannel, typeof LinkIcon> = {
+  WECHAT_PRIVATE: MessageCircleIcon,
+  WECHAT_GROUP: PeopleIcon,
+  WECHAT_MOMENTS: ShareIcon,
+  COPY_LINK: LinkIcon,
+  QR: QrCodeIcon,
+  OTHER: LinkIcon,
 };
 
 function tryOpenWeChat() {
@@ -188,7 +143,7 @@ export function ReferralShareSheet({
         <ul className={dcx("intent-sheet-options")}>
           {SHARE_CHANNEL_ORDER.map((channel) => {
             const meta = CHANNEL_META[channel];
-            const Icon = meta.icon;
+            const Icon = CHANNEL_ICONS[channel];
             const available = channel === "QR" ? Boolean(qrUrl) : linkByChannel.has(channel);
             if (!available) return null;
 

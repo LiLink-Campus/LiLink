@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { MEDIUM_LABELS, SCENE_LABELS, type ReferralMedium } from "@lilink/shared";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import commonStyles from "../admin-common.module.css";
@@ -13,6 +14,7 @@ import merchantStyles from "../merchant-admin.module.css";
 import type {
   AdminCampaign,
   PaginatedResult,
+  PromotionChannelBreakdownRow,
   PromotionCouponsRow,
   PromotionFunnel,
   PromotionLeaderboardRow,
@@ -344,6 +346,62 @@ function FunnelChart({ funnel }: { funnel: PromotionFunnel }) {
   );
 }
 
+/** Groups channelBreakdown rows by medium, then lists scenes within each group. */
+function ChannelBreakdownPanel({ rows }: { rows: PromotionChannelBreakdownRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <p className={cx(adminStyles, "mp-funnel-empty-note")}>该时间范围内暂无渠道分解数据。</p>
+    );
+  }
+
+  // Group by medium preserving insertion order.
+  const byMedium = new Map<ReferralMedium, PromotionChannelBreakdownRow[]>();
+  for (const row of rows) {
+    const group = byMedium.get(row.medium);
+    if (group) {
+      group.push(row);
+    } else {
+      byMedium.set(row.medium, [row]);
+    }
+  }
+
+  return (
+    <div className={cx(adminStyles, "qb-table-wrap admin-table-wrap mp-table-panel")}>
+      <table className={cx(adminStyles, "qb-table admin-table mp-data-table")}>
+        <thead>
+          <tr>
+            <th scope="col">媒介</th>
+            <th scope="col">场景</th>
+            <th className={cx(adminStyles, "qb-num")} scope="col">分享</th>
+            <th className={cx(adminStyles, "qb-num")} scope="col">点击</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from(byMedium.entries()).map(([medium, mediumRows]) =>
+            mediumRows.map((row, rowIdx) => (
+              <tr key={`${medium}-${row.scene ?? "null"}`}>
+                {/* Merge medium cell across its rows */}
+                {rowIdx === 0 && (
+                  <th
+                    scope="rowgroup"
+                    rowSpan={mediumRows.length}
+                    className={cx(adminStyles, "qb-cell-strong")}
+                  >
+                    {MEDIUM_LABELS[medium]}
+                  </th>
+                )}
+                <td>{row.scene ? (SCENE_LABELS[row.scene] ?? row.scene) : "—"}</td>
+                <td className={cx(adminStyles, "qb-num")}>{row.share}</td>
+                <td className={cx(adminStyles, "qb-num")}>{row.click}</td>
+              </tr>
+            )),
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function FunnelMetricCell({
   count,
   max,
@@ -397,7 +455,7 @@ export default function AdminPromotionPage() {
   const [campaignId, setCampaignId] = useState("");
   const [from, setFrom] = useState(isoDay(-29));
   const [to, setTo] = useState(isoDay(0));
-  const [source, setSource] = useState<"personal" | "recruiter">("personal");
+  const [source, setSource] = useState<"PERSONAL" | "RECRUITER" | "DEFAULT">("PERSONAL");
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
 
   const [funnel, setFunnel] = useState<PromotionFunnel | null>(null);
@@ -731,6 +789,15 @@ export default function AdminPromotionPage() {
                 <FunnelChart funnel={funnel} />
               </Panel>
 
+              {funnel.channelBreakdown && funnel.channelBreakdown.length > 0 && (
+                <Panel
+                  title="渠道分解"
+                  hint="按媒介（第一层）与场景（第二层）拆分分享与点击 UV。"
+                >
+                  <ChannelBreakdownPanel rows={funnel.channelBreakdown} />
+                </Panel>
+              )}
+
               {funnel.byGender.length > 0 && (
                 <Panel
                   title="分性别归属用户"
@@ -799,20 +866,29 @@ export default function AdminPromotionPage() {
                 <button
                   type="button"
                   className={
-                    source === "personal" ? "ui-segmented-item active" : "ui-segmented-item"
+                    source === "PERSONAL" ? "ui-segmented-item active" : "ui-segmented-item"
                   }
-                  onClick={() => setSource("personal")}
+                  onClick={() => setSource("PERSONAL")}
                 >
                   个人码榜
                 </button>
                 <button
                   type="button"
                   className={
-                    source === "recruiter" ? "ui-segmented-item active" : "ui-segmented-item"
+                    source === "RECRUITER" ? "ui-segmented-item active" : "ui-segmented-item"
                   }
-                  onClick={() => setSource("recruiter")}
+                  onClick={() => setSource("RECRUITER")}
                 >
                   运营码榜
+                </button>
+                <button
+                  type="button"
+                  className={
+                    source === "DEFAULT" ? "ui-segmented-item active" : "ui-segmented-item"
+                  }
+                  onClick={() => setSource("DEFAULT")}
+                >
+                  默认活动
                 </button>
               </div>
 
@@ -823,7 +899,7 @@ export default function AdminPromotionPage() {
               ) : leaderboard.items.length === 0 ? (
                 <div className={cx(adminStyles, "admin-empty-state mp-empty-query")}>
                   该时间范围内暂无
-                  {source === "personal" ? "个人码" : "运营码"}邀请记录。
+                  {source === "PERSONAL" ? "个人码" : source === "RECRUITER" ? "运营码" : "默认活动"}邀请记录。
                   {hasCouponActivity
                     ? " 若下方「券与对账」已有数据，说明用户可能通过其他渠道注册或直接领券，未计入本榜。"
                     : ""}
