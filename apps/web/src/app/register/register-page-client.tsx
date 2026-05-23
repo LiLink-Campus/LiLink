@@ -8,6 +8,8 @@ import {
 } from "@lilink/shared";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { ActionGroup } from "@/components/semantic";
+import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
 import { fetchApi } from "../../lib/api";
 import {
   GrassRowIllustration,
@@ -184,7 +186,7 @@ export default function RegisterPageClient() {
 
   return (
     <main className="page-shell prose-shell auth-shell">
-      <section className="content-panel auth-panel animate-in">
+      <Card className="auth-panel animate-in">
         <div className="auth-panel-mark" aria-hidden="true">
           <OliveSprigIllustration />
         </div>
@@ -197,10 +199,9 @@ export default function RegisterPageClient() {
         </p>
 
         {step === 1 ? (
-          <form className="auth-form" onSubmit={requestCode}>
-            <label>
-              <span>学校邮箱</span>
-              <input
+          <form className="auth-stack" onSubmit={requestCode}>
+            <Field label="学校邮箱">
+              <Input
                 required
                 type="email"
                 autoComplete="email"
@@ -208,22 +209,22 @@ export default function RegisterPageClient() {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="your.name@school.edu"
               />
-            </label>
+            </Field>
             <EligibleSchoolsPanel emailInput={email} variant="compact" />
             {resolvedSchool ? (
-              <p className="form-success">
+              <FormMessage tone="success">
                 已识别学校：{resolvedSchool.schoolName}（@
                 {resolvedSchool.matchedDomain}）
-              </p>
+              </FormMessage>
             ) : null}
-            {error ? <p className="form-error">{error}</p> : null}
-            <button
-              className="button-primary button-block"
+            {error ? <FormMessage>{error}</FormMessage> : null}
+            <Button
+              block
               disabled={pending}
               type="submit"
             >
               {pending ? "发送中…" : "发送验证码"}
-            </button>
+            </Button>
             <p className="auth-hint">
               没找到你的学校？前往
               {" "}
@@ -233,7 +234,7 @@ export default function RegisterPageClient() {
             </p>
           </form>
         ) : (
-          <form className="auth-form" onSubmit={register}>
+          <form className="auth-stack" onSubmit={register}>
             <div className="dev-inline">
               <span>已发送到</span>
               <strong>{email}</strong>
@@ -244,9 +245,8 @@ export default function RegisterPageClient() {
             {canRevealDevCode && devCode ? (
               <p className="dev-note">开发环境验证码：{devCode}</p>
             ) : null}
-            <label>
-              <span>验证码</span>
-              <input
+            <Field label="验证码">
+              <Input
                 required
                 value={code}
                 maxLength={VERIFICATION_CODE_LENGTH}
@@ -255,37 +255,33 @@ export default function RegisterPageClient() {
                 onChange={(event) => setCode(event.target.value)}
                 placeholder="6 位验证码"
               />
-            </label>
-            <label>
-              <span>显示昵称</span>
-              <input
+            </Field>
+            <Field label="显示昵称">
+              <Input
                 required
                 value={displayName}
                 maxLength={DISPLAY_NAME_MAX_LENGTH}
                 onChange={(event) => setDisplayName(event.target.value)}
                 placeholder="别人会先看到这个昵称"
               />
-            </label>
-            <label>
-              <span>真实姓名（可选）</span>
-              <input
+            </Field>
+            <Field label="真实姓名（可选）">
+              <Input
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
                 placeholder="可留空；仅在必要场景用于核验"
               />
-            </label>
-            <label>
-              <span>邀请码（可选）</span>
-              <input
+            </Field>
+            <Field label="邀请码（可选）">
+              <Input
                 value={inviteCode}
                 maxLength={INVITE_CODE_MAX_LENGTH}
                 onChange={(event) => setInviteCode(event.target.value)}
                 placeholder="如有邀请码可填写"
               />
-            </label>
-            <label>
-              <span>密码</span>
-              <input
+            </Field>
+            <Field label="密码">
+              <Input
                 required
                 type="password"
                 autoComplete="new-password"
@@ -295,10 +291,9 @@ export default function RegisterPageClient() {
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder={`至少 ${PASSWORD_MIN_LENGTH} 位，含字母和数字`}
               />
-            </label>
-            <label>
-              <span>确认密码</span>
-              <input
+            </Field>
+            <Field label="确认密码">
+              <Input
                 required
                 type="password"
                 autoComplete="new-password"
@@ -308,7 +303,7 @@ export default function RegisterPageClient() {
                 onChange={(event) => setPasswordConfirm(event.target.value)}
                 placeholder="再次输入密码"
               />
-            </label>
+            </Field>
             <label className="terms-checkbox-label">
               <input
                 checked={acceptedTerms}
@@ -320,31 +315,30 @@ export default function RegisterPageClient() {
                 <Link href="/privacy">隐私政策</Link>。
               </span>
             </label>
-            {error ? <p className="form-error">{error}</p> : null}
-            <div className="auth-actions">
-              <button
-                className="button-secondary"
+            {error ? <FormMessage>{error}</FormMessage> : null}
+            <ActionGroup className="auth-actions">
+              <Button
+                variant="secondary"
                 disabled={pending}
                 type="button"
                 onClick={() => setStep(1)}
               >
                 返回改邮箱
-              </button>
-              <button
-                className="button-primary"
+              </Button>
+              <Button
                 disabled={pending}
                 type="submit"
               >
                 {pending ? "创建中…" : "创建账号"}
-              </button>
-            </div>
+              </Button>
+            </ActionGroup>
           </form>
         )}
 
         <p className="auth-hint">
           已有账号？<Link href={loginHref}>立即登录</Link>
         </p>
-      </section>
+      </Card>
       <div className="auth-grass-line" aria-hidden="true">
         <GrassRowIllustration />
       </div>

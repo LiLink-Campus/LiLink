@@ -12,13 +12,13 @@ export default function DashboardLoading() {
         <p className="app-loading-status">正在加载…</p>
       </section>
 
-      <section className="app-card-grid">
-        <div className="app-card app-loading-card">
+      <section className="app-loading-grid">
+        <div className="ui-card ui-card--padded app-loading-card">
           <div className="app-loading-line is-short" />
           <div className="app-loading-block" />
           <div className="app-loading-line" />
         </div>
-        <div className="app-card app-loading-card">
+        <div className="ui-card ui-card--padded app-loading-card">
           <div className="app-loading-line is-short" />
           <div className="app-loading-block" />
           <div className="app-loading-line" />

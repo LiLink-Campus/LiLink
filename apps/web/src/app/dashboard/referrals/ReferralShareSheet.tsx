@@ -241,7 +241,7 @@ export function ReferralShareSheet({
 
         <button
           type="button"
-          className="button-secondary intent-sheet-cancel"
+          className="ui-button ui-button--secondary intent-sheet-cancel"
           disabled={sharing}
           onClick={onClose}
         >

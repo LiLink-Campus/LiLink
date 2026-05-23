@@ -141,25 +141,25 @@ function GenderLegend() {
       <span className="qb-legend-item">
         <span
           className="qb-legend-dot"
-          style={{ background: "var(--primary)" }}
+          style={{ background: "var(--color-brand)" }}
         />
         男
       </span>
       <span className="qb-legend-item">
         <span
           className="qb-legend-dot"
-          style={{ background: "var(--accent)" }}
+          style={{ background: "var(--color-accent)" }}
         />
         女
       </span>
       <span className="qb-legend-item">
-        <span className="qb-legend-dot" style={{ background: "var(--gold)" }} />
+        <span className="qb-legend-dot" style={{ background: "var(--color-gold)" }} />
         非二元
       </span>
       <span className="qb-legend-item">
         <span
           className="qb-legend-dot"
-          style={{ background: "var(--neutral)" }}
+          style={{ background: "var(--color-neutral)" }}
         />
         未知
       </span>
@@ -646,7 +646,7 @@ export default function AdminPromotionPage() {
         </div>
       </div>
 
-      {error && <p className="form-error">{error}</p>}
+      {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
 
       {loading && !hasQueried && (
         <div className="mp-loading-inline">正在加载推广数据…</div>
@@ -665,7 +665,7 @@ export default function AdminPromotionPage() {
               <button
                 key={tab.key}
                 type="button"
-                className={activeTab === tab.key ? "admin-tab active" : "admin-tab"}
+                className={activeTab === tab.key ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => setActiveTab(tab.key)}
               >
                 {tab.label}
@@ -779,7 +779,7 @@ export default function AdminPromotionPage() {
                 <button
                   type="button"
                   className={
-                    source === "personal" ? "admin-tab active" : "admin-tab"
+                    source === "personal" ? "ui-segmented-item active" : "ui-segmented-item"
                   }
                   onClick={() => setSource("personal")}
                 >
@@ -788,7 +788,7 @@ export default function AdminPromotionPage() {
                 <button
                   type="button"
                   className={
-                    source === "recruiter" ? "admin-tab active" : "admin-tab"
+                    source === "recruiter" ? "ui-segmented-item active" : "ui-segmented-item"
                   }
                   onClick={() => setSource("recruiter")}
                 >

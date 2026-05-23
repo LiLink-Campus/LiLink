@@ -35,7 +35,7 @@ export function MatchHistoryList({
 }: MatchHistoryListProps) {
   if (history.length === 0) {
     return (
-      <p className="app-card-muted">
+      <p className="ui-card-description">
         暂无历史记录。等你参与并经过几轮揭晓后，这里会出现最近几次匹配。
       </p>
     );
@@ -56,13 +56,13 @@ export function MatchHistoryList({
               </p>
             </div>
             {item.result === "NOT_PARTICIPATED" ? (
-              <p className="app-card-muted">该轮你未报名参加。</p>
+              <p className="ui-card-description">该轮你未报名参加。</p>
             ) : null}
             {item.result === "UNMATCHED" ? (
-              <p className="app-card-muted">你参加了该轮，但未匹配到对象。</p>
+              <p className="ui-card-description">你参加了该轮，但未匹配到对象。</p>
             ) : null}
             {item.result === "MATCHED" && item.visibility === "LIMITED" ? (
-              <p className="app-card-muted">
+              <p className="ui-card-description">
                 {limitedHistoryExplanation(item.limitedReason)}
               </p>
             ) : null}
@@ -87,7 +87,7 @@ export function MatchHistoryList({
                         匹配度 <strong>{hm.score.toFixed(1)}</strong> / 100
                       </span>
                       {counterpart?.displayName ? (
-                        <p className="app-card-muted">
+                        <p className="ui-card-description">
                           对方：{counterpart.displayName}
                           {counterpart.schoolName
                             ? ` · ${counterpart.schoolName}`
@@ -95,17 +95,17 @@ export function MatchHistoryList({
                         </p>
                       ) : null}
                       {counterpart?.introLine ? (
-                        <p className="app-card-muted app-match-intro">
+                        <p className="ui-card-description app-match-intro">
                           对方介绍：{counterpart.introLine}
                         </p>
                       ) : null}
                       {!introducedRow ? (
-                        <p className="app-card-muted">
+                        <p className="ui-card-description">
                           交换联系方式后即可查看对方联络方式。
                         </p>
                       ) : null}
                       {introducedRow && publicContact ? (
-                        <p className="form-success app-match-email">
+                        <p className="ui-form-message ui-form-message--success app-match-email">
                           联系方式：{publicContact.label} {publicContact.value}
                         </p>
                       ) : null}
@@ -117,10 +117,10 @@ export function MatchHistoryList({
                       />
                       <div className="auth-actions">
                         {introducedRow ? (
-                          <span className="domain-chip">已引荐</span>
+                          <span className="ui-badge ui-badge--neutral">已引荐</span>
                         ) : (
                           <button
-                            className="button-primary"
+                            className="ui-button ui-button--primary"
                             disabled={saving === "contact"}
                             type="button"
                             onClick={() => onRequestContact(hm.id)}
@@ -133,10 +133,10 @@ export function MatchHistoryList({
                             hm.reportStatus,
                           );
                           return label ? (
-                            <span className="domain-chip">{label}</span>
+                            <span className="ui-badge ui-badge--neutral">{label}</span>
                           ) : (
                             <button
-                              className="button-secondary"
+                              className="ui-button ui-button--secondary"
                               aria-controls={REPORT_FORM_SECTION_ID}
                               aria-expanded={reportFormIsOpenForMatch(hm.id)}
                               disabled={saving === "report"}
@@ -148,7 +148,7 @@ export function MatchHistoryList({
                           );
                         })()}
                         <button
-                          className="button-secondary"
+                          className="ui-button ui-button--secondary"
                           disabled={saving === "feedback"}
                           type="button"
                           onClick={() =>

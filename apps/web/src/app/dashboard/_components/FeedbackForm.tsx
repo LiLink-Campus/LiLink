@@ -137,7 +137,7 @@ export function FeedbackForm({
         </div>
         <footer className="v2-report-dialog-foot">
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             disabled={saving}
             type="button"
             onClick={onCancel}
@@ -145,7 +145,7 @@ export function FeedbackForm({
             取消
           </button>
           <button
-            className="button-primary"
+            className="ui-button ui-button--primary"
             disabled={saving || rating < 1}
             type="button"
             onClick={onSubmit}

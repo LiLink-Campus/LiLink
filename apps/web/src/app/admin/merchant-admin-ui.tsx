@@ -33,7 +33,7 @@ export function CopyTextButton({
   text,
   label = "复制",
   copiedLabel = "已复制",
-  className = "button-secondary ic-copy-btn",
+  className = "ui-button ui-button--secondary ic-copy-btn",
 }: {
   text: string;
   label?: string;
@@ -220,7 +220,7 @@ export function CouponTierEditor({
           )}
           <button
             type="button"
-            className="button-secondary mp-tier-remove"
+            className="ui-button ui-button--secondary mp-tier-remove"
             onClick={() => remove(index)}
             disabled={tiers.length <= 1}
             aria-label={`删除第 ${index + 1} 档`}
@@ -229,7 +229,7 @@ export function CouponTierEditor({
           </button>
         </div>
       ))}
-      <button type="button" className="button-secondary mp-tier-add" onClick={add}>
+      <button type="button" className="ui-button ui-button--secondary mp-tier-add" onClick={add}>
         + 添加一档
       </button>
     </div>
@@ -245,7 +245,7 @@ export function AdminRefreshButton({
 }) {
   return (
     <button
-      className="button-secondary mp-refresh-btn"
+      className="ui-button ui-button--secondary mp-refresh-btn"
       disabled={disabled}
       onClick={onClick}
       type="button"

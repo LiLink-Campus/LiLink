@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { ButtonLink } from "@/components/ui";
 import { useAuthSession } from "./auth-session";
 import { fetchApi } from "../lib/api";
 
@@ -75,13 +76,12 @@ export function SiteNav() {
               <Link href="/login" onClick={closeMenu}>
                 登录
               </Link>
-              <Link
-                className="button-primary"
+              <ButtonLink
                 href="/register"
                 onClick={closeMenu}
               >
                 立即加入
-              </Link>
+              </ButtonLink>
             </>
           )}
         </div>

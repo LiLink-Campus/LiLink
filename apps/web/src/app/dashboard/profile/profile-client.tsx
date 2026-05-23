@@ -1394,27 +1394,27 @@ export function ProfileClient({
           <span
             className={
               profileStatus.tone === "on"
-                ? "app-card-status is-on"
-                : "app-card-status is-warn"
+                ? "semantic-status semantic-status--neutral is-on"
+                : "semantic-status semantic-status--neutral is-warn"
             }
           >
             {profileStatus.label}
           </span>
-          <span className="app-card-status">{questionnaireStatus}</span>
+          <span className="semantic-status semantic-status--neutral">{questionnaireStatus}</span>
         </div>
         {questionnaireSaveError ? (
-          <p className="form-error">{questionnaireSaveError}</p>
+          <p className="ui-form-message ui-form-message--error">{questionnaireSaveError}</p>
         ) : null}
       </header>
 
-      <section className="app-card">
+      <section className="ui-card ui-card--padded">
         <div className="app-q-toolbar">
           <p className="app-muted">
             系统会在你停止输入片刻后自动保存当前编辑内容。
           </p>
           {questionnaireSaveError ? (
             <button
-              className="button-secondary"
+              className="ui-button ui-button--secondary"
               type="button"
               onClick={() =>
                 setQuestionnaireManualRetryTick((current) => current + 1)
@@ -1425,7 +1425,7 @@ export function ProfileClient({
           ) : null}
         </div>
         {questionnaireIncompleteMessage ? (
-          <p className="form-error" role="alert">
+          <p className="ui-form-message ui-form-message--error" role="alert">
             {questionnaireIncompleteMessage}
           </p>
         ) : null}

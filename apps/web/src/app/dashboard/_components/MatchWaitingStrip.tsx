@@ -42,8 +42,8 @@ export function MatchWaitingStrip({
               href={action.href}
               className={
                 action.variant === "primary"
-                  ? "button-primary"
-                  : "button-secondary"
+                  ? "ui-button ui-button--primary"
+                  : "ui-button ui-button--secondary"
               }
             >
               {action.label}

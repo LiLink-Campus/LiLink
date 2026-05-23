@@ -461,7 +461,7 @@ export default function AdminUsersPage() {
           <p className="qb-header-desc">定位用户，查看资料、问卷与轮次参与状态，处理账号。</p>
         </div>
         <button
-          className="button-secondary"
+          className="ui-button ui-button--secondary"
           onClick={() => void refresh()}
           type="button"
           style={{ minHeight: "2.4rem", padding: "0 1rem" }}
@@ -470,12 +470,12 @@ export default function AdminUsersPage() {
         </button>
       </div>
 
-      {error && <p className="form-error" style={{ marginBottom: "0.75rem" }}>{error}</p>}
-      {actionError && <p className="form-error" style={{ marginBottom: "0.75rem" }}>{actionError}</p>}
+      {error && <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "0.75rem" }}>{error}</p>}
+      {actionError && <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "0.75rem" }}>{actionError}</p>}
 
       <section className="admin-workspace-grid">
         {/* ── User list ─── */}
-        <article className="content-panel admin-list-panel">
+        <article className="ui-card ui-card--padded admin-list-panel">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">用户列表</p>
@@ -494,7 +494,7 @@ export default function AdminUsersPage() {
               <button
                 key={s}
                 type="button"
-                className={statusFilter === s ? "admin-tab active" : "admin-tab"}
+                className={statusFilter === s ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => { setStatusFilter(s); setPage(1); }}
               >
                 {USER_STATUS_LABELS[s]}
@@ -506,7 +506,7 @@ export default function AdminUsersPage() {
               <button
                 key={s}
                 type="button"
-                className={questionnaireFilter === s ? "admin-tab active" : "admin-tab"}
+                className={questionnaireFilter === s ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => { setQuestionnaireFilter(s); setPage(1); }}
               >
                 {s === "all" ? "全部问卷" : s === "submitted" ? "已填问卷" : "未填问卷"}
@@ -518,7 +518,7 @@ export default function AdminUsersPage() {
               <button
                 key={t}
                 type="button"
-                className={userTypeFilter === t ? "admin-tab active" : "admin-tab"}
+                className={userTypeFilter === t ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => { setUserTypeFilter(t); setPage(1); }}
               >
                 {t === "all" ? "全部用户" : t === "real" ? "真实用户" : "测试用户"}
@@ -526,11 +526,11 @@ export default function AdminUsersPage() {
             ))}
             {userTypeFilter === "test" && (
               <button
-                className="button-secondary"
+                className="ui-button ui-button--secondary"
                 type="button"
                 disabled={pending === "delete-test"}
                 onClick={() => void deleteAllTestUsers()}
-                style={{ marginLeft: "auto", minHeight: "1.8rem", padding: "0 0.75rem", fontSize: "0.82rem", color: "var(--error, #c0392b)" }}
+                style={{ marginLeft: "auto", minHeight: "1.8rem", padding: "0 0.75rem", fontSize: "0.82rem", color: "var(--color-danger, #c0392b)" }}
               >
                 {pending === "delete-test" ? "删除中…" : "删除全部测试用户"}
               </button>
@@ -541,7 +541,7 @@ export default function AdminUsersPage() {
               <button
                 key={g}
                 type="button"
-                className={genderFilter === g ? "admin-tab active" : "admin-tab"}
+                className={genderFilter === g ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => { setGenderFilter(g); setPage(1); }}
               >
                 {g === "all" ? "全部性别" : g}
@@ -558,8 +558,8 @@ export default function AdminUsersPage() {
               >
                 <div className="admin-record-topline">
                   <strong>{user.displayName ?? user.email}</strong>
-                  {user.isTest && <span className="domain-chip" style={{ background: "var(--warning, #f39c12)", color: "#fff" }}>测试</span>}
-                  <span className="domain-chip">{USER_STATUS_LABELS[user.status]}</span>
+                  {user.isTest && <span className="ui-badge ui-badge--neutral" style={{ background: "var(--color-warning, #f39c12)", color: "#fff" }}>测试</span>}
+                  <span className="ui-badge ui-badge--neutral">{USER_STATUS_LABELS[user.status]}</span>
                 </div>
                 <p>{user.email}</p>
                 <div className="admin-inline-meta">
@@ -580,11 +580,11 @@ export default function AdminUsersPage() {
         </article>
 
         {/* ── User detail ─── */}
-        <article className="content-panel admin-detail-panel">
+        <article className="ui-card ui-card--padded admin-detail-panel">
           {displayUser ? (
             <div className="admin-page-stack">
               {detailError ? (
-                <p className="form-error" role="alert">
+                <p className="ui-form-message ui-form-message--error" role="alert">
                   {detailError}
                 </p>
               ) : null}
@@ -599,7 +599,7 @@ export default function AdminUsersPage() {
                   {(["ACTIVE", "SUSPENDED", "PENDING"] as const).map((s) => (
                     <button
                       key={s}
-                      className={displayUser.status === s ? "button-primary" : "button-secondary"}
+                      className={displayUser.status === s ? "ui-button ui-button--primary" : "ui-button ui-button--secondary"}
                       type="button"
                       disabled={pending === s}
                       onClick={() => void updateUserStatus(s)}
@@ -609,7 +609,7 @@ export default function AdminUsersPage() {
                     </button>
                   ))}
                   <button
-                    className={displayUser.isTest ? "button-primary" : "button-secondary"}
+                    className={displayUser.isTest ? "ui-button ui-button--primary" : "ui-button ui-button--secondary"}
                     type="button"
                     disabled={pending === "test-flag"}
                     onClick={() => void toggleTestFlag()}
@@ -650,7 +650,7 @@ export default function AdminUsersPage() {
                   <button
                     key={tab.key}
                     type="button"
-                    className={effectiveDetailTab === tab.key ? "admin-tab active" : "admin-tab"}
+                    className={effectiveDetailTab === tab.key ? "ui-segmented-item active" : "ui-segmented-item"}
                     onClick={() => setDetailTab(tab.key)}
                   >
                     {tab.label}
@@ -698,10 +698,10 @@ export default function AdminUsersPage() {
                         </table>
                       </div>
                       <div className="auth-actions">
-                        <button className="button-primary" type="button" disabled={pending === "edit"} onClick={() => void saveEdit()}>
+                        <button className="ui-button ui-button--primary" type="button" disabled={pending === "edit"} onClick={() => void saveEdit()}>
                           {pending === "edit" ? "保存中…" : "保存修改"}
                         </button>
-                        <button className="button-secondary" type="button" onClick={cancelEditing}>取消</button>
+                        <button className="ui-button ui-button--secondary" type="button" onClick={cancelEditing}>取消</button>
                       </div>
                     </div>
                   ) : (
@@ -719,7 +719,7 @@ export default function AdminUsersPage() {
                         </table>
                       </div>
                       <div className="auth-actions">
-                        <button className="button-secondary" type="button" onClick={startEditing} style={{ minHeight: "2rem", padding: "0 0.75rem", fontSize: "0.82rem" }}>
+                        <button className="ui-button ui-button--secondary" type="button" onClick={startEditing} style={{ minHeight: "2rem", padding: "0 0.75rem", fontSize: "0.82rem" }}>
                           编辑资料
                         </button>
                       </div>
@@ -802,7 +802,7 @@ export default function AdminUsersPage() {
                           {participationsData.items.map((p) => (
                             <tr key={p.cycleId}>
                               <td style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>{p.cycleId}</td>
-                              <td><span className="domain-chip">{p.status === "OPTED_IN" ? "已参加" : "未参加"}</span></td>
+                              <td><span className="ui-badge ui-badge--neutral">{p.status === "OPTED_IN" ? "已参加" : "未参加"}</span></td>
                             </tr>
                           ))}
                         </tbody>

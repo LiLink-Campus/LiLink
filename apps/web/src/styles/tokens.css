@@ -1,0 +1,81 @@
+:root {
+  --color-canvas: #fdf8f0;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1e8d8;
+  --color-surface-tinted: #fcf6ec;
+  --color-overlay: rgba(44, 24, 16, 0.42);
+
+  --color-text: #1a1210;
+  --color-text-secondary: #6b5b50;
+  --color-text-muted: #9c8c80;
+  --color-text-on-brand: #fff7ee;
+
+  --color-border: rgba(44, 24, 16, 0.1);
+  --color-border-strong: rgba(44, 24, 16, 0.18);
+  --color-border-hover: rgba(44, 24, 16, 0.28);
+  --color-focus: rgba(139, 58, 74, 0.55);
+
+  --color-brand: #8b3a4a;
+  --color-brand-hover: #a04858;
+  --color-brand-light: #b75464;
+  --color-brand-soft: #f5dde3;
+  --color-brand-tint: #fbe9ee;
+  --color-brand-ink: #5d2330;
+
+  --color-accent: #c8756a;
+  --color-accent-hover: #b15c52;
+  --color-accent-soft: #fceae6;
+  --color-accent-ink: #8b3a32;
+
+  --color-coral: #e57a6b;
+  --color-coral-soft: #fbe5df;
+
+  --color-gold: #c9a86a;
+  --color-gold-soft: #f3eada;
+
+  --color-neutral: #6d6f76;
+  --color-neutral-soft: #e5e6e8;
+
+  --color-danger: #b8423a;
+  --color-danger-soft: #fbe1de;
+  --color-success: #2a7d62;
+  --color-success-soft: #d8ece3;
+  --color-warning: #b6802a;
+  --color-warning-soft: #f6e6c4;
+
+  --stage-active: var(--color-brand);
+  --stage-active-soft: var(--color-brand-tint);
+  --stage-active-ink: var(--color-brand-ink);
+  --stage-complete: var(--color-success);
+  --stage-complete-soft: var(--color-success-soft);
+  --stage-pending: var(--color-text-muted);
+  --stage-pending-soft: var(--color-surface-muted);
+  --stage-waiting: var(--color-gold);
+  --stage-waiting-soft: var(--color-gold-soft);
+
+  --font-display:
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Songti SC",
+    "STSong", serif;
+  --font-body:
+    "Inter", "Avenir Next", "Segoe UI", "PingFang SC", "Noto Sans CJK SC",
+    "Microsoft YaHei", sans-serif;
+
+  --radius-xs: 0.5rem;
+  --radius-sm: 0.75rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --radius-xl: 2rem;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(20, 32, 25, 0.04);
+  --shadow-sm: 0 2px 6px rgba(20, 32, 25, 0.06);
+  --shadow-md: 0 8px 24px rgba(20, 32, 25, 0.08);
+  --shadow-lg: 0 24px 48px rgba(20, 32, 25, 0.12);
+  --shadow-soft: 0 12px 36px rgba(47, 91, 67, 0.1);
+
+  --container: 1120px;
+  --container-narrow: 720px;
+  --container-prose: 640px;
+  --tabbar-height: 4.5rem;
+  --appbar-height: 3.75rem;
+}

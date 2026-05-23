@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
 import { merchantLogin } from "../../../lib/api";
 import "../merchant.css";
 
@@ -26,14 +27,12 @@ export default function MerchantLoginPage() {
 
   return (
     <main className="mc-center">
-      <div className="mc-card">
+      <Card as="div" className="mc-login-card">
         <h1 className="mc-title">商家核销登录</h1>
         <p className="mc-subtitle">登录后即可为顾客核销优惠券</p>
         <form className="mc-form" onSubmit={submit}>
-          <label className="mc-field">
-            <span className="mc-label">商家账号邮箱</span>
-            <input
-              className="mc-input"
+          <Field label="商家账号邮箱">
+            <Input
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -41,11 +40,9 @@ export default function MerchantLoginPage() {
               autoComplete="username"
               required
             />
-          </label>
-          <label className="mc-field">
-            <span className="mc-label">密码</span>
-            <input
-              className="mc-input"
+          </Field>
+          <Field label="密码">
+            <Input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -53,17 +50,17 @@ export default function MerchantLoginPage() {
               autoComplete="current-password"
               required
             />
-          </label>
-          {error && <p className="mc-error">{error}</p>}
-          <button
-            className="mc-btn"
+          </Field>
+          {error && <FormMessage>{error}</FormMessage>}
+          <Button
+            block
             type="submit"
             disabled={pending || !email.trim() || !password}
           >
             {pending ? "登录中……" : "登录"}
-          </button>
+          </Button>
         </form>
-      </div>
+      </Card>
     </main>
   );
 }

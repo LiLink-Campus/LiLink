@@ -123,7 +123,7 @@ export function IntentSheet({
         </ul>
         <button
           type="button"
-          className="button-secondary intent-sheet-cancel"
+          className="ui-button ui-button--secondary intent-sheet-cancel"
           disabled={saving}
           onClick={onClose}
         >

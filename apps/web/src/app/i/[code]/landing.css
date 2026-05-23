@@ -8,7 +8,7 @@
   display: grid;
   place-items: center;
   padding: 1.5rem;
-  background: var(--bg);
+  background: var(--color-canvas);
 }
 
 .li-card {
@@ -16,8 +16,8 @@
   max-width: 26rem;
   padding: clamp(1.75rem, 6vw, 2.5rem);
   text-align: center;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
 }
@@ -26,12 +26,12 @@
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.6rem;
-  color: var(--fg);
+  color: var(--color-text);
 }
 
 .li-text {
   margin: 0.75rem 0 1.5rem;
-  color: var(--fg-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
@@ -42,18 +42,18 @@
   padding: 0.85rem 1.75rem;
   font-size: 1.05rem;
   font-weight: 650;
-  color: var(--fg-onPrimary);
-  background: var(--primary);
+  color: var(--color-text-on-brand);
+  background: var(--color-brand);
   border-radius: var(--radius-sm);
   transition: background 0.15s ease;
 }
 
 .li-cta:hover {
-  background: var(--primary-hover);
+  background: var(--color-brand-hover);
 }
 
 .li-muted {
   margin: 0.75rem 0 0;
-  color: var(--fg-muted);
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }

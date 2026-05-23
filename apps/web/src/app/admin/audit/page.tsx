@@ -47,14 +47,14 @@ export default function AdminAuditPage() {
       <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
         <div>
           <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>审计日志</h1>
-          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>把轮次执行、学校维护、问卷改动和风险处理动作留痕，便于追责和回溯。</p>
+          <p style={{ color: "var(--color-text-secondary)", fontSize: "1.05rem" }}>把轮次执行、学校维护、问卷改动和风险处理动作留痕，便于追责和回溯。</p>
         </div>
-        <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
+        <button className="ui-button ui-button--secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
           刷新
         </button>
       </div>
 
-      {error ? <p className="form-error">{error}</p> : null}
+      {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
 
       <form className="admin-search-bar" onSubmit={handleSearchSubmit}>
         <input
@@ -66,7 +66,7 @@ export default function AdminAuditPage() {
       <div className="admin-tabs">
         <button
           type="button"
-          className={actionFilter === "" ? "admin-tab active" : "admin-tab"}
+          className={actionFilter === "" ? "ui-segmented-item active" : "ui-segmented-item"}
           onClick={() => {
             setActionFilter("");
             setPage(1);
@@ -78,7 +78,7 @@ export default function AdminAuditPage() {
           <button
             key={action}
             type="button"
-            className={actionFilter === action ? "admin-tab active" : "admin-tab"}
+            className={actionFilter === action ? "ui-segmented-item active" : "ui-segmented-item"}
             onClick={() => {
               setActionFilter(action);
               setPage(1);

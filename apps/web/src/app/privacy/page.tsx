@@ -1,7 +1,9 @@
+import { Card } from "@/components/ui";
+
 export default function PrivacyPage() {
   return (
     <main className="page-shell prose-shell">
-      <section className="content-panel">
+      <Card className="prose-panel">
         <p className="eyebrow">Privacy</p>
         <h1>隐私原则</h1>
         <p>
@@ -13,7 +15,7 @@ export default function PrivacyPage() {
           <li>举报和封禁记录只用于安全处理。</li>
           <li>不出售数据，不做广告画像。</li>
         </ul>
-      </section>
+      </Card>
     </main>
   );
 }

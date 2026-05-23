@@ -222,7 +222,7 @@ export default function AdminSchoolsPage() {
 
         <div className="qb-editor-actions">
           <button
-            className="button-primary"
+            className="ui-button ui-button--primary"
             type="submit"
             disabled={pending === "save"}
           >
@@ -233,7 +233,7 @@ export default function AdminSchoolsPage() {
                 : "保存修改"}
           </button>
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             type="button"
             onClick={cancelEditing}
           >
@@ -259,7 +259,7 @@ export default function AdminSchoolsPage() {
         </div>
         <div className="auth-actions">
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             onClick={() => void refresh()}
             type="button"
             style={{ minHeight: "2.4rem", padding: "0 1rem" }}
@@ -298,19 +298,19 @@ export default function AdminSchoolsPage() {
             ×
           </button>
         )}
-        <button className="button-primary ic-search-submit" type="submit">
+        <button className="ui-button ui-button--primary ic-search-submit" type="submit">
           搜索
         </button>
       </form>
 
       {mergeSource && (
-        <div className="admin-merge-banner form-success">
+        <div className="admin-merge-banner ui-form-message ui-form-message--success">
           <span>
             已选择「{mergeSource.name}」为合并来源，点击目标学校卡片上的「合并到此」完成合并。
           </span>
           <button
             type="button"
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             onClick={() => setMergeSource(null)}
           >
             取消合并
@@ -319,12 +319,12 @@ export default function AdminSchoolsPage() {
       )}
 
       {loadError && (
-        <p className="form-error" style={{ marginBottom: "1rem" }}>
+        <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "1rem" }}>
           {loadError}
         </p>
       )}
       {error && (
-        <p className="form-error" style={{ marginBottom: "1rem" }}>
+        <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "1rem" }}>
           {error}
         </p>
       )}
@@ -364,7 +364,7 @@ export default function AdminSchoolsPage() {
                     {!isEditing && school.domains.length > 0 && (
                       <div className="sch-card-domains">
                         {school.domains.map((d) => (
-                          <span key={d.id} className="domain-chip sch-domain-chip">
+                          <span key={d.id} className="ui-badge ui-badge--neutral sch-domain-chip">
                             @{d.domain}
                           </span>
                         ))}
@@ -380,7 +380,7 @@ export default function AdminSchoolsPage() {
                       {mergeSource && mergeSource.id !== school.id ? (
                         <button
                           type="button"
-                          className="button-secondary sch-card-action-btn"
+                          className="ui-button ui-button--secondary sch-card-action-btn"
                           title={`合并「${mergeSource.name}」到此学校`}
                           disabled={pending === "merge"}
                           onClick={() => void mergeInto(school)}

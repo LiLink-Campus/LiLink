@@ -51,21 +51,21 @@ function GenderLegend() {
   return (
     <div className="qb-legend ic-gender-legend">
       <span className="qb-legend-item">
-        <span className="qb-legend-dot" style={{ background: "var(--primary)" }} />
+        <span className="qb-legend-dot" style={{ background: "var(--color-brand)" }} />
         男
       </span>
       <span className="qb-legend-item">
-        <span className="qb-legend-dot" style={{ background: "var(--accent)" }} />
+        <span className="qb-legend-dot" style={{ background: "var(--color-accent)" }} />
         女
       </span>
       <span className="qb-legend-item">
-        <span className="qb-legend-dot" style={{ background: "var(--gold)" }} />
+        <span className="qb-legend-dot" style={{ background: "var(--color-gold)" }} />
         非二元
       </span>
       <span className="qb-legend-item">
         <span
           className="qb-legend-dot"
-          style={{ background: "var(--neutral)" }}
+          style={{ background: "var(--color-neutral)" }}
         />
         未填问卷
       </span>
@@ -118,7 +118,7 @@ function InviteCodeRow({
       <div className="ic-row-actions">
         <button
           type="button"
-          className={item.isActive ? "button-secondary" : "button-primary"}
+          className={item.isActive ? "ui-button ui-button--secondary" : "ui-button ui-button--primary"}
           disabled={pending === `toggle-${item.id}`}
           onClick={() => onToggle(item)}
         >
@@ -155,7 +155,7 @@ function CopyCodeButton({
   return (
     <button
       type="button"
-      className={`button-secondary ic-copy-btn${copied ? " is-copied" : ""}`}
+      className={`ui-button ui-button--secondary ic-copy-btn${copied ? " is-copied" : ""}`}
       onClick={() => void copy()}
     >
       {copied ? "已复制" : label}
@@ -258,7 +258,7 @@ export default function AdminInviteCodesPage() {
           </p>
         </div>
         <button
-          className="button-secondary"
+          className="ui-button ui-button--secondary"
           onClick={() => void refresh()}
           type="button"
           style={{ minHeight: "2.4rem", padding: "0 1rem" }}
@@ -310,7 +310,7 @@ export default function AdminInviteCodesPage() {
             aria-label="拉新同学姓名"
           />
           <button
-            className="button-primary"
+            className="ui-button ui-button--primary"
             type="submit"
             disabled={pending === "create" || !ownerName.trim()}
           >
@@ -341,7 +341,7 @@ export default function AdminInviteCodesPage() {
                 ×
               </button>
             ) : null}
-            <button className="button-primary ic-search-submit" type="submit">
+            <button className="ui-button ui-button--primary ic-search-submit" type="submit">
               搜索
             </button>
           </form>
@@ -370,7 +370,7 @@ export default function AdminInviteCodesPage() {
         </div>
 
         {(loadError || error) && (
-          <p className="form-error ic-list-error">{loadError ?? error}</p>
+          <p className="ui-form-message ui-form-message--error ic-list-error">{loadError ?? error}</p>
         )}
 
         <div className="ic-list-scroll">

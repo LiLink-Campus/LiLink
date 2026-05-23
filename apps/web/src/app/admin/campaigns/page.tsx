@@ -187,7 +187,7 @@ export default function AdminCampaignsPage() {
             aria-label="活动说明"
           />
           <button
-            className="button-primary"
+            className="ui-button ui-button--primary"
             type="submit"
             disabled={pending === "create" || !name.trim() || !slug.trim()}
           >
@@ -197,7 +197,7 @@ export default function AdminCampaignsPage() {
       </section>
 
       {(loadError || error) && (
-        <p className="form-error" style={{ margin: "1rem 0" }}>
+        <p className="ui-form-message ui-form-message--error" style={{ margin: "1rem 0" }}>
           {loadError ?? error}
         </p>
       )}
@@ -278,7 +278,7 @@ export default function AdminCampaignsPage() {
                   <div className="mp-card-actions">
                     <button
                       type="button"
-                      className="button-secondary"
+                      className="ui-button ui-button--secondary"
                       onClick={() =>
                         setSelectedId((current) =>
                           current === campaign.id ? null : campaign.id,
@@ -375,7 +375,7 @@ function CampaignStatusControls({
       </label>
       <button
         type="button"
-        className="button-secondary"
+        className="ui-button ui-button--secondary"
         disabled={pending || !dirty}
         onClick={() => onApply(status, isDefault)}
       >
@@ -473,7 +473,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
 
   return (
     <div className="qb-subpanel">
-      {error && <p className="form-error">{error}</p>}
+      {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
 
       <h4>券包（券模板）</h4>
       {templates === null ? (
@@ -511,7 +511,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
                 </span>
                 <button
                   type="button"
-                  className="button-secondary"
+                  className="ui-button ui-button--secondary"
                   disabled={pending === `tpl-${template.id}`}
                   onClick={() => void toggleTemplate(template)}
                 >
@@ -580,7 +580,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
           />
         </div>
         <button
-          className="button-primary"
+          className="ui-button ui-button--primary"
           type="submit"
           disabled={pending === "create" || !merchantId || !title.trim() || !faceValue}
         >

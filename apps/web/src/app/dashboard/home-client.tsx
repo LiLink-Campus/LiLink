@@ -285,8 +285,8 @@ export function HomeClient({
         </div>
       </header>
 
-      {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
-      {error ? <p className="form-error">{error}</p> : null}
+      {savedMessage ? <p className="ui-form-message ui-form-message--success">{savedMessage}</p> : null}
+      {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
 
       <CountdownBanner countdown={agenda.countdown} />
       <AgendaAlertList alerts={agenda.alerts} />

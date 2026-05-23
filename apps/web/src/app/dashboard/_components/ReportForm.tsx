@@ -134,7 +134,7 @@ export function ReportForm({
         </div>
         <footer className="v2-report-dialog-foot">
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             disabled={saving}
             type="button"
             onClick={onCancel}
@@ -142,7 +142,7 @@ export function ReportForm({
             取消
           </button>
           <button
-            className="button-danger"
+            className="ui-button ui-button--danger"
             disabled={saving}
             type="button"
             onClick={onSubmit}

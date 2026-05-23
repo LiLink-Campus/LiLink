@@ -35,7 +35,7 @@ export type MatchStateHeroProps = {
 function renderAction(action: MatchStateAction, index: number) {
   const variant = action.variant ?? "primary";
   const className =
-    variant === "primary" ? "button-primary" : "button-secondary";
+    variant === "primary" ? "ui-button ui-button--primary" : "ui-button ui-button--secondary";
   const label = action.loading ? <>{action.label}…</> : action.label;
 
   if (action.href && !action.disabled) {
@@ -94,22 +94,22 @@ export function MatchStateHero({
               ) : null}
               <div className="v2-match-hero-identity" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <h2 className="v2-focus-title" style={{ fontSize: '1.25rem', margin: 0 }}>{title}</h2>
-                {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--fg-secondary)', fontSize: '0.8rem' }}>{subtitle}</p> : null}
+                {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '0.8rem' }}>{subtitle}</p> : null}
               </div>
             </div>
             {typeof score === "number" ? (
               <div className="v2-match-hero-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#f9fcf9', border: '1px solid #eef5ef', borderRadius: '0.5rem', padding: '0.25rem 0.75rem' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--fg-secondary)' }}>匹配度</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>匹配度</span>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.1rem' }}>
                   <strong style={{ fontSize: '1.25rem', color: '#3a7d65', fontWeight: 600 }}>{Math.round(score)}</strong>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--fg-secondary)' }}>/ 100</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)' }}>/ 100</span>
                 </div>
               </div>
             ) : null}
           </div>
 
-          {contactLine ? <div className="v2-match-hero-contact" style={{ padding: '0.75rem', background: 'var(--bg-soft)', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>{contactLine}</div> : null}
-          {body ? <p className="v2-focus-body" style={{ fontSize: '0.9rem', color: 'var(--fg-secondary)', marginBottom: '1rem' }}>{body}</p> : null}
+          {contactLine ? <div className="v2-match-hero-contact" style={{ padding: '0.75rem', background: 'var(--color-surface-muted)', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>{contactLine}</div> : null}
+          {body ? <p className="v2-focus-body" style={{ fontSize: '0.9rem', color: 'var(--color-text-secondary)', marginBottom: '1rem' }}>{body}</p> : null}
           {children}
         </div>
         {actions && actions.length > 0 ? (
@@ -129,7 +129,7 @@ export function MatchStateHero({
             <span className="v2-focus-eyebrow">匹配受限</span>
           </header>
           <h2 className="v2-focus-title">{title}</h2>
-          {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--fg-secondary)', fontSize: '0.9rem' }}>{subtitle}</p> : null}
+          {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>{subtitle}</p> : null}
 
           {typeof score === "number" ? (
             <div className="v2-focus-meta-row">
@@ -159,7 +159,7 @@ export function MatchStateHero({
           <span className="v2-focus-eyebrow">{variant === 'waiting' ? '等待中' : '暂无匹配'}</span>
         </header>
         <h2 className="v2-focus-title">{title}</h2>
-        {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--fg-secondary)', fontSize: '0.9rem' }}>{subtitle}</p> : null}
+        {subtitle ? <p className="v2-match-hero-sub" style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>{subtitle}</p> : null}
         {body ? <p className="v2-focus-body">{body}</p> : null}
         {children}
       </div>

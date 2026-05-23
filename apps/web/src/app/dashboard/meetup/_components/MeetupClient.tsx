@@ -278,7 +278,7 @@ export function MeetupStartClient({
             链接里缺少匹配 ID。请从「我的匹配」重新点击「安排第一次见面」。
           </p>
         </section>
-        <Link className="button-secondary meetup-inline-link" href="/dashboard/match">
+        <Link className="ui-button ui-button--secondary meetup-inline-link" href="/dashboard/match">
           返回我的匹配
         </Link>
       </div>
@@ -299,11 +299,11 @@ export function MeetupStartClient({
               <h2>见面安排已结束</h2>
               <span className="v2-plan-card-pill">历史记录</span>
             </header>
-            <p className="app-card-muted">
+            <p className="ui-card-description">
               {meetupSummary.terminalText ??
                 "本次见面安排已结束，当前版本暂不支持重新发起。"}
             </p>
-            <Link className="button-secondary meetup-inline-link" href="/dashboard/match">
+            <Link className="ui-button ui-button--secondary meetup-inline-link" href="/dashboard/match">
               返回我的匹配
             </Link>
           </section>
@@ -350,7 +350,7 @@ export function MeetupStartClient({
                 </span>
               </div>
             </div>
-            <Link className="button-primary meetup-inline-link" href={meetupSummary.href}>
+            <Link className="ui-button ui-button--primary meetup-inline-link" href={meetupSummary.href}>
               查看见面安排
             </Link>
           </section>
@@ -372,12 +372,12 @@ export function MeetupStartClient({
           给对方 2–3 个时间和地点候选；填好后点底部的「发送方案」即可。
         </p>
       </section>
-      <section className="app-card">
-        <div className="app-card-head">
-          <h2 className="app-card-title">方案明细</h2>
-          <span className="app-card-status">北京时间</span>
+      <section className="ui-card ui-card--padded">
+        <div className="ui-card-header">
+          <h2 className="ui-card-title">方案明细</h2>
+          <span className="semantic-status semantic-status--neutral">北京时间</span>
         </div>
-        {error ? <p className="form-error">{error}</p> : null}
+        {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
         <MeetupProposalForm
           defaultScope="BOTH"
           disabled={saving}
@@ -789,7 +789,7 @@ function MeetupSessionView({
       <div className="app-page-shell app-page-shell-narrow v2-page-shell">
         <MeetupParticipantStrip session={session} currentUserId={currentUserId} />
 
-        {error ? <p className="form-error">{error}</p> : null}
+        {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
 
         <MeetupActionCard
           session={session}
@@ -808,10 +808,10 @@ function MeetupSessionView({
         ) : null}
 
         {actionState === "needsPropose" ? (
-          <section className="app-card">
-            <div className="app-card-head">
-              <h2 className="app-card-title">方案明细</h2>
-              <span className="app-card-status">北京时间</span>
+          <section className="ui-card ui-card--padded">
+            <div className="ui-card-header">
+              <h2 className="ui-card-title">方案明细</h2>
+              <span className="semantic-status semantic-status--neutral">北京时间</span>
             </div>
             <MeetupProposalForm
               key={defaultScopeForSession(session)}
@@ -825,10 +825,10 @@ function MeetupSessionView({
         ) : null}
 
         {actionState === "locked" && revisionFormOpen ? (
-          <section className="app-card">
-            <div className="app-card-head">
-              <h2 className="app-card-title">修改已确认的安排</h2>
-              <span className="app-card-status is-warn">
+          <section className="ui-card ui-card--padded">
+            <div className="ui-card-header">
+              <h2 className="ui-card-title">修改已确认的安排</h2>
+              <span className="semantic-status semantic-status--neutral is-warn">
                 每人每次安排仅可修改 1 次
               </span>
             </div>
@@ -1225,7 +1225,7 @@ function MeetupProposalForm({
           </div>
         </div>
 
-        {error && <p className="form-error">{error}</p>}
+        {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
 
         {step === 1 && wantsTime && (
           <div className="meetup-wizard-content">
@@ -1320,13 +1320,13 @@ function MeetupProposalForm({
             <div>
               <div className="meetup-section-title">推荐地点</div>
               {loadingCandidates ? (
-                <p className="app-card-muted">正在加载地点候选…</p>
+                <p className="ui-card-description">正在加载地点候选…</p>
               ) : candidateError ? (
                 <div>
-                  <p className="form-error">{candidateError}</p>
+                  <p className="ui-form-message ui-form-message--error">{candidateError}</p>
                   <button
                     type="button"
-                    className="button-secondary"
+                    className="ui-button ui-button--secondary"
                     onClick={() => {
                       setError(null);
                       setCandidateError(null);
@@ -1382,7 +1382,7 @@ function MeetupProposalForm({
               </label>
               <button
                 type="button"
-                className="button-secondary meetup-small-button"
+                className="ui-button ui-button--secondary meetup-small-button"
                 disabled={
                   disabled ||
                   selectedLocations.length >= 3 ||
@@ -1421,7 +1421,7 @@ function MeetupProposalForm({
               {wantsTime && (
                 <button
                   type="button"
-                  className="button-secondary"
+                  className="ui-button ui-button--secondary"
                   onClick={() => {
                     setError(null);
                     setStep(1);
@@ -1468,7 +1468,7 @@ function MeetupProposalForm({
             <div className="meetup-wizard-footer" style={{ display: 'flex', gap: '1rem' }}>
               <button
                 type="button"
-                className="button-secondary"
+                className="ui-button ui-button--secondary"
                 onClick={() => {
                   setError(null);
                   setStep(wantsLocation ? 2 : 1);
@@ -1532,7 +1532,7 @@ function ConfirmActionDialog({
   }, [open]);
 
   const confirmClass =
-    confirmTone === "danger" ? "button-danger" : "button-primary";
+    confirmTone === "danger" ? "ui-button ui-button--danger" : "ui-button ui-button--primary";
 
   return (
     <dialog
@@ -1563,7 +1563,7 @@ function ConfirmActionDialog({
         ) : null}
         <div className="meetup-action-row">
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             type="button"
             disabled={busy}
             onClick={onClose}

@@ -28,6 +28,7 @@
     "lint:shared": "npm run lint --workspace @lilink/shared",
     "lint:web": "npm run lint --workspace web",
     "lint:api": "npm run lint --workspace api",
+    "lint:web-boundary": "node scripts/audit-web-design-system-boundary.mjs",
     "lint:pre-push": "node scripts/run-pre-push-lint.mjs",
     "lint:staged": "lint-staged",
     "lint:css": "node scripts/web-css-syntax.mjs",

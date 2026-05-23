@@ -118,14 +118,14 @@ export default function AdminOverviewPage({
             <p className="qb-header-desc">后台数据暂时不可用。</p>
           </div>
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             onClick={() => void refresh()}
             type="button"
           >
             重新加载
           </button>
         </div>
-        {error && <p className="form-error">{error}</p>}
+        {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
       </div>
     );
   }
@@ -147,7 +147,7 @@ export default function AdminOverviewPage({
           </p>
         </div>
         <button
-          className="button-secondary"
+          className="ui-button ui-button--secondary"
           onClick={() => void refresh()}
           type="button"
           style={{ minHeight: "2.4rem", padding: "0 1rem" }}
@@ -157,7 +157,7 @@ export default function AdminOverviewPage({
       </div>
 
       {error && (
-        <p className="form-error" style={{ marginBottom: "1rem" }}>
+        <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "1rem" }}>
           {error}
         </p>
       )}
@@ -177,7 +177,7 @@ export default function AdminOverviewPage({
 
       {/* Capacity settings */}
       {settings && (
-        <section className="content-panel" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
+        <section className="ui-card ui-card--padded" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
           <div className="admin-section-header" style={{ marginBottom: "1rem" }}>
             <div>
               <p className="eyebrow">灰度控制</p>
@@ -202,10 +202,10 @@ export default function AdminOverviewPage({
             </p>
           </div>
           <div className="auth-actions" style={{ marginTop: "1rem" }}>
-            <button className="button-primary" type="button" disabled={settingsPending} onClick={() => void saveSettings()} style={{ minHeight: "2.2rem", padding: "0 1rem" }}>
+            <button className="ui-button ui-button--primary" type="button" disabled={settingsPending} onClick={() => void saveSettings()} style={{ minHeight: "2.2rem", padding: "0 1rem" }}>
               {settingsPending ? "保存中…" : "保存限制"}
             </button>
-            {settingsMsg && <span style={{ fontSize: "0.9rem", color: settingsMsg === "已保存" ? "var(--accent)" : "var(--error)" }}>{settingsMsg}</span>}
+            {settingsMsg && <span style={{ fontSize: "0.9rem", color: settingsMsg === "已保存" ? "var(--color-accent)" : "var(--color-danger)" }}>{settingsMsg}</span>}
           </div>
         </section>
       )}
@@ -216,13 +216,13 @@ export default function AdminOverviewPage({
         style={{ marginBottom: "1.25rem" }}
       >
         {/* Current cycle */}
-        <article className="content-panel">
+        <article className="ui-card ui-card--padded">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">轮次雷达</p>
               <h2>当前轮次</h2>
             </div>
-            <Link className="button-secondary" href="/admin/cycles">
+            <Link className="ui-button ui-button--secondary" href="/admin/cycles">
               进入轮次中心
             </Link>
           </div>
@@ -232,7 +232,7 @@ export default function AdminOverviewPage({
               <strong style={{ fontSize: "1.15rem" }}>
                 {summary.openCycle.codename}
               </strong>
-              <p style={{ color: "var(--fg-secondary)", margin: "0.35rem 0 0" }}>
+              <p style={{ color: "var(--color-text-secondary)", margin: "0.35rem 0 0" }}>
                 状态：{summary.openCycle.status}
               </p>
               <div className="adm-kv-grid">
@@ -268,13 +268,13 @@ export default function AdminOverviewPage({
         </article>
 
         {/* Open reports */}
-        <article className="content-panel">
+        <article className="ui-card ui-card--padded">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">风险队列</p>
               <h2>待处理举报</h2>
             </div>
-            <Link className="button-secondary" href="/admin/reports">
+            <Link className="ui-button ui-button--secondary" href="/admin/reports">
               打开举报中心
             </Link>
           </div>
@@ -290,7 +290,7 @@ export default function AdminOverviewPage({
                     style={{
                       margin: "0.15rem 0 0",
                       fontSize: "0.85rem",
-                      color: "var(--fg-secondary)",
+                      color: "var(--color-text-secondary)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -302,7 +302,7 @@ export default function AdminOverviewPage({
                       report.reportedUser.email}
                   </p>
                 </div>
-                <span className="domain-chip">
+                <span className="ui-badge ui-badge--neutral">
                   {formatDateTime(report.createdAt)}
                 </span>
               </div>
@@ -317,19 +317,19 @@ export default function AdminOverviewPage({
       </section>
 
       {/* Test tools */}
-      <section className="content-panel" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
+      <section className="ui-card ui-card--padded" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
         <div className="admin-section-header" style={{ marginBottom: "1rem" }}>
           <div>
             <p className="eyebrow">测试工具</p>
             <h2>测试数据管理</h2>
           </div>
         </div>
-        <p style={{ fontSize: "0.9rem", color: "var(--fg-secondary)", marginBottom: "1rem" }}>
+        <p style={{ fontSize: "0.9rem", color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
           一键生成 30 个测试用户（含问卷与轮次参与），用于验证匹配流程。每次生成的登录密码仅在下方成功提示中展示一次，请自行妥善保存。
         </p>
         <div className="auth-actions" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
           <button
-            className="button-primary"
+            className="ui-button ui-button--primary"
             type="button"
             disabled={seedPending}
             onClick={async () => {
@@ -357,7 +357,7 @@ export default function AdminOverviewPage({
             {seedPending ? "生成中…" : "生成测试用户"}
           </button>
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             type="button"
             disabled={deletePending}
             onClick={async () => {
@@ -375,13 +375,13 @@ export default function AdminOverviewPage({
                 setDeletePending(false);
               }
             }}
-            style={{ minHeight: "2.2rem", padding: "0 1rem", color: "var(--error, #c0392b)" }}
+            style={{ minHeight: "2.2rem", padding: "0 1rem", color: "var(--color-danger, #c0392b)" }}
           >
             {deletePending ? "删除中…" : "删除全部测试用户"}
           </button>
         </div>
-        {seedMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: seedMsg.startsWith("已创建") ? "var(--accent)" : "var(--error)" }}>{seedMsg}</p>}
-        {deleteMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: deleteMsg.startsWith("已删除") ? "var(--accent)" : "var(--error)" }}>{deleteMsg}</p>}
+        {seedMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: seedMsg.startsWith("已创建") ? "var(--color-accent)" : "var(--color-danger)" }}>{seedMsg}</p>}
+        {deleteMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: deleteMsg.startsWith("已删除") ? "var(--color-accent)" : "var(--color-danger)" }}>{deleteMsg}</p>}
       </section>
 
       {/* Module shortcuts */}
