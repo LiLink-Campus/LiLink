@@ -1,3 +1,4 @@
+import { dcx } from "../../_lib/dashboard-class-names";
 import type { MeetupSessionResponse } from "../../../../lib/api";
 import { sessionIsTerminal } from "./meetup-format";
 
@@ -47,13 +48,13 @@ export function MeetupParticipantStrip({
   const turn = turnContent(session);
 
   return (
-    <div className="v2-meetup-participant-strip" aria-label="参与者状态">
-      <span className="v2-meetup-participant-avatar" aria-hidden="true">
+    <div className={dcx("v2-meetup-participant-strip")} aria-label="参与者状态">
+      <span className={dcx("v2-meetup-participant-avatar")} aria-hidden="true">
         {initial}
       </span>
-      <span className="v2-meetup-participant-name">{name}</span>
-      <span className={`v2-meetup-participant-turn tone-${turn.tone}`}>
-        <span className="v2-meetup-participant-turn-dot" aria-hidden="true" />
+      <span className={dcx("v2-meetup-participant-name")}>{name}</span>
+      <span className={dcx(`v2-meetup-participant-turn tone-${turn.tone}`)}>
+        <span className={dcx("v2-meetup-participant-turn-dot")} aria-hidden="true" />
         {turn.label}
       </span>
     </div>

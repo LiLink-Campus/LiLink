@@ -1,0 +1,177 @@
+/* ── V2 page shell · greeting + stage strip ───────────────── */
+
+.v2-page-shell {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.1rem, 2.6vw, 1.6rem);
+}
+
+.v2-greeting {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 0.15rem 0 0;
+}
+
+.v2-greeting-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.v2-greeting-status {
+    flex-shrink: 0;
+}
+
+.v2-greeting-pill {
+  display: inline-flex;
+align-items: center;
+    padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-pill);
+font-size: 0.75rem;
+    font-weight: 500;
+  letter-spacing: 0.02em;
+white-space: nowrap;
+}
+
+.v2-greeting-pill.tone-on {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    color: var(--color-accent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.v2-greeting-pill.tone-warn {
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+    color: var(--color-warning);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 20%, transparent);
+}
+
+.v2-greeting-pill.tone-off {
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+}
+
+.v2-greeting h1 {
+  font-family: var(--font-display);
+font-size: clamp(1.55rem, 4vw, 2rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.55rem;
+}
+
+.v2-greeting-sub {
+  margin: 0;
+color: var(--color-text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
+.v2-countdown {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.18rem;
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+    color: var(--color-brand-ink);
+}
+
+.v2-countdown-static {
+    color: var(--color-text-secondary);
+    font-feature-settings: normal;
+    font-variant-numeric: normal;
+}
+
+.v2-countdown-num {
+  font-family: var(--font-display);
+  font-weight: 600;
+font-size: 0.95rem;
+}
+
+.v2-countdown-unit {
+    font-size: 0.76rem;
+    color: var(--color-text-muted);
+    margin-right: 0.1rem;
+}
+
+.v2-match-hero-section {
+  margin-top: 0.5rem;
+}
+
+/* ── V2 Status duet (双列状态卡: 参与 + 问卷) ─────────── */
+
+/* Status-duet tiles removed: home now uses the DO NOW card + suggestion list. */
+
+/* ── V2 Page header (Match / Meetup 顶部) ─────────────── */
+
+.v2-page-header {
+  display: flex;
+flex-direction: column;
+    gap: 0.55rem;
+    padding: clamp(1.3rem, 3.5vw, 1.85rem);
+    border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+box-shadow: var(--shadow-xs);
+    position: relative;
+    overflow: hidden;
+}
+
+.v2-page-header::before {
+    content: "";
+    position: absolute;
+    top: -30%;
+    right: -10%;
+    width: 14rem;
+    height: 14rem;
+    background: radial-gradient(circle,
+            color-mix(in srgb, var(--color-accent) 12%, transparent) 0%,
+            transparent 65%);
+    filter: blur(20px);
+    pointer-events: none;
+}
+
+.v2-page-header>* {
+    position: relative;
+    z-index: 1;
+}
+
+.v2-page-header-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 0.82rem;
+    color: var(--color-accent);
+    letter-spacing: 0.04em;
+}
+
+.v2-page-header h1 {
+    margin: 0;
+  font-family: var(--font-display);
+font-size: clamp(1.55rem, 3.8vw, 2rem);
+    letter-spacing: -0.01em;
+    line-height: 1.18;
+  color: var(--color-text);
+}
+
+.v2-page-header>p {
+    margin: 0;
+  color: var(--color-text-secondary);
+font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.v2-page-header-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.3rem;
+}

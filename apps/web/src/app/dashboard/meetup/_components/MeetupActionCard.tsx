@@ -1,3 +1,4 @@
+import { dcx } from "../../_lib/dashboard-class-names";
 import { useMemo } from "react";
 import type {
   MeetupMessage,
@@ -222,17 +223,17 @@ export function MeetupActionCard(props: MeetupActionCardProps) {
   }
 
   return (
-    <section className={`v2-meetup-action-card tone-${tone}`} aria-label={head.title}>
-      <header className="v2-meetup-action-head">
-        <span className="v2-meetup-action-head-icon" aria-hidden="true">
+    <section className={dcx(`v2-meetup-action-card tone-${tone}`)} aria-label={head.title}>
+      <header className={dcx("v2-meetup-action-head")}>
+        <span className={dcx("v2-meetup-action-head-icon")} aria-hidden="true">
           {icon}
         </span>
-        <div className="v2-meetup-action-head-body">
-          <span className="v2-meetup-action-eyebrow">{head.eyebrow}</span>
-          <h2 className="v2-meetup-action-title">{head.title}</h2>
+        <div className={dcx("v2-meetup-action-head-body")}>
+          <span className={dcx("v2-meetup-action-eyebrow")}>{head.eyebrow}</span>
+          <h2 className={dcx("v2-meetup-action-title")}>{head.title}</h2>
         </div>
       </header>
-      <p className="v2-meetup-action-subtitle">{head.subtitle}</p>
+      <p className={dcx("v2-meetup-action-subtitle")}>{head.subtitle}</p>
       {body}
     </section>
   );
@@ -263,15 +264,15 @@ function AcceptBody({
   return (
     <>
       {counterpartNote ? (
-        <div className="v2-meetup-action-counterpart-note">
-          <span className="v2-meetup-action-section-label">对方的备注</span>
+        <div className={dcx("v2-meetup-action-counterpart-note")}>
+          <span className={dcx("v2-meetup-action-section-label")}>对方的备注</span>
           <p>{counterpartNote}</p>
         </div>
       ) : null}
 
       {timeOptions.length > 0 ? (
-        <div className="v2-meetup-action-section">
-          <span className="v2-meetup-action-section-label">
+        <div className={dcx("v2-meetup-action-section")}>
+          <span className={dcx("v2-meetup-action-section-label")}>
             <ClockIcon />
             选择一个时间
           </span>
@@ -290,8 +291,8 @@ function AcceptBody({
       ) : null}
 
       {locationOptions.length > 0 ? (
-        <div className="v2-meetup-action-section">
-          <span className="v2-meetup-action-section-label">
+        <div className={dcx("v2-meetup-action-section")}>
+          <span className={dcx("v2-meetup-action-section-label")}>
             <MapPinIcon />
             选择一个地点
           </span>
@@ -311,7 +312,7 @@ function AcceptBody({
         </div>
       ) : null}
 
-      <label className="v2-meetup-action-note">
+      <label className={dcx("v2-meetup-action-note")}>
         <span>给对方的备注（可选；拒绝时建议补一句原因）</span>
         <textarea
           value={noteText}
@@ -341,20 +342,20 @@ function OptionRow({
       type="button"
       className={
         selected
-          ? "v2-meetup-option-row is-selected"
+          ? dcx("v2-meetup-option-row is-selected")
           : disabled
-            ? "v2-meetup-option-row is-disabled-option"
-            : "v2-meetup-option-row"
+            ? dcx("v2-meetup-option-row is-disabled-option")
+            : dcx("v2-meetup-option-row")
       }
       onClick={onSelect}
       aria-pressed={selected}
       disabled={disabled}
     >
-      <span className="v2-meetup-option-radio" aria-hidden="true" />
-      <span className="v2-meetup-option-icon" aria-hidden="true">
+      <span className={dcx("v2-meetup-option-radio")} aria-hidden="true" />
+      <span className={dcx("v2-meetup-option-icon")} aria-hidden="true">
         {kind === "TIME" ? <CalendarIcon /> : <MapPinIcon />}
       </span>
-      <span className="v2-meetup-option-body">
+      <span className={dcx("v2-meetup-option-body")}>
         <strong>{optionPrimaryText(option)}</strong>
         <span>{optionSecondaryText(option)}</span>
       </span>
@@ -380,20 +381,20 @@ function FinalConfirmBody({
   return (
     <>
       {counterpartNote ? (
-        <div className="v2-meetup-action-counterpart-note">
-          <span className="v2-meetup-action-section-label">对方的备注</span>
+        <div className={dcx("v2-meetup-action-counterpart-note")}>
+          <span className={dcx("v2-meetup-action-section-label")}>对方的备注</span>
           <p>{counterpartNote}</p>
         </div>
       ) : null}
-      <ul className="v2-meetup-summary-list">
+      <ul className={dcx("v2-meetup-summary-list")}>
       <li>
-        <span className="v2-meetup-summary-tag">时间</span>
+        <span className={dcx("v2-meetup-summary-tag")}>时间</span>
         <span>
           <strong>{formatMeetupTimeRange(plan.startsAt, plan.endsAt)}</strong>
         </span>
       </li>
       <li>
-        <span className="v2-meetup-summary-tag">地点</span>
+        <span className={dcx("v2-meetup-summary-tag")}>地点</span>
         <span>
           <strong>{plan.placeName ?? "地点待确认"}</strong>
         </span>
@@ -417,7 +418,7 @@ function WaitingBody({
 
   if (!proposal) {
     return (
-      <p className="v2-meetup-action-subtitle">
+      <p className={dcx("v2-meetup-action-subtitle")}>
         当前没有可显示的方案摘要；可以下拉查看协商记录。
       </p>
     );
@@ -429,10 +430,10 @@ function WaitingBody({
   );
 
   return (
-    <ul className="v2-meetup-summary-list">
+    <ul className={dcx("v2-meetup-summary-list")}>
       {timeOptions.map((option, index) => (
         <li key={option.id}>
-          <span className="v2-meetup-summary-tag">
+          <span className={dcx("v2-meetup-summary-tag")}>
             {timeOptions.length === 1 ? "时间" : `时间 ${index + 1}`}
           </span>
           <span>
@@ -442,7 +443,7 @@ function WaitingBody({
       ))}
       {locationOptions.map((option, index) => (
         <li key={option.id}>
-          <span className="v2-meetup-summary-tag">
+          <span className={dcx("v2-meetup-summary-tag")}>
             {locationOptions.length === 1 ? "地点" : `地点 ${index + 1}`}
           </span>
           <span>
@@ -476,9 +477,9 @@ function NeedsProposeBody({
   ).length;
 
   return (
-    <ul className="v2-meetup-summary-list">
+    <ul className={dcx("v2-meetup-summary-list")}>
       <li>
-        <span className="v2-meetup-summary-tag">对方之前提议</span>
+        <span className={dcx("v2-meetup-summary-tag")}>对方之前提议</span>
         <span>
           <strong>
             {[
@@ -497,22 +498,22 @@ function NeedsProposeBody({
 function LockedBody({ session }: { session: MeetupSessionResponse }) {
   const plan = session.currentPlan;
   return (
-    <ul className="v2-meetup-summary-list">
+    <ul className={dcx("v2-meetup-summary-list")}>
       <li>
-        <span className="v2-meetup-summary-tag">时间</span>
+        <span className={dcx("v2-meetup-summary-tag")}>时间</span>
         <span>
           <strong>{formatMeetupTimeRange(plan.startsAt, plan.endsAt)}</strong>
         </span>
       </li>
       <li>
-        <span className="v2-meetup-summary-tag">地点</span>
+        <span className={dcx("v2-meetup-summary-tag")}>地点</span>
         <span>
           <strong>{plan.placeName ?? "地点待确认"}</strong>
         </span>
       </li>
       {session.lockedAt ? (
         <li>
-          <span className="v2-meetup-summary-tag">确认于</span>
+          <span className={dcx("v2-meetup-summary-tag")}>确认于</span>
           <span>{formatMeetupShortDateTime(session.lockedAt)}</span>
         </li>
       ) : null}
