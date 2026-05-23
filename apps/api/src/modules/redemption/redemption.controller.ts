@@ -8,6 +8,7 @@ import { RedemptionService } from './redemption.service';
 // `code` is public (printed on the coupon), so both redemption routes are a
 // brute-force surface. Override the loose global default with a tight per-route
 // cap (the `default` key targets the global throttler bucket).
+// Throttling is IP-based (via CustomThrottlerGuard) by design (§12.7).
 const REDEEM_THROTTLE = { default: { limit: 30, ttl: 60_000 } } as const;
 
 @Controller('merchant')

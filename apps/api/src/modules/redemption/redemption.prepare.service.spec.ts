@@ -33,7 +33,7 @@ const SOCIAL_RULE = {
 };
 
 function couponRow(opts: {
-  status?: 'ISSUED' | 'REDEEMED';
+  status?: 'ISSUED' | 'REDEEMED' | 'VOID';
   totpSecret: string | null;
   rule?: unknown;
 }) {
@@ -181,6 +181,26 @@ describe('RedemptionService.prepare', () => {
 
     expect(result.result).toBe('INVALID');
     expect(result.coupon).toBeUndefined();
+    expect(sign).not.toHaveBeenCalled();
+  });
+
+  it('INVALID: VOID coupon with a valid totp does not issue a ticket (§8.2)', async () => {
+    const prisma = makePrisma();
+    const secret = generateTotpSecret();
+    prisma.coupon.findFirst.mockResolvedValue(
+      couponRow({ status: 'VOID', totpSecret: secret }),
+    );
+    const { ticket, sign } = makeTicketService();
+    const service = new RedemptionService(prisma as never, ticket);
+
+    const result = await service.prepare({
+      merchantId: 'm1',
+      code: 'ABCDEFGHJK',
+      totp: generateTotpToken(secret),
+    });
+
+    expect(result.result).toBe('INVALID');
+    expect(result.redeemTicket).toBeUndefined();
     expect(sign).not.toHaveBeenCalled();
   });
 
