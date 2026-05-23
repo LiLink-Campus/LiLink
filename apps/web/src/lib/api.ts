@@ -517,6 +517,32 @@ export function fetchMyCoupons() {
   return fetchApi<{ items: MyCoupon[] }>("/me/coupons");
 }
 
+export type CouponRedeemSecret = {
+  code: string;
+  secret: string;
+  period: number;
+  digits: number;
+};
+
+export function getCouponRedeemSecret(couponId: string) {
+  return fetchApi<CouponRedeemSecret>(`/me/coupons/${couponId}/redeem-secret`);
+}
+
+export type CouponStatusResponse = {
+  status: MyCouponStatus;
+  redeemedAt?: string;
+  applied?: {
+    orderAmount: number | null;
+    discountAmount: number;
+    gift: string | null;
+  };
+  merchantPromotion?: MerchantPromotionBlock[];
+};
+
+export function getCouponStatus(couponId: string) {
+  return fetchApi<CouponStatusResponse>(`/me/coupons/${couponId}/status`);
+}
+
 // --- Merchant portal (separate session from user/admin) ---
 
 export type MerchantSessionUser = {

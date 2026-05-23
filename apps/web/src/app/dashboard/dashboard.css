@@ -4075,6 +4075,109 @@ cursor: pointer;
     color: var(--color-text-secondary);
 }
 
+/* Coupon show-code dialog — TOTP / redeem-code view */
+.coupons-showcode-qr {
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 0;
+}
+
+.coupons-showcode-code {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.coupons-showcode-code-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.coupons-showcode-code-value {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--color-text);
+    user-select: all;
+}
+
+.coupons-showcode-countdown {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+}
+
+.coupons-showcode-countdown-secs {
+    font-weight: 700;
+    color: var(--color-brand);
+}
+
+/* Success view after redemption */
+.coupons-redeemed-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.75rem 0;
+    text-align: center;
+}
+
+.coupons-redeemed-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+.coupons-redeemed-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.coupons-redeemed-applied {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.coupons-redeemed-promotion {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    margin-top: 0.25rem;
+}
+
+.coupons-redeemed-promo-block {
+    width: 100%;
+    text-align: center;
+}
+
+.coupons-redeemed-promo-block p {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+}
+
+.coupons-redeemed-promo-img {
+    max-width: 14rem;
+    height: auto;
+    border-radius: var(--radius-sm);
+}
+
+.coupons-redeemed-promo-caption {
+    margin: 0.3rem 0 0;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+}
+
 /* Referrals page */
 .referrals-header-icon {
     width: 1rem;
