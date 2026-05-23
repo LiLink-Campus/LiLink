@@ -233,9 +233,11 @@ describe('ActivationService.tryGrantCoupons', () => {
     await service.tryGrantCoupons('u1');
 
     expect(tx.coupon.create).toHaveBeenCalledTimes(1);
-    const callArg = tx.coupon.create.mock.calls[0][0] as {
-      data: { code: string; totpSecret: unknown };
-    };
+    const callArg = (
+      tx.coupon.create.mock.calls[0] as [
+        { data: { code: string; totpSecret: unknown } },
+      ]
+    )[0];
     expect(callArg.data.totpSecret).toBeTruthy();
     expect(typeof callArg.data.totpSecret).toBe('string');
     expect(callArg.data.code).toHaveLength(6);
