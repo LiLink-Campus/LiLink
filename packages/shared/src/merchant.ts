@@ -6,7 +6,21 @@
 export const MERCHANT_USER_ROLES = ["OWNER", "STAFF"] as const;
 export type MerchantUserRole = (typeof MERCHANT_USER_ROLES)[number];
 
-export const REDEMPTION_RESULTS = ["SUCCESS", "ALREADY_USED", "INVALID"] as const;
+/**
+ * Redemption outcomes. The first three are the original SQL-level states; the
+ * last two (contract §B) arise only after the code matches a valid coupon of
+ * the requesting merchant, so they do not leak existence:
+ * - NEED_AMOUNT: the coupon's rule is amount-dependent but no orderAmount was
+ *   given — re-prompt with the amount; the coupon is NOT consumed.
+ * - BELOW_THRESHOLD: the orderAmount meets no tier — the coupon is NOT consumed.
+ */
+export const REDEMPTION_RESULTS = [
+  "SUCCESS",
+  "ALREADY_USED",
+  "INVALID",
+  "BELOW_THRESHOLD",
+  "NEED_AMOUNT",
+] as const;
 export type RedemptionResult = (typeof REDEMPTION_RESULTS)[number];
 
 export const MERCHANT_PROMOTION_BLOCK_TYPES = ["TEXT", "IMAGE", "QRCODE"] as const;
