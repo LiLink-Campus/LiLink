@@ -2,6 +2,7 @@
 
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 import { COUPON_CODE_LENGTH } from "@lilink/shared";
+import { Button, FormMessage, Input } from "@/components/ui";
 import {
   fetchMerchantMe,
   merchantLogout,
@@ -175,23 +176,23 @@ export default function MerchantRedeemPage() {
     <div className="mc-shell">
       <header className="mc-topbar">
         <span className="mc-topbar-name">{me.merchantName} · 核销</span>
-        <button type="button" className="mc-btn-ghost" onClick={logout}>
+        <Button type="button" variant="ghost" size="sm" onClick={logout}>
           退出
-        </button>
+        </Button>
       </header>
 
       <main className="mc-redeem-body">
         <form className="mc-form" onSubmit={redeem}>
-          <input
-            className="mc-input mc-code-input"
+          <Input
+            className="mc-code-input"
             value={code}
             onChange={(event) => setCode(event.target.value)}
             placeholder="输入券码"
             autoCapitalize="characters"
             autoComplete="off"
           />
-          <input
-            className="mc-input mc-amount-input"
+          <Input
+            className="mc-amount-input"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
             placeholder="消费金额（元）· 满减/折扣/满赠券必填"
@@ -201,16 +202,16 @@ export default function MerchantRedeemPage() {
             step="0.01"
             autoComplete="off"
           />
-          <button
-            className="mc-btn"
+          <Button
+            block
             type="submit"
             disabled={pending || !code.trim()}
           >
             {pending ? "核销中……" : "核销"}
-          </button>
+          </Button>
         </form>
 
-        {error && <p className="mc-error">{error}</p>}
+        {error && <FormMessage>{error}</FormMessage>}
 
         {meta && result && (
           <div className={`mc-result ${meta.cls}`}>

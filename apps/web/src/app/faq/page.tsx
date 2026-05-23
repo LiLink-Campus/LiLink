@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import {
   GrassRowIllustration,
   TeaTimeIllustration,
@@ -89,9 +90,9 @@ export default function FaqPage() {
 
         <div className="faq-cta">
           <p>没有找到你的问题？</p>
-          <Link className="button-ghost" href="/about">
+          <ButtonLink variant="ghost" href="/about">
             了解更多关于 LiLink
-          </Link>
+          </ButtonLink>
         </div>
       </section>
 

@@ -19,9 +19,9 @@ function statusLabel(status: AgendaTodo["status"]) {
 }
 
 function actionClassName(variant: AgendaTodoAction["variant"]) {
-  if (variant === "primary") return "button-primary";
-  if (variant === "secondary") return "button-secondary";
-  return "button-ghost";
+  if (variant === "primary") return "ui-button ui-button--primary";
+  if (variant === "secondary") return "ui-button ui-button--secondary";
+  return "ui-button ui-button--ghost";
 }
 
 /**

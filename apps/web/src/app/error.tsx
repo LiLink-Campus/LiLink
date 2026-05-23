@@ -1,5 +1,7 @@
 "use client";
 
+import { Button, Card } from "@/components/ui";
+
 export default function ErrorPage({
   error,
   reset,
@@ -9,23 +11,22 @@ export default function ErrorPage({
 }) {
   return (
     <main className="page-shell prose-shell">
-      <section
-        className="content-panel auth-panel"
+      <Card
+        className="auth-panel"
         style={{ textAlign: "center", padding: "4rem 2rem" }}
       >
         <p className="eyebrow">Error</p>
         <h1>出了点问题</h1>
-        <p style={{ color: "var(--fg-secondary)" }}>
+        <p style={{ color: "var(--color-text-secondary)" }}>
           {error.message || "页面加载时发生了意外错误。"}
         </p>
-        <button
-          className="button-primary"
+        <Button
           onClick={reset}
           style={{ marginTop: "1.5rem" }}
         >
           重试
-        </button>
-      </section>
+        </Button>
+      </Card>
     </main>
   );
 }

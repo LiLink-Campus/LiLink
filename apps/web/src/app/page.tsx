@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import { getLandingPayload } from "../lib/public-server-api";
 import {
   CampusLineart,
@@ -51,12 +51,12 @@ export default async function Home() {
             基于深度问卷与算法，每周认真为你寻找一个真正合拍的同学。
           </p>
           <div className="home-hero-actions">
-            <Link className="button-primary" href="/dashboard">
+            <ButtonLink href="/dashboard">
               开始匹配 →
-            </Link>
-            <Link className="button-secondary" href="/about">
+            </ButtonLink>
+            <ButtonLink variant="secondary" href="/about">
               了解机制
-            </Link>
+            </ButtonLink>
           </div>
           <div className="home-hero-meta">
             <span>{landing ? "下次揭晓" : "状态提醒"}</span>

@@ -10,25 +10,20 @@
   display: grid;
   place-items: center;
   padding: 1.5rem;
-  background: var(--bg);
+  background: var(--color-canvas);
 }
 
 .mc-shell {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: var(--color-canvas);
 }
 
-/* ── Card ──────────────────────────────────────────────────── */
-.mc-card {
+/* ── Login card ────────────────────────────────────────────── */
+.mc-login-card {
   width: 100%;
   max-width: 26rem;
-  padding: clamp(1.5rem, 5vw, 2.25rem);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
 }
 
 .mc-title {
@@ -36,12 +31,12 @@
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--fg);
+  color: var(--color-text);
 }
 
 .mc-subtitle {
   margin: 0.4rem 0 0;
-  color: var(--fg-secondary);
+  color: var(--color-text-secondary);
   font-size: 0.95rem;
 }
 
@@ -53,80 +48,9 @@
   margin-top: 1.5rem;
 }
 
-.mc-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.mc-label {
-  font-size: 0.85rem;
-  color: var(--fg-secondary);
-}
-
-.mc-input {
-  width: 100%;
-  padding: 0.85rem 1rem;
-  font-size: 1rem;
-  color: var(--fg);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.mc-input::placeholder {
-  color: var(--fg-muted);
-}
-
-.mc-input:focus {
-  outline: none;
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px var(--primary-tint);
-}
-
-/* ── Buttons ───────────────────────────────────────────────── */
-.mc-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 0.9rem 1rem;
-  font-size: 1.05rem;
-  font-weight: 650;
-  color: var(--fg-onPrimary);
-  background: var(--primary);
-  border: none;
-  border-radius: var(--radius-sm);
-  transition: background 0.15s ease, opacity 0.15s ease;
-}
-
-.mc-btn:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.mc-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.mc-btn-ghost {
-  padding: 0.4rem 0.85rem;
-  font-size: 0.9rem;
-  color: var(--fg-secondary);
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  transition: background 0.15s ease;
-}
-
-.mc-btn-ghost:hover {
-  background: var(--bg-soft);
-}
-
 .mc-error {
   margin: 0;
-  color: var(--error);
+  color: var(--color-danger);
   font-size: 0.9rem;
 }
 
@@ -137,14 +61,14 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .mc-topbar-name {
   font-family: var(--font-display);
   font-size: 1.1rem;
-  color: var(--fg);
+  color: var(--color-text);
 }
 
 .mc-redeem-body {
@@ -172,7 +96,7 @@
   display: grid;
   place-items: center;
   padding: 3rem 1.5rem;
-  color: var(--fg-secondary);
+  color: var(--color-text-secondary);
 }
 
 /* ── Tri-state result ──────────────────────────────────────── */
@@ -187,18 +111,18 @@
 }
 
 .mc-result.is-success {
-  background: var(--success-soft);
-  color: var(--success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .mc-result.is-warning {
-  background: var(--warning-soft);
-  color: var(--warning);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .mc-result.is-error {
-  background: var(--error-soft);
-  color: var(--error);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 .mc-result-icon {
@@ -217,7 +141,7 @@
   margin-top: 0.75rem;
   padding-top: 0.85rem;
   border-top: 1px solid currentColor;
-  color: var(--fg);
+  color: var(--color-text);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -237,11 +161,11 @@
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--color-brand);
 }
 
 .mc-coupon-holder {
-  color: var(--fg-secondary);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
 }
 
@@ -264,11 +188,11 @@
   font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--color-brand);
 }
 
 .mc-coupon-order {
-  color: var(--fg-secondary);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
 }
 
@@ -282,15 +206,15 @@
 .mc-promo-card {
   padding: 1rem;
   text-align: center;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
 }
 
 .mc-promo-text {
   margin: 0;
-  color: var(--fg);
+  color: var(--color-text);
 }
 
 .mc-promo-img {
@@ -301,6 +225,6 @@
 
 .mc-promo-caption {
   margin: 0.5rem 0 0;
-  color: var(--fg-secondary);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
 }

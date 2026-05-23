@@ -119,7 +119,7 @@ export function MyCardEditorClient({
 
   return (
     <div className="app-page-shell app-page-shell-narrow v2-page-shell" style={{ paddingBottom: "2rem" }}>
-      <section className="app-card" style={{ marginTop: "1rem" }}>
+      <section className="ui-card ui-card--padded" style={{ marginTop: "1rem" }}>
         <form onSubmit={handleSubmit} className="me-card-editor-form" style={{ padding: "1.5rem" }}>
           <div className="me-card-editor-section">
             <label className="referral-field-label">
@@ -236,12 +236,12 @@ export function MyCardEditorClient({
             </div>
           </div>
 
-          {error ? <p className="form-error">{error}</p> : null}
+          {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
 
           <div className="me-card-editor-actions" style={{ marginTop: "2rem" }}>
             <button
               type="submit"
-              className="button-primary"
+              className="ui-button ui-button--primary"
               disabled={saving || displayName.trim().length < 2}
               style={{ width: "100%" }}
             >

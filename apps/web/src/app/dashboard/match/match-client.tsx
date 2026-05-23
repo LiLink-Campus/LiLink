@@ -133,7 +133,7 @@ export function MatchClient({
             : "你与本轮匹配对象之间存在屏蔽关系，对方的可识别信息已被隐藏。"
         }
       >
-        {reportLabel ? <span className="domain-chip">{reportLabel}</span> : null}
+        {reportLabel ? <span className="ui-badge ui-badge--neutral">{reportLabel}</span> : null}
       </MatchStateHero>
     );
   } else if (counterpart && latestMatch) {
@@ -220,12 +220,12 @@ export function MatchClient({
               marginTop: "0.5rem"
             }}
           >
-            <span className="domain-chip">{reportLabel}</span>
+            <span className="ui-badge ui-badge--neutral">{reportLabel}</span>
           </div>
         ) : null}
 
         {counterpart?.introLine ? (
-          <p className="v2-match-hero-body" style={{ marginTop: "-0.25rem", color: 'var(--fg-secondary)', fontSize: '0.9rem' }}>
+          <p className="v2-match-hero-body" style={{ marginTop: "-0.25rem", color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
             <strong>对方介绍：</strong>
             {counterpart.introLine}
           </p>
@@ -261,7 +261,7 @@ export function MatchClient({
                   可发起
                 </span>
               </div>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--fg-secondary)', lineHeight: 1.5, marginBottom: '1rem' }}>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginBottom: '1rem' }}>
                 引荐已完成，现在可以给 {counterpart?.displayName ?? "对方"} 提议 2–3 个时间段和地点。
               </p>
               <div style={{ textAlign: 'right', color: '#b93e5b', fontSize: '0.9rem', fontWeight: 500 }}>
@@ -369,7 +369,7 @@ export function MatchClient({
       <header className="v2-greeting">
         <div className="v2-greeting-main">
           <h1 style={{ fontSize: '1.4rem', marginBottom: '0.2rem' }}>你本周的匹配对象</h1>
-          <p className="v2-greeting-sub" style={{ fontSize: '0.85rem', color: 'var(--fg-secondary)' }}>
+          <p className="v2-greeting-sub" style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
             {!latestMatch
               ? "本轮揭晓后这里会显示你的匹配对象与后续操作。"
               : introduced
@@ -379,15 +379,15 @@ export function MatchClient({
         </div>
       </header>
 
-      {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
-      {error ? <p className="form-error">{error}</p> : null}
+      {savedMessage ? <p className="ui-form-message ui-form-message--success">{savedMessage}</p> : null}
+      {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
 
       {hero}
 
       <div className="v2-match-secondary-actions">
         <Link
           href="/dashboard/match/history"
-          className="button-ghost button-block"
+          className="ui-button ui-button--ghost ui-button--block"
         >
           查看过往匹配记录{recentMatchHistory.length > 0 ? ` (${recentMatchHistory.length}轮)` : ''}
         </Link>
@@ -396,7 +396,7 @@ export function MatchClient({
         !reportHandlingChipLabel(latestMatch.reportStatus) ? (
           <button
             type="button"
-            className="button-ghost button-block"
+            className="ui-button ui-button--ghost ui-button--block"
             onClick={() =>
               toggleFeedbackForm(
                 latestMatch.id,
@@ -415,7 +415,7 @@ export function MatchClient({
         !reportHandlingChipLabel(latestMatch.reportStatus) ? (
           <button
             type="button"
-            className="button-ghost button-block"
+            className="ui-button ui-button--ghost ui-button--block"
             onClick={() => toggleReportForm(latestMatch.id)}
             disabled={saving === "report"}
           >

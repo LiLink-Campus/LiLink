@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import type { Metadata } from "next";
 import { getEligibleSchools } from "../../lib/public-server-api";
 import {
@@ -51,12 +51,12 @@ export default async function SchoolsPage() {
             </p>
           </div>
           <div className="schools-cta-actions">
-            <Link className="button-primary" href="/register">
+            <ButtonLink href="/register">
               立即注册
-            </Link>
-            <Link className="button-secondary" href="/faq">
+            </ButtonLink>
+            <ButtonLink variant="secondary" href="/faq">
               查看常见问题
-            </Link>
+            </ButtonLink>
           </div>
         </div>
       </section>

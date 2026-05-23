@@ -23,9 +23,9 @@ import type {
 const STATUS_STYLES: Record<AdminCycle["status"], { bg: string; color: string }> = {
   OPEN: { bg: "var(--sage-soft)", color: "var(--sage)" },
   PREPARING: { bg: "rgba(191, 219, 254, 0.35)", color: "#1d4ed8" },
-  DRAFT: { bg: "var(--gold-soft)", color: "#8a6d2b" },
-  REVEAL_READY: { bg: "var(--accent-soft)", color: "var(--accent-text)" },
-  REVEALED: { bg: "var(--coral-soft)", color: "var(--coral)" },
+  DRAFT: { bg: "var(--color-gold-soft)", color: "#8a6d2b" },
+  REVEAL_READY: { bg: "var(--color-accent-soft)", color: "var(--color-accent-ink)" },
+  REVEALED: { bg: "var(--color-coral-soft)", color: "var(--color-coral)" },
 };
 
 const CYCLE_STATUS_LABELS: Record<"ALL" | AdminCycle["status"], string> = {
@@ -501,7 +501,7 @@ export default function AdminCyclesPage() {
         </div>
         <div className="auth-actions">
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             onClick={() => {
               setSelectedCycleId(ADMIN_NEW_CYCLE_SELECTION);
               setCycleForm(createEmptyCycleForm());
@@ -515,19 +515,19 @@ export default function AdminCyclesPage() {
           >
             新建轮次
           </button>
-          <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.4rem", padding: "0 1rem" }}>
+          <button className="ui-button ui-button--secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.4rem", padding: "0 1rem" }}>
             刷新
           </button>
         </div>
       </div>
 
-      {error ? <p className="form-error" style={{ marginBottom: "0.75rem" }}>{error}</p> : null}
-      {actionError ? <p className="form-error" style={{ marginBottom: "0.75rem" }}>{actionError}</p> : null}
-      {actionMessage ? <p className="form-success" style={{ marginBottom: "0.75rem" }}>{actionMessage}</p> : null}
+      {error ? <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "0.75rem" }}>{error}</p> : null}
+      {actionError ? <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "0.75rem" }}>{actionError}</p> : null}
+      {actionMessage ? <p className="ui-form-message ui-form-message--success" style={{ marginBottom: "0.75rem" }}>{actionMessage}</p> : null}
 
       <section className="admin-workspace-grid">
         {/* ── Cycle list ─── */}
-        <article className="content-panel admin-list-panel">
+        <article className="ui-card ui-card--padded admin-list-panel">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">轮次列表</p>
@@ -546,7 +546,7 @@ export default function AdminCyclesPage() {
               <button
                 key={s}
                 type="button"
-                className={statusFilter === s ? "admin-tab active" : "admin-tab"}
+                className={statusFilter === s ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => { setStatusFilter(s); setPage(1); }}
               >
                 {CYCLE_STATUS_LABELS[s]}
@@ -563,7 +563,7 @@ export default function AdminCyclesPage() {
               >
                 <div className="admin-record-topline">
                   <strong>{cycle.codename}</strong>
-                  <span className="domain-chip" style={STATUS_STYLES[cycle.status]}>{CYCLE_STATUS_LABELS[cycle.status]}</span>
+                  <span className="ui-badge ui-badge--neutral" style={STATUS_STYLES[cycle.status]}>{CYCLE_STATUS_LABELS[cycle.status]}</span>
                 </div>
                 <p>揭晓：{formatChinaStandardDateTime(cycle.revealAt)}</p>
                 <div className="admin-inline-meta">
@@ -584,7 +584,7 @@ export default function AdminCyclesPage() {
         </article>
 
         {/* ── Cycle editor ─── */}
-        <article className="content-panel admin-detail-panel">
+        <article className="ui-card ui-card--padded admin-detail-panel">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">轮次编辑</p>
@@ -597,20 +597,20 @@ export default function AdminCyclesPage() {
               <div className="adm-action-toolbar">
                 <div className="adm-action-group">
                   <span className="adm-action-label">管理</span>
-                  <button className="button-secondary" type="button" disabled={pending === "duplicate"} onClick={() => void duplicateCycle()}>
+                  <button className="ui-button ui-button--secondary" type="button" disabled={pending === "duplicate"} onClick={() => void duplicateCycle()}>
                     {pending === "duplicate" ? "复制中…" : "复制为草稿"}
                   </button>
-                  <button className="button-secondary" type="button" disabled={!cycleDetail} onClick={exportCycleDetail}>导出详情</button>
+                  <button className="ui-button ui-button--secondary" type="button" disabled={!cycleDetail} onClick={exportCycleDetail}>导出详情</button>
                 </div>
                 <div className="adm-action-group">
                   <span className="adm-action-label">执行</span>
-                  <button className="button-secondary" type="button" disabled={pending === "preview"} onClick={() => void previewCycle()}>
+                  <button className="ui-button ui-button--secondary" type="button" disabled={pending === "preview"} onClick={() => void previewCycle()}>
                     {pending === "preview" ? "预演中…" : "预演匹配"}
                   </button>
-                  <button className="button-primary" type="button" disabled={pending === "run"} onClick={() => void runCycle(false)}>
+                  <button className="ui-button ui-button--primary" type="button" disabled={pending === "run"} onClick={() => void runCycle(false)}>
                     {pending === "run" ? "执行中…" : "正常执行"}
                   </button>
-                  <button className="button-ghost" type="button" disabled={pending === "force-run"} onClick={() => void runCycle(true)}>
+                  <button className="ui-button ui-button--ghost" type="button" disabled={pending === "force-run"} onClick={() => void runCycle(true)}>
                     {pending === "force-run" ? "强制中…" : "强制执行"}
                   </button>
                 </div>
@@ -629,7 +629,7 @@ export default function AdminCyclesPage() {
             </div>
           )}
 
-          <form className="auth-form" onSubmit={saveCycle}>
+          <form className="auth-stack" onSubmit={saveCycle}>
             <label>
               <span>轮次代号</span>
               <input required value={cycleForm.codename} onChange={(e) => setCycleForm((f) => ({ ...f, codename: e.target.value }))} />
@@ -677,7 +677,7 @@ export default function AdminCyclesPage() {
               <span>备注</span>
               <textarea rows={4} value={cycleForm.notes} onChange={(e) => setCycleForm((f) => ({ ...f, notes: e.target.value }))} />
             </label>
-            <button className="button-primary" type="submit" disabled={pending === "save"}>
+            <button className="ui-button ui-button--primary" type="submit" disabled={pending === "save"}>
               {pending === "save" ? "保存中..." : cycleForm.cycleId ? "保存轮次" : "创建轮次"}
             </button>
           </form>
@@ -685,7 +685,7 @@ export default function AdminCyclesPage() {
       </section>
 
       {/* ── Participants (compact table) ─────────────────── */}
-      <section className="content-panel" style={{ marginTop: "1.25rem" }}>
+      <section className="ui-card ui-card--padded" style={{ marginTop: "1.25rem" }}>
         <div className="admin-section-header">
           <div>
             <p className="eyebrow">参与者</p>
@@ -709,7 +709,7 @@ export default function AdminCyclesPage() {
                 <button
                   key={f}
                   type="button"
-                  className={participantFilter === f ? "admin-tab active" : "admin-tab"}
+                  className={participantFilter === f ? "ui-segmented-item active" : "ui-segmented-item"}
                   onClick={() => { setParticipantFilter(f); setParticipantPage(1); }}
                 >
                   {f === "ALL" ? "全部" : PARTICIPATION_STATUS_LABELS[f]}
@@ -737,12 +737,12 @@ export default function AdminCyclesPage() {
                       <tr key={p.id}>
                         <td><strong style={{ fontSize: "0.88rem" }}>{p.user.displayName ?? p.user.email}</strong></td>
                         <td>{p.user.school?.name ?? "—"}</td>
-                        <td><span className="domain-chip">{PARTICIPATION_STATUS_LABELS[p.status]}</span></td>
+                        <td><span className="ui-badge ui-badge--neutral">{PARTICIPATION_STATUS_LABELS[p.status]}</span></td>
                         <td>{formatParticipantIntent(p)}</td>
                         <td>
                           {p.user.questionnaireResponse?.submittedAt
                             ? <span style={{ color: "var(--sage)" }}>已提交</span>
-                            : <span style={{ color: "var(--coral)" }}>未提交</span>}
+                            : <span style={{ color: "var(--color-coral)" }}>未提交</span>}
                         </td>
                         <td>{p.optedInAt ? formatChinaStandardDateTime(p.optedInAt) : "—"}</td>
                       </tr>
@@ -768,7 +768,7 @@ export default function AdminCyclesPage() {
       </section>
 
       {/* ── Matches & logs ───────────────────────────────── */}
-      <section className="content-panel" style={{ marginTop: "1.25rem" }}>
+      <section className="ui-card ui-card--padded" style={{ marginTop: "1.25rem" }}>
         <div className="admin-section-header">
           <div>
             <p className="eyebrow">匹配结果</p>
@@ -799,7 +799,7 @@ export default function AdminCyclesPage() {
                     <div key={match.id} className="admin-record-item">
                       <div className="admin-record-topline">
                         <strong>{match.participants.map((p) => p.user.displayName ?? p.user.email).join(" × ")}</strong>
-                        <span className="domain-chip">分数 {match.score.toFixed(1)}</span>
+                        <span className="ui-badge ui-badge--neutral">分数 {match.score.toFixed(1)}</span>
                       </div>
                       <div className="admin-inline-meta">
                         <span>揭晓：{match.revealedAt ? formatChinaStandardDateTime(match.revealedAt) : "待揭晓"}</span>
@@ -809,7 +809,7 @@ export default function AdminCyclesPage() {
                       </div>
                       <div className="auth-actions" style={{ marginTop: "0.75rem" }}>
                         <button
-                          className="button-secondary"
+                          className="ui-button ui-button--secondary"
                           type="button"
                           onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
                         >
@@ -867,7 +867,7 @@ export default function AdminCyclesPage() {
                       <div key={log.id} className="admin-record-item">
                         <div className="admin-record-topline">
                           <strong>{log.action}</strong>
-                          <span className="domain-chip">{formatChinaStandardDateTime(log.createdAt)}</span>
+                          <span className="ui-badge ui-badge--neutral">{formatChinaStandardDateTime(log.createdAt)}</span>
                         </div>
                         <p>{JSON.stringify(log.metadata ?? {})}</p>
                       </div>
@@ -892,7 +892,7 @@ export default function AdminCyclesPage() {
       </section>
 
       {/* ── Preview ──────────────────────────────────────── */}
-      <section className="content-panel" style={{ marginTop: "1.25rem" }}>
+      <section className="ui-card ui-card--padded" style={{ marginTop: "1.25rem" }}>
         <div className="admin-section-header">
           <div>
             <p className="eyebrow">预演</p>
@@ -920,7 +920,7 @@ export default function AdminCyclesPage() {
                   <div key={`${pair.leftUserId}-${pair.rightUserId}`} className="admin-record-item">
                     <div className="admin-record-topline">
                       <strong>{pair.leftDisplayName ?? pair.leftUserId} × {pair.rightDisplayName ?? pair.rightUserId}</strong>
-                      <span className="domain-chip">分数 {pair.score.toFixed(1)}</span>
+                      <span className="ui-badge ui-badge--neutral">分数 {pair.score.toFixed(1)}</span>
                     </div>
                   </div>
                 ))}

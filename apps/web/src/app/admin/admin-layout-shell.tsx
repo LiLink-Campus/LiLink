@@ -76,7 +76,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
           <h1>运营后台</h1>
           <p>使用管理员账号登录。</p>
           <form
-            className="auth-form"
+            className="auth-stack"
             onSubmit={async (e) => {
               e.preventDefault();
               const loginSucceeded = await login(email, password);
@@ -117,9 +117,9 @@ function AdminGate({ children }: { children: React.ReactNode }) {
                 placeholder="输入管理员密码"
               />
             </label>
-            {error ? <p className="form-error">{error}</p> : null}
+            {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
             <button
-              className="button-primary"
+              className="ui-button ui-button--primary"
               type="submit"
               disabled={!email || !password}
             >

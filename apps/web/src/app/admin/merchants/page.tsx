@@ -154,7 +154,7 @@ export default function AdminMerchantsPage() {
             aria-label="联系方式"
           />
           <button
-            className="button-primary"
+            className="ui-button ui-button--primary"
             type="submit"
             disabled={pending === "create" || !name.trim()}
           >
@@ -164,7 +164,7 @@ export default function AdminMerchantsPage() {
       </section>
 
       {(loadError || error) && (
-        <p className="form-error" style={{ margin: "1rem 0" }}>
+        <p className="ui-form-message ui-form-message--error" style={{ margin: "1rem 0" }}>
           {loadError ?? error}
         </p>
       )}
@@ -191,7 +191,7 @@ export default function AdminMerchantsPage() {
                 ×
               </button>
             )}
-            <button className="button-primary ic-search-submit" type="submit">
+            <button className="ui-button ui-button--primary ic-search-submit" type="submit">
               搜索
             </button>
           </form>
@@ -262,7 +262,7 @@ export default function AdminMerchantsPage() {
                   <div className="mp-card-actions">
                     <button
                       type="button"
-                      className="button-secondary"
+                      className="ui-button ui-button--secondary"
                       onClick={() =>
                         setSelectedId((current) =>
                           current === merchant.id ? null : merchant.id,
@@ -273,7 +273,7 @@ export default function AdminMerchantsPage() {
                     </button>
                     <button
                       type="button"
-                      className={merchant.isActive ? "button-secondary" : "button-primary"}
+                      className={merchant.isActive ? "ui-button ui-button--secondary" : "ui-button ui-button--primary"}
                       disabled={pending === `toggle-${merchant.id}`}
                       onClick={() => void toggleActive(merchant)}
                     >
@@ -427,7 +427,7 @@ function MerchantDetailPanel({
 
   return (
     <div className="qb-subpanel">
-      {error && <p className="form-error">{error}</p>}
+      {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
 
       <h4>登录账号</h4>
       {users === null ? (
@@ -456,7 +456,7 @@ function MerchantDetailPanel({
                 </span>
                 <button
                   type="button"
-                  className="button-secondary"
+                  className="ui-button ui-button--secondary"
                   disabled={pending === `user-${user.id}`}
                   onClick={() => void toggleUser(user)}
                 >
@@ -499,7 +499,7 @@ function MerchantDetailPanel({
           <option value="OWNER">店主</option>
         </select>
         <button
-          className="button-primary"
+          className="ui-button ui-button--primary"
           type="submit"
           disabled={pending === "user" || !email.trim() || password.length < 8}
         >
@@ -524,7 +524,7 @@ function MerchantDetailPanel({
       />
       <div className="mp-card-actions" style={{ marginTop: "0.5rem" }}>
         <button
-          className="button-primary"
+          className="ui-button ui-button--primary"
           type="button"
           disabled={pending === "promotion"}
           onClick={() => void savePromotion()}

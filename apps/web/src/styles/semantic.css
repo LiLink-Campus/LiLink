@@ -1,0 +1,210 @@
+.semantic-status {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.semantic-status--neutral {
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+}
+
+.semantic-status--brand {
+  background: var(--color-brand-tint);
+  color: var(--color-brand-ink);
+}
+
+.semantic-status--accent {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+}
+
+.semantic-status--success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.semantic-status--warning {
+  background: var(--color-warning-soft);
+  color: #6f5114;
+}
+
+.semantic-status--danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.semantic-status.is-on {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.semantic-status.is-warn {
+  background: var(--color-warning-soft);
+  color: #6f5114;
+}
+
+.semantic-status.is-accent {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+}
+
+.semantic-status__dot,
+.semantic-unread-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.semantic-unread-dot {
+  color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.semantic-unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-text-on-brand);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.semantic-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.semantic-section-header__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.semantic-section-header__eyebrow {
+  margin: 0;
+  color: var(--color-accent);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-style: italic;
+  letter-spacing: 0.04em;
+}
+
+.semantic-section-header__title {
+  margin: 0;
+}
+
+.semantic-section-header__body {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.semantic-section-header__aside {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.semantic-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.2rem;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-canvas) 80%, white);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.semantic-empty-state__icon {
+  color: var(--color-text-muted);
+}
+
+.semantic-empty-state__title {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.semantic-empty-state__body {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.semantic-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.semantic-action-group > .ui-button {
+  flex: 0 1 auto;
+}
+
+.semantic-notice {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
+}
+
+.semantic-notice--neutral {
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.semantic-notice--info {
+  background: var(--color-brand-tint);
+  color: var(--color-brand-ink);
+  border: 1px solid color-mix(in srgb, var(--color-brand) 18%, transparent);
+}
+
+.semantic-notice--success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 20%, transparent);
+}
+
+.semantic-notice--warning {
+  background: var(--color-warning-soft);
+  color: #6f5114;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 20%, transparent);
+}
+
+.semantic-notice--danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 20%, transparent);
+}
+
+@media (max-width: 760px) {
+  .semantic-status {
+    font-size: 0.88rem;
+  }
+}

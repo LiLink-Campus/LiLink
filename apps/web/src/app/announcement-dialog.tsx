@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Button } from "@/components/ui";
 import { announcements } from "./announcements";
 
 const SEEN_KEY = "lilink_seen_announcement";
@@ -58,13 +59,13 @@ export function AnnouncementDialog() {
           {latest.title}
         </h2>
         <p className="announcement-body">{latest.content}</p>
-        <button
-          className="button-primary announcement-dismiss"
+        <Button
+          className="announcement-dismiss"
           onClick={dismiss}
           type="button"
         >
           知道了
-        </button>
+        </Button>
       </div>
     </dialog>
   );

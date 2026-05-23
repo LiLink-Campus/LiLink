@@ -1,7 +1,9 @@
+import { Card } from "@/components/ui";
+
 export default function TermsPage() {
   return (
     <main className="page-shell prose-shell">
-      <section className="content-panel">
+      <Card className="prose-panel">
         <p className="eyebrow">Terms</p>
         <h1>用户协议</h1>
         <p>
@@ -16,7 +18,7 @@ export default function TermsPage() {
           <li>平台会在匹配揭晓和你主动请求联系时，按产品规则共享必要联系信息。</li>
           <li>若出现举报、风险或安全问题，平台有权限制功能、暂停匹配或封禁账号。</li>
         </ul>
-      </section>
+      </Card>
     </main>
   );
 }

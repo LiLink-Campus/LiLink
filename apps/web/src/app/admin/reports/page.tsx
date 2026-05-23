@@ -181,18 +181,18 @@ export default function AdminReportsPage() {
       <div className="admin-page-header" style={{ marginBottom: "2rem" }}>
         <div>
           <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>举报中心</h1>
-          <p style={{ color: "var(--fg-secondary)", fontSize: "1.05rem" }}>把举报当作审核工单处理，而不是简单列表。先过滤队列，再进入详情判断。</p>
+          <p style={{ color: "var(--color-text-secondary)", fontSize: "1.05rem" }}>把举报当作审核工单处理，而不是简单列表。先过滤队列，再进入详情判断。</p>
         </div>
-        <button className="button-secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
+        <button className="ui-button ui-button--secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.8rem", padding: "0 1.5rem" }}>
           刷新
         </button>
       </div>
 
-      {error ? <p className="form-error">{error}</p> : null}
-      {actionError ? <p className="form-error">{actionError}</p> : null}
+      {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
+      {actionError ? <p className="ui-form-message ui-form-message--error">{actionError}</p> : null}
 
       <section className="admin-workspace-grid">
-        <article className="content-panel admin-list-panel">
+        <article className="ui-card ui-card--padded admin-list-panel">
           <div className="admin-section-header">
             <div>
               <p className="eyebrow">举报</p>
@@ -212,7 +212,7 @@ export default function AdminReportsPage() {
               <button
                 key={status}
                 type="button"
-                className={filter === status ? "admin-tab active" : "admin-tab"}
+                className={filter === status ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => {
                   setFilter(status);
                   setPage(1);
@@ -226,7 +226,7 @@ export default function AdminReportsPage() {
           <div className="admin-batch-actions">
             <button
               type="button"
-              className="button-secondary"
+              className="ui-button ui-button--secondary"
               onClick={() =>
                 setSelectedReportIds((current) =>
                   current.length === reports.length ? [] : reports.map((report) => report.id),
@@ -239,7 +239,7 @@ export default function AdminReportsPage() {
             </button>
             <button
               type="button"
-              className="button-primary"
+              className="ui-button ui-button--primary"
               disabled={selectedReportIds.length === 0 || pending === "batch-RESOLVED"}
               onClick={() => void batchReviewReports("RESOLVED", false)}
             >
@@ -247,7 +247,7 @@ export default function AdminReportsPage() {
             </button>
             <button
               type="button"
-              className="button-secondary"
+              className="ui-button ui-button--secondary"
               disabled={selectedReportIds.length === 0 || pending === "batch-DISMISSED"}
               onClick={() => void batchReviewReports("DISMISSED", false)}
             >
@@ -255,7 +255,7 @@ export default function AdminReportsPage() {
             </button>
             <button
               type="button"
-              className="button-ghost"
+              className="ui-button ui-button--ghost"
               disabled={selectedReportIds.length === 0 || pending === "batch-RESOLVED"}
               onClick={() => void batchReviewReports("RESOLVED", true)}
             >
@@ -292,7 +292,7 @@ export default function AdminReportsPage() {
                   >
                     <div className="admin-record-topline">
                       <strong>{report.reason}</strong>
-                      <span className="domain-chip">
+                      <span className="ui-badge ui-badge--neutral">
                         {REPORT_STATUS_LABELS[report.status]}
                       </span>
                     </div>
@@ -328,7 +328,7 @@ export default function AdminReportsPage() {
           ) : null}
         </article>
 
-        <article className="content-panel admin-detail-panel">
+        <article className="ui-card ui-card--padded admin-detail-panel">
           {selectedReport && reportContext ? (
             <div className="admin-page-stack">
               <div className="admin-section-header">
@@ -337,7 +337,7 @@ export default function AdminReportsPage() {
                   <h2>{selectedReport.reason}</h2>
                   <p>创建于 {formatDateTime(selectedReport.createdAt)}</p>
                 </div>
-                <span className="domain-chip">
+                <span className="ui-badge ui-badge--neutral">
                   {REPORT_STATUS_LABELS[selectedReport.status]}
                 </span>
               </div>
@@ -401,7 +401,7 @@ export default function AdminReportsPage() {
 
               <div className="auth-actions">
                 <button
-                  className="button-primary"
+                  className="ui-button ui-button--primary"
                   type="button"
                   disabled={pending === "RESOLVED"}
                   onClick={() => void reviewReport(selectedReport.id, "RESOLVED", false)}
@@ -409,7 +409,7 @@ export default function AdminReportsPage() {
                   处理完成
                 </button>
                 <button
-                  className="button-secondary"
+                  className="ui-button ui-button--secondary"
                   type="button"
                   disabled={pending === "DISMISSED"}
                   onClick={() => void reviewReport(selectedReport.id, "DISMISSED", false)}
@@ -417,7 +417,7 @@ export default function AdminReportsPage() {
                   驳回举报
                 </button>
                 <button
-                  className="button-ghost"
+                  className="ui-button ui-button--ghost"
                   type="button"
                   disabled={pending === "OPEN"}
                   onClick={() => void reviewReport(selectedReport.id, "OPEN", false)}
@@ -425,7 +425,7 @@ export default function AdminReportsPage() {
                   重新打开
                 </button>
                 <button
-                  className="button-secondary"
+                  className="ui-button ui-button--secondary"
                   type="button"
                   disabled={pending === "RESOLVED"}
                   onClick={() => void reviewReport(selectedReport.id, "RESOLVED", true)}
@@ -442,7 +442,7 @@ export default function AdminReportsPage() {
                       <div key={report.id} className="admin-record-item">
                         <div className="admin-record-topline">
                           <strong>{report.reason}</strong>
-                          <span className="domain-chip">
+                          <span className="ui-badge ui-badge--neutral">
                             {REPORT_STATUS_LABELS[report.status]}
                           </span>
                         </div>
@@ -458,7 +458,7 @@ export default function AdminReportsPage() {
                       <div key={log.id} className="admin-record-item">
                         <div className="admin-record-topline">
                           <strong>{log.action}</strong>
-                          <span className="domain-chip">{formatDateTime(log.createdAt)}</span>
+                          <span className="ui-badge ui-badge--neutral">{formatDateTime(log.createdAt)}</span>
                         </div>
                         <p>{JSON.stringify(log.metadata ?? {})}</p>
                       </div>

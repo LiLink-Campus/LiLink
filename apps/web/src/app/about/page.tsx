@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import {
   CampusLineart,
   GrassRowIllustration,
@@ -118,9 +118,9 @@ export default function AboutPage() {
           准备好了<span className="optical-punct">？</span>
         </h2>
         <p>填写问卷，加入下一轮匹配。</p>
-        <Link className="button-primary" href="/dashboard">
+        <ButtonLink href="/dashboard">
           开始匹配
-        </Link>
+        </ButtonLink>
       </section>
 
       <section className="home-grass-line" aria-hidden="true">

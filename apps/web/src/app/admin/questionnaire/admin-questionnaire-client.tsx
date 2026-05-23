@@ -45,9 +45,9 @@ const TYPE_COLORS: Record<
   AdminQuestion["type"],
   { bg: string; text: string }
 > = {
-  SINGLE_SELECT: { bg: "var(--accent-soft)", text: "var(--accent-text)" },
+  SINGLE_SELECT: { bg: "var(--color-accent-soft)", text: "var(--color-accent-ink)" },
   MULTI_SELECT: { bg: "var(--sage-soft)", text: "var(--sage)" },
-  SCALE: { bg: "var(--gold-soft)", text: "var(--gold)" },
+  SCALE: { bg: "var(--color-gold-soft)", text: "var(--color-gold)" },
 };
 
 function createEmptyOption(): QuestionOptionFormState {
@@ -570,7 +570,7 @@ export default function AdminQuestionnairePage({
 
         <div className="qb-editor-actions">
           <button
-            className="button-primary"
+            className="ui-button ui-button--primary"
             type="submit"
             disabled={pending === "save"}
           >
@@ -581,7 +581,7 @@ export default function AdminQuestionnairePage({
                 : "创建题目"}
           </button>
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             type="button"
             onClick={cancelEditing}
           >
@@ -610,7 +610,7 @@ export default function AdminQuestionnairePage({
         </div>
         <div className="auth-actions">
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             onClick={() => void loadQuestionnaire()}
             type="button"
             style={{ minHeight: "2.4rem", padding: "0 1rem" }}
@@ -618,7 +618,7 @@ export default function AdminQuestionnairePage({
             刷新
           </button>
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             onClick={exportQuestions}
             type="button"
             style={{ minHeight: "2.4rem", padding: "0 1rem" }}
@@ -664,7 +664,7 @@ export default function AdminQuestionnairePage({
       </div>
 
       {error && (
-        <p className="form-error" style={{ marginBottom: "1rem" }}>
+        <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "1rem" }}>
           {error}
         </p>
       )}

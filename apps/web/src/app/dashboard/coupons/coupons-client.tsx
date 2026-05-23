@@ -77,7 +77,7 @@ function CouponCard({
         {!archived ? (
           <button
             type="button"
-            className="button-primary coupons-use-btn"
+            className="ui-button ui-button--primary coupons-use-btn"
             onClick={onShowCode}
           >
             查看核销码
@@ -131,7 +131,7 @@ function CouponCodeDialog({
           </div>
           <p className="coupons-dialog-hint">请向店员出示此核销码</p>
           <button
-            className="button-primary coupons-dialog-close"
+            className="ui-button ui-button--primary coupons-dialog-close"
             onClick={onClose}
             type="button"
           >
