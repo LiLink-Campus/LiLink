@@ -1,5 +1,6 @@
 "use client";
 
+import { CHANNEL_META } from "@lilink/shared";
 import { dcx } from "../_lib/dashboard-class-names";
 import { useEffect, useState } from "react";
 import { useToast } from "../_components/ToastProvider";
@@ -82,17 +83,10 @@ export function ReferralsClient() {
       | "OTHER",
     url: string,
   ) {
-    const guides: Record<string, string> = {
-      WECHAT_PRIVATE: "链接已复制，请打开微信粘贴发送",
-      WECHAT_GROUP: "链接已复制，请打开微信群粘贴发送",
-      WECHAT_MOMENTS: "链接已复制，请打开朋友圈粘贴分享",
-      COPY_LINK: "邀请链接已复制",
-      OTHER: "链接已复制，可在任意 App 粘贴分享",
-    };
-
     try {
       await navigator.clipboard.writeText(url);
-      showToast(guides[channel] ?? "分享链接已复制");
+      // Use shared guide text so toast and share-sheet stay in sync.
+      showToast(CHANNEL_META[channel]?.guide ?? "分享链接已复制");
       void recordShareEvent(channel).catch(() => undefined);
       return true;
     } catch {

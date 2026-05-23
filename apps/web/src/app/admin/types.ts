@@ -1,3 +1,4 @@
+import type { ReferralMedium, ReferralScene } from "@lilink/shared";
 import type { WeeklyIntent } from "../../lib/weekly-intent";
 
 export type AdminSchool = {
@@ -87,15 +88,23 @@ export type AdminMerchantUser = {
 
 export type PromotionFunnelStep = { key: string; count: number };
 
+export type PromotionChannelBreakdownRow = {
+  medium: ReferralMedium;
+  scene: ReferralScene | null;
+  share: number;
+  click: number;
+};
+
 export type PromotionFunnel = {
   campaignId: string;
   steps: PromotionFunnelStep[];
   byGender: { gender: string; steps: PromotionFunnelStep[] }[];
   conversions: { from: string; to: string; rate: number }[];
+  channelBreakdown?: PromotionChannelBreakdownRow[];
 };
 
 export type PromotionLeaderboardRow = {
-  sourceType: string;
+  sourceType: "PERSONAL" | "RECRUITER" | "DEFAULT";
   refLabel: string;
   invited: number;
   registered: number;
