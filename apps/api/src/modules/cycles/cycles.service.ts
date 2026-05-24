@@ -46,6 +46,12 @@ const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const PRIORITY_UNMATCHED_STREAK_THRESHOLD = 3;
 const PRE_PRIORITY_UNMATCHED_STREAK_BONUS = 2;
+// First-cycle boost: a small, lowest-tier nudge so users in their very first
+// opt-in cycle are slightly more likely to be matched, improving the first
+// experience and retention. Lives at the same tier as rawScore — it never
+// overrides the priority, streak, or match-count-maximization tiers. Applied
+// linearly per first-cycle user on a pair (one new user +N, both new +2N).
+const NEW_OPT_IN_FIRST_CYCLE_BONUS = 6;
 
 /**
  * Only ACTIVE users with a stored weekly intent may appear in matching /
@@ -1154,6 +1160,43 @@ export class CyclesService {
     );
   }
 
+  /**
+   * Returns the subset of participantIds whose current participation is their
+   * very first opt-in cycle — i.e. they have no earlier REVEALED opt-in. Uses
+   * the same historical window as loadUnmatchedStreaks (not optedInAt, which
+   * sticky carry-over refreshes every cycle, so it cannot tell "first time").
+   */
+  private async loadFirstCycleParticipantIds(
+    participantIds: string[],
+    beforeRevealAt: Date,
+    currentCycleId?: string,
+  ): Promise<Set<string>> {
+    if (participantIds.length === 0) {
+      return new Set<string>();
+    }
+
+    const priorParticipations = await this.prisma.cycleParticipation.findMany({
+      where: {
+        userId: { in: participantIds },
+        status: 'OPTED_IN',
+        intent: { not: null },
+        ...(currentCycleId ? { cycleId: { not: currentCycleId } } : {}),
+        cycle: {
+          status: 'REVEALED',
+          revealAt: { lt: beforeRevealAt },
+        },
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+
+    const returningUserIds = new Set(
+      priorParticipations.map((participation) => participation.userId),
+    );
+
+    return new Set(participantIds.filter((id) => !returningUserIds.has(id)));
+  }
+
   private loadCycleForProcessing(cycleId: string) {
     return this.prisma.matchCycle.findUnique({
       where: { id: cycleId },
@@ -1295,7 +1338,12 @@ export class CyclesService {
       };
     }
 
-    const [blocks, historicalPairKeys, unmatchedStreaks] = await Promise.all([
+    const [
+      blocks,
+      historicalPairKeys,
+      unmatchedStreaks,
+      firstCycleParticipantIds,
+    ] = await Promise.all([
       this.prisma.block.findMany({
         where: {
           OR: [
@@ -1306,6 +1354,11 @@ export class CyclesService {
       }),
       this.loadHistoricalPairKeys(participantIds, currentCycleId),
       this.loadUnmatchedStreaks(participantIds, revealAt, currentCycleId),
+      this.loadFirstCycleParticipantIds(
+        participantIds,
+        revealAt,
+        currentCycleId,
+      ),
     ]);
     const retentionWeightTiers = this.buildRetentionWeightTiers(
       participants.length,
@@ -1339,6 +1392,7 @@ export class CyclesService {
           blockedPairKeys,
           historicalPairKeys,
           unmatchedStreaks,
+          firstCycleParticipantIds,
           retentionWeightTiers,
         });
         if (
@@ -1383,6 +1437,7 @@ export class CyclesService {
     blockedPairKeys: Set<string>;
     historicalPairKeys: Set<string>;
     unmatchedStreaks: Map<string, number>;
+    firstCycleParticipantIds: Set<string>;
     retentionWeightTiers: RetentionWeightTiers;
   }): { pairKey: string; candidate: CandidatePair } | null {
     const pairKey = this.createPairKey(input.left.id, input.right.id);
@@ -1428,6 +1483,8 @@ export class CyclesService {
           rawScore: scored.rawScore,
           leftUnmatchedStreak,
           rightUnmatchedStreak,
+          leftIsFirstCycle: input.firstCycleParticipantIds.has(input.left.id),
+          rightIsFirstCycle: input.firstCycleParticipantIds.has(input.right.id),
           tiers: input.retentionWeightTiers,
         }),
       },
@@ -1475,10 +1532,16 @@ export class CyclesService {
       2 *
       (PRIORITY_UNMATCHED_STREAK_THRESHOLD - 1) *
       PRE_PRIORITY_UNMATCHED_STREAK_BONUS;
+    // First-cycle boosts live in the compatibility tier, so they must be
+    // bounded here too — otherwise their accumulation could overflow into the
+    // matchedUser tier and make the algorithm drop a pair to chase boosts.
+    const maxNewUserBonusTotal =
+      maxPairCount * 2 * NEW_OPT_IN_FIRST_CYCLE_BONUS;
     const maxCompatibilityTotal =
       maxPairCount *
         Math.max(1, Math.ceil(scoreBounds.max), NORMALIZED_SCORE_MAX) +
-      maxPrePriorityBonusTotal;
+      maxPrePriorityBonusTotal +
+      maxNewUserBonusTotal;
     const matchedUser = maxCompatibilityTotal + 1;
     const maxMatchedUserTotal = maxPairCount * 2 * matchedUser;
     const priorityStreak = maxMatchedUserTotal + maxCompatibilityTotal + 1;
@@ -1504,6 +1567,8 @@ export class CyclesService {
     rawScore: number;
     leftUnmatchedStreak: number;
     rightUnmatchedStreak: number;
+    leftIsFirstCycle: boolean;
+    rightIsFirstCycle: boolean;
     tiers: RetentionWeightTiers;
   }) {
     const leftPriorityStreak = this.toPriorityStreak(input.leftUnmatchedStreak);
@@ -1516,12 +1581,15 @@ export class CyclesService {
     const regularStreakTotal =
       this.toRegularStreak(input.leftUnmatchedStreak) +
       this.toRegularStreak(input.rightUnmatchedStreak);
+    const newOptInCount =
+      (input.leftIsFirstCycle ? 1 : 0) + (input.rightIsFirstCycle ? 1 : 0);
 
     return (
       priorityUserCount * input.tiers.priorityUser +
       priorityStreakTotal * input.tiers.priorityStreak +
       2 * input.tiers.matchedUser +
       regularStreakTotal * PRE_PRIORITY_UNMATCHED_STREAK_BONUS +
+      newOptInCount * NEW_OPT_IN_FIRST_CYCLE_BONUS +
       input.rawScore
     );
   }
