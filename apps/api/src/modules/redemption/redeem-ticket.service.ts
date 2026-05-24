@@ -10,14 +10,9 @@ export interface RedeemTicketPayload {
 /** Short-lived JWT (3 min) issued to a merchant so they can confirm a coupon redemption. */
 @Injectable()
 export class RedeemTicketService {
-  private readonly secret: string;
+  private readonly secret = env.REDEEM_TICKET_SECRET;
 
-  constructor(
-    private readonly jwtService: JwtService,
-    secret?: string,
-  ) {
-    this.secret = secret ?? env.REDEEM_TICKET_SECRET;
-  }
+  constructor(private readonly jwtService: JwtService) {}
 
   /** Sign a redeem ticket payload; expires in 3 minutes. */
   sign(payload: RedeemTicketPayload): string {

@@ -73,10 +73,10 @@
 }
 
 .codeInput {
-  padding: 1rem;
-  font-size: 1.6rem;
+  padding: 0.85rem 1rem;
+  font-size: 1.125rem;
   text-align: center;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
   text-transform: uppercase;
 }

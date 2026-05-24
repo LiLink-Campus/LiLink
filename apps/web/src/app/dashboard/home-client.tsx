@@ -38,6 +38,7 @@ export function HomeClient({
   questionnaireUnconfirmedPercent,
   questionnaireUnconfirmedCount,
   questionnaireSubmitted,
+  questionnaireMissingOneLinerIntro,
   questionnaireEligibleToOptIn,
   questionnaireHasIncompleteDraft,
   questionnaireAttention,
@@ -50,6 +51,7 @@ export function HomeClient({
   questionnaireUnconfirmedPercent: number;
   questionnaireUnconfirmedCount: number;
   questionnaireSubmitted: boolean;
+  questionnaireMissingOneLinerIntro: boolean;
   questionnaireEligibleToOptIn: boolean;
   questionnaireHasIncompleteDraft: boolean;
   questionnaireAttention: QuestionnaireAttentionPayload | null;
@@ -120,6 +122,7 @@ export function HomeClient({
           unconfirmedPercent: questionnaireUnconfirmedPercent,
           unconfirmedCount: questionnaireUnconfirmedCount,
           submitted: questionnaireSubmitted,
+          missingOneLinerIntro: questionnaireMissingOneLinerIntro,
           eligibleToOptIn: questionnaireEligibleToOptIn,
           attention: questionnaireAttention,
         },
@@ -133,6 +136,7 @@ export function HomeClient({
       questionnaireUnconfirmedPercent,
       questionnaireUnconfirmedCount,
       questionnaireSubmitted,
+      questionnaireMissingOneLinerIntro,
       questionnaireEligibleToOptIn,
       questionnaireAttention,
     ],
@@ -159,9 +163,11 @@ export function HomeClient({
     }
     if (!isOptedIn && !questionnaireEligibleToOptIn) {
       setErrorOnly(
-        questionnaireHasIncompleteDraft
-          ? "匹配资料有未保存的修改且必填项缺失，请补完后再参加本轮匹配。"
-          : "请先完成「匹配资料」，再参加本轮匹配。",
+        questionnaireMissingOneLinerIntro
+          ? "请先在「我的」完善一句话介绍，再参加本轮匹配。"
+          : questionnaireHasIncompleteDraft
+            ? "匹配资料有未保存的修改且必填项缺失，请补完后再参加本轮匹配。"
+            : "请先完成「匹配资料」，再参加本轮匹配。",
       );
       return;
     }

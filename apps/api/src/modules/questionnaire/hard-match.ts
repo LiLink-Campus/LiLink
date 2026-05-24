@@ -865,10 +865,6 @@ export function normalizeHardMatchAnswers(
     allowedSchoolIds,
   );
 
-  if (!normalizedValues.oneLinerIntro) {
-    throw requiredFieldError(HARD_MATCH_KEYS.oneLinerIntro);
-  }
-
   return {
     [HARD_MATCH_KEYS.birthDate]: normalizedValues.birthDate,
     [HARD_MATCH_KEYS.partnerAgeMin]: normalizedValues.partnerAgeMin,

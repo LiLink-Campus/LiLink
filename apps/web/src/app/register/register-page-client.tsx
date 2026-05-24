@@ -55,6 +55,7 @@ export default function RegisterPageClient() {
   const [inviteCode, setInviteCode] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [referralChannel, setReferralChannel] = useState("");
+  const [attributionLocked, setAttributionLocked] = useState(false);
   const [campaignSlug, setCampaignSlug] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [resolvedSchool, setResolvedSchool] = useState<CodeResponse["school"]>(
@@ -83,8 +84,10 @@ export default function RegisterPageClient() {
       const refCode = typeof parsed.code === "string" ? parsed.code : "";
       if (refCode.length === INVITE_CODE_LENGTH) {
         setInviteCode(refCode);
+        setAttributionLocked(true);
       } else if (refCode.length === PERSONAL_CODE_LENGTH) {
         setReferralCode(refCode);
+        setAttributionLocked(true);
       }
       if (
         typeof parsed.channel === "string" &&
@@ -186,6 +189,13 @@ export default function RegisterPageClient() {
     }
   }
 
+  const lockedIsReferral =
+    attributionLocked && !inviteCode.trim() && referralCode.trim().length > 0;
+  const lockedAttributionCode = attributionLocked
+    ? inviteCode.trim() || referralCode.trim()
+    : "";
+  const lockedAttributionLabel = lockedIsReferral ? "推荐码" : "邀请码";
+
   return (
     <main
       className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell}`}
@@ -276,12 +286,24 @@ export default function RegisterPageClient() {
                 placeholder="可留空；仅在必要场景用于核验"
               />
             </Field>
-            <Field label="邀请码（可选）">
+            <Field
+              label={
+                attributionLocked ? lockedAttributionLabel : "邀请码（可选）"
+              }
+              hint={
+                attributionLocked
+                  ? `已通过${lockedIsReferral ? "推荐" : "邀请"}链接带入，不可修改。`
+                  : undefined
+              }
+            >
               <Input
-                value={inviteCode}
+                readOnly={attributionLocked}
+                value={attributionLocked ? lockedAttributionCode : inviteCode}
                 maxLength={INVITE_CODE_MAX_LENGTH}
                 onChange={(event) => setInviteCode(event.target.value)}
-                placeholder="如有邀请码可填写"
+                placeholder={
+                  attributionLocked ? undefined : "如有邀请码可填写"
+                }
               />
             </Field>
             <Field label="密码">

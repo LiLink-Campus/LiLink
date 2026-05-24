@@ -2605,6 +2605,21 @@ export class AccountService {
     });
 
     if (!hardMatchAnswers) {
+      // `tryReadHardMatchAnswers` returns null whenever any required hard-match
+      // field is missing. The shared `parseHardMatchAnswers` still treats a
+      // blank one-liner intro as incomplete, so a profile that is otherwise
+      // complete but missing only the intro lands here — surface the intro
+      // prompt first. This gate's intro enforcement therefore depends on that
+      // shared contract; if `parseHardMatchAnswers` is ever relaxed to accept a
+      // blank intro, add an explicit intro check here so opt-in cannot silently
+      // proceed without one.
+      const intro = readQuestionnaireOneLiner(response.answers);
+      if (!intro) {
+        throw new BadRequestException(
+          'Add a one-line intro on your referral card before opting into matching.',
+        );
+      }
+
       throw new BadRequestException(
         'Your questionnaire is missing required fields. Please update your profile before opting into matching.',
       );

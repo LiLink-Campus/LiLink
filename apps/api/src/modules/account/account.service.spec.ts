@@ -861,7 +861,7 @@ describe('AccountService', () => {
             draftAnswers: {
               softAnswers: { ['value-1']: 'high' },
               hardMatchForm: buildSubmittedHardMatchDraftForm({
-                oneLinerIntro: '',
+                gender: '',
               }),
               displayName: 'User',
             },
