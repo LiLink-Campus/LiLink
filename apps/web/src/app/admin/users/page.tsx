@@ -44,8 +44,12 @@ const USER_STATUS_LABELS: Record<"ALL" | AdminUser["status"], string> = {
   SUSPENDED: "已停用",
 };
 
+/** Matches API `ADMIN_LIST_PAGE_SIZE_MAX` (input-limits.ts). */
+const ADMIN_SCHOOL_LOOKUP_PAGE_SIZE = 50;
+
 /** Matches slim list API: six rows per page, full questionnaire loaded per user via detail endpoint. */
 const ADMIN_USERS_PAGE_SIZE = 6;
+
 
 type DetailTab = "profile" | "questionnaire" | "cycles";
 
@@ -178,7 +182,9 @@ export default function AdminUsersPage() {
   useEffect(() => {
     let cancelled = false;
 
-    void fetchApi<PaginatedResult<AdminSchool>>("/admin/schools?page=1&pageSize=200")
+    void fetchApi<PaginatedResult<AdminSchool>>(
+      `/admin/schools?page=1&pageSize=${ADMIN_SCHOOL_LOOKUP_PAGE_SIZE}`,
+    )
       .then((payload) => {
         if (cancelled) return;
         setSchoolNameById(
@@ -319,7 +325,7 @@ export default function AdminUsersPage() {
     setParticipationsLoading(true);
 
     void fetchApi<PaginatedResult<AdminUserParticipation>>(
-      `/admin/users/${selectedUserId}/participations?page=1&pageSize=200`,
+      `/admin/users/${selectedUserId}/participations?page=1&pageSize=${ADMIN_SCHOOL_LOOKUP_PAGE_SIZE}`,
     )
       .then((payload) => {
         if (!cancelled) {
