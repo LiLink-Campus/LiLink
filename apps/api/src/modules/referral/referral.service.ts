@@ -225,9 +225,9 @@ export class ReferralService {
     } else if (code.length === INVITE_CODE_LENGTH) {
       const inviteCode = await this.prisma.inviteCode.findUnique({
         where: { code },
-        select: { id: true },
+        select: { id: true, isActive: true },
       });
-      if (!inviteCode) return { result: 'INVALID' };
+      if (!inviteCode?.isActive) return { result: 'INVALID' };
       inviteCodeId = inviteCode.id;
     } else {
       return { result: 'INVALID' };
