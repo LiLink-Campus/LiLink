@@ -33,7 +33,6 @@ import {
   HARD_MATCH_LANGUAGES,
   HARD_MATCH_LOOKS,
   HARD_MATCH_NATIONALITIES,
-  HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
   HEIGHT_OPTIONS,
   MONTH_OPTIONS,
   WEIGHT_OPTIONS,
@@ -363,13 +362,8 @@ function hardMatchFieldIsComplete(
       return numericFormValueIsComplete(hardMatchForm.heightCm);
     case HARD_MATCH_KEYS.weightKg:
       return true;
-    case HARD_MATCH_KEYS.oneLinerIntro: {
-      const oneLinerIntro = hardMatchForm.oneLinerIntro.trim();
-      return (
-        oneLinerIntro.length > 0 &&
-        oneLinerIntro.length <= HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH
-      );
-    }
+    case HARD_MATCH_KEYS.oneLinerIntro:
+      return true;
     case HARD_MATCH_KEYS.partnerAgeMin:
     case HARD_MATCH_KEYS.partnerAgeMax:
       return numericRangeFormValueIsComplete(

@@ -17,6 +17,7 @@ export default async function DashboardHubPage() {
     unconfirmedPercent: questionnaireUnconfirmedPercent,
     unconfirmedCount: questionnaireUnconfirmedCount,
     submitted: questionnaireSubmitted,
+    missingOneLinerIntro: questionnaireMissingOneLinerIntro,
     eligibleToOptIn: questionnaireEligibleToOptIn,
     hasIncompleteDraft: questionnaireHasIncompleteDraft,
   } = computeQuestionnaireProgress({
@@ -35,6 +36,7 @@ export default async function DashboardHubPage() {
       questionnaireUnconfirmedPercent={questionnaireUnconfirmedPercent}
       questionnaireUnconfirmedCount={questionnaireUnconfirmedCount}
       questionnaireSubmitted={questionnaireSubmitted}
+      questionnaireMissingOneLinerIntro={questionnaireMissingOneLinerIntro}
       questionnaireEligibleToOptIn={questionnaireEligibleToOptIn}
       questionnaireHasIncompleteDraft={questionnaireHasIncompleteDraft}
       questionnaireAttention={savedQuestionnaire?.attention ?? null}

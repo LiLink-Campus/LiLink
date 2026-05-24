@@ -21,6 +21,7 @@ import {
   type CouponRedeemSecret,
   type CouponStatusResponse,
 } from "../../../lib/api";
+import { getClientWebOrigin } from "../../../lib/api-base-url";
 import { QrCode } from "../../../components/qr-code";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -357,8 +358,7 @@ function CouponCodeDialog({
 
   if (!coupon) return null;
 
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://lilink.app";
+  const origin = getClientWebOrigin();
 
   function buildQrValue(code: string, token: string) {
     return `${origin}/r/${code}#t=${token}`;

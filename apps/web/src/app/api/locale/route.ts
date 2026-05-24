@@ -5,7 +5,7 @@ import {
   parseSupportedLocale,
   type SupportedLocale,
 } from "@lilink/shared";
-import { apiBaseUrl } from "../../../lib/api-base-url";
+import { resolveApiBaseUrlForHost } from "../../../lib/api-base-url";
 
 const USER_COOKIE_NAME = process.env.COOKIE_NAME?.trim() || "lilink_token";
 const LOCALE_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
@@ -32,15 +32,19 @@ export async function PUT(request: Request) {
 
   if (userSessionCookie) {
     try {
-      const persistResponse = await fetch(`${apiBaseUrl}/me/locale`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: `${USER_COOKIE_NAME}=${userSessionCookie}`,
+      const host = new URL(request.url).host;
+      const persistResponse = await fetch(
+        `${resolveApiBaseUrlForHost(host)}/me/locale`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `${USER_COOKIE_NAME}=${userSessionCookie}`,
+          },
+          body: JSON.stringify({ locale }),
+          cache: "no-store",
         },
-        body: JSON.stringify({ locale }),
-        cache: "no-store",
-      });
+      );
 
       if (!persistResponse.ok) {
         if (UNAUTHENTICATED_STATUSES.has(persistResponse.status)) {

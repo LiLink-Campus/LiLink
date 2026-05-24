@@ -85,6 +85,7 @@ export type AgendaInputs = {
     unconfirmedPercent: number;
     unconfirmedCount: number;
     submitted: boolean;
+    missingOneLinerIntro: boolean;
     eligibleToOptIn: boolean;
     attention: QuestionnaireAttentionPayload | null;
   };
@@ -281,6 +282,24 @@ function participationTodo(inputs: AgendaInputs): AgendaTodo {
 }
 
 function profileTodo(inputs: AgendaInputs): AgendaTodo {
+  if (inputs.questionnaire.missingOneLinerIntro) {
+    return {
+      id: "PROFILE_CARD",
+      status: "attention",
+      icon: "profile",
+      title: "完善一句话介绍",
+      subtitle: "参与本轮匹配前，请先在名片中填写一句话介绍。",
+      actions: [
+        {
+          label: "去填写",
+          kind: "link",
+          href: "/dashboard/me/card",
+          variant: "primary",
+        },
+      ],
+    };
+  }
+
   const isDefault = contactPreferencesAreDefault(inputs.contactPreferences);
   return {
     id: "PROFILE_CARD",
@@ -345,6 +364,25 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
   }
 
   if (!q.eligibleToOptIn) {
+    if (q.missingOneLinerIntro) {
+      return {
+        id: "QUESTIONNAIRE",
+        status: "done",
+        icon: "clipboard",
+        title: "匹配资料已就绪",
+        subtitle: "问卷部分已完成；完善名片中的一句话介绍后即可参加本轮。",
+        progress,
+        actions: [
+          {
+            label: "查看资料",
+            kind: "link",
+            href: questionnaireHref(q.attention),
+            variant: "ghost",
+          },
+        ],
+      };
+    }
+
     return {
       id: "QUESTIONNAIRE",
       status: "todo",

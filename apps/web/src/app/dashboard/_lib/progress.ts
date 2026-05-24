@@ -1,4 +1,7 @@
 import {
+  readQuestionnaireOneLiner,
+} from "@lilink/shared";
+import {
   getHardMatchFormSaveErrorMessage,
   hardMatchAttentionKeys,
   hardMatchFormFromAnswers,
@@ -28,7 +31,6 @@ const HARD_MATCH_REQUIRED_FIELDS = [
   "birthDay",
   "gender",
   "nationality",
-  "oneLinerIntro",
   "looks",
   "heightCm",
   "partnerAgeMin",
@@ -74,6 +76,10 @@ function hardMatchCompletion(
     ratio >= 1 && getHardMatchFormSaveErrorMessage(draftForm) === null;
 
   return { ratio, isSavable };
+}
+
+function oneLinerIntroIsComplete(saved: SavedQuestionnairePayload): boolean {
+  return readQuestionnaireOneLiner(saved?.answers ?? undefined) !== null;
 }
 
 function currentSoftAnswers(
@@ -155,6 +161,8 @@ export function computeQuestionnaireProgress(args: {
   unconfirmedPercent: number;
   unconfirmedCount: number;
   submitted: boolean;
+  profileReady: boolean;
+  missingOneLinerIntro: boolean;
   eligibleToOptIn: boolean;
   hasIncompleteDraft: boolean;
 } {
@@ -214,11 +222,14 @@ export function computeQuestionnaireProgress(args: {
   // that still satisfies every required field. Comparing the raw ratios
   // (rather than `percent === 100`) avoids misreporting eligibility because
   // of rounding to integer percent.
-  const currentlyComplete =
+  const profileReady =
     nicknameRatio >= 1 && hardCompletion.isSavable && softRatio >= 1;
-  const eligibleToOptIn = submitted && currentlyComplete;
+  const oneLinerIntroComplete = oneLinerIntroIsComplete(args.savedQuestionnaire);
+  const eligibleToOptIn = submitted && profileReady && oneLinerIntroComplete;
+  const missingOneLinerIntro =
+    submitted && profileReady && !oneLinerIntroComplete;
   const hasIncompleteDraft =
-    submitted && args.savedQuestionnaire?.draft != null && !currentlyComplete;
+    submitted && args.savedQuestionnaire?.draft != null && !profileReady;
 
   return {
     percent,
@@ -226,6 +237,8 @@ export function computeQuestionnaireProgress(args: {
     unconfirmedPercent,
     unconfirmedCount,
     submitted,
+    profileReady,
+    missingOneLinerIntro,
     eligibleToOptIn,
     hasIncompleteDraft,
   };

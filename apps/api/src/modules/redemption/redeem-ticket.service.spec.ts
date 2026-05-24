@@ -1,11 +1,10 @@
 import { JwtService } from '@nestjs/jwt';
+import { env } from '../../config/env';
 import { RedeemTicketService } from './redeem-ticket.service';
 
-const TEST_SECRET = 'test-redeem-ticket-secret-abc123';
-
-function makeService(secret = TEST_SECRET): RedeemTicketService {
+function makeService(): RedeemTicketService {
   const jwtService = new JwtService({});
-  return new RedeemTicketService(jwtService, secret);
+  return new RedeemTicketService(jwtService);
 }
 
 describe('RedeemTicketService', () => {
@@ -60,7 +59,7 @@ describe('RedeemTicketService', () => {
       // Sign with -1s expiry so the token is instantly expired
       const token = jwtService.sign(
         { couponId: 'c1', merchantId: 'm1' },
-        { secret: TEST_SECRET, expiresIn: -1 },
+        { secret: env.REDEEM_TICKET_SECRET, expiresIn: -1 },
       );
       const service = makeService();
 
