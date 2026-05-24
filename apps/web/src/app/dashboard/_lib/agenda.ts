@@ -17,7 +17,6 @@ import type {
 export type AgendaIconKey =
   | "calendar"
   | "clock"
-  | "sparkles"
   | "heart"
   | "clipboard"
   | "profile"
@@ -86,6 +85,7 @@ export type AgendaInputs = {
     unconfirmedPercent: number;
     unconfirmedCount: number;
     submitted: boolean;
+    missingOneLinerIntro: boolean;
     eligibleToOptIn: boolean;
     attention: QuestionnaireAttentionPayload | null;
   };
@@ -161,7 +161,7 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
       alerts.push({
         id: "MATCH_INTRODUCED_NO_MEETUP",
         tone: "celebrate",
-        icon: "sparkles",
+        icon: "heart",
         title: `可以约 ${name} 见面了`,
         body: "引荐邮件已发出。你可以直接给对方提议 2-3 个时间和地点。",
         action: {
@@ -178,7 +178,7 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
     alerts.push({
       id: "MATCH_REVEALED_AWAITING_INTRO",
       tone: "celebrate",
-      icon: "sparkles",
+      icon: "heart",
       title: "本轮为你匹配到了 TA",
       body: "你可以选择交换联系方式，或者直接发起第一次见面。",
       action: { label: "查看匹配详情", href: "/dashboard/match" },
@@ -282,6 +282,24 @@ function participationTodo(inputs: AgendaInputs): AgendaTodo {
 }
 
 function profileTodo(inputs: AgendaInputs): AgendaTodo {
+  if (inputs.questionnaire.missingOneLinerIntro) {
+    return {
+      id: "PROFILE_CARD",
+      status: "attention",
+      icon: "profile",
+      title: "完善一句话介绍",
+      subtitle: "参与本轮匹配前，请先在名片中填写一句话介绍。",
+      actions: [
+        {
+          label: "去填写",
+          kind: "link",
+          href: "/dashboard/me/card",
+          variant: "primary",
+        },
+      ],
+    };
+  }
+
   const isDefault = contactPreferencesAreDefault(inputs.contactPreferences);
   return {
     id: "PROFILE_CARD",
@@ -346,6 +364,25 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
   }
 
   if (!q.eligibleToOptIn) {
+    if (q.missingOneLinerIntro) {
+      return {
+        id: "QUESTIONNAIRE",
+        status: "done",
+        icon: "clipboard",
+        title: "匹配资料已就绪",
+        subtitle: "问卷部分已完成；完善名片中的一句话介绍后即可参加本轮。",
+        progress,
+        actions: [
+          {
+            label: "查看资料",
+            kind: "link",
+            href: questionnaireHref(q.attention),
+            variant: "ghost",
+          },
+        ],
+      };
+    }
+
     return {
       id: "QUESTIONNAIRE",
       status: "todo",

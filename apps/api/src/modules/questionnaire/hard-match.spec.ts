@@ -125,8 +125,8 @@ describe('hard-match helpers', () => {
     ).toBeNull();
   });
 
-  it('rejects questionnaire saves without a one-line intro', () => {
-    expect(() =>
+  it('allows questionnaire saves without a one-line intro', () => {
+    expect(
       normalizeHardMatchAnswers(
         {
           ...validAnswers,
@@ -134,7 +134,10 @@ describe('hard-match helpers', () => {
         },
         allowedSchoolIds,
       ),
-    ).toThrow(BadRequestException);
+    ).toEqual({
+      ...normalizeHardMatchAnswers(validAnswers, allowedSchoolIds),
+      [HARD_MATCH_KEYS.oneLinerIntro]: '',
+    });
   });
 
   it('rejects questionnaire saves with a school id outside the active school list', () => {

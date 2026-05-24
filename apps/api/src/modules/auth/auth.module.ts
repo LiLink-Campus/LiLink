@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { env } from '../../config/env';
 import { userSessionConfig } from '../../common/auth/session-config';
 import { InviteCodeModule } from '../invite-code/invite-code.module';
+import { ReferralModule } from '../referral/referral.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { InviteCodeModule } from '../invite-code/invite-code.module';
       },
     }),
     InviteCodeModule,
+    ReferralModule,
   ],
   controllers: [AuthController],
   providers: [AuthService],

@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import {
   GrassRowIllustration,
   TeaTimeIllustration,
 } from "../dashboard/_components/illustrations";
+import layoutStyles from "../public-layout.module.css";
+import styles from "./faq.module.css";
 
 type FaqItem = {
   question: string;
@@ -66,36 +69,41 @@ const faqs: FaqItem[] = [
 export default function FaqPage() {
   return (
     <main>
-      <section className="page-hero page-hero-compact is-narrow">
-        <div className="page-hero-illustration is-small" aria-hidden="true">
+      <section
+        className={`${layoutStyles.pageHero} ${layoutStyles.pageHeroCompact} ${layoutStyles.narrow}`}
+      >
+        <div
+          className={`${layoutStyles.pageHeroIllustration} ${layoutStyles.small}`}
+          aria-hidden="true"
+        >
           <TeaTimeIllustration />
         </div>
-        <div className="page-hero-content animate-in">
+        <div className={`${layoutStyles.pageHeroContent} animate-in`}>
           <p className="eyebrow">FAQ</p>
           <h1>常见问题</h1>
           <p>关于 LiLink 的机制、隐私与运作方式。</p>
         </div>
       </section>
 
-      <section className="faq-section">
-        <div className="faq-list">
+      <section className={styles.section}>
+        <div className={styles.list}>
           {faqs.map((item) => (
-            <details key={item.question} className="faq-item">
+            <details key={item.question} className={styles.item}>
               <summary>{item.question}</summary>
-              <div className="faq-answer">{item.answer}</div>
+              <div className={styles.answer}>{item.answer}</div>
             </details>
           ))}
         </div>
 
-        <div className="faq-cta">
+        <div className={styles.cta}>
           <p>没有找到你的问题？</p>
-          <Link className="button-ghost" href="/about">
+          <ButtonLink variant="ghost" href="/about">
             了解更多关于 LiLink
-          </Link>
+          </ButtonLink>
         </div>
       </section>
 
-      <section className="home-grass-line" aria-hidden="true">
+      <section className={layoutStyles.grassLine} aria-hidden="true">
         <GrassRowIllustration />
         <span>好的关系，源于尊重与真诚</span>
         <GrassRowIllustration />

@@ -1,3 +1,4 @@
+import { dcx } from "../../_lib/dashboard-class-names";
 import type { ReactNode } from "react";
 
 export type MeetupProposalPreviewEntry = {
@@ -23,18 +24,18 @@ export function MeetupProposalPreview({
 
   return (
     <div
-      className="v2-proposal-preview"
+      className={dcx("v2-proposal-preview")}
       aria-live="polite"
       aria-label="对方将收到"
     >
-      <span className="v2-proposal-preview-label">{label}</span>
+      <span className={dcx("v2-proposal-preview-label")}>{label}</span>
       {populated.length === 0 ? (
-        <p className="v2-proposal-preview-empty">{emptyText}</p>
+        <p className={dcx("v2-proposal-preview-empty")}>{emptyText}</p>
       ) : (
-        <ul className="v2-proposal-preview-list">
+        <ul className={dcx("v2-proposal-preview-list")}>
           {populated.map((entry, index) => (
             <li key={`${entry.tag}-${index}`}>
-              <span className="v2-proposal-preview-tag">{entry.tag}</span>
+              <span className={dcx("v2-proposal-preview-tag")}>{entry.tag}</span>
               <span>{entry.value}</span>
             </li>
           ))}

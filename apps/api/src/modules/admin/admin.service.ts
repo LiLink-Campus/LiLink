@@ -1858,6 +1858,21 @@ export class AdminService {
         where: { userId: { in: userIds } },
       }),
       this.prisma.auditLog.deleteMany({ where: { actorId: { in: userIds } } }),
+      // Merchant-promotion graph (Restrict FKs) must be cleared before the user
+      // rows, in dependency order: Redemption (Restrict on Coupon) -> Coupon
+      // (Restrict on User) -> CampaignActivation (Restrict on User).
+      // ReferralEvent holds only weak referrer refs (no FK) but is cleared so
+      // funnel stats don't count deleted users. referredByUserId is
+      // ON DELETE SET NULL and referralCampaignId points at Campaign, so
+      // neither needs manual unlinking.
+      this.prisma.redemption.deleteMany({ where: { userId: { in: userIds } } }),
+      this.prisma.coupon.deleteMany({ where: { userId: { in: userIds } } }),
+      this.prisma.campaignActivation.deleteMany({
+        where: { userId: { in: userIds } },
+      }),
+      this.prisma.referralEvent.deleteMany({
+        where: { referrerUserId: { in: userIds } },
+      }),
       this.prisma.user.deleteMany({ where: { id: { in: userIds } } }),
     ]);
 

@@ -7,7 +7,6 @@ import {
   ClockIcon,
   HeartIcon,
   ProfileIcon,
-  SparklesIcon,
 } from "./icons";
 
 export const AGENDA_ICONS: Record<
@@ -16,7 +15,6 @@ export const AGENDA_ICONS: Record<
 > = {
   calendar: CalendarIcon,
   clock: ClockIcon,
-  sparkles: SparklesIcon,
   heart: HeartIcon,
   clipboard: ClipboardIcon,
   profile: ProfileIcon,

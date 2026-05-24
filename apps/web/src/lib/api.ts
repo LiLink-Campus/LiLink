@@ -1,7 +1,9 @@
-import { apiBaseUrl } from "./api-base-url";
+import { getClientApiBaseUrl } from "./api-base-url";
 import type {
   HardMatchSchoolGenderExclusion,
   MatchEstimateResult,
+  MerchantPromotionBlock,
+  RedemptionResult,
   SupportedLocale,
 } from "@lilink/shared";
 
@@ -23,6 +25,8 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
     "请先完成「资料」中的问卷，再参加本轮匹配。",
   "Your questionnaire is missing required fields. Please update your profile before opting into matching.":
     "你的问卷有必填项缺失，请回到「资料」补全后再参加本轮匹配。",
+  "Add a one-line intro on your referral card before opting into matching.":
+    "请先在「我的」完善一句话介绍，再参加本轮匹配。",
   "Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.":
     "问卷有未保存的修改且必填项缺失，请回到「资料」补完或撤销修改后再参加本轮匹配。",
   "Selected contact channel must have a value.": "请选择已填写的联系方式。",
@@ -34,6 +38,11 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
   "Owner name is required.": "请填写姓名。",
   MEETUP_LOCATION_OPTION_AMBIGUOUS:
     "每个地点选项只能二选一：推荐地点或自定义地点，不能同时填写。",
+  "Merchant email or password is invalid.": "商家邮箱或密码不正确。",
+  "Merchant authentication is required.": "请先登录商家账号。",
+  "Merchant session is invalid.": "商家登录状态已失效，请重新登录。",
+  "A merchant user with this email already exists.":
+    "该邮箱已被其他商家账号使用。",
 };
 
 export class ApiRequestError extends Error {
@@ -89,7 +98,7 @@ export async function fetchApi<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetch(`${getClientApiBaseUrl()}${path}`, {
     ...init,
     headers,
     credentials: "include",
@@ -442,6 +451,178 @@ export type MatchEstimate = Extract<MatchEstimateResult, { available: true }>;
  */
 export function fetchMatchEstimate(payload: MatchEstimatePayload) {
   return fetchApi<MatchEstimateResult>("/me/match-estimate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+// --- Merchant promotion system (user-facing) ---
+
+export type ReferralFunnel = {
+  invited: number;
+  registered: number;
+  activated: number;
+  granted: number;
+  redeemed: number;
+};
+
+export type MyReferralOverview = {
+  referralCode: string | null;
+  links: { channel: string; url: string }[];
+  funnel: ReferralFunnel;
+};
+
+export function fetchMyReferral() {
+  return fetchApi<MyReferralOverview>("/me/referral");
+}
+
+export function recordShareEvent(channel: string, campaignSlug?: string) {
+  return fetchApi<{ ok: boolean }>("/referral/events", {
+    method: "POST",
+    body: JSON.stringify({
+      channel,
+      ...(campaignSlug ? { campaignSlug } : {}),
+    }),
+  });
+}
+
+export type ReferralClickResult = { result: "OK" | "INVALID" };
+
+export function recordReferralClick(payload: {
+  code: string;
+  channel?: string;
+  campaignSlug?: string;
+}) {
+  return fetchApi<ReferralClickResult>("/referral/click", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type MyCouponStatus = "ISSUED" | "REDEEMED" | "EXPIRED" | "VOID";
+
+export type MyCoupon = {
+  id: string;
+  status: MyCouponStatus;
+  code: string;
+  merchantName: string;
+  title: string;
+  benefitType: string;
+  benefitText: string;
+  faceValue: number;
+  issuedAt: string;
+  expiresAt: string | null;
+  redeemedAt: string | null;
+};
+
+export function fetchMyCoupons() {
+  return fetchApi<{ items: MyCoupon[] }>("/me/coupons");
+}
+
+export type CouponRedeemSecret = {
+  code: string;
+  secret: string;
+  period: number;
+  digits: number;
+};
+
+export function getCouponRedeemSecret(couponId: string) {
+  return fetchApi<CouponRedeemSecret>(`/me/coupons/${couponId}/redeem-secret`);
+}
+
+export type CouponStatusResponse = {
+  status: MyCouponStatus;
+  redeemedAt?: string;
+  applied?: {
+    orderAmount: number | null;
+    discountAmount: number;
+    gift: string | null;
+  };
+  merchantPromotion?: MerchantPromotionBlock[];
+};
+
+export function getCouponStatus(couponId: string) {
+  return fetchApi<CouponStatusResponse>(`/me/coupons/${couponId}/status`);
+}
+
+// --- Merchant portal (separate session from user/admin) ---
+
+export type MerchantSessionUser = {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: string;
+  merchantId: string;
+  merchantName: string;
+};
+
+export function merchantLogin(email: string, password: string) {
+  return fetchApi<{ ok: boolean; merchantUser: MerchantSessionUser }>(
+    "/merchant/auth/login",
+    { method: "POST", body: JSON.stringify({ email, password }) },
+  );
+}
+
+export function merchantLogout() {
+  return fetchApi<{ ok: boolean }>("/merchant/auth/logout", { method: "POST" });
+}
+
+export function fetchMerchantMe() {
+  return fetchApi<{ ok: boolean; merchantUser: MerchantSessionUser }>(
+    "/merchant/auth/me",
+  );
+}
+
+export type RedeemResult = RedemptionResult;
+
+/** Coupon snapshot returned by both prepare and redeem endpoints. */
+export type RedeemCouponInfo = {
+  title: string;
+  benefitText: string;
+  faceValue: number;
+  userDisplayName: string | null;
+};
+
+/** Prepare succeeded: coupon info available, ticket issued. */
+export type PrepareRedeemOk = {
+  result: "OK";
+  coupon: RedeemCouponInfo;
+  needAmount: boolean;
+  redeemTicket: string;
+};
+
+/** Prepare failed with a specific reason. */
+export type PrepareRedeemFail = {
+  result: "INVALID" | "ALREADY_USED" | "EXPIRED_CODE";
+};
+
+/** Response from POST /merchant/redeem/prepare */
+export type PrepareRedeemResponse = PrepareRedeemOk | PrepareRedeemFail;
+
+/** Response from POST /merchant/redeem (ticket-based, no merchantPromotion). */
+export type RedeemResponse = {
+  result: RedeemResult;
+  coupon: RedeemCouponInfo | null;
+  // The benefit resolved at redemption (SUCCESS only).
+  applied: {
+    orderAmount: number | null;
+    discountAmount: number;
+    gift: string | null;
+  } | null;
+};
+
+export function prepareRedeem(payload: { code: string; totp: string }) {
+  return fetchApi<PrepareRedeemResponse>("/merchant/redeem/prepare", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function redeemCoupon(payload: {
+  redeemTicket: string;
+  orderAmount?: number;
+}) {
+  return fetchApi<RedeemResponse>("/merchant/redeem", {
     method: "POST",
     body: JSON.stringify(payload),
   });

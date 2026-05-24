@@ -26,6 +26,7 @@ import type {
   DashboardPayload,
   QuestionnaireAttentionPayload,
 } from "./_lib/types";
+import styles from "./home-client.module.css";
 
 const HOME_VISIBLE_REFRESH_TTL_MS = 30_000;
 
@@ -37,6 +38,7 @@ export function HomeClient({
   questionnaireUnconfirmedPercent,
   questionnaireUnconfirmedCount,
   questionnaireSubmitted,
+  questionnaireMissingOneLinerIntro,
   questionnaireEligibleToOptIn,
   questionnaireHasIncompleteDraft,
   questionnaireAttention,
@@ -49,6 +51,7 @@ export function HomeClient({
   questionnaireUnconfirmedPercent: number;
   questionnaireUnconfirmedCount: number;
   questionnaireSubmitted: boolean;
+  questionnaireMissingOneLinerIntro: boolean;
   questionnaireEligibleToOptIn: boolean;
   questionnaireHasIncompleteDraft: boolean;
   questionnaireAttention: QuestionnaireAttentionPayload | null;
@@ -119,6 +122,7 @@ export function HomeClient({
           unconfirmedPercent: questionnaireUnconfirmedPercent,
           unconfirmedCount: questionnaireUnconfirmedCount,
           submitted: questionnaireSubmitted,
+          missingOneLinerIntro: questionnaireMissingOneLinerIntro,
           eligibleToOptIn: questionnaireEligibleToOptIn,
           attention: questionnaireAttention,
         },
@@ -132,6 +136,7 @@ export function HomeClient({
       questionnaireUnconfirmedPercent,
       questionnaireUnconfirmedCount,
       questionnaireSubmitted,
+      questionnaireMissingOneLinerIntro,
       questionnaireEligibleToOptIn,
       questionnaireAttention,
     ],
@@ -158,9 +163,11 @@ export function HomeClient({
     }
     if (!isOptedIn && !questionnaireEligibleToOptIn) {
       setErrorOnly(
-        questionnaireHasIncompleteDraft
-          ? "匹配资料有未保存的修改且必填项缺失，请补完后再参加本轮匹配。"
-          : "请先完成「匹配资料」，再参加本轮匹配。",
+        questionnaireMissingOneLinerIntro
+          ? "请先在「我的」完善一句话介绍，再参加本轮匹配。"
+          : questionnaireHasIncompleteDraft
+            ? "匹配资料有未保存的修改且必填项缺失，请补完后再参加本轮匹配。"
+            : "请先完成「匹配资料」，再参加本轮匹配。",
       );
       return;
     }
@@ -269,15 +276,15 @@ export function HomeClient({
     : "本周";
 
   return (
-    <div className="app-page-shell v2-page-shell home-dashboard">
-      <header className="v2-greeting">
-        <div className="v2-greeting-main">
-          <span className="v2-greeting-eyebrow">{cycleEyebrow}</span>
+    <div className={`${styles.pageShell} ${styles.v2PageShell} ${styles.homeDashboard}`}>
+      <header className={styles.greeting}>
+        <div className={styles.greetingMain}>
+          <span className={styles.greetingEyebrow}>{cycleEyebrow}</span>
           <h1>
             你好，{initialUser?.displayName ?? "同学"}
-            <OliveSprigIllustration className="olive-sprig" />
+            <OliveSprigIllustration className={styles.oliveSprig} />
           </h1>
-          <p className="v2-greeting-sub">
+          <p className={styles.greetingSub}>
             {pendingCount > 0
               ? `这一周，下面 ${pendingCount} 件事最值得你花几分钟。`
               : "新的一周，期待你的相遇。"}
@@ -285,8 +292,8 @@ export function HomeClient({
         </div>
       </header>
 
-      {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
-      {error ? <p className="form-error">{error}</p> : null}
+      {savedMessage ? <p className="ui-form-message ui-form-message--success">{savedMessage}</p> : null}
+      {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
 
       <CountdownBanner countdown={agenda.countdown} />
       <AgendaAlertList alerts={agenda.alerts} />

@@ -8,8 +8,6 @@ import { PublicChrome } from "./public-chrome";
 import { ServiceWorkerRegistrar } from "./_components/ServiceWorkerRegistrar";
 import "./globals.css";
 
-const apiPreconnectOrigin = resolveApiOriginForPreconnect();
-
 export const metadata: Metadata = {
   title: "LiLink · 校园里的，认真相遇",
   description:
@@ -40,11 +38,13 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const apiPreconnectOrigin = await resolveApiOriginForPreconnect();
+
   return (
     <html
       lang="zh-CN"

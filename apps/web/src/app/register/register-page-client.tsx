@@ -1,14 +1,23 @@
 "use client";
 
-import { sanitizeSameOriginRelativePath } from "@lilink/shared";
+import {
+  INVITE_CODE_LENGTH,
+  PERSONAL_CODE_LENGTH,
+  REFERRAL_CHANNELS,
+  sanitizeSameOriginRelativePath,
+} from "@lilink/shared";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { ActionGroup } from "@/components/semantic";
+import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
 import { fetchApi } from "../../lib/api";
 import {
   GrassRowIllustration,
   OliveSprigIllustration,
 } from "../dashboard/_components/illustrations";
 import { EligibleSchoolsPanel } from "../eligible-schools-panel";
+import authStyles from "../auth.module.css";
+import layoutStyles from "../public-layout.module.css";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -44,6 +53,10 @@ export default function RegisterPageClient() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [fullName, setFullName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [referralChannel, setReferralChannel] = useState("");
+  const [attributionLocked, setAttributionLocked] = useState(false);
+  const [campaignSlug, setCampaignSlug] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [resolvedSchool, setResolvedSchool] = useState<CodeResponse["school"]>(
     null,
@@ -58,6 +71,39 @@ export default function RegisterPageClient() {
     const localhostHosts = new Set(["localhost", "127.0.0.1", "::1"]);
     setCanRevealDevCode(localhostHosts.has(window.location.hostname));
     setLoginHref(loginHrefFromSearch(window.location.search));
+
+    // Read referral attribution stashed by the /i/[code] landing page.
+    const refCookie = document.cookie
+      .split("; ")
+      .find((entry) => entry.startsWith("lilink_ref="));
+    if (!refCookie) return;
+    try {
+      const parsed = JSON.parse(
+        decodeURIComponent(refCookie.slice("lilink_ref=".length)),
+      ) as { code?: unknown; channel?: unknown; campaignSlug?: unknown };
+      const refCode = typeof parsed.code === "string" ? parsed.code : "";
+      if (refCode.length === INVITE_CODE_LENGTH) {
+        setInviteCode(refCode);
+        setAttributionLocked(true);
+      } else if (refCode.length === PERSONAL_CODE_LENGTH) {
+        setReferralCode(refCode);
+        setAttributionLocked(true);
+      }
+      if (
+        typeof parsed.channel === "string" &&
+        (REFERRAL_CHANNELS as readonly string[]).includes(parsed.channel)
+      ) {
+        setReferralChannel(parsed.channel);
+      }
+      if (
+        typeof parsed.campaignSlug === "string" &&
+        /^[a-z0-9][a-z0-9-]{0,63}$/.test(parsed.campaignSlug)
+      ) {
+        setCampaignSlug(parsed.campaignSlug);
+      }
+    } catch {
+      // Ignore a malformed referral cookie.
+    }
   }, []);
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
@@ -117,8 +163,15 @@ export default function RegisterPageClient() {
           fullName,
           acceptedTerms,
           inviteCode: inviteCode.trim() || undefined,
+          referralCode: referralCode.trim() || undefined,
+          channel: referralChannel || undefined,
+          campaignSlug: campaignSlug || undefined,
         }),
+
       });
+
+      // Attribution has been consumed; clear the landing cookie.
+      document.cookie = "lilink_ref=; path=/; max-age=0; samesite=lax";
 
       const nextPath = new URLSearchParams(window.location.search).get("next");
       const redirectPath =
@@ -136,10 +189,19 @@ export default function RegisterPageClient() {
     }
   }
 
+  const lockedIsReferral =
+    attributionLocked && !inviteCode.trim() && referralCode.trim().length > 0;
+  const lockedAttributionCode = attributionLocked
+    ? inviteCode.trim() || referralCode.trim()
+    : "";
+  const lockedAttributionLabel = lockedIsReferral ? "推荐码" : "邀请码";
+
   return (
-    <main className="page-shell prose-shell auth-shell">
-      <section className="content-panel auth-panel animate-in">
-        <div className="auth-panel-mark" aria-hidden="true">
+    <main
+      className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell}`}
+    >
+      <Card className={`${authStyles.panel} animate-in`} layout="plain">
+        <div className={authStyles.panelMark} aria-hidden="true">
           <OliveSprigIllustration />
         </div>
         <p className="eyebrow">Register · Step {step} / 2</p>
@@ -151,10 +213,9 @@ export default function RegisterPageClient() {
         </p>
 
         {step === 1 ? (
-          <form className="auth-form" onSubmit={requestCode}>
-            <label>
-              <span>学校邮箱</span>
-              <input
+          <form className={authStyles.stack} onSubmit={requestCode}>
+            <Field label="学校邮箱">
+              <Input
                 required
                 type="email"
                 autoComplete="email"
@@ -162,23 +223,23 @@ export default function RegisterPageClient() {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="your.name@school.edu"
               />
-            </label>
+            </Field>
             <EligibleSchoolsPanel emailInput={email} variant="compact" />
             {resolvedSchool ? (
-              <p className="form-success">
+              <FormMessage tone="success">
                 已识别学校：{resolvedSchool.schoolName}（@
                 {resolvedSchool.matchedDomain}）
-              </p>
+              </FormMessage>
             ) : null}
-            {error ? <p className="form-error">{error}</p> : null}
-            <button
-              className="button-primary button-block"
+            {error ? <FormMessage>{error}</FormMessage> : null}
+            <Button
+              block
               disabled={pending}
               type="submit"
             >
               {pending ? "发送中…" : "发送验证码"}
-            </button>
-            <p className="auth-hint">
+            </Button>
+            <p className={authStyles.hint}>
               没找到你的学校？前往
               {" "}
               <Link href="/schools">完整学校列表</Link>
@@ -187,20 +248,19 @@ export default function RegisterPageClient() {
             </p>
           </form>
         ) : (
-          <form className="auth-form" onSubmit={register}>
-            <div className="dev-inline">
+          <form className={authStyles.stack} onSubmit={register}>
+            <div className={authStyles.devInline}>
               <span>已发送到</span>
               <strong>{email}</strong>
             </div>
-            <p className="auth-hint">
+            <p className={authStyles.hint}>
               几分钟内仍未收到？请检查邮箱的「垃圾邮件」或「拦截邮件」文件夹，部分学校邮箱会自动拦截首次发件人。
             </p>
             {canRevealDevCode && devCode ? (
-              <p className="dev-note">开发环境验证码：{devCode}</p>
+              <p className={authStyles.devNote}>开发环境验证码：{devCode}</p>
             ) : null}
-            <label>
-              <span>验证码</span>
-              <input
+            <Field label="验证码">
+              <Input
                 required
                 value={code}
                 maxLength={VERIFICATION_CODE_LENGTH}
@@ -209,37 +269,45 @@ export default function RegisterPageClient() {
                 onChange={(event) => setCode(event.target.value)}
                 placeholder="6 位验证码"
               />
-            </label>
-            <label>
-              <span>显示昵称</span>
-              <input
+            </Field>
+            <Field label="显示昵称">
+              <Input
                 required
                 value={displayName}
                 maxLength={DISPLAY_NAME_MAX_LENGTH}
                 onChange={(event) => setDisplayName(event.target.value)}
                 placeholder="别人会先看到这个昵称"
               />
-            </label>
-            <label>
-              <span>真实姓名（可选）</span>
-              <input
+            </Field>
+            <Field label="真实姓名（可选）">
+              <Input
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
                 placeholder="可留空；仅在必要场景用于核验"
               />
-            </label>
-            <label>
-              <span>邀请码（可选）</span>
-              <input
-                value={inviteCode}
+            </Field>
+            <Field
+              label={
+                attributionLocked ? lockedAttributionLabel : "邀请码（可选）"
+              }
+              hint={
+                attributionLocked
+                  ? `已通过${lockedIsReferral ? "推荐" : "邀请"}链接带入，不可修改。`
+                  : undefined
+              }
+            >
+              <Input
+                readOnly={attributionLocked}
+                value={attributionLocked ? lockedAttributionCode : inviteCode}
                 maxLength={INVITE_CODE_MAX_LENGTH}
                 onChange={(event) => setInviteCode(event.target.value)}
-                placeholder="如有邀请码可填写"
+                placeholder={
+                  attributionLocked ? undefined : "如有邀请码可填写"
+                }
               />
-            </label>
-            <label>
-              <span>密码</span>
-              <input
+            </Field>
+            <Field label="密码">
+              <Input
                 required
                 type="password"
                 autoComplete="new-password"
@@ -249,10 +317,9 @@ export default function RegisterPageClient() {
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder={`至少 ${PASSWORD_MIN_LENGTH} 位，含字母和数字`}
               />
-            </label>
-            <label>
-              <span>确认密码</span>
-              <input
+            </Field>
+            <Field label="确认密码">
+              <Input
                 required
                 type="password"
                 autoComplete="new-password"
@@ -262,8 +329,8 @@ export default function RegisterPageClient() {
                 onChange={(event) => setPasswordConfirm(event.target.value)}
                 placeholder="再次输入密码"
               />
-            </label>
-            <label className="terms-checkbox-label">
+            </Field>
+            <label className={authStyles.termsCheckboxLabel}>
               <input
                 checked={acceptedTerms}
                 type="checkbox"
@@ -274,32 +341,31 @@ export default function RegisterPageClient() {
                 <Link href="/privacy">隐私政策</Link>。
               </span>
             </label>
-            {error ? <p className="form-error">{error}</p> : null}
-            <div className="auth-actions">
-              <button
-                className="button-secondary"
+            {error ? <FormMessage>{error}</FormMessage> : null}
+            <ActionGroup className={authStyles.actions}>
+              <Button
+                variant="secondary"
                 disabled={pending}
                 type="button"
                 onClick={() => setStep(1)}
               >
                 返回改邮箱
-              </button>
-              <button
-                className="button-primary"
+              </Button>
+              <Button
                 disabled={pending}
                 type="submit"
               >
                 {pending ? "创建中…" : "创建账号"}
-              </button>
-            </div>
+              </Button>
+            </ActionGroup>
           </form>
         )}
 
-        <p className="auth-hint">
+        <p className={authStyles.hint}>
           已有账号？<Link href={loginHref}>立即登录</Link>
         </p>
-      </section>
-      <div className="auth-grass-line" aria-hidden="true">
+      </Card>
+      <div className={authStyles.grassLine} aria-hidden="true">
         <GrassRowIllustration />
       </div>
     </main>

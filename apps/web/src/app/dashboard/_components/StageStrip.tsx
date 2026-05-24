@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { RevealCountdown } from "./RevealCountdown";
+import styles from "./StageStrip.module.css";
 
 /**
  * Top-of-page context strip that anchors users in time: which round, what
@@ -24,11 +25,11 @@ export function StageStrip({
   countdownExpiredLabel?: string;
 }) {
   return (
-    <div className="v2-stage-strip" role="group" aria-label={eyebrow}>
-      <span className="v2-stage-strip-eyebrow">{eyebrow}</span>
-      <p className="v2-stage-strip-title">{title}</p>
+    <div className={styles.strip} role="group" aria-label={eyebrow}>
+      <span className={styles.eyebrow}>{eyebrow}</span>
+      <p className={styles.title}>{title}</p>
       {countdownTo !== undefined ? (
-        <span className="v2-stage-strip-meta">
+        <span className={styles.meta}>
           {countdownPrefix ?? "距揭晓"}
           <RevealCountdown
             targetIso={countdownTo}
@@ -37,7 +38,7 @@ export function StageStrip({
           />
         </span>
       ) : metaLabel || metaValue ? (
-        <span className="v2-stage-strip-meta">
+        <span className={styles.meta}>
           {metaLabel}
           {metaValue ? <strong>{metaValue}</strong> : null}
         </span>

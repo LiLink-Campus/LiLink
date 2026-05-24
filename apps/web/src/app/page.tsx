@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import { getLandingPayload } from "../lib/public-server-api";
 import {
   CampusLineart,
@@ -8,6 +8,8 @@ import {
 } from "./dashboard/_components/illustrations";
 import { HeroRevealCountdown } from "./hero-reveal-countdown";
 import { ModeSelectCard } from "./mode-select-card";
+import layoutStyles from "./public-layout.module.css";
+import styles from "./page.module.css";
 
 export const revalidate = 60;
 
@@ -36,29 +38,29 @@ export default async function Home() {
     : null;
 
   return (
-    <main className="home-page">
-      <section className="home-hero">
-        <div className="home-hero-content animate-in">
+    <main className={styles.homePage}>
+      <section className={styles.hero}>
+        <div className={`${styles.heroContent} animate-in`}>
           <p className="eyebrow">LiLink · 校园里的，认真相遇</p>
           <h1 className="text-balance">
             让相遇这件事
             <br />
             值得<em>被认真对待</em>
           </h1>
-          <p className="home-hero-tagline">
+          <p className={styles.heroTagline}>
             在校园里，真诚认识，慢慢走近。
             <br />
             基于深度问卷与算法，每周认真为你寻找一个真正合拍的同学。
           </p>
-          <div className="home-hero-actions">
-            <Link className="button-primary" href="/dashboard">
+          <div className={styles.heroActions}>
+            <ButtonLink href="/dashboard">
               开始匹配 →
-            </Link>
-            <Link className="button-secondary" href="/about">
+            </ButtonLink>
+            <ButtonLink variant="secondary" href="/about">
               了解机制
-            </Link>
+            </ButtonLink>
           </div>
-          <div className="home-hero-meta">
+          <div className={styles.heroMeta}>
             <span>{landing ? "下次揭晓" : "状态提醒"}</span>
             <HeroRevealCountdown
               offline={landing == null}
@@ -72,22 +74,22 @@ export default async function Home() {
           </div>
         </div>
 
-        <div className="home-hero-illustration" aria-hidden="true">
+        <div className={styles.heroIllustration} aria-hidden="true">
           <CampusLineart />
         </div>
       </section>
 
-      <section className="home-mode-section">
-        <div className="section-heading">
+      <section className={styles.modeSection}>
+        <div className={layoutStyles.sectionHeading}>
           <p className="eyebrow">Choose a mode</p>
           <h2>选择一种相遇方式</h2>
         </div>
-        <div className="home-mode-grid">
+        <div className={styles.modeGrid}>
           <ModeSelectCard
             title="1v1 匹配"
             tagline="每周一位新同学，轻松慢相处。"
             status={{ label: "进行中", tone: "active" }}
-            illustration={<CoffeeCupsIllustration className="mode-illu-svg" />}
+            illustration={<CoffeeCupsIllustration />}
             footerLine={
               registeredDisplay != null ? (
                 <>
@@ -103,14 +105,14 @@ export default async function Home() {
             title="多人局"
             tagline="多人匹配，更多可能。"
             status={{ label: "即将开放", tone: "upcoming" }}
-            illustration={<ThreeChairsIllustration className="mode-illu-svg" />}
+            illustration={<ThreeChairsIllustration />}
             footerLine="多人组队的匹配算法正在打磨"
             disabledCtaLabel="即将开放"
           />
         </div>
       </section>
 
-      <section className="stats-strip">
+      <section className={styles.statsStrip}>
         <div>
           <span>注册用户</span>
           <strong>{landing ? `${registeredDisplay}+` : "—"}</strong>
@@ -128,7 +130,7 @@ export default async function Home() {
           <span>已送出匹配</span>
           <strong
             className={
-              matchesLabelIsNarrative ? "stats-strip-note" : undefined
+              matchesLabelIsNarrative ? styles.statsStripNote : undefined
             }
           >
             {landing == null
@@ -140,12 +142,12 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="section">
-        <div className="section-heading">
+      <section className={styles.section}>
+        <div className={layoutStyles.sectionHeading}>
           <p className="eyebrow">How it works</p>
           <h2>一份经过认真计算的相遇</h2>
         </div>
-        <div className="story-grid">
+        <div className={styles.storyGrid}>
           <article>
             <span>01</span>
             <h3>学校邮箱验证</h3>
@@ -177,8 +179,8 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="statement-section">
-        <div className="statement-block">
+      <section className={styles.statementSection}>
+        <div className={styles.statementBlock}>
           <p className="eyebrow">Our philosophy</p>
           <h2 className="text-balance">
             在覆盖广度与心灵深度之间
@@ -191,7 +193,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="home-grass-line" aria-hidden="true">
+      <section className={layoutStyles.grassLine} aria-hidden="true">
         <GrassRowIllustration />
         <span>好的关系，源于尊重与真诚</span>
         <GrassRowIllustration />

@@ -3,7 +3,7 @@ import "server-only";
 import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { apiBaseUrl } from "./api-base-url";
+import { getServerApiBaseUrl } from "./api-base-url";
 
 const USER_COOKIE_NAME = process.env.COOKIE_NAME?.trim() || "lilink_token";
 const ADMIN_COOKIE_NAME =
@@ -61,7 +61,7 @@ async function fetchApiServer<T>(
   const cookieHeader = await buildForwardedCookieHeader(
     options.cookieNames ?? [],
   );
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetch(`${await getServerApiBaseUrl()}${path}`, {
     ...options,
     headers: {
       Accept: "application/json",

@@ -10,6 +10,8 @@
   "scripts": {
     "postinstall": "node scripts/postinstall-prisma-generate.cjs",
     "dev": "npm run build:shared && concurrently -k -n shared,web,api \"npm run dev:shared\" \"npm run dev:web:raw\" \"npm run dev:api:raw\"",
+    "setup:dev-mobile": "node scripts/setup-dev-mobile.mjs",
+    "dev:mobile": "npm run setup:dev-mobile && npm run dev",
     "dev:web": "npm run build:shared && npm run dev:web:raw",
     "dev:api": "npm run build:shared && npm run dev:api:raw",
     "dev:web:raw": "npm run dev --workspace web",
@@ -28,6 +30,7 @@
     "lint:shared": "npm run lint --workspace @lilink/shared",
     "lint:web": "npm run lint --workspace web",
     "lint:api": "npm run lint --workspace api",
+    "lint:web-boundary": "node scripts/audit-web-design-system-boundary.mjs",
     "lint:pre-push": "node scripts/run-pre-push-lint.mjs",
     "lint:staged": "lint-staged",
     "lint:css": "node scripts/web-css-syntax.mjs",

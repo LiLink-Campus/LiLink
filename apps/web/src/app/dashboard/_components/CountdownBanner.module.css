@@ -1,0 +1,77 @@
+.countdown {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.18rem;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  color: var(--color-brand-ink);
+}
+
+.countdown {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-gold-soft);
+  border: 1px solid color-mix(in srgb, var(--color-gold) 28%, transparent);
+}
+
+.none {
+  background: var(--color-surface-muted);
+  border-color: var(--color-border);
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--color-gold) 18%, var(--color-surface));
+  color: #8c6b1c;
+}
+
+.icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.none .icon {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.sub {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.chip {
+  flex-shrink: 0;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: #8c6b1c;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}

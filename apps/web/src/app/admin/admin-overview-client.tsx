@@ -3,8 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../lib/api";
+import { cx } from "./admin-class-names";
 import { useAdmin } from "./admin-context";
+import commonStyles from "./admin-common.module.css";
 import type { AdminDashboardData } from "./types";
+
+const adminStyles = [commonStyles];
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -106,26 +110,26 @@ export default function AdminOverviewPage({
   }, [data]);
 
   if (loading) {
-    return <div className="admin-empty-state">正在加载后台概览...</div>;
+    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载后台概览...</div>;
   }
 
   if (!data || !summary) {
     return (
-      <div className="qb-container">
-        <div className="qb-header">
+      <div className={cx(adminStyles, "qb-container")}>
+        <div className={cx(adminStyles, "qb-header")}>
           <div>
             <h1>运营概览</h1>
-            <p className="qb-header-desc">后台数据暂时不可用。</p>
+            <p className={cx(adminStyles, "qb-header-desc")}>后台数据暂时不可用。</p>
           </div>
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             onClick={() => void refresh()}
             type="button"
           >
             重新加载
           </button>
         </div>
-        {error && <p className="form-error">{error}</p>}
+        {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
       </div>
     );
   }
@@ -138,16 +142,16 @@ export default function AdminOverviewPage({
   ];
 
   return (
-    <div className="qb-container" style={{ maxWidth: "72rem" }}>
-      <div className="qb-header">
+    <div className={cx(adminStyles, "qb-container")} style={{ maxWidth: "72rem" }}>
+      <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>运营概览</h1>
-          <p className="qb-header-desc">
+          <p className={cx(adminStyles, "qb-header-desc")}>
             本周轮次、风险工单和关键配置集中在这里。
           </p>
         </div>
         <button
-          className="button-secondary"
+          className="ui-button ui-button--secondary"
           onClick={() => void refresh()}
           type="button"
           style={{ minHeight: "2.4rem", padding: "0 1rem" }}
@@ -157,35 +161,35 @@ export default function AdminOverviewPage({
       </div>
 
       {error && (
-        <p className="form-error" style={{ marginBottom: "1rem" }}>
+        <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "1rem" }}>
           {error}
         </p>
       )}
 
       {/* Metrics */}
-      <section className="admin-metric-grid" style={{ marginBottom: "1.25rem" }}>
+      <section className={cx(adminStyles, "admin-metric-grid")} style={{ marginBottom: "1.25rem" }}>
         {metrics.map((m) => (
           <article
             key={m.label}
-            className={`admin-metric-card ${METRIC_TONES[m.tone]}`}
+            className={cx(adminStyles, "admin-metric-card", METRIC_TONES[m.tone])}
           >
-            <span className="admin-metric-label">{m.label}</span>
-            <strong className="admin-metric-value">{m.value}</strong>
+            <span className={cx(adminStyles, "admin-metric-label")}>{m.label}</span>
+            <strong className={cx(adminStyles, "admin-metric-value")}>{m.value}</strong>
           </article>
         ))}
       </section>
 
       {/* Capacity settings */}
       {settings && (
-        <section className="content-panel" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
-          <div className="admin-section-header" style={{ marginBottom: "1rem" }}>
+        <section className="ui-card ui-card--padded ui-card--plain" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
+          <div className={cx(adminStyles, "admin-section-header")} style={{ marginBottom: "1rem" }}>
             <div>
               <p className="eyebrow">灰度控制</p>
               <h2>容量限制</h2>
             </div>
           </div>
-          <div className="admin-capacity-field">
-            <label className="admin-field-label" htmlFor="admin-max-registrations">
+          <div className={cx(adminStyles, "admin-capacity-field")}>
+            <label className={cx(adminStyles, "admin-field-label")} htmlFor="admin-max-registrations">
               最大注册人数
             </label>
             <input
@@ -197,91 +201,91 @@ export default function AdminOverviewPage({
               onChange={(e) => setSettingsForm((f) => ({ ...f, maxReg: e.target.value }))}
               placeholder="0 = 不限制"
             />
-            <p className="admin-capacity-hint">
+            <p className={cx(adminStyles, "admin-capacity-hint")}>
               0 表示不限制。填写正整数时，以数据库中<strong>用户总数</strong>（含停用等所有账号）为准；达到上限后，新用户<strong>完成注册提交</strong>时会收到「名额已满」类提示，无法再创建账号。
             </p>
           </div>
           <div className="auth-actions" style={{ marginTop: "1rem" }}>
-            <button className="button-primary" type="button" disabled={settingsPending} onClick={() => void saveSettings()} style={{ minHeight: "2.2rem", padding: "0 1rem" }}>
+            <button className="ui-button ui-button--primary" type="button" disabled={settingsPending} onClick={() => void saveSettings()} style={{ minHeight: "2.2rem", padding: "0 1rem" }}>
               {settingsPending ? "保存中…" : "保存限制"}
             </button>
-            {settingsMsg && <span style={{ fontSize: "0.9rem", color: settingsMsg === "已保存" ? "var(--accent)" : "var(--error)" }}>{settingsMsg}</span>}
+            {settingsMsg && <span style={{ fontSize: "0.9rem", color: settingsMsg === "已保存" ? "var(--color-accent)" : "var(--color-danger)" }}>{settingsMsg}</span>}
           </div>
         </section>
       )}
 
       {/* Cycle + Reports */}
       <section
-        className="admin-dashboard-grid"
+        className={cx(adminStyles, "admin-dashboard-grid")}
         style={{ marginBottom: "1.25rem" }}
       >
         {/* Current cycle */}
-        <article className="content-panel">
-          <div className="admin-section-header">
+        <article className="ui-card ui-card--padded ui-card--plain">
+          <div className={cx(adminStyles, "admin-section-header")}>
             <div>
               <p className="eyebrow">轮次雷达</p>
               <h2>当前轮次</h2>
             </div>
-            <Link className="button-secondary" href="/admin/cycles">
+            <Link className="ui-button ui-button--secondary" href="/admin/cycles">
               进入轮次中心
             </Link>
           </div>
 
           {summary.openCycle ? (
-            <div className="admin-highlight-card">
+            <div className={cx(adminStyles, "admin-highlight-card")}>
               <strong style={{ fontSize: "1.15rem" }}>
                 {summary.openCycle.codename}
               </strong>
-              <p style={{ color: "var(--fg-secondary)", margin: "0.35rem 0 0" }}>
+              <p style={{ color: "var(--color-text-secondary)", margin: "0.35rem 0 0" }}>
                 状态：{summary.openCycle.status}
               </p>
-              <div className="adm-kv-grid">
-                <div className="adm-kv">
+              <div className={cx(adminStyles, "adm-kv-grid")}>
+                <div className={cx(adminStyles, "adm-kv")}>
                   <span>报名截止</span>
                   <strong>
                     {formatDateTime(summary.openCycle.participationDeadline)}
                   </strong>
                 </div>
-                <div className="adm-kv">
+                <div className={cx(adminStyles, "adm-kv")}>
                   <span>揭晓时间</span>
                   <strong>
                     {formatDateTime(summary.openCycle.revealAt)}
                   </strong>
                 </div>
-                <div className="adm-kv">
+                <div className={cx(adminStyles, "adm-kv")}>
                   <span>可匹配人数</span>
                   <strong>
                     {summary.openCycle._count.participations}
                   </strong>
                 </div>
-                <div className="adm-kv">
+                <div className={cx(adminStyles, "adm-kv")}>
                   <span>已生成匹配</span>
                   <strong>{summary.openCycle._count.matches}</strong>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="admin-empty-state">
+            <div className={cx(adminStyles, "admin-empty-state")}>
               当前没有处于 OPEN 状态的轮次。
             </div>
           )}
         </article>
 
         {/* Open reports */}
-        <article className="content-panel">
-          <div className="admin-section-header">
+        <article className="ui-card ui-card--padded ui-card--plain">
+          <div className={cx(adminStyles, "admin-section-header")}>
             <div>
               <p className="eyebrow">风险队列</p>
               <h2>待处理举报</h2>
             </div>
-            <Link className="button-secondary" href="/admin/reports">
+            <Link className="ui-button ui-button--secondary" href="/admin/reports">
               打开举报中心
             </Link>
           </div>
 
-          <div className="admin-mini-list">
+          <div className={cx(adminStyles, "admin-mini-list")}>
             {data.openReports.slice(0, 5).map((report) => (
-              <div key={report.id} className="admin-mini-list-item">
+              <div key={report.id} className={cx(adminStyles, "admin-mini-list-item")}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <strong style={{ fontSize: "0.95rem" }}>
                     {report.reason}
@@ -290,7 +294,7 @@ export default function AdminOverviewPage({
                     style={{
                       margin: "0.15rem 0 0",
                       fontSize: "0.85rem",
-                      color: "var(--fg-secondary)",
+                      color: "var(--color-text-secondary)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -302,13 +306,13 @@ export default function AdminOverviewPage({
                       report.reportedUser.email}
                   </p>
                 </div>
-                <span className="domain-chip">
+                <span className="ui-badge ui-badge--neutral">
                   {formatDateTime(report.createdAt)}
                 </span>
               </div>
             ))}
             {summary.openReports === 0 && (
-              <div className="admin-empty-state">
+              <div className={cx(adminStyles, "admin-empty-state")}>
                 当前没有待处理举报。
               </div>
             )}
@@ -317,19 +321,19 @@ export default function AdminOverviewPage({
       </section>
 
       {/* Test tools */}
-      <section className="content-panel" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
-        <div className="admin-section-header" style={{ marginBottom: "1rem" }}>
+      <section className="ui-card ui-card--padded ui-card--plain" style={{ marginBottom: "1.25rem", padding: "1.5rem" }}>
+        <div className={cx(adminStyles, "admin-section-header")} style={{ marginBottom: "1rem" }}>
           <div>
             <p className="eyebrow">测试工具</p>
             <h2>测试数据管理</h2>
           </div>
         </div>
-        <p style={{ fontSize: "0.9rem", color: "var(--fg-secondary)", marginBottom: "1rem" }}>
+        <p style={{ fontSize: "0.9rem", color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
           一键生成 30 个测试用户（含问卷与轮次参与），用于验证匹配流程。每次生成的登录密码仅在下方成功提示中展示一次，请自行妥善保存。
         </p>
         <div className="auth-actions" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
           <button
-            className="button-primary"
+            className="ui-button ui-button--primary"
             type="button"
             disabled={seedPending}
             onClick={async () => {
@@ -357,7 +361,7 @@ export default function AdminOverviewPage({
             {seedPending ? "生成中…" : "生成测试用户"}
           </button>
           <button
-            className="button-secondary"
+            className="ui-button ui-button--secondary"
             type="button"
             disabled={deletePending}
             onClick={async () => {
@@ -375,17 +379,17 @@ export default function AdminOverviewPage({
                 setDeletePending(false);
               }
             }}
-            style={{ minHeight: "2.2rem", padding: "0 1rem", color: "var(--error, #c0392b)" }}
+            style={{ minHeight: "2.2rem", padding: "0 1rem", color: "var(--color-danger, #c0392b)" }}
           >
             {deletePending ? "删除中…" : "删除全部测试用户"}
           </button>
         </div>
-        {seedMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: seedMsg.startsWith("已创建") ? "var(--accent)" : "var(--error)" }}>{seedMsg}</p>}
-        {deleteMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: deleteMsg.startsWith("已删除") ? "var(--accent)" : "var(--error)" }}>{deleteMsg}</p>}
+        {seedMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: seedMsg.startsWith("已创建") ? "var(--color-accent)" : "var(--color-danger)" }}>{seedMsg}</p>}
+        {deleteMsg && <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: deleteMsg.startsWith("已删除") ? "var(--color-accent)" : "var(--color-danger)" }}>{deleteMsg}</p>}
       </section>
 
       {/* Module shortcuts */}
-      <section className="admin-module-grid">
+      <section className={cx(adminStyles, "admin-module-grid")}>
         {[
           {
             href: "/admin/users",
@@ -415,7 +419,7 @@ export default function AdminOverviewPage({
           <Link
             key={mod.href}
             href={mod.href}
-            className="admin-module-card"
+            className={cx(adminStyles, "admin-module-card")}
             style={{
               display: "flex",
               flexDirection: "column",

@@ -1,0 +1,197 @@
+/* ──────────────────────────────────────────────────────────────
+   Merchant portal · login + redeem console
+   Built on globals.css design tokens (LiLink wine-red identity).
+   Flat selectors only (no nesting) for broad PostCSS compatibility.
+   ────────────────────────────────────────────────────────────── */
+
+/* ── Shells ────────────────────────────────────────────────── */
+.mc-center {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: var(--color-canvas);
+}
+
+.mc-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-canvas);
+}
+
+/* ── Login card ────────────────────────────────────────────── */
+.mc-login-card {
+  width: 100%;
+  max-width: 26rem;
+}
+
+.mc-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.mc-subtitle {
+  margin: 0.4rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+}
+
+/* ── Form ──────────────────────────────────────────────────── */
+.mc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.mc-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 0.9rem;
+}
+
+/* ── Redeem console ────────────────────────────────────────── */
+.mc-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mc-topbar-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+.mc-redeem-body {
+  flex: 1;
+  width: 100%;
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.mc-code-input {
+  padding: 0.85rem 1rem;
+  font-size: 1.125rem;
+  text-align: center;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+
+.mc-loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 3rem 1.5rem;
+  color: var(--color-text-secondary);
+}
+
+/* ── Tri-state result ──────────────────────────────────────── */
+.mc-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  text-align: center;
+  border-radius: var(--radius-md);
+}
+
+.mc-result.is-success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.mc-result.is-warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.mc-result.is-error {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.mc-result-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.mc-result-label {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+/* ── Coupon detail (inside success result) ─────────────────── */
+.mc-coupon {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid currentColor;
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mc-coupon p {
+  margin: 0;
+}
+
+.mc-coupon-title {
+  font-weight: 650;
+  font-size: 1.05rem;
+}
+
+.mc-coupon-face {
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-brand);
+}
+
+.mc-coupon-holder {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.mc-amount-input {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hint under a NEED_AMOUNT / BELOW_THRESHOLD label (inherits result color). */
+.mc-result-hint {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+/* Resolved benefit on a successful redemption: the amount to take off / gift. */
+.mc-coupon-apply {
+  margin-top: 0.4rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-brand);
+}
+
+.mc-coupon-order {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 import { useEffect, useId, useRef } from "react";
 import {
   REPORT_FORM_SECTION_ID,
@@ -75,7 +76,7 @@ export function ReportForm({
   return (
     <dialog
       ref={dialogRef}
-      className="v2-report-dialog"
+      className={dcx("v2-report-dialog")}
       id={REPORT_FORM_SECTION_ID}
       aria-modal="true"
       aria-labelledby={titleId}
@@ -90,18 +91,18 @@ export function ReportForm({
       onClick={handleBackdropClick}
     >
       <div
-        className="v2-report-dialog-inner"
+        className={dcx("v2-report-dialog-inner")}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="v2-report-dialog-head">
-          <span className="v2-report-dialog-eyebrow">举报</span>
+        <header className={dcx("v2-report-dialog-head")}>
+          <span className={dcx("v2-report-dialog-eyebrow")}>举报</span>
           <h2 id={titleId}>提交举报</h2>
           <p id={descriptionId}>
             请确认你要举报的是当前选中的这条匹配记录；提交后系统将按规则处理并可能限制相关展示。
           </p>
         </header>
-        <div className="v2-report-dialog-body">
-          <label className="v2-report-dialog-field">
+        <div className={dcx("v2-report-dialog-body")}>
+          <label className={dcx("v2-report-dialog-field")}>
             <span>举报原因</span>
             <select
               ref={reasonSelectRef}
@@ -118,7 +119,7 @@ export function ReportForm({
               ))}
             </select>
           </label>
-          <label className="v2-report-dialog-field">
+          <label className={dcx("v2-report-dialog-field")}>
             <span>补充说明（可选）</span>
             <textarea
               id={buildDashboardFieldId("report-details")}
@@ -132,9 +133,9 @@ export function ReportForm({
             />
           </label>
         </div>
-        <footer className="v2-report-dialog-foot">
+        <footer className={dcx("v2-report-dialog-foot")}>
           <button
-            className="button-secondary"
+            className={dcx("ui-button ui-button--secondary")}
             disabled={saving}
             type="button"
             onClick={onCancel}
@@ -142,7 +143,7 @@ export function ReportForm({
             取消
           </button>
           <button
-            className="button-danger"
+            className={dcx("ui-button ui-button--danger")}
             disabled={saving}
             type="button"
             onClick={onSubmit}

@@ -15,6 +15,7 @@ import {
   fetchEligibleSchools,
   findMatchingSchool,
 } from "../lib/eligible-schools";
+import styles from "./eligible-schools-panel.module.css";
 
 const SEARCH_PLACEHOLDER = "搜索学校名称或邮箱后缀…";
 const SEARCH_RESULT_TRUNCATE_THRESHOLD = 12;
@@ -35,6 +36,10 @@ type DataState =
   | { status: "error"; message: string };
 
 const DEFAULT_ERROR_MESSAGE = "无法加载学校列表，请稍后再试。";
+
+function cx(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
 
 export function EligibleSchoolsPanel({
   emailInput = "",
@@ -133,17 +138,17 @@ export function EligibleSchoolsPanel({
 
   function renderSummaryBadge() {
     if (dataState.status === "loading") {
-      return <span className="schools-summary-count">正在加载…</span>;
+      return <span className={styles.summaryCount}>正在加载…</span>;
     }
     if (dataState.status === "error") {
       return (
-        <span className="schools-summary-count schools-summary-count--error">
+        <span className={cx(styles.summaryCount, styles.summaryCountError)}>
           加载失败
         </span>
       );
     }
     return (
-      <span className="schools-summary-count">
+      <span className={styles.summaryCount}>
         {dataState.payload.totalSchoolCount} 所学校 ·
         {" "}
         {dataState.payload.totalDomainCount} 个邮箱后缀
@@ -156,8 +161,8 @@ export function EligibleSchoolsPanel({
 
     if (matchResult) {
       return (
-        <div className="schools-match-banner schools-match-banner--success">
-          <span className="schools-match-banner-icon" aria-hidden>
+        <div className={cx(styles.matchBanner, styles.matchBannerSuccess)}>
+          <span className={styles.matchBannerIcon} aria-hidden>
             ✓
           </span>
           <div>
@@ -176,8 +181,8 @@ export function EligibleSchoolsPanel({
 
     if (emailDomainHint) {
       return (
-        <div className="schools-match-banner schools-match-banner--warning">
-          <span className="schools-match-banner-icon" aria-hidden>
+        <div className={cx(styles.matchBanner, styles.matchBannerWarning)}>
+          <span className={styles.matchBannerIcon} aria-hidden>
             !
           </span>
           <div>
@@ -198,12 +203,7 @@ export function EligibleSchoolsPanel({
       matchResult != null && matchResult.school.name === school.name;
     const trimmedQuery = searchTerm.trim().toLowerCase();
 
-    const className = [
-      "schools-card",
-      isMatched ? "schools-card--matched" : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
+    const className = cx(styles.card, isMatched && styles.cardMatched);
 
     return (
       <li
@@ -211,40 +211,36 @@ export function EligibleSchoolsPanel({
         className={className}
         ref={isMatched ? matchedCardRef : undefined}
       >
-        <div className="schools-card-header">
+        <div className={styles.cardHeader}>
           <h3 title={school.name}>{school.name}</h3>
           {isMatched ? (
-            <span className="schools-card-badge">本邮箱可用</span>
+            <span className={styles.cardBadge}>本邮箱可用</span>
           ) : null}
         </div>
         {school.description ? (
-          <p className="schools-card-desc">{school.description}</p>
+          <p className={styles.cardDesc}>{school.description}</p>
         ) : null}
-        <ul className="schools-domain-grid">
+        <ul className={styles.domainGrid}>
           {school.domains.map((domain, domainIndex) => {
             const isMatchedDomain =
               isMatched && matchResult.matchedDomain === domain;
             const isQueried =
               trimmedQuery.length > 0 &&
               domain.toLowerCase().includes(trimmedQuery);
-            const chipClassName = [
-              "schools-domain-chip",
-              isMatchedDomain ? "schools-domain-chip--matched" : "",
-              !isMatchedDomain && isQueried
-                ? "schools-domain-chip--queried"
-                : "",
-            ]
-              .filter(Boolean)
-              .join(" ");
+            const chipClassName = cx(
+              styles.domainChip,
+              isMatchedDomain && styles.domainChipMatched,
+              !isMatchedDomain && isQueried && styles.domainChipQueried,
+            );
             return (
               <Fragment key={domain}>
                 {domainIndex > 0 ? (
-                  <li className="schools-domain-sep" aria-hidden>
+                  <li className={styles.domainSep} aria-hidden>
                     ·
                   </li>
                 ) : null}
                 <li className={chipClassName}>
-                  <span className="schools-domain-at" aria-hidden>
+                  <span className={styles.domainAt} aria-hidden>
                     @
                   </span>
                   {domain}
@@ -260,7 +256,7 @@ export function EligibleSchoolsPanel({
   function renderBody() {
     if (dataState.status === "loading") {
       return (
-        <div className="schools-skeleton">
+        <div className={styles.skeleton}>
           <span />
           <span />
           <span />
@@ -269,12 +265,12 @@ export function EligibleSchoolsPanel({
     }
 
     if (dataState.status === "error") {
-      return <p className="schools-error">{dataState.message}</p>;
+      return <p className={styles.error}>{dataState.message}</p>;
     }
 
     if (filteredSchools.length === 0) {
       return (
-        <div className="schools-empty">
+        <div className={styles.empty}>
           没有找到匹配「{searchTerm.trim()}」的学校。试试用关键词搜索，例如「
           复旦」或「sjtu.edu」。
         </div>
@@ -283,13 +279,13 @@ export function EligibleSchoolsPanel({
 
     return (
       <>
-        <ul className="schools-grid">
+        <ul className={styles.grid}>
           {visibleSchools.map(renderSchoolCard)}
         </ul>
         {hiddenCount > 0 && (
           <button
             type="button"
-            className="schools-show-more"
+            className={styles.showMore}
             onClick={() => setShowAllResults(true)}
           >
             展开剩余 {hiddenCount} 所学校
@@ -302,18 +298,18 @@ export function EligibleSchoolsPanel({
   if (variant === "full") {
     return (
       <section
-        className="schools-panel schools-panel--full"
+        className={cx(styles.panel, styles.full)}
         aria-labelledby={headingId}
       >
-        <header className="schools-panel-header schools-panel-header--summary">
-          <span id={headingId} className="schools-panel-summary-label">
+        <header className={cx(styles.header, styles.headerSummary)}>
+          <span id={headingId} className={styles.summaryLabel}>
             合作高校与邮箱后缀
           </span>
           {renderSummaryBadge()}
         </header>
         {renderMatchBanner()}
         {showSearch && (
-          <div className="schools-search">
+          <div className={styles.search}>
             <input
               type="search"
               value={searchTerm}
@@ -338,23 +334,23 @@ export function EligibleSchoolsPanel({
   }
 
   return (
-    <section className="schools-panel schools-panel--compact">
+    <section className={styles.panel}>
       <button
         type="button"
-        className="schools-toggle"
+        className={styles.toggle}
         aria-expanded={expanded}
         aria-controls={expanded ? headingId : undefined}
         onClick={() => collapsible && setExpanded((value) => !value)}
         disabled={!collapsible}
       >
-        <span className="schools-toggle-label">
+        <span className={styles.toggleLabel}>
           <span className="eyebrow">Eligible schools</span>
           <strong>查看支持的学校邮箱后缀</strong>
         </span>
-        <span className="schools-toggle-meta">
+        <span className={styles.toggleMeta}>
           {renderSummaryBadge()}
           {collapsible && (
-            <span className="schools-toggle-chevron" aria-hidden>
+            <span className={styles.toggleChevron} aria-hidden>
               {expanded ? "−" : "+"}
             </span>
           )}
@@ -364,9 +360,9 @@ export function EligibleSchoolsPanel({
       {renderMatchBanner()}
 
       {expanded && (
-        <div className="schools-panel-body" id={headingId}>
+        <div id={headingId}>
           {showSearch && (
-            <div className="schools-search">
+            <div className={styles.search}>
               <input
                 type="search"
                 value={searchTerm}

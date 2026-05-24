@@ -1,15 +1,17 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import {
   CampusLineart,
   GrassRowIllustration,
   WheatSprigIllustration,
 } from "../dashboard/_components/illustrations";
+import layoutStyles from "../public-layout.module.css";
+import styles from "./about.module.css";
 
 export default function AboutPage() {
   return (
     <main>
-      <section className="page-hero with-illustration">
-        <div className="page-hero-content animate-in">
+      <section className={`${layoutStyles.pageHero} ${layoutStyles.withIllustration}`}>
+        <div className={`${layoutStyles.pageHeroContent} animate-in`}>
           <p className="eyebrow">About LiLink</p>
           <h1 className="text-balance">
             与其无数次擦肩，不如一次认真的匹配
@@ -21,13 +23,13 @@ export default function AboutPage() {
             平台不向用户收费，以公益方式运营校园社区；首期合作高校陆续上线，后续会逐步扩展到更多校园与园区。
           </p>
         </div>
-        <div className="page-hero-illustration" aria-hidden="true">
+        <div className={layoutStyles.pageHeroIllustration} aria-hidden="true">
           <CampusLineart />
         </div>
       </section>
 
-      <section className="about-philosophy">
-        <blockquote className="about-quote">
+      <section className={styles.philosophy}>
+        <blockquote className={styles.quote}>
           <p>
             「提高配对率或许只需算法的让步，但我们更希望认真对待每一份期待，让每一个『匹配成功』都真正具备心动的可能。」
           </p>
@@ -35,28 +37,28 @@ export default function AboutPage() {
         </blockquote>
       </section>
 
-      <section className="about-features">
-        <div className="section-heading">
+      <section className={styles.features}>
+        <div className={layoutStyles.sectionHeading}>
           <p className="eyebrow">What makes us different</p>
           <h2>不是另一个交友 App</h2>
         </div>
-        <div className="about-grid">
-          <article className="about-card">
-            <div className="about-card-icon">01</div>
+        <div className={styles.grid}>
+          <article className={styles.card}>
+            <div className={styles.cardIcon}>01</div>
             <h3>不做广场</h3>
             <p>
               没有公开用户列表，没有站内聊天，没有信息流。平台的全部注意力集中在一件事上：匹配质量。
             </p>
           </article>
-          <article className="about-card">
-            <div className="about-card-icon">02</div>
+          <article className={styles.card}>
+            <div className={styles.cardIcon}>02</div>
             <h3>不做无限滑动</h3>
             <p>
               每周一个轮次，只推送一个匹配结果和一段匹配理由。你可以自由选择是否参与下一轮，把节奏的控制权留给自己。
             </p>
           </article>
-          <article className="about-card">
-            <div className="about-card-icon">03</div>
+          <article className={styles.card}>
+            <div className={styles.cardIcon}>03</div>
             <h3>不做跨校噱头</h3>
             <p>
               同校与跨校被平等对待。你可以在「希望 TA」中按学校、性别、身高、颜值等条件自由筛选；算法关心的，始终是契合度本身。
@@ -65,14 +67,14 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-mechanism">
-        <div className="section-heading">
+      <section className={styles.mechanism}>
+        <div className={layoutStyles.sectionHeading}>
           <p className="eyebrow">How it works</p>
           <h2>从注册到匹配的完整路径</h2>
         </div>
-        <div className="about-steps">
-          <div className="about-step">
-            <div className="about-step-num">1</div>
+        <div className={styles.steps}>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>1</div>
             <div>
               <h3>学校邮箱验证</h3>
               <p>
@@ -80,8 +82,8 @@ export default function AboutPage() {
               </p>
             </div>
           </div>
-          <div className="about-step">
-            <div className="about-step-num">2</div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>2</div>
             <div>
               <h3>填写深度问卷</h3>
               <p>
@@ -89,8 +91,8 @@ export default function AboutPage() {
               </p>
             </div>
           </div>
-          <div className="about-step">
-            <div className="about-step-num">3</div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>3</div>
             <div>
               <h3>每周选择参与</h3>
               <p>
@@ -98,8 +100,8 @@ export default function AboutPage() {
               </p>
             </div>
           </div>
-          <div className="about-step">
-            <div className="about-step-num">4</div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>4</div>
             <div>
               <h3>收到匹配与理由</h3>
               <p>
@@ -110,20 +112,20 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-cta">
-        <div className="about-cta-illu" aria-hidden="true">
+      <section className={styles.cta}>
+        <div className={styles.ctaIllustration} aria-hidden="true">
           <WheatSprigIllustration />
         </div>
         <h2>
           准备好了<span className="optical-punct">？</span>
         </h2>
         <p>填写问卷，加入下一轮匹配。</p>
-        <Link className="button-primary" href="/dashboard">
+        <ButtonLink href="/dashboard">
           开始匹配
-        </Link>
+        </ButtonLink>
       </section>
 
-      <section className="home-grass-line" aria-hidden="true">
+      <section className={layoutStyles.grassLine} aria-hidden="true">
         <GrassRowIllustration />
         <span>好的关系，源于尊重与真诚</span>
         <GrassRowIllustration />

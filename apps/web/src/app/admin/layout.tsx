@@ -4,7 +4,6 @@ import {
 } from "../../lib/server-api";
 import AdminLayoutShell from "./admin-layout-shell";
 import type { AdminIdentity } from "./admin-context";
-import "./admin.css";
 
 async function getInitialAdmin() {
   const hasSessionCookie = await hasAdminSessionCookie();

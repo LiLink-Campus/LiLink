@@ -1,3 +1,4 @@
+import type { ReferralMedium, ReferralScene } from "@lilink/shared";
 import type { WeeklyIntent } from "../../lib/weekly-intent";
 
 export type AdminSchool = {
@@ -24,6 +25,113 @@ export type AdminInviteCode = {
     nonBinary: number;
     unknown: number;
   };
+};
+
+// --- Merchant promotion system (admin views) ---
+
+export type AdminCampaign = {
+  id: string;
+  name: string;
+  slug: string;
+  status: "DRAFT" | "ACTIVE" | "ENDED";
+  isDefault: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  templateCount: number;
+  activationCount: number;
+};
+
+export type AdminCouponTemplate = {
+  id: string;
+  campaignId: string;
+  merchantId: string;
+  title: string;
+  description: string | null;
+  benefitType: string;
+  faceValue: number;
+  validDays: number | null;
+  validUntil: string | null;
+  rule: unknown;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  merchant?: { id: string; name: string; isActive: boolean };
+  couponCount?: number;
+};
+
+export type AdminMerchant = {
+  id: string;
+  name: string;
+  contactInfo: string | null;
+  promotionBlocks: unknown[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  templateCount: number;
+  redemptionCount: number;
+};
+
+export type AdminMerchantUser = {
+  id: string;
+  merchantId: string;
+  email: string;
+  displayName: string | null;
+  role: string;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PromotionFunnelStep = { key: string; count: number };
+
+export type PromotionChannelBreakdownRow = {
+  medium: ReferralMedium;
+  scene: ReferralScene | null;
+  share: number;
+  click: number;
+};
+
+export type PromotionFunnel = {
+  campaignId: string;
+  steps: PromotionFunnelStep[];
+  byGender: { gender: string; steps: PromotionFunnelStep[] }[];
+  conversions: { from: string; to: string; rate: number }[];
+  channelBreakdown?: PromotionChannelBreakdownRow[];
+};
+
+export type PromotionLeaderboardRow = {
+  sourceType: "PERSONAL" | "RECRUITER" | "DEFAULT";
+  refLabel: string;
+  invited: number;
+  registered: number;
+  activated: number;
+  granted: number;
+  redeemed: number;
+  byGender: {
+    male: number;
+    female: number;
+    nonBinary: number;
+    unknown: number;
+  };
+};
+
+export type PromotionCouponsRow = {
+  merchantId: string;
+  merchantName: string;
+  granted: number;
+  redeemed: number;
+};
+
+export type PromotionRedemptionRow = {
+  merchantId: string;
+  merchantName: string;
+  day: string;
+  count: number;
+  faceValueTotal: number;
 };
 
 export type AdminCycle = {

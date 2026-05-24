@@ -1,0 +1,413 @@
+.hub-grass-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding-top: 0.5rem;
+    color: var(--color-brand);
+    opacity: 0.7;
+}
+
+.hub-grass-divider svg {
+    flex: 1;
+    height: 1.4rem;
+}
+
+.hub-grass-divider span {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+
+/* Sub-grid for "more features" coming-soon row (4 small cards) */
+
+/* "Me" page — Apple Settings style */
+
+.me-page {
+    gap: 0.65rem;
+}
+
+/* ── Hero identity header ── */
+
+.me-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: clamp(2rem, 5vw, 3rem) 1.5rem clamp(1.5rem, 4vw, 2.5rem);
+    gap: 0.45rem;
+}
+
+.me-hero-avatar {
+    width: 5.5rem;
+    height: 5.5rem;
+  border-radius: var(--radius-pill);
+background: linear-gradient(135deg, var(--color-coral) 0%, var(--color-accent) 100%);
+    color: var(--color-text-on-brand);
+  display: grid;
+  place-items: center;
+font-family: var(--font-display);
+  font-weight: 700;
+font-size: 2rem;
+  flex-shrink: 0;
+box-shadow: 0 8px 24px rgba(125, 46, 58, 0.22);
+    margin-bottom: 0.5rem;
+}
+
+.me-hero-name {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    font-weight: 700;
+    font-family: var(--font-display);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.me-hero-email {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    word-break: break-all;
+}
+
+/* ── Group section label ── */
+
+.me-group-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+  color: var(--color-text-muted);
+letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.2rem 0.4rem;
+}
+
+/* ── Group card (iOS-style rounded list) ── */
+
+.me-group {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 0.25rem;
+}
+
+/* ── My Card Preview ── */
+
+.me-card-preview {
+  display: flex;
+  flex-direction: column;
+padding: 1.5rem;
+}
+
+.me-card-preview-header {
+    margin-bottom: 1.5rem;
+}
+
+.me-card-preview-header h3 {
+    margin: 0 0 0.25rem 0;
+  font-family: var(--font-display);
+font-size: 1.2rem;
+  font-weight: 600;
+color: var(--color-text);
+}
+
+.me-card-preview-header p {
+  margin: 0;
+font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.me-card-preview-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    background: var(--color-canvas);
+    padding: 1.25rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border-strong);
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.me-card-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.me-card-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.me-card-value {
+    font-size: 1rem;
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.me-card-edit-button {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--color-brand-tint);
+  color: var(--color-brand-ink);
+border: none;
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.me-card-edit-button:hover {
+    background: color-mix(in srgb, var(--color-brand) 15%, var(--color-surface));
+}
+
+.me-shortcut-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.me-shortcut-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 1rem 1.05rem;
+    text-decoration: none;
+    color: inherit;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xs);
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.15s ease;
+}
+
+.me-shortcut-card:hover {
+    border-color: color-mix(in srgb, var(--color-brand) 22%, var(--color-border));
+    background: color-mix(in srgb, var(--color-brand) 4%, var(--color-surface));
+}
+
+.me-shortcut-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-md);
+}
+
+.me-shortcut-icon svg {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.me-shortcut-icon.is-referrals {
+    background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface-muted));
+    color: color-mix(in srgb, var(--color-accent) 78%, var(--color-text));
+}
+
+.me-shortcut-icon.is-coupons {
+    background: var(--color-brand-tint);
+    color: var(--color-brand);
+}
+
+.me-shortcut-copy {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+}
+
+.me-shortcut-title {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.me-shortcut-desc {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--color-text-secondary);
+}
+
+.me-shortcut-arrow {
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-text-muted);
+    opacity: 0.55;
+}
+
+.me-group-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.1rem;
+  text-decoration: none;
+color: inherit;
+    transition: background 0.12s;
+    border-top: 1px solid var(--color-border);
+}
+
+.me-group-row:first-child {
+    border-top: none;
+}
+
+.me-group-row:hover {
+    background: var(--color-brand-tint);
+}
+
+.me-group-row-title {
+    font-size: 0.98rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.me-group-row-arrow {
+  color: var(--color-text-muted);
+flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    opacity: 0.55;
+}
+
+.me-card-editor-form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.me-card-editor-form .referral-field-label input[type="text"],
+.me-card-editor-form .referral-field-label textarea {
+    width: 100%;
+    padding: 0.75rem 0.85rem;
+    font: inherit;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.me-card-editor-form .referral-field-label input[type="text"]:focus,
+.me-card-editor-form .referral-field-label textarea:focus {
+    outline: none;
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 4px rgba(47, 91, 67, 0.12);
+}
+
+.me-card-editor-form .referral-field-label textarea {
+    resize: vertical;
+    min-height: 4.5rem;
+}
+.me-card-editor-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.me-card-editor-subtitle {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.contact-methods-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.contact-method-card {
+  display: flex;
+  flex-direction: column;
+gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.contact-method-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+}
+
+.contact-method-card.is-active {
+    border-color: var(--color-brand);
+    background: var(--color-brand-tint);
+}
+
+.contact-method-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.contact-method-card.is-active .contact-method-name {
+    color: var(--color-brand-ink);
+}
+
+.contact-method-value {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+}
+
+.contact-method-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+border-radius: var(--radius-sm);
+  background: var(--color-surface);
+font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+.contact-method-input:focus {
+    outline: none;
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 2px var(--color-brand-tint);
+}
+
+.me-card-editor-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.me-card-editor-actions>* {
+    flex: 1;
+}
+/* Inherits default gap from .app-page-shell */
+
+.referral-field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.referral-field-name {
+    font-weight: 600;
+  font-size: 0.95rem;
+color: var(--color-text);
+}
+
+.referral-field-hint {
+    font-size: 0.82rem;
+    color: var(--color-text-muted);
+    line-height: 1.45;
+}
+
+.hub-grass-divider svg {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 1.4rem;
+}

@@ -72,7 +72,7 @@ export function CounterpartInfo({
       >
         {rows.map((row) => (
           <div key={row.label} style={{ display: "contents" }}>
-            <dt style={{ color: "var(--fg-secondary)" }}>{row.label}</dt>
+            <dt style={{ color: "var(--color-text-secondary)" }}>{row.label}</dt>
             <dd style={{ margin: 0, color: "#333", fontWeight: 500 }}>
               {row.value}
             </dd>

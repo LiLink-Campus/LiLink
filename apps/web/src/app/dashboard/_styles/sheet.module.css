@@ -1,0 +1,230 @@
+/* Intent bottom sheet */
+
+.intent-sheet-root {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: auto;
+}
+
+.intent-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: var(--color-overlay);
+    backdrop-filter: blur(6px);
+    border: none;
+    cursor: pointer;
+    animation: fade-in 0.18s ease-out both;
+    touch-action: none;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.intent-sheet {
+    position: relative;
+    width: min(100%, 30rem);
+    margin: 0 auto;
+    background: var(--color-surface);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    padding: 1rem 1.4rem calc(1.4rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+animation: sheet-slide-up 0.24s ease-out both;
+    max-height: 85vh;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+
+@keyframes sheet-slide-up {
+    from {
+        transform: translateY(100%);
+    }
+
+    to {
+        transform: translateY(0);
+    }
+}
+
+.intent-sheet-handle {
+    width: 2.6rem;
+    height: 0.32rem;
+    border-radius: 999px;
+    background: var(--color-surface-muted);
+    align-self: center;
+    margin-bottom: 0.3rem;
+}
+
+.intent-sheet h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    }
+
+    .intent-sheet :global(.eyebrow) {
+        margin: 0;
+    }
+
+    .intent-sheet-options {
+        list-style: none;
+        margin: 0.3rem 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+    }
+
+    .intent-sheet-option {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 0.95rem 1rem;
+        background: var(--color-surface-tinted);
+        border: 1.5px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font: inherit;
+        text-align: left;
+        color: inherit;
+        cursor: pointer;
+        transition:
+            border-color 0.18s,
+            background 0.18s,
+            transform 0.12s;
+    }
+
+    .intent-sheet-option:hover:not(:disabled) {
+        border-color: var(--intent-color, var(--color-brand));
+        background: var(--color-surface);
+    }
+
+    .intent-sheet-option.is-active {
+        border-color: var(--intent-color, var(--color-brand));
+        background: var(--color-surface);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--intent-color, var(--color-brand)) 18%, transparent);
+    }
+
+    .intent-sheet-option:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .intent-sheet-option-glyph {
+        width: 2.4rem;
+        height: 2.4rem;
+        flex-shrink: 0;
+        border-radius: var(--radius-pill);
+        display: grid;
+        place-items: center;
+        background: var(--intent-color, var(--color-brand));
+        color: white;
+  font-family: var(--font-display);
+font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.intent-sheet-option-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+}
+
+.intent-sheet-option-primary {
+    font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.intent-sheet-option-subtitle {
+    font-size: 0.74rem;
+    color: var(--color-text-muted);
+    letter-spacing: 0.04em;
+}
+
+.intent-sheet-option-description {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    margin-top: 0.2rem;
+    line-height: 1.5;
+}
+
+.intent-sheet-option-check {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--intent-color, var(--color-brand));
+    color: white;
+  display: grid;
+place-items: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.intent-sheet-cancel {
+    margin-top: 0.4rem;
+    width: 100%;
+}
+/* Footer grass divider */
+
+.referrals-share-sheet .intent-sheet-option-glyph svg {
+    width: 1.1rem;
+    height: 1.1rem;
+}
+
+.referrals-share-sheet-action {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+}
+
+.referrals-share-sheet-action svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.intent-sheet-option.is-active .referrals-share-sheet-action {
+    color: var(--color-brand);
+}
+
+.referrals-share-qr-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.85rem 0.35rem 0.15rem;
+}
+
+.referrals-share-qr-guide {
+    margin: 0;
+    font-size: 0.84rem;
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+
+.referrals-qr-frame {
+    padding: 0.55rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.referrals-qr-frame img {
+    display: block;
+    border-radius: calc(var(--radius-md) - 2px);
+}

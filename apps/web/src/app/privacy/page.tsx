@@ -1,7 +1,10 @@
+import { Card } from "@/components/ui";
+import layoutStyles from "../public-layout.module.css";
+
 export default function PrivacyPage() {
   return (
-    <main className="page-shell prose-shell">
-      <section className="content-panel">
+    <main className={`${layoutStyles.pageShell} ${layoutStyles.proseShell}`}>
+      <Card className={layoutStyles.prosePanel} layout="plain">
         <p className="eyebrow">Privacy</p>
         <h1>隐私原则</h1>
         <p>
@@ -13,7 +16,7 @@ export default function PrivacyPage() {
           <li>举报和封禁记录只用于安全处理。</li>
           <li>不出售数据，不做广告画像。</li>
         </ul>
-      </section>
+      </Card>
     </main>
   );
 }

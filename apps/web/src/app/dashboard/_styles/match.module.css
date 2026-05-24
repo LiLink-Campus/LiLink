@@ -1,0 +1,291 @@
+/* ── Match details ───────────────────────────────────────── */
+
+.app-match-score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  background: var(--color-brand-tint);
+  border-radius: var(--radius-pill);
+  color: var(--color-brand-ink);
+  font-size: 0.9rem;
+  align-self: flex-start;
+}
+
+.app-match-score strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--color-brand);
+}
+
+.app-match-email {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92rem;
+  word-break: break-all;
+  margin: 0;
+}
+
+.app-match-intro {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ── History list ────────────────────────────────────────── */
+
+.app-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.app-history-card {
+padding: 1.25rem 1.4rem;
+  background: var(--color-surface-tinted);
+border: none;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+gap: 0.75rem;
+    box-shadow: var(--shadow-xs);
+}
+
+.app-history-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.app-history-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.app-history-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.app-history-match-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--color-border-strong);
+}
+
+.app-history-link-row {
+    text-align: right;
+}
+
+.app-history-link {
+    font-size: 0.88rem;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.app-history-link:hover {
+    color: var(--color-brand);
+    border-bottom-color: var(--color-brand);
+}
+
+
+/* Match detail helpers still used by dashboard/match/match-client.tsx. */
+
+.v2-match-hero-body {
+        margin: 0;
+        color: var(--color-text-secondary);
+    font-size: 0.94rem;
+        line-height: 1.65;
+    }
+
+    .v2-match-secondary-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.v2-match-secondary-actions :global(.ui-button--ghost) {
+  color: var(--color-text-secondary);
+font-size: 0.9rem;
+}
+
+/* ── V2 Meetup status ribbon (Match 页面下方的 meetup 缩略) ── */
+
+.v2-meetup-ribbon {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1.05rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-xs);
+    text-decoration: none;
+    color: inherit;
+    transition:
+        border-color 0.16s,
+        box-shadow 0.16s,
+        transform 0.16s;
+}
+
+.v2-meetup-ribbon:hover {
+    border-color: var(--color-brand-soft);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+}
+
+.v2-meetup-ribbon-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.v2-meetup-ribbon-title {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.v2-meetup-ribbon-title strong {
+    font-family: var(--font-display);
+  font-weight: 600;
+font-size: 1rem;
+    color: var(--color-text);
+}
+
+.v2-meetup-ribbon-title small {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 0.72rem;
+    color: var(--color-accent);
+    letter-spacing: 0.04em;
+}
+
+.v2-meetup-ribbon-pill {
+  display: inline-flex;
+  align-items: center;
+gap: 0.35rem;
+    padding: 0.28rem 0.65rem;
+  border-radius: var(--radius-pill);
+background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+font-size: 0.76rem;
+    font-weight: 600;
+}
+
+.v2-meetup-ribbon-pill.tone-attention {
+  background: var(--color-brand-tint);
+  color: var(--color-brand-ink);
+}
+
+.v2-meetup-ribbon-pill.tone-waiting {
+    background: var(--color-gold-soft);
+    color: #6f5114;
+}
+
+.v2-meetup-ribbon-pill.tone-on {
+    background: var(--color-success-soft);
+    color: var(--color-success);
+}
+
+.v2-meetup-ribbon-pill::before {
+    content: "";
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: var(--radius-pill);
+    background: currentColor;
+}
+
+.v2-meetup-ribbon-body {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+.v2-meetup-ribbon-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.3rem;
+    }
+
+    .v2-meetup-ribbon-step {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+        min-width: 0;
+    }
+
+    .v2-meetup-ribbon-step-bar {
+        height: 0.35rem;
+        border-radius: var(--radius-pill);
+        background: var(--color-surface-muted);
+    }
+
+    .v2-meetup-ribbon-step.is-complete .v2-meetup-ribbon-step-bar {
+        background: var(--color-success);
+    }
+
+    .v2-meetup-ribbon-step.is-active .v2-meetup-ribbon-step-bar {
+        background: var(--color-accent);
+}
+
+.v2-meetup-ribbon-step.is-pending .v2-meetup-ribbon-step-bar {
+    background: var(--color-surface-muted);
+}
+
+.v2-meetup-ribbon-step-label {
+    font-size: 0.74rem;
+  color: var(--color-text-muted);
+letter-spacing: 0.02em;
+    text-align: left;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.v2-meetup-ribbon-step.is-active .v2-meetup-ribbon-step-label {
+    color: var(--color-brand-ink);
+    font-weight: 600;
+}
+
+.v2-meetup-ribbon-step.is-complete .v2-meetup-ribbon-step-label {
+  color: var(--color-success);
+}
+
+.v2-meetup-ribbon-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-size: 0.86rem;
+    color: var(--color-brand-ink);
+    font-weight: 600;
+}
+
+.v2-meetup-ribbon-foot svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
