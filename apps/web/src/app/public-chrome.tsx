@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { BrandMark } from "./brand-mark";
 import { SiteNav } from "./site-nav";
+import styles from "./public-chrome.module.css";
 
 /**
  * Renders the public marketing chrome (site-header + footer) only on
@@ -21,13 +22,13 @@ export function PublicChrome({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="site-frame">
-      <header className="site-header">
+    <div className={styles.siteFrame}>
+      <header className={styles.siteHeader}>
         <BrandMark href="/" />
         <SiteNav />
       </header>
       {children}
-      <footer className="site-footer">
+      <footer className={styles.siteFooter}>
         <p>
           LiLink
           <small>校园里的，认真相遇</small>

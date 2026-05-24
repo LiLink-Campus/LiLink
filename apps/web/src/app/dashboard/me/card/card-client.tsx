@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../../_lib/dashboard-class-names";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { fetchApi } from "../../../../lib/api";
@@ -118,12 +119,12 @@ export function MyCardEditorClient({
   }
 
   return (
-    <div className="app-page-shell app-page-shell-narrow v2-page-shell" style={{ paddingBottom: "2rem" }}>
-      <section className="app-card" style={{ marginTop: "1rem" }}>
-        <form onSubmit={handleSubmit} className="me-card-editor-form" style={{ padding: "1.5rem" }}>
-          <div className="me-card-editor-section">
-            <label className="referral-field-label">
-              <span className="referral-field-name">昵称</span>
+    <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")} style={{ paddingBottom: "2rem" }}>
+      <section className={dcx("ui-card ui-card--padded")} style={{ marginTop: "1rem" }}>
+        <form onSubmit={handleSubmit} className={dcx("me-card-editor-form")} style={{ padding: "1.5rem" }}>
+          <div className={dcx("me-card-editor-section")}>
+            <label className={dcx("referral-field-label")}>
+              <span className={dcx("referral-field-name")}>昵称</span>
               <input
                 type="text"
                 maxLength={30}
@@ -134,9 +135,9 @@ export function MyCardEditorClient({
               />
             </label>
 
-            <label className="referral-field-label">
-              <span className="referral-field-name">一句话介绍</span>
-              <span className="referral-field-hint">
+            <label className={dcx("referral-field-label")}>
+              <span className={dcx("referral-field-name")}>一句话介绍</span>
+              <span className={dcx("referral-field-hint")}>
                 兴趣或期待，请勿填写隐私敏感信息。
               </span>
               <textarea
@@ -149,14 +150,14 @@ export function MyCardEditorClient({
             </label>
           </div>
 
-          <div className="me-card-editor-section">
-            <h3 className="me-card-editor-subtitle">联系方式</h3>
-            <p className="referral-field-hint" style={{ marginBottom: "1rem" }}>
+          <div className={dcx("me-card-editor-section")}>
+            <h3 className={dcx("me-card-editor-subtitle")}>联系方式</h3>
+            <p className={dcx("referral-field-hint")} style={{ marginBottom: "1rem" }}>
               选择一个首选联系方式，匹配成功后将展示给对方。
             </p>
 
-            <div className="contact-methods-grid">
-              <label className={`contact-method-card ${preferredChannel === "EMAIL" ? "is-active" : ""}`}>
+            <div className={dcx("contact-methods-grid")}>
+              <label className={dcx(`contact-method-card ${preferredChannel === "EMAIL" ? "is-active" : ""}`)}>
                 <input
                   type="radio"
                   name="preferredChannel"
@@ -164,11 +165,11 @@ export function MyCardEditorClient({
                   checked={preferredChannel === "EMAIL"}
                   onChange={() => setPreferredChannel("EMAIL")}
                 />
-                <span className="contact-method-name">邮箱 (默认)</span>
-                <span className="contact-method-value">{userEmail}</span>
+                <span className={dcx("contact-method-name")}>邮箱 (默认)</span>
+                <span className={dcx("contact-method-value")}>{userEmail}</span>
               </label>
 
-              <label className={`contact-method-card ${preferredChannel === "WECHAT" ? "is-active" : ""}`}>
+              <label className={dcx(`contact-method-card ${preferredChannel === "WECHAT" ? "is-active" : ""}`)}>
                 <input
                   type="radio"
                   name="preferredChannel"
@@ -176,7 +177,7 @@ export function MyCardEditorClient({
                   checked={preferredChannel === "WECHAT"}
                   onChange={() => setPreferredChannel("WECHAT")}
                 />
-                <span className="contact-method-name">微信</span>
+                <span className={dcx("contact-method-name")}>微信</span>
                 <input
                   type="text"
                   placeholder="微信号"
@@ -186,11 +187,11 @@ export function MyCardEditorClient({
                     if (e.target.value) setPreferredChannel("WECHAT");
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  className="contact-method-input"
+                  className={dcx("contact-method-input")}
                 />
               </label>
 
-              <label className={`contact-method-card ${preferredChannel === "QQ" ? "is-active" : ""}`}>
+              <label className={dcx(`contact-method-card ${preferredChannel === "QQ" ? "is-active" : ""}`)}>
                 <input
                   type="radio"
                   name="preferredChannel"
@@ -198,7 +199,7 @@ export function MyCardEditorClient({
                   checked={preferredChannel === "QQ"}
                   onChange={() => setPreferredChannel("QQ")}
                 />
-                <span className="contact-method-name">QQ</span>
+                <span className={dcx("contact-method-name")}>QQ</span>
                 <input
                   type="text"
                   placeholder="QQ 号"
@@ -208,11 +209,11 @@ export function MyCardEditorClient({
                     if (e.target.value) setPreferredChannel("QQ");
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  className="contact-method-input"
+                  className={dcx("contact-method-input")}
                 />
               </label>
 
-              <label className={`contact-method-card ${preferredChannel === "PHONE" ? "is-active" : ""}`}>
+              <label className={dcx(`contact-method-card ${preferredChannel === "PHONE" ? "is-active" : ""}`)}>
                 <input
                   type="radio"
                   name="preferredChannel"
@@ -220,7 +221,7 @@ export function MyCardEditorClient({
                   checked={preferredChannel === "PHONE"}
                   onChange={() => setPreferredChannel("PHONE")}
                 />
-                <span className="contact-method-name">手机号</span>
+                <span className={dcx("contact-method-name")}>手机号</span>
                 <input
                   type="tel"
                   placeholder="手机号"
@@ -230,18 +231,18 @@ export function MyCardEditorClient({
                     if (e.target.value) setPreferredChannel("PHONE");
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  className="contact-method-input"
+                  className={dcx("contact-method-input")}
                 />
               </label>
             </div>
           </div>
 
-          {error ? <p className="form-error">{error}</p> : null}
+          {error ? <p className={dcx("ui-form-message ui-form-message--error")}>{error}</p> : null}
 
-          <div className="me-card-editor-actions" style={{ marginTop: "2rem" }}>
+          <div className={dcx("me-card-editor-actions")} style={{ marginTop: "2rem" }}>
             <button
               type="submit"
-              className="button-primary"
+              className={dcx("ui-button ui-button--primary")}
               disabled={saving || displayName.trim().length < 2}
               style={{ width: "100%" }}
             >

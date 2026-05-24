@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
+import { ActionGroup } from "@/components/semantic";
 import { fetchApi } from "../../lib/api";
 import {
   GrassRowIllustration,
   OliveSprigIllustration,
 } from "../dashboard/_components/illustrations";
+import authStyles from "../auth.module.css";
+import layoutStyles from "../public-layout.module.css";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -91,9 +95,11 @@ export default function ForgotPasswordPageClient() {
   }
 
   return (
-    <main className="page-shell prose-shell auth-shell">
-      <section className="content-panel auth-panel animate-in">
-        <div className="auth-panel-mark" aria-hidden="true">
+    <main
+      className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell}`}
+    >
+      <Card className={`${authStyles.panel} animate-in`} layout="plain">
+        <div className={authStyles.panelMark} aria-hidden="true">
           <OliveSprigIllustration />
         </div>
         <p className="eyebrow">Reset password · Step {step} / 2</p>
@@ -105,10 +111,9 @@ export default function ForgotPasswordPageClient() {
         )}
 
         {step === 1 ? (
-          <form className="auth-form" onSubmit={requestCode}>
-            <label>
-              <span>学校邮箱</span>
-              <input
+          <form className={authStyles.stack} onSubmit={requestCode}>
+            <Field label="学校邮箱">
+              <Input
                 required
                 type="email"
                 autoComplete="email"
@@ -116,31 +121,30 @@ export default function ForgotPasswordPageClient() {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="your.name@school.edu"
               />
-            </label>
-            {error ? <p className="form-error">{error}</p> : null}
-            <button
-              className="button-primary button-block"
+            </Field>
+            {error ? <FormMessage>{error}</FormMessage> : null}
+            <Button
+              block
               disabled={pending}
               type="submit"
             >
               {pending ? "发送中…" : "发送验证码"}
-            </button>
+            </Button>
           </form>
         ) : (
-          <form className="auth-form" onSubmit={resetPassword}>
-            <div className="dev-inline">
+          <form className={authStyles.stack} onSubmit={resetPassword}>
+            <div className={authStyles.devInline}>
               <span>已发送到</span>
               <strong>{email}</strong>
             </div>
-            <p className="auth-hint">
+            <p className={authStyles.hint}>
               几分钟内仍未收到？请检查邮箱的「垃圾邮件」或「拦截邮件」文件夹，部分学校邮箱会自动拦截首次发件人。
             </p>
             {canRevealDevCode && devCode ? (
-              <p className="dev-note">开发环境验证码：{devCode}</p>
+              <p className={authStyles.devNote}>开发环境验证码：{devCode}</p>
             ) : null}
-            <label>
-              <span>验证码</span>
-              <input
+            <Field label="验证码">
+              <Input
                 required
                 value={code}
                 maxLength={VERIFICATION_CODE_LENGTH}
@@ -149,10 +153,9 @@ export default function ForgotPasswordPageClient() {
                 onChange={(event) => setCode(event.target.value)}
                 placeholder="6 位验证码"
               />
-            </label>
-            <label>
-              <span>新密码</span>
-              <input
+            </Field>
+            <Field label="新密码">
+              <Input
                 required
                 type="password"
                 value={newPassword}
@@ -162,10 +165,9 @@ export default function ForgotPasswordPageClient() {
                 onChange={(event) => setNewPassword(event.target.value)}
                 placeholder={`至少 ${PASSWORD_MIN_LENGTH} 位，含字母和数字`}
               />
-            </label>
-            <label>
-              <span>确认新密码</span>
-              <input
+            </Field>
+            <Field label="确认新密码">
+              <Input
                 required
                 type="password"
                 value={passwordConfirm}
@@ -175,19 +177,18 @@ export default function ForgotPasswordPageClient() {
                 onChange={(event) => setPasswordConfirm(event.target.value)}
                 placeholder="再次输入新密码"
               />
-            </label>
-            {error ? <p className="form-error">{error}</p> : null}
-            <div className="auth-actions">
-              <button
-                className="button-secondary"
+            </Field>
+            {error ? <FormMessage>{error}</FormMessage> : null}
+            <ActionGroup className={authStyles.actions}>
+              <Button
+                variant="secondary"
                 disabled={pending}
                 type="button"
                 onClick={() => setStep(1)}
               >
                 重新输入邮箱
-              </button>
-              <button
-                className="button-primary"
+              </Button>
+              <Button
                 disabled={
                   pending ||
                   newPassword !== passwordConfirm ||
@@ -196,16 +197,16 @@ export default function ForgotPasswordPageClient() {
                 type="submit"
               >
                 {pending ? "重置中…" : "重置密码"}
-              </button>
-            </div>
+              </Button>
+            </ActionGroup>
           </form>
         )}
 
-        <p className="auth-hint">
+        <p className={authStyles.hint}>
           想起密码了？<Link href="/login">返回登录</Link>
         </p>
-      </section>
-      <div className="auth-grass-line" aria-hidden="true">
+      </Card>
+      <div className={authStyles.grassLine} aria-hidden="true">
         <GrassRowIllustration />
       </div>
     </main>

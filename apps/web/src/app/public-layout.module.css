@@ -1,0 +1,149 @@
+.pageShell {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 2.5rem) clamp(1rem, 4vw, 2rem)
+    clamp(2rem, 6vw, 4rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 3vw, 1.75rem);
+}
+
+.proseShell {
+  max-width: var(--container-narrow);
+}
+
+.prosePanel h1 {
+  margin-bottom: 0.75rem;
+}
+
+.prosePanel > p {
+  color: var(--color-text-secondary);
+}
+
+.sectionHeading {
+  margin-bottom: 1.75rem;
+}
+
+.sectionHeading h2 {
+  margin-top: 0.4rem;
+}
+
+.pageHero {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 3.25rem) clamp(1.25rem, 4vw, 2.5rem)
+    clamp(1rem, 3vw, 2rem);
+}
+
+.pageHeroCompact {
+  padding-bottom: clamp(0.5rem, 2vw, 1rem);
+}
+
+.pageHero.withIllustration {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(1rem, 2vw, 1.5rem);
+  align-items: center;
+}
+
+@media (min-width: 880px) {
+  .pageHero.withIllustration {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+}
+
+.pageHero.narrow {
+  max-width: var(--container-narrow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  padding-bottom: clamp(0.75rem, 2vw, 1.25rem);
+}
+
+.pageHero.narrow .pageHeroContent {
+  align-items: center;
+  max-width: 32rem;
+}
+
+.pageHero.narrow .pageHeroIllustration {
+  width: 4.5rem;
+}
+
+.pageHero.narrow .pageHeroIllustration svg {
+  max-width: 4.5rem;
+}
+
+.pageHero.narrow .pageHeroIllustration.wide {
+  width: 100%;
+  max-width: 22rem;
+}
+
+.pageHero.narrow .pageHeroIllustration.wide svg {
+  max-width: 22rem;
+}
+
+.pageHeroContent {
+  max-width: 36rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.pageHeroContent h1 {
+  font-size: clamp(2rem, 5vw, 2.8rem);
+}
+
+.pageHeroContent p {
+  color: var(--color-text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.pageHeroIllustration {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--color-brand);
+  opacity: 0.85;
+}
+
+.pageHeroIllustration svg {
+  width: 100%;
+  max-width: 26rem;
+  height: auto;
+}
+
+.small svg {
+  max-width: 12rem;
+}
+
+.grassLine {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto clamp(1.5rem, 4vw, 2.5rem);
+  padding: 0 clamp(1.25rem, 4vw, 2.5rem);
+  color: var(--color-brand);
+  opacity: 0.7;
+}
+
+.grassLine svg {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 1.4rem;
+}
+
+.grassLine span {
+  white-space: nowrap;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  font-family: var(--font-display);
+  font-style: italic;
+}

@@ -1315,6 +1315,18 @@ describe('AdminService', () => {
       auditLog: {
         deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
+      redemption: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      coupon: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      campaignActivation: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      referralEvent: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: jest.fn().mockResolvedValue(undefined),
     };
     const adminAuditService = {

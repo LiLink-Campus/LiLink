@@ -37,6 +37,7 @@ import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snaps
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
+import { ActivationService } from '../activation/activation.service';
 import {
   HARD_MATCH_KEYS,
   buildHardMatchAnswerRecordFromFormInput,
@@ -364,6 +365,8 @@ export class AccountService {
     private readonly dashboardSnapshotService: DashboardSnapshotService,
     @Optional()
     private readonly matchEstimateService?: MatchEstimateService,
+    @Optional()
+    private readonly activationService?: ActivationService,
   ) {}
 
   async getUserSummary(userId: string) {
@@ -1676,6 +1679,11 @@ export class AccountService {
       this.matchEstimateService?.invalidatePrecomputedCycle();
       await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
 
+      // Submitting the questionnaire is one of the two activation signals; try
+      // to grant activation-reward coupons (a no-op until the user has also
+      // opted in, and self-contained — it never throws into this flow).
+      await this.activationService?.tryGrantCoupons(userId);
+
       return {
         saveState: 'SUBMITTED' as const,
         questionnaireSubmittedAt: submittedAt.toISOString(),
@@ -1998,6 +2006,20 @@ export class AccountService {
         optedInAt: input.optIn ? new Date() : null,
       },
     });
+
+    if (input.optIn) {
+      // Stable "ever opted in" signal used for merchant-promotion activation
+      // gating: written once on the first opt-in and never cleared on opt-out
+      // (unlike CycleParticipation.optedInAt). The null guard in updateMany
+      // keeps it idempotent across repeated opt-ins.
+      await this.prisma.user.updateMany({
+        where: { id: userId, firstOptedInAt: null },
+        data: { firstOptedInAt: new Date() },
+      });
+      // Opting in is the second activation signal; try to grant coupons (a
+      // no-op until the questionnaire is also submitted; never throws here).
+      await this.activationService?.tryGrantCoupons(userId);
+    }
 
     await this.createAuditLog(userId, 'participation.updated', {
       cycleId: cycle.id,
@@ -2583,6 +2605,21 @@ export class AccountService {
     });
 
     if (!hardMatchAnswers) {
+      // `tryReadHardMatchAnswers` returns null whenever any required hard-match
+      // field is missing. The shared `parseHardMatchAnswers` still treats a
+      // blank one-liner intro as incomplete, so a profile that is otherwise
+      // complete but missing only the intro lands here — surface the intro
+      // prompt first. This gate's intro enforcement therefore depends on that
+      // shared contract; if `parseHardMatchAnswers` is ever relaxed to accept a
+      // blank intro, add an explicit intro check here so opt-in cannot silently
+      // proceed without one.
+      const intro = readQuestionnaireOneLiner(response.answers);
+      if (!intro) {
+        throw new BadRequestException(
+          'Add a one-line intro on your referral card before opting into matching.',
+        );
+      }
+
       throw new BadRequestException(
         'Your questionnaire is missing required fields. Please update your profile before opting into matching.',
       );

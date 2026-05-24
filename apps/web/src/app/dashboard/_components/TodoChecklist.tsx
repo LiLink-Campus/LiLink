@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AgendaTodo, AgendaTodoAction } from "../_lib/agenda";
 import { AGENDA_ICONS } from "./agenda-icons";
+import styles from "./TodoChecklist.module.css";
 
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, value));
@@ -19,9 +20,15 @@ function statusLabel(status: AgendaTodo["status"]) {
 }
 
 function actionClassName(variant: AgendaTodoAction["variant"]) {
-  if (variant === "primary") return "button-primary";
-  if (variant === "secondary") return "button-secondary";
-  return "button-ghost";
+  if (variant === "primary") return "ui-button ui-button--primary";
+  if (variant === "secondary") return "ui-button ui-button--secondary";
+  return "ui-button ui-button--ghost";
+}
+
+function statusClassName(status: AgendaTodo["status"]) {
+  if (status === "done") return styles.done;
+  if (status === "attention") return styles.attention;
+  return styles.todoStatus;
 }
 
 /**
@@ -44,55 +51,55 @@ export function TodoChecklist({
   savingAction: boolean;
 }) {
   return (
-    <section className="v2-todo" aria-label="本周待办">
-      <header className="v2-todo-head">
-        <span className="v2-todo-eyebrow">本周待办 · TO-DO</span>
-        <span className="v2-todo-count">
+    <section className={styles.todo} aria-label="本周待办">
+      <header className={styles.head}>
+        <span className={styles.eyebrow}>本周待办 · TO-DO</span>
+        <span className={styles.count}>
           {doneCount} / {totalCount} 已完成
         </span>
       </header>
-      <ul className="v2-todo-list">
+      <ul className={styles.list}>
         {todos.map((todo) => {
           const Icon = AGENDA_ICONS[todo.icon];
           return (
-            <li key={todo.id} className={`v2-todo-row status-${todo.status}`}>
+            <li key={todo.id} className={`${styles.row} ${statusClassName(todo.status)}`}>
               <span
-                className="v2-todo-check"
+                className={styles.check}
                 role="img"
                 aria-label={statusLabel(todo.status)}
               >
                 {statusGlyph(todo.status)}
               </span>
-              <span className="v2-todo-icon" aria-hidden="true">
+              <span className={styles.icon} aria-hidden="true">
                 <Icon />
               </span>
-              <div className="v2-todo-main">
-                <p className="v2-todo-title">{todo.title}</p>
-                <p className="v2-todo-sub">{todo.subtitle}</p>
+              <div className={styles.main}>
+                <p className={styles.title}>{todo.title}</p>
+                <p className={styles.sub}>{todo.subtitle}</p>
                 {todo.progress ? (
-                  <div className="v2-todo-progress">
-                    <div className="v2-todo-progress-bar">
+                  <div className={styles.progress}>
+                    <div className={styles.progressBar}>
                       <div
-                        className="seg-confirmed"
+                        className={styles.confirmed}
                         style={{
                           width: `${clampPercent(todo.progress.confirmedPercent)}%`,
                         }}
                       />
                       <div
-                        className="seg-unconfirmed"
+                        className={styles.unconfirmed}
                         style={{
                           width: `${clampPercent(todo.progress.unconfirmedPercent)}%`,
                         }}
                       />
                     </div>
-                    <span className="v2-todo-progress-val">
+                    <span className={styles.progressVal}>
                       {todo.progress.confirmedPercent}%
                     </span>
                   </div>
                 ) : null}
               </div>
               {todo.actions.length > 0 ? (
-                <div className="v2-todo-actions">
+                <div className={styles.actions}>
                   {todo.actions.map((action, index) =>
                     action.kind === "link" && action.href ? (
                       <Link

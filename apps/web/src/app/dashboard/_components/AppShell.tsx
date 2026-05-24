@@ -19,6 +19,7 @@ import {
   ProfileIcon,
   UserCircleIcon,
 } from "./icons";
+import styles from "./AppShell.module.css";
 
 type NavItem = {
   href: string;
@@ -54,7 +55,12 @@ function isActiveTab(currentPath: string, href: string) {
  * bottom action bar to drive primary actions.
  */
 function isFocusedPath(currentPath: string): boolean {
-  return currentPath.startsWith("/dashboard/meetup") || currentPath.startsWith("/dashboard/me/card");
+  return (
+    currentPath.startsWith("/dashboard/meetup") ||
+    currentPath.startsWith("/dashboard/me/card") ||
+    currentPath === "/dashboard/referrals" ||
+    currentPath === "/dashboard/coupons"
+  );
 }
 
 function focusedTitleFor(currentPath: string): string {
@@ -66,6 +72,12 @@ function focusedTitleFor(currentPath: string): string {
   }
   if (currentPath.startsWith("/dashboard/me/card")) {
     return "编辑引荐名片";
+  }
+  if (currentPath === "/dashboard/referrals") {
+    return "我的邀请";
+  }
+  if (currentPath === "/dashboard/coupons") {
+    return "我的优惠券";
   }
   return "见面安排";
 }
@@ -122,7 +134,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       router.back();
       return;
     }
-    if (pathname.startsWith("/dashboard/me/card")) {
+    if (
+      pathname.startsWith("/dashboard/me/card") ||
+      pathname === "/dashboard/referrals" ||
+      pathname === "/dashboard/coupons"
+    ) {
       router.push("/dashboard/me");
       return;
     }
@@ -130,20 +146,20 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className={`app-shell${focused ? " is-focused" : ""}`}>
-      <aside className="app-sidebar" aria-label="侧边导航">
-        <div className="app-sidebar-brand">
+    <div className={focused ? `${styles.shell} ${styles.focused}` : styles.shell}>
+      <aside className={styles.sidebar} aria-label="侧边导航">
+        <div className={styles.sidebarBrand}>
           <BrandMark href="/dashboard" />
         </div>
         <nav>
-          <ul className="app-sidebar-nav">
+          <ul className={styles.sidebarNav}>
             {NAV_ITEMS.map(({ href, label, Icon }) => {
               const active = isActiveTab(pathname, href);
               return (
                 <li key={href}>
                   <Link
                     href={href}
-                    className={active ? "is-active" : undefined}
+                    className={active ? styles.active : undefined}
                     aria-current={active ? "page" : undefined}
                   >
                     <Icon />
@@ -154,35 +170,35 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </ul>
         </nav>
-        <div className="app-sidebar-foot">
+        <div className={styles.sidebarFoot}>
           LiLink · Weekly Reveal
           <br />
           校园里的，认真相遇
         </div>
       </aside>
 
-      <div className="app-content">
+      <div className={styles.content}>
         {focused ? (
-          <header className="v2-focused-header">
+          <header className={styles.focusedHeader}>
             <button
               type="button"
-              className="v2-focused-back"
+              className={styles.focusedBack}
               aria-label="返回"
               onClick={handleFocusedBack}
             >
               <ArrowLeftIcon />
             </button>
-            <h1 className="v2-focused-title">{focusedTitleFor(pathname)}</h1>
-            <span className="v2-focused-header-spacer" aria-hidden="true" />
+            <h1 className={styles.focusedTitle}>{focusedTitleFor(pathname)}</h1>
+            <span className={styles.focusedHeaderSpacer} aria-hidden="true" />
           </header>
         ) : (
-          <header className="app-header">
+          <header className={styles.header}>
             <BrandMark href="/dashboard" variant="compact" showTagline={false} />
-            <div className="app-header-actions">
+            <div className={styles.headerActions}>
               <button
                 ref={triggerRef}
                 type="button"
-                className="app-header-avatar"
+                className={styles.avatar}
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
                 aria-label={`账号菜单：${user?.displayName ?? user?.email ?? ""}`}
@@ -193,10 +209,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               {menuOpen ? (
                 <div
                   ref={menuRef}
-                  className="app-header-avatar-menu"
+                  className={styles.avatarMenu}
                   role="menu"
                 >
-                  <div className="app-header-avatar-menu-info">
+                  <div className={styles.avatarMenuInfo}>
                     <strong>{user?.displayName ?? "未命名同学"}</strong>
                     <span>{user?.email ?? "未登录"}</span>
                   </div>
@@ -211,7 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                   <button
                     type="button"
-                    className="danger"
+                    className={styles.danger}
                     role="menuitem"
                     onClick={() => void handleLogout()}
                   >
@@ -224,17 +240,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
         )}
 
-        <main className="app-main">{children}</main>
+        <main className={styles.main}>{children}</main>
 
         {focused ? null : (
-          <nav className="app-tabbar" aria-label="底部导航">
+          <nav className={styles.tabbar} aria-label="底部导航">
             {NAV_ITEMS.map(({ href, label, Icon }) => {
               const active = isActiveTab(pathname, href);
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={active ? "app-tab is-active" : "app-tab"}
+                  className={active ? `${styles.tab} ${styles.active}` : styles.tab}
                   aria-current={active ? "page" : undefined}
                 >
                   <Icon />

@@ -205,12 +205,6 @@ const HARD_MATCH_ATTENTION_FIELDS = [
     required: false,
   },
   {
-    key: HARD_MATCH_KEYS.oneLinerIntro,
-    label: "一句话介绍",
-    tab: "self",
-    required: true,
-  },
-  {
     key: HARD_MATCH_KEYS.partnerAgeMin,
     label: "对方年龄下限",
     tab: "partner",

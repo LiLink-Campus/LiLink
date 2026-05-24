@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 import type { Metadata } from "next";
 import { getEligibleSchools } from "../../lib/public-server-api";
 import {
@@ -6,6 +6,8 @@ import {
   GrassRowIllustration,
 } from "../dashboard/_components/illustrations";
 import { EligibleSchoolsPanel } from "../eligible-schools-panel";
+import layoutStyles from "../public-layout.module.css";
+import styles from "./schools.module.css";
 
 export const metadata: Metadata = {
   title: "支持的学校 | LiLink",
@@ -20,11 +22,16 @@ export default async function SchoolsPage() {
 
   return (
     <main>
-      <section className="page-hero page-hero-compact is-narrow">
-        <div className="page-hero-illustration is-wide" aria-hidden="true">
+      <section
+        className={`${layoutStyles.pageHero} ${layoutStyles.pageHeroCompact} ${layoutStyles.narrow}`}
+      >
+        <div
+          className={`${layoutStyles.pageHeroIllustration} ${layoutStyles.wide}`}
+          aria-hidden="true"
+        >
           <CampusLineart />
         </div>
-        <div className="page-hero-content animate-in">
+        <div className={`${layoutStyles.pageHeroContent} animate-in`}>
           <p className="eyebrow">Eligible schools</p>
           <h1>当前支持的学校</h1>
           <p>
@@ -33,7 +40,7 @@ export default async function SchoolsPage() {
         </div>
       </section>
 
-      <section className="page-shell prose-shell">
+      <section className={`${layoutStyles.pageShell} ${layoutStyles.proseShell}`}>
         <EligibleSchoolsPanel
           variant="full"
           collapsible={false}
@@ -42,7 +49,7 @@ export default async function SchoolsPage() {
           hasInitialError={initialPayload == null}
         />
 
-        <div className="schools-cta">
+        <div className={styles.cta}>
           <div>
             <p className="eyebrow">Ready?</p>
             <h2>用学校邮箱开始你的第一次匹配</h2>
@@ -50,18 +57,18 @@ export default async function SchoolsPage() {
               输入你的学校邮箱，我们会在后台帮你识别学校；通过验证码后即可加入下一个轮次。
             </p>
           </div>
-          <div className="schools-cta-actions">
-            <Link className="button-primary" href="/register">
+          <div className={styles.ctaActions}>
+            <ButtonLink href="/register">
               立即注册
-            </Link>
-            <Link className="button-secondary" href="/faq">
+            </ButtonLink>
+            <ButtonLink variant="secondary" href="/faq">
               查看常见问题
-            </Link>
+            </ButtonLink>
           </div>
         </div>
       </section>
 
-      <section className="home-grass-line" aria-hidden="true">
+      <section className={layoutStyles.grassLine} aria-hidden="true">
         <GrassRowIllustration />
         <span>好的关系，源于尊重与真诚</span>
         <GrassRowIllustration />

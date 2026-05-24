@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 import { useEffect } from "react";
 import {
   WEEKLY_INTENTS,
@@ -53,27 +54,27 @@ export function IntentSheet({
   }
 
   return (
-    <div className="intent-sheet-root" role="presentation">
+    <div className={dcx("intent-sheet-root")} role="presentation">
       <button
         type="button"
-        className="intent-sheet-backdrop"
+        className={dcx("intent-sheet-backdrop")}
         aria-label="关闭意向选择"
         disabled={saving}
         onClick={onClose}
       />
       <div
-        className="intent-sheet"
+        className={dcx("intent-sheet")}
         role="dialog"
         aria-modal="true"
         aria-labelledby="intent-sheet-title"
       >
-        <div className="intent-sheet-handle" aria-hidden="true" />
-        <p className="eyebrow">本周匹配意向</p>
+        <div className={dcx("intent-sheet-handle")} aria-hidden="true" />
+        <p className={dcx("eyebrow")}>本周匹配意向</p>
         <h2 id="intent-sheet-title">选一个本周想找的方向</h2>
-        <p className="app-muted">
+        <p className={dcx("app-muted")}>
           BOTH 与所有意向相容；FRIEND 与 DATE 互斥。可在截止前再改一次。
         </p>
-        <ul className="intent-sheet-options">
+        <ul className={dcx("intent-sheet-options")}>
           {WEEKLY_INTENTS.map((intent) => {
             const meta = WEEKLY_INTENT_LABELS[intent];
             const visual = WEEKLY_INTENT_VISUALS[intent];
@@ -84,33 +85,33 @@ export function IntentSheet({
                   type="button"
                   className={
                     active
-                      ? "intent-sheet-option is-active"
-                      : "intent-sheet-option"
+                      ? dcx("intent-sheet-option is-active")
+                      : dcx("intent-sheet-option")
                   }
                   style={{ ["--intent-color" as string]: visual.accent }}
                   disabled={saving}
                   onClick={() => onChoose(intent)}
                 >
                   <span
-                    className="intent-sheet-option-glyph"
+                    className={dcx("intent-sheet-option-glyph")}
                     aria-hidden="true"
                   >
                     {visual.glyph}
                   </span>
-                  <span className="intent-sheet-option-text">
-                    <span className="intent-sheet-option-primary">
+                  <span className={dcx("intent-sheet-option-text")}>
+                    <span className={dcx("intent-sheet-option-primary")}>
                       {meta.primary}
                     </span>
-                    <span className="intent-sheet-option-subtitle">
+                    <span className={dcx("intent-sheet-option-subtitle")}>
                       {meta.subtitle}
                     </span>
-                    <span className="intent-sheet-option-description">
+                    <span className={dcx("intent-sheet-option-description")}>
                       {meta.description}
                     </span>
                   </span>
                   {active ? (
                     <span
-                      className="intent-sheet-option-check"
+                      className={dcx("intent-sheet-option-check")}
                       aria-hidden="true"
                     >
                       ✓
@@ -123,7 +124,7 @@ export function IntentSheet({
         </ul>
         <button
           type="button"
-          className="button-secondary intent-sheet-cancel"
+          className={dcx("ui-button ui-button--secondary intent-sheet-cancel")}
           disabled={saving}
           onClick={onClose}
         >

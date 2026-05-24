@@ -3,11 +3,14 @@
 import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
 import { fetchApi } from "../../lib/api";
 import {
   GrassRowIllustration,
   OliveSprigIllustration,
 } from "../dashboard/_components/illustrations";
+import authStyles from "../auth.module.css";
+import layoutStyles from "../public-layout.module.css";
 
 const PASSWORD_MAX_LENGTH = 128;
 
@@ -58,18 +61,19 @@ export default function LoginPageClient() {
   }
 
   return (
-    <main className="page-shell prose-shell auth-shell">
-      <section className="content-panel auth-panel animate-in">
-        <div className="auth-panel-mark" aria-hidden="true">
+    <main
+      className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell}`}
+    >
+      <Card className={`${authStyles.panel} animate-in`} layout="plain">
+        <div className={authStyles.panelMark} aria-hidden="true">
           <OliveSprigIllustration />
         </div>
         <p className="eyebrow">Login</p>
         <h1>回到本周轮次</h1>
         <p>使用你的学校邮箱和密码登录，继续上一次未完成的匹配。</p>
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label>
-            <span>学校邮箱</span>
-            <input
+        <form className={authStyles.stack} onSubmit={handleSubmit}>
+          <Field label="学校邮箱">
+            <Input
               required
               type="email"
               autoComplete="email"
@@ -77,10 +81,9 @@ export default function LoginPageClient() {
               onChange={(event) => setEmail(event.target.value)}
               placeholder="your.name@school.edu"
             />
-          </label>
-          <label>
-            <span>密码</span>
-            <input
+          </Field>
+          <Field label="密码">
+            <Input
               required
               type="password"
               autoComplete="current-password"
@@ -89,24 +92,24 @@ export default function LoginPageClient() {
               onChange={(event) => setPassword(event.target.value)}
               placeholder="至少 8 位，含字母和数字"
             />
-          </label>
-          {error ? <p className="form-error">{error}</p> : null}
-          <button
-            className="button-primary button-block"
+          </Field>
+          {error ? <FormMessage>{error}</FormMessage> : null}
+          <Button
+            block
             disabled={pending}
             type="submit"
           >
             {pending ? "登录中…" : "登录"}
-          </button>
+          </Button>
         </form>
-        <p className="auth-hint">
+        <p className={authStyles.hint}>
           <Link href="/forgot-password">忘记密码？</Link>
         </p>
-        <p className="auth-hint">
+        <p className={authStyles.hint}>
           还没有账号？<Link href={registerHref}>立即注册</Link>
         </p>
-      </section>
-      <div className="auth-grass-line" aria-hidden="true">
+      </Card>
+      <div className={authStyles.grassLine} aria-hidden="true">
         <GrassRowIllustration />
       </div>
     </main>

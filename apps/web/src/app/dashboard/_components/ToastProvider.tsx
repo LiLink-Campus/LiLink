@@ -9,6 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import styles from "./ToastProvider.module.css";
 
 type Toast = {
   id: number;
@@ -49,13 +50,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
-        className="dashboard-toast-region"
+        className={styles.region}
         role="status"
         aria-live="polite"
         aria-atomic="true"
       >
         {toasts.map((toast) => (
-          <div className="dashboard-toast" key={toast.id}>
+          <div className={styles.toast} key={toast.id}>
             <span>{toast.message}</span>
             <button
               type="button"

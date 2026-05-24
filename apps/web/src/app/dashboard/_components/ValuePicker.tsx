@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../_lib/dashboard-class-names";
 export type ValuePickerOption = {
   value: string;
   label: string;
@@ -57,23 +58,23 @@ export function ValuePicker({
   const isPlaceholder = !selectedOption;
   const accessibleName = ariaLabel ?? sheetTitle ?? placeholder;
   const hasPlaceholderOption = options.some((option) => option.value === "");
-  const displayClassName = `picker-trigger picker-native-display${
+  const displayClassName = dcx(`picker-trigger picker-native-display${
     isPlaceholder ? " is-placeholder" : ""
-  }${disabled ? " is-disabled" : ""}`;
+  }${disabled ? " is-disabled" : ""}`);
 
   return (
-    <div className="picker-root">
-      <div className="picker-native-wrap">
+    <div className={dcx("picker-root")}>
+      <div className={dcx("picker-native-wrap")}>
         <div className={displayClassName} aria-hidden="true">
-          <span className="picker-trigger-text">{triggerLabel}</span>
-          <span className="picker-native-caret" aria-hidden="true">
+          <span className={dcx("picker-trigger-text")}>{triggerLabel}</span>
+          <span className={dcx("picker-native-caret")} aria-hidden="true">
             ▾
           </span>
         </div>
         <select
           id={id}
           name={name}
-          className="picker-native-select"
+          className={dcx("picker-native-select")}
           value={value}
           aria-label={accessibleName}
           disabled={disabled}

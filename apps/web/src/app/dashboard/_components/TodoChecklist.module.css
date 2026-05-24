@@ -1,0 +1,198 @@
+.todo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.count {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.row {
+  display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    align-items: start;
+    column-gap: 0.8rem;
+    row-gap: 0.45rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: transparent;
+}
+
+.done .check {
+  background: var(--color-success-soft);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.attention .check {
+  background: var(--color-gold-soft);
+  border-color: var(--color-gold);
+  color: #8c6b1c;
+}
+
+.todoStatus .check {
+  border-color: color-mix(in srgb, var(--color-brand) 45%, var(--color-border));
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+
+.icon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+}
+
+.progressBar {
+  flex: 1;
+  display: flex;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  overflow: hidden;
+}
+
+.confirmed {
+  background: linear-gradient(90deg, var(--color-brand), var(--color-accent));
+}
+
+.unconfirmed {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-gold) 0,
+    var(--color-gold) 4px,
+    color-mix(in srgb, var(--color-gold) 35%, var(--color-surface)) 4px,
+    color-mix(in srgb, var(--color-gold) 35%, var(--color-surface)) 8px
+  );
+}
+
+.progressVal {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-brand-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  align-items: center;
+  justify-self: end;
+    align-self: center;
+}
+
+.actions > :global(.ui-button--primary),
+.actions > :global(.ui-button--secondary),
+.actions > :global(.ui-button--ghost) {
+    padding: 0.42rem 0.8rem;
+    font-size: 0.82rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    min-width: 0;
+    max-width: none;
+}
+
+.actions > :global(.ui-button--primary) {
+    box-shadow: 0 4px 10px rgba(139, 58, 74, 0.16);
+}
+
+@media (max-width: 560px) {
+  .row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+        column-gap: 0.7rem;
+    padding: 0.85rem 0.95rem;
+  }
+
+  .icon {
+    display: none;
+  }
+}

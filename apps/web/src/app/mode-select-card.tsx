@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import styles from "./mode-select-card.module.css";
 
 type ModeSelectCardProps = {
   /** Title shown on the card. */
@@ -33,35 +34,40 @@ export function ModeSelectCard({
   disabledCtaLabel,
 }: ModeSelectCardProps) {
   const toneClass = status?.tone === "upcoming"
-    ? "mode-card-status is-upcoming"
-    : "mode-card-status";
+    ? `${styles.status} ${styles.upcoming}`
+    : styles.status;
 
   return (
     <article
       className={
-        status?.tone === "upcoming" ? "mode-card is-upcoming" : "mode-card"
+        status?.tone === "upcoming"
+          ? `${styles.card} ${styles.upcoming}`
+          : styles.card
       }
     >
-      <div className="mode-card-illustration" aria-hidden="true">
+      <div className={styles.illustration} aria-hidden="true">
         {illustration}
       </div>
-      <div className="mode-card-body">
-        <div className="mode-card-head">
-          <h3 className="mode-card-title">{title}</h3>
+      <div className={styles.body}>
+        <div className={styles.head}>
+          <h3 className={styles.title}>{title}</h3>
           {status ? (
             <span className={toneClass}>{status.label}</span>
           ) : null}
         </div>
-        <p className="mode-card-tagline">{tagline}</p>
+        <p className={styles.tagline}>{tagline}</p>
         {footerLine ? (
-          <p className="mode-card-footer">{footerLine}</p>
+          <p className={styles.footer}>{footerLine}</p>
         ) : null}
         {cta ? (
-          <Link className="mode-card-cta" href={cta.href}>
+          <Link className={styles.cta} href={cta.href}>
             {cta.label}
           </Link>
         ) : disabledCtaLabel ? (
-          <span className="mode-card-cta is-disabled" aria-disabled="true">
+          <span
+            className={`${styles.cta} ${styles.disabled}`}
+            aria-disabled="true"
+          >
             {disabledCtaLabel}
           </span>
         ) : null}

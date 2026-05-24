@@ -1,0 +1,31 @@
+.body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: system-ui, sans-serif;
+  background: #f4f1ea;
+  color: #18241d;
+  text-align: center;
+  padding: 2rem;
+}
+
+.title {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.message {
+  color: #5a6760;
+  margin-bottom: 1.5rem;
+}
+
+.action {
+  padding: 0.7rem 1.5rem;
+  background: #2f5b43;
+  color: white;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}

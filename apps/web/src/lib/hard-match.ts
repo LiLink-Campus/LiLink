@@ -295,10 +295,6 @@ function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
   }
 
   const oneLinerIntro = normalizeOneLinerIntro(formState.oneLinerIntro);
-  if (!oneLinerIntro) {
-    throw new Error("请填写一句话介绍。");
-  }
-
   if (oneLinerIntro.length > HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH) {
     throw new Error(
       `一句话介绍请不要超过 ${HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH} 字。`,

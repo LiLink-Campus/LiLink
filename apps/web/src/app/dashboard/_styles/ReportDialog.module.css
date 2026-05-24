@@ -1,0 +1,155 @@
+/* ── V2 Report dialog (举报弹窗) ─────────────────────────── */
+
+.v2-report-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text);
+    max-width: none;
+    width: min(30rem, calc(100vw - 1.5rem));
+    max-height: calc(100dvh - 1.5rem);
+    overflow: visible;
+    transform: translate(-50%, -50%);
+}
+
+.v2-report-dialog::backdrop {
+    background: var(--color-overlay);
+    backdrop-filter: blur(6px);
+}
+
+.v2-report-dialog-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    max-height: inherit;
+    overflow: auto;
+    padding: clamp(1.1rem, 3vw, 1.4rem);
+    border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+box-shadow: var(--shadow-lg);
+    animation: fade-in-up 0.18s ease-out both;
+}
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.v2-report-dialog-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.v2-report-dialog-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: fit-content;
+    padding: 0.22rem 0.6rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.v2-report-dialog-head h2 {
+    margin: 0;
+  font-family: var(--font-display);
+font-size: 1.15rem;
+    font-weight: 600;
+  color: var(--color-text);
+}
+
+.v2-report-dialog-head p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.65;
+}
+
+.v2-report-dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.v2-report-dialog-field {
+  display: flex;
+  flex-direction: column;
+gap: 0.35rem;
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+}
+
+.v2-report-dialog-field>span {
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.v2-report-dialog-field select,
+.v2-report-dialog-field textarea {
+    width: 100%;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: 0.94rem;
+    padding: 0.6rem 0.75rem;
+    min-height: 2.6rem;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+
+.v2-report-dialog-field textarea {
+    min-height: 6rem;
+    resize: vertical;
+    line-height: 1.6;
+}
+
+.v2-report-dialog-field select:focus,
+.v2-report-dialog-field textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.v2-report-dialog-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--color-border-strong);
+}
+
+@media (max-width: 480px) {
+    .v2-report-dialog {
+        width: calc(100vw - 1rem);
+    }
+
+  .v2-report-dialog-foot :global(.ui-button--primary),
+  .v2-report-dialog-foot :global(.ui-button--secondary),
+  .v2-report-dialog-foot :global(.ui-button--danger) {
+      flex: 1 1 8rem;
+  }
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { dcx } from "../../_lib/dashboard-class-names";
 import Link from "next/link";
 import type { AuthMePayload } from "../../../../lib/api";
 import { useDashboardSessionSeed } from "../../_components/DashboardSessionSeed";
@@ -51,25 +52,25 @@ export function MatchHistoryClient({
   const recentMatchHistory = dashboard?.recentMatchHistory ?? [];
 
   return (
-    <div className="app-page-shell app-page-shell-narrow">
-      <header className="app-page-header">
-        <Link href="/dashboard/match" className="app-page-back">
+    <div className={dcx("app-page-shell app-page-shell-narrow")}>
+      <header className={dcx("app-page-header")}>
+        <Link href="/dashboard/match" className={dcx("app-page-back")}>
           ← 返回本轮匹配
         </Link>
-        <p className="eyebrow">Weekly Match</p>
+        <p className={dcx("eyebrow")}>Weekly Match</p>
         <h1>过往匹配记录</h1>
         <p>
           仅当该轮为「已匹配且完整可见」时，可在卡片内继续发起联络或举报。
         </p>
-        {savedMessage ? <p className="form-success">{savedMessage}</p> : null}
-        {error ? <p className="form-error">{error}</p> : null}
+        {savedMessage ? <p className={dcx("ui-form-message ui-form-message--success")}>{savedMessage}</p> : null}
+        {error ? <p className={dcx("ui-form-message ui-form-message--error")}>{error}</p> : null}
       </header>
 
-      <section className="app-card" aria-label="过往匹配">
-        <div className="app-card-head">
-          <h2 className="app-card-title">过往匹配</h2>
+      <section className={dcx("ui-card ui-card--padded")} aria-label="过往匹配">
+        <div className={dcx("ui-card-header")}>
+          <h2 className={dcx("ui-card-title")}>过往匹配</h2>
           {recentMatchHistory.length > 0 ? (
-            <span className="app-card-status">
+            <span className={dcx("semantic-status semantic-status--neutral")}>
               最近 {recentMatchHistory.length} 轮
             </span>
           ) : null}

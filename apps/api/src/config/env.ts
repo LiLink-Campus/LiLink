@@ -22,10 +22,20 @@ const envSchema = z.object({
   ADMIN_JWT_SECRET: z
     .string()
     .min(16, 'ADMIN_JWT_SECRET must be at least 16 characters.'),
+  MERCHANT_JWT_SECRET: z
+    .string()
+    .min(16, 'MERCHANT_JWT_SECRET must be at least 16 characters.'),
   USER_SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(14),
   ADMIN_SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(14),
+  MERCHANT_SESSION_TTL_DAYS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .default(14),
   COOKIE_NAME: z.string().default('lilink_token'),
   ADMIN_COOKIE_NAME: z.string().default('lilink_admin_token'),
+  MERCHANT_COOKIE_NAME: z.string().default('lilink_merchant_token'),
   COOKIE_DOMAIN: z.string().optional(),
   SMTP_HOST: z.string().default('127.0.0.1'),
   SMTP_PORT: z.coerce.number().int().default(2525),
@@ -78,6 +88,10 @@ const envSchema = z.object({
   CRON_SECRET: z
     .string()
     .min(16, 'CRON_SECRET must be at least 16 characters.'),
+  // Short-lived JWT secret for one-time redeem ticket tokens issued to merchants.
+  REDEEM_TICKET_SECRET: z
+    .string()
+    .min(16, 'REDEEM_TICKET_SECRET must be at least 16 characters.'),
 });
 
 export const env = envSchema.parse(process.env);

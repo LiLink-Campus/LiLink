@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { HARD_MATCH_KEYS } from "../../../lib/hard-match";
+import { cx } from "../admin-class-names";
+import commonStyles from "../admin-common.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
 import type {
@@ -13,6 +15,8 @@ import type {
   AdminUserQuestionnaire,
   PaginatedResult,
 } from "../types";
+
+const adminStyles = [commonStyles];
 
 const HARD_MATCH_LABELS: Record<string, string> = {
   [HARD_MATCH_KEYS.birthDate]: "出生年月日",
@@ -450,75 +454,74 @@ export default function AdminUsersPage() {
   }
 
   if (loading) {
-    return <div className="admin-empty-state">正在加载用户中心...</div>;
+    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载用户中心...</div>;
   }
 
   return (
-    <div className="qb-container" style={{ maxWidth: "72rem" }}>
-      <div className="qb-header">
+    <div className={cx(adminStyles, "qb-container admin-wide-container")}>
+      <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>用户中心</h1>
-          <p className="qb-header-desc">定位用户，查看资料、问卷与轮次参与状态，处理账号。</p>
+          <p className={cx(adminStyles, "qb-header-desc")}>定位用户，查看资料、问卷与轮次参与状态，处理账号。</p>
         </div>
         <button
-          className="button-secondary"
+          className={cx(adminStyles, "ui-button ui-button--secondary admin-refresh-control")}
           onClick={() => void refresh()}
           type="button"
-          style={{ minHeight: "2.4rem", padding: "0 1rem" }}
         >
           刷新
         </button>
       </div>
 
-      {error && <p className="form-error" style={{ marginBottom: "0.75rem" }}>{error}</p>}
-      {actionError && <p className="form-error" style={{ marginBottom: "0.75rem" }}>{actionError}</p>}
+      {error && <p className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-bottom-sm")}>{error}</p>}
+      {actionError && <p className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-bottom-sm")}>{actionError}</p>}
 
-      <section className="admin-workspace-grid">
+      <section className={cx(adminStyles, "admin-workspace-grid")}>
         {/* ── User list ─── */}
-        <article className="content-panel admin-list-panel">
-          <div className="admin-section-header">
+        <article className={cx(adminStyles, "ui-card ui-card--padded ui-card--plain admin-list-panel")}>
+          <div className={cx(adminStyles, "admin-section-header")}>
             <div>
               <p className="eyebrow">用户列表</p>
               <h2>全部用户</h2>
             </div>
           </div>
-          <form className="admin-search-bar" onSubmit={handleSearchSubmit}>
+          <form className={cx(adminStyles, "admin-search-bar")} onSubmit={handleSearchSubmit}>
             <input
               value={draftSearch}
               onChange={(event) => setDraftSearch(event.target.value)}
               placeholder="搜索邮箱、昵称、姓名、学校或状态"
             />
           </form>
-          <div className="admin-tabs">
+          <div className={cx(adminStyles, "admin-tabs")}>
             {(["ALL", "ACTIVE", "PENDING", "SUSPENDED"] as const).map((s) => (
               <button
                 key={s}
                 type="button"
-                className={statusFilter === s ? "admin-tab active" : "admin-tab"}
+                className={statusFilter === s ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => { setStatusFilter(s); setPage(1); }}
               >
                 {USER_STATUS_LABELS[s]}
               </button>
             ))}
           </div>
-          <div className="admin-tabs">
+          <div className={cx(adminStyles, "admin-tabs")}>
             {(["all", "submitted", "missing"] as const).map((s) => (
               <button
                 key={s}
                 type="button"
-                className={questionnaireFilter === s ? "admin-tab active" : "admin-tab"}
+                className={questionnaireFilter === s ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => { setQuestionnaireFilter(s); setPage(1); }}
               >
                 {s === "all" ? "全部问卷" : s === "submitted" ? "已填问卷" : "未填问卷"}
               </button>
             ))}
           </div>
-          <div className="admin-tabs" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <div className={cx(adminStyles, "admin-tabs admin-tabs-with-actions")}>
             {(["all", "real", "test"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
-                className={userTypeFilter === t ? "admin-tab active" : "admin-tab"}
+                className={userTypeFilter === t ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => { setUserTypeFilter(t); setPage(1); }}
               >
                 {t === "all" ? "全部用户" : t === "real" ? "真实用户" : "测试用户"}
@@ -526,52 +529,55 @@ export default function AdminUsersPage() {
             ))}
             {userTypeFilter === "test" && (
               <button
-                className="button-secondary"
+                className={cx(adminStyles, "ui-button ui-button--secondary admin-test-delete-control")}
                 type="button"
                 disabled={pending === "delete-test"}
                 onClick={() => void deleteAllTestUsers()}
-                style={{ marginLeft: "auto", minHeight: "1.8rem", padding: "0 0.75rem", fontSize: "0.82rem", color: "var(--error, #c0392b)" }}
               >
                 {pending === "delete-test" ? "删除中…" : "删除全部测试用户"}
               </button>
             )}
           </div>
-          <div className="admin-tabs">
+          <div className={cx(adminStyles, "admin-tabs")}>
             {(["all", "男", "女", "非二元"] as const).map((g) => (
               <button
                 key={g}
                 type="button"
-                className={genderFilter === g ? "admin-tab active" : "admin-tab"}
+                className={genderFilter === g ? "ui-segmented-item active" : "ui-segmented-item"}
                 onClick={() => { setGenderFilter(g); setPage(1); }}
               >
                 {g === "all" ? "全部性别" : g}
               </button>
             ))}
           </div>
-          <div className="admin-record-list">
+          <div className={cx(adminStyles, "admin-record-list")}>
             {users.map((user) => (
               <button
                 key={user.id}
                 type="button"
-                className={user.id === selectedUserId ? "admin-record-item admin-record-item-active" : "admin-record-item"}
+                className={cx(
+                  adminStyles,
+                  "admin-record-item",
+                  user.id === selectedUserId && "admin-record-item-active",
+                )}
                 onClick={() => setSelectedUserId(user.id)}
               >
-                <div className="admin-record-topline">
+                <div className={cx(adminStyles, "admin-record-topline")}>
                   <strong>{user.displayName ?? user.email}</strong>
-                  {user.isTest && <span className="domain-chip" style={{ background: "var(--warning, #f39c12)", color: "#fff" }}>测试</span>}
-                  <span className="domain-chip">{USER_STATUS_LABELS[user.status]}</span>
+                  {user.isTest && <span className={cx(adminStyles, "ui-badge ui-badge--neutral admin-test-badge")}>测试</span>}
+                  <span className="ui-badge ui-badge--neutral">{USER_STATUS_LABELS[user.status]}</span>
                 </div>
                 <p>{user.email}</p>
-                <div className="admin-inline-meta">
+                <div className={cx(adminStyles, "admin-inline-meta")}>
                   <span>{user.school?.name ?? "未识别学校"}</span>
                   <span>{user.questionnaireResponse?.submittedAt ? "已填问卷" : "未填问卷"}</span>
                 </div>
               </button>
             ))}
-            {users.length === 0 && <div className="admin-empty-state">没有找到匹配的用户。</div>}
+            {users.length === 0 && <div className={cx(adminStyles, "admin-empty-state")}>没有找到匹配的用户。</div>}
           </div>
           {data && (
-            <div className="admin-pagination">
+            <div className={cx(adminStyles, "admin-pagination")}>
               <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">上一页</button>
               <span>{data.page} / {data.totalPages} · 共 {data.total} 人</span>
               <button disabled={data.page >= data.totalPages} onClick={() => setPage(data.page + 1)} type="button">下一页</button>
@@ -580,16 +586,16 @@ export default function AdminUsersPage() {
         </article>
 
         {/* ── User detail ─── */}
-        <article className="content-panel admin-detail-panel">
+        <article className={cx(adminStyles, "ui-card ui-card--padded ui-card--plain admin-detail-panel")}>
           {displayUser ? (
-            <div className="admin-page-stack">
+            <div className={cx(adminStyles, "admin-page-stack")}>
               {detailError ? (
-                <p className="form-error" role="alert">
+                <p className="ui-form-message ui-form-message--error" role="alert">
                   {detailError}
                 </p>
               ) : null}
               {/* Header + status buttons */}
-              <div className="admin-section-header">
+              <div className={cx(adminStyles, "admin-section-header")}>
                 <div>
                   <p className="eyebrow">用户详情{displayUser.isTest ? " · 测试用户" : ""}</p>
                   <h2>{displayUser.displayName ?? "未设置昵称"}</h2>
@@ -599,21 +605,19 @@ export default function AdminUsersPage() {
                   {(["ACTIVE", "SUSPENDED", "PENDING"] as const).map((s) => (
                     <button
                       key={s}
-                      className={displayUser.status === s ? "button-primary" : "button-secondary"}
+                      className={displayUser.status === s ? "ui-button ui-button--primary" : "ui-button ui-button--secondary"}
                       type="button"
                       disabled={pending === s}
                       onClick={() => void updateUserStatus(s)}
-                      style={{ minHeight: "2rem", padding: "0 0.75rem", fontSize: "0.82rem" }}
                     >
                       {pending === s ? "提交中…" : USER_STATUS_LABELS[s]}
                     </button>
                   ))}
                   <button
-                    className={displayUser.isTest ? "button-primary" : "button-secondary"}
+                    className={displayUser.isTest ? "ui-button ui-button--primary" : "ui-button ui-button--secondary"}
                     type="button"
                     disabled={pending === "test-flag"}
                     onClick={() => void toggleTestFlag()}
-                    style={{ minHeight: "2rem", padding: "0 0.75rem", fontSize: "0.82rem" }}
                   >
                     {pending === "test-flag" ? "更新中…" : displayUser.isTest ? "取消测试标记" : "标记为测试"}
                   </button>
@@ -621,7 +625,7 @@ export default function AdminUsersPage() {
               </div>
 
               {/* Summary metrics */}
-              <div className="admin-inline-metrics">
+              <div className={cx(adminStyles, "admin-inline-metrics")}>
                 <div><span>学校</span><strong>{displayUser.school?.name ?? "未识别"}</strong></div>
                 <div>
                   <span>注册时间</span>
@@ -638,7 +642,7 @@ export default function AdminUsersPage() {
               </div>
 
               {/* Detail tabs */}
-              <div className="admin-tabs">
+              <div className={cx(adminStyles, "admin-tabs")}>
                 {([
                   { key: "profile" as const, label: "基本资料" },
                   {
@@ -650,7 +654,7 @@ export default function AdminUsersPage() {
                   <button
                     key={tab.key}
                     type="button"
-                    className={effectiveDetailTab === tab.key ? "admin-tab active" : "admin-tab"}
+                    className={effectiveDetailTab === tab.key ? "ui-segmented-item active" : "ui-segmented-item"}
                     onClick={() => setDetailTab(tab.key)}
                   >
                     {tab.label}
@@ -660,54 +664,54 @@ export default function AdminUsersPage() {
 
               {/* ── Tab: Profile ─── */}
               {effectiveDetailTab === "profile" && (
-                <div style={{ animation: "fadeIn 0.2s ease" }}>
+                <div className={cx(adminStyles, "admin-fade-panel")}>
                   {editing && editForm ? (
-                    <div className="admin-page-stack">
-                      <div className="admin-table-wrap">
-                        <table className="admin-table">
+                    <div className={cx(adminStyles, "admin-page-stack")}>
+                      <div className={cx(adminStyles, "admin-table-wrap")}>
+                        <table className={cx(adminStyles, "admin-table")}>
                           <tbody>
                             <tr>
-                              <td style={{ fontWeight: 600, width: "8rem" }}>昵称</td>
-                              <td><input value={editForm.displayName} onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })} style={{ width: "100%" }} /></td>
+                              <td className={cx(adminStyles, "admin-table-label-wide")}>昵称</td>
+                              <td><input value={editForm.displayName} onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })} className={cx(adminStyles, "admin-full-control")} /></td>
                             </tr>
                             <tr>
-                              <td style={{ fontWeight: 600 }}>邮箱</td>
-                              <td><input value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} style={{ width: "100%" }} /></td>
+                              <td className={cx(adminStyles, "admin-table-label")}>邮箱</td>
+                              <td><input value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className={cx(adminStyles, "admin-full-control")} /></td>
                             </tr>
                             <tr>
-                              <td style={{ fontWeight: 600 }}>真实姓名</td>
-                              <td><input value={editForm.fullName} onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })} style={{ width: "100%" }} /></td>
+                              <td className={cx(adminStyles, "admin-table-label")}>真实姓名</td>
+                              <td><input value={editForm.fullName} onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })} className={cx(adminStyles, "admin-full-control")} /></td>
                             </tr>
                             <tr>
-                              <td style={{ fontWeight: 600 }}>一句话介绍</td>
-                              <td><input value={editForm.headline} onChange={(e) => setEditForm({ ...editForm, headline: e.target.value })} style={{ width: "100%" }} /></td>
+                              <td className={cx(adminStyles, "admin-table-label")}>一句话介绍</td>
+                              <td><input value={editForm.headline} onChange={(e) => setEditForm({ ...editForm, headline: e.target.value })} className={cx(adminStyles, "admin-full-control")} /></td>
                             </tr>
                             <tr>
-                              <td style={{ fontWeight: 600 }}>年级</td>
-                              <td><input value={editForm.schoolYear} onChange={(e) => setEditForm({ ...editForm, schoolYear: e.target.value })} style={{ width: "100%" }} /></td>
+                              <td className={cx(adminStyles, "admin-table-label")}>年级</td>
+                              <td><input value={editForm.schoolYear} onChange={(e) => setEditForm({ ...editForm, schoolYear: e.target.value })} className={cx(adminStyles, "admin-full-control")} /></td>
                             </tr>
                             <tr>
-                              <td style={{ fontWeight: 600 }}>项目 / 专业</td>
-                              <td><input value={editForm.programName} onChange={(e) => setEditForm({ ...editForm, programName: e.target.value })} style={{ width: "100%" }} /></td>
+                              <td className={cx(adminStyles, "admin-table-label")}>项目 / 专业</td>
+                              <td><input value={editForm.programName} onChange={(e) => setEditForm({ ...editForm, programName: e.target.value })} className={cx(adminStyles, "admin-full-control")} /></td>
                             </tr>
                             <tr>
-                              <td style={{ fontWeight: 600 }}>简介</td>
-                              <td><textarea value={editForm.bio} rows={3} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} style={{ width: "100%" }} /></td>
+                              <td className={cx(adminStyles, "admin-table-label")}>简介</td>
+                              <td><textarea value={editForm.bio} rows={3} onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })} className={cx(adminStyles, "admin-full-control")} /></td>
                             </tr>
                           </tbody>
                         </table>
                       </div>
                       <div className="auth-actions">
-                        <button className="button-primary" type="button" disabled={pending === "edit"} onClick={() => void saveEdit()}>
+                        <button className="ui-button ui-button--primary" type="button" disabled={pending === "edit"} onClick={() => void saveEdit()}>
                           {pending === "edit" ? "保存中…" : "保存修改"}
                         </button>
-                        <button className="button-secondary" type="button" onClick={cancelEditing}>取消</button>
+                        <button className="ui-button ui-button--secondary" type="button" onClick={cancelEditing}>取消</button>
                       </div>
                     </div>
                   ) : (
-                    <div className="admin-page-stack">
-                      <div className="admin-table-wrap">
-                        <table className="admin-table">
+                    <div className={cx(adminStyles, "admin-page-stack")}>
+                      <div className={cx(adminStyles, "admin-table-wrap")}>
+                        <table className={cx(adminStyles, "admin-table")}>
                           <tbody>
                             <tr><td style={{ fontWeight: 600, width: "8rem" }}>昵称</td><td>{displayUser.displayName ?? "—"}</td></tr>
                             <tr><td style={{ fontWeight: 600 }}>真实姓名</td><td>{displayUser.profile?.fullName ?? "—"}</td></tr>
@@ -719,7 +723,7 @@ export default function AdminUsersPage() {
                         </table>
                       </div>
                       <div className="auth-actions">
-                        <button className="button-secondary" type="button" onClick={startEditing} style={{ minHeight: "2rem", padding: "0 0.75rem", fontSize: "0.82rem" }}>
+                        <button className="ui-button ui-button--secondary" type="button" onClick={startEditing} style={{ minHeight: "2rem", padding: "0 0.75rem", fontSize: "0.82rem" }}>
                           编辑资料
                         </button>
                       </div>
@@ -732,13 +736,13 @@ export default function AdminUsersPage() {
               {effectiveDetailTab === "questionnaire" && (
                 <div style={{ animation: "fadeIn 0.2s ease" }}>
                   {answerGroups ? (
-                    <div className="admin-page-stack">
+                    <div className={cx(adminStyles, "admin-page-stack")}>
                       {/* Hard-match answers */}
                       {answerGroups.hardMatch.length > 0 && (
                         <>
                           <h3 style={{ margin: 0 }}>硬性条件</h3>
-                          <div className="admin-table-wrap">
-                            <table className="admin-table">
+                          <div className={cx(adminStyles, "admin-table-wrap")}>
+                            <table className={cx(adminStyles, "admin-table")}>
                               <thead>
                                 <tr><th>项目</th><th>回答</th></tr>
                               </thead>
@@ -759,8 +763,8 @@ export default function AdminUsersPage() {
                       {answerGroups.questionnaire.length > 0 && (
                         <>
                           <h3 style={{ margin: 0 }}>价值观问卷</h3>
-                          <div className="admin-table-wrap">
-                            <table className="admin-table">
+                          <div className={cx(adminStyles, "admin-table-wrap")}>
+                            <table className={cx(adminStyles, "admin-table")}>
                               <thead>
                                 <tr><th>题目 Key</th><th>回答</th></tr>
                               </thead>
@@ -778,11 +782,11 @@ export default function AdminUsersPage() {
                       )}
                     </div>
                   ) : questionnaireLoading ? (
-                    <div className="admin-empty-state">正在加载问卷详情…</div>
+                    <div className={cx(adminStyles, "admin-empty-state")}>正在加载问卷详情…</div>
                   ) : !displayUser.questionnaireResponse?.submittedAt ? (
-                    <div className="admin-empty-state">该用户还没有提交问卷。</div>
+                    <div className={cx(adminStyles, "admin-empty-state")}>该用户还没有提交问卷。</div>
                   ) : (
-                    <div className="admin-empty-state">问卷答案暂时无法显示，请稍后重试。</div>
+                    <div className={cx(adminStyles, "admin-empty-state")}>问卷答案暂时无法显示，请稍后重试。</div>
                   )}
                 </div>
               )}
@@ -791,10 +795,10 @@ export default function AdminUsersPage() {
               {effectiveDetailTab === "cycles" && (
                 <div style={{ animation: "fadeIn 0.2s ease" }}>
                   {participationsLoading ? (
-                    <div className="admin-empty-state">正在加载轮次参与记录…</div>
+                    <div className={cx(adminStyles, "admin-empty-state")}>正在加载轮次参与记录…</div>
                   ) : participationsData && participationsData.items.length > 0 ? (
-                    <div className="admin-table-wrap">
-                      <table className="admin-table">
+                    <div className={cx(adminStyles, "admin-table-wrap")}>
+                      <table className={cx(adminStyles, "admin-table")}>
                         <thead>
                           <tr><th>轮次 ID</th><th>状态</th></tr>
                         </thead>
@@ -802,20 +806,20 @@ export default function AdminUsersPage() {
                           {participationsData.items.map((p) => (
                             <tr key={p.cycleId}>
                               <td style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>{p.cycleId}</td>
-                              <td><span className="domain-chip">{p.status === "OPTED_IN" ? "已参加" : "未参加"}</span></td>
+                              <td><span className="ui-badge ui-badge--neutral">{p.status === "OPTED_IN" ? "已参加" : "未参加"}</span></td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   ) : (
-                    <div className="admin-empty-state">暂无轮次参与记录。</div>
+                    <div className={cx(adminStyles, "admin-empty-state")}>暂无轮次参与记录。</div>
                   )}
                 </div>
               )}
             </div>
           ) : (
-            <div className="admin-empty-state">左侧选择用户后可查看详情。</div>
+            <div className={cx(adminStyles, "admin-empty-state")}>左侧选择用户后可查看详情。</div>
           )}
         </article>
       </section>

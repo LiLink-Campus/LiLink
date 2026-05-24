@@ -21,6 +21,7 @@ import { SchoolResolverService } from '../../common/schools/school-resolver.serv
 import { env } from '../../config/env';
 import { RegisterDto, LoginDto, ResetPasswordDto } from './dto';
 import { InviteCodeService } from '../invite-code/invite-code.service';
+import { ReferralService } from '../referral/referral.service';
 
 type TransactionClient = Omit<
   PrismaClient,
@@ -54,6 +55,10 @@ export class AuthService {
     // stub; Nest always injects it in the running app (AuthModule imports
     // InviteCodeModule).
     private readonly inviteCodeService?: InviteCodeService,
+    // Optional for the same reason; the running app injects it (AuthModule
+    // imports ReferralModule). Drives personal referral code generation and the
+    // frozen campaign attribution recorded on the new user.
+    private readonly referralService?: ReferralService,
   ) {}
 
   async requestCode(email: string) {
@@ -91,6 +96,25 @@ export class AuthService {
         input.code,
       );
 
+      // Resolve + freeze the referral attribution inside the transaction so the
+      // campaign snapshot is consistent with the committed user row. A recruiter
+      // code takes priority and discards any personal code; the frozen campaign
+      // is never re-derived later (activation reads it as-is).
+      const attribution =
+        (await this.referralService?.resolveRegistrationAttribution(
+          {
+            inviteCodeId,
+            referralCode: input.referralCode,
+            channel: input.channel,
+            campaignSlug: input.campaignSlug,
+          },
+          tx,
+        )) ?? {
+          referredByUserId: null,
+          referralChannel: null,
+          referralCampaignId: null,
+        };
+
       try {
         return await tx.user.create({
           data: {
@@ -101,6 +125,9 @@ export class AuthService {
             preferredLocale: localeCookie ?? undefined,
             schoolId: school?.schoolId,
             inviteCodeId,
+            referredByUserId: attribution.referredByUserId,
+            referralChannel: attribution.referralChannel,
+            referralCampaignId: attribution.referralCampaignId,
             acceptedTermsAt: input.acceptedTerms ? new Date() : null,
             profile: {
               create: {
@@ -117,6 +144,12 @@ export class AuthService {
         throw error;
       }
     });
+
+    // Assign a personal referral code after the user exists. Idempotent and
+    // self-contained (never throws); the referral page can re-trigger it.
+    if (this.referralService) {
+      await this.referralService.assignReferralCodeIfMissing(user.id);
+    }
 
     return this.issueAuthPayload(
       user.id,

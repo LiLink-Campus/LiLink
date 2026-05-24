@@ -1,0 +1,15 @@
+.card {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.message {
+  color: var(--color-text-secondary);
+}
+
+.action {
+  margin-top: 1.5rem;
+}

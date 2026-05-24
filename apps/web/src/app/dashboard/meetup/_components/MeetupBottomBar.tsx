@@ -1,3 +1,4 @@
+import { dcx } from "../../_lib/dashboard-class-names";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -42,12 +43,12 @@ export function MeetupBottomBar({
   const metaSplit = Boolean(secondary && hint);
 
   return (
-    <div className="v2-meetup-bottom-bar" role="region" aria-label="主操作">
-      <div className="v2-meetup-bottom-bar-inner">
+    <div className={dcx("v2-meetup-bottom-bar")} role="region" aria-label="主操作">
+      <div className={dcx("v2-meetup-bottom-bar-inner")}>
         {primary ? renderPrimary(primary) : null}
         {secondary || hint ? (
           <div
-            className="v2-meetup-bottom-bar-meta"
+            className={dcx("v2-meetup-bottom-bar-meta")}
             data-meta-layout={metaSplit ? "split" : undefined}
           >
             {secondary ? (
@@ -55,8 +56,8 @@ export function MeetupBottomBar({
                 type="button"
                 className={
                   secondary.tone === "danger"
-                    ? "v2-meetup-bottom-secondary tone-danger"
-                    : "v2-meetup-bottom-secondary"
+                    ? dcx("v2-meetup-bottom-secondary tone-danger")
+                    : dcx("v2-meetup-bottom-secondary")
                 }
                 onClick={secondary.onClick}
                 disabled={secondary.disabled}
@@ -64,7 +65,7 @@ export function MeetupBottomBar({
                 {secondary.label}
               </button>
             ) : null}
-            {hint ? <p className="v2-meetup-bottom-hint">{hint}</p> : null}
+            {hint ? <p className={dcx("v2-meetup-bottom-hint")}>{hint}</p> : null}
           </div>
         ) : null}
       </div>
@@ -76,10 +77,10 @@ function renderPrimary(primary: MeetupBottomPrimary) {
   const tone = primary.tone ?? "primary";
   const className =
     tone === "success"
-      ? "v2-meetup-bottom-primary tone-success"
+      ? dcx("v2-meetup-bottom-primary tone-success")
       : tone === "muted"
-        ? "v2-meetup-bottom-primary tone-muted"
-        : "v2-meetup-bottom-primary";
+        ? dcx("v2-meetup-bottom-primary tone-muted")
+        : dcx("v2-meetup-bottom-primary");
   const label = primary.loading ? `${primary.label}…` : primary.label;
 
   if (primary.href && !primary.disabled) {
