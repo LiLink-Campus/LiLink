@@ -186,10 +186,43 @@
 }
 
 @media (max-width: 560px) {
+  .head {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
   .row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-        column-gap: 0.7rem;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "check main"
+      "actions actions";
+    column-gap: 0.7rem;
+    row-gap: 0.55rem;
     padding: 0.85rem 0.95rem;
+  }
+
+  .check {
+    grid-area: check;
+  }
+
+  .main {
+    grid-area: main;
+  }
+
+  .actions {
+    grid-area: actions;
+    justify-self: stretch;
+    justify-content: stretch;
+    gap: 0.45rem;
+  }
+
+  .actions > :global(.ui-button--primary),
+  .actions > :global(.ui-button--secondary),
+  .actions > :global(.ui-button--ghost) {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
   }
 
   .icon {

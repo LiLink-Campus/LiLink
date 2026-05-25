@@ -1,13 +1,4 @@
 .countdown {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.18rem;
-  font-feature-settings: "tnum";
-  font-variant-numeric: tabular-nums;
-  color: var(--color-brand-ink);
-}
-
-.countdown {
   display: flex;
   align-items: center;
   gap: 0.85rem;
@@ -15,6 +6,9 @@
   border-radius: var(--radius-lg);
   background: var(--color-gold-soft);
   border: 1px solid color-mix(in srgb, var(--color-gold) 28%, transparent);
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  color: var(--color-brand-ink);
 }
 
 .none {
@@ -57,12 +51,16 @@
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--color-text);
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .sub {
   margin: 0;
   font-size: 0.8rem;
   color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+  line-height: 1.45;
 }
 
 .chip {
@@ -74,4 +72,31 @@
   font-size: 0.8rem;
   font-weight: 600;
   white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .countdown {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: 0.55rem;
+    column-gap: 0.75rem;
+    padding: 0.8rem 0.95rem;
+  }
+
+  .icon {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .main {
+    flex: 1 1 calc(100% - 2rem - 0.75rem);
+    min-width: 0;
+  }
+
+  .chip {
+    flex: 1 1 100%;
+    width: 100%;
+    text-align: center;
+    white-space: normal;
+  }
 }

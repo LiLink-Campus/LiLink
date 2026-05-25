@@ -26,6 +26,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "node -e \"import('./scripts/prisma-client.mjs').then((m) => m.loadPrismaClientModule(['dist/prisma/seed.js'])).then(() => import('./dist/prisma/seed.js'))\"",
     "seed:meetup-demo": "node scripts/seed-meetup-demo.mjs",
+    "seed:coupon-demo": "node scripts/seed-coupon-demo.mjs",
     "prisma:seed-defaults": "node scripts/seed-defaults.mjs",
     "prisma:seed:default": "node -e \"process.env.SEED_SCOPE='default'; import('./scripts/prisma-client.mjs').then((m) => m.loadPrismaClientModule(['dist/prisma/seed.js'])).then(() => import('./dist/prisma/seed.js'))\"",
     "test": "npm run prepare:prisma && npm run build:shared && jest",
