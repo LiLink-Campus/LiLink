@@ -276,9 +276,11 @@ export function MatchClient({
   } else if (hasMissingIntent) {
     hero = (
       <MatchWaitingStrip
+        eyebrow="待确认意向"
         title="待选择本周意向"
         subtitle="当前这轮还没有保存可用的匹配意向。回到首页确认 Friend / Date / Both 后即按该设置参与匹配。"
         revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
+        revealAt={currentCycle?.revealAt ?? null}
         actions={[{ label: "返回首页选择", href: "/dashboard", variant: "primary" }]}
       />
     );
@@ -289,9 +291,12 @@ export function MatchClient({
   ) {
     hero = (
       <MatchWaitingStrip
+        eyebrow="已锁定"
+        variant="muted"
         title="本轮已锁定"
         subtitle="本轮报名已截止，且这轮没有保存可用的匹配意向，系统不会按本轮为你参与匹配。可继续完善匹配资料，等待下一轮开放。"
         revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
+        revealAt={currentCycle?.revealAt ?? null}
         actions={[
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "secondary" },
         ]}
@@ -305,13 +310,15 @@ export function MatchClient({
   ) {
     hero = (
       <MatchWaitingStrip
+        eyebrow="等待揭晓"
         title={hasSavedQuestionnaire ? "等待本轮揭晓" : "还没有匹配结果"}
         subtitle={
           hasSavedQuestionnaire
-            ? "你已填写匹配资料并已参加本轮。揭晓后这里会显示匹配说明与后续操作；在此前可在「匹配资料」中修改信息。"
+            ? "你已参加本轮。揭晓后会在这里显示匹配对象与后续操作；在此之前可在「匹配资料」中更新信息。"
             : "本轮揭晓后这里会显示匹配说明与后续操作。"
         }
         revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
+        revealAt={currentCycle?.revealAt ?? null}
         actions={[
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "secondary" },
         ]}
@@ -320,6 +327,8 @@ export function MatchClient({
   } else if (currentCycleIsLocked) {
     hero = (
       <MatchWaitingStrip
+        eyebrow="已锁定"
+        variant="muted"
         title={hasSavedQuestionnaire ? "本轮已锁定" : "继续完善匹配资料"}
         subtitle={
           hasSavedQuestionnaire
@@ -327,6 +336,7 @@ export function MatchClient({
             : "本轮报名已截止。仍可继续填写完善匹配资料，为下一轮开放报名做准备。"
         }
         revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
+        revealAt={currentCycle?.revealAt ?? null}
         actions={[
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
         ]}
@@ -339,6 +349,8 @@ export function MatchClient({
   ) {
     hero = (
       <MatchWaitingStrip
+        eyebrow="未匹配"
+        variant="muted"
         title="本轮未匹配到对象"
         subtitle={`「${dashboard.lastRevealedRound.codename}」本轮可配对人数不足或没有与你强相容的组合。下一轮开放报名时回到首页即可再次参与，更新问卷也能提高下次成功率。`}
         actions={[
@@ -350,6 +362,7 @@ export function MatchClient({
   } else {
     hero = (
       <MatchWaitingStrip
+        eyebrow={hasSavedQuestionnaire ? "待参与" : "待完善资料"}
         title={hasSavedQuestionnaire ? "等待匹配" : "还没有匹配结果"}
         subtitle={
           hasSavedQuestionnaire
@@ -357,6 +370,7 @@ export function MatchClient({
             : "请先在「匹配资料」完成问卷，然后回到首页报名参加当前轮次。"
         }
         revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
+        revealAt={currentCycle?.revealAt ?? null}
         actions={[
           { label: "返回首页", href: "/dashboard", variant: "primary" },
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "secondary" },
