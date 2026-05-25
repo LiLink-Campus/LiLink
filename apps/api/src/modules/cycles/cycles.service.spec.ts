@@ -2517,4 +2517,260 @@ describe('CyclesService', () => {
       score: 96.4,
     });
   });
+
+  it('gives a first-cycle opt-in a lowest-tier boost that can flip an otherwise-higher-scoring returning pair', async () => {
+    // user-a and user-b are returning users: they opted in to a prior revealed
+    // cycle and were matched there, so their unmatched streak is 0 (no streak
+    // bonus). user-c is in their very first opt-in cycle. With three
+    // participants only one pair can be selected.
+    const prisma = createPairCalculationPrisma({
+      historicalParticipations: [
+        createHistoricalParticipation(
+          'user-a',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-b',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+      ],
+      matchedParticipations: [
+        { userId: 'user-a', cycleId: 'cycle-1' },
+        { userId: 'user-b', cycleId: 'cycle-1' },
+      ],
+    });
+    const service = createCyclesService(prisma);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'calculatePairRawScore'
+    >;
+    const participants = [
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+      createBroadParticipant('user-c', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
+            // returning pair, no first-cycle boost
+            'user-a::user-b': { rawScore: 64 },
+            // contains first-cycle user-c
+            'user-a::user-c': { rawScore: 60 },
+          };
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+      'cycle-4',
+    );
+
+    // Without the boost user-a::user-b (64) outranks user-a::user-c (60).
+    // The +6 first-cycle boost on user-c lifts user-a::user-c above it.
+    expect(result.selectedPairs).toHaveLength(1);
+    expect(result.selectedPairs[0]).toMatchObject({
+      left: { id: 'user-a' },
+      right: { id: 'user-c' },
+      score: 60,
+    });
+  });
+
+  it('does not boost a returning participant who has a prior revealed opt-in', async () => {
+    // Same shape as the boost test, but user-c is ALSO a returning user with a
+    // prior revealed opt-in (its optedInAt would be refreshed by sticky
+    // carry-over, yet the prior revealed participation marks it as not-first).
+    // With nobody in their first cycle, no boost applies and the higher-raw
+    // returning pair user-a::user-b (64) wins over user-a::user-c (60).
+    const prisma = createPairCalculationPrisma({
+      historicalParticipations: [
+        createHistoricalParticipation(
+          'user-a',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-b',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-c',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+      ],
+      matchedParticipations: [
+        { userId: 'user-a', cycleId: 'cycle-1' },
+        { userId: 'user-b', cycleId: 'cycle-1' },
+        { userId: 'user-c', cycleId: 'cycle-1' },
+      ],
+    });
+    const service = createCyclesService(prisma);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'calculatePairRawScore'
+    >;
+    const participants = [
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+      createBroadParticipant('user-c', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
+            'user-a::user-b': { rawScore: 64 },
+            'user-a::user-c': { rawScore: 60 },
+          };
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+      'cycle-4',
+    );
+
+    expect(result.selectedPairs).toHaveLength(1);
+    expect(result.selectedPairs[0]).toMatchObject({
+      left: { id: 'user-a' },
+      right: { id: 'user-b' },
+      score: 64,
+    });
+  });
+
+  it('keeps maximizing matched users even when the highest-scoring pair is all first-cycle', async () => {
+    // user-a and user-b are first-cycle (no prior participation); user-c and
+    // user-d are returning users matched before (streak 0). Pairing a-b scores
+    // 100 and carries a +12 both-new boost, but selecting it leaves c and d
+    // unmatched. The match-count tier must still win, pairing a-c and b-d.
+    const prisma = createPairCalculationPrisma({
+      historicalParticipations: [
+        createHistoricalParticipation(
+          'user-c',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+        createHistoricalParticipation(
+          'user-d',
+          'cycle-1',
+          '2026-04-01T00:00:00.000Z',
+        ),
+      ],
+      matchedParticipations: [
+        { userId: 'user-c', cycleId: 'cycle-1' },
+        { userId: 'user-d', cycleId: 'cycle-1' },
+      ],
+    });
+    const service = createCyclesService(prisma);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const scorePairHarness = service as unknown as Pick<
+      CyclesServiceTestHarness,
+      'calculatePairRawScore'
+    >;
+    const participants = [
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+      createBroadParticipant('user-c', {}),
+      createBroadParticipant('user-d', {}),
+    ];
+
+    jest
+      .spyOn(scorePairHarness, 'calculatePairRawScore')
+      .mockImplementation(
+        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
+          const pairKey = [left.id, right.id].sort().join('::');
+          const scoreByPairKey: Record<string, { rawScore: number }> = {
+            'user-a::user-b': { rawScore: 100 },
+            'user-a::user-c': { rawScore: 40 },
+            'user-b::user-d': { rawScore: 40 },
+          };
+          const score = scoreByPairKey[pairKey];
+          return score
+            ? { ...score, scoreBounds: MOCK_RAW_SCORE_BOUNDS }
+            : null;
+        },
+      );
+
+    const result = await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+      'cycle-4',
+    );
+
+    expect(result.selectedPairs).toHaveLength(2);
+    expect(
+      result.selectedPairs.map((pair) =>
+        [pair.left.id, pair.right.id].sort().join('::'),
+      ),
+    ).toEqual(['user-a::user-c', 'user-b::user-d']);
+  });
+
+  it('loads first-cycle status using the same revealed opted-in window as unmatched streaks', async () => {
+    const prisma = createPairCalculationPrisma();
+    const service = createCyclesService(prisma);
+    const calculatePairs = (
+      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
+    ).calculatePairs.bind(service);
+    const participants = [
+      createBroadParticipant('user-a', {}),
+      createBroadParticipant('user-b', {}),
+    ];
+
+    await calculatePairs(
+      participants,
+      [],
+      new Date('2026-04-10T00:00:00.000Z'),
+      'cycle-current',
+    );
+
+    // The first-cycle lookup must mirror the unmatched-streak window — earlier
+    // REVEALED opt-ins with a usable intent, current cycle excluded — so a
+    // returning user is never misread as first-cycle. The streak query carries
+    // no distinct, so this exact-shape assertion only matches the first-cycle
+    // query. These where fields are not exercised by the resolved-value mock.
+    expect(prisma.cycleParticipation.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: { in: ['user-a', 'user-b'] },
+        status: 'OPTED_IN',
+        intent: { not: null },
+        cycleId: { not: 'cycle-current' },
+        cycle: {
+          status: 'REVEALED',
+          revealAt: { lt: new Date('2026-04-10T00:00:00.000Z') },
+        },
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+  });
 });
