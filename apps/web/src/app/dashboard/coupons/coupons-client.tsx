@@ -498,13 +498,21 @@ function CouponsPanel({
   );
 }
 
-export function CouponsClient() {
-  const [coupons, setCoupons] = useState<MyCoupon[] | null>(null);
-  const [loading, setLoading] = useState(true);
+export function CouponsClient({
+  initialCoupons = null,
+}: {
+  initialCoupons?: MyCoupon[] | null;
+}) {
+  const [coupons, setCoupons] = useState<MyCoupon[] | null>(initialCoupons);
+  const [loading, setLoading] = useState(initialCoupons === null);
   const [error, setError] = useState<string | null>(null);
   const [selectedCoupon, setSelectedCoupon] = useState<MyCoupon | null>(null);
 
   useEffect(() => {
+    // Server already provided the list; skip the redundant client fetch.
+    if (initialCoupons !== null) {
+      return;
+    }
     let active = true;
     fetchMyCoupons()
       .then((result) => {
@@ -521,7 +529,7 @@ export function CouponsClient() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialCoupons]);
 
   if (loading) {
     return (
