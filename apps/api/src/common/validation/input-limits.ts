@@ -18,6 +18,9 @@ export const QUESTIONNAIRE_ACKNOWLEDGEMENT_KEY_MAX_LENGTH = 128;
 
 export const ADMIN_LIST_PAGE_MAX = 100_000;
 export const ADMIN_LIST_PAGE_SIZE_MAX = 50;
+// Safety cap for admin list endpoints called without any filter/pagination
+// params, preventing an unbounded full-table scan.
+export const ADMIN_LIST_UNFILTERED_MAX = 200;
 export const ADMIN_SEARCH_MAX_LENGTH = 120;
 export const ADMIN_ID_MAX_LENGTH = 128;
 export const ADMIN_DESCRIPTION_MAX_LENGTH = 1_000;

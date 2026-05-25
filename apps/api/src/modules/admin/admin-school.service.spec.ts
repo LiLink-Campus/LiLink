@@ -234,6 +234,10 @@ describe('AdminSchoolService', () => {
               updateMany: jest.fn().mockResolvedValue({ count: 1 }),
             },
             questionnaireResponse,
+            // Prefilter selecting candidate responses that reference the school.
+            $queryRaw: jest
+              .fn()
+              .mockResolvedValue([{ id: 'response-1' }, { id: 'response-2' }]),
           }),
         ),
       ),
@@ -364,6 +368,8 @@ describe('AdminSchoolService', () => {
               deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
             },
             questionnaireResponse,
+            // Prefilter selecting candidate responses that reference the school.
+            $queryRaw: jest.fn().mockResolvedValue([{ id: 'response-1' }]),
           }),
         ),
       ),

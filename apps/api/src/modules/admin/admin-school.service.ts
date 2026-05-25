@@ -5,7 +5,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { isDeepStrictEqual } from 'node:util';
-import type { Prisma } from '../../common/prisma/client';
+import { Prisma } from '../../common/prisma/client';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
@@ -26,7 +26,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 type DashboardSnapshotPort = Pick<
   DashboardSnapshotService,
-  'syncUserMatchSnapshots'
+  'syncMatchSnapshots'
 >;
 
 type SchoolResolverPort = Pick<
@@ -35,7 +35,7 @@ type SchoolResolverPort = Pick<
 >;
 
 const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
-  syncUserMatchSnapshots() {
+  syncMatchSnapshots() {
     return Promise.resolve();
   },
 };
@@ -232,6 +232,7 @@ export class AdminSchoolService {
         rewrittenSchoolIds: {
           [sourceSchoolId]: targetSchoolId,
         },
+        affectedUserIds,
       });
 
       await tx.schoolDomain.updateMany({
@@ -280,6 +281,7 @@ export class AdminSchoolService {
         rewrittenSchoolIds: {
           [schoolId]: null,
         },
+        affectedUserIds,
       });
 
       await tx.schoolDomain.deleteMany({ where: { schoolId } });
@@ -318,9 +320,21 @@ export class AdminSchoolService {
     options: {
       allowedSchoolIds: readonly string[];
       rewrittenSchoolIds?: Readonly<Record<string, string | null>>;
+      affectedUserIds?: readonly string[];
     },
   ) {
+    const responseIds = await this.findResponsesReferencingSchools(
+      tx,
+      Object.keys(options.rewrittenSchoolIds ?? {}),
+      options.affectedUserIds ?? [],
+    );
+
+    if (responseIds.length === 0) {
+      return;
+    }
+
     const responses = await tx.questionnaireResponse.findMany({
+      where: { id: { in: responseIds } },
       select: {
         id: true,
         answers: true,
@@ -365,6 +379,51 @@ export class AdminSchoolService {
         data,
       });
     }
+  }
+
+  /**
+   * A response can only change if its answers/draftAnswers reference one of the
+   * affected school ids — either as the user's own `hard_school` value or inside
+   * the partner-school exclusion lists. School ids are opaque cuids, so a
+   * substring match over the serialized JSON is a strict superset of the rows
+   * the rewrite below can touch (the per-row recompute still decides the actual
+   * change), letting Postgres filter instead of streaming every response into
+   * the app. `affectedUserIds` is unioned in because a moved user's own
+   * `hard_school` is rewritten to their new school even when the old value is
+   * absent from the JSON. Falls back to a full scan if no rewrite mapping is
+   * supplied.
+   */
+  private async findResponsesReferencingSchools(
+    tx: Prisma.TransactionClient,
+    schoolIds: readonly string[],
+    affectedUserIds: readonly string[],
+  ): Promise<string[]> {
+    if (schoolIds.length === 0) {
+      const all = await tx.questionnaireResponse.findMany({
+        select: { id: true },
+      });
+      return all.map((response) => response.id);
+    }
+
+    const conditions = [...new Set(schoolIds)].map(
+      (schoolId) => Prisma.sql`(
+        strpos("answers"::text, ${schoolId}) > 0
+        OR strpos(COALESCE("draftAnswers"::text, ''), ${schoolId}) > 0
+      )`,
+    );
+
+    const uniqueUserIds = [...new Set(affectedUserIds)];
+    if (uniqueUserIds.length > 0) {
+      conditions.push(Prisma.sql`"userId" IN (${Prisma.join(uniqueUserIds)})`);
+    }
+
+    const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id"
+      FROM "QuestionnaireResponse"
+      WHERE ${Prisma.join(conditions, ' OR ')}
+    `);
+
+    return rows.map((row) => row.id);
   }
 
   private syncQuestionnaireDraftAnswers(
@@ -461,8 +520,23 @@ export class AdminSchoolService {
   }
 
   private async syncSnapshotsForUserIds(userIds: string[]) {
-    for (const userId of userIds) {
-      await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+    if (userIds.length === 0) {
+      return;
+    }
+
+    // Rebuild each affected match's snapshots once. The previous per-user fan-out
+    // re-loaded every user's matches and rebuilt shared matches (both members in
+    // the affected set) twice; collecting distinct match ids up front avoids both.
+    const matchParticipants = await this.prisma.matchParticipant.findMany({
+      where: { userId: { in: userIds } },
+      select: { matchId: true },
+    });
+    const matchIds = [
+      ...new Set(matchParticipants.map((participant) => participant.matchId)),
+    ];
+
+    for (const matchId of matchIds) {
+      await this.dashboardSnapshotService.syncMatchSnapshots(matchId);
     }
   }
 }

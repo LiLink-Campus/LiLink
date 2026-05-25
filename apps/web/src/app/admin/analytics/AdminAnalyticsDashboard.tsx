@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
@@ -7,8 +8,6 @@ import commonStyles from "../admin-common.module.css";
 import { AdminRefreshButton } from "../merchant-admin-ui";
 import styles from "./admin-analytics.module.css";
 import MatchLeaderboardTable from "./MatchLeaderboardTable";
-import SchoolsGenderChart from "./SchoolsGenderChart";
-import WeeklyOptinChart from "./WeeklyOptinChart";
 import type {
   MatchLeaderboardResponse,
   SchoolsGenderResponse,
@@ -16,6 +15,22 @@ import type {
 } from "./types";
 
 const adminStyles = [commonStyles, styles];
+
+// recharts (and its d3 deps) is the heaviest dependency in the app and is only
+// used on this admin route, so load it lazily on the client instead of bundling
+// it into the route's initial chunk.
+const ChartPanelFallback = () => (
+  <section className={cx(adminStyles, "analytics-panel")} aria-busy="true" />
+);
+
+const SchoolsGenderChart = dynamic(() => import("./SchoolsGenderChart"), {
+  ssr: false,
+  loading: ChartPanelFallback,
+});
+const WeeklyOptinChart = dynamic(() => import("./WeeklyOptinChart"), {
+  ssr: false,
+  loading: ChartPanelFallback,
+});
 
 export default function AdminAnalyticsDashboard() {
   const [includeTest, setIncludeTest] = useState(false);

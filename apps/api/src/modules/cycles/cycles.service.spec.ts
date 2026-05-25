@@ -380,9 +380,11 @@ describe('CyclesService', () => {
       state: 'REVEALED',
       createdMatches: 0,
     });
+    // Snapshots are rebuilt outside the reveal transaction (no tx client), so
+    // the reveal's status/match updates commit before the per-participation
+    // rebuild runs.
     expect(dashboardSnapshotService.syncCycleSnapshots).toHaveBeenCalledWith(
       'cycle-1',
-      revealTx,
     );
   });
 

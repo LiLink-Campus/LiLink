@@ -23,6 +23,7 @@ import {
   buildPageResult,
   normalizeAdminListPagination,
 } from '../../common/pagination';
+import { ADMIN_LIST_UNFILTERED_MAX } from '../../common/validation/input-limits';
 import {
   AdminUpdateUserDto,
   BatchReviewReportsDto,
@@ -265,6 +266,7 @@ export class AdminService {
           },
         },
         orderBy: { revealAt: 'desc' },
+        take: ADMIN_LIST_UNFILTERED_MAX,
       });
     }
 
@@ -305,6 +307,7 @@ export class AdminService {
       return this.prisma.report.findMany({
         select: adminReportListSelect,
         orderBy: { createdAt: 'desc' },
+        take: ADMIN_LIST_UNFILTERED_MAX,
       });
     }
 
@@ -400,6 +403,7 @@ export class AdminService {
       return this.prisma.user.findMany({
         select: adminUserListSelect,
         orderBy: { createdAt: 'desc' },
+        take: ADMIN_LIST_UNFILTERED_MAX,
       });
     }
 

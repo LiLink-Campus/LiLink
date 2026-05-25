@@ -35,15 +35,23 @@ const INVITE_PROGRESS: {
   },
 ];
 
-export function ReferralsClient() {
-  const [data, setData] = useState<MyReferralOverview | null>(null);
-  const [loading, setLoading] = useState(true);
+export function ReferralsClient({
+  initialReferral = null,
+}: {
+  initialReferral?: MyReferralOverview | null;
+}) {
+  const [data, setData] = useState<MyReferralOverview | null>(initialReferral);
+  const [loading, setLoading] = useState(initialReferral === null);
   const [error, setError] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
+    // Server already provided the overview; skip the redundant client fetch.
+    if (initialReferral !== null) {
+      return;
+    }
     let active = true;
     fetchMyReferral()
       .then((result) => {
@@ -60,7 +68,7 @@ export function ReferralsClient() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialReferral]);
 
   async function copyReferralCode(code: string) {
     try {
