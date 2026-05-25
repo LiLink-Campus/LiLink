@@ -34,21 +34,27 @@ export default function AdminAnalyticsDashboard() {
     async (signal: AbortSignal) => {
       setLoading(true);
       setError(null);
-      const query = includeTest ? "?includeTest=true" : "";
+      const sharedParams = new URLSearchParams();
+      if (includeTest) sharedParams.set("includeTest", "true");
+      const sharedQuery =
+        sharedParams.size > 0 ? `?${sharedParams.toString()}` : "";
+      const weeklyOptinParams = new URLSearchParams(sharedParams);
+      weeklyOptinParams.set("limit", "8");
+      const weeklyOptinQuery = `?${weeklyOptinParams.toString()}`;
 
       try {
         const [schoolsGenderData, weeklyOptinData, leaderboardData] =
           await Promise.all([
             fetchApi<SchoolsGenderResponse>(
-              `/admin/analytics/schools-gender${query}`,
+              `/admin/analytics/schools-gender${sharedQuery}`,
               { signal },
             ),
             fetchApi<WeeklyOptinResponse>(
-              `/admin/analytics/weekly-optin${query}`,
+              `/admin/analytics/weekly-optin${weeklyOptinQuery}`,
               { signal },
             ),
             fetchApi<MatchLeaderboardResponse>(
-              `/admin/analytics/match-leaderboard${query}`,
+              `/admin/analytics/match-leaderboard${sharedQuery}`,
               { signal },
             ),
           ]);
