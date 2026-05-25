@@ -1,11 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { createPublicReadThrottle } from '../../common/http/public-read-throttle';
+import { PUBLIC_READ_THROTTLE } from '../../common/http/public-read-throttle';
 
 @Controller('health')
 export class HealthController {
   @Get()
-  @Throttle(createPublicReadThrottle())
+  @Throttle(PUBLIC_READ_THROTTLE)
   getHealth() {
     return {
       ok: true,

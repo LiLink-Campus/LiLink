@@ -9,6 +9,7 @@ import {
   type PrepareRedeemResponse,
   type RedeemResponse,
 } from "@/lib/api";
+import { formatYuan } from "@/lib/format";
 import { RedeemConfirm } from "../../merchant/_components/RedeemConfirm";
 import "../../merchant/merchant.css";
 
@@ -28,11 +29,6 @@ const PREPARE_FAIL_MESSAGES: Record<
   ALREADY_USED: "该券已使用。",
   INVALID: "无效的核销码。",
 };
-
-/** Convert cents to yuan string, e.g. 100 → "1.00". */
-function formatYuan(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
 
 /** Success view shown after scan-confirm redemption (spec §9.2). */
 function ScanSuccessView({ redeemResult }: { redeemResult: RedeemResponse }) {

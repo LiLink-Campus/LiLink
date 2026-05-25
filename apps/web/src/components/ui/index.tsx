@@ -1,8 +1,7 @@
+import { cx } from "@/lib/cx";
 import Link from "next/link";
 import type {
   ComponentPropsWithoutRef,
-  CSSProperties,
-  ElementType,
   ReactNode,
 } from "react";
 
@@ -16,19 +15,6 @@ type CardElevation = "sm" | "md";
 type ControlSize = "md" | "lg";
 type ControlRadius = "md" | "sm";
 type ControlBorder = "strong" | "subtle";
-type BadgeTone =
-  | "neutral"
-  | "brand"
-  | "accent"
-  | "success"
-  | "warning"
-  | "danger"
-  | "gold"
-  | "coral";
-
-function cx(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(" ");
-}
 
 function buttonClassName(
   variant: ButtonVariant = "primary",
@@ -148,33 +134,6 @@ export function Card({
   );
 }
 
-export type CardHeaderProps = ComponentPropsWithoutRef<"div">;
-
-export function CardHeader({ className, ...props }: CardHeaderProps) {
-  return <div className={cx("ui-card-header", className)} {...props} />;
-}
-
-export type CardTitleProps = ComponentPropsWithoutRef<"h2"> & {
-  as?: "h2" | "h3";
-};
-
-export function CardTitle({
-  as: Component = "h2",
-  className,
-  ...props
-}: CardTitleProps) {
-  return <Component className={cx("ui-card-title", className)} {...props} />;
-}
-
-export type CardDescriptionProps = ComponentPropsWithoutRef<"p">;
-
-export function CardDescription({
-  className,
-  ...props
-}: CardDescriptionProps) {
-  return <p className={cx("ui-card-description", className)} {...props} />;
-}
-
 export type FieldProps = ComponentPropsWithoutRef<"label"> & {
   label?: ReactNode;
   hint?: ReactNode;
@@ -233,26 +192,6 @@ export function Input({
   );
 }
 
-export type TextareaProps = ComponentPropsWithoutRef<"textarea">;
-
-export function Textarea({ className, ...props }: TextareaProps) {
-  return <textarea className={cx("ui-textarea", className)} {...props} />;
-}
-
-export type SelectProps = ComponentPropsWithoutRef<"select">;
-
-export function Select({ className, ...props }: SelectProps) {
-  return <select className={cx("ui-select", className)} {...props} />;
-}
-
-export type BadgeProps = ComponentPropsWithoutRef<"span"> & {
-  tone?: BadgeTone;
-};
-
-export function Badge({ tone = "neutral", className, ...props }: BadgeProps) {
-  return <span className={cx("ui-badge", `ui-badge--${tone}`, className)} {...props} />;
-}
-
 export type FormMessageProps = ComponentPropsWithoutRef<"p"> & {
   tone?: "error" | "success";
 };
@@ -269,65 +208,3 @@ export function FormMessage({
     />
   );
 }
-
-type Gap = CSSProperties["gap"];
-
-export type StackProps = ComponentPropsWithoutRef<"div"> & {
-  gap?: Gap;
-};
-
-export function Stack({ gap, className, style, ...props }: StackProps) {
-  return (
-    <div
-      className={cx("ui-stack", className)}
-      style={{ "--stack-gap": gap, ...style } as CSSProperties}
-      {...props}
-    />
-  );
-}
-
-export type InlineProps = ComponentPropsWithoutRef<"div"> & {
-  gap?: Gap;
-};
-
-export function Inline({ gap, className, style, ...props }: InlineProps) {
-  return (
-    <div
-      className={cx("ui-inline", className)}
-      style={{ "--inline-gap": gap, ...style } as CSSProperties}
-      {...props}
-    />
-  );
-}
-
-export type SegmentedControlProps = ComponentPropsWithoutRef<"div">;
-
-export function SegmentedControl({
-  className,
-  ...props
-}: SegmentedControlProps) {
-  return <div className={cx("ui-segmented", className)} {...props} />;
-}
-
-export type SegmentedControlItemProps = ComponentPropsWithoutRef<"button"> & {
-  active?: boolean;
-};
-
-export function SegmentedControlItem({
-  active,
-  className,
-  ...props
-}: SegmentedControlItemProps) {
-  return (
-    <button
-      aria-pressed={active}
-      className={cx("ui-segmented-item", className)}
-      type="button"
-      {...props}
-    />
-  );
-}
-
-export type PolymorphicInlineProps = ComponentPropsWithoutRef<"span"> & {
-  as?: ElementType;
-};

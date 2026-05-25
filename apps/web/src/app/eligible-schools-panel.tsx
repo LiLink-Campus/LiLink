@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { cx } from "../lib/cx";
 import {
   type EligibleSchool,
   type EligibleSchoolsPayload,
@@ -18,7 +19,6 @@ import {
 import styles from "./eligible-schools-panel.module.css";
 
 const SEARCH_PLACEHOLDER = "搜索学校名称或邮箱后缀…";
-const SEARCH_RESULT_TRUNCATE_THRESHOLD = 12;
 
 type EligibleSchoolsPanelProps = {
   emailInput?: string;
@@ -36,10 +36,6 @@ type DataState =
   | { status: "error"; message: string };
 
 const DEFAULT_ERROR_MESSAGE = "无法加载学校列表，请稍后再试。";
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export function EligibleSchoolsPanel({
   emailInput = "",
@@ -61,7 +57,6 @@ export function EligibleSchoolsPanel({
   });
   const [expanded, setExpanded] = useState(defaultExpanded || !collapsible);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showAllResults, setShowAllResults] = useState(true);
   const headingId = useId();
   const matchedCardRef = useRef<HTMLLIElement | null>(null);
 
@@ -124,17 +119,6 @@ export function EligibleSchoolsPanel({
       behavior: "smooth",
     });
   }, [matchResult, expanded, collapsible]);
-
-  const shouldTruncateLargeResultSet =
-    !showAllResults && filteredSchools.length > SEARCH_RESULT_TRUNCATE_THRESHOLD;
-  const visibleSchools = shouldTruncateLargeResultSet
-    ? filteredSchools.slice(0, SEARCH_RESULT_TRUNCATE_THRESHOLD)
-    : filteredSchools;
-
-  const hiddenCount = Math.max(
-    0,
-    filteredSchools.length - visibleSchools.length,
-  );
 
   function renderSummaryBadge() {
     if (dataState.status === "loading") {
@@ -278,20 +262,9 @@ export function EligibleSchoolsPanel({
     }
 
     return (
-      <>
-        <ul className={styles.grid}>
-          {visibleSchools.map(renderSchoolCard)}
-        </ul>
-        {hiddenCount > 0 && (
-          <button
-            type="button"
-            className={styles.showMore}
-            onClick={() => setShowAllResults(true)}
-          >
-            展开剩余 {hiddenCount} 所学校
-          </button>
-        )}
-      </>
+      <ul className={styles.grid}>
+        {filteredSchools.map(renderSchoolCard)}
+      </ul>
     );
   }
 

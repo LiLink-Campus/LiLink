@@ -14,15 +14,12 @@ import {
 } from "../_components/icons";
 import { recordShareEvent } from "../../../lib/api";
 
-// ReferralChannel re-exported as ShareChannel for local clarity.
-type ShareChannel = ReferralChannel;
-
 type ChannelLink = {
   channel: string;
   url: string;
 };
 
-const SHARE_CHANNEL_ORDER: ShareChannel[] = [
+const SHARE_CHANNEL_ORDER: ReferralChannel[] = [
   "WECHAT_PRIVATE",
   "WECHAT_GROUP",
   "WECHAT_MOMENTS",
@@ -32,7 +29,7 @@ const SHARE_CHANNEL_ORDER: ShareChannel[] = [
 ];
 
 // Icon map kept local — shared CHANNEL_META intentionally omits React icon refs.
-const CHANNEL_ICONS: Record<ShareChannel, typeof LinkIcon> = {
+const CHANNEL_ICONS: Record<ReferralChannel, typeof LinkIcon> = {
   WECHAT_PRIVATE: MessageCircleIcon,
   WECHAT_GROUP: PeopleIcon,
   WECHAT_MOMENTS: ShareIcon,
@@ -52,7 +49,7 @@ type ReferralShareSheetProps = {
   open: boolean;
   links: ChannelLink[];
   onClose: () => void;
-  onShare: (channel: ShareChannel, url: string) => Promise<boolean>;
+  onShare: (channel: ReferralChannel, url: string) => Promise<boolean>;
 };
 
 export function ReferralShareSheet({
@@ -61,8 +58,8 @@ export function ReferralShareSheet({
   onClose,
   onShare,
 }: ReferralShareSheetProps) {
-  const [activeChannel, setActiveChannel] = useState<ShareChannel | null>(null);
-  const [copiedChannel, setCopiedChannel] = useState<ShareChannel | null>(null);
+  const [activeChannel, setActiveChannel] = useState<ReferralChannel | null>(null);
+  const [copiedChannel, setCopiedChannel] = useState<ReferralChannel | null>(null);
   const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
@@ -93,7 +90,7 @@ export function ReferralShareSheet({
   const linkByChannel = new Map(links.map((link) => [link.channel, link.url]));
   const qrUrl = linkByChannel.get("QR") ?? links[0]?.url ?? null;
 
-  async function handleChoose(channel: ShareChannel) {
+  async function handleChoose(channel: ReferralChannel) {
     if (sharing) return;
 
     if (channel === "QR") {

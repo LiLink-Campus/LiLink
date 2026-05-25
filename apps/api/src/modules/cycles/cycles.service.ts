@@ -96,7 +96,6 @@ type EligibleParticipant = {
   hardMatchAnswers: HardMatchAnswers;
   answers: Record<string, unknown>;
   intent: WeeklyIntent;
-  introLine: string;
 };
 
 type CandidatePair = {
@@ -1256,7 +1255,6 @@ export class CyclesService {
           hardMatchAnswers,
           answers,
           intent: entry.intent,
-          introLine: hardMatchAnswers.oneLinerIntro,
         };
       })
       .filter(
@@ -1376,10 +1374,11 @@ export class CyclesService {
     const participantCount = participants.length;
 
     for (let leftIndex = 0; leftIndex < participants.length; leftIndex += 1) {
-      for (const rightIndex of this.buildCandidatePartnerIndexes(
-        leftIndex,
-        participantCount,
-      )) {
+      for (
+        let rightIndex = leftIndex + 1;
+        rightIndex < participantCount;
+        rightIndex += 1
+      ) {
         const left = participants[leftIndex];
         const right = participants[rightIndex];
         const candidateResult = this.buildCandidatePair({
@@ -1489,22 +1488,6 @@ export class CyclesService {
         }),
       },
     };
-  }
-
-  private buildCandidatePartnerIndexes(
-    leftIndex: number,
-    participantCount: number,
-  ) {
-    const indexes: number[] = [];
-    for (
-      let rightIndex = leftIndex + 1;
-      rightIndex < participantCount;
-      rightIndex += 1
-    ) {
-      indexes.push(rightIndex);
-    }
-
-    return indexes;
   }
 
   private compareCandidatePairs(first: CandidatePair, second: CandidatePair) {
