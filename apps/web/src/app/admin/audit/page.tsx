@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { cx } from "../admin-class-names";
+import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
@@ -129,21 +130,14 @@ export default function AdminAuditPage() {
         </table>
       </div>
       {data ? (
-        <div className={cx(adminStyles, "admin-pagination")}>
-          <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">
-            上一页
-          </button>
-          <span>
-            {data.page} / {data.totalPages} · 共 {data.total} 条日志
-          </span>
-          <button
-            disabled={data.page >= data.totalPages}
-            onClick={() => setPage(data.page + 1)}
-            type="button"
-          >
-            下一页
-          </button>
-        </div>
+        <AdminPagination
+          className={cx(adminStyles, "admin-pagination")}
+          page={data.page}
+          totalPages={data.totalPages}
+          total={data.total}
+          unit="条日志"
+          onPageChange={setPage}
+        />
       ) : null}
     </div>
   );

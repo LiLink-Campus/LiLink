@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
+import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
 import inviteStyles from "../invite-codes/admin-invite-codes.module.css";
 import { AdminRefreshButton, MERCHANT_ROLE_LABELS } from "../merchant-admin-ui";
@@ -316,25 +317,14 @@ export default function AdminMerchantsPage() {
         </div>
 
         {data && data.totalPages > 1 && (
-          <div className={cx(adminStyles, "admin-pagination ic-list-pagination")}>
-            <button
-              disabled={data.page <= 1}
-              onClick={() => setPage(data.page - 1)}
-              type="button"
-            >
-              上一页
-            </button>
-            <span>
-              {data.page} / {data.totalPages} · 共 {data.total} 个商家
-            </span>
-            <button
-              disabled={data.page >= data.totalPages}
-              onClick={() => setPage(data.page + 1)}
-              type="button"
-            >
-              下一页
-            </button>
-          </div>
+          <AdminPagination
+            className={cx(adminStyles, "admin-pagination ic-list-pagination")}
+            page={data.page}
+            totalPages={data.totalPages}
+            total={data.total}
+            unit="个商家"
+            onPageChange={setPage}
+          />
         )}
       </section>
     </div>

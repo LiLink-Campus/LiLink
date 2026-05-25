@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
+import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
@@ -314,21 +315,14 @@ export default function AdminReportsPage() {
             ) : null}
           </div>
           {data ? (
-            <div className={cx(adminStyles, "admin-pagination")}>
-              <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">
-                上一页
-              </button>
-              <span>
-                {data.page} / {data.totalPages} · 共 {data.total} 条举报
-              </span>
-              <button
-                disabled={data.page >= data.totalPages}
-                onClick={() => setPage(data.page + 1)}
-                type="button"
-              >
-                下一页
-              </button>
-            </div>
+            <AdminPagination
+              className={cx(adminStyles, "admin-pagination")}
+              page={data.page}
+              totalPages={data.totalPages}
+              total={data.total}
+              unit="条举报"
+              onPageChange={setPage}
+            />
           ) : null}
         </article>
 

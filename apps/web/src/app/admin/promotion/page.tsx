@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import { MEDIUM_LABELS, SCENE_LABELS, type ReferralMedium } from "@lilink/shared";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
+import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
 import inviteStyles from "../invite-codes/admin-invite-codes.module.css";
 import {
@@ -949,26 +950,13 @@ export default function AdminPromotionPage() {
                     </table>
                   </div>
                   {leaderboard.totalPages > 1 && (
-                    <div className={cx(adminStyles, "admin-pagination")}>
-                      <button
-                        disabled={leaderboard.page <= 1}
-                        onClick={() => void goLeaderboard(leaderboard.page - 1)}
-                        type="button"
-                      >
-                        上一页
-                      </button>
-                      <span>
-                        {leaderboard.page} / {leaderboard.totalPages} · 共{" "}
-                        {leaderboard.total}
-                      </span>
-                      <button
-                        disabled={leaderboard.page >= leaderboard.totalPages}
-                        onClick={() => void goLeaderboard(leaderboard.page + 1)}
-                        type="button"
-                      >
-                        下一页
-                      </button>
-                    </div>
+                    <AdminPagination
+                      className={cx(adminStyles, "admin-pagination")}
+                      page={leaderboard.page}
+                      totalPages={leaderboard.totalPages}
+                      total={leaderboard.total}
+                      onPageChange={(nextPage) => void goLeaderboard(nextPage)}
+                    />
                   )}
                 </>
               )}
@@ -1069,28 +1057,13 @@ export default function AdminPromotionPage() {
                         </table>
                       </div>
                       {redemptions.totalPages > 1 && (
-                        <div className={cx(adminStyles, "admin-pagination")}>
-                          <button
-                            disabled={redemptions.page <= 1}
-                            onClick={() => void goRedemptions(redemptions.page - 1)}
-                            type="button"
-                          >
-                            上一页
-                          </button>
-                          <span>
-                            {redemptions.page} / {redemptions.totalPages} · 共{" "}
-                            {redemptions.total}
-                          </span>
-                          <button
-                            disabled={
-                              redemptions.page >= redemptions.totalPages
-                            }
-                            onClick={() => void goRedemptions(redemptions.page + 1)}
-                            type="button"
-                          >
-                            下一页
-                          </button>
-                        </div>
+                        <AdminPagination
+                          className={cx(adminStyles, "admin-pagination")}
+                          page={redemptions.page}
+                          totalPages={redemptions.totalPages}
+                          total={redemptions.total}
+                          onPageChange={(nextPage) => void goRedemptions(nextPage)}
+                        />
                       )}
                     </>
                   )}
