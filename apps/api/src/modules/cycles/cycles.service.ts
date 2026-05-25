@@ -907,8 +907,6 @@ export class CyclesService {
         },
       });
 
-      await this.dashboardSnapshotService.syncCycleSnapshots(cycle.id, tx);
-
       return revealedMatches.count;
     });
 
@@ -920,6 +918,20 @@ export class CyclesService {
         createdMatches: 0,
         message: 'Cycle is already being revealed.',
       };
+    }
+
+    // Rebuild dashboard snapshots outside the reveal transaction so the cycle
+    // status / match updates commit (and release their row locks) quickly
+    // instead of being held for the whole per-participation rebuild. A failure
+    // here is recoverable: dashboard reads repair coverage lazily via
+    // ensureUserSnapshotCoverage, and admins can re-trigger a cycle sync.
+    try {
+      await this.dashboardSnapshotService.syncCycleSnapshots(cycle.id);
+    } catch (error) {
+      this.logger.error(
+        `Cycle ${cycle.id} revealed but dashboard snapshot rebuild failed; relying on lazy coverage.`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
 
     return {

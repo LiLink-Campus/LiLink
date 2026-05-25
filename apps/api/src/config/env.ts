@@ -79,6 +79,14 @@ const envSchema = z.object({
     .max(600_000)
     .default(10_000),
   SMTP_SEND_CONCURRENCY: z.coerce.number().int().min(1).max(100).default(10),
+  // Max emails claimed per scheduled flush (every 30s). Bounded by
+  // SMTP_SEND_CONCURRENCY for the actual parallel send fan-out.
+  OUTBOUND_EMAIL_FLUSH_BATCH_SIZE: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(500)
+    .default(50),
   ADMIN_BOOTSTRAP_EMAIL: z.email().optional(),
   ADMIN_BOOTSTRAP_PASSWORD: z
     .string()

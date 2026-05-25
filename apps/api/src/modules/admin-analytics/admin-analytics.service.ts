@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { HARD_MATCH_KEYS } from '@lilink/shared';
 import {
-  addGender,
   emptyGenderBuckets,
   GenderBuckets,
   genderKey,
   resolveHardGender,
 } from '../../common/analytics/gender';
+import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   AnalyticsBaseQueryDto,
@@ -81,14 +82,31 @@ export class AdminAnalyticsService {
     query: AnalyticsBaseQueryDto,
   ): Promise<SchoolsGenderResponse> {
     const includeTest = query.includeTest === true;
-    const users = await this.prisma.user.findMany({
-      where: includeTest ? {} : { isTest: false },
-      select: {
-        schoolId: true,
-        school: { select: { name: true } },
-        questionnaireResponse: { select: { submittedAt: true, answers: true } },
-      },
-    });
+    // Aggregate (school, gender) counts in SQL so we transfer one row per
+    // (school, gender) bucket instead of every user's full questionnaire JSON.
+    // Authoritative gender = the trimmed hard-match answer of a *submitted*
+    // questionnaire (LEFT JOIN gated on submittedAt), mirroring resolveHardGender.
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        schoolId: string | null;
+        schoolName: string | null;
+        gender: string | null;
+        count: bigint | number;
+      }>
+    >(Prisma.sql`
+      SELECT
+        u."schoolId" AS "schoolId",
+        s."name" AS "schoolName",
+        TRIM(r."answers"->>${HARD_MATCH_KEYS.gender}) AS "gender",
+        COUNT(*)::int AS "count"
+      FROM "User" u
+      LEFT JOIN "School" s ON s."id" = u."schoolId"
+      LEFT JOIN "QuestionnaireResponse" r
+        ON r."userId" = u."id" AND r."submittedAt" IS NOT NULL
+      WHERE 1 = 1
+        ${includeTest ? Prisma.empty : Prisma.sql`AND u."isTest" = false`}
+      GROUP BY u."schoolId", s."name", TRIM(r."answers"->>${HARD_MATCH_KEYS.gender})
+    `);
 
     const noSchool = '__none__';
     const bySchool = new Map<
@@ -97,21 +115,22 @@ export class AdminAnalyticsService {
     >();
     const totals = emptyGenderBuckets();
 
-    for (const user of users) {
-      const schoolKey = user.schoolId ?? noSchool;
+    for (const row of rows) {
+      const schoolKey = row.schoolId ?? noSchool;
       let entry = bySchool.get(schoolKey);
       if (!entry) {
         entry = {
-          schoolId: user.schoolId,
-          schoolName: user.school?.name ?? '（未分配学校）',
+          schoolId: row.schoolId,
+          schoolName: row.schoolName ?? '（未分配学校）',
           buckets: emptyGenderBuckets(),
         };
         bySchool.set(schoolKey, entry);
       }
 
-      const key = genderKey(resolveHardGender(user.questionnaireResponse));
-      entry.buckets[key] += 1;
-      totals[key] += 1;
+      const key = genderKey(row.gender);
+      const count = Number(row.count);
+      entry.buckets[key] += count;
+      totals[key] += count;
     }
 
     const schools: SchoolGenderRow[] = Array.from(bySchool.values())
@@ -153,39 +172,41 @@ export class AdminAnalyticsService {
     });
 
     const cycleIds = cycles.map((cycle) => cycle.id);
-    const participations =
+    // Aggregate opted-in (cycle, gender) counts in SQL instead of pulling every
+    // participant's questionnaire JSON across the recent cycles.
+    const rows =
       cycleIds.length > 0
-        ? await this.prisma.cycleParticipation.findMany({
-            where: {
-              cycleId: { in: cycleIds },
-              status: 'OPTED_IN',
-              intent: { not: null },
-              ...(includeTest ? {} : { user: { isTest: false } }),
-            },
-            select: {
-              cycleId: true,
-              user: {
-                select: {
-                  questionnaireResponse: {
-                    select: { submittedAt: true, answers: true },
-                  },
-                },
-              },
-            },
-          })
+        ? await this.prisma.$queryRaw<
+            Array<{
+              cycleId: string;
+              gender: string | null;
+              count: bigint | number;
+            }>
+          >(Prisma.sql`
+            SELECT
+              cp."cycleId" AS "cycleId",
+              TRIM(r."answers"->>${HARD_MATCH_KEYS.gender}) AS "gender",
+              COUNT(*)::int AS "count"
+            FROM "CycleParticipation" cp
+            JOIN "User" u ON u."id" = cp."userId"
+            LEFT JOIN "QuestionnaireResponse" r
+              ON r."userId" = cp."userId" AND r."submittedAt" IS NOT NULL
+            WHERE cp."cycleId" IN (${Prisma.join(cycleIds)})
+              AND cp."status" = 'OPTED_IN'
+              AND cp."intent" IS NOT NULL
+              ${includeTest ? Prisma.empty : Prisma.sql`AND u."isTest" = false`}
+            GROUP BY cp."cycleId", TRIM(r."answers"->>${HARD_MATCH_KEYS.gender})
+          `)
         : [];
 
     const buckets = new Map<string, GenderBuckets>();
     for (const cycle of cycles) {
       buckets.set(cycle.id, emptyGenderBuckets());
     }
-    for (const participation of participations) {
-      const bucket = buckets.get(participation.cycleId);
+    for (const row of rows) {
+      const bucket = buckets.get(row.cycleId);
       if (!bucket) continue;
-      addGender(
-        bucket,
-        resolveHardGender(participation.user.questionnaireResponse),
-      );
+      bucket[genderKey(row.gender)] += Number(row.count);
     }
 
     const result: WeeklyOptinCycle[] = [...cycles].reverse().map((cycle) => {
@@ -214,6 +235,9 @@ export class AdminAnalyticsService {
     const limit = query.limit ?? 50;
     const userFilter = includeTest ? {} : { isTest: false };
 
+    // Streak metrics need every revealed participation, so this list cannot be
+    // paginated — but it only needs scalar outcome fields. Identity + gender are
+    // fetched once per user below instead of being duplicated on every row.
     const participations = await this.prisma.cycleParticipation.findMany({
       where: {
         status: 'OPTED_IN',
@@ -226,16 +250,6 @@ export class AdminAnalyticsService {
         cycleId: true,
         updatedAt: true,
         cycle: { select: { revealAt: true, createdAt: true } },
-        user: {
-          select: {
-            displayName: true,
-            email: true,
-            school: { select: { name: true } },
-            questionnaireResponse: {
-              select: { submittedAt: true, answers: true },
-            },
-          },
-        },
       },
       orderBy: [
         { userId: 'asc' },
@@ -251,15 +265,41 @@ export class AdminAnalyticsService {
     const userIds = Array.from(
       new Set(participations.map((participation) => participation.userId)),
     );
-    const matched =
+    const [matched, users] = await Promise.all([
       cycleIds.length > 0 && userIds.length > 0
-        ? await this.prisma.matchParticipant.findMany({
+        ? this.prisma.matchParticipant.findMany({
             where: { cycleId: { in: cycleIds }, userId: { in: userIds } },
             select: { userId: true, cycleId: true },
           })
-        : [];
+        : Promise.resolve([]),
+      userIds.length > 0
+        ? this.prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              school: { select: { name: true } },
+              questionnaireResponse: {
+                select: { submittedAt: true, answers: true },
+              },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
     const matchedKeys = new Set(
       matched.map((match) => `${match.userId}::${match.cycleId}`),
+    );
+    const identityByUserId = new Map(
+      users.map((user) => [
+        user.id,
+        {
+          displayName: user.displayName,
+          email: user.email,
+          schoolName: user.school?.name ?? null,
+          gender: genderKey(resolveHardGender(user.questionnaireResponse)),
+        },
+      ]),
     );
 
     interface Accumulator {
@@ -275,14 +315,16 @@ export class AdminAnalyticsService {
     for (const participation of participations) {
       let acc = byUser.get(participation.userId);
       if (!acc) {
+        const identity = identityByUserId.get(participation.userId);
+        if (!identity) {
+          continue;
+        }
         acc = {
           userId: participation.userId,
-          displayName: participation.user.displayName,
-          email: participation.user.email,
-          schoolName: participation.user.school?.name ?? null,
-          gender: genderKey(
-            resolveHardGender(participation.user.questionnaireResponse),
-          ),
+          displayName: identity.displayName,
+          email: identity.email,
+          schoolName: identity.schoolName,
+          gender: identity.gender,
           outcomes: [],
         };
         byUser.set(participation.userId, acc);
