@@ -29,7 +29,9 @@ describe('resolveHardGender', () => {
 
   it('returns null for missing/invalid answers', () => {
     expect(resolveHardGender(null)).toBeNull();
-    expect(resolveHardGender({ submittedAt: submitted, answers: null })).toBeNull();
+    expect(
+      resolveHardGender({ submittedAt: submitted, answers: null }),
+    ).toBeNull();
     expect(
       resolveHardGender({ submittedAt: submitted, answers: { other: 'x' } }),
     ).toBeNull();
