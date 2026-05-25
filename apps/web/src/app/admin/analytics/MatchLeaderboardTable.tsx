@@ -22,145 +22,76 @@ const SORT_KEYS: readonly LeaderboardSortKey[] = [
   "optInRounds",
 ];
 
-const SORTABLE_COLUMNS: {
-  key: LeaderboardSortKey;
-  label: string;
-}[] = [
-  { key: "matchedRounds", label: "匹配次数" },
-  { key: "optInRounds", label: "报名轮次" },
-  { key: "matchRate", label: "匹配率" },
-  { key: "matchStreak", label: "连续匹配" },
-  { key: "unmatchedStreak", label: "连续未匹配" },
-];
+type GenderTab = "male" | "female";
 
 function isLeaderboardSortKey(value: string): value is LeaderboardSortKey {
   return SORT_KEYS.includes(value as LeaderboardSortKey);
+}
+
+function sortLabel(key: LeaderboardSortKey) {
+  switch (key) {
+    case "unmatchedStreak": return "连续未匹配";
+    case "matchStreak": return "连续匹配";
+    case "matchRate": return "匹配率";
+    case "matchedRounds": return "匹配次数";
+    case "optInRounds": return "报名轮次";
+  }
 }
 
 function formatRate(value: number | null) {
   return value == null ? "—" : `${Math.round(value * 100)}%`;
 }
 
-function valueFor(row: LeaderboardRow, key: LeaderboardSortKey) {
-  switch (key) {
-    case "matchedRounds":
-      return row.matchedRounds;
-    case "optInRounds":
-      return row.optInRounds;
-    case "matchRate":
-      return formatRate(row.matchRate);
-    case "matchStreak":
-      return row.currentMatchStreak;
-    case "unmatchedStreak":
-      return row.currentUnmatchedStreak;
-  }
-}
-
-function SortableHeader({
-  column,
-  sort,
-  order,
-  onSort,
+function LeaderboardRowItem({
+  row,
+  rank,
 }: {
-  column: { key: LeaderboardSortKey; label: string };
-  sort: LeaderboardSortKey;
-  order: SortOrder;
-  onSort: (key: LeaderboardSortKey) => void;
+  row: LeaderboardRow;
+  rank: number;
 }) {
-  const active = sort === column.key;
+  const displayName = row.displayName ?? row.email;
 
   return (
-    <th scope="col">
-      <button
-        type="button"
+    <tr>
+      <td className={cx(adminStyles, "analytics-rank-cell")}>
+        <div
+          className={cx(
+            adminStyles,
+            "analytics-rank-badge",
+            rank <= 3 && "is-top",
+          )}
+        >
+          {rank}
+        </div>
+      </td>
+      <td>
+        <div className={cx(adminStyles, "analytics-leaderboard-user")}>
+          <strong title={row.email}>{displayName}</strong>
+          <span>{row.schoolName ?? "未分配学校"}</span>
+        </div>
+      </td>
+      <td
         className={cx(
           adminStyles,
-          "analytics-sort-button",
-          active && "is-active",
+          "analytics-metric-cell",
+          row.currentUnmatchedStreak >= 3 && "is-risk",
         )}
-        onClick={() => onSort(column.key)}
       >
-        <span>{column.label}</span>
-        {active ? (
-          <span aria-hidden="true">{order === "desc" ? "▼" : "▲"}</span>
-        ) : null}
-      </button>
-    </th>
-  );
-}
-
-function LeaderboardBoard({
-  title,
-  rows,
-  sort,
-  order,
-  onSort,
-}: {
-  title: string;
-  rows: LeaderboardRow[];
-  sort: LeaderboardSortKey;
-  order: SortOrder;
-  onSort: (key: LeaderboardSortKey) => void;
-}) {
-  return (
-    <div className={cx(adminStyles, "analytics-board")}>
-      <h3>{title}</h3>
-      {rows.length === 0 ? (
-        <div className={cx(adminStyles, "analytics-placeholder")}>
-          暂无排行榜数据。
-        </div>
-      ) : (
-        <div className={cx(adminStyles, "admin-table-wrap")}>
-          <table
-            className={cx(adminStyles, "admin-table analytics-table")}
-          >
-            <thead>
-              <tr>
-                <th scope="col">排名</th>
-                <th scope="col">用户</th>
-                <th scope="col">学校</th>
-                {SORTABLE_COLUMNS.map((column) => (
-                  <SortableHeader
-                    key={column.key}
-                    column={column}
-                    sort={sort}
-                    order={order}
-                    onSort={onSort}
-                  />
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, index) => (
-                <tr key={row.userId}>
-                  <td className={cx(adminStyles, "analytics-rank-cell")}>
-                    {index + 1}
-                  </td>
-                  <td title={row.email}>
-                    <strong>{row.displayName ?? row.email}</strong>
-                  </td>
-                  <td>{row.schoolName ?? "未分配学校"}</td>
-                  {SORTABLE_COLUMNS.map((column) => (
-                    <td
-                      key={column.key}
-                      className={cx(
-                        adminStyles,
-                        "analytics-metric-cell",
-                        column.key === "unmatchedStreak" &&
-                          row.currentUnmatchedStreak >= 3 &&
-                          "is-risk",
-                      )}
-                    >
-                      {valueFor(row, column.key)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+        {row.currentUnmatchedStreak}
+      </td>
+      <td className={cx(adminStyles, "analytics-metric-cell")}>
+        {row.currentMatchStreak}
+      </td>
+      <td className={cx(adminStyles, "analytics-metric-cell")}>
+        {formatRate(row.matchRate)}
+      </td>
+      <td className={cx(adminStyles, "analytics-metric-cell")}>
+        {row.matchedRounds}
+      </td>
+      <td className={cx(adminStyles, "analytics-metric-cell")}>
+        {row.optInRounds}
+      </td>
+    </tr>
   );
 }
 
@@ -175,6 +106,7 @@ export default function MatchLeaderboardTable({
 }) {
   const [sort, setSort] = useState<LeaderboardSortKey>("unmatchedStreak");
   const [order, setOrder] = useState<SortOrder>("desc");
+  const [genderTab, setGenderTab] = useState<GenderTab>("male");
   const [localData, setLocalData] = useState<MatchLeaderboardResponse | null>(
     data,
   );
@@ -183,9 +115,6 @@ export default function MatchLeaderboardTable({
   const sortAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    // Parent pushed fresh data (initial load, refresh button, or includeTest
-    // change): drop any in-flight sort fetch so a stale response cannot
-    // overwrite this newer data.
     sortAbortRef.current?.abort();
     setLocalData(data);
     if (data) {
@@ -194,13 +123,10 @@ export default function MatchLeaderboardTable({
     }
   }, [data]);
 
-  // Abort an in-flight sort the moment includeTest flips, before the parent's
-  // refetch lands, so a stale-scope response never flashes in.
   useEffect(() => {
     sortAbortRef.current?.abort();
   }, [includeTest]);
 
-  // Cancel a pending sort fetch on unmount.
   useEffect(() => () => sortAbortRef.current?.abort(), []);
 
   const handleSort = useCallback(
@@ -236,9 +162,6 @@ export default function MatchLeaderboardTable({
         if (controller.signal.aborted) return;
         setError(caught instanceof Error ? caught.message : "排行榜加载失败。");
       } finally {
-        // Clear loading only if this is still the active request. An external
-        // abort (includeTest/data effects) leaves the ref pointing here, so the
-        // flag is cleared; a newer sort that superseded us owns it instead.
         if (sortAbortRef.current === controller) setLocalLoading(false);
       }
     },
@@ -246,12 +169,14 @@ export default function MatchLeaderboardTable({
   );
 
   const hasData = Boolean(localData);
+  const rows =
+    genderTab === "male" ? (localData?.male ?? []) : (localData?.female ?? []);
 
   return (
-    <section className={cx(adminStyles, "analytics-panel analytics-panel-wide")}>
+    <section className={cx(adminStyles, "analytics-panel")}>
       <div className={cx(adminStyles, "analytics-panel-head")}>
         <h2>匹配排行榜</h2>
-        <p>按性别查看用户历史匹配表现。</p>
+        <p>按性别查看用户历史匹配表现，点击指标切换排序。</p>
       </div>
       {error ? (
         <p className="ui-form-message ui-form-message--error">{error}</p>
@@ -262,28 +187,155 @@ export default function MatchLeaderboardTable({
         </div>
       ) : localData ? (
         <>
+          <div className={cx(adminStyles, "analytics-leaderboard-toolbar")}>
+            <div className={cx(adminStyles, "admin-tabs analytics-gender-tabs")}>
+              <button
+                type="button"
+                className={
+                  genderTab === "male"
+                    ? "ui-segmented-item active"
+                    : "ui-segmented-item"
+                }
+                onClick={() => setGenderTab("male")}
+              >
+                男生 ({localData.male.length})
+              </button>
+              <button
+                type="button"
+                className={
+                  genderTab === "female"
+                    ? "ui-segmented-item active"
+                    : "ui-segmented-item"
+                }
+                onClick={() => setGenderTab("female")}
+              >
+                女生 ({localData.female.length})
+              </button>
+            </div>
+          </div>
+
           <div className={cx(adminStyles, "analytics-summary-row")}>
-            <span>排序 {sort}</span>
-            <span>{order === "desc" ? "降序" : "升序"}</span>
-            <span>每组上限 {localData.limit}</span>
+            <span>
+              按{sortLabel(sort)}
+              {order === "desc" ? "降序" : "升序"}
+            </span>
+            <span>显示前 {localData.limit} 名</span>
             {localLoading ? <span>更新中…</span> : null}
           </div>
-          <div className={cx(adminStyles, "analytics-leaderboards")}>
-            <LeaderboardBoard
-              title="男生排行榜"
-              rows={localData.male}
-              sort={sort}
-              order={order}
-              onSort={handleSort}
-            />
-            <LeaderboardBoard
-              title="女生排行榜"
-              rows={localData.female}
-              sort={sort}
-              order={order}
-              onSort={handleSort}
-            />
-          </div>
+
+          {rows.length === 0 ? (
+            <div className={cx(adminStyles, "analytics-placeholder")}>
+              暂无排行榜数据。
+            </div>
+          ) : (
+            <div className={cx(adminStyles, "admin-table-wrap")}>
+              <table
+                className={cx(
+                  adminStyles,
+                  "admin-table",
+                  "analytics-table",
+                  localLoading && "is-loading",
+                )}
+                style={localLoading ? { opacity: 0.65, pointerEvents: "none" } : undefined}
+              >
+                <thead>
+                  <tr>
+                    <th style={{ width: "3rem" }}>排名</th>
+                    <th>用户</th>
+                    <th className={cx(adminStyles, "analytics-metric-cell")}>
+                      <button
+                        type="button"
+                        className={cx(
+                          adminStyles,
+                          "analytics-sort-button",
+                          sort === "unmatchedStreak" && "is-active",
+                        )}
+                        onClick={() => void handleSort("unmatchedStreak")}
+                      >
+                        连续未匹配
+                        {sort === "unmatchedStreak" ? (
+                          <span aria-hidden="true">{order === "desc" ? " ↓" : " ↑"}</span>
+                        ) : null}
+                      </button>
+                    </th>
+                    <th className={cx(adminStyles, "analytics-metric-cell")}>
+                      <button
+                        type="button"
+                        className={cx(
+                          adminStyles,
+                          "analytics-sort-button",
+                          sort === "matchStreak" && "is-active",
+                        )}
+                        onClick={() => void handleSort("matchStreak")}
+                      >
+                        连续匹配
+                        {sort === "matchStreak" ? (
+                          <span aria-hidden="true">{order === "desc" ? " ↓" : " ↑"}</span>
+                        ) : null}
+                      </button>
+                    </th>
+                    <th className={cx(adminStyles, "analytics-metric-cell")}>
+                      <button
+                        type="button"
+                        className={cx(
+                          adminStyles,
+                          "analytics-sort-button",
+                          sort === "matchRate" && "is-active",
+                        )}
+                        onClick={() => void handleSort("matchRate")}
+                      >
+                        匹配率
+                        {sort === "matchRate" ? (
+                          <span aria-hidden="true">{order === "desc" ? " ↓" : " ↑"}</span>
+                        ) : null}
+                      </button>
+                    </th>
+                    <th className={cx(adminStyles, "analytics-metric-cell")}>
+                      <button
+                        type="button"
+                        className={cx(
+                          adminStyles,
+                          "analytics-sort-button",
+                          sort === "matchedRounds" && "is-active",
+                        )}
+                        onClick={() => void handleSort("matchedRounds")}
+                      >
+                        匹配次数
+                        {sort === "matchedRounds" ? (
+                          <span aria-hidden="true">{order === "desc" ? " ↓" : " ↑"}</span>
+                        ) : null}
+                      </button>
+                    </th>
+                    <th className={cx(adminStyles, "analytics-metric-cell")}>
+                      <button
+                        type="button"
+                        className={cx(
+                          adminStyles,
+                          "analytics-sort-button",
+                          sort === "optInRounds" && "is-active",
+                        )}
+                        onClick={() => void handleSort("optInRounds")}
+                      >
+                        报名轮次
+                        {sort === "optInRounds" ? (
+                          <span aria-hidden="true">{order === "desc" ? " ↓" : " ↑"}</span>
+                        ) : null}
+                      </button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, index) => (
+                    <LeaderboardRowItem
+                      key={row.userId}
+                      row={row}
+                      rank={index + 1}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       ) : (
         <div className={cx(adminStyles, "analytics-placeholder")}>

@@ -41,9 +41,9 @@
 }
 
 .analytics-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .analytics-panel {
@@ -53,10 +53,6 @@
   background: var(--color-surface);
   padding: 1.2rem 1.25rem;
   box-shadow: var(--shadow-xs);
-}
-
-.analytics-panel-wide {
-  grid-column: 1 / -1;
 }
 
 .analytics-panel-head {
@@ -119,9 +115,61 @@
 }
 
 .analytics-leaderboards {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.analytics-leaderboard-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.analytics-sort-tabs,
+.analytics-gender-tabs {
+  margin-bottom: 0;
+}
+
+.analytics-rank-badge {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-canvas);
+  color: var(--color-text-secondary);
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-rank-badge:global(.is-top) {
+  background: color-mix(in srgb, var(--color-accent) 16%, white);
+  color: var(--color-accent);
+}
+
+.analytics-leaderboard-user {
+  min-width: 0;
+}
+
+.analytics-leaderboard-user strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.94rem;
+}
+
+.analytics-leaderboard-user span {
+  display: block;
+  margin-top: 0.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
 }
 
 .analytics-board {
@@ -192,15 +240,7 @@
     padding: 1.25rem;
   }
 
-  .analytics-grid {
-    grid-template-columns: 1fr;
-  }
-
   .analytics-toolbar-actions {
     justify-content: flex-start;
-  }
-
-  .analytics-leaderboards {
-    grid-template-columns: 1fr;
   }
 }
