@@ -3,9 +3,9 @@ import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ListAuditLogsQueryDto } from './dto';
 import {
-  ADMIN_LIST_PAGE_MAX,
-  ADMIN_LIST_PAGE_SIZE_MAX,
-} from '../../common/validation/input-limits';
+  buildPageResult,
+  normalizeAdminListPagination,
+} from '../../common/pagination';
 
 type AuditLogRecord = Prisma.AuditLogGetPayload<{
   include: {
@@ -23,7 +23,7 @@ export class AdminAuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listAuditLogs(query: ListAuditLogsQueryDto = {}) {
-    const pagination = this.normalizePagination(query);
+    const pagination = normalizeAdminListPagination(query, 20);
     const search = query.search?.trim();
 
     if (!this.hasListQuery(query)) {
@@ -63,7 +63,7 @@ export class AdminAuditService {
         this.prisma.auditLog.count({ where }),
       ]);
 
-      return this.buildPageResult(
+      return buildPageResult(
         items.map((item) => this.serializeAuditLog(item)),
         total,
         pagination,
@@ -112,7 +112,7 @@ export class AdminAuditService {
     const items = await this.loadAuditLogsByIds(idRows.map((row) => row.id));
     const total = Number(totalRows[0]?.total ?? 0);
 
-    return this.buildPageResult(items, total, pagination);
+    return buildPageResult(items, total, pagination);
   }
 
   async getRecentAuditLogsByCondition(condition: Prisma.Sql, take: number) {
@@ -131,7 +131,7 @@ export class AdminAuditService {
     condition: Prisma.Sql,
     query: { page?: number; pageSize?: number } = {},
   ) {
-    const pagination = this.normalizePagination(query);
+    const pagination = normalizeAdminListPagination(query, 20);
     const [idRows, totalRows] = await Promise.all([
       this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
         SELECT "id"
@@ -151,7 +151,7 @@ export class AdminAuditService {
     const items = await this.loadAuditLogsByIds(idRows.map((row) => row.id));
     const total = Number(totalRows[0]?.total ?? 0);
 
-    return this.buildPageResult(items, total, pagination);
+    return buildPageResult(items, total, pagination);
   }
 
   async write(
@@ -230,50 +230,5 @@ export class AdminAuditService {
     return Boolean(
       query.page || query.pageSize || query.search || query.action,
     );
-  }
-
-  private normalizePagination(query: { page?: number; pageSize?: number }) {
-    const page = this.normalizePositiveInteger(
-      query.page,
-      1,
-      ADMIN_LIST_PAGE_MAX,
-    );
-    const pageSize = this.normalizePositiveInteger(
-      query.pageSize,
-      20,
-      ADMIN_LIST_PAGE_SIZE_MAX,
-    );
-
-    return {
-      page,
-      pageSize,
-      skip: (page - 1) * pageSize,
-    };
-  }
-
-  private buildPageResult<T>(
-    items: T[],
-    total: number,
-    pagination: { page: number; pageSize: number },
-  ) {
-    return {
-      items,
-      total,
-      page: pagination.page,
-      pageSize: pagination.pageSize,
-      totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
-    };
-  }
-
-  private normalizePositiveInteger(
-    value: number | undefined,
-    fallback: number,
-    max: number,
-  ) {
-    if (!Number.isSafeInteger(value) || value == null || value < 1) {
-      return fallback;
-    }
-
-    return Math.min(value, max);
   }
 }

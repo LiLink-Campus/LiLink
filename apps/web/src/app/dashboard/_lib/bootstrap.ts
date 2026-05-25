@@ -120,27 +120,3 @@ export async function loadDashboardMe() {
   }
 }
 
-/**
- * Loader for the referral-settings sub-page: contact preferences and
- * questionnaire (for the referral intro form).
- */
-export async function loadDashboardReferralSettings() {
-  await ensureDashboardSession();
-
-  try {
-    const [bootstrap, contactPreferences, questionnaire, savedQuestionnaire] = await Promise.all([
-      fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
-      fetchUserApiServer<ContactPreferencesPayload>("/me/contact-preferences"),
-      fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
-      fetchUserApiServer<SavedQuestionnairePayload>("/me/questionnaire").catch(() => null),
-    ]);
-    return {
-      user: bootstrap.user,
-      contactPreferences,
-      questionnaire,
-      savedQuestionnaire,
-    };
-  } catch {
-    redirect("/login");
-  }
-}

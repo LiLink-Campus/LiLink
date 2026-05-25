@@ -116,14 +116,6 @@ export function MessageCircleIcon({ className }: IconProps) {
   );
 }
 
-export function ShieldIcon({ className }: IconProps) {
-  return (
-    <svg {...baseProps} className={className} aria-hidden="true">
-      <path d="M12 3.5 19 6v5.5c0 4.2-2.8 7.2-7 9-4.2-1.8-7-4.8-7-9V6l7-2.5z" />
-    </svg>
-  );
-}
-
 export function PeopleIcon({ className }: IconProps) {
   return (
     <svg {...baseProps} className={className} aria-hidden="true">
@@ -175,19 +167,6 @@ export function SparklesIcon({ className }: IconProps) {
       <path d="M16.3 16.3l2.1 2.1" />
       <path d="M5.6 18.4l2.1-2.1" />
       <path d="M16.3 7.7l2.1-2.1" />
-    </svg>
-  );
-}
-
-export function GroupTrioIcon({ className }: IconProps) {
-  return (
-    <svg {...baseProps} className={className} aria-hidden="true">
-      <circle cx="6" cy="9" r="2.5" />
-      <circle cx="12" cy="7" r="2.5" />
-      <circle cx="18" cy="9" r="2.5" />
-      <path d="M2 19a4 4 0 0 1 8 0" />
-      <path d="M8 19a4 4 0 0 1 8 0" />
-      <path d="M14 19a4 4 0 0 1 8 0" />
     </svg>
   );
 }

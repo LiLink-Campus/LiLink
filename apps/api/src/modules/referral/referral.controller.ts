@@ -8,7 +8,7 @@ import {
 } from '../../common/auth/jwt-auth.guard';
 import { isBotUserAgent } from '../../common/http/bot-user-agent';
 import { getRealClientIp } from '../../common/http/client-ip';
-import { createReferralClickThrottle } from '../../common/http/referral-click-throttle';
+import { REFERRAL_CLICK_THROTTLE } from '../../common/http/referral-click-throttle';
 import { env } from '../../config/env';
 import { CreateReferralClickDto, CreateReferralEventDto } from './dto';
 import { ReferralService } from './referral.service';
@@ -40,7 +40,7 @@ export class ReferralController {
   // Public + throttled, no auth. Bots / link-preview prefetch (incl. empty UA)
   // are skipped so they don't pollute the funnel. A salted visitor hash from the
   // real client IP + UA drives UV dedup; raw IP/UA are never persisted.
-  @Throttle(createReferralClickThrottle())
+  @Throttle(REFERRAL_CLICK_THROTTLE)
   @Post('referral/click')
   recordClick(
     @Req() request: AuthenticatedRequest,

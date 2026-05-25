@@ -2307,7 +2307,7 @@ describe('CyclesService', () => {
     ).toEqual(['user-a::user-b', 'user-c::user-d']);
   });
 
-  it('samples spread-out candidates beyond the local scan window', async () => {
+  it('finds the only compatible pair even between far-apart participants in a large set', async () => {
     const prisma = createPairCalculationPrisma();
     const service = createCyclesService(prisma);
     const calculatePairs = (
@@ -2349,50 +2349,6 @@ describe('CyclesService', () => {
         [pair.left.id, pair.right.id].sort().join('::'),
       ),
     ).toEqual(['user-000::user-129']);
-  });
-
-  it('scores the only compatible pair even when it would be missed by bounded sampling', async () => {
-    const prisma = createPairCalculationPrisma();
-    const service = createCyclesService(prisma);
-    const calculatePairs = (
-      service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
-    ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
-      CyclesServiceTestHarness,
-      'calculatePairRawScore'
-    >;
-    const participants = Array.from({ length: 260 }, (_, index) =>
-      createBroadParticipant(`user-${String(index).padStart(3, '0')}`, {}),
-    );
-
-    jest
-      .spyOn(scorePairHarness, 'calculatePairRawScore')
-      .mockImplementation(
-        (left: EligibleParticipantStub, right: EligibleParticipantStub) => {
-          const pairKey = [left.id, right.id].sort().join('::');
-          if (pairKey !== 'user-000::user-017') {
-            return null;
-          }
-
-          return {
-            rawScore: 100,
-            scoreBounds: MOCK_RAW_SCORE_BOUNDS,
-          };
-        },
-      );
-
-    const result = await calculatePairs(
-      participants,
-      [],
-      new Date('2026-04-10T00:00:00.000Z'),
-    );
-
-    expect(result.selectedPairs).toHaveLength(1);
-    expect(
-      result.selectedPairs.map((pair) =>
-        [pair.left.id, pair.right.id].sort().join('::'),
-      ),
-    ).toEqual(['user-000::user-017']);
   });
 
   it('falls back to the next valid candidate when the top-scoring pair already exists in history', async () => {

@@ -16,6 +16,7 @@ import {
   resolveHardGender,
 } from '../../common/analytics/gender';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { clampPositiveInt } from '../../common/pagination';
 import {
   ADMIN_LIST_PAGE_MAX,
   ADMIN_LIST_PAGE_SIZE_MAX,
@@ -196,8 +197,8 @@ export class PromotionDashboardService {
   async getLeaderboard(query: PromotionLeaderboardQueryDto) {
     const { from, to } = this.parseRange(query);
     const campaignId = query.campaignId;
-    const page = this.normalizePositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);
-    const pageSize = this.normalizePositiveInt(
+    const page = clampPositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);
+    const pageSize = clampPositiveInt(
       query.pageSize,
       20,
       ADMIN_LIST_PAGE_SIZE_MAX,
@@ -380,8 +381,8 @@ export class PromotionDashboardService {
   async getRedemptions(query: PromotionRedemptionsQueryDto) {
     const { from, to } = this.parseRange(query);
     const campaignId = query.campaignId;
-    const page = this.normalizePositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);
-    const pageSize = this.normalizePositiveInt(
+    const page = clampPositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);
+    const pageSize = clampPositiveInt(
       query.pageSize,
       20,
       ADMIN_LIST_PAGE_SIZE_MAX,
@@ -542,16 +543,5 @@ export class PromotionDashboardService {
       default:
         return 'unknown';
     }
-  }
-
-  private normalizePositiveInt(
-    value: number | undefined,
-    fallback: number,
-    max: number,
-  ): number {
-    if (value === undefined || !Number.isFinite(value)) return fallback;
-    const int = Math.floor(value);
-    if (int < 1) return fallback;
-    return Math.min(int, max);
   }
 }
