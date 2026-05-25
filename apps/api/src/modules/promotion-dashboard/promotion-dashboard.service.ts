@@ -1,15 +1,20 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   deriveReferralSource,
-  HARD_MATCH_GENDERS,
-  HARD_MATCH_KEYS,
   isReferralChannel,
-  readSingleChoice,
   ReferralMedium,
   ReferralScene,
   splitReferralChannel,
 } from '@lilink/shared';
-import { Prisma } from '../../common/prisma/client';
+import {
+  addGender,
+  emptyGenderBuckets,
+  GENDER_KEYS,
+  genderKey,
+  GenderBuckets,
+  GenderKey,
+  resolveHardGender,
+} from '../../common/analytics/gender';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   ADMIN_LIST_PAGE_MAX,
@@ -23,16 +28,6 @@ import {
 
 const MAX_RANGE_DAYS = 370;
 const MILLIS_PER_DAY = 86_400_000;
-
-type GenderKey = 'male' | 'female' | 'nonBinary' | 'unknown';
-const GENDER_KEYS: GenderKey[] = ['male', 'female', 'nonBinary', 'unknown'];
-
-interface GenderBuckets {
-  male: number;
-  female: number;
-  nonBinary: number;
-  unknown: number;
-}
 
 interface FunnelStep {
   key: string;
@@ -148,7 +143,7 @@ export class PromotionDashboardService {
     let grant = 0;
     let redeem = 0;
     for (const user of users) {
-      const g = this.genderKey(this.resolveGender(user.questionnaireResponse));
+      const g = genderKey(resolveHardGender(user.questionnaireResponse));
       register += 1;
       buckets[g].register += 1;
       if (user.campaignActivations.length > 0) {
@@ -281,7 +276,7 @@ export class PromotionDashboardService {
           activated: 0,
           granted: 0,
           redeemed: 0,
-          byGender: { male: 0, female: 0, nonBinary: 0, unknown: 0 },
+          byGender: emptyGenderBuckets(),
         } satisfies PromotionLeaderboardRow);
       row.invited += 1;
       row.registered += 1;
@@ -290,10 +285,7 @@ export class PromotionDashboardService {
       if (user.coupons.some((coupon) => coupon.redemption !== null)) {
         row.redeemed += 1;
       }
-      this.addGender(
-        row.byGender,
-        this.resolveGender(user.questionnaireResponse),
-      );
+      addGender(row.byGender, resolveHardGender(user.questionnaireResponse));
       rows.set(key, row);
     }
 
@@ -515,37 +507,6 @@ export class PromotionDashboardService {
     }).format(date);
   }
 
-  private resolveGender(
-    response: { submittedAt: Date | null; answers: Prisma.JsonValue } | null,
-  ): string | null {
-    if (!response?.submittedAt) return null;
-    const answers = response.answers;
-    if (
-      typeof answers !== 'object' ||
-      answers === null ||
-      Array.isArray(answers)
-    ) {
-      return null;
-    }
-    return readSingleChoice(
-      (answers as Record<string, unknown>)[HARD_MATCH_KEYS.gender],
-      HARD_MATCH_GENDERS,
-    );
-  }
-
-  private genderKey(gender: string | null): GenderKey {
-    switch (gender) {
-      case '男':
-        return 'male';
-      case '女':
-        return 'female';
-      case '非二元':
-        return 'nonBinary';
-      default:
-        return 'unknown';
-    }
-  }
-
   private genderLabel(key: GenderKey): string {
     switch (key) {
       case 'male':
@@ -557,10 +518,6 @@ export class PromotionDashboardService {
       default:
         return 'unknown';
     }
-  }
-
-  private addGender(buckets: GenderBuckets, gender: string | null): void {
-    buckets[this.genderKey(gender)] += 1;
   }
 
   private normalizePositiveInt(

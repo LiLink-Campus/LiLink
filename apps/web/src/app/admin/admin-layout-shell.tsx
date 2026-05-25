@@ -41,6 +41,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/cycles", label: "轮次" },
       { href: "/admin/questionnaire", label: "问卷" },
+      { href: "/admin/analytics", label: "数据分析" },
     ],
   },
   {
