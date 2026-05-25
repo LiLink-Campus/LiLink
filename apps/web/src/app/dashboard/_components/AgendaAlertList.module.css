@@ -91,11 +91,15 @@
   font-size: 0.98rem;
   font-weight: 600;
   color: var(--color-text);
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .body {
   font-size: 0.82rem;
   color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+  line-height: 1.45;
 }
 
 .cta {
@@ -104,4 +108,34 @@
   font-weight: 600;
   color: var(--color-brand-ink);
   white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "icon main"
+      "cta cta";
+    align-items: start;
+    column-gap: 0.75rem;
+    row-gap: 0.5rem;
+    padding: 0.85rem 0.95rem;
+  }
+
+  .icon {
+    grid-area: icon;
+    width: 2.15rem;
+    height: 2.15rem;
+  }
+
+  .main {
+    grid-area: main;
+  }
+
+  .cta {
+    grid-area: cta;
+    justify-self: start;
+    white-space: normal;
+  }
 }

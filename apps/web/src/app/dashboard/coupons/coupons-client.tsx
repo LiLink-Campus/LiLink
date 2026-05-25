@@ -6,7 +6,6 @@ import {
   useEffect,
   useRef,
   useState,
-  Fragment,
   type ReactNode,
 } from "react";
 import { generateTotpToken, formatRedeemCode, COUPON_TOTP } from "@lilink/shared";
@@ -108,18 +107,13 @@ function CouponCard({
           ) : null}
         </div>
         {showBenefit ? (
-          <p className={dcx("coupons-card-benefit")}>
+          <ul className={dcx("coupons-card-benefit-list")}>
             {coupon.benefitText.split(" ｜ ").map((tier, index) => (
-              <Fragment key={index}>
-                {index > 0 ? (
-                  <span className={dcx("coupons-card-benefit-sep")} aria-hidden="true">
-                    ｜
-                  </span>
-                ) : null}
-                <span className={dcx("coupons-card-benefit-tier")}>{tier}</span>
-              </Fragment>
+              <li key={index} className={dcx("coupons-card-benefit-tier")}>
+                {tier}
+              </li>
             ))}
-          </p>
+          </ul>
         ) : null}
       </div>
 
