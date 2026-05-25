@@ -183,6 +183,10 @@ export default function MatchLeaderboardTable({
   const sortAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    // Parent pushed fresh data (initial load, refresh button, or includeTest
+    // change): drop any in-flight sort fetch so a stale response cannot
+    // overwrite this newer data.
+    sortAbortRef.current?.abort();
     setLocalData(data);
     if (data) {
       setSort(isLeaderboardSortKey(data.sort) ? data.sort : "unmatchedStreak");
@@ -190,8 +194,8 @@ export default function MatchLeaderboardTable({
     }
   }, [data]);
 
-  // Drop any in-flight sort fetch tied to the previous includeTest value;
-  // the parent refetches on includeTest change and pushes fresh data down.
+  // Abort an in-flight sort the moment includeTest flips, before the parent's
+  // refetch lands, so a stale-scope response never flashes in.
   useEffect(() => {
     sortAbortRef.current?.abort();
   }, [includeTest]);
@@ -226,13 +230,16 @@ export default function MatchLeaderboardTable({
           `/admin/analytics/match-leaderboard?${params.toString()}`,
           { signal: controller.signal },
         );
-        if (controller.signal.aborted) return;
+        if (sortAbortRef.current !== controller) return;
         setLocalData(nextData);
       } catch (caught) {
         if (controller.signal.aborted) return;
         setError(caught instanceof Error ? caught.message : "排行榜加载失败。");
       } finally {
-        if (!controller.signal.aborted) setLocalLoading(false);
+        // Clear loading only if this is still the active request. An external
+        // abort (includeTest/data effects) leaves the ref pointing here, so the
+        // flag is cleared; a newer sort that superseded us owns it instead.
+        if (sortAbortRef.current === controller) setLocalLoading(false);
       }
     },
     [includeTest, localData?.limit, order, sort],
