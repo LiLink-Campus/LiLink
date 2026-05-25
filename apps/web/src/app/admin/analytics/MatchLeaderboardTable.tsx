@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import commonStyles from "../admin-common.module.css";
@@ -180,6 +180,7 @@ export default function MatchLeaderboardTable({
   );
   const [localLoading, setLocalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sortAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setLocalData(data);
@@ -188,6 +189,15 @@ export default function MatchLeaderboardTable({
       setOrder(data.order);
     }
   }, [data]);
+
+  // Drop any in-flight sort fetch tied to the previous includeTest value;
+  // the parent refetches on includeTest change and pushes fresh data down.
+  useEffect(() => {
+    sortAbortRef.current?.abort();
+  }, [includeTest]);
+
+  // Cancel a pending sort fetch on unmount.
+  useEffect(() => () => sortAbortRef.current?.abort(), []);
 
   const handleSort = useCallback(
     async (key: LeaderboardSortKey) => {
@@ -202,6 +212,10 @@ export default function MatchLeaderboardTable({
         params.set("includeTest", "true");
       }
 
+      sortAbortRef.current?.abort();
+      const controller = new AbortController();
+      sortAbortRef.current = controller;
+
       setSort(key);
       setOrder(nextOrder);
       setLocalLoading(true);
@@ -210,12 +224,15 @@ export default function MatchLeaderboardTable({
       try {
         const nextData = await fetchApi<MatchLeaderboardResponse>(
           `/admin/analytics/match-leaderboard?${params.toString()}`,
+          { signal: controller.signal },
         );
+        if (controller.signal.aborted) return;
         setLocalData(nextData);
       } catch (caught) {
+        if (controller.signal.aborted) return;
         setError(caught instanceof Error ? caught.message : "排行榜加载失败。");
       } finally {
-        setLocalLoading(false);
+        if (!controller.signal.aborted) setLocalLoading(false);
       }
     },
     [includeTest, localData?.limit, order, sort],

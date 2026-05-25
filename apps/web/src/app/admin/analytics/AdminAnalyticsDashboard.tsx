@@ -19,6 +19,7 @@ const adminStyles = [commonStyles, styles];
 
 export default function AdminAnalyticsDashboard() {
   const [includeTest, setIncludeTest] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [schoolsGender, setSchoolsGender] =
     useState<SchoolsGenderResponse | null>(null);
   const [weeklyOptin, setWeeklyOptin] = useState<WeeklyOptinResponse | null>(
@@ -29,38 +30,50 @@ export default function AdminAnalyticsDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const query = includeTest ? "?includeTest=true" : "";
+  const load = useCallback(
+    async (signal: AbortSignal) => {
+      setLoading(true);
+      setError(null);
+      const query = includeTest ? "?includeTest=true" : "";
 
-    try {
-      const [schoolsGenderData, weeklyOptinData, leaderboardData] =
-        await Promise.all([
-          fetchApi<SchoolsGenderResponse>(
-            `/admin/analytics/schools-gender${query}`,
-          ),
-          fetchApi<WeeklyOptinResponse>(
-            `/admin/analytics/weekly-optin${query}`,
-          ),
-          fetchApi<MatchLeaderboardResponse>(
-            `/admin/analytics/match-leaderboard${query}`,
-          ),
-        ]);
+      try {
+        const [schoolsGenderData, weeklyOptinData, leaderboardData] =
+          await Promise.all([
+            fetchApi<SchoolsGenderResponse>(
+              `/admin/analytics/schools-gender${query}`,
+              { signal },
+            ),
+            fetchApi<WeeklyOptinResponse>(
+              `/admin/analytics/weekly-optin${query}`,
+              { signal },
+            ),
+            fetchApi<MatchLeaderboardResponse>(
+              `/admin/analytics/match-leaderboard${query}`,
+              { signal },
+            ),
+          ]);
 
-      setSchoolsGender(schoolsGenderData);
-      setWeeklyOptin(weeklyOptinData);
-      setLeaderboard(leaderboardData);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "数据分析加载失败。");
-    } finally {
-      setLoading(false);
-    }
-  }, [includeTest]);
+        if (signal.aborted) return;
+        setSchoolsGender(schoolsGenderData);
+        setWeeklyOptin(weeklyOptinData);
+        setLeaderboard(leaderboardData);
+      } catch (caught) {
+        if (signal.aborted) return;
+        setError(
+          caught instanceof Error ? caught.message : "数据分析加载失败。",
+        );
+      } finally {
+        if (!signal.aborted) setLoading(false);
+      }
+    },
+    [includeTest],
+  );
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load, reloadNonce]);
 
   return (
     <div className={cx(adminStyles, "analytics-container")}>
@@ -81,7 +94,7 @@ export default function AdminAnalyticsDashboard() {
             <span>含测试账号</span>
           </label>
           <AdminRefreshButton
-            onClick={() => void load()}
+            onClick={() => setReloadNonce((value) => value + 1)}
             disabled={loading}
           />
         </div>
