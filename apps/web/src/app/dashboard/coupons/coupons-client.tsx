@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { dcx } from "../_lib/dashboard-class-names";
 import {
   useCallback,
@@ -21,7 +22,11 @@ import {
   type CouponStatusResponse,
 } from "../../../lib/api";
 import { getClientWebOrigin } from "../../../lib/api-base-url";
-import { QrCode } from "../../../components/qr-code";
+
+const QrCode = dynamic(
+  () => import("../../../components/qr-code").then((m) => m.QrCode),
+  { ssr: false },
+);
 
 const STATUS_LABELS: Record<string, string> = {
   ISSUED: "可用",
