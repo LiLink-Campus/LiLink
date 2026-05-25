@@ -9,8 +9,8 @@ function makePrisma() {
     referralEvent: { count: jest.fn(), findMany: jest.fn() },
     user: { findMany: jest.fn() },
     campaignActivation: { count: jest.fn() },
-    coupon: { count: jest.fn() },
-    redemption: { count: jest.fn(), findMany: jest.fn() },
+    coupon: { count: jest.fn(), groupBy: jest.fn() },
+    redemption: { count: jest.fn(), findMany: jest.fn(), groupBy: jest.fn() },
     couponTemplate: { findMany: jest.fn() },
   };
 }
@@ -298,31 +298,57 @@ describe('PromotionDashboardService', () => {
   });
 
   describe('getCoupons', () => {
-    it('groups by merchant and excludes test users in granted/redeemed', async () => {
+    it('aggregates granted by template to merchant and redeemed by merchant, sorted by granted desc', async () => {
       const prisma = makePrisma();
+      // m1 has two templates (t1,t2); m2 has one (t3).
       prisma.couponTemplate.findMany.mockResolvedValue([
-        { merchantId: 'm1', merchant: { name: 'Cafe' } },
+        { id: 't1', merchantId: 'm1', merchant: { name: 'Cafe' } },
+        { id: 't2', merchantId: 'm1', merchant: { name: 'Cafe' } },
+        { id: 't3', merchantId: 'm2', merchant: { name: 'Bar' } },
       ]);
-      prisma.coupon.count.mockResolvedValue(10);
-      prisma.redemption.count.mockResolvedValue(3);
+      // granted groups: t1:6, t2:4 (m1=10), t3:3 (m2=3)
+      prisma.coupon.groupBy.mockResolvedValue([
+        { templateId: 't1', _count: { _all: 6 } },
+        { templateId: 't2', _count: { _all: 4 } },
+        { templateId: 't3', _count: { _all: 3 } },
+      ]);
+      // redeemed groups: m1:2 (m2 absent means 0)
+      prisma.redemption.groupBy.mockResolvedValue([
+        { merchantId: 'm1', _count: { _all: 2 } },
+      ]);
       const service = new PromotionDashboardService(prisma as never);
 
       const result = await service.getCoupons({ ...range });
 
-      expect(prisma.coupon.count).toHaveBeenCalledWith(
+      // granted-desc order: m1(10) before m2(3)
+      expect(result.items).toEqual([
+        { merchantId: 'm1', merchantName: 'Cafe', granted: 10, redeemed: 2 },
+        { merchantId: 'm2', merchantName: 'Bar', granted: 3, redeemed: 0 },
+      ]);
+      // contract: coupon.groupBy by templateId, isTest excluded, scoped to campaign + range
+      expect(prisma.coupon.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
+          by: ['templateId'],
           where: expect.objectContaining({
+            issuedAt: { gte: new Date(range.from), lt: new Date(range.to) },
             user: { is: { isTest: false } },
-            template: { is: { merchantId: 'm1', campaignId: 'c1' } },
+            template: { is: { campaignId: 'c1' } },
           }) as object,
         }),
       );
-      expect(result.items[0]).toEqual({
-        merchantId: 'm1',
-        merchantName: 'Cafe',
-        granted: 10,
-        redeemed: 3,
-      });
+      // redemption.groupBy by merchantId, scoped to campaign + range + non-test
+      expect(prisma.redemption.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          by: ['merchantId'],
+          where: expect.objectContaining({
+            merchantId: { in: ['m1', 'm2'] },
+            redeemedAt: { gte: new Date(range.from), lt: new Date(range.to) },
+          }) as object,
+        }),
+      );
+      // no per-merchant count fan-out anymore
+      expect(prisma.coupon.count).not.toHaveBeenCalled();
+      expect(prisma.redemption.count).not.toHaveBeenCalled();
     });
   });
 

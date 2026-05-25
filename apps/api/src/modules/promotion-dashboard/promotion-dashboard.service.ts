@@ -310,45 +310,69 @@ export class PromotionDashboardService {
 
     const templates = await this.prisma.couponTemplate.findMany({
       where: { campaignId },
-      select: { merchantId: true, merchant: { select: { name: true } } },
+      select: {
+        id: true,
+        merchantId: true,
+        merchant: { select: { name: true } },
+      },
     });
+    const merchantByTemplate = new Map<string, string>();
     const merchantNames = new Map<string, string>();
     for (const template of templates) {
+      merchantByTemplate.set(template.id, template.merchantId);
       merchantNames.set(template.merchantId, template.merchant.name);
     }
+    const merchantIds = [...merchantNames.keys()];
+    if (merchantIds.length === 0) {
+      return { items: [] };
+    }
 
-    const rows = await Promise.all(
-      [...merchantNames.keys()].map(async (merchantId) => {
-        const [granted, redeemed] = await Promise.all([
-          this.prisma.coupon.count({
-            where: {
-              issuedAt: range,
-              user: { is: { isTest: false } },
-              template: { is: { merchantId, campaignId } },
-            },
-          }),
-          this.prisma.redemption.count({
-            where: {
-              merchantId,
-              redeemedAt: range,
-              coupon: {
-                is: {
-                  user: { is: { isTest: false } },
-                  template: { is: { campaignId } },
-                },
-              },
-            },
-          }),
-        ]);
-        return {
-          merchantId,
-          merchantName: merchantNames.get(merchantId) ?? '',
-          granted,
-          redeemed,
-        };
+    const [grantedGroups, redeemedGroups] = await Promise.all([
+      this.prisma.coupon.groupBy({
+        by: ['templateId'],
+        where: {
+          issuedAt: range,
+          user: { is: { isTest: false } },
+          template: { is: { campaignId } },
+        },
+        _count: { _all: true },
       }),
-    );
+      this.prisma.redemption.groupBy({
+        by: ['merchantId'],
+        where: {
+          merchantId: { in: merchantIds },
+          redeemedAt: range,
+          coupon: {
+            is: {
+              user: { is: { isTest: false } },
+              template: { is: { campaignId } },
+            },
+          },
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
+    const granted = new Map<string, number>();
+    for (const group of grantedGroups) {
+      const merchantId = merchantByTemplate.get(group.templateId);
+      if (!merchantId) continue;
+      granted.set(
+        merchantId,
+        (granted.get(merchantId) ?? 0) + group._count._all,
+      );
+    }
+    const redeemed = new Map<string, number>();
+    for (const group of redeemedGroups) {
+      redeemed.set(group.merchantId, group._count._all);
+    }
+
+    const rows: PromotionCouponsRow[] = merchantIds.map((merchantId) => ({
+      merchantId,
+      merchantName: merchantNames.get(merchantId) ?? '',
+      granted: granted.get(merchantId) ?? 0,
+      redeemed: redeemed.get(merchantId) ?? 0,
+    }));
     rows.sort((a, b) => b.granted - a.granted);
     return { items: rows };
   }

@@ -771,6 +771,7 @@ model Coupon {
   @@unique([userId, templateId])
   @@index([userId, status])
   @@index([templateId, status])
+  @@index([templateId, issuedAt])
   @@index([status, expiresAt])
 }
 
