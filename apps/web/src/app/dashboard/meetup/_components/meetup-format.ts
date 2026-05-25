@@ -81,12 +81,6 @@ export function optionSecondaryText(option: MeetupOption) {
     const tolerance = option.toleranceMinutes ?? 10;
     return `预留 ${tolerance} 分钟弹性`;
   }
-  if (
-    typeof option.latitude === "number" &&
-    typeof option.longitude === "number"
-  ) {
-    return "系统候选地点";
-  }
   return "系统候选地点";
 }
 

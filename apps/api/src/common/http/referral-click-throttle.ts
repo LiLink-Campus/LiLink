@@ -6,11 +6,9 @@
 const REFERRAL_CLICK_THROTTLE_TTL_MS = 60_000;
 const REFERRAL_CLICK_THROTTLE_LIMIT = 1_200;
 
-export function createReferralClickThrottle() {
-  return {
-    default: {
-      ttl: REFERRAL_CLICK_THROTTLE_TTL_MS,
-      limit: REFERRAL_CLICK_THROTTLE_LIMIT,
-    },
-  };
-}
+export const REFERRAL_CLICK_THROTTLE = {
+  default: {
+    ttl: REFERRAL_CLICK_THROTTLE_TTL_MS,
+    limit: REFERRAL_CLICK_THROTTLE_LIMIT,
+  },
+};

@@ -7,6 +7,11 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { isUniqueConstraintError } from '../../common/prisma/errors';
+import {
+  OFFSETLESS_DATE_TIME_PATTERN,
+  parseChinaStandardDateTimeMatch,
+} from '../../common/time/china-standard-time';
 import { MailService } from '../../common/mail/mail.service';
 import { env } from '../../config/env';
 import {
@@ -38,7 +43,6 @@ import { mapMeetupSessionResponse } from './response-mapper';
 import type {
   CountResult,
   MeetupMatchRecord,
-  MeetupPrismaClient,
   MeetupProposalRecord,
   MeetupSessionRecord,
   MeetupTransactionClient,
@@ -101,9 +105,6 @@ const MATCH_WITH_PARTICIPANTS_INCLUDE = {
   },
 } as const;
 
-const CHINA_STANDARD_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
-const OFFSETLESS_DATE_TIME_PATTERN =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/;
 const MEETUP_REMINDER_DELAY_MS = 24 * 60 * 60 * 1000;
 const MEETUP_REMINDER_BATCH_SIZE = 50;
 
@@ -185,7 +186,7 @@ export class MeetupService {
   }
 
   async queueMeetupReminderEmails() {
-    const queuedDedupeKeys = await this.db.$transaction(async (tx) => {
+    const queuedDedupeKeys = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const threshold = new Date(now.getTime() - MEETUP_REMINDER_DELAY_MS);
       const emails = [];
@@ -355,7 +356,7 @@ export class MeetupService {
   }
 
   async getSession(userId: string, sessionId: string) {
-    return this.db.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const session = await this.loadConvergedAuthorizedSession(
         tx,
@@ -374,7 +375,7 @@ export class MeetupService {
     input: StartMeetupSessionDto,
   ) {
     try {
-      return await this.db.$transaction(async (tx) => {
+      return await this.prisma.$transaction(async (tx) => {
         const now = new Date();
         const proposalInput = this.normalizeProposalInput(
           this.readProposalObject(input?.proposal),
@@ -478,7 +479,7 @@ export class MeetupService {
         return mapMeetupSessionResponse(loadedSession, userId, now);
       });
     } catch (error) {
-      if (this.isUniqueConstraintError(error)) {
+      if (isUniqueConstraintError(error)) {
         throw new BadRequestException('MEETUP_SESSION_ALREADY_EXISTS');
       }
 
@@ -491,7 +492,7 @@ export class MeetupService {
     sessionId: string,
     input: CreateMeetupProposalDto,
   ) {
-    return this.db.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const proposalInput = this.normalizeProposalInput(input, now);
       const session = await this.loadConvergedAuthorizedSession(
@@ -576,7 +577,7 @@ export class MeetupService {
     sessionId: string,
     input: AcceptMeetupOptionsDto,
   ) {
-    return this.db.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const session = await this.loadConvergedAuthorizedSession(
         tx,
@@ -710,7 +711,7 @@ export class MeetupService {
     proposalId: string,
     input: RejectMeetupProposalDto,
   ) {
-    return this.db.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const session = await this.loadConvergedAuthorizedSession(
         tx,
@@ -799,7 +800,7 @@ export class MeetupService {
   }
 
   async finalConfirm(userId: string, sessionId: string) {
-    return this.db.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const session = await this.loadConvergedAuthorizedSession(
         tx,
@@ -879,7 +880,7 @@ export class MeetupService {
     sessionId: string,
     input: ReviseMeetupSessionDto,
   ) {
-    return this.db.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const proposalInput = this.normalizeProposalInput(
         this.readProposalObject(input?.proposal),
@@ -987,7 +988,7 @@ export class MeetupService {
     sessionId: string,
     input: CancelMeetupSessionDto,
   ) {
-    return this.db.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const session = await this.loadConvergedAuthorizedSession(
         tx,
@@ -1069,7 +1070,7 @@ export class MeetupService {
   }
 
   async markSeen(userId: string, sessionId: string) {
-    await this.db.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const session = await this.loadConvergedAuthorizedSession(
         tx,
@@ -1094,10 +1095,6 @@ export class MeetupService {
         sessionId,
       });
     });
-  }
-
-  private get db(): MeetupPrismaClient {
-    return this.prisma;
   }
 
   private buildMeetupSessionUrl(sessionId: string) {
@@ -1286,7 +1283,7 @@ export class MeetupService {
         },
       })) as { id: string };
     } catch (error) {
-      if (this.isUniqueConstraintError(error)) {
+      if (isUniqueConstraintError(error)) {
         throw new ConflictException('MEETUP_STALE_PROPOSAL');
       }
 
@@ -1939,55 +1936,11 @@ export class MeetupService {
 
     const offsetlessDateTime = OFFSETLESS_DATE_TIME_PATTERN.exec(value);
     if (offsetlessDateTime) {
-      return this.parseChinaStandardDateTime(offsetlessDateTime);
+      return parseChinaStandardDateTimeMatch(offsetlessDateTime);
     }
 
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  private parseChinaStandardDateTime(match: RegExpExecArray) {
-    const [, rawYear, rawMonth, rawDay, rawHour, rawMinute, rawSecond, rawMs] =
-      match;
-    const year = Number(rawYear);
-    const month = Number(rawMonth);
-    const day = Number(rawDay);
-    const hour = Number(rawHour);
-    const minute = Number(rawMinute);
-    const second = rawSecond ? Number(rawSecond) : 0;
-    const millisecond = rawMs ? Number(rawMs.slice(0, 3).padEnd(3, '0')) : 0;
-
-    if (
-      month < 1 ||
-      month > 12 ||
-      hour < 0 ||
-      hour > 23 ||
-      minute < 0 ||
-      minute > 59 ||
-      second < 0 ||
-      second > 59
-    ) {
-      return null;
-    }
-
-    const utcMs =
-      Date.UTC(year, month - 1, day, hour, minute, second, millisecond) -
-      CHINA_STANDARD_TIME_OFFSET_MS;
-    const roundTrip = new Date(utcMs + CHINA_STANDARD_TIME_OFFSET_MS);
-
-    if (
-      roundTrip.getUTCFullYear() !== year ||
-      roundTrip.getUTCMonth() + 1 !== month ||
-      roundTrip.getUTCDate() !== day ||
-      roundTrip.getUTCHours() !== hour ||
-      roundTrip.getUTCMinutes() !== minute ||
-      roundTrip.getUTCSeconds() !== second ||
-      roundTrip.getUTCMilliseconds() !== millisecond
-    ) {
-      return null;
-    }
-
-    return new Date(utcMs);
   }
 
   private addMinutes(value: Date, minutes: number) {
@@ -2005,14 +1958,6 @@ export class MeetupService {
 
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : undefined;
-  }
-
-  private isUniqueConstraintError(error: unknown) {
-    return (
-      isRecord(error) &&
-      typeof error.code === 'string' &&
-      error.code === 'P2002'
-    );
   }
 }
 

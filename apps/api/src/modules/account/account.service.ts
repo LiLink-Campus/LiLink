@@ -289,18 +289,6 @@ function normalizeContactPreferencesInput(input: UpdateContactPreferencesDto) {
   return methods;
 }
 
-function buildContactPreferencesResponse(input: {
-  email: string;
-  preferredContactChannel: ContactChannelType | PrismaContactChannelType;
-  methods: ContactMethodSummary[];
-}) {
-  return {
-    email: input.email,
-    preferredContactChannel: input.preferredContactChannel,
-    methods: input.methods,
-  };
-}
-
 function normalizeAcknowledgedQuestionnaireKeys(rawKeys: unknown) {
   if (!Array.isArray(rawKeys)) {
     return [];
@@ -329,12 +317,6 @@ function normalizeHardMatchSignatures(raw: unknown): Record<string, string> {
   return out;
 }
 
-function normalizeQuestionOptionsForComparison(
-  question: Pick<QuestionnaireAttentionQuestion, 'options'>,
-) {
-  return normalizeQuestionOptions(question.options);
-}
-
 function hasQuestionnaireQuestionUpdate(
   previousQuestion: QuestionnaireAttentionQuestion | undefined,
   currentQuestion: QuestionnaireAttentionQuestion,
@@ -351,8 +333,8 @@ function hasQuestionnaireQuestionUpdate(
     previousQuestion.required !== currentQuestion.required ||
     (previousQuestion.selectionLimit ?? null) !==
       (currentQuestion.selectionLimit ?? null) ||
-    JSON.stringify(normalizeQuestionOptionsForComparison(previousQuestion)) !==
-      JSON.stringify(normalizeQuestionOptionsForComparison(currentQuestion))
+    JSON.stringify(normalizeQuestionOptions(previousQuestion.options)) !==
+      JSON.stringify(normalizeQuestionOptions(currentQuestion.options))
   );
 }
 
@@ -1459,7 +1441,7 @@ export class AccountService {
       throw new NotFoundException('User not found.');
     }
 
-    return buildContactPreferencesResponse({
+    return {
       email: user.email,
       preferredContactChannel: user.preferredContactChannel,
       methods: user.contactMethods
@@ -1470,7 +1452,7 @@ export class AccountService {
           type: method.type,
           value: method.value,
         })),
-    });
+    };
   }
 
   async updateContactPreferences(
@@ -1538,7 +1520,7 @@ export class AccountService {
       });
     });
 
-    return buildContactPreferencesResponse({
+    return {
       email: user.email,
       preferredContactChannel: input.preferredContactChannel,
       methods: savedMethods
@@ -1549,7 +1531,7 @@ export class AccountService {
           type: method.type,
           value: method.value,
         })),
-    });
+    };
   }
 
   async saveQuestionnaire(userId: string, input: SaveQuestionnaireDto) {

@@ -13,6 +13,11 @@ import {
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
+  isRecordNotFoundError,
+  isUniqueConstraintError,
+} from '../../common/prisma/errors';
+import { clampPositiveInt } from '../../common/pagination';
+import {
   ADMIN_LIST_PAGE_MAX,
   ADMIN_LIST_PAGE_SIZE_MAX,
 } from '../../common/validation/input-limits';
@@ -82,7 +87,7 @@ export class InviteCodeService {
           return this.toInviteCodeView(created);
         });
       } catch (error) {
-        if (this.isUniqueConstraintError(error)) continue;
+        if (isUniqueConstraintError(error)) continue;
         throw error;
       }
     }
@@ -113,7 +118,7 @@ export class InviteCodeService {
         return this.toInviteCodeView(updated);
       });
     } catch (error) {
-      if (this.isRecordNotFoundError(error)) {
+      if (isRecordNotFoundError(error)) {
         throw new NotFoundException('Invite code not found.');
       }
       throw error;
@@ -138,8 +143,8 @@ export class InviteCodeService {
   }
 
   async listInviteCodes(query: ListInviteCodesQuery) {
-    const page = this.normalizePositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);
-    const pageSize = this.normalizePositiveInt(
+    const page = clampPositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);
+    const pageSize = clampPositiveInt(
       query.pageSize,
       20,
       ADMIN_LIST_PAGE_SIZE_MAX,
@@ -263,35 +268,6 @@ export class InviteCodeService {
     return readSingleChoice(
       (answers as Record<string, unknown>)[HARD_MATCH_KEYS.gender],
       HARD_MATCH_GENDERS,
-    );
-  }
-
-  private normalizePositiveInt(
-    value: number | undefined,
-    fallback: number,
-    max: number,
-  ) {
-    if (value == null || !Number.isSafeInteger(value) || value < 1) {
-      return fallback;
-    }
-    return Math.min(value, max);
-  }
-
-  private isUniqueConstraintError(error: unknown) {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'P2002'
-    );
-  }
-
-  private isRecordNotFoundError(error: unknown) {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'P2025'
     );
   }
 }

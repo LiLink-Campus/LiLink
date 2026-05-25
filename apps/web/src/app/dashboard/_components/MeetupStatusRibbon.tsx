@@ -38,12 +38,6 @@ function stepStatesForSummary(
         meet: "pending",
       };
     case "NEGOTIATING":
-      return {
-        propose: "complete",
-        select: "active",
-        confirm: "pending",
-        meet: "pending",
-      };
     case "LOCATION_CONFIRMED_TIME_PENDING":
     case "TIME_CONFIRMED_LOCATION_PENDING":
       return {
@@ -66,9 +60,6 @@ function stepStatesForSummary(
         confirm: "complete",
         meet: "active",
       };
-    case "CANCELED":
-    case "EXPIRED":
-    case "ARCHIVED":
     default:
       return { propose: "muted", select: "muted", confirm: "muted", meet: "muted" };
   }

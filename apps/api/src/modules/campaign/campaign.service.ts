@@ -11,6 +11,11 @@ import {
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
+  isRecordNotFoundError,
+  isUniqueConstraintError,
+} from '../../common/prisma/errors';
+import { clampPositiveInt } from '../../common/pagination';
+import {
   ADMIN_LIST_PAGE_MAX,
   ADMIN_LIST_PAGE_SIZE_MAX,
 } from '../../common/validation/input-limits';
@@ -89,7 +94,7 @@ export class CampaignService {
         return this.toCampaignView(created);
       });
     } catch (error) {
-      if (this.isUniqueConstraintError(error)) {
+      if (isUniqueConstraintError(error)) {
         throw new BadRequestException('Campaign slug already exists.');
       }
       throw error;
@@ -169,10 +174,10 @@ export class CampaignService {
         return this.toCampaignView(updated);
       });
     } catch (error) {
-      if (this.isRecordNotFoundError(error)) {
+      if (isRecordNotFoundError(error)) {
         throw new NotFoundException('Campaign not found.');
       }
-      if (this.isUniqueConstraintError(error)) {
+      if (isUniqueConstraintError(error)) {
         throw new BadRequestException(
           'Another ACTIVE default campaign already exists.',
         );
@@ -182,8 +187,8 @@ export class CampaignService {
   }
 
   async listCampaigns(query: ListCampaignsQueryDto) {
-    const page = this.normalizePositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);
-    const pageSize = this.normalizePositiveInt(
+    const page = clampPositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);
+    const pageSize = clampPositiveInt(
       query.pageSize,
       20,
       ADMIN_LIST_PAGE_SIZE_MAX,
@@ -381,7 +386,7 @@ export class CampaignService {
         return this.toTemplateView(updated);
       });
     } catch (error) {
-      if (this.isRecordNotFoundError(error)) {
+      if (isRecordNotFoundError(error)) {
         throw new NotFoundException('Coupon template not found.');
       }
       throw error;
@@ -464,34 +469,5 @@ export class CampaignService {
       merchant: template.merchant,
       couponCount: template._count?.coupons,
     };
-  }
-
-  private normalizePositiveInt(
-    value: number | undefined,
-    fallback: number,
-    max: number,
-  ): number {
-    if (value === undefined || !Number.isFinite(value)) return fallback;
-    const int = Math.floor(value);
-    if (int < 1) return fallback;
-    return Math.min(int, max);
-  }
-
-  private isUniqueConstraintError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'P2002'
-    );
-  }
-
-  private isRecordNotFoundError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'P2025'
-    );
   }
 }

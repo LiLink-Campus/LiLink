@@ -7,6 +7,7 @@ import {
   type PrepareRedeemOk,
   type RedeemResponse,
 } from "../../../lib/api";
+import { formatYuan } from "../../../lib/format";
 import "../merchant.css";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -65,12 +66,6 @@ function CrossIcon() {
       <path d="m15 9-6 6" />
     </svg>
   );
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatYuan(cents: number): string {
-  return (cents / 100).toFixed(2);
 }
 
 // Maps redeem result to display metadata.

@@ -16,6 +16,7 @@ import {
   type SupportedLocale,
 } from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { isUniqueConstraintError } from '../../common/prisma/errors';
 import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
 import { env } from '../../config/env';
@@ -137,7 +138,7 @@ export class AuthService {
           },
         });
       } catch (error) {
-        if (this.isUniqueConstraintError(error)) {
+        if (isUniqueConstraintError(error)) {
           throw new BadRequestException('This email is already registered.');
         }
 
@@ -487,17 +488,10 @@ export class AuthService {
     const expectedDigest = this.createVerificationCodeDigest(input);
     const storedBuffer = Buffer.from(storedDigest);
     const expectedBuffer = Buffer.from(expectedDigest);
-    const compareLength = Math.max(storedBuffer.length, expectedBuffer.length);
-    const paddedStoredBuffer = Buffer.alloc(compareLength);
-    const paddedExpectedBuffer = Buffer.alloc(compareLength);
-
-    storedBuffer.copy(paddedStoredBuffer);
-    expectedBuffer.copy(paddedExpectedBuffer);
-
-    return (
-      timingSafeEqual(paddedStoredBuffer, paddedExpectedBuffer) &&
-      storedBuffer.length === expectedBuffer.length
-    );
+    if (storedBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+    return timingSafeEqual(storedBuffer, expectedBuffer);
   }
 
   private issueAuthPayload(
@@ -602,15 +596,6 @@ export class AuthService {
 
     throw new BadRequestException(
       `本轮内测名额仅限 ${limit} 人，目前已满。请等待下一轮开放。`,
-    );
-  }
-
-  private isUniqueConstraintError(error: unknown) {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'P2002'
     );
   }
 }

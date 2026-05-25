@@ -58,21 +58,6 @@ export function describeRevealMoment(iso: string | null): string | null {
 }
 
 /**
- * Compact "本周 周六 21:00 截止参与" style label.
- */
-export function describeDeadlineLabel(iso: string | null): string | null {
-  if (!iso) return null;
-  const formatter = new Intl.DateTimeFormat("zh-CN", {
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Shanghai",
-  });
-  return `本周 ${formatter.format(new Date(iso))} 截止`;
-}
-
-/**
  * Relative "in N hours / days / minutes" copy for waiting states.
  */
 export function describeRelativeUntil(iso: string | null): string | null {

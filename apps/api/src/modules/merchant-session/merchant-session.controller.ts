@@ -19,7 +19,7 @@ import {
 import { env } from '../../config/env';
 import { MerchantLoginDto } from './dto';
 import { MerchantSessionService } from './merchant-session.service';
-import { createMerchantLoginThrottle } from './merchant-session-throttle';
+import { MERCHANT_LOGIN_THROTTLE } from './merchant-session-throttle';
 
 @Controller('merchant/auth')
 export class MerchantSessionController {
@@ -28,7 +28,7 @@ export class MerchantSessionController {
   ) {}
 
   @Post('login')
-  @Throttle(createMerchantLoginThrottle())
+  @Throttle(MERCHANT_LOGIN_THROTTLE)
   async login(
     @Body() body: MerchantLoginDto,
     @Res({ passthrough: true }) response: Response,

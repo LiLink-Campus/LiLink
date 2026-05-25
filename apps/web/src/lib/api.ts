@@ -316,14 +316,6 @@ export type CancelMeetupSessionPayload = {
   note?: string;
 };
 
-function proposalRequestBody(proposal: MeetupProposalPayload) {
-  return JSON.stringify(proposal);
-}
-
-function wrappedProposalRequestBody(proposal: MeetupProposalPayload) {
-  return JSON.stringify({ proposal });
-}
-
 export function fetchMeetupLocationCandidates() {
   return fetchApi<MeetupLocationCandidate[]>("/me/meetup-location-candidates");
 }
@@ -336,7 +328,7 @@ export function startMeetupSession(
     `/me/matches/${matchId}/meetup/start`,
     {
       method: "POST",
-      body: wrappedProposalRequestBody(proposal),
+      body: JSON.stringify({ proposal }),
     },
   );
 }
@@ -349,7 +341,7 @@ export function createMeetupProposal(
     `/me/meetup-sessions/${sessionId}/proposals`,
     {
       method: "POST",
-      body: proposalRequestBody(proposal),
+      body: JSON.stringify(proposal),
     },
   );
 }
@@ -396,7 +388,7 @@ export function reviseMeetupSession(
     `/me/meetup-sessions/${sessionId}/revise`,
     {
       method: "POST",
-      body: wrappedProposalRequestBody(proposal),
+      body: JSON.stringify({ proposal }),
     },
   );
 }
@@ -458,7 +450,7 @@ export function fetchMatchEstimate(payload: MatchEstimatePayload) {
 
 // --- Merchant promotion system (user-facing) ---
 
-export type ReferralFunnel = {
+type ReferralFunnel = {
   invited: number;
   registered: number;
   activated: number;
@@ -499,7 +491,7 @@ export function recordReferralClick(payload: {
   });
 }
 
-export type MyCouponStatus = "ISSUED" | "REDEEMED" | "EXPIRED" | "VOID";
+type MyCouponStatus = "ISSUED" | "REDEEMED" | "EXPIRED" | "VOID";
 
 export type MyCoupon = {
   id: string;
@@ -573,8 +565,6 @@ export function fetchMerchantMe() {
   );
 }
 
-export type RedeemResult = RedemptionResult;
-
 /** Coupon snapshot returned by both prepare and redeem endpoints. */
 export type RedeemCouponInfo = {
   title: string;
@@ -601,7 +591,7 @@ export type PrepareRedeemResponse = PrepareRedeemOk | PrepareRedeemFail;
 
 /** Response from POST /merchant/redeem (ticket-based, no merchantPromotion). */
 export type RedeemResponse = {
-  result: RedeemResult;
+  result: RedemptionResult;
   coupon: RedeemCouponInfo | null;
   // The benefit resolved at redemption (SUCCESS only).
   applied: {

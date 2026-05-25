@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { cx } from "@/lib/cx";
 import styles from "./MatchStateHero.module.css";
 
 export type MatchStateAction = {
@@ -32,10 +33,6 @@ export type MatchStateHeroProps = {
   /** Extra inline content (chips, intro, etc.) shown below body. */
   children?: ReactNode;
 };
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 function renderAction(action: MatchStateAction, index: number) {
   const variant = action.variant ?? "primary";

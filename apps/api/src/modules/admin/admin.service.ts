@@ -20,9 +20,9 @@ import { AdminAuditService } from './admin-audit.service';
 import { AdminSchoolService } from './admin-school.service';
 import { generateSeedTestUserPassword } from './seed-test-user-password';
 import {
-  ADMIN_LIST_PAGE_MAX,
-  ADMIN_LIST_PAGE_SIZE_MAX,
-} from '../../common/validation/input-limits';
+  buildPageResult,
+  normalizeAdminListPagination,
+} from '../../common/pagination';
 import {
   AdminUpdateUserDto,
   BatchReviewReportsDto,
@@ -268,7 +268,7 @@ export class AdminService {
       });
     }
 
-    const pagination = this.normalizePagination(query);
+    const pagination = normalizeAdminListPagination(query);
     const search = query.search?.trim();
     const where = {
       ...(query.status ? { status: query.status } : {}),
@@ -297,7 +297,7 @@ export class AdminService {
       this.prisma.matchCycle.count({ where }),
     ]);
 
-    return this.buildPageResult(items, total, pagination);
+    return buildPageResult(items, total, pagination);
   }
 
   async getReports(query: ListReportsQueryDto = {}) {
@@ -308,7 +308,7 @@ export class AdminService {
       });
     }
 
-    const pagination = this.normalizePagination(query);
+    const pagination = normalizeAdminListPagination(query);
     const search = query.search?.trim();
     const where = {
       ...(query.status ? { status: query.status } : {}),
@@ -343,7 +343,7 @@ export class AdminService {
       this.prisma.report.count({ where }),
     ]);
 
-    return this.buildPageResult(items, total, pagination);
+    return buildPageResult(items, total, pagination);
   }
 
   async getUserById(userId: string) {
@@ -403,7 +403,7 @@ export class AdminService {
       });
     }
 
-    const pagination = this.normalizePagination(query);
+    const pagination = normalizeAdminListPagination(query);
     const search = query.search?.trim();
     const whereClauses: Prisma.UserWhereInput[] = [];
 
@@ -491,7 +491,7 @@ export class AdminService {
       this.prisma.user.count({ where }),
     ]);
 
-    return this.buildPageResult(items, total, pagination);
+    return buildPageResult(items, total, pagination);
   }
 
   async getUserQuestionnaire(userId: string) {
@@ -547,7 +547,7 @@ export class AdminService {
       throw new NotFoundException('User not found.');
     }
 
-    const pagination = this.normalizePagination(query);
+    const pagination = normalizeAdminListPagination(query);
     const where = { userId };
 
     const [items, total] = await Promise.all([
@@ -564,7 +564,7 @@ export class AdminService {
       this.prisma.cycleParticipation.count({ where }),
     ]);
 
-    return this.buildPageResult(items, total, pagination);
+    return buildPageResult(items, total, pagination);
   }
 
   async getAuditLogs(query: ListAuditLogsQueryDto = {}) {
@@ -787,7 +787,7 @@ export class AdminService {
   ) {
     await this.assertCycleExists(cycleId);
 
-    const pagination = this.normalizePagination(query);
+    const pagination = normalizeAdminListPagination(query);
     const where = {
       cycleId,
       ...(query.status ? { status: query.status } : {}),
@@ -813,13 +813,13 @@ export class AdminService {
       this.prisma.cycleParticipation.count({ where }),
     ]);
 
-    return this.buildPageResult(items, total, pagination);
+    return buildPageResult(items, total, pagination);
   }
 
   async getCycleMatches(cycleId: string, query: ListCycleMatchesQueryDto = {}) {
     await this.assertCycleExists(cycleId);
 
-    const pagination = this.normalizePagination(query);
+    const pagination = normalizeAdminListPagination(query);
     const where = { cycleId };
 
     const [items, total] = await Promise.all([
@@ -876,7 +876,7 @@ export class AdminService {
       this.prisma.match.count({ where }),
     ]);
 
-    return this.buildPageResult(items, total, pagination);
+    return buildPageResult(items, total, pagination);
   }
 
   async getCycleLogs(cycleId: string, query: ListCycleLogsQueryDto = {}) {
@@ -1726,51 +1726,6 @@ export class AdminService {
       query.gender ||
       query.action,
     );
-  }
-
-  private normalizePagination(query: { page?: number; pageSize?: number }) {
-    const page = this.normalizePositiveInteger(
-      query.page,
-      1,
-      ADMIN_LIST_PAGE_MAX,
-    );
-    const pageSize = this.normalizePositiveInteger(
-      query.pageSize,
-      12,
-      ADMIN_LIST_PAGE_SIZE_MAX,
-    );
-
-    return {
-      page,
-      pageSize,
-      skip: (page - 1) * pageSize,
-    };
-  }
-
-  private buildPageResult<T>(
-    items: T[],
-    total: number,
-    pagination: { page: number; pageSize: number },
-  ) {
-    return {
-      items,
-      total,
-      page: pagination.page,
-      pageSize: pagination.pageSize,
-      totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
-    };
-  }
-
-  private normalizePositiveInteger(
-    value: number | undefined,
-    fallback: number,
-    max: number,
-  ) {
-    if (!Number.isSafeInteger(value) || value == null || value < 1) {
-      return fallback;
-    }
-
-    return Math.min(value, max);
   }
 
   private assertTestUserBulkOpsAllowed() {

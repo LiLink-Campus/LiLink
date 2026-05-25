@@ -6,6 +6,7 @@ import {
 } from '@lilink/shared';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { isUniqueConstraintError } from '../../common/prisma/errors';
 
 const COUPON_CODE_GENERATION_MAX_ATTEMPTS = 10;
 const MILLIS_PER_DAY = 86_400_000;
@@ -156,22 +157,13 @@ export class ActivationService {
         });
         return coupon.id;
       } catch (error) {
-        if (!this.isUniqueConstraintError(error)) throw error;
+        if (!isUniqueConstraintError(error)) throw error;
         // (userId, templateId) collision → granted concurrently; treat as done.
         if (this.conflictTargetIncludes(error, 'templateId')) return null;
         // Otherwise it is a coupon-code collision → retry with a fresh code.
       }
     }
     throw new Error('Failed to generate a unique coupon code.');
-  }
-
-  private isUniqueConstraintError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'P2002'
-    );
   }
 
   private conflictTargetIncludes(error: unknown, field: string): boolean {

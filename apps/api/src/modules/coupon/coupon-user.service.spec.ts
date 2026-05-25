@@ -175,8 +175,6 @@ describe('CouponUserService.getCouponStatus', () => {
     const result = await service.getCouponStatus('u1', 'co1');
 
     expect(result).toEqual({ status: 'ISSUED' });
-    expect(result).not.toHaveProperty('applied');
-    expect(result).not.toHaveProperty('merchantPromotion');
   });
 
   it('returns status ISSUED for an ISSUED coupon with a future expiry', async () => {

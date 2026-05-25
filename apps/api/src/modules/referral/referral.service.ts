@@ -11,6 +11,7 @@ import {
 import { env } from '../../config/env';
 import { PrismaClient } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { isUniqueConstraintError } from '../../common/prisma/errors';
 
 // Accepts either the base client or a transaction client, so attribution can be
 // resolved and frozen inside the registration transaction.
@@ -95,7 +96,7 @@ export class ReferralService {
           });
           return current?.referralCode ?? null;
         } catch (error) {
-          if (this.isUniqueConstraintError(error)) continue; // code taken -> retry
+          if (isUniqueConstraintError(error)) continue; // code taken -> retry
           throw error;
         }
       }
@@ -251,7 +252,7 @@ export class ReferralService {
         },
       });
     } catch (error) {
-      if (!this.isUniqueConstraintError(error)) throw error;
+      if (!isUniqueConstraintError(error)) throw error;
       // Already recorded for this visitor today -> dedupe, no-op.
     }
     return { result: 'OK' };
@@ -337,14 +338,5 @@ export class ReferralService {
       links,
       funnel: { invited, registered: invited, activated, granted, redeemed },
     };
-  }
-
-  private isUniqueConstraintError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'P2002'
-    );
   }
 }

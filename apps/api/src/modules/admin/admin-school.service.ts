@@ -16,9 +16,9 @@ import { CreateSchoolDto, ListSchoolsQueryDto, UpdateSchoolDto } from './dto';
 import { AdminAuditService } from './admin-audit.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
 import {
-  ADMIN_LIST_PAGE_MAX,
-  ADMIN_LIST_PAGE_SIZE_MAX,
-} from '../../common/validation/input-limits';
+  buildPageResult,
+  normalizeAdminListPagination,
+} from '../../common/pagination';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -80,7 +80,7 @@ export class AdminSchoolService {
       });
     }
 
-    const pagination = this.normalizePagination(query);
+    const pagination = normalizeAdminListPagination(query);
     const search = query.search?.trim();
     const where = search
       ? {
@@ -118,7 +118,7 @@ export class AdminSchoolService {
       this.prisma.school.count({ where }),
     ]);
 
-    return this.buildPageResult(items, total, pagination);
+    return buildPageResult(items, total, pagination);
   }
 
   async create(input: CreateSchoolDto, adminActorId: string) {
@@ -311,51 +311,6 @@ export class AdminSchoolService {
     }
 
     return [...new Set(normalizedDomains)];
-  }
-
-  private normalizePagination(query: { page?: number; pageSize?: number }) {
-    const page = this.normalizePositiveInteger(
-      query.page,
-      1,
-      ADMIN_LIST_PAGE_MAX,
-    );
-    const pageSize = this.normalizePositiveInteger(
-      query.pageSize,
-      12,
-      ADMIN_LIST_PAGE_SIZE_MAX,
-    );
-
-    return {
-      page,
-      pageSize,
-      skip: (page - 1) * pageSize,
-    };
-  }
-
-  private buildPageResult<T>(
-    items: T[],
-    total: number,
-    pagination: { page: number; pageSize: number },
-  ) {
-    return {
-      items,
-      total,
-      page: pagination.page,
-      pageSize: pagination.pageSize,
-      totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
-    };
-  }
-
-  private normalizePositiveInteger(
-    value: number | undefined,
-    fallback: number,
-    max: number,
-  ) {
-    if (!Number.isSafeInteger(value) || value == null || value < 1) {
-      return fallback;
-    }
-
-    return Math.min(value, max);
   }
 
   private async syncQuestionnaireResponses(

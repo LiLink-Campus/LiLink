@@ -22,6 +22,7 @@ import {
   type CouponStatusResponse,
 } from "../../../lib/api";
 import { getClientWebOrigin } from "../../../lib/api-base-url";
+import { formatYuan } from "../../../lib/format";
 
 const QrCode = dynamic(
   () => import("../../../components/qr-code").then((m) => m.QrCode),
@@ -34,11 +35,6 @@ const STATUS_LABELS: Record<string, string> = {
   EXPIRED: "已过期",
   VOID: "已作废",
 };
-
-/** Convert cents to yuan string (e.g. 100 → "1.00") */
-function formatYuan(cents: number) {
-  return (cents / 100).toFixed(2);
-}
 
 function formatExpiry(iso: string | null) {
   if (!iso) return "长期有效";

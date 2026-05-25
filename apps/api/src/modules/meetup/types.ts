@@ -39,12 +39,6 @@ export type MeetupTransactionClient = {
   user: MeetupDelegate;
 };
 
-export type MeetupPrismaClient = MeetupTransactionClient & {
-  $transaction<T>(
-    callback: (tx: MeetupTransactionClient) => Promise<T>,
-  ): Promise<T>;
-};
-
 export type CountResult = {
   count: number;
 };

@@ -114,13 +114,6 @@ export function resolveQuestionOptionValue(
   return null;
 }
 
-export function labelForQuestionValue(
-  value: string,
-  options: QuestionOption[],
-) {
-  return options.find((option) => option.value === value)?.label ?? value;
-}
-
 type NormalizableQuestion = {
   prompt: string;
   type: QuestionType;

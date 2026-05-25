@@ -13,6 +13,7 @@ import {
   type PrepareRedeemResponse,
   type RedeemResponse,
 } from "../../../lib/api";
+import { formatYuan } from "../../../lib/format";
 import { RedeemConfirm } from "../_components/RedeemConfirm";
 import "../merchant.css";
 
@@ -31,11 +32,6 @@ const PREPARE_FAIL_MESSAGES: Record<
   ALREADY_USED: "该券已使用。",
   INVALID: "无效的核销码。",
 };
-
-/** Convert cents to yuan string, e.g. 100 → "1.00". */
-function formatYuan(cents: number): string {
-  return (cents / 100).toFixed(2);
-}
 
 /** Merchant-facing success view showing the applied discount/amount/gift (spec §9.2). */
 function RedeemSuccessView({
