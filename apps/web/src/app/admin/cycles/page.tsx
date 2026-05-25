@@ -9,6 +9,7 @@ import {
 } from "@/lib/china-standard-time";
 import { WEEKLY_INTENT_LABELS } from "../../../lib/weekly-intent";
 import { cx } from "../admin-class-names";
+import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
@@ -583,11 +584,14 @@ export default function AdminCyclesPage() {
             {cycles.length === 0 && <div className={cx(adminStyles, "admin-empty-state")}>没有找到匹配的轮次。</div>}
           </div>
           {data && (
-            <div className={cx(adminStyles, "admin-pagination")}>
-              <button disabled={data.page <= 1} onClick={() => setPage(data.page - 1)} type="button">上一页</button>
-              <span>{data.page} / {data.totalPages} · 共 {data.total} 个轮次</span>
-              <button disabled={data.page >= data.totalPages} onClick={() => setPage(data.page + 1)} type="button">下一页</button>
-            </div>
+            <AdminPagination
+              className={cx(adminStyles, "admin-pagination")}
+              page={data.page}
+              totalPages={data.totalPages}
+              total={data.total}
+              unit="个轮次"
+              onPageChange={setPage}
+            />
           )}
         </article>
 
@@ -763,11 +767,14 @@ export default function AdminCyclesPage() {
             )}
 
             {participantsData && participantsData.totalPages > 1 && (
-              <div className={cx(adminStyles, "admin-pagination")}>
-                <button disabled={participantsData.page <= 1} onClick={() => setParticipantPage(participantsData.page - 1)} type="button">上一页</button>
-                <span>{participantsData.page} / {participantsData.totalPages} · 共 {participantsData.total} 人</span>
-                <button disabled={participantsData.page >= participantsData.totalPages} onClick={() => setParticipantPage(participantsData.page + 1)} type="button">下一页</button>
-              </div>
+              <AdminPagination
+                className={cx(adminStyles, "admin-pagination")}
+                page={participantsData.page}
+                totalPages={participantsData.totalPages}
+                total={participantsData.total}
+                unit="人"
+                onPageChange={setParticipantPage}
+              />
             )}
           </div>
         ) : (
@@ -853,11 +860,14 @@ export default function AdminCyclesPage() {
                   )})}
                 </div>
                 {matchesData.totalPages > 1 && (
-                  <div className={cx(adminStyles, "admin-pagination")}>
-                    <button disabled={matchesData.page <= 1} onClick={() => setMatchPage(matchesData.page - 1)} type="button">上一页</button>
-                    <span>{matchesData.page} / {matchesData.totalPages} · 共 {matchesData.total} 组</span>
-                    <button disabled={matchesData.page >= matchesData.totalPages} onClick={() => setMatchPage(matchesData.page + 1)} type="button">下一页</button>
-                  </div>
+                  <AdminPagination
+                    className={cx(adminStyles, "admin-pagination")}
+                    page={matchesData.page}
+                    totalPages={matchesData.totalPages}
+                    total={matchesData.total}
+                    unit="组"
+                    onPageChange={setMatchPage}
+                  />
                 )}
               </>
             ) : (
@@ -882,11 +892,14 @@ export default function AdminCyclesPage() {
                     ))}
                   </div>
                   {logsData.totalPages > 1 && (
-                    <div className={cx(adminStyles, "admin-pagination")}>
-                      <button disabled={logsData.page <= 1} onClick={() => setLogPage(logsData.page - 1)} type="button">上一页</button>
-                      <span>{logsData.page} / {logsData.totalPages} · 共 {logsData.total} 条</span>
-                      <button disabled={logsData.page >= logsData.totalPages} onClick={() => setLogPage(logsData.page + 1)} type="button">下一页</button>
-                    </div>
+                    <AdminPagination
+                      className={cx(adminStyles, "admin-pagination")}
+                      page={logsData.page}
+                      totalPages={logsData.totalPages}
+                      total={logsData.total}
+                      unit="条"
+                      onPageChange={setLogPage}
+                    />
                   )}
                 </>
               ) : (
@@ -936,11 +949,14 @@ export default function AdminCyclesPage() {
               </div>
 
               {pTotalPages > 1 && (
-                <div className={cx(adminStyles, "admin-pagination")}>
-                  <button disabled={pSafePage <= 1} onClick={() => setPairPage(pSafePage - 1)} type="button">上一页</button>
-                  <span>{pSafePage} / {pTotalPages} · 共 {allP.length} 组</span>
-                  <button disabled={pSafePage >= pTotalPages} onClick={() => setPairPage(pSafePage + 1)} type="button">下一页</button>
-                </div>
+                <AdminPagination
+                  className={cx(adminStyles, "admin-pagination")}
+                  page={pSafePage}
+                  totalPages={pTotalPages}
+                  total={allP.length}
+                  unit="组"
+                  onPageChange={setPairPage}
+                />
               )}
             </div>
           );
