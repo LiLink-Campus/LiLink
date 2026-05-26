@@ -95,17 +95,23 @@ export class AdminAnalyticsService {
       }>
     >(Prisma.sql`
       SELECT
-        u."schoolId" AS "schoolId",
-        s."name" AS "schoolName",
-        TRIM(r."answers"->>${HARD_MATCH_KEYS.gender}) AS "gender",
+        base."schoolId" AS "schoolId",
+        base."schoolName" AS "schoolName",
+        base."gender" AS "gender",
         COUNT(*)::int AS "count"
-      FROM "User" u
-      LEFT JOIN "School" s ON s."id" = u."schoolId"
-      LEFT JOIN "QuestionnaireResponse" r
-        ON r."userId" = u."id" AND r."submittedAt" IS NOT NULL
-      WHERE 1 = 1
-        ${includeTest ? Prisma.empty : Prisma.sql`AND u."isTest" = false`}
-      GROUP BY u."schoolId", s."name", TRIM(r."answers"->>${HARD_MATCH_KEYS.gender})
+      FROM (
+        SELECT
+          u."schoolId" AS "schoolId",
+          s."name" AS "schoolName",
+          TRIM(r."answers"->>${HARD_MATCH_KEYS.gender}) AS "gender"
+        FROM "User" u
+        LEFT JOIN "School" s ON s."id" = u."schoolId"
+        LEFT JOIN "QuestionnaireResponse" r
+          ON r."userId" = u."id" AND r."submittedAt" IS NOT NULL
+        WHERE 1 = 1
+          ${includeTest ? Prisma.empty : Prisma.sql`AND u."isTest" = false`}
+      ) base
+      GROUP BY base."schoolId", base."schoolName", base."gender"
     `);
 
     const noSchool = '__none__';
@@ -184,18 +190,23 @@ export class AdminAnalyticsService {
             }>
           >(Prisma.sql`
             SELECT
-              cp."cycleId" AS "cycleId",
-              TRIM(r."answers"->>${HARD_MATCH_KEYS.gender}) AS "gender",
+              base."cycleId" AS "cycleId",
+              base."gender" AS "gender",
               COUNT(*)::int AS "count"
-            FROM "CycleParticipation" cp
-            JOIN "User" u ON u."id" = cp."userId"
-            LEFT JOIN "QuestionnaireResponse" r
-              ON r."userId" = cp."userId" AND r."submittedAt" IS NOT NULL
-            WHERE cp."cycleId" IN (${Prisma.join(cycleIds)})
-              AND cp."status" = 'OPTED_IN'
-              AND cp."intent" IS NOT NULL
-              ${includeTest ? Prisma.empty : Prisma.sql`AND u."isTest" = false`}
-            GROUP BY cp."cycleId", TRIM(r."answers"->>${HARD_MATCH_KEYS.gender})
+            FROM (
+              SELECT
+                cp."cycleId" AS "cycleId",
+                TRIM(r."answers"->>${HARD_MATCH_KEYS.gender}) AS "gender"
+              FROM "CycleParticipation" cp
+              JOIN "User" u ON u."id" = cp."userId"
+              LEFT JOIN "QuestionnaireResponse" r
+                ON r."userId" = cp."userId" AND r."submittedAt" IS NOT NULL
+              WHERE cp."cycleId" IN (${Prisma.join(cycleIds)})
+                AND cp."status" = 'OPTED_IN'
+                AND cp."intent" IS NOT NULL
+                ${includeTest ? Prisma.empty : Prisma.sql`AND u."isTest" = false`}
+            ) base
+            GROUP BY base."cycleId", base."gender"
           `)
         : [];
 
