@@ -1,4 +1,4 @@
-import type { DashboardCurrentCycle } from "./types";
+import type { DashboardCurrentCycle, DashboardPayload } from "./types";
 
 export function formatCycleRevealAt(iso: string): string {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -6,6 +6,18 @@ export function formatCycleRevealAt(iso: string): string {
     timeStyle: "short",
     timeZone: "Asia/Shanghai",
   }).format(new Date(iso));
+}
+
+export function lastRoundUnmatched(
+  dashboard: Pick<DashboardPayload, "lastRevealedRound" | "latestMatch">,
+): boolean {
+  const last = dashboard.lastRevealedRound;
+  return Boolean(
+    last &&
+      last.participationStatus === "OPTED_IN" &&
+      !last.matched &&
+      !dashboard.latestMatch,
+  );
 }
 
 export function canEditCurrentCycleParticipation(

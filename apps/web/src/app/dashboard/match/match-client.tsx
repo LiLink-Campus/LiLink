@@ -15,6 +15,7 @@ import { ReportForm } from "../_components/ReportForm";
 import { useMatchActions } from "../_components/useMatchActions";
 import {
   canEditCurrentCycleParticipation,
+  lastRoundUnmatched,
   reportHandlingChipLabel,
 } from "../_lib/format";
 import { describeRevealMoment } from "../_lib/focus";
@@ -302,6 +303,20 @@ export function MatchClient({
         ]}
       />
     );
+  } else if (dashboard && lastRoundUnmatched(dashboard)) {
+    const lastRevealedRound = dashboard.lastRevealedRound!;
+    hero = (
+      <MatchWaitingStrip
+        eyebrow="未匹配"
+        variant="muted"
+        title="本轮未匹配到对象"
+        subtitle={`「${lastRevealedRound.codename}」本轮可配对人数不足或没有与你强相容的组合。下一轮开放报名时回到首页即可再次参与，更新问卷也能提高下次成功率。`}
+        actions={[
+          { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
+          { label: "查看历史", href: "/dashboard/match/history", variant: "secondary" },
+        ]}
+      />
+    );
   } else if (
     currentCycle?.participationStatus === "OPTED_IN" &&
     (currentCycle.status === "OPEN" ||
@@ -339,23 +354,6 @@ export function MatchClient({
         revealAt={currentCycle?.revealAt ?? null}
         actions={[
           { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
-        ]}
-      />
-    );
-  } else if (
-    dashboard?.lastRevealedRound?.participationStatus === "OPTED_IN" &&
-    !dashboard.lastRevealedRound.matched &&
-    !latestMatch
-  ) {
-    hero = (
-      <MatchWaitingStrip
-        eyebrow="未匹配"
-        variant="muted"
-        title="本轮未匹配到对象"
-        subtitle={`「${dashboard.lastRevealedRound.codename}」本轮可配对人数不足或没有与你强相容的组合。下一轮开放报名时回到首页即可再次参与，更新问卷也能提高下次成功率。`}
-        actions={[
-          { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
-          { label: "查看历史", href: "/dashboard/match/history", variant: "secondary" },
         ]}
       />
     );

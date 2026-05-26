@@ -1,5 +1,8 @@
 import { WEEKLY_INTENT_LABELS } from "../../../lib/weekly-intent";
-import { canEditCurrentCycleParticipation } from "./format";
+import {
+  canEditCurrentCycleParticipation,
+  lastRoundUnmatched,
+} from "./format";
 import {
   contactPreferencesAreDefault,
   describeRelativeUntil,
@@ -188,22 +191,12 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
   return alerts;
 }
 
-function lastRoundUnmatched(inputs: AgendaInputs): boolean {
-  const last = inputs.dashboard.lastRevealedRound;
-  return Boolean(
-    last &&
-      last.participationStatus === "OPTED_IN" &&
-      !last.matched &&
-      !inputs.dashboard.latestMatch,
-  );
-}
-
 function participationTodo(inputs: AgendaInputs): AgendaTodo {
   const cycle = inputs.dashboard.currentCycle;
   const canEdit = canEditCurrentCycleParticipation(cycle);
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
   const intent = cycle?.intent ?? null;
-  const unmatchedNote = lastRoundUnmatched(inputs)
+  const unmatchedNote = lastRoundUnmatched(inputs.dashboard)
     ? "上一轮未匹配成功，下一轮重新加入即可再试。"
     : "";
 
