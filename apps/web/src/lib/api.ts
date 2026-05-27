@@ -511,6 +511,26 @@ export function fetchMyCoupons() {
   return fetchApi<{ items: MyCoupon[] }>("/me/coupons");
 }
 
+export type CouponAgendaReadState = {
+  target: string;
+  version: string;
+  availableCount: number;
+  unreadAvailableCount: number;
+  read: boolean;
+  readAt: string | null;
+  href: "/dashboard/coupons";
+};
+
+export function fetchCouponAgendaReadState() {
+  return fetchApi<CouponAgendaReadState>("/me/coupons/read-state");
+}
+
+export function markCouponAgendaRead() {
+  return fetchApi<CouponAgendaReadState>("/me/coupons/read-state", {
+    method: "POST",
+  });
+}
+
 export type CouponRedeemSecret = {
   code: string;
   secret: string;

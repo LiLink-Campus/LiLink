@@ -14,15 +14,21 @@ import type { MerchantPromotionBlock } from "@lilink/shared";
 import { ClipboardIcon } from "../_components/icons";
 import {
   fetchMyCoupons,
+  fetchCouponAgendaReadState,
   getCouponRedeemSecret,
   getCouponStatus,
   isApiRequestError,
   type MyCoupon,
+  type AuthMePayload,
+  type CouponAgendaReadState,
   type CouponRedeemSecret,
   type CouponStatusResponse,
 } from "../../../lib/api";
 import { getClientWebOrigin } from "../../../lib/api-base-url";
 import { formatYuan } from "../../../lib/format";
+import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
+import { cacheDashboardCouponAgendaRead } from "../_lib/coupon-agenda-read-cache";
+import { useCouponReadVisibility } from "./useCouponReadVisibility";
 
 const QrCode = dynamic(
   () => import("../../../components/qr-code").then((m) => m.QrCode),
@@ -35,6 +41,12 @@ const STATUS_LABELS: Record<string, string> = {
   EXPIRED: "已过期",
   VOID: "已作废",
 };
+
+function debugCouponRead(message: string) {
+  if (process.env.NODE_ENV !== "production") {
+    console.debug(`[LiLink coupons] ${message}`);
+  }
+}
 
 function formatExpiry(iso: string | null) {
   if (!iso) return "长期有效";
@@ -499,11 +511,17 @@ function CouponsPanel({
 }
 
 export function CouponsClient({
+  initialUser,
   initialCoupons = null,
 }: {
+  initialUser: AuthMePayload;
   initialCoupons?: MyCoupon[] | null;
 }) {
+  useDashboardSessionSeed(initialUser);
+  const currentUserId = initialUser.id;
   const [coupons, setCoupons] = useState<MyCoupon[] | null>(initialCoupons);
+  const [couponReadState, setCouponReadState] =
+    useState<CouponAgendaReadState | null>(null);
   const [loading, setLoading] = useState(initialCoupons === null);
   const [error, setError] = useState<string | null>(null);
   const [selectedCoupon, setSelectedCoupon] = useState<MyCoupon | null>(null);
@@ -515,8 +533,9 @@ export function CouponsClient({
     }
     let active = true;
     fetchMyCoupons()
-      .then((result) => {
-        if (active) setCoupons(result.items);
+      .then((couponResult) => {
+        if (!active) return;
+        setCoupons(couponResult.items);
       })
       .catch((caught) => {
         if (active) {
@@ -530,6 +549,38 @@ export function CouponsClient({
       active = false;
     };
   }, [initialCoupons]);
+
+  useEffect(() => {
+    let active = true;
+    fetchCouponAgendaReadState()
+      .then((readState) => {
+        if (active) setCouponReadState(readState);
+      })
+      .catch(() => {
+        debugCouponRead("read-state load failed");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const issued = coupons?.filter((coupon) => coupon.status === "ISSUED") ?? [];
+  const archived =
+    coupons?.filter((coupon) => coupon.status !== "ISSUED") ?? [];
+  const shouldTrackRead = Boolean(
+    currentUserId &&
+      issued.length > 0 &&
+      (couponReadState == null ||
+        (!couponReadState.read && couponReadState.unreadAvailableCount > 0)),
+  );
+  const handleCouponReadMarked = useCallback((state: CouponAgendaReadState) => {
+    setCouponReadState(state);
+    cacheDashboardCouponAgendaRead(state, currentUserId);
+  }, [currentUserId]);
+  const couponReadRef = useCouponReadVisibility<HTMLDivElement>({
+    enabled: shouldTrackRead,
+    onMarkedRead: handleCouponReadMarked,
+  });
 
   if (loading) {
     return (
@@ -549,10 +600,6 @@ export function CouponsClient({
     );
   }
 
-  const issued = coupons?.filter((coupon) => coupon.status === "ISSUED") ?? [];
-  const archived =
-    coupons?.filter((coupon) => coupon.status !== "ISSUED") ?? [];
-
   return (
     <div className={dcx("app-page-shell v2-page-shell coupons-page")}>
       <header className={dcx("v2-page-header coupons-header")}>
@@ -564,40 +611,42 @@ export function CouponsClient({
         <p>向商家出示核销码即可使用</p>
       </header>
 
-      <CouponsPanel
-        title="可用优惠券"
-        description="到店消费时，向商家出示下方核销码即可抵扣"
-        count={issued.length}
-      >
-        {issued.length === 0 ? (
-          <CouponsEmptyState />
-        ) : (
-          <div className={dcx("coupons-list")}>
-            {issued.map((coupon) => (
-              <CouponCard
-                key={coupon.id}
-                coupon={coupon}
-                onShowCode={() => setSelectedCoupon(coupon)}
-              />
-            ))}
-          </div>
-        )}
-      </CouponsPanel>
-
-      {archived.length > 0 ? (
+      <div ref={couponReadRef} className={dcx("coupons-main")}>
         <CouponsPanel
-          title="历史记录"
-          description="已使用或过期的优惠券"
-          count={archived.length}
-          muted
+          title="可用优惠券"
+          description="到店消费时，向商家出示下方核销码即可抵扣"
+          count={issued.length}
         >
-          <div className={dcx("coupons-list")}>
-            {archived.map((coupon) => (
-              <CouponCard key={coupon.id} coupon={coupon} archived />
-            ))}
-          </div>
+          {issued.length === 0 ? (
+            <CouponsEmptyState />
+          ) : (
+            <div className={dcx("coupons-list")}>
+              {issued.map((coupon) => (
+                <CouponCard
+                  key={coupon.id}
+                  coupon={coupon}
+                  onShowCode={() => setSelectedCoupon(coupon)}
+                />
+              ))}
+            </div>
+          )}
         </CouponsPanel>
-      ) : null}
+
+        {archived.length > 0 ? (
+          <CouponsPanel
+            title="历史记录"
+            description="已使用或过期的优惠券"
+            count={archived.length}
+            muted
+          >
+            <div className={dcx("coupons-list")}>
+              {archived.map((coupon) => (
+                <CouponCard key={coupon.id} coupon={coupon} archived />
+              ))}
+            </div>
+          </CouponsPanel>
+        ) : null}
+      </div>
 
       <CouponCodeDialog
         coupon={selectedCoupon}

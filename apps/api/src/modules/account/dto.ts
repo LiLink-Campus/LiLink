@@ -520,6 +520,29 @@ export class DashboardMeetupSummaryResponseDto {
   terminalText!: string | null;
 }
 
+export class DashboardCouponAgendaResponseDto {
+  @ApiProperty()
+  target!: string;
+
+  @ApiProperty()
+  version!: string;
+
+  @ApiProperty()
+  availableCount!: number;
+
+  @ApiProperty()
+  unreadAvailableCount!: number;
+
+  @ApiProperty()
+  read!: boolean;
+
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  readAt!: string | null;
+
+  @ApiProperty({ example: '/dashboard/coupons' })
+  href!: '/dashboard/coupons';
+}
+
 export class DashboardResponseDto {
   @ApiProperty({
     type: Object,
@@ -568,4 +591,7 @@ export class DashboardResponseDto {
     nullable: true,
   })
   meetupSummary!: DashboardMeetupSummaryResponseDto | null;
+
+  @ApiProperty({ type: () => DashboardCouponAgendaResponseDto })
+  couponAgenda!: DashboardCouponAgendaResponseDto;
 }

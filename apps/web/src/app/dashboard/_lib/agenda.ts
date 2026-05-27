@@ -25,20 +25,16 @@ export type AgendaIconKey =
   | "profile"
   | "circle";
 
-export type AgendaTone = "attention" | "celebrate" | "waiting";
+export type AgendaPriority = "high" | "medium" | "low";
 
-export type AgendaAlert = {
-  id: string;
-  tone: AgendaTone;
-  icon: AgendaIconKey;
-  title: string;
-  body: string;
-  action: { label: string; href: string };
-};
+export type AgendaItemStatus =
+  | "done"
+  | "todo"
+  | "attention"
+  | "waiting"
+  | "celebrate";
 
-export type AgendaTodoStatus = "done" | "todo" | "attention";
-
-export type AgendaTodoAction = {
+export type AgendaItemAction = {
   label: string;
   kind: "intent-sheet" | "withdraw" | "link";
   href?: string;
@@ -46,20 +42,35 @@ export type AgendaTodoAction = {
   loadingLabel?: string;
 };
 
-export type AgendaTodoProgress = {
+export type AgendaItemProgress = {
   confirmedPercent: number;
   unconfirmedPercent: number;
   unconfirmedCount: number;
 };
 
-export type AgendaTodo = {
-  id: "PARTICIPATION" | "PROFILE_CARD" | "QUESTIONNAIRE";
-  status: AgendaTodoStatus;
+export type AgendaItem = {
+  id:
+    | "MEETUP_NEEDS_ACTION"
+    | "MEETUP_WAITING"
+    | "MATCH_LIMITED"
+    | "MATCH_INTRODUCED_NO_MEETUP"
+    | "MATCH_REVEALED_AWAITING_INTRO"
+    | "COUPONS_AVAILABLE"
+    | "PARTICIPATION"
+    | "PROFILE_CARD"
+    | "QUESTIONNAIRE";
+  priority: AgendaPriority;
+  status: AgendaItemStatus;
   icon: AgendaIconKey;
   title: string;
   subtitle: string;
-  progress?: AgendaTodoProgress;
-  actions: AgendaTodoAction[];
+  progress?: AgendaItemProgress;
+  actions: AgendaItemAction[];
+  actionable: boolean;
+};
+
+type AgendaItemDraft = AgendaItem & {
+  sortOrder: number;
 };
 
 // 常驻倒计时：无论是否匹配到都显示
@@ -67,15 +78,14 @@ export type AgendaCountdown =
   | {
       state: "upcoming";
       codename: string;
+      revealAt: string;
       revealLabel: string;
-      relativeLabel: string | null;
     }
   | { state: "none" };
 
 export type Agenda = {
   countdown: AgendaCountdown;
-  alerts: AgendaAlert[];
-  todos: AgendaTodo[];
+  items: AgendaItem[];
 };
 
 export type AgendaInputs = {
@@ -94,6 +104,12 @@ export type AgendaInputs = {
   };
 };
 
+const PRIORITY_SORT: Record<AgendaPriority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
 function resolveCountdown(inputs: AgendaInputs): AgendaCountdown {
   const cycle = inputs.dashboard.currentCycle;
   if (!cycle) {
@@ -106,16 +122,15 @@ function resolveCountdown(inputs: AgendaInputs): AgendaCountdown {
   return {
     state: "upcoming",
     codename: cycle.codename,
+    revealAt: cycle.revealAt,
     revealLabel,
-    relativeLabel: describeRelativeUntil(cycle.revealAt),
   };
 }
 
-function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
-  const { dashboard, counterpartDisplayName } = inputs;
+function meetupAgendaItems(inputs: AgendaInputs): AgendaItemDraft[] {
+  const { dashboard } = inputs;
   const tasks = dashboard.tasks ?? [];
-  const meetupSummary = dashboard.meetupSummary ?? null;
-  const alerts: AgendaAlert[] = [];
+  const items: AgendaItemDraft[] = [];
 
   // Meetup prompts (the two turn states are mutually exclusive).
   const needsAction = tasks.find(
@@ -125,73 +140,161 @@ function resolveAlerts(inputs: AgendaInputs): AgendaAlert[] {
     (t) => t.type === "MEETUP" && meetupTaskIsWaiting(t),
   );
   if (needsAction) {
-    alerts.push({
+    items.push({
       id: "MEETUP_NEEDS_ACTION",
-      tone: "attention",
+      priority: "high",
+      sortOrder: 10,
+      actionable: true,
+      status: "attention",
       icon: "calendar",
       title: "回应 TA 的见面提议",
-      body: "对方发来了几个时间和地点选项，去看看有没有合适的吧。",
-      action: { label: "去回应", href: needsAction.href },
+      subtitle: "对方发来了几个时间和地点选项，去看看有没有合适的吧。",
+      actions: [
+        {
+          label: "去回应",
+          kind: "link",
+          href: needsAction.href,
+          variant: "primary",
+        },
+      ],
     });
   } else if (waiting) {
-    alerts.push({
+    items.push({
       id: "MEETUP_WAITING",
-      tone: "waiting",
+      priority: "medium",
+      sortOrder: 30,
+      actionable: true,
+      status: "waiting",
       icon: "clock",
       title: "已把提议发给 TA",
-      body: "对方回应后，这里会立刻通知你。",
-      action: { label: "查看提议", href: waiting.href },
+      subtitle: "对方回应后，这里会立刻通知你。",
+      actions: [
+        {
+          label: "查看提议",
+          kind: "link",
+          href: waiting.href,
+          variant: "secondary",
+        },
+      ],
     });
   }
 
-  // Match prompts (limited / introduced / revealed are mutually exclusive
-  // sub-states, but kept independent of the meetup prompt above per the
-  // multi-alert contract).
+  return items;
+}
+
+function matchAgendaItems(inputs: AgendaInputs): AgendaItemDraft[] {
+  const { dashboard, counterpartDisplayName } = inputs;
+  const meetupSummary = dashboard.meetupSummary ?? null;
   const latestMatch = dashboard.latestMatch;
   const introduced = Boolean(latestMatch?.introducedAt);
+
   if (introduced && latestMatch && !meetupSummary) {
     if (dashboard.latestMatchVisibility === "LIMITED") {
-      alerts.push({
-        id: "MATCH_LIMITED",
-        tone: "waiting",
-        icon: "clock",
-        title: "本轮匹配已受限",
-        body: "对方的可识别信息已隐藏，可在匹配页查看状态。",
-        action: { label: "查看匹配状态", href: "/dashboard/match" },
-      });
-    } else {
-      const name = counterpartDisplayName ?? "TA";
-      alerts.push({
+      return [
+        {
+          id: "MATCH_LIMITED",
+          priority: "medium",
+          sortOrder: 35,
+          actionable: true,
+          status: "waiting",
+          icon: "clock",
+          title: "本轮匹配已受限",
+          subtitle: "对方的可识别信息已隐藏，可在匹配页查看状态。",
+          actions: [
+            {
+              label: "查看匹配状态",
+              kind: "link",
+              href: "/dashboard/match",
+              variant: "secondary",
+            },
+          ],
+        },
+      ];
+    }
+
+    const name = counterpartDisplayName ?? "TA";
+    return [
+      {
         id: "MATCH_INTRODUCED_NO_MEETUP",
-        tone: "celebrate",
+        priority: "high",
+        sortOrder: 15,
+        actionable: true,
+        status: "celebrate",
         icon: "heart",
         title: `可以约 ${name} 见面了`,
-        body: "引荐邮件已发出。你可以直接给对方提议 2-3 个时间和地点。",
-        action: {
-          label: "安排见面",
-          href: `/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`,
-        },
-      });
-    }
-  } else if (
+        subtitle: "引荐邮件已发出。你可以直接给对方提议 2-3 个时间和地点。",
+        actions: [
+          {
+            label: "安排见面",
+            kind: "link",
+            href: `/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`,
+            variant: "primary",
+          },
+        ],
+      },
+    ];
+  }
+
+  if (
     latestMatch &&
     !introduced &&
     dashboard.latestMatchVisibility !== "LIMITED"
   ) {
-    alerts.push({
-      id: "MATCH_REVEALED_AWAITING_INTRO",
-      tone: "celebrate",
-      icon: "heart",
-      title: "本轮为你匹配到了 TA",
-      body: "你可以选择交换联系方式，或者直接发起第一次见面。",
-      action: { label: "查看匹配详情", href: "/dashboard/match" },
-    });
+    return [
+      {
+        id: "MATCH_REVEALED_AWAITING_INTRO",
+        priority: "high",
+        sortOrder: 15,
+        actionable: true,
+        status: "celebrate",
+        icon: "heart",
+        title: "本轮为你匹配到了 TA",
+        subtitle: "你可以选择交换联系方式，或者直接发起第一次见面。",
+        actions: [
+          {
+            label: "查看匹配详情",
+            kind: "link",
+            href: "/dashboard/match",
+            variant: "primary",
+          },
+        ],
+      },
+    ];
   }
 
-  return alerts;
+  return [];
 }
 
-function participationTodo(inputs: AgendaInputs): AgendaTodo {
+function couponAgendaItem(inputs: AgendaInputs): AgendaItemDraft | null {
+  const couponAgenda = inputs.dashboard.couponAgenda ?? null;
+  if (!couponAgenda || couponAgenda.unreadAvailableCount <= 0) {
+    return null;
+  }
+
+  return {
+    id: "COUPONS_AVAILABLE",
+    priority: "high",
+    sortOrder: 20,
+    actionable: true,
+    status: "attention",
+    icon: "clipboard",
+    title: `有 ${couponAgenda.unreadAvailableCount} 张新优惠券`,
+    subtitle:
+      couponAgenda.availableCount > couponAgenda.unreadAvailableCount
+        ? `共 ${couponAgenda.availableCount} 张可用。`
+        : "到店消费可用。",
+    actions: [
+      {
+        label: "查看优惠券",
+        kind: "link",
+        href: couponAgenda.href,
+        variant: "primary",
+      },
+    ],
+  };
+}
+
+function participationItem(inputs: AgendaInputs): AgendaItemDraft {
   const cycle = inputs.dashboard.currentCycle;
   const canEdit = canEditCurrentCycleParticipation(cycle);
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
@@ -203,6 +306,9 @@ function participationTodo(inputs: AgendaInputs): AgendaTodo {
   if (!cycle) {
     return {
       id: "PARTICIPATION",
+      priority: "low",
+      sortOrder: 80,
+      actionable: false,
       status: "done",
       icon: "circle",
       title: "本周参与",
@@ -218,6 +324,9 @@ function participationTodo(inputs: AgendaInputs): AgendaTodo {
   if (isOptedIn && intent && canEdit) {
     return {
       id: "PARTICIPATION",
+      priority: "low",
+      sortOrder: 70,
+      actionable: false,
       status: "done",
       icon: "heart",
       title: `本周已参加 · 意向 ${WEEKLY_INTENT_LABELS[intent].primary}`,
@@ -244,6 +353,9 @@ function participationTodo(inputs: AgendaInputs): AgendaTodo {
   if (canEdit) {
     return {
       id: "PARTICIPATION",
+      priority: "medium",
+      sortOrder: 50,
+      actionable: true,
       status: "todo",
       icon: "heart",
       title: "选择本周意向，参加本轮",
@@ -264,6 +376,9 @@ function participationTodo(inputs: AgendaInputs): AgendaTodo {
   // 已锁定（报名截止后）
   return {
     id: "PARTICIPATION",
+    priority: "low",
+    sortOrder: 75,
+    actionable: false,
     status: "done",
     icon: "clock",
     title: "本轮报名已截止",
@@ -274,10 +389,13 @@ function participationTodo(inputs: AgendaInputs): AgendaTodo {
   };
 }
 
-function profileTodo(inputs: AgendaInputs): AgendaTodo {
+function profileItem(inputs: AgendaInputs): AgendaItemDraft {
   if (inputs.questionnaire.missingOneLinerIntro) {
     return {
       id: "PROFILE_CARD",
+      priority: "high",
+      sortOrder: 40,
+      actionable: true,
       status: "attention",
       icon: "profile",
       title: "完善一句话介绍",
@@ -296,6 +414,9 @@ function profileTodo(inputs: AgendaInputs): AgendaTodo {
   const isDefault = contactPreferencesAreDefault(inputs.contactPreferences);
   return {
     id: "PROFILE_CARD",
+    priority: "low",
+    sortOrder: isDefault ? 65 : 90,
+    actionable: isDefault,
     status: isDefault ? "todo" : "done",
     icon: "profile",
     title: "完善个人名片",
@@ -303,16 +424,30 @@ function profileTodo(inputs: AgendaInputs): AgendaTodo {
       ? "默认展示注册邮箱。补充微信后，引荐时 TA 更容易找到你。"
       : "联系方式偏好已设置。",
     actions: isDefault
-      ? [{ label: "去补充", kind: "link", href: "/dashboard/me", variant: "secondary" }]
-      : [{ label: "查看名片", kind: "link", href: "/dashboard/me", variant: "ghost" }],
+      ? [
+          {
+            label: "去补充",
+            kind: "link",
+            href: "/dashboard/me",
+            variant: "secondary",
+          },
+        ]
+      : [
+          {
+            label: "查看名片",
+            kind: "link",
+            href: "/dashboard/me",
+            variant: "ghost",
+          },
+        ],
   };
 }
 
-function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
+function questionnaireItem(inputs: AgendaInputs): AgendaItemDraft {
   const q = inputs.questionnaire;
   const missingCount = q.attention?.missingRequiredKeys?.length ?? 0;
   const pendingCount = q.attention?.pendingUpdatedKeys?.length ?? 0;
-  const progress: AgendaTodoProgress = {
+  const progress: AgendaItemProgress = {
     confirmedPercent: q.confirmedPercent,
     unconfirmedPercent: q.unconfirmedPercent,
     unconfirmedCount: q.unconfirmedCount,
@@ -321,6 +456,9 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
   if (missingCount > 0) {
     return {
       id: "QUESTIONNAIRE",
+      priority: "high",
+      sortOrder: 35,
+      actionable: true,
       status: "attention",
       icon: "clipboard",
       title: "匹配资料有必填项待补全",
@@ -340,6 +478,9 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
   if (pendingCount > 0) {
     return {
       id: "QUESTIONNAIRE",
+      priority: "high",
+      sortOrder: 36,
+      actionable: true,
       status: "attention",
       icon: "clipboard",
       title: "匹配资料有待确认项",
@@ -360,6 +501,9 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
     if (q.missingOneLinerIntro) {
       return {
         id: "QUESTIONNAIRE",
+        priority: "low",
+        sortOrder: 85,
+        actionable: false,
         status: "done",
         icon: "clipboard",
         title: "匹配资料已就绪",
@@ -378,6 +522,9 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
 
     return {
       id: "QUESTIONNAIRE",
+      priority: "high",
+      sortOrder: 35,
+      actionable: true,
       status: "todo",
       icon: "clipboard",
       title: q.submitted ? "继续完善匹配资料" : "先完成匹配资料",
@@ -396,6 +543,9 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
 
   return {
     id: "QUESTIONNAIRE",
+    priority: "low",
+    sortOrder: q.percent >= 100 ? 95 : 60,
+    actionable: q.percent < 100,
     status: q.percent >= 100 ? "done" : "todo",
     icon: "clipboard",
     title: q.percent >= 100 ? "匹配资料已就绪" : "补完匹配资料的可选项",
@@ -425,21 +575,43 @@ function questionnaireTodo(inputs: AgendaInputs): AgendaTodo {
   };
 }
 
+function sortedAgendaItems(items: AgendaItemDraft[]): AgendaItem[] {
+  return [...items]
+    .sort((a, b) => {
+      const priorityDelta = PRIORITY_SORT[a.priority] - PRIORITY_SORT[b.priority];
+      if (priorityDelta !== 0) return priorityDelta;
+      return a.sortOrder - b.sortOrder;
+    })
+    .map((item) => ({
+      id: item.id,
+      priority: item.priority,
+      status: item.status,
+      icon: item.icon,
+      title: item.title,
+      subtitle: item.subtitle,
+      progress: item.progress,
+      actions: item.actions,
+      actionable: item.actionable,
+    }));
+}
+
 export function resolveAgenda(inputs: AgendaInputs): Agenda {
+  const couponItem = couponAgendaItem(inputs);
+  const items = [
+    ...meetupAgendaItems(inputs),
+    ...matchAgendaItems(inputs),
+    ...(couponItem ? [couponItem] : []),
+    participationItem(inputs),
+    profileItem(inputs),
+    questionnaireItem(inputs),
+  ];
+
   return {
     countdown: resolveCountdown(inputs),
-    alerts: resolveAlerts(inputs),
-    todos: [
-      participationTodo(inputs),
-      profileTodo(inputs),
-      questionnaireTodo(inputs),
-    ],
+    items: sortedAgendaItems(items),
   };
 }
 
 export function countActionableAgendaItems(agenda: Agenda): number {
-  const todoCount = agenda.todos.filter(
-    (t) => t.status === "todo" || t.status === "attention",
-  ).length;
-  return agenda.alerts.length + todoCount;
+  return agenda.items.filter((item) => item.actionable).length;
 }

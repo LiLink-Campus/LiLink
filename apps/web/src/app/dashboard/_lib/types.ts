@@ -5,6 +5,7 @@ import type {
   SupportedLocale,
 } from "@lilink/shared";
 import type {
+  CouponAgendaReadState,
   MeetupExpirationWeeks,
   MeetupProgressStatus,
   MeetupUserTurnStatus,
@@ -147,6 +148,7 @@ export type DashboardPayload = {
   recentMatchHistory: DashboardHistoryItem[];
   tasks?: DashboardTask[];
   meetupSummary?: DashboardMeetupSummary | null;
+  couponAgenda?: CouponAgendaReadState | null;
 };
 
 export type DashboardBootstrapPayload = {
