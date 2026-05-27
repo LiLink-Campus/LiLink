@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1' }; execSync('next build', { stdio: 'inherit', env });\"",
     "start": "next start",
+    "storybook": "node scripts/run-storybook.mjs dev",
+    "build-storybook": "node scripts/run-storybook.mjs build",
     "lint": "eslint",
     "pwa:icons": "node scripts/generate-pwa-icons.mjs",
     "typecheck": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1' }; execSync('npx next typegen && tsc --noEmit', { stdio: 'inherit', env });\""
@@ -22,6 +24,9 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@storybook/addon-a11y": "^10.4.1",
+    "@storybook/addon-docs": "^10.4.1",
+    "@storybook/nextjs-vite": "^10.4.1",
     "@tailwindcss/postcss": "^4.3.0",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",
@@ -30,6 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "sharp": "^0.34.5",
+    "storybook": "^10.4.1",
     "tailwindcss": "^4.3.0",
     "typescript": "^5"
   }

@@ -3,6 +3,7 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
   padding: clamp(1.5rem, 4vw, 2rem);
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
@@ -21,6 +22,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  min-width: 0;
   position: relative;
   z-index: 1;
 }
@@ -103,7 +105,9 @@
 .eyebrow {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.4rem;
+  max-width: 100%;
   padding: 0.3rem 0.7rem;
   border-radius: var(--radius-pill);
   background: var(--color-brand-tint);
@@ -166,6 +170,9 @@
 .matchedTitle {
   font-size: 1.25rem;
   margin: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .body {
@@ -174,6 +181,8 @@
   font-size: 1rem;
   line-height: 1.6;
   max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .matchedBody {
@@ -220,12 +229,14 @@
 .actions :global(.ui-button--primary),
 .actions :global(.ui-button--secondary) {
   min-width: 9rem;
+  white-space: normal;
 }
 
 .heroRow {
   display: flex;
   align-items: center;
   gap: 1.1rem;
+  min-width: 0;
 }
 
 .matchedRow {
@@ -233,6 +244,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  min-width: 0;
   margin-bottom: 1rem;
 }
 
@@ -240,6 +252,8 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .avatar {
@@ -284,6 +298,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0;
 }
 
 .sub {
@@ -296,6 +311,9 @@
   margin: 0;
   color: var(--color-text-secondary);
   font-size: 0.8rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .subtitle {
@@ -364,6 +382,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
   padding: 0.7rem 0.85rem;
   border-radius: var(--radius-md);
   background: var(--color-success-soft);
@@ -372,7 +391,10 @@
 }
 
 .contact strong {
+  min-width: 0;
   font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .matchedContact {
@@ -384,8 +406,41 @@
 }
 
 @media (max-width: 480px) {
+  .card {
+    gap: 1.15rem;
+    padding: 1rem;
+  }
+
+  .matchedHead {
+    margin-bottom: 0.45rem;
+  }
+
+  .matchedRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .matchedIdentityRow {
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .matchedAvatar {
+    width: 3.25rem;
+    height: 3.25rem;
+    font-size: 1.35rem;
+  }
+
+  .matchedScore {
+    align-self: flex-start;
+  }
+
   .actions :global(.ui-button--primary),
   .actions :global(.ui-button--secondary) {
-    flex: 1 1 12rem;
+    flex: 1 1 100%;
+    min-width: 0;
   }
 }

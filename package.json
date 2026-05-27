@@ -17,6 +17,8 @@
     "dev:web:raw": "npm run dev --workspace web",
     "dev:api:raw": "npm run start:dev --workspace api",
     "dev:shared": "npm run dev --workspace @lilink/shared",
+    "storybook:web": "npm run storybook --workspace web",
+    "build-storybook:web": "npm run build-storybook --workspace web",
     "build": "npm run build:shared && npm run typecheck:web && npm run build:web && npm run build:api",
     "build:shared": "npm run build --workspace @lilink/shared",
     "build:web": "npm run build --workspace web",
