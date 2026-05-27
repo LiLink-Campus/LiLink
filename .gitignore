@@ -16,6 +16,8 @@ dist/
 apps/*/dist/
 coverage/
 apps/*/coverage/
+apps/*/storybook-static/
+apps/web/public/mockServiceWorker.js
 out/
 build/
 
