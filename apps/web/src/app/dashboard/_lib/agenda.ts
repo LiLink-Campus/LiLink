@@ -78,8 +78,8 @@ export type AgendaCountdown =
   | {
       state: "upcoming";
       codename: string;
+      revealAt: string;
       revealLabel: string;
-      relativeLabel: string | null;
     }
   | { state: "none" };
 
@@ -122,8 +122,8 @@ function resolveCountdown(inputs: AgendaInputs): AgendaCountdown {
   return {
     state: "upcoming",
     codename: cycle.codename,
+    revealAt: cycle.revealAt,
     revealLabel,
-    relativeLabel: describeRelativeUntil(cycle.revealAt),
   };
 }
 

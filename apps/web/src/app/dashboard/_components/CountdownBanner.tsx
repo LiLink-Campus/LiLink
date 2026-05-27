@@ -1,4 +1,5 @@
 import type { AgendaCountdown } from "../_lib/agenda";
+import { RevealCountdown } from "./RevealCountdown";
 import { ClockIcon } from "./icons";
 import styles from "./CountdownBanner.module.css";
 
@@ -20,7 +21,8 @@ export function CountdownBanner({
           <ClockIcon />
         </span>
         <div className={styles.main}>
-          <p className={styles.title}>下一轮尚未配置</p>
+          <p className={styles.kicker}>下一轮</p>
+          <p className={styles.title}>尚未配置</p>
           <p className={styles.sub}>
             新一轮开放后这里会显示倒计时，你随时可以参加。
           </p>
@@ -35,16 +37,19 @@ export function CountdownBanner({
         <ClockIcon />
       </span>
       <div className={styles.main}>
-        <p className={styles.title}>
-          下次匹配揭晓 · {countdown.revealLabel}
-        </p>
+        <p className={styles.kicker}>下次匹配揭晓</p>
+        <p className={styles.title}>{countdown.revealLabel}</p>
         <p className={styles.sub}>
           {countdown.codename} · 你可以参加下一周。
         </p>
       </div>
-      {countdown.relativeLabel ? (
-        <span className={styles.chip}>{countdown.relativeLabel}</span>
-      ) : null}
+      <RevealCountdown
+        targetIso={countdown.revealAt}
+        includeSeconds
+        prefix="距揭晓"
+        expiredLabel="已开启"
+        className={styles.timer}
+      />
     </section>
   );
 }

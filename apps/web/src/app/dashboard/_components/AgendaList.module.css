@@ -38,11 +38,9 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .row {
@@ -52,24 +50,20 @@
   --agenda-item-priority-border: var(--agenda-priority-low-border);
 
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
-  align-items: start;
-  column-gap: 0.8rem;
-  row-gap: 0.45rem;
-  padding: 1rem 1.1rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  border-left: 0.22rem solid var(--agenda-item-priority);
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--agenda-item-priority-soft) 42%, transparent) 0%,
-      transparent 36%
-    ),
-    var(--color-surface);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "leading main actions";
+  align-items: center;
+  column-gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
 }
 
-.row:last-child {
-  border-bottom: none;
+.row:not(:has(.actions)) {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "leading main";
 }
 
 .priorityHigh {
@@ -93,16 +87,22 @@
   --agenda-item-priority-border: var(--agenda-priority-low-border);
 }
 
-.check {
+.leading {
+  grid-area: leading;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+}
+
+.check {
+  display: none;
+  align-items: center;
   justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.35rem;
+  height: 1.35rem;
   border-radius: 50%;
   flex-shrink: 0;
-  margin-top: 0.1rem;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   border: 1.5px solid var(--agenda-item-priority-border);
   background: var(--color-surface);
@@ -133,36 +133,36 @@
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 0.6rem;
+  border-radius: 0.55rem;
   flex-shrink: 0;
-  margin-top: 0.05rem;
   background: var(--agenda-item-priority-soft);
   color: var(--agenda-item-priority-ink);
 }
 
 .icon svg {
-  width: 1.05rem;
-  height: 1.05rem;
+  width: 1rem;
+  height: 1rem;
 }
 
 .main {
+  grid-area: main;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.12rem;
 }
 
 .titleLine {
   min-width: 0;
   display: flex;
-  align-items: flex-start;
-  gap: 0.45rem;
+  align-items: baseline;
+  gap: 0.4rem;
 }
 
 .title {
   margin: 0;
   min-width: 0;
-  font-size: 0.95rem;
+  font-size: 0.93rem;
   font-weight: 650;
   line-height: 1.35;
   color: var(--color-text);
@@ -171,35 +171,35 @@
 
 .priorityBadge {
   flex-shrink: 0;
-  padding: 0.12rem 0.42rem;
+  padding: 0.1rem 0.38rem;
   border-radius: var(--radius-pill);
   background: var(--agenda-item-priority-soft);
   color: var(--agenda-item-priority-ink);
   border: 1px solid var(--agenda-item-priority-border);
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   line-height: 1.2;
 }
 
 .sub {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.81rem;
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
 .progress {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-top: 0.35rem;
+  gap: 0.55rem;
+  margin-top: 0.25rem;
 }
 
 .progressBar {
   flex: 1;
   display: flex;
-  height: 0.5rem;
+  height: 0.45rem;
   border-radius: var(--radius-pill);
   background: var(--color-surface-muted);
   overflow: hidden;
@@ -221,27 +221,27 @@
 
 .progressVal {
   flex-shrink: 0;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--color-brand-ink);
   font-variant-numeric: tabular-nums;
 }
 
 .actions {
+  grid-area: actions;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: 0.45rem;
   align-items: center;
-  justify-self: end;
   align-self: center;
 }
 
 .actions > :global(.ui-button--primary),
 .actions > :global(.ui-button--secondary),
 .actions > :global(.ui-button--ghost) {
-  padding: 0.42rem 0.8rem;
-  font-size: 0.82rem;
+  padding: 0.38rem 0.72rem;
+  font-size: 0.8rem;
   line-height: 1.25;
   white-space: nowrap;
   min-width: 0;
@@ -249,7 +249,7 @@
 }
 
 .actions > :global(.ui-button--primary) {
-  box-shadow: 0 4px 10px rgba(139, 58, 74, 0.16);
+  box-shadow: 0 3px 8px rgba(139, 58, 74, 0.14);
 }
 
 .mobileMore {
@@ -285,30 +285,23 @@
     display: none;
   }
 
-  .row {
+  .row,
+  .row:not(:has(.actions)) {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      "check main"
+      "leading main"
       "actions actions";
-    column-gap: 0.7rem;
+    align-items: start;
     row-gap: 0.55rem;
-    padding: 0.85rem 0.95rem;
+    padding: 0.8rem 0.95rem;
   }
 
   .check {
-    grid-area: check;
+    display: flex;
   }
 
   .icon {
     display: none;
-  }
-
-  .main {
-    grid-area: main;
-  }
-
-  .titleLine {
-    align-items: baseline;
   }
 
   .title,
@@ -327,10 +320,8 @@
   }
 
   .actions {
-    grid-area: actions;
     justify-self: stretch;
     justify-content: stretch;
-    gap: 0.45rem;
   }
 
   .actions > :global(.ui-button--primary),

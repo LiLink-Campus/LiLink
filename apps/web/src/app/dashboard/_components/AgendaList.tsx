@@ -98,16 +98,18 @@ export function AgendaList({
               key={item.id}
               className={`${styles.row} ${priorityClassName(item.priority)} ${statusClassName(item.status)}`}
             >
-              <span
-                className={styles.check}
-                role="img"
-                aria-label={statusLabel(item.status)}
-              >
-                {statusGlyph(item.status)}
-              </span>
-              <span className={styles.icon} aria-hidden="true">
-                <Icon />
-              </span>
+              <div className={styles.leading}>
+                <span
+                  className={styles.check}
+                  role="img"
+                  aria-label={statusLabel(item.status)}
+                >
+                  {statusGlyph(item.status)}
+                </span>
+                <span className={styles.icon} aria-hidden="true">
+                  <Icon />
+                </span>
+              </div>
               <div className={styles.main}>
                 <div className={styles.titleLine}>
                   <p className={styles.title}>{item.title}</p>
