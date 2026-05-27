@@ -43,8 +43,24 @@ export function MatchClient({
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
 }) {
-  const router = useRouter();
   useDashboardSessionSeed(initialUser);
+
+  return (
+    <MatchClientView
+      initialUser={initialUser}
+      initialDashboard={initialDashboard}
+    />
+  );
+}
+
+export function MatchClientView({
+  initialUser,
+  initialDashboard,
+}: {
+  initialUser: AuthMePayload;
+  initialDashboard: DashboardPayload;
+}) {
+  const router = useRouter();
 
   const {
     dashboard,
@@ -250,23 +266,25 @@ export function MatchClient({
         ) : null}
 
         {showStartMeetupRibbon && latestMatch ? (
-          <div className={dcx("v2-match-hero-section")} style={{ marginTop: '0.5rem' }}>
+          <div className={dcx("v2-match-hero-section")}>
             <Link
               href={`/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`}
-              style={{ display: 'block', background: '#fdfbfa', padding: '1.25rem', borderRadius: '1rem', border: '1px solid #f8ecee', textDecoration: 'none', color: 'inherit' }}
+              className={dcx("v2-match-next-card")}
               aria-label="安排第一次见面"
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                <strong style={{ fontSize: '1.05rem', color: '#333' }}>下一步 · 安排第一次见面</strong>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#edf2ea', color: '#5a7848', padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.75rem' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#5a7848' }}></span>
+              <div className={dcx("v2-match-next-card-head")}>
+                <strong className={dcx("v2-match-next-card-title")}>
+                  下一步 · 安排第一次见面
+                </strong>
+                <span className={dcx("v2-match-next-card-badge")}>
+                  <span className={dcx("v2-match-next-card-dot")} />
                   可发起
                 </span>
               </div>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginBottom: '1rem' }}>
+              <p className={dcx("v2-match-next-card-body")}>
                 引荐已完成，现在可以给 {counterpart?.displayName ?? "对方"} 提议 2–3 个时间段和地点。
               </p>
-              <div style={{ textAlign: 'right', color: '#b93e5b', fontSize: '0.9rem', fontWeight: 500 }}>
+              <div className={dcx("v2-match-next-card-foot")}>
                 进入安排页面 &gt;
               </div>
             </Link>
@@ -381,8 +399,8 @@ export function MatchClient({
     <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
       <header className={dcx("v2-greeting")}>
         <div className={dcx("v2-greeting-main")}>
-          <h1 style={{ fontSize: '1.4rem', marginBottom: '0.2rem' }}>你本周的匹配对象</h1>
-          <p className={dcx("v2-greeting-sub")} style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+          <h1 className={dcx("v2-match-page-title")}>你本周的匹配对象</h1>
+          <p className={dcx("v2-greeting-sub v2-match-page-subtitle")}>
             {!latestMatch
               ? "本轮揭晓后这里会显示你的匹配对象与后续操作。"
               : introduced
