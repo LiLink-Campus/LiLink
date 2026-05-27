@@ -21,8 +21,10 @@ function debugCouponRead(message: string) {
   }
 }
 
-function hasDocumentVisibility() {
-  return typeof document === "undefined" || document.visibilityState !== "hidden";
+function canAccrueReadTime() {
+  if (typeof document === "undefined") return true;
+  if (document.visibilityState === "hidden") return false;
+  return typeof document.hasFocus !== "function" || document.hasFocus();
 }
 
 function elementIsVisible(element: HTMLElement) {
@@ -50,22 +52,6 @@ function elementIsVisible(element: HTMLElement) {
   );
 }
 
-function entryIsVisible(entry: IntersectionObserverEntry) {
-  if (!entry.isIntersecting || typeof window === "undefined") return false;
-
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-  const requiredHeight =
-    Math.min(entry.boundingClientRect.height, viewportHeight) * MIN_VISIBLE_RATIO;
-  const requiredWidth =
-    Math.min(entry.boundingClientRect.width, viewportWidth) * MIN_VISIBLE_RATIO;
-
-  return (
-    entry.intersectionRect.height >= requiredHeight &&
-    entry.intersectionRect.width >= requiredWidth
-  );
-}
-
 export function useCouponReadVisibility<T extends HTMLElement>({
   enabled,
   delayMs = DEFAULT_DELAY_MS,
@@ -73,6 +59,7 @@ export function useCouponReadVisibility<T extends HTMLElement>({
 }: UseCouponReadVisibilityOptions) {
   const elementRef = useRef<T | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visibleSinceRef = useRef<number | null>(null);
   const triggeredRef = useRef(false);
   const inFlightRef = useRef(false);
 
@@ -87,13 +74,15 @@ export function useCouponReadVisibility<T extends HTMLElement>({
     const element = elementRef.current;
     clearTimer();
 
+    const visibleSince = visibleSinceRef.current;
     if (
       triggeredRef.current ||
       inFlightRef.current ||
       !enabled ||
       !element ||
-      !hasDocumentVisibility() ||
-      !elementIsVisible(element)
+      !canAccrueReadTime() ||
+      !elementIsVisible(element) ||
+      visibleSince === null
     ) {
       return;
     }
@@ -115,6 +104,7 @@ export function useCouponReadVisibility<T extends HTMLElement>({
 
   const cancelRead = useCallback(() => {
     clearTimer();
+    visibleSinceRef.current = null;
   }, [clearTimer]);
 
   const scheduleRead = useCallback(() => {
@@ -122,12 +112,13 @@ export function useCouponReadVisibility<T extends HTMLElement>({
       triggeredRef.current ||
       inFlightRef.current ||
       !enabled ||
-      !hasDocumentVisibility() ||
+      !canAccrueReadTime() ||
       timerRef.current !== null
     ) {
       return;
     }
 
+    visibleSinceRef.current ??= Date.now();
     timerRef.current = setTimeout(markRead, delayMs);
   }, [delayMs, enabled, markRead]);
 
@@ -138,7 +129,7 @@ export function useCouponReadVisibility<T extends HTMLElement>({
       return;
     }
 
-    if (hasDocumentVisibility() && elementIsVisible(element)) {
+    if (canAccrueReadTime() && elementIsVisible(element)) {
       scheduleRead();
     } else {
       cancelRead();
@@ -159,36 +150,34 @@ export function useCouponReadVisibility<T extends HTMLElement>({
     if (!element) return;
 
     function handleVisibilityChange() {
-      if (!hasDocumentVisibility()) {
-        cancelRead();
-        return;
-      }
       evaluateCurrentVisibility();
     }
 
+    function handleBlur() {
+      cancelRead();
+    }
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("scroll", evaluateCurrentVisibility, true);
+    window.addEventListener("resize", evaluateCurrentVisibility);
+    window.addEventListener("focus", evaluateCurrentVisibility);
+    window.addEventListener("blur", handleBlur);
 
     if (typeof IntersectionObserver === "undefined") {
       evaluateCurrentVisibility();
       return () => {
         document.removeEventListener("visibilitychange", handleVisibilityChange);
+        document.removeEventListener("scroll", evaluateCurrentVisibility, true);
+        window.removeEventListener("resize", evaluateCurrentVisibility);
+        window.removeEventListener("focus", evaluateCurrentVisibility);
+        window.removeEventListener("blur", handleBlur);
         cancelRead();
       };
     }
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[entries.length - 1];
-        if (!entry || triggeredRef.current || inFlightRef.current || !enabled) {
-          cancelRead();
-          return;
-        }
-
-        if (hasDocumentVisibility() && entryIsVisible(entry)) {
-          scheduleRead();
-        } else {
-          cancelRead();
-        }
+      () => {
+        evaluateCurrentVisibility();
       },
       { threshold: [0, 0.25, 0.5, 0.6, 0.75, 1] },
     );
@@ -199,6 +188,10 @@ export function useCouponReadVisibility<T extends HTMLElement>({
     return () => {
       observer.disconnect();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("scroll", evaluateCurrentVisibility, true);
+      window.removeEventListener("resize", evaluateCurrentVisibility);
+      window.removeEventListener("focus", evaluateCurrentVisibility);
+      window.removeEventListener("blur", handleBlur);
       cancelRead();
     };
   }, [

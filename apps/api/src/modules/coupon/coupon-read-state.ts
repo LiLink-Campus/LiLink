@@ -75,20 +75,25 @@ export async function markDashboardCouponAgendaRead(
   userId: string,
   now = new Date(),
 ): Promise<DashboardCouponAgendaResponse> {
-  const [availableCount, readState] = await Promise.all([
-    prisma.coupon.count({ where: availableCouponWhere(userId, now) }),
-    prisma.couponReadState.upsert({
-      where: currentDashboardCouponReadStateWhere(userId),
-      create: {
-        userId,
-        target: DASHBOARD_COUPON_READ_TARGET,
-        version: DASHBOARD_COUPON_READ_VERSION,
-        readAt: now,
-      },
-      update: {},
-      select: { readAt: true },
-    }),
-  ]);
+  const availableCount = await prisma.coupon.count({
+    where: availableCouponWhere(userId, now),
+  });
+
+  if (availableCount === 0) {
+    return toDashboardCouponAgenda({ availableCount, readState: null });
+  }
+
+  const readState = await prisma.couponReadState.upsert({
+    where: currentDashboardCouponReadStateWhere(userId),
+    create: {
+      userId,
+      target: DASHBOARD_COUPON_READ_TARGET,
+      version: DASHBOARD_COUPON_READ_VERSION,
+      readAt: now,
+    },
+    update: {},
+    select: { readAt: true },
+  });
 
   return toDashboardCouponAgenda({ availableCount, readState });
 }

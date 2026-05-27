@@ -2634,6 +2634,7 @@ describe('AccountService', () => {
       where: {
         userId: 'user-1',
         status: 'ISSUED',
+        totpSecret: { not: null },
         OR: [{ expiresAt: null }, { expiresAt: { gt: ANY_DATE } }],
       },
     });

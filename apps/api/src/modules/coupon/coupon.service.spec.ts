@@ -211,4 +211,31 @@ describe('CouponService coupon read state', () => {
       select: { readAt: true },
     });
   });
+
+  it('does not create read state when no currently usable coupons exist', async () => {
+    const prisma = makePrisma();
+    prisma.coupon.count.mockResolvedValue(0);
+    const service = new CouponService(prisma as never);
+
+    const result = await service.markMyCouponRead('u1');
+
+    expect(result).toEqual({
+      target: DASHBOARD_COUPON_READ_TARGET,
+      version: DASHBOARD_COUPON_READ_VERSION,
+      availableCount: 0,
+      unreadAvailableCount: 0,
+      read: false,
+      readAt: null,
+      href: DASHBOARD_COUPON_HREF,
+    });
+    expect(prisma.coupon.count).toHaveBeenCalledWith({
+      where: {
+        userId: 'u1',
+        status: 'ISSUED',
+        totpSecret: { not: null },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: ANY_DATE } }],
+      },
+    });
+    expect(prisma.couponReadState.upsert).not.toHaveBeenCalled();
+  });
 });

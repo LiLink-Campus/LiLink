@@ -63,6 +63,7 @@ export function HomeClient({
   const router = useRouter();
   const lastVisibleRefreshAtRef = useRef(Date.now());
   useDashboardSessionSeed(initialUser);
+  const userId = initialUser.id;
   const [dashboard, setDashboard] = useState<DashboardPayload>(initialDashboard);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -70,13 +71,13 @@ export function HomeClient({
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setDashboard(applyCachedCouponAgendaReadState(initialDashboard));
+    setDashboard(applyCachedCouponAgendaReadState(initialDashboard, userId));
     lastVisibleRefreshAtRef.current = Date.now();
-  }, [initialDashboard]);
+  }, [initialDashboard, userId]);
 
   useEffect(() => {
     function applyCachedCouponAgendaRead() {
-      setDashboard((current) => applyCachedCouponAgendaReadState(current));
+      setDashboard((current) => applyCachedCouponAgendaReadState(current, userId));
     }
 
     function refreshIfStale(force = false) {
@@ -95,15 +96,15 @@ export function HomeClient({
       router.refresh();
     }
 
-    refreshIfStale(consumeDashboardCouponAgendaRefreshRequest());
+    refreshIfStale(consumeDashboardCouponAgendaRefreshRequest(userId));
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
-        refreshIfStale(consumeDashboardCouponAgendaRefreshRequest());
+        refreshIfStale(consumeDashboardCouponAgendaRefreshRequest(userId));
       }
     }
     function handleFocus() {
-      refreshIfStale(consumeDashboardCouponAgendaRefreshRequest());
+      refreshIfStale(consumeDashboardCouponAgendaRefreshRequest(userId));
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", handleFocus);
@@ -111,7 +112,7 @@ export function HomeClient({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [router]);
+  }, [router, userId]);
 
   const cycle = dashboard.currentCycle;
   const canEdit = canEditCurrentCycleParticipation(cycle);

@@ -19,12 +19,14 @@ import {
   getCouponStatus,
   isApiRequestError,
   type MyCoupon,
+  type AuthMePayload,
   type CouponAgendaReadState,
   type CouponRedeemSecret,
   type CouponStatusResponse,
 } from "../../../lib/api";
 import { getClientWebOrigin } from "../../../lib/api-base-url";
 import { formatYuan } from "../../../lib/format";
+import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { cacheDashboardCouponAgendaRead } from "../_lib/coupon-agenda-read-cache";
 import { useCouponReadVisibility } from "./useCouponReadVisibility";
 
@@ -509,10 +511,14 @@ function CouponsPanel({
 }
 
 export function CouponsClient({
+  initialUser,
   initialCoupons = null,
 }: {
+  initialUser: AuthMePayload;
   initialCoupons?: MyCoupon[] | null;
 }) {
+  useDashboardSessionSeed(initialUser);
+  const currentUserId = initialUser.id;
   const [coupons, setCoupons] = useState<MyCoupon[] | null>(initialCoupons);
   const [couponReadState, setCouponReadState] =
     useState<CouponAgendaReadState | null>(null);
@@ -562,14 +568,15 @@ export function CouponsClient({
   const archived =
     coupons?.filter((coupon) => coupon.status !== "ISSUED") ?? [];
   const shouldTrackRead = Boolean(
-    issued.length > 0 &&
+    currentUserId &&
+      issued.length > 0 &&
       (couponReadState == null ||
         (!couponReadState.read && couponReadState.unreadAvailableCount > 0)),
   );
   const handleCouponReadMarked = useCallback((state: CouponAgendaReadState) => {
     setCouponReadState(state);
-    cacheDashboardCouponAgendaRead(state);
-  }, []);
+    cacheDashboardCouponAgendaRead(state, currentUserId);
+  }, [currentUserId]);
   const couponReadRef = useCouponReadVisibility<HTMLDivElement>({
     enabled: shouldTrackRead,
     onMarkedRead: handleCouponReadMarked,
