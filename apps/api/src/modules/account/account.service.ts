@@ -38,6 +38,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { ActivationService } from '../activation/activation.service';
+import { getDashboardCouponAgenda } from '../coupon/coupon-read-state';
 import {
   HARD_MATCH_KEYS,
   buildHardMatchAnswerRecordFromFormInput,
@@ -563,10 +564,13 @@ export class AccountService {
       latestMatch != null
         ? this.toDashboardHistoryLimitedReason(latestSnapshot?.limitedReason)
         : null;
-    const meetupDashboard = await this.buildDashboardMeetupPayload({
-      userId,
-      matchId: latestMatch?.id ?? null,
-    });
+    const [meetupDashboard, couponAgenda] = await Promise.all([
+      this.buildDashboardMeetupPayload({
+        userId,
+        matchId: latestMatch?.id ?? null,
+      }),
+      getDashboardCouponAgenda(this.prisma, userId),
+    ]);
 
     return {
       profile,
@@ -589,6 +593,7 @@ export class AccountService {
       recentMatchHistory,
       tasks: meetupDashboard.tasks,
       meetupSummary: meetupDashboard.meetupSummary,
+      couponAgenda,
     };
   }
 

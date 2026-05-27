@@ -35,6 +35,14 @@ export const COUPON_STATUSES = [
 ] as const;
 export type CouponStatus = (typeof COUPON_STATUSES)[number];
 
+export const DASHBOARD_COUPON_READ_TARGET = "dashboard.coupons";
+/**
+ * Manual dashboard coupon read-state version. Maintainers must bump this when
+ * semantic coupon agenda/content changes require users to read it again; it is
+ * intentionally not auto-derived from coupon rows or templates.
+ */
+export const DASHBOARD_COUPON_READ_VERSION = "2026-05-27.v1";
+
 /**
  * Whether a coupon is in a redeemable shape. The server additionally enforces
  * `user.status === 'ACTIVE'` at redemption; that is not represented here.

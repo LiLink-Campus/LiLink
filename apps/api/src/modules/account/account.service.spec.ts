@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  DASHBOARD_COUPON_READ_TARGET,
+  DASHBOARD_COUPON_READ_VERSION,
   hardMatchFieldSignature,
   hardMatchSignatureFieldKeys,
   HARD_MATCH_WEIGHT_ACK,
@@ -8,6 +10,9 @@ import {
 import { Prisma } from '../../common/prisma/client';
 import { AccountService } from './account.service';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
+import { DASHBOARD_COUPON_HREF } from '../coupon/coupon-read-state';
+
+const ANY_DATE = expect.any(Date) as unknown as Date;
 
 // A fully-confirmed hard-match signature map: every enum field signed against
 // the current option set, plus an explicit empty-weight confirmation. Fixtures
@@ -268,6 +273,8 @@ function createDashboardPrismaMock({
   currentParticipation = null,
   lastRevealedParticipation = null,
   dashboardMeetupMatch = null,
+  availableCouponCount = 0,
+  couponReadAt = null,
 }: {
   revealedCycles: Array<{
     id: string;
@@ -309,6 +316,8 @@ function createDashboardPrismaMock({
     participants: Array<{ userId: string }>;
     meetupSession: Record<string, unknown> | null;
   } | null;
+  availableCouponCount?: number;
+  couponReadAt?: Date | null;
 }) {
   const matchParticipants = recentMatches as Array<
     ReturnType<typeof buildHistoryMatchParticipant>
@@ -376,6 +385,14 @@ function createDashboardPrismaMock({
     cycleParticipation: {
       findFirst: jest.fn().mockResolvedValue(lastRevealedParticipation),
       findUnique: jest.fn().mockResolvedValue(currentParticipation),
+    },
+    coupon: {
+      count: jest.fn().mockResolvedValue(availableCouponCount),
+    },
+    couponReadState: {
+      findUnique: jest
+        .fn()
+        .mockResolvedValue(couponReadAt ? { readAt: couponReadAt } : null),
     },
     userCycleDashboardSnapshot: {
       findFirst: jest.fn().mockImplementation(() => snapshotRecords[0] ?? null),
@@ -2590,6 +2607,38 @@ describe('AccountService', () => {
     });
   });
 
+  it('includes dashboard coupon agenda read state and available count', async () => {
+    const prisma = createDashboardPrismaMock({
+      revealedCycles: [],
+      availableCouponCount: 2,
+    });
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.couponAgenda).toEqual({
+      target: DASHBOARD_COUPON_READ_TARGET,
+      version: DASHBOARD_COUPON_READ_VERSION,
+      availableCount: 2,
+      unreadAvailableCount: 2,
+      read: false,
+      readAt: null,
+      href: DASHBOARD_COUPON_HREF,
+    });
+    expect(prisma.coupon.count).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        status: 'ISSUED',
+        OR: [{ expiresAt: null }, { expiresAt: { gt: ANY_DATE } }],
+      },
+    });
+  });
+
   it('expires dashboard meetup sessions with CAS and writes audit', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-05-14T10:00:00.000Z'));
@@ -3401,6 +3450,12 @@ describe('AccountService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       cycleParticipation,
+      coupon: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      couponReadState: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
     };
     const service = new AccountService(
       prisma as never,
@@ -3452,6 +3507,12 @@ describe('AccountService', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
       cycleParticipation,
+      coupon: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+      couponReadState: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
     };
     const service = new AccountService(
       prisma as never,
