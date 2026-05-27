@@ -230,6 +230,7 @@ model User {
   firstOptedInAt             DateTime?
   campaignActivations        CampaignActivation[]
   coupons                    Coupon[]
+  couponReadStates           CouponReadState[]
 
   @@index([status, createdAt])
   @@index([schoolId])
@@ -773,6 +774,19 @@ model Coupon {
   @@index([templateId, status])
   @@index([templateId, issuedAt])
   @@index([status, expiresAt])
+}
+
+model CouponReadState {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  target    String
+  version   String
+  readAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@unique([userId, target, version])
+  @@index([userId, target])
 }
 
 model Merchant {

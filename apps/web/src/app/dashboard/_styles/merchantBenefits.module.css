@@ -24,6 +24,12 @@
     height: 1rem;
 }
 
+.coupons-main {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1.1rem, 2.6vw, 1.6rem);
+}
+
 .coupons-panel {
     display: flex;
     flex-direction: column;
@@ -197,7 +203,7 @@
 .coupons-badge {
     flex-shrink: 0;
     padding: 0.12rem 0.45rem;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-pill);
     background: var(--color-success-soft);
     color: var(--color-success);
     font-size: 0.68rem;

@@ -5,6 +5,10 @@ import {
   renderBenefitText,
 } from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import {
+  getDashboardCouponAgenda,
+  markDashboardCouponAgendaRead,
+} from './coupon-read-state';
 
 @Injectable()
 export class CouponService {
@@ -65,5 +69,13 @@ export class CouponService {
           : null,
       })),
     };
+  }
+
+  getMyCouponReadState(userId: string) {
+    return getDashboardCouponAgenda(this.prisma, userId);
+  }
+
+  markMyCouponRead(userId: string) {
+    return markDashboardCouponAgendaRead(this.prisma, userId);
   }
 }

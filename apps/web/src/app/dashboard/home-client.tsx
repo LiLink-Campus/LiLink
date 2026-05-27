@@ -9,17 +9,20 @@ import {
 } from "../../lib/weekly-intent";
 import { IntentSheet } from "./_components/IntentSheet";
 import { CountdownBanner } from "./_components/CountdownBanner";
-import { AgendaAlertList } from "./_components/AgendaAlertList";
-import { TodoChecklist } from "./_components/TodoChecklist";
+import { AgendaList } from "./_components/AgendaList";
 import { OliveSprigIllustration } from "./_components/illustrations";
 import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
 import { describeDaysUntilLabel } from "./_lib/focus";
 import {
   countActionableAgendaItems,
   resolveAgenda,
-  type AgendaTodo,
-  type AgendaTodoAction,
+  type AgendaItem,
+  type AgendaItemAction,
 } from "./_lib/agenda";
+import {
+  applyCachedCouponAgendaReadState,
+  consumeDashboardCouponAgendaRefreshRequest,
+} from "./_lib/coupon-agenda-read-cache";
 import { canEditCurrentCycleParticipation } from "./_lib/format";
 import type {
   ContactPreferencesPayload,
@@ -60,6 +63,7 @@ export function HomeClient({
   const router = useRouter();
   const lastVisibleRefreshAtRef = useRef(Date.now());
   useDashboardSessionSeed(initialUser);
+  const userId = initialUser.id;
   const [dashboard, setDashboard] = useState<DashboardPayload>(initialDashboard);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,27 +71,40 @@ export function HomeClient({
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setDashboard(initialDashboard);
+    setDashboard(applyCachedCouponAgendaReadState(initialDashboard, userId));
     lastVisibleRefreshAtRef.current = Date.now();
-  }, [initialDashboard]);
+  }, [initialDashboard, userId]);
 
   useEffect(() => {
-    function refreshIfStale() {
+    function applyCachedCouponAgendaRead() {
+      setDashboard((current) => applyCachedCouponAgendaReadState(current, userId));
+    }
+
+    function refreshIfStale(force = false) {
+      if (force) {
+        applyCachedCouponAgendaRead();
+      }
+
       const now = Date.now();
-      if (now - lastVisibleRefreshAtRef.current < HOME_VISIBLE_REFRESH_TTL_MS) {
+      if (
+        !force &&
+        now - lastVisibleRefreshAtRef.current < HOME_VISIBLE_REFRESH_TTL_MS
+      ) {
         return;
       }
       lastVisibleRefreshAtRef.current = now;
       router.refresh();
     }
 
+    refreshIfStale(consumeDashboardCouponAgendaRefreshRequest(userId));
+
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
-        refreshIfStale();
+        refreshIfStale(consumeDashboardCouponAgendaRefreshRequest(userId));
       }
     }
     function handleFocus() {
-      refreshIfStale();
+      refreshIfStale(consumeDashboardCouponAgendaRefreshRequest(userId));
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", handleFocus);
@@ -95,7 +112,7 @@ export function HomeClient({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [router]);
+  }, [router, userId]);
 
   const cycle = dashboard.currentCycle;
   const canEdit = canEditCurrentCycleParticipation(cycle);
@@ -258,7 +275,10 @@ export function HomeClient({
     }
   }
 
-  function handleTodoAction(_todoId: AgendaTodo["id"], action: AgendaTodoAction) {
+  function handleAgendaAction(
+    _itemId: AgendaItem["id"],
+    action: AgendaItemAction,
+  ) {
     if (action.kind === "intent-sheet") {
       openIntentSheetFromTask();
     } else if (action.kind === "withdraw") {
@@ -267,7 +287,6 @@ export function HomeClient({
   }
 
   const pendingCount = countActionableAgendaItems(agenda);
-  const doneCount = agenda.todos.filter((t) => t.status === "done").length;
 
   const cycleEyebrow = cycle
     ? ["本轮", cycle.codename, describeDaysUntilLabel(cycle.revealAt)]
@@ -296,13 +315,11 @@ export function HomeClient({
       {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
 
       <CountdownBanner countdown={agenda.countdown} />
-      <AgendaAlertList alerts={agenda.alerts} />
-      <TodoChecklist
-        todos={agenda.todos}
-        doneCount={doneCount}
-        totalCount={agenda.todos.length}
+      <AgendaList
+        items={agenda.items}
+        pendingCount={pendingCount}
         savingAction={saving}
-        onAction={handleTodoAction}
+        onAction={handleAgendaAction}
       />
 
       <IntentSheet

@@ -53,6 +53,19 @@
   --stage-waiting: var(--color-gold);
   --stage-waiting-soft: var(--color-gold-soft);
 
+  --agenda-priority-high: var(--color-brand);
+  --agenda-priority-high-ink: var(--color-brand-ink);
+  --agenda-priority-high-soft: var(--color-brand-tint);
+  --agenda-priority-high-border: color-mix(in srgb, var(--color-brand) 36%, var(--color-border));
+  --agenda-priority-medium: var(--color-warning);
+  --agenda-priority-medium-ink: var(--color-warning);
+  --agenda-priority-medium-soft: var(--color-warning-soft);
+  --agenda-priority-medium-border: color-mix(in srgb, var(--color-warning) 36%, var(--color-border));
+  --agenda-priority-low: var(--color-neutral);
+  --agenda-priority-low-ink: var(--color-neutral);
+  --agenda-priority-low-soft: var(--color-neutral-soft);
+  --agenda-priority-low-border: color-mix(in srgb, var(--color-neutral) 24%, var(--color-border));
+
   --font-display:
     "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Songti SC",
     "STSong", serif;

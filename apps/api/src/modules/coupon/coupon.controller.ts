@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import {
   JwtAuthGuard,
   type AuthenticatedRequest,
@@ -17,6 +17,16 @@ export class CouponController {
   @Get()
   list(@Req() request: AuthenticatedRequest) {
     return this.couponService.getMyCoupons(request.user!.sub);
+  }
+
+  @Get('read-state')
+  getReadState(@Req() request: AuthenticatedRequest) {
+    return this.couponService.getMyCouponReadState(request.user!.sub);
+  }
+
+  @Post('read-state')
+  markRead(@Req() request: AuthenticatedRequest) {
+    return this.couponService.markMyCouponRead(request.user!.sub);
   }
 
   /** Returns the TOTP secret for rendering a rolling code on the user's device. */
