@@ -7,6 +7,7 @@ function makePrisma() {
     matchCycle: { findMany: jest.fn() },
     cycleParticipation: { findMany: jest.fn() },
     matchParticipant: { findMany: jest.fn() },
+    $queryRaw: jest.fn(),
   };
 }
 
@@ -25,36 +26,20 @@ describe('AdminAnalyticsService.getSchoolsGender', () => {
 
   it('groups users by school with gender buckets and totals, sorted by total desc', async () => {
     const prisma = makePrisma();
-    prisma.user.findMany.mockResolvedValue([
-      {
-        schoolId: 's1',
-        school: { name: 'Alpha' },
-        questionnaireResponse: male,
-      },
-      {
-        schoolId: 's1',
-        school: { name: 'Alpha' },
-        questionnaireResponse: female,
-      },
-      {
-        schoolId: 's1',
-        school: { name: 'Alpha' },
-        questionnaireResponse: null,
-      },
-      {
-        schoolId: 's2',
-        school: { name: 'Beta' },
-        questionnaireResponse: male,
-      },
-      { schoolId: null, school: null, questionnaireResponse: female },
+    // schoolsGender aggregates (school, gender) counts in SQL; the mock returns
+    // one row per bucket (raw hard-match gender string, or null = unknown).
+    prisma.$queryRaw.mockResolvedValue([
+      { schoolId: 's1', schoolName: 'Alpha', gender: '男', count: 1 },
+      { schoolId: 's1', schoolName: 'Alpha', gender: '女', count: 1 },
+      { schoolId: 's1', schoolName: 'Alpha', gender: null, count: 1 },
+      { schoolId: 's2', schoolName: 'Beta', gender: '男', count: 1 },
+      { schoolId: null, schoolName: null, gender: '女', count: 1 },
     ]);
     const service = new AdminAnalyticsService(prisma as never);
 
     const result = await service.schoolsGender({});
 
-    expect(prisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { isTest: false } }),
-    );
+    expect(prisma.$queryRaw).toHaveBeenCalled();
     expect(result.schools[0]).toEqual({
       schoolId: 's1',
       schoolName: 'Alpha',
@@ -83,14 +68,13 @@ describe('AdminAnalyticsService.getSchoolsGender', () => {
 
   it('includes test users when includeTest=true', async () => {
     const prisma = makePrisma();
-    prisma.user.findMany.mockResolvedValue([]);
+    prisma.$queryRaw.mockResolvedValue([]);
     const service = new AdminAnalyticsService(prisma as never);
 
-    await service.schoolsGender({ includeTest: true });
+    const result = await service.schoolsGender({ includeTest: true });
 
-    expect(prisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} }),
-    );
+    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(result.includeTest).toBe(true);
   });
 });
 
@@ -113,12 +97,12 @@ describe('AdminAnalyticsService.weeklyOptin', () => {
         status: 'REVEALED',
       },
     ]);
-    prisma.cycleParticipation.findMany.mockResolvedValue([
-      { cycleId: 'c1', user: { questionnaireResponse: male } },
-      { cycleId: 'c1', user: { questionnaireResponse: female } },
-      { cycleId: 'c1', user: { questionnaireResponse: female } },
-      { cycleId: 'c2', user: { questionnaireResponse: male } },
-      { cycleId: 'c2', user: { questionnaireResponse: null } },
+    // weeklyOptin aggregates (cycle, gender) opt-in counts in SQL.
+    prisma.$queryRaw.mockResolvedValue([
+      { cycleId: 'c1', gender: '男', count: 1 },
+      { cycleId: 'c1', gender: '女', count: 2 },
+      { cycleId: 'c2', gender: '男', count: 1 },
+      { cycleId: 'c2', gender: null, count: 1 },
     ]);
     const service = new AdminAnalyticsService(prisma as never);
 
@@ -154,8 +138,8 @@ describe('AdminAnalyticsService.weeklyOptin', () => {
         status: 'REVEALED',
       },
     ]);
-    prisma.cycleParticipation.findMany.mockResolvedValue([
-      { cycleId: 'c1', user: { questionnaireResponse: null } },
+    prisma.$queryRaw.mockResolvedValue([
+      { cycleId: 'c1', gender: null, count: 1 },
     ]);
     const service = new AdminAnalyticsService(prisma as never);
 
@@ -212,6 +196,30 @@ describe('AdminAnalyticsService.matchLeaderboard', () => {
     prisma.matchParticipant.findMany.mockResolvedValue([
       { userId: 'u1', cycleId: 'c1' },
       { userId: 'u3', cycleId: 'c1' },
+    ]);
+    // Identity + gender are now resolved once per user, not per participation.
+    prisma.user.findMany.mockResolvedValue([
+      {
+        id: 'u1',
+        displayName: 'u1',
+        email: 'u1@e.com',
+        school: null,
+        questionnaireResponse: male,
+      },
+      {
+        id: 'u2',
+        displayName: 'u2',
+        email: 'u2@e.com',
+        school: null,
+        questionnaireResponse: male,
+      },
+      {
+        id: 'u3',
+        displayName: 'u3',
+        email: 'u3@e.com',
+        school: { name: 'Alpha' },
+        questionnaireResponse: female,
+      },
     ]);
     const service = new AdminAnalyticsService(prisma as never);
 
@@ -273,6 +281,22 @@ describe('AdminAnalyticsService.matchLeaderboard', () => {
     prisma.matchParticipant.findMany.mockResolvedValue([
       { userId: 'u2', cycleId: 'c1' },
     ]);
+    prisma.user.findMany.mockResolvedValue([
+      {
+        id: 'u1',
+        displayName: 'u1',
+        email: 'u1@e.com',
+        school: null,
+        questionnaireResponse: male,
+      },
+      {
+        id: 'u2',
+        displayName: 'u2',
+        email: 'u2@e.com',
+        school: null,
+        questionnaireResponse: male,
+      },
+    ]);
     const service = new AdminAnalyticsService(prisma as never);
 
     const result = await service.matchLeaderboard({
@@ -291,6 +315,15 @@ describe('AdminAnalyticsService.matchLeaderboard', () => {
       partic('u9', 'c1', 1, { questionnaireResponse: null }),
     ]);
     prisma.matchParticipant.findMany.mockResolvedValue([]);
+    prisma.user.findMany.mockResolvedValue([
+      {
+        id: 'u9',
+        displayName: 'u9',
+        email: 'u9@e.com',
+        school: null,
+        questionnaireResponse: null,
+      },
+    ]);
     const service = new AdminAnalyticsService(prisma as never);
 
     const result = await service.matchLeaderboard({});

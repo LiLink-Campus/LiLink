@@ -462,8 +462,14 @@ export class MailService {
             },
           ],
         },
-        orderBy: { createdAt: 'asc' },
-        take: options.dedupeKeys?.length ?? options.limit ?? 10,
+        // messageCategory ascending puts TRANSACTIONAL (verification codes,
+        // introductions) ahead of BULK so latency-sensitive mail is not starved
+        // behind older bulk sends; createdAt keeps FIFO within each category.
+        orderBy: [{ messageCategory: 'asc' }, { createdAt: 'asc' }],
+        take:
+          options.dedupeKeys?.length ??
+          options.limit ??
+          env.OUTBOUND_EMAIL_FLUSH_BATCH_SIZE,
       });
 
       await Promise.all(
