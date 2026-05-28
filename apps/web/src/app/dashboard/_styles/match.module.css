@@ -123,6 +123,71 @@ gap: 0.75rem;
 font-size: 0.9rem;
 }
 
+.v2-match-next-card {
+  display: block;
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid #f8ecee;
+  border-radius: var(--radius-lg);
+  background: #fdfbfa;
+  color: inherit;
+  text-decoration: none;
+}
+
+.v2-match-next-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  margin-bottom: 0.5rem;
+}
+
+.v2-match-next-card-title {
+  min-width: 0;
+  color: #333;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.v2-match-next-card-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: #edf2ea;
+  color: #5a7848;
+  font-size: 0.75rem;
+}
+
+.v2-match-next-card-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #5a7848;
+}
+
+.v2-match-next-card-body {
+  margin: 0 0 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.v2-match-next-card-foot {
+  color: #b93e5b;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: right;
+}
+
 /* ── V2 Meetup status ribbon (Match 页面下方的 meetup 缩略) ── */
 
 .v2-meetup-ribbon {
@@ -140,6 +205,22 @@ font-size: 0.9rem;
         border-color 0.16s,
         box-shadow 0.16s,
         transform 0.16s;
+}
+
+@media (max-width: 480px) {
+  .v2-match-next-card {
+    padding: 1rem;
+  }
+
+  .v2-match-next-card-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .v2-match-next-card-foot {
+    text-align: left;
+  }
 }
 
 .v2-meetup-ribbon:hover {
