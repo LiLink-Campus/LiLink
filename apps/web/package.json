@@ -4,13 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1' }; execSync('next build', { stdio: 'inherit', env });\"",
+    "build": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1', LILINK_NEXT_TSCONFIG: 'build' }; execSync('next build', { stdio: 'inherit', env });\"",
     "start": "next start",
     "storybook": "node scripts/run-storybook.mjs dev",
     "build-storybook": "node scripts/run-storybook.mjs build",
     "lint": "eslint",
     "pwa:icons": "node scripts/generate-pwa-icons.mjs",
-    "typecheck": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1' }; execSync('npx next typegen && tsc --noEmit', { stdio: 'inherit', env });\""
+    "typecheck": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1', LILINK_NEXT_TSCONFIG: 'build' }; execSync('npx next typegen && tsc --noEmit -p tsconfig.build.json', { stdio: 'inherit', env });\""
   },
   "dependencies": {
     "@lilink/shared": "file:../../packages/shared",

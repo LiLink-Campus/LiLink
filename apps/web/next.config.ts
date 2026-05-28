@@ -15,6 +15,9 @@ function resolveAllowedDevOrigins(): string[] {
 
 export default function createNextConfig(phase: string): NextConfig {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  const useBuildTsconfig =
+    phase === PHASE_PRODUCTION_BUILD ||
+    process.env.LILINK_NEXT_TSCONFIG === "build";
 
   if (phase === PHASE_PRODUCTION_BUILD && !apiBaseUrl) {
     throw new Error(
@@ -31,6 +34,9 @@ export default function createNextConfig(phase: string): NextConfig {
     },
     typescript: {
       ignoreBuildErrors: false,
+      tsconfigPath: useBuildTsconfig
+        ? "tsconfig.build.json"
+        : "tsconfig.json",
     },
     experimental: {
       workerThreads: true,
