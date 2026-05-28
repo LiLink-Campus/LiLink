@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/storybook-static
+/public/mockServiceWorker.js
 
 # next.js
 /.next/

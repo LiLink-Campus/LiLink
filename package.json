@@ -17,6 +17,10 @@
     "dev:web:raw": "npm run dev --workspace web",
     "dev:api:raw": "npm run start:dev --workspace api",
     "dev:shared": "npm run dev --workspace @lilink/shared",
+    "msw:init:web": "msw init apps/web/public --save",
+    "storybook:web": "npm run build:shared && npm run msw:init:web && npm run storybook --workspace web",
+    "build-storybook:web": "npm run build:shared && npm run msw:init:web && npm run build-storybook --workspace web",
+    "test:storybook:web": "npm run build:shared && npm run msw:init:web && vitest --config vitest.config.ts",
     "build": "npm run build:shared && npm run typecheck:web && npm run build:web && npm run build:api",
     "build:shared": "npm run build --workspace @lilink/shared",
     "build:web": "npm run build --workspace web",
@@ -50,8 +54,20 @@
     "infra:down": "docker compose down"
   },
   "devDependencies": {
+    "@storybook/addon-vitest": "^10.4.1",
+    "@vitest/browser-playwright": "^4.1.7",
     "concurrently": "^9.2.1",
-    "lint-staged": "^16.4.0"
+    "lint-staged": "^16.4.0",
+    "mockdate": "^3.0.5",
+    "msw": "^2.14.6",
+    "msw-storybook-addon": "^2.0.7",
+    "playwright": "^1.60.0",
+    "vitest": "^4.1.7"
+  },
+  "msw": {
+    "workerDirectory": [
+      "apps/web/public"
+    ]
   },
   "overrides": {
     "@hono/node-server": "1.19.13",

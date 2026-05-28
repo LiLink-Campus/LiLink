@@ -12,12 +12,15 @@
     align-items: flex-start;
     gap: 1rem;
     padding: 0.15rem 0 0;
+    min-width: 0;
 }
 
 .v2-greeting-main {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .v2-greeting-status {
@@ -63,6 +66,8 @@ font-size: clamp(1.55rem, 4vw, 2rem);
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.55rem;
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 .v2-greeting-sub {
@@ -70,6 +75,20 @@ font-size: clamp(1.55rem, 4vw, 2rem);
 color: var(--color-text-secondary);
     font-size: 0.92rem;
     line-height: 1.55;
+    max-width: 100%;
+    word-break: normal;
+    overflow-wrap: anywhere;
+    line-break: loose;
+}
+
+.v2-match-page-title {
+    font-size: 1.4rem;
+    margin-bottom: 0.2rem;
+}
+
+.v2-match-page-subtitle {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
 }
 
 .v2-countdown {
@@ -174,4 +193,15 @@ font-size: 0.95rem;
     align-items: center;
     gap: 0.5rem;
     margin-top: 0.3rem;
+}
+
+@media (max-width: 480px) {
+    .v2-greeting {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .v2-greeting-status {
+        align-self: flex-start;
+    }
 }
