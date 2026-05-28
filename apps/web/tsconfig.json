@@ -34,8 +34,6 @@
   ],
   "exclude": [
     "node_modules",
-    ".next/dev",
-    ".storybook",
-    "**/*.stories.tsx"
+    ".next/dev"
   ]
 }
