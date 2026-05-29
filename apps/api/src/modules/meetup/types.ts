@@ -9,7 +9,7 @@ import type {
   MeetupSessionStatus,
 } from './constants';
 
-type DelegateMethod<TArgs = unknown, TResult = unknown> = (
+type DelegateMethod<TArgs = any, TResult = unknown> = (
   args: TArgs,
 ) => Promise<TResult>;
 
