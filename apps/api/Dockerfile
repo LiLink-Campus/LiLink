@@ -1,6 +1,6 @@
 ARG PRISMA_GENERATE_DATABASE_URL="postgresql://lilink:lilink@localhost:5432/lilink?schema=public"
 
-FROM node:22-alpine AS base
+FROM node:22.22.3-alpine AS base
 RUN corepack enable
 
 # Dev dependencies only for compiling api + shared (web workspace excluded).

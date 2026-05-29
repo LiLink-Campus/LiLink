@@ -37,7 +37,7 @@
     "sharp": "^0.34.5",
     "storybook": "^10.4.1",
     "tailwindcss": "^4.3.0",
-    "typescript": "^5"
+    "typescript": "6.0.3"
   },
   "msw": {
     "workerDirectory": [
