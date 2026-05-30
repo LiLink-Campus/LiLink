@@ -1031,41 +1031,31 @@ export class ProductAnalyticsService {
   private reconcileMatchContactRequestedOutcome(
     input: MatchContactRequestedOutcome,
   ) {
-    return this.reconcileOutcome(
-      this.buildMatchContactRequestedOutcome(input),
-    );
+    return this.reconcileOutcome(this.buildMatchContactRequestedOutcome(input));
   }
 
   private reconcileMeetupSessionCreatedOutcome(
     input: MeetupSessionCreatedOutcome,
   ) {
-    return this.reconcileOutcome(
-      this.buildMeetupSessionCreatedOutcome(input),
-    );
+    return this.reconcileOutcome(this.buildMeetupSessionCreatedOutcome(input));
   }
 
   private reconcileMeetupProposalCreatedOutcome(
     input: MeetupProposalCreatedOutcome,
   ) {
-    return this.reconcileOutcome(
-      this.buildMeetupProposalCreatedOutcome(input),
-    );
+    return this.reconcileOutcome(this.buildMeetupProposalCreatedOutcome(input));
   }
 
   private reconcileMeetupOptionAcceptedOutcome(
     input: MeetupOptionAcceptedOutcome,
   ) {
-    return this.reconcileOutcome(
-      this.buildMeetupOptionAcceptedOutcome(input),
-    );
+    return this.reconcileOutcome(this.buildMeetupOptionAcceptedOutcome(input));
   }
 
   private reconcileMeetupFinalConfirmedOutcome(
     input: MeetupFinalConfirmedOutcome,
   ) {
-    return this.reconcileOutcome(
-      this.buildMeetupFinalConfirmedOutcome(input),
-    );
+    return this.reconcileOutcome(this.buildMeetupFinalConfirmedOutcome(input));
   }
 
   private async reconcileOutcome(input: ProductOutcomeInput) {

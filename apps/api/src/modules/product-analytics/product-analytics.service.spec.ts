@@ -111,9 +111,10 @@ describe('ProductAnalyticsService', () => {
       kind: 'footprint',
     });
 
-    expect(
-      prisma.productEvent.create.mock.calls[0]?.[0].data,
-    ).not.toHaveProperty('metadata');
+    const createCalls = prisma.productEvent.create.mock.calls as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    expect(createCalls[0]?.[0].data).not.toHaveProperty('metadata');
   });
 
   it('rejects browser attempts to write outcomes', async () => {
