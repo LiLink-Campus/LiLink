@@ -39,6 +39,7 @@ import { MailService } from '../../common/mail/mail.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { ActivationService } from '../activation/activation.service';
 import { getDashboardCouponAgenda } from '../coupon/coupon-read-state';
+import { ProductAnalyticsService } from '../product-analytics/product-analytics.service';
 import {
   HARD_MATCH_KEYS,
   buildHardMatchAnswerRecordFromFormInput,
@@ -350,6 +351,8 @@ export class AccountService {
     private readonly matchEstimateService?: MatchEstimateService,
     @Optional()
     private readonly activationService?: ActivationService,
+    @Optional()
+    private readonly productAnalytics?: ProductAnalyticsService,
   ) {}
 
   async getUserSummary(userId: string) {
@@ -2233,6 +2236,11 @@ export class AccountService {
         participant.match.id,
         tx,
       );
+      await this.productAnalytics?.enqueueMatchContactRequestedOutcome(tx, {
+        userId,
+        matchId: participant.match.id,
+        occurredAt: claimedAt,
+      });
     });
 
     void this.mailService.flushQueuedEmails({

@@ -1279,6 +1279,53 @@ describe('AdminService', () => {
     );
   });
 
+  it('purges product analytics rows when enabling a test user flag', async () => {
+    const tx = {
+      user: { update: jest.fn().mockResolvedValue({}) },
+      productEvent: { deleteMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      productEventOutbox: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma = {
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ id: 'user-1', isTest: false }),
+      },
+      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
+        callback(tx),
+      ),
+    };
+    const adminAuditService = {
+      listAuditLogs: jest.fn(),
+      getRecentAuditLogsByCondition: jest.fn(),
+      write: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new AdminService(
+      prisma as never,
+      { runRevealCycle: jest.fn() } as never,
+      adminAuditService as never,
+      {} as never,
+      undefined,
+    );
+
+    await expect(
+      service.setTestFlag('user-1', true, 'admin-1'),
+    ).resolves.toEqual({ ok: true, isTest: true });
+
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { isTest: true },
+    });
+    expect(tx.productEvent.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+    });
+    expect(tx.productEventOutbox.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+    });
+  });
+
   it('rebuilds affected cycle snapshots after deleting test users', async () => {
     const syncCycleSnapshots = jest.fn().mockResolvedValue(undefined);
     const prisma = {
@@ -1296,6 +1343,14 @@ describe('AdminService', () => {
       match: {
         findMany: jest.fn().mockResolvedValue([{ cycleId: 'cycle-1' }]),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      meetupSession: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'meetup-session-1',
+            proposals: [{ id: 'meetup-proposal-1' }],
+          },
+        ]),
       },
       report: {
         deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
@@ -1327,6 +1382,12 @@ describe('AdminService', () => {
       referralEvent: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      productEvent: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      productEventOutbox: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: jest.fn().mockResolvedValue(undefined),
     };
     const adminAuditService = {
@@ -1355,6 +1416,33 @@ describe('AdminService', () => {
       where: { id: { in: ['match-1'] } },
       select: { cycleId: true },
       distinct: ['cycleId'],
+    });
+    expect(prisma.meetupSession.findMany).toHaveBeenCalledWith({
+      where: { matchId: { in: ['match-1'] } },
+      select: {
+        id: true,
+        proposals: { select: { id: true } },
+      },
+    });
+    const productAnalyticsDeleteWhere = {
+      OR: [
+        { userId: { in: ['test-user-1', 'test-user-2'] } },
+        { entityType: 'match', entityId: { in: ['match-1'] } },
+        {
+          entityType: 'meetup_session',
+          entityId: { in: ['meetup-session-1'] },
+        },
+        {
+          entityType: 'meetup_proposal',
+          entityId: { in: ['meetup-proposal-1'] },
+        },
+      ],
+    };
+    expect(prisma.productEvent.deleteMany).toHaveBeenCalledWith({
+      where: productAnalyticsDeleteWhere,
+    });
+    expect(prisma.productEventOutbox.deleteMany).toHaveBeenCalledWith({
+      where: productAnalyticsDeleteWhere,
     });
     expect(syncCycleSnapshots).toHaveBeenCalledWith('cycle-1');
     expect(adminAuditService.write).toHaveBeenCalledWith(
