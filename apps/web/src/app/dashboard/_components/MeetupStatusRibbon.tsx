@@ -1,5 +1,6 @@
 import { dcx } from "../_lib/dashboard-class-names";
 import Link from "next/link";
+import { trackMeetupEntryClicked } from "../../../lib/product-analytics";
 import type {
   DashboardMeetupSummary,
   DashboardTask,
@@ -114,6 +115,12 @@ export function MeetupStatusRibbon({
       href={summary.href}
       className={dcx("v2-meetup-ribbon")}
       aria-label="第一次见面安排"
+      onClick={() =>
+        trackMeetupEntryClicked({
+          sessionId: summary.sessionId,
+          matchId: summary.matchId,
+        })
+      }
     >
       <div className={dcx("v2-meetup-ribbon-head")}>
         <span className={dcx("v2-meetup-ribbon-title")}>

@@ -9,6 +9,7 @@ import {
   verifyTotpToken,
 } from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { ProductAnalyticsService } from '../product-analytics/product-analytics.service';
 import { RedeemTicketService } from './redeem-ticket.service';
 
 export interface RedeemCouponView {
@@ -52,6 +53,7 @@ export class RedemptionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ticketService: RedeemTicketService,
+    private readonly productAnalytics?: ProductAnalyticsService,
   ) {}
 
   /**
@@ -165,120 +167,131 @@ export class RedemptionService {
     }
     const now = new Date();
 
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Reload the coupon by id and re-assert the redeemable gate (defense in
-      //    depth: the holder may have been deactivated / the coupon expired
-      //    since the ticket was minted).
-      const candidate = await tx.coupon.findFirst({
-        where: {
-          id: payload.couponId,
-          status: 'ISSUED',
-          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-          template: { is: { merchantId } },
-          user: { is: { status: 'ACTIVE' } },
-        },
-        select: {
-          id: true,
-          userId: true,
-          template: {
-            select: {
-              title: true,
-              benefitType: true,
-              faceValue: true,
-              rule: true,
-            },
-          },
-          user: { select: { displayName: true } },
-        },
-      });
-
-      if (!candidate) {
-        // No redeemable match: ALREADY_USED only for a REDEEMED, still-unexpired
-        // coupon of this merchant held by an ACTIVE user (covers ticket replay
-        // after a successful redeem). Everything else is INVALID.
-        const alreadyUsed = await tx.coupon.count({
+    const response: RedeemResponse = await this.prisma.$transaction(
+      async (tx) => {
+        // 1. Reload the coupon by id and re-assert the redeemable gate (defense in
+        //    depth: the holder may have been deactivated / the coupon expired
+        //    since the ticket was minted).
+        const candidate = await tx.coupon.findFirst({
           where: {
             id: payload.couponId,
-            status: 'REDEEMED',
+            status: 'ISSUED',
             OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
             template: { is: { merchantId } },
             user: { is: { status: 'ACTIVE' } },
           },
+          select: {
+            id: true,
+            userId: true,
+            template: {
+              select: {
+                id: true,
+                title: true,
+                benefitType: true,
+                faceValue: true,
+                rule: true,
+              },
+            },
+            user: { select: { displayName: true } },
+          },
         });
-        return this.bare(alreadyUsed > 0 ? 'ALREADY_USED' : 'INVALID');
-      }
 
-      const rule = candidate.template.rule as CouponRule | null;
-      const couponView = this.couponView(candidate.template, candidate.user);
+        if (!candidate) {
+          // No redeemable match: ALREADY_USED only for a REDEEMED, still-unexpired
+          // coupon of this merchant held by an ACTIVE user (covers ticket replay
+          // after a successful redeem). Everything else is INVALID.
+          const alreadyUsed = await tx.coupon.count({
+            where: {
+              id: payload.couponId,
+              status: 'REDEEMED',
+              OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+              template: { is: { merchantId } },
+              user: { is: { status: 'ACTIVE' } },
+            },
+          });
+          return this.bare(alreadyUsed > 0 ? 'ALREADY_USED' : 'INVALID');
+        }
 
-      // 2. §B: evaluate the rule before consuming. NEED_AMOUNT / BELOW_THRESHOLD
-      //    leave the coupon untouched; the ladder is returned for staff.
-      const evaluation = evaluateCoupon(rule, { orderAmount, now });
-      if (!evaluation.ok) {
-        return {
-          result: evaluation.reason,
-          coupon: couponView,
-          applied: null,
-        };
-      }
+        const rule = candidate.template.rule as CouponRule | null;
+        const couponView = this.couponView(candidate.template, candidate.user);
 
-      // 3. CAS flip ISSUED -> REDEEMED (same gate). A racing redeemer or a
-      //    replayed ticket leaves count 0 -> ALREADY_USED; Redemption.couponId
-      //    @unique is the backstop.
-      const updated = await tx.coupon.updateMany({
-        where: {
-          id: candidate.id,
-          status: 'ISSUED',
-          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-          template: { is: { merchantId } },
-          user: { is: { status: 'ACTIVE' } },
-        },
-        data: { status: 'REDEEMED' },
-      });
-      if (updated.count !== 1) {
-        return this.bare('ALREADY_USED');
-      }
+        // 2. §B: evaluate the rule before consuming. NEED_AMOUNT / BELOW_THRESHOLD
+        //    leave the coupon untouched; the ladder is returned for staff.
+        const evaluation = evaluateCoupon(rule, { orderAmount, now });
+        if (!evaluation.ok) {
+          return {
+            result: evaluation.reason,
+            coupon: couponView,
+            applied: null,
+          };
+        }
 
-      const discountAmount =
-        evaluation.discount > 0 ? evaluation.discount : null;
-      await tx.redemption.create({
-        data: {
-          couponId: candidate.id,
-          merchantId,
-          merchantUserId,
-          userId: candidate.userId,
-          faceValueSnapshot: candidate.template.faceValue,
-          orderAmount: orderAmount ?? null,
-          actualDiscountAmount: discountAmount,
-          giftLabel: evaluation.gift ?? null,
-        },
-      });
-      // Gift identity is also recorded in the append-only audit log.
-      await tx.auditLog.create({
-        data: {
-          adminActorId: null,
-          action: 'coupon.redeemed',
-          metadata: {
+        // 3. CAS flip ISSUED -> REDEEMED (same gate). A racing redeemer or a
+        //    replayed ticket leaves count 0 -> ALREADY_USED; Redemption.couponId
+        //    @unique is the backstop.
+        const updated = await tx.coupon.updateMany({
+          where: {
+            id: candidate.id,
+            status: 'ISSUED',
+            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+            template: { is: { merchantId } },
+            user: { is: { status: 'ACTIVE' } },
+          },
+          data: { status: 'REDEEMED' },
+        });
+        if (updated.count !== 1) {
+          return this.bare('ALREADY_USED');
+        }
+
+        const discountAmount =
+          evaluation.discount > 0 ? evaluation.discount : null;
+        await tx.redemption.create({
+          data: {
             couponId: candidate.id,
             merchantId,
             merchantUserId,
+            userId: candidate.userId,
+            faceValueSnapshot: candidate.template.faceValue,
             orderAmount: orderAmount ?? null,
-            discountAmount,
+            actualDiscountAmount: discountAmount,
+            giftLabel: evaluation.gift ?? null,
+          },
+        });
+        // Gift identity is also recorded in the append-only audit log.
+        await tx.auditLog.create({
+          data: {
+            adminActorId: null,
+            action: 'coupon.redeemed',
+            metadata: {
+              couponId: candidate.id,
+              merchantId,
+              merchantUserId,
+              orderAmount: orderAmount ?? null,
+              discountAmount,
+              gift: evaluation.gift,
+            },
+          },
+        });
+        await this.productAnalytics?.enqueueCouponRedeemedOutcome(tx, {
+          couponId: candidate.id,
+          couponTemplateId: candidate.template.id,
+          merchantId,
+          userId: candidate.userId,
+          occurredAt: now,
+        });
+
+        return {
+          result: 'SUCCESS' as const,
+          coupon: couponView,
+          applied: {
+            orderAmount: orderAmount ?? null,
+            discountAmount: evaluation.discount,
             gift: evaluation.gift,
           },
-        },
-      });
-
-      return {
-        result: 'SUCCESS',
-        coupon: couponView,
-        applied: {
-          orderAmount: orderAmount ?? null,
-          discountAmount: evaluation.discount,
-          gift: evaluation.gift,
-        },
-      };
-    });
+        };
+      },
+    );
+    return response;
   }
 
   /** Render the holder-facing coupon view shared by prepare + redeem. */

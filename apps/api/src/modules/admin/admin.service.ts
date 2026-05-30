@@ -1744,9 +1744,16 @@ export class AdminService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found.');
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { isTest },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { isTest },
+      });
+
+      if (isTest) {
+        await tx.productEvent.deleteMany({ where: { userId } });
+        await tx.productEventOutbox.deleteMany({ where: { userId } });
+      }
     });
 
     await this.adminAuditService.write(adminActorId, 'user.test_flag', {
@@ -1785,6 +1792,25 @@ export class AdminService {
         distinct: ['cycleId'],
       })
     ).map((match) => match.cycleId);
+    const affectedMeetupSessions = await this.prisma.meetupSession.findMany({
+      where: { matchId: { in: affectedMatchIds } },
+      select: {
+        id: true,
+        proposals: { select: { id: true } },
+      },
+    });
+    const affectedMeetupSessionIds = affectedMeetupSessions.map(
+      (session) => session.id,
+    );
+    const affectedMeetupProposalIds = affectedMeetupSessions.flatMap(
+      (session) => session.proposals.map((proposal) => proposal.id),
+    );
+    const productAnalyticsDeleteOr = this.testUserProductAnalyticsDeleteOr({
+      userIds,
+      matchIds: affectedMatchIds,
+      meetupSessionIds: affectedMeetupSessionIds,
+      meetupProposalIds: affectedMeetupProposalIds,
+    });
 
     await this.prisma.$transaction([
       this.prisma.report.deleteMany({
@@ -1832,6 +1858,10 @@ export class AdminService {
       this.prisma.referralEvent.deleteMany({
         where: { referrerUserId: { in: userIds } },
       }),
+      this.prisma.productEvent.deleteMany({ where: productAnalyticsDeleteOr }),
+      this.prisma.productEventOutbox.deleteMany({
+        where: productAnalyticsDeleteOr,
+      }),
       this.prisma.user.deleteMany({ where: { id: { in: userIds } } }),
     ]);
 
@@ -1845,6 +1875,38 @@ export class AdminService {
     });
 
     return { ok: true, deletedCount: testUsers.length };
+  }
+
+  private testUserProductAnalyticsDeleteOr(input: {
+    userIds: string[];
+    matchIds: string[];
+    meetupSessionIds: string[];
+    meetupProposalIds: string[];
+  }) {
+    const filters: Array<{
+      userId?: { in: string[] };
+      entityType?: string;
+      entityId?: { in: string[] };
+    }> = [{ userId: { in: input.userIds } }];
+    if (input.matchIds.length > 0) {
+      filters.push({
+        entityType: 'match',
+        entityId: { in: input.matchIds },
+      });
+    }
+    if (input.meetupSessionIds.length > 0) {
+      filters.push({
+        entityType: 'meetup_session',
+        entityId: { in: input.meetupSessionIds },
+      });
+    }
+    if (input.meetupProposalIds.length > 0) {
+      filters.push({
+        entityType: 'meetup_proposal',
+        entityId: { in: input.meetupProposalIds },
+      });
+    }
+    return { OR: filters };
   }
 
   async seedTestUsers(adminActorId: string) {

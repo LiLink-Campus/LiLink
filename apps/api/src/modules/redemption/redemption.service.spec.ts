@@ -5,6 +5,7 @@ type MockTx = {
   coupon: { findFirst: jest.Mock; updateMany: jest.Mock; count: jest.Mock };
   redemption: { create: jest.Mock };
   auditLog: { create: jest.Mock };
+  productEventOutbox: { createMany: jest.Mock };
 };
 
 function makeTxPrisma() {
@@ -12,6 +13,9 @@ function makeTxPrisma() {
     coupon: { findFirst: jest.fn(), updateMany: jest.fn(), count: jest.fn() },
     redemption: { create: jest.fn().mockResolvedValue({}) },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
+    productEventOutbox: {
+      createMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
   };
   const prisma = {
     ...tx,
@@ -42,6 +46,7 @@ function candidate(rule: unknown) {
     id: 'co1',
     userId: 'u1',
     template: {
+      id: 'ct1',
       title: '券',
       benefitType: rule == null ? 'CUSTOM' : 'FULL_REDUCTION',
       faceValue: 3000,
@@ -141,6 +146,39 @@ describe('RedemptionService.redeem', () => {
     const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
 
     expect(result).not.toHaveProperty('merchantPromotion');
+  });
+
+  it('SUCCESS: queues coupon redeemed product analytics outcome in the redemption transaction', async () => {
+    const { prisma, tx } = makeTxPrisma();
+    const productAnalytics = {
+      enqueueCouponRedeemedOutcome: jest
+        .fn()
+        .mockResolvedValue('coupon_redeemed:co1'),
+    };
+    tx.coupon.findFirst.mockResolvedValue(candidate(null));
+    tx.coupon.updateMany.mockResolvedValue({ count: 1 });
+    const { ticket } = makeTicketService();
+    const service = new RedemptionService(
+      prisma as never,
+      ticket,
+      productAnalytics as never,
+    );
+
+    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
+
+    expect(result.result).toBe('SUCCESS');
+    expect(tx.redemption.create).toHaveBeenCalledTimes(1);
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
+    expect(productAnalytics.enqueueCouponRedeemedOutcome).toHaveBeenCalledWith(
+      tx,
+      {
+        couponId: 'co1',
+        couponTemplateId: 'ct1',
+        merchantId: 'm1',
+        userId: 'u1',
+        occurredAt: expect.any(Date) as Date,
+      },
+    );
   });
 
   it('SUCCESS (gift coupon): persists the gift label on the Redemption', async () => {

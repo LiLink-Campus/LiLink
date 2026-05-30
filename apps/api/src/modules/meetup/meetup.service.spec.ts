@@ -41,11 +41,22 @@ function createTx() {
     meetupProposal: createDelegate(),
     meetupSession: createDelegate(),
     outboundEmail: createDelegate(),
+    productEventOutbox: createDelegate(),
     user: createDelegate(),
   };
 }
 
-function createService(tx: ReturnType<typeof createTx>) {
+type ProductAnalyticsMock = {
+  enqueueMeetupSessionCreatedOutcome?: jest.Mock;
+  enqueueMeetupProposalCreatedOutcome?: jest.Mock;
+  enqueueMeetupOptionAcceptedOutcome?: jest.Mock;
+  enqueueMeetupFinalConfirmedOutcome?: jest.Mock;
+};
+
+function createService(
+  tx: ReturnType<typeof createTx>,
+  productAnalytics?: ProductAnalyticsMock,
+) {
   const prisma = {
     $transaction: <T>(
       callback: (client: MeetupTransactionClient) => Promise<T>,
@@ -75,7 +86,11 @@ function createService(tx: ReturnType<typeof createTx>) {
   };
 
   return {
-    service: new MeetupService(prisma as never, mailService as never),
+    service: new MeetupService(
+      prisma as never,
+      mailService as never,
+      productAnalytics as never,
+    ),
     mailService,
     prisma,
   };
@@ -796,6 +811,94 @@ describe('MeetupService', () => {
     expect(sessionUpdateInput?.data?.effectiveExpirationWeeks).toBe(1);
   });
 
+  it('maps a meetup session matchId race to already exists', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+    const uniqueError = Object.assign(new Error('Unique constraint failed'), {
+      code: 'P2002',
+      meta: { target: ['matchId'] },
+    });
+
+    tx.match.findUnique.mockResolvedValue(buildMatch());
+    tx.meetupSession.findUnique.mockResolvedValueOnce(null);
+    tx.user.findMany.mockResolvedValue([
+      { id: 'user-a', meetupExpirationWeeks: 2 },
+      { id: 'user-b', meetupExpirationWeeks: 1 },
+    ]);
+    tx.meetupSession.create.mockRejectedValue(uniqueError);
+
+    await expect(
+      service.startSession('user-a', 'match-1', {
+        proposal: buildProposalInput(),
+      }),
+    ).rejects.toThrow('MEETUP_SESSION_ALREADY_EXISTS');
+  });
+
+  it('queues session-start product analytics outcomes in the meetup transaction', async () => {
+    const tx = createTx();
+    const productAnalytics = {
+      enqueueMeetupSessionCreatedOutcome: jest
+        .fn()
+        .mockResolvedValue('meetup_session_created:session-1'),
+      enqueueMeetupProposalCreatedOutcome: jest
+        .fn()
+        .mockResolvedValue('meetup_proposal_created:proposal-created'),
+    };
+    const { service } = createService(tx, productAnalytics);
+    const loadedSession = buildSession({
+      currentProposal: buildProposal({
+        id: 'proposal-created',
+      }),
+      currentProposalId: 'proposal-created',
+    });
+
+    tx.match.findUnique.mockResolvedValue(buildMatch());
+    tx.meetupSession.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(loadedSession);
+    tx.user.findMany.mockResolvedValue([
+      { id: 'user-a', meetupExpirationWeeks: 2 },
+      { id: 'user-b', meetupExpirationWeeks: 1 },
+    ]);
+    tx.meetupSession.create.mockResolvedValue({ id: 'session-1' });
+    tx.meetupMessage.create.mockResolvedValue({ id: 'message-created' });
+    tx.meetupProposal.create.mockResolvedValue({ id: 'proposal-created' });
+    tx.meetupParticipant.updateMany.mockResolvedValue({ count: 1 });
+    tx.meetupSession.updateMany.mockResolvedValue({ count: 1 });
+    tx.auditLog.create.mockResolvedValue({});
+
+    const response = await service.startSession('user-a', 'match-1', {
+      proposal: buildProposalInput(),
+    });
+
+    expect(response.id).toBe('session-1');
+    expect(
+      productAnalytics.enqueueMeetupSessionCreatedOutcome,
+    ).toHaveBeenCalledWith(tx, {
+      sessionId: 'session-1',
+      matchId: 'match-1',
+      proposalId: 'proposal-created',
+      userId: 'user-a',
+      occurredAt: expect.any(Date) as Date,
+    });
+    expect(
+      productAnalytics.enqueueMeetupProposalCreatedOutcome,
+    ).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        proposalId: 'proposal-created',
+        sessionId: 'session-1',
+        matchId: 'match-1',
+        userId: 'user-a',
+        hasTimeOption: true,
+        hasLocationOption: true,
+        timeOptionCount: 2,
+        locationOptionCount: 2,
+        proposalScope: 'BOTH',
+      }) as object,
+    );
+  });
+
   it('parses offsetless meetup time options as Beijing time', async () => {
     const tx = createTx();
     const { service } = createService(tx);
@@ -1336,6 +1439,81 @@ describe('MeetupService', () => {
     });
   });
 
+  it('queues proposal-created product analytics outcome in the meetup transaction', async () => {
+    const tx = createTx();
+    const productAnalytics = {
+      enqueueMeetupProposalCreatedOutcome: jest
+        .fn()
+        .mockResolvedValue('meetup_proposal_created:proposal-created'),
+    };
+    const { service } = createService(tx, productAnalytics);
+    const session = buildSession({
+      currentProposalId: null,
+      currentProposal: null,
+      participants: [
+        buildParticipant({
+          id: 'meetup-participant-a',
+          userId: 'user-a',
+          matchParticipantId: 'mp-a',
+          turnState: 'REQUIRED',
+        }),
+        buildParticipant({
+          id: 'meetup-participant-b',
+          userId: 'user-b',
+          matchParticipantId: 'mp-b',
+          turnState: 'WAITING',
+        }),
+      ],
+    });
+    const loadedSession = buildSession({
+      currentProposalId: 'proposal-created',
+      currentProposal: buildProposal({
+        id: 'proposal-created',
+        messageId: 'message-created',
+        actorUserId: 'user-a',
+      }),
+    });
+
+    tx.meetupSession.findUnique
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(loadedSession);
+    tx.user.findMany.mockResolvedValue([
+      { id: 'user-a', meetupExpirationWeeks: 2 },
+      { id: 'user-b', meetupExpirationWeeks: 2 },
+    ]);
+    tx.meetupSession.updateMany.mockResolvedValue({ count: 1 });
+    tx.meetupMessage.create.mockResolvedValue({ id: 'message-created' });
+    tx.meetupProposal.create.mockResolvedValue({ id: 'proposal-created' });
+    tx.meetupOption.createMany.mockResolvedValue({ count: 4 });
+    tx.meetupParticipant.updateMany.mockResolvedValue({ count: 1 });
+    tx.auditLog.create.mockResolvedValue({});
+
+    const response = await service.createProposal(
+      'user-a',
+      'session-1',
+      buildProposalInput(),
+    );
+
+    expect(response.id).toBe('session-1');
+    expect(
+      productAnalytics.enqueueMeetupProposalCreatedOutcome,
+    ).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        proposalId: 'proposal-created',
+        sessionId: 'session-1',
+        matchId: 'match-1',
+        userId: 'user-a',
+        hasTimeOption: true,
+        hasLocationOption: true,
+        timeOptionCount: 2,
+        locationOptionCount: 2,
+        proposalScope: 'BOTH',
+      }) as object,
+    );
+  });
+
   it('maps a pending proposal race during proposal creation to a stale proposal conflict', async () => {
     const tx = createTx();
     const { service } = createService(tx);
@@ -1384,7 +1562,12 @@ describe('MeetupService', () => {
 
   it('claims a locked session before creating a revision proposal', async () => {
     const tx = createTx();
-    const { service } = createService(tx);
+    const productAnalytics = {
+      enqueueMeetupProposalCreatedOutcome: jest
+        .fn()
+        .mockResolvedValue('meetup_proposal_created:proposal-created'),
+    };
+    const { service } = createService(tx, productAnalytics);
     const confirmedTime = buildTimeOption({
       id: 'time-confirmed',
       status: 'CONFIRMED',
@@ -1480,6 +1663,23 @@ describe('MeetupService', () => {
       data: {
         currentProposalId: 'proposal-created',
       },
+    });
+    expect(
+      productAnalytics.enqueueMeetupProposalCreatedOutcome,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      productAnalytics.enqueueMeetupProposalCreatedOutcome,
+    ).toHaveBeenCalledWith(tx, {
+      proposalId: 'proposal-created',
+      userId: 'user-a',
+      sessionId: 'session-1',
+      matchId: 'match-1',
+      hasTimeOption: true,
+      hasLocationOption: true,
+      timeOptionCount: 2,
+      locationOptionCount: 2,
+      proposalScope: 'BOTH',
+      occurredAt: new Date('2026-05-14T10:00:00.000Z'),
     });
   });
 

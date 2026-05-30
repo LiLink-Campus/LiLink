@@ -1742,3 +1742,242 @@
 .admin-legend-dot-neutral {
   background: var(--color-neutral);
 }
+
+/* ===========================================================================
+   Ops dashboard density system (overview + analytics)
+   Isolated `ops-*` utilities — a denser, Stripe-like baseline. Scoped to the
+   overview and analytics pages for now; the other admin pages are untouched
+   and can migrate onto these later.
+   =========================================================================== */
+
+.ops-container {
+  max-width: 84rem;
+  margin: 0 auto;
+}
+
+.ops-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ops-header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.ops-header-desc {
+  margin: 0.3rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.ops-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* Dense KPI strip — one row, many tiles */
+.ops-stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.ops-stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.ops-stat-label {
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ops-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ops-stat-note {
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ops-stat-tile:global(.is-sage) .ops-stat-value {
+  color: var(--sage);
+}
+
+.ops-stat-tile:global(.is-gold) .ops-stat-value {
+  color: var(--color-gold);
+}
+
+.ops-stat-tile:global(.is-accent) .ops-stat-value {
+  color: var(--color-accent);
+}
+
+.ops-stat-tile:global(.is-coral) .ops-stat-value {
+  color: var(--color-coral);
+}
+
+.ops-stat-tile:global(.is-brand) .ops-stat-value {
+  color: var(--color-brand);
+}
+
+/* Main + side split (Stripe-like) */
+.ops-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+  margin-bottom: 0.9rem;
+}
+
+@media (min-width: 960px) {
+  .ops-split {
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  }
+}
+
+/* Dense panel */
+.ops-panel {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-xs);
+}
+
+.ops-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.ops-panel-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.ops-eyebrow {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Shortcut chips row */
+.ops-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.ops-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.ops-chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-ink);
+  background: var(--color-accent-soft);
+}
+
+/* Secondary utility region (low-frequency tools) */
+.ops-utility {
+  margin-top: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--color-border-strong);
+}
+
+.ops-utility-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ops-utility-head h2 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.ops-utility-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+@media (min-width: 760px) {
+  .ops-utility-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.ops-utility-card {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+  padding: 0.85rem 0.95rem;
+}
+
+.ops-utility-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--color-text);
+}

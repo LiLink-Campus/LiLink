@@ -3640,16 +3640,17 @@ describe('AccountService', () => {
   });
 
   it('uses each participant selected contact channel when requesting contact', async () => {
+    const matchId = 'cm00000000000000000000004';
     const createMany = jest.fn().mockResolvedValue({ count: 2 });
     const queuedEmails = [
       {
-        dedupeKey: 'match-introduction:match-1:requester',
+        dedupeKey: `match-introduction:${matchId}:requester`,
         recipientEmail: 'user-1@example.com',
         subject: 'subject-1',
         html: '<p>requester</p>',
       },
       {
-        dedupeKey: 'match-introduction:match-1:recipient',
+        dedupeKey: `match-introduction:${matchId}:recipient`,
         recipientEmail: 'user-2@example.com',
         subject: 'subject-2',
         html: '<p>recipient</p>',
@@ -3662,14 +3663,34 @@ describe('AccountService', () => {
       buildIntroductionEmails,
       flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
     };
+    const productAnalytics = {
+      enqueueMatchContactRequestedOutcome: jest
+        .fn()
+        .mockResolvedValue(`match_contact_requested:${matchId}`),
+    };
     const participantUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const transactionClient = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: matchId }]),
+      block: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      match: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      matchParticipant: {
+        updateMany: participantUpdateMany,
+      },
+      outboundEmail: {
+        createMany,
+      },
+    };
     const prisma = {
       matchParticipant: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'participant-1',
           userId: 'user-1',
           match: {
-            id: 'match-1',
+            id: matchId,
             revealedAt: new Date('2026-05-08T12:00:00.000Z'),
             introducedAt: null,
             reasons: ['reason'],
@@ -3716,21 +3737,7 @@ describe('AccountService', () => {
         create: jest.fn().mockResolvedValue(undefined),
       },
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-        callback({
-          $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
-          block: {
-            findFirst: jest.fn().mockResolvedValue(null),
-          },
-          match: {
-            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          },
-          matchParticipant: {
-            updateMany: participantUpdateMany,
-          },
-          outboundEmail: {
-            createMany,
-          },
-        }),
+        callback(transactionClient),
       ),
     };
     const service = new AccountService(
@@ -3738,9 +3745,12 @@ describe('AccountService', () => {
       mailService as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
+      undefined,
+      undefined,
+      productAnalytics as never,
     );
 
-    await expect(service.requestContact('user-1', 'match-1')).resolves.toEqual({
+    await expect(service.requestContact('user-1', matchId)).resolves.toEqual({
       ok: true,
     });
     expect(mailService.buildIntroductionEmails).toHaveBeenCalledTimes(1);
@@ -3775,6 +3785,13 @@ describe('AccountService', () => {
         introducedContactType: 'PHONE',
         introducedContactValue: '+14155552671',
       },
+    });
+    expect(
+      productAnalytics.enqueueMatchContactRequestedOutcome,
+    ).toHaveBeenCalledWith(transactionClient, {
+      userId: 'user-1',
+      matchId,
+      occurredAt: expect.any(Date) as Date,
     });
   });
 

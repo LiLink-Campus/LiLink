@@ -26,6 +26,11 @@ import {
 } from "../../../lib/api";
 import { getClientWebOrigin } from "../../../lib/api-base-url";
 import { formatYuan } from "../../../lib/format";
+import {
+  trackIntent,
+  useFootprint,
+  usePageFootprint,
+} from "../../../lib/product-analytics";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { cacheDashboardCouponAgendaRead } from "../_lib/coupon-agenda-read-cache";
 import { useCouponReadVisibility } from "./useCouponReadVisibility";
@@ -256,6 +261,18 @@ function CouponCodeDialog({
   // Keep mutable refs to avoid stale-closure issues in intervals.
   const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const codeDisplayRef = useFootprint<HTMLDivElement>(
+    "coupon_redeem_code_displayed",
+    {
+      enabled: Boolean(coupon && state.phase === "active"),
+      route: "/dashboard/coupons",
+      surface: "coupon_redeem_code_dialog",
+      onceKey: coupon ? `coupon_code_displayed:${coupon.id}` : undefined,
+      entityType: "coupon",
+      entityId: coupon?.id,
+      metadata: { couponStatus: coupon?.status },
+    },
+  );
 
   // Open / close the native dialog.
   useEffect(() => {
@@ -429,7 +446,7 @@ function CouponCodeDialog({
           ) : (
             // phase === "active"
             <>
-              <div className={dcx("coupons-showcode-qr")}>
+              <div ref={codeDisplayRef} className={dcx("coupons-showcode-qr")}>
                 <QrCode value={buildQrValue(state.secret.code, state.token)} size={180} />
               </div>
 
@@ -567,6 +584,16 @@ export function CouponsClient({
   const issued = coupons?.filter((coupon) => coupon.status === "ISSUED") ?? [];
   const archived =
     coupons?.filter((coupon) => coupon.status !== "ISSUED") ?? [];
+  const pageFootprintRef = usePageFootprint<HTMLDivElement>(
+    "coupon_page_viewed",
+    {
+      enabled: !loading && error === null,
+      route: "/dashboard/coupons",
+      surface: "coupon_page",
+      onceKey: `coupon_page_viewed:${currentUserId}`,
+      metadata: { availableCouponCount: issued.length },
+    },
+  );
   const shouldTrackRead = Boolean(
     currentUserId &&
       issued.length > 0 &&
@@ -581,6 +608,20 @@ export function CouponsClient({
     enabled: shouldTrackRead,
     onMarkedRead: handleCouponReadMarked,
   });
+
+  function handleShowCode(coupon: MyCoupon) {
+    trackIntent("coupon_redeem_code_open_clicked", {
+      route: "/dashboard/coupons",
+      surface: "coupon_card",
+      entityType: "coupon",
+      entityId: coupon.id,
+      metadata: {
+        couponStatus: coupon.status,
+        availableCouponCount: issued.length,
+      },
+    });
+    setSelectedCoupon(coupon);
+  }
 
   if (loading) {
     return (
@@ -601,7 +642,10 @@ export function CouponsClient({
   }
 
   return (
-    <div className={dcx("app-page-shell v2-page-shell coupons-page")}>
+    <div
+      ref={pageFootprintRef}
+      className={dcx("app-page-shell v2-page-shell coupons-page")}
+    >
       <header className={dcx("v2-page-header coupons-header")}>
         <span className={dcx("v2-page-header-eyebrow")}>
           <ClipboardIcon className={dcx("coupons-header-icon")} />
@@ -625,7 +669,7 @@ export function CouponsClient({
                 <CouponCard
                   key={coupon.id}
                   coupon={coupon}
-                  onShowCode={() => setSelectedCoupon(coupon)}
+                  onShowCode={() => handleShowCode(coupon)}
                 />
               ))}
             </div>
