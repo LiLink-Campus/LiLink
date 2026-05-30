@@ -1,8 +1,5 @@
 import { WEEKLY_INTENT_LABELS } from "../../../lib/weekly-intent";
-import {
-  canEditCurrentCycleParticipation,
-  lastRoundUnmatched,
-} from "./format";
+import { canEditCurrentCycleParticipation, lastRoundUnmatched } from "./format";
 import {
   contactPreferencesAreDefault,
   describeRelativeUntil,
@@ -40,6 +37,7 @@ export type AgendaItemAction = {
   href?: string;
   variant: "primary" | "secondary" | "ghost";
   loadingLabel?: string;
+  meetupEntryMetadata?: Record<string, string>;
 };
 
 export type AgendaItemProgress = {
@@ -127,6 +125,14 @@ function resolveCountdown(inputs: AgendaInputs): AgendaCountdown {
   };
 }
 
+function meetupEntryMetadata(matchId: string, sessionId?: string | null) {
+  const metadata: Record<string, string> = { matchId };
+  if (sessionId) {
+    metadata.sessionId = sessionId;
+  }
+  return metadata;
+}
+
 function meetupAgendaItems(inputs: AgendaInputs): AgendaItemDraft[] {
   const { dashboard } = inputs;
   const tasks = dashboard.tasks ?? [];
@@ -155,6 +161,10 @@ function meetupAgendaItems(inputs: AgendaInputs): AgendaItemDraft[] {
           kind: "link",
           href: needsAction.href,
           variant: "primary",
+          meetupEntryMetadata: meetupEntryMetadata(
+            needsAction.matchId,
+            needsAction.sessionId,
+          ),
         },
       ],
     });
@@ -174,6 +184,10 @@ function meetupAgendaItems(inputs: AgendaInputs): AgendaItemDraft[] {
           kind: "link",
           href: waiting.href,
           variant: "secondary",
+          meetupEntryMetadata: meetupEntryMetadata(
+            waiting.matchId,
+            waiting.sessionId,
+          ),
         },
       ],
     });
@@ -229,6 +243,7 @@ function matchAgendaItems(inputs: AgendaInputs): AgendaItemDraft[] {
             kind: "link",
             href: `/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`,
             variant: "primary",
+            meetupEntryMetadata: meetupEntryMetadata(latestMatch.id),
           },
         ],
       },
@@ -578,7 +593,8 @@ function questionnaireItem(inputs: AgendaInputs): AgendaItemDraft {
 function sortedAgendaItems(items: AgendaItemDraft[]): AgendaItem[] {
   return [...items]
     .sort((a, b) => {
-      const priorityDelta = PRIORITY_SORT[a.priority] - PRIORITY_SORT[b.priority];
+      const priorityDelta =
+        PRIORITY_SORT[a.priority] - PRIORITY_SORT[b.priority];
       if (priorityDelta !== 0) return priorityDelta;
       return a.sortOrder - b.sortOrder;
     })
