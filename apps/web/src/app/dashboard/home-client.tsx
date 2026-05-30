@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchApi, type AuthMePayload } from "../../lib/api";
+import { usePageFootprint } from "../../lib/product-analytics";
 import {
   WEEKLY_INTENT_LABELS,
   type WeeklyIntent,
@@ -63,6 +64,14 @@ export function HomeClient({
   const router = useRouter();
   const lastVisibleRefreshAtRef = useRef(Date.now());
   useDashboardSessionSeed(initialUser);
+  const pageFootprintRef = usePageFootprint<HTMLDivElement>(
+    "dashboard_page_viewed",
+    {
+      route: "/dashboard",
+      surface: "dashboard_home",
+      onceKey: `dashboard_page_viewed:${initialUser.id}`,
+    },
+  );
   const userId = initialUser.id;
   const [dashboard, setDashboard] = useState<DashboardPayload>(initialDashboard);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -295,7 +304,10 @@ export function HomeClient({
     : "本周";
 
   return (
-    <div className={`${styles.pageShell} ${styles.v2PageShell} ${styles.homeDashboard}`}>
+    <div
+      ref={pageFootprintRef}
+      className={`${styles.pageShell} ${styles.v2PageShell} ${styles.homeDashboard}`}
+    >
       <header className={styles.greeting}>
         <div className={styles.greetingMain}>
           <span className={styles.greetingEyebrow}>{cycleEyebrow}</span>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type FormEvent,
+  type RefCallback,
   useEffect,
   useId,
   useMemo,
@@ -28,6 +29,10 @@ import {
   type MeetupProposalScope,
   type MeetupSessionResponse,
 } from "../../../../lib/api";
+import {
+  trackIntent,
+  usePageFootprint,
+} from "../../../../lib/product-analytics";
 import {
   chinaStandardDatetimeToIso,
 } from "@/lib/china-standard-time";
@@ -217,6 +222,16 @@ function buildProposalSubmitSummary(
   };
 }
 
+function proposalAnalyticsMetadata(proposal: MeetupProposalPayload) {
+  return {
+    hasTimeOption: Boolean(proposal.timeOptions?.length),
+    hasLocationOption: Boolean(proposal.locationOptions?.length),
+    timeOptionCount: proposal.timeOptions?.length ?? 0,
+    locationOptionCount: proposal.locationOptions?.length ?? 0,
+    proposalScope: proposal.scope,
+  };
+}
+
 function revisionConfirmationDetails(summary: MeetupProposalSubmitSummary) {
   return [
     `提议范围：${SCOPE_LABELS[summary.scope]}`,
@@ -242,6 +257,18 @@ export function MeetupStartClient({
   const router = useRouter();
   const { showToast } = useToast();
   useDashboardSessionSeed(initialUser);
+  const pageFootprintRef = usePageFootprint<HTMLDivElement>(
+    "meetup_flow_viewed",
+    {
+      enabled: Boolean(matchId),
+      route: "/dashboard/meetup/start",
+      surface: "meetup_start",
+      onceKey: matchId ? `meetup_flow_viewed:start:${matchId}` : undefined,
+      entityType: "match",
+      entityId: matchId ?? undefined,
+      metadata: { matchId },
+    },
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -251,6 +278,16 @@ export function MeetupStartClient({
       return;
     }
 
+    trackIntent("meetup_proposal_submit_clicked", {
+      route: "/dashboard/meetup/start",
+      surface: "meetup_start_proposal_form",
+      entityType: "match",
+      entityId: matchId,
+      metadata: {
+        matchId,
+        ...proposalAnalyticsMetadata(proposal),
+      },
+    });
     setSaving(true);
     setError(null);
     try {
@@ -267,7 +304,10 @@ export function MeetupStartClient({
 
   if (!matchId) {
     return (
-      <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
+      <div
+        ref={pageFootprintRef}
+        className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}
+      >
         <section className={dcx("v2-meetup-action-card tone-muted")}>
           <header className={dcx("v2-meetup-action-head")}>
             <div className={dcx("v2-meetup-action-head-body")}>
@@ -293,7 +333,10 @@ export function MeetupStartClient({
       meetupSummary.status === "ARCHIVED";
 
     return (
-      <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
+      <div
+        ref={pageFootprintRef}
+        className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}
+      >
         {terminal ? (
           <section className={dcx("v2-plan-card")}>
             <header className={dcx("v2-plan-card-head")}>
@@ -361,7 +404,10 @@ export function MeetupStartClient({
   }
 
   return (
-    <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
+    <div
+      ref={pageFootprintRef}
+      className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}
+    >
       <section className={dcx("v2-meetup-action-card tone-attention")}>
         <header className={dcx("v2-meetup-action-head")}>
           <div className={dcx("v2-meetup-action-head-body")}>
@@ -400,6 +446,20 @@ export function MeetupSessionClient({
 }) {
   useDashboardSessionSeed(initialUser);
   const [session, setSession] = useState(initialSession);
+  const pageFootprintRef = usePageFootprint<HTMLDivElement>(
+    "meetup_flow_viewed",
+    {
+      route: `/dashboard/meetup/${initialSession.id}`,
+      surface: "meetup_session",
+      onceKey: `meetup_flow_viewed:session:${initialSession.id}`,
+      entityType: "meetup_session",
+      entityId: initialSession.id,
+      metadata: {
+        sessionId: initialSession.id,
+        matchId: initialSession.matchId,
+      },
+    },
+  );
 
   useEffect(() => {
     setSession(initialSession);
@@ -435,6 +495,7 @@ export function MeetupSessionClient({
       session={session}
       currentUserId={initialUser.id}
       onSessionChange={setSession}
+      pageFootprintRef={pageFootprintRef}
     />
   );
 }
@@ -443,10 +504,12 @@ function MeetupSessionView({
   session,
   currentUserId,
   onSessionChange,
+  pageFootprintRef,
 }: {
   session: MeetupSessionResponse;
   currentUserId: string;
   onSessionChange: (next: MeetupSessionResponse) => void;
+  pageFootprintRef: RefCallback<HTMLDivElement>;
 }) {
   const { showToast } = useToast();
   const [saving, setSaving] = useState<SavingAction>(null);
@@ -509,6 +572,24 @@ function MeetupSessionView({
       return;
     }
 
+    trackIntent("meetup_option_accept_clicked", {
+      route: `/dashboard/meetup/${session.id}`,
+      surface: "meetup_accept_options",
+      entityType: "meetup_session",
+      entityId: session.id,
+      metadata: {
+        sessionId: session.id,
+        proposalId: session.currentPendingProposal?.id ?? null,
+        optionKind:
+          payload.timeOptionId && payload.locationOptionId
+            ? "BOTH"
+            : payload.timeOptionId
+              ? "TIME"
+              : "LOCATION",
+        hasTimeOption: Boolean(payload.timeOptionId),
+        hasLocationOption: Boolean(payload.locationOptionId),
+      },
+    });
     await runMutation(
       "accept",
       () => acceptMeetupOptions(session.id, payload),
@@ -538,6 +619,13 @@ function MeetupSessionView({
   }
 
   async function submitFinalConfirm() {
+    trackIntent("meetup_final_confirm_clicked", {
+      route: `/dashboard/meetup/${session.id}`,
+      surface: "meetup_final_confirm",
+      entityType: "meetup_session",
+      entityId: session.id,
+      metadata: { sessionId: session.id },
+    });
     await runMutation(
       "finalConfirm",
       () => finalConfirmMeetupSession(session.id),
@@ -547,6 +635,17 @@ function MeetupSessionView({
   }
 
   async function submitProposal(proposal: MeetupProposalPayload) {
+    trackIntent("meetup_proposal_submit_clicked", {
+      route: `/dashboard/meetup/${session.id}`,
+      surface: "meetup_proposal_form",
+      entityType: "meetup_session",
+      entityId: session.id,
+      metadata: {
+        sessionId: session.id,
+        matchId: session.matchId,
+        ...proposalAnalyticsMetadata(proposal),
+      },
+    });
     await runMutation(
       "proposal",
       () => createMeetupProposal(session.id, proposal),
@@ -556,6 +655,17 @@ function MeetupSessionView({
   }
 
   async function submitRevision(proposal: MeetupProposalPayload) {
+    trackIntent("meetup_proposal_submit_clicked", {
+      route: `/dashboard/meetup/${session.id}`,
+      surface: "meetup_revision_form",
+      entityType: "meetup_session",
+      entityId: session.id,
+      metadata: {
+        sessionId: session.id,
+        matchId: session.matchId,
+        ...proposalAnalyticsMetadata(proposal),
+      },
+    });
     await runMutation(
       "revise",
       () => reviseMeetupSession(session.id, proposal),
@@ -787,7 +897,10 @@ function MeetupSessionView({
 
   return (
     <>
-      <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
+      <div
+        ref={pageFootprintRef}
+        className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}
+      >
         <MeetupParticipantStrip session={session} currentUserId={currentUserId} />
 
         {error ? <p className={dcx("ui-form-message ui-form-message--error")}>{error}</p> : null}
