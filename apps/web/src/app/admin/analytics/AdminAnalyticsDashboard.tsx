@@ -7,7 +7,14 @@ import { cx } from "../admin-class-names";
 import commonStyles from "../admin-common.module.css";
 import { AdminRefreshButton } from "../merchant-admin-ui";
 import styles from "./admin-analytics.module.css";
+import FunnelPanel from "./FunnelPanel";
+import KpiStrip from "./KpiStrip";
 import MatchLeaderboardTable from "./MatchLeaderboardTable";
+import {
+  SAMPLE_COUPON_FUNNEL,
+  SAMPLE_KPI_TILES,
+  SAMPLE_MEETUP_FUNNEL,
+} from "./placeholders";
 import type {
   MatchLeaderboardResponse,
   SchoolsGenderResponse,
@@ -15,6 +22,14 @@ import type {
 } from "./types";
 
 const adminStyles = [commonStyles, styles];
+
+const TIME_RANGES = [
+  { key: "7d", label: "近 7 天" },
+  { key: "30d", label: "近 30 天" },
+  { key: "90d", label: "近 90 天" },
+] as const;
+
+type TimeRangeKey = (typeof TIME_RANGES)[number]["key"];
 
 // recharts (and its d3 deps) is the heaviest dependency in the app and is only
 // used on this admin route, so load it lazily on the client instead of bundling
@@ -34,6 +49,7 @@ const WeeklyOptinChart = dynamic(() => import("./WeeklyOptinChart"), {
 
 export default function AdminAnalyticsDashboard() {
   const [includeTest, setIncludeTest] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>("7d");
   const [reloadNonce, setReloadNonce] = useState(0);
   const [schoolsGender, setSchoolsGender] =
     useState<SchoolsGenderResponse | null>(null);
@@ -97,15 +113,15 @@ export default function AdminAnalyticsDashboard() {
   }, [load, reloadNonce]);
 
   return (
-    <div className={cx(adminStyles, "analytics-container")}>
-      <div className={cx(adminStyles, "admin-page-header analytics-header")}>
+    <div className={cx(adminStyles, "ops-container")}>
+      <div className={cx(adminStyles, "ops-header")}>
         <div>
           <h1>数据分析</h1>
-          <p className={cx(adminStyles, "analytics-header-desc")}>
-            查看学校性别分布、每周报名趋势与匹配表现排行榜。
+          <p className={cx(adminStyles, "ops-header-desc")}>
+            产品行为漏斗与运营实况一屏概览。
           </p>
         </div>
-        <div className={cx(adminStyles, "analytics-toolbar-actions")}>
+        <div className={cx(adminStyles, "ops-header-actions")}>
           <label className={cx(adminStyles, "analytics-toggle")}>
             <input
               type="checkbox"
@@ -125,15 +141,73 @@ export default function AdminAnalyticsDashboard() {
         <p className="ui-form-message ui-form-message--error">{error}</p>
       ) : null}
 
-      <div className={cx(adminStyles, "analytics-grid")}>
-        <SchoolsGenderChart data={schoolsGender} loading={loading} />
-        <WeeklyOptinChart data={weeklyOptin} loading={loading} />
+      <section className={cx(adminStyles, "analytics-section")}>
+        <div className={cx(adminStyles, "analytics-section-head")}>
+          <div className={cx(adminStyles, "analytics-section-title")}>
+            <h2>产品行为分析</h2>
+            <span className={cx(adminStyles, "analytics-sample-badge")}>
+              示例数据 · 待接入埋点后端
+            </span>
+          </div>
+          <div
+            className={cx(adminStyles, "admin-tabs analytics-range-tabs")}
+            role="group"
+            aria-label="时间范围"
+          >
+            {TIME_RANGES.map((range) => (
+              <button
+                key={range.key}
+                type="button"
+                className={
+                  timeRange === range.key
+                    ? "ui-segmented-item active"
+                    : "ui-segmented-item"
+                }
+                onClick={() => setTimeRange(range.key)}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <KpiStrip tiles={SAMPLE_KPI_TILES} />
+
+        <div className={cx(adminStyles, "analytics-grid-2")}>
+          <FunnelPanel
+            title="优惠券漏斗"
+            description="从优惠券页曝光到完成兑换的转化（intent → outcome）。"
+            steps={SAMPLE_COUPON_FUNNEL}
+          />
+          <FunnelPanel
+            title="约见漏斗"
+            description="从约见入口到最终确认的转化（intent → outcome）。"
+            steps={SAMPLE_MEETUP_FUNNEL}
+          />
+        </div>
+      </section>
+
+      <section className={cx(adminStyles, "analytics-section")}>
+        <div className={cx(adminStyles, "analytics-section-head")}>
+          <div className={cx(adminStyles, "analytics-section-title")}>
+            <h2>运营实况</h2>
+            <span className={cx(adminStyles, "analytics-live-badge")}>
+              实时数据
+            </span>
+          </div>
+        </div>
+
+        <div className={cx(adminStyles, "analytics-grid-2")}>
+          <SchoolsGenderChart data={schoolsGender} loading={loading} />
+          <WeeklyOptinChart data={weeklyOptin} loading={loading} />
+        </div>
+
         <MatchLeaderboardTable
           data={leaderboard}
           loading={loading}
           includeTest={includeTest}
         />
-      </div>
+      </section>
     </div>
   );
 }
