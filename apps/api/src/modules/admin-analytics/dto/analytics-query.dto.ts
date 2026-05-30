@@ -16,6 +16,10 @@ export const LEADERBOARD_SORT_KEYS = [
 ] as const;
 export type LeaderboardSortKey = (typeof LEADERBOARD_SORT_KEYS)[number];
 
+export const PRODUCT_ANALYTICS_RANGES = ['7d', '30d', '60d'] as const;
+export type ProductAnalyticsRangeKey =
+  (typeof PRODUCT_ANALYTICS_RANGES)[number];
+
 export class AnalyticsBaseQueryDto {
   @IsOptional()
   @Transform(toBool)
@@ -30,6 +34,12 @@ export class WeeklyOptinQueryDto extends AnalyticsBaseQueryDto {
   @Min(1)
   @Max(52)
   limit?: number;
+}
+
+export class ProductAnalyticsQueryDto extends AnalyticsBaseQueryDto {
+  @IsOptional()
+  @IsIn(PRODUCT_ANALYTICS_RANGES)
+  range?: ProductAnalyticsRangeKey;
 }
 
 export class MatchLeaderboardQueryDto extends AnalyticsBaseQueryDto {
