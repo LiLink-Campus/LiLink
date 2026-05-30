@@ -55,7 +55,7 @@
     "lint:pre-push": "node scripts/run-pre-push-lint.mjs",
     "lint:staged": "lint-staged",
     "lint:css": "node scripts/web-css-syntax.mjs",
-    "test:hooks": "node --test scripts/install-git-hooks.test.mjs scripts/hooks/hook-registry.test.mjs scripts/agent-skills-link.test.mjs",
+    "test:hooks": "node --test scripts/check-git-hooks-installed.test.mjs scripts/install-git-hooks.test.mjs scripts/hooks/hook-registry.test.mjs scripts/agent-skills-link.test.mjs",
     "test:shared": "npm run test --workspace @lilink/shared",
     "db:bootstrap": "npm run db:bootstrap --workspace api",
     "db:generate": "npm run prisma:generate --workspace api",
