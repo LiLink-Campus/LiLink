@@ -21,12 +21,12 @@ test("keeps all hook definitions in the registry", () => {
     {
       name: "lilink-pre-commit-lint",
       event: "pre-commit",
-      command: "npm run lint:staged",
+      command: "node scripts/run-git-hook-command.mjs lint:staged",
     },
     {
       name: "lilink-pre-push-lint",
       event: "pre-push",
-      command: "npm run lint:pre-push",
+      command: "node scripts/run-git-hook-command.mjs lint:pre-push",
     },
   ]);
 
