@@ -21,6 +21,90 @@ const female = {
   answers: { [HARD_MATCH_KEYS.gender]: '女' },
 };
 
+describe('AdminAnalyticsService.productFunnels', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers().setSystemTime(new Date('2026-05-30T12:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('aggregates live ProductEvent counts into KPIs, funnels, and known gaps', async () => {
+    const prisma = makePrisma();
+    prisma.$queryRaw
+      .mockResolvedValueOnce([
+        { name: 'dashboard_page_viewed', count: 4 },
+        { name: 'match_page_viewed', count: 3 },
+        { name: 'match_contact_request_clicked', count: 1 },
+        { name: 'coupon_page_viewed', count: 5 },
+        { name: 'coupon_redeem_code_open_clicked', count: 3 },
+        { name: 'coupon_redeem_code_displayed', count: 3 },
+        { name: 'coupon_redeemed', count: 2 },
+        { name: 'meetup_entry_clicked', count: 4 },
+        { name: 'meetup_final_confirmed', count: 1 },
+      ])
+      .mockResolvedValueOnce([{ count: 2 }])
+      .mockResolvedValueOnce([{ count: 18 }])
+      .mockResolvedValueOnce([{ count: 6 }]);
+    const service = new AdminAnalyticsService(prisma as never);
+
+    const result = await service.productFunnels({ range: '7d' });
+
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(4);
+    expect(result).toMatchObject({
+      range: '7d',
+      since: '2026-05-23T12:00:00.000Z',
+      until: '2026-05-30T12:00:00.000Z',
+      includeTest: false,
+      kpis: {
+        activeUsers: 2,
+        totalEvents: 18,
+        todayEvents: 6,
+        couponRedeemRate: 2 / 5,
+        meetupCompletionRate: 1 / 4,
+        optinRate: null,
+      },
+    });
+    expect(result.funnels.map((funnel) => funnel.key)).toEqual([
+      'match',
+      'coupon',
+      'meetup',
+    ]);
+    expect(result.funnels[0].steps.map((step) => step.value)).toEqual([
+      4, 3, 1, 0,
+    ]);
+    expect(result.funnels[1].steps.map((step) => step.value)).toEqual([
+      5, 3, 3, 2,
+    ]);
+    expect(result.missing.map((item) => item.key)).toEqual([
+      'optinConversion',
+      'trendDeltas',
+    ]);
+  });
+
+  it('returns null rates when funnel denominators are zero', async () => {
+    const prisma = makePrisma();
+    prisma.$queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockResolvedValueOnce([{ count: 0 }]);
+    const service = new AdminAnalyticsService(prisma as never);
+
+    const result = await service.productFunnels({ range: '60d' });
+
+    expect(result.range).toBe('60d');
+    expect(result.since).toBe('2026-03-31T12:00:00.000Z');
+    expect(result.kpis.couponRedeemRate).toBeNull();
+    expect(result.kpis.meetupCompletionRate).toBeNull();
+    expect(result.funnels[1].steps.every((step) => step.value === 0)).toBe(
+      true,
+    );
+  });
+});
+
 describe('AdminAnalyticsService.getSchoolsGender', () => {
   beforeEach(() => jest.clearAllMocks());
 

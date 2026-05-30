@@ -37,12 +37,12 @@ test("builds config commands for the LiLink hooks", () => {
     {
       name: "lilink-pre-commit-lint",
       event: "pre-commit",
-      command: "npm run lint:staged",
+      command: "node scripts/run-git-hook-command.mjs lint:staged",
     },
     {
       name: "lilink-pre-push-lint",
       event: "pre-push",
-      command: "npm run lint:pre-push",
+      command: "node scripts/run-git-hook-command.mjs lint:pre-push",
     },
   ]);
 
@@ -52,7 +52,7 @@ test("builds config commands for the LiLink hooks", () => {
       "config",
       "set",
       "hook.lilink-pre-commit-lint.command",
-      "npm run lint:staged",
+      "node scripts/run-git-hook-command.mjs lint:staged",
     ],
   ]);
 });

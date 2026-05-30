@@ -36,6 +36,7 @@ export type MeetupTransactionClient = {
   meetupProposal: MeetupDelegate;
   meetupSession: MeetupDelegate;
   outboundEmail: MeetupDelegate;
+  productEventOutbox: MeetupDelegate;
   user: MeetupDelegate;
 };
 

@@ -26,6 +26,7 @@ import { MerchantSessionModule } from './modules/merchant-session/merchant-sessi
 import { RedemptionModule } from './modules/redemption/redemption.module';
 import { PromotionDashboardModule } from './modules/promotion-dashboard/promotion-dashboard.module';
 import { AdminAnalyticsModule } from './modules/admin-analytics/admin-analytics.module';
+import { ProductAnalyticsModule } from './modules/product-analytics/product-analytics.module';
 import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
 import { authEmailThrottler } from './modules/auth/auth-throttle';
 
@@ -74,6 +75,7 @@ import { authEmailThrottler } from './modules/auth/auth-throttle';
     RedemptionModule,
     PromotionDashboardModule,
     AdminAnalyticsModule,
+    ProductAnalyticsModule,
   ],
 })
 export class AppModule {}

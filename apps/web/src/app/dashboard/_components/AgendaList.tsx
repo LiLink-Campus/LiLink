@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { trackMeetupEntryClicked } from "../../../lib/product-analytics";
 import type { AgendaItem, AgendaItemAction } from "../_lib/agenda";
 import { AGENDA_ICONS } from "./agenda-icons";
 import styles from "./AgendaList.module.css";
@@ -49,6 +50,36 @@ function statusClassName(status: AgendaItem["status"]) {
   if (status === "waiting") return styles.waiting;
   if (status === "celebrate") return styles.celebrate;
   return styles.todoStatus;
+}
+
+function meetupMetadataFromHref(href: string | undefined) {
+  if (!href?.startsWith("/dashboard/meetup")) return null;
+  try {
+    const url = new URL(href, window.location.origin);
+    const metadata: Record<string, string> = {};
+    const matchId = url.searchParams.get("matchId");
+    if (matchId) {
+      metadata.matchId = matchId;
+    }
+    if (url.pathname !== "/dashboard/meetup/start") {
+      const sessionMatch = /^\/dashboard\/meetup\/([^/]+)$/.exec(url.pathname);
+      if (sessionMatch?.[1]) {
+        metadata.sessionId = decodeURIComponent(sessionMatch[1]);
+      }
+    }
+    return metadata;
+  } catch {
+    return {};
+  }
+}
+
+function meetupMetadataFromAction(action: AgendaItemAction) {
+  const hrefMetadata = meetupMetadataFromHref(action.href);
+  if (!hrefMetadata) return null;
+  return {
+    ...hrefMetadata,
+    ...(action.meetupEntryMetadata ?? {}),
+  };
 }
 
 export function AgendaList({
@@ -148,6 +179,10 @@ export function AgendaList({
                         key={`${item.id}-${index}`}
                         href={action.href}
                         className={actionClassName(action.variant)}
+                        onClick={() => {
+                          const metadata = meetupMetadataFromAction(action);
+                          if (metadata) trackMeetupEntryClicked(metadata);
+                        }}
                       >
                         {action.label}
                       </Link>
@@ -171,7 +206,6 @@ export function AgendaList({
           );
         })}
       </ul>
-
     </section>
   );
 }

@@ -5,6 +5,8 @@ const { spawnSync } = require("node:child_process");
 const workspaceRoot = path.resolve(__dirname, "..");
 const apiWorkspacePath = path.join(workspaceRoot, "apps", "api");
 
+runGitHookInstallCheck();
+
 if (!existsSync(path.join(apiWorkspacePath, "package.json"))) {
   process.exit(0);
 }
@@ -45,4 +47,22 @@ if (result.error) {
 
 if (result.status !== 0) {
   process.exit(result.status ?? 1);
+}
+
+function runGitHookInstallCheck() {
+  const result = spawnSync(
+    process.execPath,
+    [path.join(__dirname, "check-git-hooks-installed.mjs")],
+    {
+      cwd: workspaceRoot,
+      stdio: "inherit",
+      windowsHide: true,
+    },
+  );
+
+  if (result.error) {
+    console.warn(
+      `LiLink Git hook install check skipped: ${result.error.message}`,
+    );
+  }
 }

@@ -8,6 +8,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { isUniqueConstraintError } from '../../common/prisma/errors';
+import { ProductAnalyticsService } from '../product-analytics/product-analytics.service';
 import {
   OFFSETLESS_DATE_TIME_PATTERN,
   parseChinaStandardDateTimeMatch,
@@ -164,6 +165,7 @@ export class MeetupService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly productAnalytics?: ProductAnalyticsService,
   ) {}
 
   getLocationCandidates() {
@@ -375,7 +377,7 @@ export class MeetupService {
     input: StartMeetupSessionDto,
   ) {
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const response = await this.prisma.$transaction(async (tx) => {
         const now = new Date();
         const proposalInput = this.normalizeProposalInput(
           this.readProposalObject(input?.proposal),
@@ -474,12 +476,28 @@ export class MeetupService {
           matchId,
           proposalId: proposal.id,
         });
+        await this.productAnalytics?.enqueueMeetupSessionCreatedOutcome(tx, {
+          sessionId: session.id,
+          matchId,
+          proposalId: proposal.id,
+          userId,
+          occurredAt: now,
+        });
+        await this.productAnalytics?.enqueueMeetupProposalCreatedOutcome(tx, {
+          proposalId: proposal.id,
+          sessionId: session.id,
+          matchId,
+          userId,
+          ...this.proposalAnalyticsMetadata(proposalInput),
+          occurredAt: now,
+        });
 
         const loadedSession = await this.loadSessionOrThrow(tx, session.id);
         return mapMeetupSessionResponse(loadedSession, userId, now);
       });
+      return response;
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
+      if (this.conflictTargetIncludes(error, 'matchId')) {
         throw new BadRequestException('MEETUP_SESSION_ALREADY_EXISTS');
       }
 
@@ -492,7 +510,7 @@ export class MeetupService {
     sessionId: string,
     input: CreateMeetupProposalDto,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const response = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const proposalInput = this.normalizeProposalInput(input, now);
       const session = await this.loadConvergedAuthorizedSession(
@@ -566,10 +584,19 @@ export class MeetupService {
         sessionId,
         proposalId: proposal.id,
       });
+      await this.productAnalytics?.enqueueMeetupProposalCreatedOutcome(tx, {
+        proposalId: proposal.id,
+        sessionId,
+        matchId: session.matchId,
+        userId,
+        ...this.proposalAnalyticsMetadata(proposalInput),
+        occurredAt: now,
+      });
 
       const loadedSession = await this.loadSessionOrThrow(tx, sessionId);
       return mapMeetupSessionResponse(loadedSession, userId, now);
     });
+    return response;
   }
 
   async acceptOptions(
@@ -577,7 +604,7 @@ export class MeetupService {
     sessionId: string,
     input: AcceptMeetupOptionsDto,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const response = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const session = await this.loadConvergedAuthorizedSession(
         tx,
@@ -695,14 +722,25 @@ export class MeetupService {
       );
       await this.createAuditLog(tx, userId, 'meetup.options_accepted', {
         sessionId,
+        messageId: message.id,
         proposalId: proposal.id,
         timeOptionId: selectedTime?.id ?? null,
         locationOptionId: selectedLocation?.id ?? null,
+      });
+      await this.productAnalytics?.enqueueMeetupOptionAcceptedOutcome(tx, {
+        messageId: message.id,
+        sessionId,
+        proposalId: proposal.id,
+        userId,
+        selectedTime: Boolean(selectedTime),
+        selectedLocation: Boolean(selectedLocation),
+        occurredAt: now,
       });
 
       const loadedSession = await this.loadSessionOrThrow(tx, sessionId);
       return mapMeetupSessionResponse(loadedSession, userId, now);
     });
+    return response;
   }
 
   async rejectProposal(
@@ -800,7 +838,7 @@ export class MeetupService {
   }
 
   async finalConfirm(userId: string, sessionId: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const response = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const session = await this.loadConvergedAuthorizedSession(
         tx,
@@ -869,10 +907,17 @@ export class MeetupService {
         confirmedTimeOptionId: session.confirmedTimeOptionId,
         confirmedLocationOptionId: session.confirmedLocationOptionId,
       });
+      await this.productAnalytics?.enqueueMeetupFinalConfirmedOutcome(tx, {
+        messageId: message.id,
+        sessionId,
+        userId,
+        occurredAt: now,
+      });
 
       const loadedSession = await this.loadSessionOrThrow(tx, sessionId);
       return mapMeetupSessionResponse(loadedSession, userId, now);
     });
+    return response;
   }
 
   async reviseAfterLock(
@@ -880,7 +925,7 @@ export class MeetupService {
     sessionId: string,
     input: ReviseMeetupSessionDto,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const response = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       const proposalInput = this.normalizeProposalInput(
         this.readProposalObject(input?.proposal),
@@ -977,10 +1022,19 @@ export class MeetupService {
         sessionId,
         proposalId: proposal.id,
       });
+      await this.productAnalytics?.enqueueMeetupProposalCreatedOutcome(tx, {
+        proposalId: proposal.id,
+        sessionId,
+        matchId: session.matchId,
+        userId,
+        ...this.proposalAnalyticsMetadata(proposalInput),
+        occurredAt: now,
+      });
 
       const loadedSession = await this.loadSessionOrThrow(tx, sessionId);
       return mapMeetupSessionResponse(loadedSession, userId, now);
     });
+    return response;
   }
 
   async cancel(
@@ -1147,6 +1201,24 @@ export class MeetupService {
     const reloadedSession = await this.loadSessionOrThrow(tx, sessionId);
     this.assertSessionParticipants(reloadedSession, userId);
     return reloadedSession;
+  }
+
+  private proposalAnalyticsMetadata(proposalInput: NormalizedProposalInput) {
+    return {
+      hasTimeOption: proposalInput.timeOptions.length > 0,
+      hasLocationOption: proposalInput.locationOptions.length > 0,
+      timeOptionCount: proposalInput.timeOptions.length,
+      locationOptionCount: proposalInput.locationOptions.length,
+      proposalScope: proposalInput.scope,
+    };
+  }
+
+  private conflictTargetIncludes(error: unknown, field: string): boolean {
+    if (!isUniqueConstraintError(error)) return false;
+    const target = (error as { meta?: { target?: unknown } })?.meta?.target;
+    if (Array.isArray(target)) return target.includes(field);
+    if (typeof target === 'string') return target.includes(field);
+    return false;
   }
 
   private assertSessionParticipants(

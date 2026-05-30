@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import type { AuthMePayload } from "../../../lib/api";
+import {
+  trackIntent,
+  trackMeetupEntryClicked,
+  usePageFootprint,
+} from "../../../lib/product-analytics";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { CounterpartInfo } from "../_components/CounterpartInfo";
 import { FeedbackForm } from "../_components/FeedbackForm";
@@ -33,7 +38,10 @@ function findMeetupTaskFor(
   matchId: string | null,
 ): DashboardTask | null {
   if (!tasks || !matchId) return null;
-  return tasks.find((task) => task.type === "MEETUP" && task.matchId === matchId) ?? null;
+  return (
+    tasks.find((task) => task.type === "MEETUP" && task.matchId === matchId) ??
+    null
+  );
 }
 
 export function MatchClient({
@@ -112,18 +120,52 @@ export function MatchClientView({
     currentCycle?.participationStatus === "OPTED_IN" &&
     !currentCycle.intent &&
     canEditParticipation;
-  const meetupTask = findMeetupTaskFor(dashboard?.tasks, latestMatch?.id ?? null);
+  const meetupTask = findMeetupTaskFor(
+    dashboard?.tasks,
+    latestMatch?.id ?? null,
+  );
   const canStartMeetup = latestMatch !== null && meetupSummary === null;
+  const matchPageFootprintRef = usePageFootprint<HTMLDivElement>(
+    "match_page_viewed",
+    {
+      route: "/dashboard/match",
+      surface: "match_page",
+      onceKey: `match_page_viewed:${initialUser.id}:${latestMatch?.id ?? "none"}`,
+      entityType: latestMatch ? "match" : undefined,
+      entityId: latestMatch?.id,
+      metadata: {
+        matchId: latestMatch?.id,
+        matchVisibility: dashboard?.latestMatchVisibility ?? "NONE",
+        introduced,
+        hasMeetupSession: Boolean(meetupSummary),
+      },
+    },
+  );
+
+  function trackContactRequestClicked(
+    matchId: string,
+    surface: "match_contact_button" | "match_direct_invite_button",
+  ) {
+    trackIntent("match_contact_request_clicked", {
+      route: "/dashboard/match",
+      surface,
+      entityType: "match",
+      entityId: matchId,
+      metadata: { matchId },
+    });
+  }
 
   async function handleDirectInvite() {
     if (!latestMatch) return;
 
     const meetupStartHref = `/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`;
+    trackMeetupEntryClicked({ matchId: latestMatch.id });
     if (introduced) {
       router.push(meetupStartHref);
       return;
     }
 
+    trackContactRequestClicked(latestMatch.id, "match_direct_invite_button");
     const contactRequested = await requestContact(latestMatch.id);
     if (!contactRequested) return;
 
@@ -133,7 +175,9 @@ export function MatchClientView({
   const showMeetupRibbon = introduced && meetupSummary !== null;
   const showStartMeetupRibbon = introduced && canStartMeetup;
   const showExplanation =
-    counterpart !== null && latestMatch !== null && dashboard?.latestMatchVisibility !== "LIMITED";
+    counterpart !== null &&
+    latestMatch !== null &&
+    dashboard?.latestMatchVisibility !== "LIMITED";
 
   let hero: ReactNode = null;
 
@@ -151,13 +195,21 @@ export function MatchClientView({
             : "你与本轮匹配对象之间存在屏蔽关系，对方的可识别信息已被隐藏。"
         }
       >
-        {reportLabel ? <span className={dcx("ui-badge ui-badge--neutral")}>{reportLabel}</span> : null}
+        {reportLabel ? (
+          <span className={dcx("ui-badge ui-badge--neutral")}>
+            {reportLabel}
+          </span>
+        ) : null}
       </MatchStateHero>
     );
   } else if (counterpart && latestMatch) {
     const reportLabel = reportHandlingChipLabel(latestMatch.reportStatus);
-    const counterpartName = introduced ? counterpart.displayName ?? "TA" : "TA";
-    const initial = introduced ? avatarInitialFor(counterpart.displayName) : "TA";
+    const counterpartName = introduced
+      ? (counterpart.displayName ?? "TA")
+      : "TA";
+    const initial = introduced
+      ? avatarInitialFor(counterpart.displayName)
+      : "TA";
     hero = (
       <MatchStateHero
         variant="matched"
@@ -165,69 +217,112 @@ export function MatchClientView({
         title={counterpartName}
         subtitle={
           introduced
-            ? counterpart.schoolName ?? "已引荐双方"
+            ? (counterpart.schoolName ?? "已引荐双方")
             : "等你决定如何破冰"
         }
         score={latestMatch.score}
         body={null}
         contactLine={
-          introduced && publicContact
-            ? (
-                <>
-                  联系方式：{publicContact.label}{" "}
-                  <strong>{publicContact.value}</strong>
-                </>
-              )
-            : null
+          introduced && publicContact ? (
+            <>
+              联系方式：{publicContact.label}{" "}
+              <strong>{publicContact.value}</strong>
+            </>
+          ) : null
         }
-        actions={
-          [
-            ...(canStartMeetup
-              ? [
-                  {
-                    label: saving === "contact" ? "处理中..." : (
-                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', width: '100%', padding: '0.2rem' }}>
+        actions={[
+          ...(canStartMeetup
+            ? [
+                {
+                  label:
+                    saving === "contact" ? (
+                      "处理中..."
+                    ) : (
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.4rem",
+                          width: "100%",
+                          padding: "0.2rem",
+                        }}
+                      >
                         发起见面邀请
                       </span>
                     ),
-                    onClick: () => void handleDirectInvite(),
-                    variant: "primary" as const,
-                    disabled: saving === "contact",
-                    loading: saving === "contact",
-                    style: { background: 'linear-gradient(135deg, #df6b7c, #b93e5b)', border: 'none', color: '#fff' }
-                  },
-                ]
-              : []),
-            introduced
-              ? {
-                  label: (
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', width: '100%', padding: '0.2rem' }}>
-                      已引荐
-                    </span>
-                  ),
-                  variant: "secondary",
-                  disabled: true,
+                  onClick: () => void handleDirectInvite(),
+                  variant: "primary" as const,
+                  disabled: saving === "contact",
+                  loading: saving === "contact",
                   style: {
-                    background: '#f5f5f5',
-                    border: '1px solid #ddd',
-                    color: '#666',
-                    cursor: 'default',
+                    background: "linear-gradient(135deg, #df6b7c, #b93e5b)",
+                    border: "none",
+                    color: "#fff",
                   },
-                }
-              : {
-                  label: saving === "contact" ? "处理中..." : (
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', width: '100%', padding: '0.2rem' }}>
+                },
+              ]
+            : []),
+          introduced
+            ? {
+                label: (
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "0.4rem",
+                      width: "100%",
+                      padding: "0.2rem",
+                    }}
+                  >
+                    已引荐
+                  </span>
+                ),
+                variant: "secondary",
+                disabled: true,
+                style: {
+                  background: "#f5f5f5",
+                  border: "1px solid #ddd",
+                  color: "#666",
+                  cursor: "default",
+                },
+              }
+            : {
+                label:
+                  saving === "contact" ? (
+                    "处理中..."
+                  ) : (
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.4rem",
+                        width: "100%",
+                        padding: "0.2rem",
+                      }}
+                    >
                       交换联系方式
                     </span>
                   ),
-                  onClick: () => void requestContact(latestMatch.id),
-                  variant: "secondary",
-                  disabled: saving === "contact",
-                  loading: saving === "contact",
-                  style: { background: '#fff', border: '1px solid #ccc', color: '#333' },
+                onClick: () => {
+                  trackContactRequestClicked(
+                    latestMatch.id,
+                    "match_contact_button",
+                  );
+                  void requestContact(latestMatch.id);
                 },
-          ]
-        }
+                variant: "secondary",
+                disabled: saving === "contact",
+                loading: saving === "contact",
+                style: {
+                  background: "#fff",
+                  border: "1px solid #ccc",
+                  color: "#333",
+                },
+              },
+        ]}
       >
         {introduced && reportLabel ? (
           <div
@@ -235,15 +330,24 @@ export function MatchClientView({
               display: "flex",
               flexWrap: "wrap",
               gap: "0.5rem",
-              marginTop: "0.5rem"
+              marginTop: "0.5rem",
             }}
           >
-            <span className={dcx("ui-badge ui-badge--neutral")}>{reportLabel}</span>
+            <span className={dcx("ui-badge ui-badge--neutral")}>
+              {reportLabel}
+            </span>
           </div>
         ) : null}
 
         {counterpart?.introLine ? (
-          <p className={dcx("v2-match-hero-body")} style={{ marginTop: "-0.25rem", color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
+          <p
+            className={dcx("v2-match-hero-body")}
+            style={{
+              marginTop: "-0.25rem",
+              color: "var(--color-text-secondary)",
+              fontSize: "0.9rem",
+            }}
+          >
             <strong>对方介绍：</strong>
             {counterpart.introLine}
           </p>
@@ -271,6 +375,9 @@ export function MatchClientView({
               href={`/dashboard/meetup/start?matchId=${encodeURIComponent(latestMatch.id)}`}
               className={dcx("v2-match-next-card")}
               aria-label="安排第一次见面"
+              onClick={() =>
+                trackMeetupEntryClicked({ matchId: latestMatch.id })
+              }
             >
               <div className={dcx("v2-match-next-card-head")}>
                 <strong className={dcx("v2-match-next-card-title")}>
@@ -282,7 +389,8 @@ export function MatchClientView({
                 </span>
               </div>
               <p className={dcx("v2-match-next-card-body")}>
-                引荐已完成，现在可以给 {counterpart?.displayName ?? "对方"} 提议 2–3 个时间段和地点。
+                引荐已完成，现在可以给 {counterpart?.displayName ?? "对方"} 提议
+                2–3 个时间段和地点。
               </p>
               <div className={dcx("v2-match-next-card-foot")}>
                 进入安排页面 &gt;
@@ -300,7 +408,9 @@ export function MatchClientView({
         subtitle="当前这轮还没有保存可用的匹配意向。回到首页确认 Friend / Date / Both 后即按该设置参与匹配。"
         revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
         revealAt={currentCycle?.revealAt ?? null}
-        actions={[{ label: "返回首页选择", href: "/dashboard", variant: "primary" }]}
+        actions={[
+          { label: "返回首页选择", href: "/dashboard", variant: "primary" },
+        ]}
       />
     );
   } else if (
@@ -317,7 +427,11 @@ export function MatchClientView({
         revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
         revealAt={currentCycle?.revealAt ?? null}
         actions={[
-          { label: "去完善匹配资料", href: "/dashboard/profile", variant: "secondary" },
+          {
+            label: "去完善匹配资料",
+            href: "/dashboard/profile",
+            variant: "secondary",
+          },
         ]}
       />
     );
@@ -330,8 +444,16 @@ export function MatchClientView({
         title="本轮未匹配到对象"
         subtitle={`「${lastRevealedRound.codename}」本轮可配对人数不足或没有与你强相容的组合。下一轮开放报名时回到首页即可再次参与，更新问卷也能提高下次成功率。`}
         actions={[
-          { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
-          { label: "查看历史", href: "/dashboard/match/history", variant: "secondary" },
+          {
+            label: "去完善匹配资料",
+            href: "/dashboard/profile",
+            variant: "primary",
+          },
+          {
+            label: "查看历史",
+            href: "/dashboard/match/history",
+            variant: "secondary",
+          },
         ]}
       />
     );
@@ -353,7 +475,11 @@ export function MatchClientView({
         revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
         revealAt={currentCycle?.revealAt ?? null}
         actions={[
-          { label: "去完善匹配资料", href: "/dashboard/profile", variant: "secondary" },
+          {
+            label: "去完善匹配资料",
+            href: "/dashboard/profile",
+            variant: "secondary",
+          },
         ]}
       />
     );
@@ -371,7 +497,11 @@ export function MatchClientView({
         revealLabel={describeRevealMoment(currentCycle?.revealAt ?? null)}
         revealAt={currentCycle?.revealAt ?? null}
         actions={[
-          { label: "去完善匹配资料", href: "/dashboard/profile", variant: "primary" },
+          {
+            label: "去完善匹配资料",
+            href: "/dashboard/profile",
+            variant: "primary",
+          },
         ]}
       />
     );
@@ -389,14 +519,21 @@ export function MatchClientView({
         revealAt={currentCycle?.revealAt ?? null}
         actions={[
           { label: "返回首页", href: "/dashboard", variant: "primary" },
-          { label: "去完善匹配资料", href: "/dashboard/profile", variant: "secondary" },
+          {
+            label: "去完善匹配资料",
+            href: "/dashboard/profile",
+            variant: "secondary",
+          },
         ]}
       />
     );
   }
 
   return (
-    <div className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}>
+    <div
+      ref={matchPageFootprintRef}
+      className={dcx("app-page-shell app-page-shell-narrow v2-page-shell")}
+    >
       <header className={dcx("v2-greeting")}>
         <div className={dcx("v2-greeting-main")}>
           <h1 className={dcx("v2-match-page-title")}>你本周的匹配对象</h1>
@@ -410,8 +547,14 @@ export function MatchClientView({
         </div>
       </header>
 
-      {savedMessage ? <p className={dcx("ui-form-message ui-form-message--success")}>{savedMessage}</p> : null}
-      {error ? <p className={dcx("ui-form-message ui-form-message--error")}>{error}</p> : null}
+      {savedMessage ? (
+        <p className={dcx("ui-form-message ui-form-message--success")}>
+          {savedMessage}
+        </p>
+      ) : null}
+      {error ? (
+        <p className={dcx("ui-form-message ui-form-message--error")}>{error}</p>
+      ) : null}
 
       {hero}
 
@@ -420,7 +563,10 @@ export function MatchClientView({
           href="/dashboard/match/history"
           className={dcx("ui-button ui-button--ghost ui-button--block")}
         >
-          查看过往匹配记录{recentMatchHistory.length > 0 ? ` (${recentMatchHistory.length}轮)` : ''}
+          查看过往匹配记录
+          {recentMatchHistory.length > 0
+            ? ` (${recentMatchHistory.length}轮)`
+            : ""}
         </Link>
         {latestMatch &&
         dashboard?.latestMatchVisibility !== "LIMITED" &&

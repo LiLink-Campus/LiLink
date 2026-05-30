@@ -26,6 +26,47 @@ describe('AdminAnalyticsController', () => {
     expect(service.schoolsGender).toHaveBeenCalledWith(query);
   });
 
+  it('forwards product-funnels requests to AdminAnalyticsService', async () => {
+    const service = {
+      productFunnels: jest.fn().mockResolvedValue({
+        range: '7d',
+        since: '2026-05-23T00:00:00.000Z',
+        until: '2026-05-30T00:00:00.000Z',
+        includeTest: false,
+        kpis: {
+          activeUsers: 0,
+          totalEvents: 0,
+          todayEvents: 0,
+          couponRedeemRate: null,
+          meetupCompletionRate: null,
+          optinRate: null,
+        },
+        funnels: [],
+        missing: [],
+      }),
+    };
+    const controller = new AdminAnalyticsController(service as never);
+    const query = { range: '30d' as const, includeTest: true };
+
+    await expect(controller.productFunnels(query)).resolves.toEqual({
+      range: '7d',
+      since: '2026-05-23T00:00:00.000Z',
+      until: '2026-05-30T00:00:00.000Z',
+      includeTest: false,
+      kpis: {
+        activeUsers: 0,
+        totalEvents: 0,
+        todayEvents: 0,
+        couponRedeemRate: null,
+        meetupCompletionRate: null,
+        optinRate: null,
+      },
+      funnels: [],
+      missing: [],
+    });
+    expect(service.productFunnels).toHaveBeenCalledWith(query);
+  });
+
   it('forwards weekly-optin requests to AdminAnalyticsService', async () => {
     const service = {
       weeklyOptin: jest.fn().mockResolvedValue({
