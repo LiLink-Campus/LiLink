@@ -231,6 +231,7 @@ model User {
   campaignActivations        CampaignActivation[]
   coupons                    Coupon[]
   couponReadStates           CouponReadState[]
+  productEvents              ProductEvent[]
 
   @@index([status, createdAt])
   @@index([schoolId])
@@ -694,6 +695,28 @@ enum CouponStatus {
   VOID
 }
 
+enum ProductEventKind {
+  FOOTPRINT
+  INTENT
+  OUTCOME
+  PERFORMANCE
+  FRUSTRATION
+}
+
+enum ProductEventSource {
+  WEB
+  API
+  SERVER
+}
+
+enum ProductEventOutboxStatus {
+  PENDING
+  PROCESSING
+  RECORDED
+  FAILED
+  EXHAUSTED
+}
+
 enum MerchantUserRole {
   OWNER
   STAFF
@@ -855,4 +878,62 @@ model ReferralEvent {
   @@index([referrerUserId, type, createdAt])
   @@index([campaignId, type, channel, createdAt])
   @@index([inviteCodeId, type, createdAt])
+}
+
+model ProductEvent {
+  id            String             @id @default(cuid())
+  eventId       String             @unique
+  name          String
+  kind          ProductEventKind
+  source        ProductEventSource
+  eventVersion  Int                @default(1)
+
+  userId        String?
+  user          User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId     String?
+  intentId      String?
+  correlationId String?
+
+  route         String?
+  surface       String?
+  entityType    String?
+  entityId      String?
+  metadata      Json?
+
+  occurredAt    DateTime?
+  createdAt     DateTime           @default(now())
+
+  @@index([name, createdAt])
+  @@index([kind, createdAt])
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([route, createdAt])
+  @@index([correlationId])
+  @@index([createdAt])
+}
+
+model ProductEventOutbox {
+  id            String                   @id @default(cuid())
+  eventId       String                   @unique
+  name          String
+  eventVersion  Int                      @default(1)
+  userId        String?
+  entityType    String?
+  entityId      String?
+  metadata      Json?
+  occurredAt    DateTime?
+
+  status        ProductEventOutboxStatus @default(PENDING)
+  attempts      Int                      @default(0)
+  maxAttempts   Int                      @default(5)
+  lastAttemptAt DateTime?
+  nextAttemptAt DateTime?
+  recordedAt    DateTime?
+  errorMessage  String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([userId, status])
+  @@index([createdAt])
 }
