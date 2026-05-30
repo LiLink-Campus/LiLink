@@ -60,3 +60,45 @@ export type MatchLeaderboardResponse = {
   limit: number;
   includeTest: boolean;
 };
+
+export type ProductAnalyticsRangeKey = "7d" | "30d" | "60d";
+
+export type ProductAnalyticsKpis = {
+  activeUsers: number;
+  totalEvents: number;
+  todayEvents: number;
+  couponRedeemRate: number | null;
+  meetupCompletionRate: number | null;
+  optinRate: null;
+};
+
+export type ProductAnalyticsFunnelStep = {
+  key: string;
+  label: string;
+  eventName: string;
+  value: number;
+  kind: "footprint" | "intent" | "outcome";
+};
+
+export type ProductAnalyticsFunnel = {
+  key: string;
+  title: string;
+  description: string;
+  steps: ProductAnalyticsFunnelStep[];
+};
+
+export type ProductAnalyticsMissing = {
+  key: string;
+  label: string;
+  reason: string;
+};
+
+export type ProductAnalyticsResponse = {
+  range: ProductAnalyticsRangeKey;
+  since: string;
+  until: string;
+  includeTest: boolean;
+  kpis: ProductAnalyticsKpis;
+  funnels: ProductAnalyticsFunnel[];
+  missing: ProductAnalyticsMissing[];
+};

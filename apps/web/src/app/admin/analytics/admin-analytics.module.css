@@ -267,7 +267,8 @@
 }
 
 .analytics-sample-badge,
-.analytics-live-badge {
+.analytics-live-badge,
+.analytics-warning-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -280,6 +281,12 @@
 }
 
 .analytics-sample-badge {
+  border: 1px solid var(--color-warning);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.analytics-warning-badge {
   border: 1px solid var(--color-warning);
   background: var(--color-warning-soft);
   color: var(--color-warning);
@@ -480,6 +487,39 @@
 .funnel-step-drop {
   font-size: 0.72rem;
   color: var(--color-text-muted);
+}
+
+.analytics-gap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analytics-gap-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.analytics-gap-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.analytics-gap-item strong {
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.analytics-gap-item span {
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.55;
 }
 
 @media (max-width: 860px) {

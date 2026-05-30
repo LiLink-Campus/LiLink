@@ -4,6 +4,7 @@ import { AdminAnalyticsService } from './admin-analytics.service';
 import {
   AnalyticsBaseQueryDto,
   MatchLeaderboardQueryDto,
+  ProductAnalyticsQueryDto,
   WeeklyOptinQueryDto,
 } from './dto/analytics-query.dto';
 
@@ -15,6 +16,11 @@ export class AdminAnalyticsController {
   @Get('schools-gender')
   schoolsGender(@Query() query: AnalyticsBaseQueryDto) {
     return this.service.schoolsGender(query);
+  }
+
+  @Get('product-funnels')
+  productFunnels(@Query() query: ProductAnalyticsQueryDto) {
+    return this.service.productFunnels(query);
   }
 
   @Get('weekly-optin')
