@@ -202,6 +202,11 @@ describe('AdminService', () => {
             userId: 'user-1',
             status: 'OPTED_IN',
             updatedAt: new Date('2026-04-10T12:00:00.000Z'),
+            user: {
+              questionnaireResponse: {
+                submittedAt: new Date('2026-03-15T00:00:00.000Z'),
+              },
+            },
           },
           {
             userId: 'user-2',
