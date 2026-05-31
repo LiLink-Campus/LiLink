@@ -197,6 +197,8 @@ model User {
   meetupExpirationWeeks      Int                          @default(2)
   isTest                     Boolean                      @default(false)
   acceptedTermsAt            DateTime?
+  lastLoginAt                DateTime?
+  lastActiveAt               DateTime?
   createdAt                  DateTime                     @default(now())
   updatedAt                  DateTime                     @updatedAt
   profile                    UserProfile?
@@ -239,6 +241,7 @@ model User {
   @@index([referredByUserId, createdAt])
   @@index([referralCampaignId, createdAt])
   @@index([firstOptedInAt])
+  @@index([lastActiveAt])
 }
 
 model UserContactMethod {

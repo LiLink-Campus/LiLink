@@ -1031,6 +1031,7 @@ async function upsertSeedUser(
   questionnaire: QuestionnaireSeedArg,
   participation: 'opted_in' | 'opted_out',
 ) {
+  const now = new Date();
   const user = await prisma.user.upsert({
     where: { email: input.email },
     update: {
@@ -1038,7 +1039,8 @@ async function upsertSeedUser(
       status: input.userStatus,
       displayName: input.displayName,
       schoolId: input.schoolId,
-      acceptedTermsAt: input.acceptTerms ? new Date() : null,
+      acceptedTermsAt: input.acceptTerms ? now : null,
+      lastActiveAt: now,
     },
     create: {
       email: input.email,
@@ -1046,7 +1048,8 @@ async function upsertSeedUser(
       status: input.userStatus,
       displayName: input.displayName,
       schoolId: input.schoolId,
-      acceptedTermsAt: input.acceptTerms ? new Date() : null,
+      acceptedTermsAt: input.acceptTerms ? now : null,
+      lastActiveAt: now,
     },
   });
 

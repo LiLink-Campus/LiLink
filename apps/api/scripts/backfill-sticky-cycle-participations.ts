@@ -85,17 +85,19 @@ async function main() {
   }
 
   let totalCreatedCount = 0;
+  let totalAutoOptedOutCount = 0;
 
   for (const cycle of cycles) {
     const result = await ensureStickyCycleParticipations(prisma, cycle);
     totalCreatedCount += result.createdCount;
+    totalAutoOptedOutCount += result.autoOptedOutCount;
     console.log(
-      `[sticky-backfill] ${cycle.codename} (${cycle.id}) status=${cycle.status} created=${result.createdCount}`,
+      `[sticky-backfill] ${cycle.codename} (${cycle.id}) status=${cycle.status} created=${result.createdCount} autoOptedOut=${result.autoOptedOutCount}`,
     );
   }
 
   console.log(
-    `[sticky-backfill] Completed ${cycles.length} cycle(s); created ${totalCreatedCount} participation record(s).`,
+    `[sticky-backfill] Completed ${cycles.length} cycle(s); created ${totalCreatedCount} participation record(s), auto-opted-out ${totalAutoOptedOutCount}.`,
   );
 }
 
