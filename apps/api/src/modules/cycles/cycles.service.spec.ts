@@ -449,12 +449,22 @@ describe('CyclesService', () => {
             status: 'OPTED_IN',
             intent: 'FRIEND',
             updatedAt: new Date('2026-04-10T12:00:00.000Z'),
+            user: {
+              questionnaireResponse: {
+                submittedAt: new Date('2026-03-15T00:00:00.000Z'),
+              },
+            },
           },
           {
             userId: 'user-2',
             status: 'OPTED_IN',
             intent: 'DATE',
             updatedAt: new Date('2026-04-11T12:00:00.000Z'),
+            user: {
+              questionnaireResponse: {
+                submittedAt: new Date('2026-03-16T00:00:00.000Z'),
+              },
+            },
           },
         ]),
       createMany,
