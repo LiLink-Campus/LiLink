@@ -172,6 +172,7 @@ async function upsertDemoUser(tx, input) {
       meetupExpirationWeeks: 2,
       isTest: true,
       acceptedTermsAt: input.now,
+      lastActiveAt: input.now,
       profile: {
         create: {
           fullName: input.fullName,
@@ -188,6 +189,7 @@ async function upsertDemoUser(tx, input) {
       meetupExpirationWeeks: 2,
       isTest: true,
       acceptedTermsAt: input.now,
+      lastActiveAt: input.now,
     },
   });
 

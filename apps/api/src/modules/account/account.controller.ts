@@ -48,9 +48,10 @@ export class AccountController {
 
   @Get('bootstrap')
   async getDashboardBootstrap(@Req() request: AuthenticatedRequest) {
+    const userId = request.user!.sub;
     const [dashboard, user] = await Promise.all([
-      this.accountService.getDashboard(request.user!.sub),
-      this.accountService.getUserSummary(request.user!.sub),
+      this.accountService.getDashboard(userId),
+      this.accountService.getUserSummary(userId),
     ]);
     const cookieLocale = this.readLocaleCookie(request);
 

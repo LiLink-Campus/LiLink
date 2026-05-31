@@ -520,7 +520,10 @@ export class CyclesService {
     const stickyParticipationInitialization =
       await ensureStickyCycleParticipations(this.prisma, cycle);
 
-    if (stickyParticipationInitialization.createdCount > 0) {
+    if (
+      stickyParticipationInitialization.createdCount > 0 ||
+      stickyParticipationInitialization.autoOptedOutCount > 0
+    ) {
       cycle = await this.loadCycleForProcessing(cycle.id);
 
       if (!cycle) {
