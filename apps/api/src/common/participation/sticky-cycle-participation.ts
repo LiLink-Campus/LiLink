@@ -116,6 +116,13 @@ async function initializeStickyParticipations(
       status: true,
       intent: true,
       updatedAt: true,
+      user: {
+        select: {
+          questionnaireResponse: {
+            select: { submittedAt: true },
+          },
+        },
+      },
     },
     orderBy: [
       {
@@ -147,11 +154,20 @@ async function initializeStickyParticipations(
     }
 
     initializedUserIds.add(participation.userId);
+    // Carry over OPTED_IN only when the user still has a submitted
+    // questionnaire; otherwise they are unmatchable, so downgrade to OPTED_OUT
+    // instead of re-introducing an unmatchable participant every cycle.
+    const hasSubmittedQuestionnaire =
+      participation.user?.questionnaireResponse?.submittedAt != null;
+    const status: ParticipationStatus =
+      participation.status === 'OPTED_IN' && !hasSubmittedQuestionnaire
+        ? 'OPTED_OUT'
+        : participation.status;
     createData.push(
       buildStickyParticipationCreateInput(
         cycle.id,
         participation.userId,
-        participation.status,
+        status,
         participation.intent,
         initializedAt,
       ),

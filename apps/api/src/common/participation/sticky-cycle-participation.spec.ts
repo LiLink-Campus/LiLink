@@ -41,12 +41,22 @@ describe('ensureStickyCycleParticipations', () => {
             status: 'OPTED_IN',
             intent: 'FRIEND',
             updatedAt: new Date('2026-04-01T10:00:00.000Z'),
+            user: {
+              questionnaireResponse: {
+                submittedAt: new Date('2026-03-15T00:00:00.000Z'),
+              },
+            },
           },
           {
             userId: 'user-opted-in-no-intent',
             status: 'OPTED_IN',
             intent: null,
             updatedAt: new Date('2026-04-01T09:30:00.000Z'),
+            user: {
+              questionnaireResponse: {
+                submittedAt: new Date('2026-03-15T00:00:00.000Z'),
+              },
+            },
           },
           {
             userId: 'user-opted-out',
@@ -196,5 +206,97 @@ describe('ensureStickyCycleParticipations', () => {
 
     await ensureStickyCycleParticipations(prisma as never, cycle);
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('downgrades a carried-over OPTED_IN to OPTED_OUT when the user has no submitted questionnaire', async () => {
+    const createMany = jest.fn().mockResolvedValue({ count: 3 });
+    const prisma = buildMockPrisma({
+      findMany: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            userId: 'user-submitted',
+            status: 'OPTED_IN',
+            intent: 'FRIEND',
+            updatedAt: new Date('2026-04-01T10:00:00.000Z'),
+            user: {
+              questionnaireResponse: {
+                submittedAt: new Date('2026-03-20T00:00:00.000Z'),
+              },
+            },
+          },
+          {
+            userId: 'user-no-questionnaire',
+            status: 'OPTED_IN',
+            intent: 'DATE',
+            updatedAt: new Date('2026-04-01T09:30:00.000Z'),
+            user: { questionnaireResponse: null },
+          },
+          {
+            userId: 'user-draft-only',
+            status: 'OPTED_IN',
+            intent: 'BOTH',
+            updatedAt: new Date('2026-04-01T09:00:00.000Z'),
+            user: { questionnaireResponse: { submittedAt: null } },
+          },
+        ]),
+      createMany,
+    });
+
+    await ensureStickyCycleParticipations(prisma as never, {
+      id: 'cycle-2',
+      revealAt: new Date('2026-05-01T12:00:00.000Z'),
+      createdAt: new Date('2026-04-20T12:00:00.000Z'),
+      status: 'OPEN',
+    });
+
+    const createManyArgument = (
+      createMany.mock.calls as Array<
+        [
+          {
+            data: Array<{
+              cycleId: string;
+              userId: string;
+              status: 'OPTED_IN' | 'OPTED_OUT';
+              intent: 'FRIEND' | 'DATE' | 'BOTH' | null;
+              optedInAt: Date | null;
+            }>;
+          },
+        ]
+      >
+    )[0]?.[0];
+
+    if (!createManyArgument) {
+      throw new Error('Expected createMany to be called.');
+    }
+
+    // The user with a submitted questionnaire keeps OPTED_IN; the one with no
+    // questionnaire and the one stuck on a draft are downgraded to OPTED_OUT so
+    // the carry-over never re-introduces unmatchable "participants".
+    expect(createManyArgument.data).toEqual([
+      {
+        cycleId: 'cycle-2',
+        userId: 'user-submitted',
+        status: 'OPTED_IN',
+        intent: 'FRIEND',
+        optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
+      },
+      {
+        cycleId: 'cycle-2',
+        userId: 'user-no-questionnaire',
+        status: 'OPTED_OUT',
+        intent: null,
+        optedInAt: null,
+      },
+      {
+        cycleId: 'cycle-2',
+        userId: 'user-draft-only',
+        status: 'OPTED_OUT',
+        intent: null,
+        optedInAt: null,
+      },
+    ]);
+    expect(createManyArgument.data[0]?.optedInAt).toBeInstanceOf(Date);
   });
 });
