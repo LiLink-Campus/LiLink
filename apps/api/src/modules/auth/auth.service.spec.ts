@@ -118,6 +118,7 @@ describe('AuthService', () => {
             status: 'ACTIVE',
             preferredLocale: 'zh-CN',
           }),
+          update: jest.fn().mockResolvedValue({ id: 'user-1' }),
         },
       } as never,
       {} as never,
@@ -155,6 +156,7 @@ describe('AuthService', () => {
             status: 'ACTIVE',
             preferredLocale: 'en-US',
           }),
+          update: jest.fn().mockResolvedValue({ id: 'user-1' }),
         },
       } as never,
       {} as never,
@@ -189,6 +191,7 @@ describe('AuthService', () => {
             status: 'ACTIVE',
             preferredLocale: null,
           }),
+          update: jest.fn().mockResolvedValue({ id: 'user-1' }),
         },
       } as never,
       {} as never,
@@ -207,6 +210,45 @@ describe('AuthService', () => {
       user: {
         preferredLocale: 'zh-CN',
       },
+    });
+  });
+
+  it('records login and activity timestamps after a successful login', async () => {
+    mockedArgon2.verify.mockResolvedValue(true);
+    const userUpdate = jest.fn().mockResolvedValue({ id: 'user-1' });
+    const authService = new AuthService(
+      {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'user-1',
+            email: 'user@example.com',
+            displayName: 'User',
+            passwordHash: 'hash',
+            status: 'ACTIVE',
+            preferredLocale: 'zh-CN',
+          }),
+          update: userUpdate,
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        sign: jest.fn().mockReturnValue('jwt-token'),
+      } as never,
+    );
+
+    await authService.login({
+      email: 'user@example.com',
+      password: 'Password123',
+    });
+
+    expect(userUpdate).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: {
+        lastLoginAt: expect.any(Date) as Date,
+        lastActiveAt: expect.any(Date) as Date,
+      },
+      select: { id: true },
     });
   });
 

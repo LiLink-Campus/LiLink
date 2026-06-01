@@ -274,6 +274,7 @@ describe('CyclesService', () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const prisma = {
       matchCycle: {
@@ -311,6 +312,7 @@ describe('CyclesService', () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const revealClaim = jest.fn().mockResolvedValue({ count: 1 });
     const revealMatchUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
@@ -433,6 +435,7 @@ describe('CyclesService', () => {
 
   it('backfills sticky participation records before running an existing open cycle', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 2 });
+    const recentActiveAt = new Date();
     const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
     const claimReveal = jest.fn().mockResolvedValue({ count: 1 });
     const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
@@ -450,6 +453,7 @@ describe('CyclesService', () => {
             intent: 'FRIEND',
             updatedAt: new Date('2026-04-10T12:00:00.000Z'),
             user: {
+              lastActiveAt: recentActiveAt,
               questionnaireResponse: {
                 submittedAt: new Date('2026-03-15T00:00:00.000Z'),
               },
@@ -461,6 +465,7 @@ describe('CyclesService', () => {
             intent: 'DATE',
             updatedAt: new Date('2026-04-11T12:00:00.000Z'),
             user: {
+              lastActiveAt: recentActiveAt,
               questionnaireResponse: {
                 submittedAt: new Date('2026-03-16T00:00:00.000Z'),
               },
@@ -468,6 +473,7 @@ describe('CyclesService', () => {
           },
         ]),
       createMany,
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const prisma = {
       matchCycle: {
@@ -1203,6 +1209,7 @@ describe('CyclesService', () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const prisma = {
       matchCycle: {
@@ -1335,6 +1342,7 @@ describe('CyclesService', () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const prisma = {
       matchCycle: {
@@ -1413,6 +1421,7 @@ describe('CyclesService', () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const prisma = {
       matchCycle: {
@@ -1509,6 +1518,7 @@ describe('CyclesService', () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const prisma = {
       matchCycle: {
@@ -1570,6 +1580,7 @@ describe('CyclesService', () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const resetStalePreparation = jest.fn().mockResolvedValue({ count: 1 });
     const prisma = {
@@ -1678,6 +1689,7 @@ describe('CyclesService', () => {
     const cycleParticipation = {
       findMany: jest.fn().mockResolvedValue([]),
       createMany: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const prisma = {
       matchCycle: {

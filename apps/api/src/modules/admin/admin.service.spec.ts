@@ -193,6 +193,7 @@ describe('AdminService', () => {
 
   it('initializes sticky participation records when creating an open cycle', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 2 });
+    const recentActiveAt = new Date();
     const cycleParticipation = {
       findMany: jest
         .fn()
@@ -203,6 +204,7 @@ describe('AdminService', () => {
             status: 'OPTED_IN',
             updatedAt: new Date('2026-04-10T12:00:00.000Z'),
             user: {
+              lastActiveAt: recentActiveAt,
               questionnaireResponse: {
                 submittedAt: new Date('2026-03-15T00:00:00.000Z'),
               },
@@ -212,9 +214,11 @@ describe('AdminService', () => {
             userId: 'user-2',
             status: 'OPTED_OUT',
             updatedAt: new Date('2026-04-11T12:00:00.000Z'),
+            user: { lastActiveAt: recentActiveAt },
           },
         ]),
       createMany,
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
     };
     const prisma = {
       matchCycle: {
@@ -564,6 +568,7 @@ describe('AdminService', () => {
       cycleParticipation: {
         findMany: jest.fn().mockResolvedValue([]),
         createMany: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         Promise.resolve(
@@ -571,6 +576,7 @@ describe('AdminService', () => {
             cycleParticipation: {
               findMany: jest.fn().mockResolvedValue([]),
               createMany: jest.fn(),
+              updateMany: jest.fn().mockResolvedValue({ count: 0 }),
             },
           }),
         ),
