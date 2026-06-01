@@ -39,7 +39,6 @@ export function PublicChrome({ children }: { children: ReactNode }) {
           <Link href="/terms">协议</Link>
           <Link href="/privacy">隐私</Link>
           <Link href="/faq">FAQ</Link>
-          <Link href="/updates">更新</Link>
         </div>
       </footer>
     </div>
