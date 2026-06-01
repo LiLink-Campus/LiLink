@@ -1,5 +1,6 @@
 import { ButtonLink } from "@/components/ui";
 import { getLandingPayload } from "../lib/public-server-api";
+import { getDevlogUpdates } from "../lib/devlog-feed";
 import {
   CampusLineart,
   CoffeeCupsIllustration,
@@ -8,6 +9,7 @@ import {
 } from "./dashboard/_components/illustrations";
 import { HeroRevealCountdown } from "./hero-reveal-countdown";
 import { ModeSelectCard } from "./mode-select-card";
+import { RecentUpdates } from "./_components/RecentUpdates";
 import layoutStyles from "./public-layout.module.css";
 import styles from "./page.module.css";
 
@@ -30,7 +32,10 @@ function formatDateLabel(value: string | null) {
 }
 
 export default async function Home() {
-  const landing = await getLandingPayload().catch(() => null);
+  const [landing, updates] = await Promise.all([
+    getLandingPayload().catch(() => null),
+    getDevlogUpdates(),
+  ]);
   const matchesDelivered = landing?.stats.matchesDelivered ?? 0;
   const matchesLabelIsNarrative = landing != null && matchesDelivered <= 0;
   const registeredDisplay = landing
@@ -141,6 +146,8 @@ export default async function Home() {
           </strong>
         </div>
       </section>
+
+      <RecentUpdates updates={updates} />
 
       <section className={styles.section}>
         <div className={layoutStyles.sectionHeading}>
