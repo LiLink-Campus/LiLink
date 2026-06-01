@@ -4,6 +4,8 @@
     "node_modules",
     ".next/dev",
     ".storybook",
-    "**/*.stories.tsx"
+    "**/*.stories.tsx",
+    "**/*.test.ts",
+    "vitest.config.ts"
   ]
 }
