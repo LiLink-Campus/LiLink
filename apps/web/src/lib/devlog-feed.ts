@@ -182,3 +182,41 @@ export async function getLatestDevlogPublishedAt(): Promise<string | null> {
 export function isDevlogFeedTruncated(feed: DevlogFeed): boolean {
   return feed.totalPublished > feed.items.length;
 }
+
+export interface DevlogPaginatedSlice<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export function parseDevlogUpdatesPage(
+  raw: string | string[] | undefined,
+): number {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const parsed = Number.parseInt(value ?? "1", 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return parsed;
+}
+
+export function paginateDevlogItems<T>(
+  items: T[],
+  page: number,
+  pageSize: number,
+): DevlogPaginatedSlice<T> {
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * pageSize;
+
+  return {
+    items: items.slice(start, start + pageSize),
+    page: safePage,
+    pageSize,
+    totalItems,
+    totalPages,
+  };
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { DEVLOG_LAST_SEEN_KEY } from "@/lib/devlog-constants";
+import { writeDevlogLastSeen } from "@/lib/devlog-seen-client";
 
 /** On visiting the updates page, remember the newest date so the nav NEW dot clears. */
 export function MarkUpdatesSeen({
@@ -11,11 +11,7 @@ export function MarkUpdatesSeen({
 }) {
   useEffect(() => {
     if (latestPublishedAt) {
-      try {
-        window.localStorage.setItem(DEVLOG_LAST_SEEN_KEY, latestPublishedAt);
-      } catch {
-        // Ignore storage failures (private mode etc.).
-      }
+      writeDevlogLastSeen(latestPublishedAt);
     }
   }, [latestPublishedAt]);
   return null;

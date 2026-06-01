@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
+import { DEVLOG_UPDATES_PAGE_SIZE } from "@/lib/devlog-constants";
 import {
   getDevlogBaseUrl,
   getDevlogFeed,
   isDevlogFeedTruncated,
+  paginateDevlogItems,
+  parseDevlogUpdatesPage,
 } from "@/lib/devlog-feed";
 import { PublicNarrowPageHero } from "../_components/PublicNarrowPageHero";
 import { ProductUpdatesIllustration } from "../dashboard/_components/illustrations";
 import styles from "./updates.module.css";
 import { MarkUpdatesSeen } from "./mark-seen";
+import { UpdatesPagination } from "./updates-pagination";
 
 export const metadata: Metadata = {
   title: "产品更新 · LiLink",
@@ -16,15 +20,26 @@ export const metadata: Metadata = {
 
 export const revalidate = 3600;
 
+type UpdatesPageProps = {
+  searchParams: Promise<{ page?: string | string[] }>;
+};
+
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return iso;
   return `${y}年${m}月${d}日`;
 }
 
-export default async function UpdatesPage() {
+export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
+  const params = await searchParams;
+  const requestedPage = parseDevlogUpdatesPage(params.page);
   const feed = await getDevlogFeed();
-  const updates = feed.items;
+  const pagination = paginateDevlogItems(
+    feed.items,
+    requestedPage,
+    DEVLOG_UPDATES_PAGE_SIZE,
+  );
+  const updates = pagination.items;
   const showArchiveLink = isDevlogFeedTruncated(feed);
 
   return (
@@ -38,7 +53,7 @@ export default async function UpdatesPage() {
       />
 
       <section className={styles.section}>
-        {updates.length === 0 ? (
+        {feed.items.length === 0 ? (
           <p className={styles.empty}>
             更新列表暂时为空。线上 devlog 需先部署{" "}
             <code>/updates.json</code> 端点；本地开发请在本机运行{" "}
@@ -55,37 +70,44 @@ export default async function UpdatesPage() {
             浏览文章。
           </p>
         ) : (
-          <ol className={styles.list}>
-            {updates.map((u) => (
-              <li key={u.url}>
-                <a
-                  className={styles.entry}
-                  href={u.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <time className={styles.date} dateTime={u.publishedAt}>
-                    {formatDate(u.publishedAt)}
-                  </time>
-                  <h2 className={styles.title}>{u.title}</h2>
-                  <p className={styles.summary}>{u.summary}</p>
-                  {u.tags.length > 0 ? (
-                    <div className={styles.tags}>
-                      {u.tags.map((t) => (
-                        <span key={t} className={styles.tag}>
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </a>
-              </li>
-            ))}
-          </ol>
+          <>
+            <ol className={styles.list}>
+              {updates.map((u) => (
+                <li key={u.url}>
+                  <a
+                    className={styles.entry}
+                    href={u.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <time className={styles.date} dateTime={u.publishedAt}>
+                      {formatDate(u.publishedAt)}
+                    </time>
+                    <h2 className={styles.title}>{u.title}</h2>
+                    <p className={styles.summary}>{u.summary}</p>
+                    {u.tags.length > 0 ? (
+                      <div className={styles.tags}>
+                        {u.tags.map((t) => (
+                          <span key={t} className={styles.tag}>
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </a>
+                </li>
+              ))}
+            </ol>
+            <UpdatesPagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+            />
+          </>
         )}
         {showArchiveLink ? (
           <p className={styles.archive}>
-            此处展示最近 {updates.length} 条更新（共 {feed.totalPublished}{" "}
+            此处展示最近 {feed.items.length} 条更新（共 {feed.totalPublished}{" "}
             条）。更早的迭代请前往{" "}
             <a
               href={getDevlogBaseUrl()}
