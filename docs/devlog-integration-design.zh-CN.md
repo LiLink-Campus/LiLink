@@ -1,7 +1,7 @@
 # 将 devlog 集成进 LiLink 主应用 — 设计文档
 
 - 日期：2026-06-01
-- 状态：已确认，进入实现
+- 状态：已实现（2026-06-01）
 - 涉及仓库：
   - `LiLink`（主应用，`apps/web`，Next.js 16）— 消费侧，改动大头
   - `lilink-devlog`（独立 Astro 站，部署在 `devlog.lilink.top`）— 仅新增一个数据端点
