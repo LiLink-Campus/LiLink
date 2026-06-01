@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { DEVLOG_UPDATES_PAGE_SIZE } from "@/lib/devlog-constants";
 import {
   getDevlogBaseUrl,
@@ -17,8 +18,6 @@ export const metadata: Metadata = {
   title: "产品更新 · LiLink",
   description: "LiLink 的每一次迭代：我们解决了哪些问题，体验有了什么变化。",
 };
-
-export const revalidate = 3600;
 
 type UpdatesPageProps = {
   searchParams: Promise<{ page?: string | string[] }>;
@@ -39,6 +38,13 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
     requestedPage,
     DEVLOG_UPDATES_PAGE_SIZE,
   );
+  if (pagination.page !== requestedPage) {
+    // Out-of-range / non-canonical ?page -> redirect to the canonical URL so the
+    // address bar matches the page actually rendered instead of silently clamping.
+    redirect(
+      pagination.page <= 1 ? "/updates" : `/updates?page=${pagination.page}`,
+    );
+  }
   const updates = pagination.items;
   const showArchiveLink = isDevlogFeedTruncated(feed);
 
@@ -79,6 +85,7 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
                     href={u.url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label={`${u.title}（在新标签页打开）`}
                   >
                     <time className={styles.date} dateTime={u.publishedAt}>
                       {formatDate(u.publishedAt)}
@@ -107,7 +114,7 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
         )}
         {showArchiveLink ? (
           <p className={styles.archive}>
-            此处展示最近 {feed.items.length} 条更新（共 {feed.totalPublished}{" "}
+            此处收录最近 {feed.items.length} 条更新（共 {feed.totalPublished}{" "}
             条）。更早的迭代请前往{" "}
             <a
               href={getDevlogBaseUrl()}

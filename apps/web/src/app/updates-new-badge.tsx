@@ -24,7 +24,10 @@ export function UpdatesNewBadge() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/devlog/latest", { cache: "no-store" });
+        // The /api/devlog/latest route is server-cached (revalidate 3600); a
+        // client `cache: "no-store"` cannot defeat that, so rely on the shared
+        // server cache instead of implying per-request freshness here.
+        const res = await fetch("/api/devlog/latest");
         if (!res.ok || cancelled) return;
         const { latestPublishedAt: latest } = (await res.json()) as {
           latestPublishedAt: string | null;
@@ -69,5 +72,5 @@ export function UpdatesNewBadge() {
   }, [pathname, latestPublishedAt]);
 
   if (!hasNew) return null;
-  return <span className={styles.newDot} aria-label="有新更新" />;
+  return <span className={styles.newDot} role="status" aria-label="有新更新" />;
 }
