@@ -127,3 +127,13 @@
     padding-top: 0.4rem;
   }
 }
+
+.newDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: #e0524d;
+  vertical-align: super;
+}

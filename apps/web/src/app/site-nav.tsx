@@ -7,11 +7,13 @@ import { ButtonLink } from "@/components/ui";
 import { useAuthSession } from "./auth-session";
 import { fetchApi } from "../lib/api";
 import styles from "./site-nav.module.css";
+import { UpdatesNewBadge } from "./updates-new-badge";
 
 const PUBLIC_NAV_ITEMS = [
   { href: "/about", label: "关于" },
   { href: "/faq", label: "FAQ" },
   { href: "/schools", label: "支持的学校" },
+  { href: "/updates", label: "更新" },
 ];
 
 export function SiteNav() {
@@ -56,6 +58,7 @@ export function SiteNav() {
         {PUBLIC_NAV_ITEMS.map((item) => (
           <Link key={item.href} href={item.href} onClick={closeMenu}>
             {item.label}
+            {item.href === "/updates" ? <UpdatesNewBadge /> : null}
           </Link>
         ))}
         <div className={styles.authCluster}>
