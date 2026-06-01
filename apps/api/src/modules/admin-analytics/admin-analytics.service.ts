@@ -543,8 +543,14 @@ export class AdminAnalyticsService {
     const includeTest = query.includeTest === true;
     const sort: LeaderboardSortKey = query.sort ?? 'unmatchedStreak';
     const order: 'asc' | 'desc' = query.order ?? 'desc';
-    const limit = query.limit ?? 50;
-    const userFilter = includeTest ? {} : { isTest: false };
+    const limit = query.limit ?? 10;
+    // Deactivated (SUSPENDED) users are hidden from the leaderboard even though
+    // their historical participations stay in the data. isTest filtering still
+    // follows the includeTest toggle.
+    const userFilter: Prisma.UserWhereInput = {
+      status: { not: 'SUSPENDED' },
+      ...(includeTest ? {} : { isTest: false }),
+    };
 
     // Streak metrics need every revealed participation, so this list cannot be
     // paginated — but it only needs scalar outcome fields. Identity + gender are

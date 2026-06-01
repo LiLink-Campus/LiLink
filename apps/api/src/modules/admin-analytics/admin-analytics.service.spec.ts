@@ -315,7 +315,7 @@ describe('AdminAnalyticsService.matchLeaderboard', () => {
           status: 'OPTED_IN',
           intent: { not: null },
           cycle: { status: 'REVEALED' },
-          user: { isTest: false },
+          user: { isTest: false, status: { not: 'SUSPENDED' } },
         },
       }),
     );
@@ -351,7 +351,7 @@ describe('AdminAnalyticsService.matchLeaderboard', () => {
     expect(result).toMatchObject({
       sort: 'unmatchedStreak',
       order: 'desc',
-      limit: 50,
+      limit: 10,
       includeTest: false,
     });
   });

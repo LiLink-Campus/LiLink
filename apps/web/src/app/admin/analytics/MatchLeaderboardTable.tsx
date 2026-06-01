@@ -136,7 +136,7 @@ export default function MatchLeaderboardTable({
       const params = new URLSearchParams({
         sort: key,
         order: nextOrder,
-        limit: String(localData?.limit ?? 50),
+        limit: String(localData?.limit ?? 10),
       });
       if (includeTest) {
         params.set("includeTest", "true");
