@@ -116,6 +116,8 @@ export class AuthService {
           referralCampaignId: null,
         };
 
+      const now = new Date();
+
       try {
         return await tx.user.create({
           data: {
@@ -129,7 +131,9 @@ export class AuthService {
             referredByUserId: attribution.referredByUserId,
             referralChannel: attribution.referralChannel,
             referralCampaignId: attribution.referralCampaignId,
-            acceptedTermsAt: input.acceptedTerms ? new Date() : null,
+            acceptedTermsAt: input.acceptedTerms ? now : null,
+            lastLoginAt: now,
+            lastActiveAt: now,
             profile: {
               create: {
                 fullName: input.fullName,
@@ -216,9 +220,15 @@ export class AuthService {
         input.code,
       );
 
+      const now = new Date();
+
       return tx.user.update({
         where: { id: transactionalUser.id },
-        data: { passwordHash: newPasswordHash },
+        data: {
+          passwordHash: newPasswordHash,
+          lastLoginAt: now,
+          lastActiveAt: now,
+        },
       });
     });
 
@@ -252,6 +262,14 @@ export class AuthService {
     if (!isValidPassword) {
       throw new UnauthorizedException('Email or password is incorrect.');
     }
+
+    const now = new Date();
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: now, lastActiveAt: now },
+      select: { id: true },
+    });
 
     return this.issueAuthPayload(
       user.id,

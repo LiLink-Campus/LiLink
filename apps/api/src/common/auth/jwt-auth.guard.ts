@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -15,15 +16,22 @@ type AuthenticatedUser = {
   displayName: string | null;
 };
 
+type ActiveAuthenticatedUser = AuthenticatedUser & {
+  lastActiveAt: Date | null;
+};
+
 export interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
 }
 
+const USER_ACTIVITY_UPDATE_THROTTLE_MS = 60 * 60 * 1000;
+
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
+  private readonly logger = new Logger(JwtAuthGuard.name);
   private readonly pendingUserLoads = new Map<
     string,
-    Promise<AuthenticatedUser>
+    Promise<ActiveAuthenticatedUser>
   >();
 
   constructor(
@@ -59,7 +67,18 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Authentication token is invalid.');
     }
 
-    request.user = await this.loadActiveUser(payload.sub);
+    const user = await this.loadActiveUser(payload.sub);
+    request.user = {
+      sub: user.sub,
+      email: user.email,
+      displayName: user.displayName,
+    };
+    void this.touchLastActiveAtIfStale(user).catch((error: unknown) => {
+      const message = this.readErrorMessage(error);
+      this.logger.warn(
+        `Failed to record user activity for ${user.sub}: ${message}`,
+      );
+    });
 
     return true;
   }
@@ -78,7 +97,9 @@ export class JwtAuthGuard implements CanActivate {
     return nextLoad;
   }
 
-  private async findActiveUser(userId: string): Promise<AuthenticatedUser> {
+  private async findActiveUser(
+    userId: string,
+  ): Promise<ActiveAuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -86,6 +107,7 @@ export class JwtAuthGuard implements CanActivate {
         email: true,
         displayName: true,
         status: true,
+        lastActiveAt: true,
       },
     });
 
@@ -101,6 +123,31 @@ export class JwtAuthGuard implements CanActivate {
       sub: user.id,
       email: user.email,
       displayName: user.displayName,
+      lastActiveAt: user.lastActiveAt,
     };
+  }
+
+  private async touchLastActiveAtIfStale(user: ActiveAuthenticatedUser) {
+    const now = new Date();
+    const staleBefore = new Date(
+      now.getTime() - USER_ACTIVITY_UPDATE_THROTTLE_MS,
+    );
+
+    if (user.lastActiveAt && user.lastActiveAt >= staleBefore) {
+      return;
+    }
+
+    await this.prisma.user.updateMany({
+      where: {
+        id: user.sub,
+        status: 'ACTIVE',
+        OR: [{ lastActiveAt: null }, { lastActiveAt: { lt: staleBefore } }],
+      },
+      data: { lastActiveAt: now },
+    });
+  }
+
+  private readErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error);
   }
 }

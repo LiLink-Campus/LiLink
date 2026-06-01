@@ -2237,6 +2237,7 @@ export class AdminService {
       schoolId: string | null;
       answers: Record<string, unknown>;
     }) => {
+      const now = new Date();
       const user = await this.prisma.user.upsert({
         where: { email: input.email },
         update: {
@@ -2245,7 +2246,8 @@ export class AdminService {
           displayName: input.displayName,
           schoolId: input.schoolId,
           isTest: true,
-          acceptedTermsAt: new Date(),
+          acceptedTermsAt: now,
+          lastActiveAt: now,
         },
         create: {
           email: input.email,
@@ -2254,7 +2256,8 @@ export class AdminService {
           displayName: input.displayName,
           schoolId: input.schoolId,
           isTest: true,
-          acceptedTermsAt: new Date(),
+          acceptedTermsAt: now,
+          lastActiveAt: now,
         },
       });
 
