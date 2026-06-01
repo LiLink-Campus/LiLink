@@ -1,6 +1,7 @@
 import { ButtonLink } from "@/components/ui";
 import type { Metadata } from "next";
 import { getEligibleSchools } from "../../lib/public-server-api";
+import { PublicNarrowPageHero } from "../_components/PublicNarrowPageHero";
 import {
   CampusLineart,
   GrassRowIllustration,
@@ -22,23 +23,13 @@ export default async function SchoolsPage() {
 
   return (
     <main>
-      <section
-        className={`${layoutStyles.pageHero} ${layoutStyles.pageHeroCompact} ${layoutStyles.narrow}`}
-      >
-        <div
-          className={`${layoutStyles.pageHeroIllustration} ${layoutStyles.wide}`}
-          aria-hidden="true"
-        >
-          <CampusLineart />
-        </div>
-        <div className={`${layoutStyles.pageHeroContent} animate-in`}>
-          <p className="eyebrow">Eligible schools</p>
-          <h1>当前支持的学校</h1>
-          <p>
-            LiLink 仅接受合作高校的学校邮箱注册。下方列表实时同步自后台配置，如果你的学校尚未上线，欢迎在页脚联系我们补录。
-          </p>
-        </div>
-      </section>
+      <PublicNarrowPageHero
+        eyebrow="Eligible schools"
+        title="当前支持的学校"
+        description="LiLink 仅接受合作高校的学校邮箱注册。下方列表实时同步自后台配置，如果你的学校尚未上线，欢迎在页脚联系我们补录。"
+        illustrationSize="landscape"
+        illustration={<CampusLineart valign="mid" />}
+      />
 
       <section className={`${layoutStyles.pageShell} ${layoutStyles.proseShell}`}>
         <EligibleSchoolsPanel

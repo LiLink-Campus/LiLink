@@ -1,6 +1,7 @@
 import { ButtonLink } from "@/components/ui";
 import { getLandingPayload } from "../lib/public-server-api";
 import { getDevlogUpdates } from "../lib/devlog-feed";
+import { DEVLOG_UPDATES_HOMEPAGE_COUNT } from "../lib/devlog-constants";
 import {
   CampusLineart,
   CoffeeCupsIllustration,
@@ -34,7 +35,7 @@ function formatDateLabel(value: string | null) {
 export default async function Home() {
   const [landing, updates] = await Promise.all([
     getLandingPayload().catch(() => null),
-    getDevlogUpdates(),
+    getDevlogUpdates(DEVLOG_UPDATES_HOMEPAGE_COUNT),
   ]);
   const matchesDelivered = landing?.stats.matchesDelivered ?? 0;
   const matchesLabelIsNarrative = landing != null && matchesDelivered <= 0;

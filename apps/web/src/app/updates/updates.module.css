@@ -1,7 +1,9 @@
-.timeline {
-  max-width: 760px;
+.section {
+  width: 100%;
+  max-width: var(--container-narrow);
   margin: 0 auto;
-  padding: 1rem 1.25rem 4rem;
+  padding: clamp(0.5rem, 2vw, 1.5rem) clamp(1.25rem, 4vw, 2.5rem)
+    clamp(2rem, 5vw, 3.5rem);
 }
 
 .list {
@@ -64,4 +66,17 @@
   text-align: center;
   color: #6b7280;
   padding: 3rem 1rem;
+}
+
+.archive {
+  margin: 1.5rem 0 0;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.archive a {
+  color: inherit;
+  font-weight: 600;
 }

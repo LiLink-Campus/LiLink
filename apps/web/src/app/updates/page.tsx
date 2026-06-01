@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
-import { getDevlogUpdates, getDevlogBaseUrl } from "@/lib/devlog-feed";
-import layoutStyles from "../public-layout.module.css";
+import {
+  getDevlogBaseUrl,
+  getDevlogFeed,
+  isDevlogFeedTruncated,
+} from "@/lib/devlog-feed";
+import { PublicNarrowPageHero } from "../_components/PublicNarrowPageHero";
+import { ProductUpdatesIllustration } from "../dashboard/_components/illustrations";
 import styles from "./updates.module.css";
 import { MarkUpdatesSeen } from "./mark-seen";
 
@@ -18,23 +23,28 @@ function formatDate(iso: string): string {
 }
 
 export default async function UpdatesPage() {
-  const updates = await getDevlogUpdates();
+  const feed = await getDevlogFeed();
+  const updates = feed.items;
+  const showArchiveLink = isDevlogFeedTruncated(feed);
 
   return (
     <main>
-      <MarkUpdatesSeen latestPublishedAt={updates[0]?.publishedAt ?? null} />
-      <section className={layoutStyles.pageHero}>
-        <div className={`${layoutStyles.pageHeroContent} animate-in`}>
-          <p className="eyebrow">Product updates</p>
-          <h1 className="text-balance">产品更新</h1>
-          <p>我们解决了哪些问题，体验有了什么变化——每一次迭代都记在这里。</p>
-        </div>
-      </section>
+      <MarkUpdatesSeen latestPublishedAt={feed.latestPublishedAt} />
+      <PublicNarrowPageHero
+        eyebrow="Product updates"
+        title="产品更新"
+        description="我们解决了哪些问题，体验有了什么变化——每一次迭代都记在这里。"
+        illustration={<ProductUpdatesIllustration />}
+      />
 
-      <section className={styles.timeline}>
+      <section className={styles.section}>
         {updates.length === 0 ? (
           <p className={styles.empty}>
-            更新内容暂时无法加载，你可以前往{" "}
+            更新列表暂时为空。线上 devlog 需先部署{" "}
+            <code>/updates.json</code> 端点；本地开发请在本机运行{" "}
+            <code>lilink-devlog</code>（<code>npm run dev</code>，默认{" "}
+            <code>127.0.0.1:4321</code>
+            ），或设置 <code>DEVLOG_BASE_URL</code>。也可前往{" "}
             <a
               href={getDevlogBaseUrl()}
               target="_blank"
@@ -42,7 +52,7 @@ export default async function UpdatesPage() {
             >
               devlog
             </a>{" "}
-            查看最新动态。
+            浏览文章。
           </p>
         ) : (
           <ol className={styles.list}>
@@ -73,6 +83,20 @@ export default async function UpdatesPage() {
             ))}
           </ol>
         )}
+        {showArchiveLink ? (
+          <p className={styles.archive}>
+            此处展示最近 {updates.length} 条更新（共 {feed.totalPublished}{" "}
+            条）。更早的迭代请前往{" "}
+            <a
+              href={getDevlogBaseUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              devlog 查看全部
+            </a>
+            。
+          </p>
+        ) : null}
       </section>
     </main>
   );
