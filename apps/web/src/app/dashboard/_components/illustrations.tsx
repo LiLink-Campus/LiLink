@@ -89,14 +89,24 @@ export function ThreeChairsIllustration({ className }: IllustrationProps) {
   );
 }
 
-export function CampusLineart({ className }: IllustrationProps) {
+type CampusLineartProps = IllustrationProps & {
+  /** Letterbox anchor; use `mid` in narrow centered heroes. */
+  valign?: "mid" | "max";
+};
+
+export function CampusLineart({
+  className,
+  valign = "max",
+}: CampusLineartProps) {
   return (
     <svg
       viewBox="0 0 320 100"
       className={className}
       aria-hidden="true"
       role="img"
-      preserveAspectRatio="xMidYMax meet"
+      preserveAspectRatio={
+        valign === "mid" ? "xMidYMid meet" : "xMidYMax meet"
+      }
     >
       <g {...stroke} strokeWidth={1.1}>
         {/* Far trees */}
@@ -202,6 +212,54 @@ export function WheatSprigIllustration({ className }: IllustrationProps) {
   );
 }
 
+/** Closed envelope for the public product-updates hero. */
+export function ProductUpdatesIllustration({ className }: IllustrationProps) {
+  return (
+    <svg
+      viewBox="0 0 100 80"
+      className={className}
+      aria-hidden="true"
+      role="img"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <g {...stroke} strokeWidth={1.35}>
+        {/* Sparkles */}
+        <path d="M 80 18 q 3 0 3 -3 q 0 3 3 3 q -3 0 -3 3 q 0 -3 -3 -3" />
+        <path d="M 14 30 q 2 0 2 -2 q 0 2 2 2 q -2 0 -2 2 q 0 -2 -2 -2" />
+        <path d="M 26 14 q 1.5 0 1.5 -1.5 q 0 1.5 1.5 1.5 q -1.5 0 -1.5 1.5 q 0 -1.5 -1.5 -1.5" />
+        <path d="M 88 28 h .01" />
+        <path d="M 10 20 h .01" />
+
+        {/* Floating Envelope Group */}
+        <g transform="translate(0, -2)">
+          {/* Back flap (open) segmented behind document */}
+          <path d="M 22 40 L 30 32" />
+          <path d="M 46 16 L 50 12 L 54 16" />
+          <path d="M 70 32 L 78 40" />
+
+          {/* Document */}
+          <path d="M 30 40 V 18 a 2 2 0 0 1 2 -2 h 36 a 2 2 0 0 1 2 2 v 22" />
+          {/* Document content (UI card layout) */}
+          <rect x="36" y="22" width="10" height="10" rx="2" />
+          <path d="M 50 25 h 12" />
+          <path d="M 50 29 h 8" />
+          <path d="M 36 36 h 26" />
+
+          {/* Envelope body */}
+          <path d="M 22 40 v 24 a 4 4 0 0 0 4 4 h 48 a 4 4 0 0 0 4 -4 v -24" />
+          
+          {/* Side flaps */}
+          <path d="M 22 40 L 42 53.7" />
+          <path d="M 78 40 L 58 53.7" />
+          
+          {/* Bottom flap */}
+          <path d="M 22 68 L 50 48 L 78 68" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 export function TeaTimeIllustration({ className }: IllustrationProps) {
   return (
     <svg
@@ -209,6 +267,7 @@ export function TeaTimeIllustration({ className }: IllustrationProps) {
       className={className}
       aria-hidden="true"
       role="img"
+      preserveAspectRatio="xMidYMid meet"
     >
       <g {...stroke} strokeWidth={1.3}>
         {/* Tray */}

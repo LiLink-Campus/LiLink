@@ -69,23 +69,6 @@
   max-width: 32rem;
 }
 
-.pageHero.narrow .pageHeroIllustration {
-  width: 4.5rem;
-}
-
-.pageHero.narrow .pageHeroIllustration svg {
-  max-width: 4.5rem;
-}
-
-.pageHero.narrow .pageHeroIllustration.wide {
-  width: 100%;
-  max-width: 22rem;
-}
-
-.pageHero.narrow .pageHeroIllustration.wide svg {
-  max-width: 22rem;
-}
-
 .pageHeroContent {
   max-width: 36rem;
   display: flex;
@@ -115,10 +98,6 @@
   width: 100%;
   max-width: 26rem;
   height: auto;
-}
-
-.small svg {
-  max-width: 12rem;
 }
 
 .grassLine {
