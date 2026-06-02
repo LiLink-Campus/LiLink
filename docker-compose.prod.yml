@@ -1,0 +1,32 @@
+# Production API only. Local infrastructure stays in docker-compose.local.yml.
+# The API runtime loads /home/admin/lilink/.env through a Docker secret file so
+# compose config and docker inspect do not expose DATABASE_URL or other secrets.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.prod
+      args:
+        SENTRY_ORG: ${SENTRY_ORG:-}
+        SENTRY_PROJECT: ${SENTRY_PROJECT:-}
+        SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+        SENTRY_DIST: ${SENTRY_DIST:-}
+        SENTRY_REQUIRE_SOURCEMAPS: ${SENTRY_REQUIRE_SOURCEMAPS:-false}
+      secrets:
+        - sentry_auth_token
+    image: lilink-api
+    container_name: lilink-api
+    restart: always
+    ports:
+      - "127.0.0.1:4000:4000"
+    secrets:
+      - api_env
+    command:
+      - node
+      - scripts/production-entrypoint.mjs
+
+secrets:
+  api_env:
+    file: ${API_ENV_FILE:-.env}
+  sentry_auth_token:
+    environment: SENTRY_AUTH_TOKEN

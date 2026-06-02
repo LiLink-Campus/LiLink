@@ -61,20 +61,24 @@ These instructions apply to the entire repository unless a more specific `AGENTS
 
 ## Production Container Operations
 
-The prod `api` service in `docker-compose.yml` intentionally omits `DATABASE_URL` from the compose `environment:` block. The entrypoint assembles the URL inline and `export`s it only for the Node process, so `docker inspect` cannot leak the database password. Consequences agents must remember:
+Local Docker and production Docker are intentionally separate:
 
-- `docker exec lilink-api env` does not show `DATABASE_URL`. The running Node process has it; new exec shells start without it. This is by design, not a misconfiguration.
-- Ad-hoc Prisma CLI invocations inside the container must rebuild the URL from the parts that *are* in the env (e.g. `DB_PASSWORD`). Example:
+- `docker-compose.local.yml` is local-only: PostgreSQL, Mailpit, and the optional local API container.
+- `docker-compose.prod.yml` is production-only: the `api` service, `apps/api/Dockerfile.prod`, and no local PostgreSQL service.
+- `apps/api/Dockerfile.local` is for optional local API containers. `apps/api/Dockerfile.prod` is for production image builds.
+
+The prod `api` service must not expose secrets through compose `environment:` or `env_file:`. `docker-compose.prod.yml` mounts `/home/admin/lilink/.env` as the Docker secret `api_env`, and `apps/api/scripts/production-entrypoint.mjs` parses it inside the container before running Prisma, bootstrap, and the API process. Consequences agents must remember:
+
+- `docker inspect lilink-api` and `docker exec lilink-api env` should not show `DATABASE_URL`, JWT secrets, SMTP secrets, or other values from `.env`. The running Node process has them; new exec shells start without them. This is by design, not a misconfiguration.
+- Ad-hoc Prisma CLI invocations inside the container must load the production env secret through the production entrypoint helper. Example:
 
   ```sh
-  docker exec lilink-api sh -c '
-    export DATABASE_URL="postgresql://lilink:$DB_PASSWORD@postgres:5432/lilink?schema=public" &&
-    npx prisma migrate status
-  '
+  docker exec lilink-api node scripts/production-entrypoint.mjs npx prisma migrate status
   ```
 
 - `apps/api/prisma/schema.prisma` no longer declares `url = env("DATABASE_URL")` because the API uses the Prisma 7 driver adapter (`@prisma/adapter-pg`) and reads the connection string at runtime via `apps/api/src/common/prisma/client.ts`. Treat any reintroduction of a hard-coded `url` in the schema as a regression.
-- Never echo `DATABASE_URL`, `DB_PASSWORD`, or other secrets to logs, terminals, or commit messages.
+- Production source map uploads use a BuildKit secret named `sentry_auth_token`; never pass `SENTRY_AUTH_TOKEN` as a Docker build arg or runtime environment variable.
+- Never echo `DATABASE_URL`, `DB_PASSWORD`, `SENTRY_AUTH_TOKEN`, or other secrets to logs, terminals, or commit messages.
 
 ## Cursor Cloud specific instructions
 
