@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui";
+import { PublicNarrowPageHero } from "../_components/PublicNarrowPageHero";
 import {
   GrassRowIllustration,
   TeaTimeIllustration,
@@ -69,21 +70,12 @@ const faqs: FaqItem[] = [
 export default function FaqPage() {
   return (
     <main>
-      <section
-        className={`${layoutStyles.pageHero} ${layoutStyles.pageHeroCompact} ${layoutStyles.narrow}`}
-      >
-        <div
-          className={`${layoutStyles.pageHeroIllustration} ${layoutStyles.small}`}
-          aria-hidden="true"
-        >
-          <TeaTimeIllustration />
-        </div>
-        <div className={`${layoutStyles.pageHeroContent} animate-in`}>
-          <p className="eyebrow">FAQ</p>
-          <h1>常见问题</h1>
-          <p>关于 LiLink 的机制、隐私与运作方式。</p>
-        </div>
-      </section>
+      <PublicNarrowPageHero
+        eyebrow="FAQ"
+        title="常见问题"
+        description="关于 LiLink 的机制、隐私与运作方式。"
+        illustration={<TeaTimeIllustration />}
+      />
 
       <section className={styles.section}>
         <div className={styles.list}>
