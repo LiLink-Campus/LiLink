@@ -67,8 +67,17 @@
     "db:ensure-participants": "npm run ensure-cycle-participants --workspace api",
     "db:seed-defaults": "npm run prisma:seed-defaults --workspace api",
     "db:seed:default": "npm run prisma:seed:default --workspace api",
-    "infra:up": "docker compose --profile dev-mail up -d",
-    "infra:down": "docker compose down"
+    "infra:local:up": "docker compose -f docker-compose.local.yml up -d",
+    "infra:local:mail": "docker compose -f docker-compose.local.yml --profile dev-mail up -d",
+    "infra:local:api": "docker compose -f docker-compose.local.yml --profile dev-mail --profile local-api up -d --build api mailpit",
+    "infra:local:down": "docker compose -f docker-compose.local.yml down",
+    "infra:up": "npm run infra:local:mail",
+    "infra:down": "npm run infra:local:down",
+    "deploy:prod:config": "node scripts/compose-prod.mjs config",
+    "deploy:prod:build": "node scripts/compose-prod.mjs build api",
+    "deploy:prod:up": "node scripts/compose-prod.mjs up -d --build api",
+    "deploy:prod:up:no-build": "node scripts/compose-prod.mjs up -d --no-build api",
+    "deploy:prod:logs": "node scripts/compose-prod.mjs logs --tail 100 api"
   },
   "devDependencies": {
     "@storybook/addon-vitest": "^10.4.1",
