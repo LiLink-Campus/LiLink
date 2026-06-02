@@ -1,4 +1,6 @@
 .homePage {
+  --home-section-inline: clamp(1.25rem, 4vw, 2.5rem);
+  --home-section-gap: clamp(2rem, 5vw, 3.5rem);
   background:
     radial-gradient(
       ellipse 70% 35% at 50% 0%,
@@ -151,8 +153,7 @@
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: clamp(0.5rem, 2vw, 1.5rem) clamp(1.25rem, 4vw, 2.5rem)
-    clamp(1.5rem, 4vw, 2.5rem);
+  padding: clamp(0.5rem, 2vw, 1.5rem) var(--home-section-inline) 0;
 }
 
 .modeGrid {
@@ -171,7 +172,7 @@
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: 0 clamp(1.25rem, 4vw, 2.5rem);
+  padding: var(--home-section-gap) var(--home-section-inline) 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.85rem;
@@ -213,7 +214,7 @@
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 2.5rem);
+  padding: var(--home-section-gap) var(--home-section-inline) 0;
 }
 
 .storyGrid {
@@ -263,7 +264,7 @@
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 2.5rem);
+  padding: var(--home-section-gap) var(--home-section-inline);
 }
 
 .statementBlock {
