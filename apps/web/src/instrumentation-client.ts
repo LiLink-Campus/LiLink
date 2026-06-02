@@ -3,15 +3,21 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import {
+  sentryDsn,
+  sentryEnabled,
+  sentryTracesSampleRate,
+} from "./lib/sentry-config";
 
 Sentry.init({
-  dsn: "https://eb4fd126f69b70de2daf1bc95897bae5@o4511472626499584.ingest.us.sentry.io/4511472862953472",
+  dsn: sentryDsn || undefined,
+  enabled: sentryEnabled,
 
   // Add optional integrations for additional features
   integrations: [Sentry.replayIntegration()],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  tracesSampleRate: sentryTracesSampleRate,
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
