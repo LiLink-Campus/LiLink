@@ -48,6 +48,7 @@ function createNextConfig(phase: string): NextConfig {
 export default withSentryConfig(createNextConfig, {
   org: "sed-i",
   project: "lilink",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
