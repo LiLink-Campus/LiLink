@@ -1,0 +1,77 @@
+# Local Docker only. Production uses docker-compose.prod.yml.
+# Default: `npm run infra:local:up` -> PostgreSQL only.
+# Mailpit: `npm run infra:up` or `docker compose -f docker-compose.local.yml --profile dev-mail up -d`.
+# Optional local API container: `npm run infra:local:api` starts API + Mailpit.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lilink-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lilink
+      POSTGRES_USER: lilink
+      POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:-${DB_PASSWORD:-lilink}}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lilink"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  mailpit:
+    profiles:
+      - dev-mail
+    image: ghcr.io/axllent/mailpit:v1.20
+    container_name: lilink-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:2525:1025"
+      - "127.0.0.1:8025:8025"
+
+  api:
+    profiles:
+      - local-api
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.local
+    container_name: lilink-api-local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./apps/api/prisma:/app/apps/api/prisma
+      - ./apps/api/scripts:/app/apps/api/scripts
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/test:/app/apps/api/test
+      - ./packages/shared:/app/packages/shared
+    environment:
+      APP_ENV: development
+      PORT: 4000
+      CLIENT_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://lilink:${LOCAL_DB_PASSWORD:-${DB_PASSWORD:-lilink}}@postgres:5432/lilink?schema=public
+      JWT_SECRET: local-jwt-secret-replace-before-shared-dev
+      ADMIN_JWT_SECRET: local-admin-jwt-secret-replace-dev
+      MERCHANT_JWT_SECRET: local-merchant-jwt-secret-dev
+      COOKIE_NAME: lilink_token
+      ADMIN_COOKIE_NAME: lilink_admin_token
+      MERCHANT_COOKIE_NAME: lilink_merchant_token
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+      SMTP_FROM: LiLink <hello@lilink.zone>
+      ADMIN_BOOTSTRAP_EMAIL: admin@lilink.zone
+      ADMIN_BOOTSTRAP_PASSWORD: replace-with-a-local-admin-password
+      ADMIN_BOOTSTRAP_NAME: LiLink Admin
+      CRON_SECRET: local-cron-secret-replace-dev
+      REDEEM_TICKET_SECRET: local-redeem-ticket-secret-dev
+      SENTRY_DSN: ""
+      SENTRY_SEND_DEFAULT_PII: "false"
+
+volumes:
+  postgres-data:

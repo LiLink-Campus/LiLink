@@ -10,6 +10,20 @@
 **/.env.*
 *.log
 **/test
+AGENTS.override.md
+.agent-local
+.codex
+.claude
+.cursor
+*.pem
+*.key
+*.p12
+*.bak
+*.backup
+tmp
+**/tmp
+.cache
+**/.cache
 
 # Frontend is not part of the API image; omitting it shrinks the build context.
 apps/web
