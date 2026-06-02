@@ -175,7 +175,20 @@ transition:
 }
 
 .birth-date-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(6.5rem, 1.35fr) minmax(4.75rem, 1fr) minmax(
+      4.75rem,
+      1fr
+    );
+}
+
+@media (max-width: 760px) {
+  .birth-date-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .birth-date-grid > label:first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 .option-list {
