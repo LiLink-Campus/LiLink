@@ -4,6 +4,7 @@ import { cache } from "react";
 import {
   DEFAULT_DEVLOG_BASE_URL,
   LOCAL_DEVLOG_DEV_URL,
+  getAllowedDevlogOrigins,
   getDevlogBaseUrl,
   isDevlogFeedTruncated,
   normalizeFeed,
@@ -23,9 +24,17 @@ export {
   parseDevlogUpdatesPage,
 };
 
+/**
+ * Abort the devlog fetch after this many ms so a hung devlog cannot stall a
+ * render up to undici's ~300s default. The triggered AbortError is caught in
+ * fetchDevlogFeedFromBase and degrades to an empty feed.
+ */
+const DEVLOG_FETCH_TIMEOUT_MS = 5000;
+
 function devlogFetchInit(): RequestInit {
   return {
     headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(DEVLOG_FETCH_TIMEOUT_MS),
     ...(process.env.NODE_ENV === "development"
       ? { cache: "no-store" as const }
       : { next: { revalidate: 3600 } }),
@@ -50,7 +59,7 @@ const fetchDevlogFeedFromBase = cache(
         console.warn("[devlog-feed] missing items array");
         return null;
       }
-      return normalizeFeed(raw);
+      return normalizeFeed(raw, getAllowedDevlogOrigins());
     } catch (error) {
       console.warn(`[devlog-feed] fetch failed (${baseUrl})`, error);
       return null;

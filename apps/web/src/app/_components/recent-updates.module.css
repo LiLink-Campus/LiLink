@@ -1,7 +1,8 @@
 .section {
-  max-width: 1080px;
+  width: 100%;
+  max-width: var(--container);
   margin: 0 auto;
-  padding: 1rem 1.25rem;
+  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 2.5rem);
 }
 
 .heading {
@@ -18,7 +19,7 @@
 
 .viewAll {
   text-decoration: none;
-  color: #b4541f;
+  color: var(--color-brand-ink);
   font-size: 0.9rem;
   white-space: nowrap;
 }
@@ -34,9 +35,9 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 1.1rem 1.25rem;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   text-decoration: none;
   color: inherit;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -52,17 +53,17 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .new {
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #fff;
-  background: #e0524d;
+  color: var(--color-surface);
+  background: var(--color-danger);
   padding: 0.05rem 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .cardTitle {
@@ -74,7 +75,7 @@
 .cardSummary {
   margin: 0;
   font-size: 0.88rem;
-  color: #4b5563;
+  color: var(--color-text-secondary);
   line-height: 1.55;
   display: -webkit-box;
   -webkit-line-clamp: 3;

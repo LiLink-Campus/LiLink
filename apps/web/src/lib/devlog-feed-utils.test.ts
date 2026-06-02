@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DEVLOG_UPDATES_FEED_LIMIT } from "./devlog-constants";
 import {
+  getAllowedDevlogOrigins,
+  isAllowedDevlogUrl,
   isDevlogFeedTruncated,
   normalizeFeed,
   paginateDevlogItems,
@@ -10,6 +12,8 @@ import {
   type DevlogUpdate,
 } from "./devlog-feed-utils";
 
+const ALLOWED = ["https://devlog.lilink.top"];
+
 const validRaw = {
   title: "Launch",
   summary: "We shipped it",
@@ -18,10 +22,52 @@ const validRaw = {
   tags: ["产品", "上线"],
 };
 
+describe("isAllowedDevlogUrl", () => {
+  it("accepts http(s) urls on an allowed origin", () => {
+    expect(
+      isAllowedDevlogUrl("https://devlog.lilink.top/posts/x", ALLOWED),
+    ).toBe(true);
+    expect(
+      isAllowedDevlogUrl("http://localhost:4321/posts/x", [
+        "http://localhost:4321",
+      ]),
+    ).toBe(true);
+  });
+
+  it("rejects http(s) urls on an origin outside the allowlist", () => {
+    expect(isAllowedDevlogUrl("https://evil.com/x", ALLOWED)).toBe(false);
+    expect(
+      isAllowedDevlogUrl("https://devlog.lilink.top.evil.com/x", ALLOWED),
+    ).toBe(false);
+  });
+
+  it("rejects non-http(s) protocols even on an allowed host", () => {
+    expect(
+      isAllowedDevlogUrl("javascript:alert(1)", ALLOWED),
+    ).toBe(false);
+    expect(isAllowedDevlogUrl("data:text/html,x", ALLOWED)).toBe(false);
+  });
+
+  it("rejects unparseable / relative urls", () => {
+    expect(isAllowedDevlogUrl("/posts/launch", ALLOWED)).toBe(false);
+    expect(isAllowedDevlogUrl("not a url", ALLOWED)).toBe(false);
+  });
+});
+
+describe("getAllowedDevlogOrigins", () => {
+  it("includes the default devlog origin", () => {
+    // NODE_ENV is "test" under vitest, so the local dev origin is not added.
+    expect(getAllowedDevlogOrigins()).toContain("https://devlog.lilink.top");
+  });
+});
+
 describe("sanitizeDevlogItem", () => {
   it("accepts a well-formed item and keeps only contract fields", () => {
     expect(
-      sanitizeDevlogItem({ ...validRaw, cover: "x.webp", featured: true }),
+      sanitizeDevlogItem(
+        { ...validRaw, cover: "x.webp", featured: true },
+        ALLOWED,
+      ),
     ).toEqual({
       title: "Launch",
       summary: "We shipped it",
@@ -32,95 +78,159 @@ describe("sanitizeDevlogItem", () => {
   });
 
   it("defaults tags to [] when missing or not an array", () => {
-    expect(sanitizeDevlogItem({ ...validRaw, tags: undefined })?.tags).toEqual(
-      [],
-    );
-    expect(sanitizeDevlogItem({ ...validRaw, tags: null })?.tags).toEqual([]);
-    expect(sanitizeDevlogItem({ ...validRaw, tags: "nope" })?.tags).toEqual([]);
+    expect(
+      sanitizeDevlogItem({ ...validRaw, tags: undefined }, ALLOWED)?.tags,
+    ).toEqual([]);
+    expect(
+      sanitizeDevlogItem({ ...validRaw, tags: null }, ALLOWED)?.tags,
+    ).toEqual([]);
+    expect(
+      sanitizeDevlogItem({ ...validRaw, tags: "nope" }, ALLOWED)?.tags,
+    ).toEqual([]);
   });
 
   it("drops non-string tags", () => {
     expect(
-      sanitizeDevlogItem({ ...validRaw, tags: ["ok", 1, null, "fine"] })?.tags,
+      sanitizeDevlogItem(
+        { ...validRaw, tags: ["ok", 1, null, "fine"] },
+        ALLOWED,
+      )?.tags,
     ).toEqual(["ok", "fine"]);
   });
 
   it("rejects items missing a required string field", () => {
     for (const field of ["title", "summary", "publishedAt", "url"]) {
-      expect(sanitizeDevlogItem({ ...validRaw, [field]: undefined })).toBeNull();
-      expect(sanitizeDevlogItem({ ...validRaw, [field]: "" })).toBeNull();
-      expect(sanitizeDevlogItem({ ...validRaw, [field]: 123 })).toBeNull();
+      expect(
+        sanitizeDevlogItem({ ...validRaw, [field]: undefined }, ALLOWED),
+      ).toBeNull();
+      expect(
+        sanitizeDevlogItem({ ...validRaw, [field]: "" }, ALLOWED),
+      ).toBeNull();
+      expect(
+        sanitizeDevlogItem({ ...validRaw, [field]: 123 }, ALLOWED),
+      ).toBeNull();
     }
   });
 
   it("rejects non-http(s) urls (javascript:, data:, relative)", () => {
     expect(
-      sanitizeDevlogItem({ ...validRaw, url: "javascript:alert(1)" }),
+      sanitizeDevlogItem({ ...validRaw, url: "javascript:alert(1)" }, ALLOWED),
     ).toBeNull();
-    expect(sanitizeDevlogItem({ ...validRaw, url: "data:text/html,x" })).toBeNull();
-    expect(sanitizeDevlogItem({ ...validRaw, url: "/posts/launch" })).toBeNull();
+    expect(
+      sanitizeDevlogItem({ ...validRaw, url: "data:text/html,x" }, ALLOWED),
+    ).toBeNull();
+    expect(
+      sanitizeDevlogItem({ ...validRaw, url: "/posts/launch" }, ALLOWED),
+    ).toBeNull();
+  });
+
+  it("rejects http(s) urls whose origin is not in the allowlist", () => {
+    expect(
+      sanitizeDevlogItem({ ...validRaw, url: "https://evil.com/x" }, ALLOWED),
+    ).toBeNull();
   });
 
   it("rejects non-object input", () => {
-    expect(sanitizeDevlogItem(null)).toBeNull();
-    expect(sanitizeDevlogItem("str")).toBeNull();
-    expect(sanitizeDevlogItem(undefined)).toBeNull();
+    expect(sanitizeDevlogItem(null, ALLOWED)).toBeNull();
+    expect(sanitizeDevlogItem("str", ALLOWED)).toBeNull();
+    expect(sanitizeDevlogItem(undefined, ALLOWED)).toBeNull();
   });
 });
 
 describe("normalizeFeed", () => {
   it("drops malformed items instead of throwing or discarding the whole feed", () => {
-    const feed = normalizeFeed({
-      items: [
-        validRaw,
-        { title: "no other fields" }, // dropped
-        { ...validRaw, publishedAt: "2026-06-01", url: "https://devlog.lilink.top/p/2" },
-      ],
-    });
+    const feed = normalizeFeed(
+      {
+        items: [
+          validRaw,
+          { title: "no other fields" }, // dropped
+          {
+            ...validRaw,
+            publishedAt: "2026-06-01",
+            url: "https://devlog.lilink.top/p/2",
+          },
+        ],
+      },
+      ALLOWED,
+    );
     expect(feed.items).toHaveLength(2);
     // newest first
     expect(feed.items[0]?.publishedAt).toBe("2026-06-01");
     expect(feed.items[1]?.publishedAt).toBe("2026-05-27");
   });
 
+  it("drops items whose url origin is outside the allowlist", () => {
+    const feed = normalizeFeed(
+      {
+        items: [
+          validRaw,
+          { ...validRaw, url: "https://evil.com/x" }, // dropped
+        ],
+      },
+      ALLOWED,
+    );
+    expect(feed.items).toHaveLength(1);
+    expect(feed.items[0]?.url).toBe("https://devlog.lilink.top/posts/launch");
+  });
+
   it("does not throw when an item is missing publishedAt (no poisoned sort)", () => {
     expect(() =>
-      normalizeFeed({ items: [{ ...validRaw, publishedAt: undefined }, validRaw] }),
+      normalizeFeed(
+        { items: [{ ...validRaw, publishedAt: undefined }, validRaw] },
+        ALLOWED,
+      ),
     ).not.toThrow();
   });
 
   it("derives latestPublishedAt from the newest item when absent", () => {
-    const feed = normalizeFeed({
-      items: [
-        { ...validRaw, publishedAt: "2026-05-01", url: "https://d.tld/1" },
-        { ...validRaw, publishedAt: "2026-05-09", url: "https://d.tld/2" },
-      ],
-    });
+    const feed = normalizeFeed(
+      {
+        items: [
+          {
+            ...validRaw,
+            publishedAt: "2026-05-01",
+            url: "https://devlog.lilink.top/1",
+          },
+          {
+            ...validRaw,
+            publishedAt: "2026-05-09",
+            url: "https://devlog.lilink.top/2",
+          },
+        ],
+      },
+      ALLOWED,
+    );
     expect(feed.latestPublishedAt).toBe("2026-05-09");
   });
 
   it("prefers an explicit latestPublishedAt and totalPublished", () => {
-    const feed = normalizeFeed({
-      latestPublishedAt: "2026-07-01",
-      totalPublished: 99,
-      items: [validRaw],
-    });
+    const feed = normalizeFeed(
+      {
+        latestPublishedAt: "2026-07-01",
+        totalPublished: 99,
+        items: [validRaw],
+      },
+      ALLOWED,
+    );
     expect(feed.latestPublishedAt).toBe("2026-07-01");
     expect(feed.totalPublished).toBe(99);
   });
 
   it("falls back when latestPublishedAt/totalPublished have wrong types", () => {
-    const feed = normalizeFeed({
-      latestPublishedAt: 123 as unknown as string,
-      totalPublished: -5,
-      items: [validRaw],
-    });
+    const feed = normalizeFeed(
+      {
+        latestPublishedAt: 123 as unknown as string,
+        totalPublished: -5,
+        items: [validRaw],
+      },
+      ALLOWED,
+    );
     expect(feed.latestPublishedAt).toBe("2026-05-27");
     expect(feed.totalPublished).toBe(1);
   });
 
   it("returns an empty feed for a non-array items field", () => {
-    const feed = normalizeFeed({ items: "nope" });
+    const feed = normalizeFeed({ items: "nope" }, ALLOWED);
     expect(feed.items).toEqual([]);
     expect(feed.latestPublishedAt).toBeNull();
     expect(feed.totalPublished).toBe(0);
@@ -135,7 +245,7 @@ describe("normalizeFeed", () => {
         url: `https://devlog.lilink.top/p/${i}`,
       }),
     );
-    expect(normalizeFeed({ items: many }).items).toHaveLength(
+    expect(normalizeFeed({ items: many }, ALLOWED).items).toHaveLength(
       DEVLOG_UPDATES_FEED_LIMIT,
     );
   });

@@ -36,22 +36,72 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
-function isHttpUrl(value: string): boolean {
+/**
+ * Defense in depth on top of the contract-shape checks: a feed entry's url is
+ * only trusted when it is an http(s) URL whose origin is in the devlog
+ * allowlist. This prevents a compromised or misconfigured feed from injecting
+ * arbitrary external links (e.g. https://evil.com/x) that we would otherwise
+ * render as outbound hrefs.
+ */
+export function isAllowedDevlogUrl(
+  value: string,
+  allowedOrigins: string[],
+): boolean {
   try {
-    const protocol = new URL(value).protocol;
-    return protocol === "http:" || protocol === "https:";
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return false;
+    }
+    return allowedOrigins.includes(url.origin);
   } catch {
     return false;
   }
 }
 
 /**
- * Validate and coerce one raw feed entry. Returns null for items missing a
- * required string field or carrying a non-http(s) url, so a single malformed
- * entry from a 200-but-broken feed can never crash a render or throw inside the
- * sort. `tags` defaults to [] and non-string tags are dropped.
+ * Origins trusted for devlog item urls: always the configured/default devlog
+ * origin, plus the local Astro dev origin in development so a locally served
+ * feed is not dropped. Wrapped in try/catch so a malformed env value degrades
+ * to the default origin rather than throwing.
  */
-export function sanitizeDevlogItem(raw: unknown): DevlogUpdate | null {
+export function getAllowedDevlogOrigins(): string[] {
+  const origins: string[] = [];
+  try {
+    origins.push(new URL(getDevlogBaseUrl()).origin);
+  } catch {
+    // Ignore: fall through to the default origin below.
+  }
+  if (origins.length === 0) {
+    try {
+      origins.push(new URL(DEFAULT_DEVLOG_BASE_URL).origin);
+    } catch {
+      // Unreachable for the hard-coded default, but keep the guard total.
+    }
+  }
+  if (process.env.NODE_ENV === "development") {
+    try {
+      const localOrigin = new URL(LOCAL_DEVLOG_DEV_URL).origin;
+      if (!origins.includes(localOrigin)) {
+        origins.push(localOrigin);
+      }
+    } catch {
+      // Ignore a malformed local dev url.
+    }
+  }
+  return origins;
+}
+
+/**
+ * Validate and coerce one raw feed entry. Returns null for items missing a
+ * required string field or carrying a url that is not an http(s) URL on an
+ * allowed devlog origin, so a single malformed entry from a 200-but-broken
+ * feed can never crash a render or throw inside the sort. `tags` defaults to []
+ * and non-string tags are dropped.
+ */
+export function sanitizeDevlogItem(
+  raw: unknown,
+  allowedOrigins: string[],
+): DevlogUpdate | null {
   if (!raw || typeof raw !== "object") {
     return null;
   }
@@ -61,7 +111,7 @@ export function sanitizeDevlogItem(raw: unknown): DevlogUpdate | null {
     !isNonEmptyString(item.summary) ||
     !isNonEmptyString(item.publishedAt) ||
     !isNonEmptyString(item.url) ||
-    !isHttpUrl(item.url)
+    !isAllowedDevlogUrl(item.url, allowedOrigins)
   ) {
     return null;
   }
@@ -77,11 +127,15 @@ export function sanitizeDevlogItem(raw: unknown): DevlogUpdate | null {
 /**
  * Normalize an untrusted `/updates.json` payload into a {@link DevlogFeed}:
  * drop malformed items, sort by publishedAt desc, then cap to the feed limit.
+ * `allowedOrigins` gates which item urls are trusted (see sanitizeDevlogItem).
  */
-export function normalizeFeed(raw: DevlogFeedResponse): DevlogFeed {
+export function normalizeFeed(
+  raw: DevlogFeedResponse,
+  allowedOrigins: string[],
+): DevlogFeed {
   const rawItems = Array.isArray(raw.items) ? raw.items : [];
   const sortedItems = rawItems
-    .map(sanitizeDevlogItem)
+    .map((item) => sanitizeDevlogItem(item, allowedOrigins))
     .filter((item): item is DevlogUpdate => item !== null)
     .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   const latestPublishedAt =

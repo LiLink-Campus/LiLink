@@ -30,6 +30,7 @@ function formatDate(iso: string): string {
 }
 
 export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
+  const isDev = process.env.NODE_ENV === "development";
   const params = await searchParams;
   const requestedPage = parseDevlogUpdatesPage(params.page);
   const feed = await getDevlogFeed();
@@ -61,11 +62,7 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
       <section className={styles.section}>
         {feed.items.length === 0 ? (
           <p className={styles.empty}>
-            更新列表暂时为空。线上 devlog 需先部署{" "}
-            <code>/updates.json</code> 端点；本地开发请在本机运行{" "}
-            <code>lilink-devlog</code>（<code>npm run dev</code>，默认{" "}
-            <code>127.0.0.1:4321</code>
-            ），或设置 <code>DEVLOG_BASE_URL</code>。也可前往{" "}
+            最近还没有可展示的更新，去{" "}
             <a
               href={getDevlogBaseUrl()}
               target="_blank"
@@ -73,7 +70,18 @@ export default async function UpdatesPage({ searchParams }: UpdatesPageProps) {
             >
               devlog
             </a>{" "}
-            浏览文章。
+            看看我们最新的进展吧。
+            {isDev ? (
+              <>
+                <br />
+                <small>
+                  开发者提示：线上 devlog 需先部署 <code>/updates.json</code>{" "}
+                  端点；本地开发请在本机运行 <code>lilink-devlog</code>（
+                  <code>npm run dev</code>，默认 <code>127.0.0.1:4321</code>），或
+                  设置 <code>DEVLOG_BASE_URL</code>。
+                </small>
+              </>
+            ) : null}
           </p>
         ) : (
           <>
