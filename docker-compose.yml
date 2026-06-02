@@ -38,6 +38,14 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      args:
+        SENTRY_ORG: ${SENTRY_ORG:-}
+        SENTRY_PROJECT: ${SENTRY_PROJECT:-}
+        SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+        SENTRY_DIST: ${SENTRY_DIST:-}
+        SENTRY_REQUIRE_SOURCEMAPS: ${SENTRY_REQUIRE_SOURCEMAPS:-false}
+      secrets:
+        - sentry_auth_token
     container_name: lilink-api
     restart: always
     depends_on:
@@ -64,6 +72,7 @@ services:
       SENTRY_ENABLE_LOGS: ${SENTRY_ENABLE_LOGS:-true}
       SENTRY_SEND_DEFAULT_PII: ${SENTRY_SEND_DEFAULT_PII:-true}
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_DIST: ${SENTRY_DIST:-}
       DB_PASSWORD: ${DB_PASSWORD:-}
       DATABASE_CONNECTION_LIMIT: ${DATABASE_CONNECTION_LIMIT:-20}
       DATABASE_POOL_TIMEOUT_SECONDS: ${DATABASE_POOL_TIMEOUT_SECONDS:-10}
@@ -93,3 +102,7 @@ services:
 
 volumes:
   postgres-data:
+
+secrets:
+  sentry_auth_token:
+    environment: SENTRY_AUTH_TOKEN
