@@ -66,6 +66,10 @@
 
 .pageHero.narrow .pageHeroContent {
   align-items: center;
+  /* Lock to the parent width on narrow viewports so WebKit's column-flex
+     shrink-to-fit does not size to the text's max-content and overflow
+     the viewport (Blink clamps to the parent, WebKit/iOS does not). */
+  width: 100%;
   max-width: 32rem;
 }
 
