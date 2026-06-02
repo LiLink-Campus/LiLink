@@ -17,6 +17,27 @@ const envSchema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(z.string().url()).min(1)),
+  SENTRY_DSN: z
+    .string()
+    .default('')
+    .transform((value) => value.trim())
+    .refine(
+      (value) => value.length === 0 || /^https?:\/\//i.test(value),
+      'SENTRY_DSN must be empty or an http(s) URL.',
+    ),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(1),
+  SENTRY_ENABLE_LOGS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  SENTRY_SEND_DEFAULT_PII: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  SENTRY_RELEASE: z
+    .string()
+    .default('')
+    .transform((value) => value.trim()),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required.'),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters.'),
   ADMIN_JWT_SECRET: z

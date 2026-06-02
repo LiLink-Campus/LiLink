@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { resolveConfiguredLanApiHostname } from "./src/lib/api-base-url";
@@ -13,7 +14,7 @@ function resolveAllowedDevOrigins(): string[] {
   return hostname ? [hostname] : [];
 }
 
-export default function createNextConfig(phase: string): NextConfig {
+function createNextConfig(phase: string): NextConfig {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   const useBuildTsconfig =
     phase === PHASE_PRODUCTION_BUILD ||
@@ -43,3 +44,18 @@ export default function createNextConfig(phase: string): NextConfig {
     },
   };
 }
+
+export default withSentryConfig(createNextConfig, {
+  org: "sed-i",
+  project: "lilink",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+  webpack: {
+    automaticVercelMonitors: true,
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+});
