@@ -1491,6 +1491,7 @@ export function ProfileClient({
                       options={BIRTH_YEAR_VALUE_OPTIONS}
                       placeholder="请选择"
                       sheetTitle="选择出生年份"
+                      rootClassName="picker-root--birth-date"
                       onChange={(next) =>
                         setHardMatchForm((f) => ({ ...f, birthYear: next }))
                       }
@@ -1505,6 +1506,7 @@ export function ProfileClient({
                       options={MONTH_VALUE_OPTIONS}
                       placeholder="请选择"
                       sheetTitle="选择出生月份"
+                      rootClassName="picker-root--birth-date"
                       onChange={(next) =>
                         setHardMatchForm((f) => ({ ...f, birthMonth: next }))
                       }
@@ -1522,6 +1524,7 @@ export function ProfileClient({
                       )}
                       placeholder="请选择"
                       sheetTitle="选择出生日期"
+                      rootClassName="picker-root--birth-date"
                       onChange={(next) =>
                         setHardMatchForm((f) => ({ ...f, birthDay: next }))
                       }

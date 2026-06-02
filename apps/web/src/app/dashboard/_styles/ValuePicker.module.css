@@ -1,5 +1,5 @@
 /* ──────────────────────────────────────────────────────────────
-   ValuePicker (responsive: bottom sheet on mobile, popover on desktop)
+   ValuePicker (native <select> with styled display layer)
    ────────────────────────────────────────────────────────────── */
 
 @media (max-width: 760px) {
@@ -101,4 +101,21 @@ transition:
   color: var(--color-brand);
   font-size: 0.9rem;
   pointer-events: none;
+}
+
+/* Birth date row: three pickers share one row on desktop; tighter chrome on mobile. */
+@media (max-width: 760px) {
+  .picker-root--birth-date .picker-trigger {
+    padding: 0.7rem 0.55rem;
+    min-height: 2.75rem;
+  }
+
+  .picker-root--birth-date .picker-native-display {
+    padding-right: 1.85rem;
+  }
+
+  .picker-root--birth-date .picker-native-caret {
+    right: 0.55rem;
+    font-size: 0.8rem;
+  }
 }
