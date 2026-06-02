@@ -6,6 +6,7 @@ import * as Sentry from "@sentry/nextjs";
 import {
   sentryDsn,
   sentryEnabled,
+  sentrySendDefaultPii,
   sentryTracesSampleRate,
 } from "./src/lib/sentry-config";
 
@@ -21,5 +22,5 @@ Sentry.init({
 
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+  sendDefaultPii: sentrySendDefaultPii,
 });

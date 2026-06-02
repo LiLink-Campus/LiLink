@@ -32,7 +32,7 @@ const envSchema = z.object({
     .transform((value) => value === 'true'),
   SENTRY_SEND_DEFAULT_PII: z
     .enum(['true', 'false'])
-    .default('false')
+    .default('true')
     .transform((value) => value === 'true'),
   SENTRY_RELEASE: z
     .string()
