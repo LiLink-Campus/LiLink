@@ -17,6 +17,8 @@ type ValuePickerProps = {
   ariaLabel?: string;
   /** Display suffix shown after the chosen label (e.g. "cm", "岁"). */
   suffix?: string;
+  /** Extra classes on the root element (e.g. density/layout modifiers). */
+  rootClassName?: string;
   /**
    * Heading used as the picker's accessible name when no explicit
    * `ariaLabel` is provided. Kept around so existing call sites stay
@@ -46,6 +48,7 @@ export function ValuePicker({
   disabled = false,
   ariaLabel,
   suffix,
+  rootClassName,
   sheetTitle,
 }: ValuePickerProps) {
   const selectedOption =
@@ -63,7 +66,7 @@ export function ValuePicker({
   }${disabled ? " is-disabled" : ""}`);
 
   return (
-    <div className={dcx("picker-root")}>
+    <div className={dcx("picker-root", rootClassName)}>
       <div className={dcx("picker-native-wrap")}>
         <div className={displayClassName} aria-hidden="true">
           <span className={dcx("picker-trigger-text")}>{triggerLabel}</span>
