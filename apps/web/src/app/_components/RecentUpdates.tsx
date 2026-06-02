@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { DEVLOG_UPDATES_HOMEPAGE_COUNT } from "@/lib/devlog-constants";
 import type { DevlogUpdate } from "@/lib/devlog-feed";
+import { DevlogUpdateNewLabel } from "./DevlogUpdateNewLabel";
 import styles from "./recent-updates.module.css";
 
 function formatShortDate(iso: string): string {
@@ -43,9 +44,7 @@ export function RecentUpdates({ updates }: { updates: DevlogUpdate[] }) {
             <span className={styles.date}>
               {formatShortDate(u.publishedAt)}
               {i === 0 ? (
-                <span className={styles.new} aria-hidden="true">
-                  NEW
-                </span>
+                <DevlogUpdateNewLabel latestPublishedAt={u.publishedAt} />
               ) : null}
             </span>
             <h3 className={styles.cardTitle}>{u.title}</h3>

@@ -2,14 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  DEVLOG_LAST_SEEN_KEY,
-  DEVLOG_LAST_SEEN_UPDATED_EVENT,
-} from "@/lib/devlog-constants";
-import {
-  hasUnseenDevlogUpdates,
-  readDevlogLastSeen,
-} from "@/lib/devlog-seen-client";
+import { useDevlogHasUnseen } from "@/lib/use-devlog-unseen";
 import styles from "./site-nav.module.css";
 
 /** Shows a small dot next to the 更新 nav item when devlog has unseen updates. */
@@ -18,7 +11,7 @@ export function UpdatesNewBadge() {
   const [latestPublishedAt, setLatestPublishedAt] = useState<string | null>(
     null,
   );
-  const [hasNew, setHasNew] = useState(false);
+  const hasUnseen = useDevlogHasUnseen(latestPublishedAt);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,32 +37,8 @@ export function UpdatesNewBadge() {
     };
   }, []);
 
-  useEffect(() => {
-    function refresh() {
-      if (pathname.startsWith("/updates")) {
-        setHasNew(false);
-        return;
-      }
-      setHasNew(
-        hasUnseenDevlogUpdates(latestPublishedAt, readDevlogLastSeen()),
-      );
-    }
-
-    refresh();
-
-    function onStorage(event: StorageEvent) {
-      if (event.key === DEVLOG_LAST_SEEN_KEY || event.key === null) {
-        refresh();
-      }
-    }
-
-    window.addEventListener(DEVLOG_LAST_SEEN_UPDATED_EVENT, refresh);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(DEVLOG_LAST_SEEN_UPDATED_EVENT, refresh);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, [pathname, latestPublishedAt]);
+  const hasNew =
+    !pathname.startsWith("/updates") && hasUnseen;
 
   if (!hasNew) return null;
   return <span className={styles.newDot} role="status" aria-label="有新更新" />;
