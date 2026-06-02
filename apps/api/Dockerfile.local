@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1.7
+
+ARG PRISMA_GENERATE_DATABASE_URL="postgresql://lilink:lilink@localhost:5432/lilink?schema=public"
+
+FROM node:22.22.3-alpine
+ARG PRISMA_GENERATE_DATABASE_URL
+RUN corepack enable
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/shared/package.json packages/shared/tsconfig.json ./packages/shared/
+COPY apps/api/prisma ./apps/api/prisma/
+COPY apps/api/prisma.config.ts ./apps/api/prisma.config.ts
+
+RUN npm ci --ignore-scripts \
+    --workspace=api --workspace=@lilink/shared --include-workspace-root \
+  && DATABASE_URL="$PRISMA_GENERATE_DATABASE_URL" npm run prisma:generate --workspace api
+
+COPY packages/shared ./packages/shared
+COPY apps/api ./apps/api
+
+EXPOSE 4000
+
+CMD ["sh", "-c", "npm run build --workspace @lilink/shared && npx concurrently -k -n shared,api \"npm run dev --workspace @lilink/shared\" \"npm run start:dev --workspace api\""]

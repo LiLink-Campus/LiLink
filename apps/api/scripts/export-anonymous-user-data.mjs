@@ -79,7 +79,7 @@ function partitionQuestionnaireAnswers(raw) {
 }
 
 function defaultOutputDirectory() {
-  if (existsSync(path.join(inferredRepoRoot, "docker-compose.yml"))) {
+  if (existsSync(path.join(inferredRepoRoot, "package.json"))) {
     return inferredRepoRoot;
   }
   return tmpdir();
