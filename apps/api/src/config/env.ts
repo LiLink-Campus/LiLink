@@ -1,7 +1,11 @@
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { z } from 'zod';
 import { preloadMonorepoEnvIntoProcess } from './monorepo-env-paths';
 
 preloadMonorepoEnvIntoProcess();
+
+const bundledSentryRelease = resolveBundledSentryRelease();
 
 const envSchema = z.object({
   APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -35,6 +39,15 @@ const envSchema = z.object({
     .default('true')
     .transform((value) => value === 'true'),
   SENTRY_RELEASE: z
+    .preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim().length > 0
+          ? value
+          : bundledSentryRelease,
+      z.string(),
+    )
+    .transform((value) => value.trim()),
+  SENTRY_DIST: z
     .string()
     .default('')
     .transform((value) => value.trim()),
@@ -124,3 +137,23 @@ const envSchema = z.object({
 });
 
 export const env = envSchema.parse(process.env);
+
+function resolveBundledSentryRelease() {
+  const candidates = [
+    join(__dirname, '..', '..', '.sentry-release'),
+    join(process.cwd(), 'dist', '.sentry-release'),
+  ];
+
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) {
+      continue;
+    }
+
+    const release = readFileSync(candidate, 'utf8').trim();
+    if (release) {
+      return release;
+    }
+  }
+
+  return '';
+}
