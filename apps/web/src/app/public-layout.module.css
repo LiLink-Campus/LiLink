@@ -66,12 +66,19 @@
 
 .pageHero.narrow .pageHeroContent {
   align-items: center;
-  /* iOS Safari's column-flex + align-items:center shrink-to-fits this box to
-     the text max-content (Flexbugs #192); width:100% is ignored there, so the
-     real cap has to be max-width. min(...,100%) keeps the desktop cap while
-     clamping to the parent on narrow viewports. */
+  /* iOS Safari shrink-to-fits centered column-flex children to text max-content
+     and ignores % in max-width here — it honours fixed px / vw (verified on a
+     real iPhone: the row capped at exactly 32rem = 512px). Clamp with
+     calc(100vw - …), which resolves to a viewport-bound px iOS respects;
+     desktop still caps at 32rem. */
   width: 100%;
-  max-width: min(32rem, 100%);
+  max-width: min(32rem, calc(100vw - 2.5rem));
+}
+
+/* The <p> copy is itself a centered flex child: on iOS it shrink-to-fits to its
+   own max-content and overflows the (clamped) container, so cap the leaf too. */
+.pageHero.narrow .pageHeroContent > p {
+  max-width: min(32rem, calc(100vw - 2.5rem));
 }
 
 .pageHeroContent {
