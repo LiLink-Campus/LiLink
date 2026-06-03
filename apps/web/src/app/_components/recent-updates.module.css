@@ -8,9 +8,10 @@
 
 .heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem 1rem;
   margin-bottom: 1.25rem;
 }
 
@@ -27,7 +28,11 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(var(--recent-count, 3), 1fr);
+  /* Mirror How it works' .storyGrid: auto-fit + minmax is intrinsically
+     responsive (collapses to one column on narrow screens, never overflows),
+     unlike the old fixed repeat(var(--recent-count), 1fr) that relied on a
+     media query to step down — which iOS Safari did not honour reliably. */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
 }
 
