@@ -28,10 +28,8 @@
 
 .grid {
   display: grid;
-  /* Mirror How it works' .storyGrid: auto-fit + minmax is intrinsically
-     responsive (collapses to one column on narrow screens, never overflows),
-     unlike the old fixed repeat(var(--recent-count), 1fr) that relied on a
-     media query to step down — which iOS Safari did not honour reliably. */
+  /* auto-fit + minmax is intrinsically responsive (collapses to one column,
+     never overflows) — same approach as How it works' .storyGrid. */
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
 }
@@ -87,10 +85,4 @@
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-@media (max-width: 720px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
 }

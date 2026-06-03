@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import Link from "next/link";
 import { DEVLOG_UPDATES_HOMEPAGE_COUNT } from "@/lib/devlog-constants";
 import type { DevlogUpdate } from "@/lib/devlog-feed";
@@ -28,10 +27,7 @@ export function RecentUpdates({ updates }: { updates: DevlogUpdate[] }) {
           查看全部 →
         </Link>
       </div>
-      <div
-        className={styles.grid}
-        style={{ "--recent-count": String(items.length) } as CSSProperties}
-      >
+      <div className={styles.grid}>
         {items.map((u, i) => (
           <a
             key={u.url}
