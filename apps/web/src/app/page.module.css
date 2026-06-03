@@ -53,7 +53,9 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 36rem;
+  /* Flexbugs #192: iOS Safari column-flex + align-items:center ignores width
+     and shrink-to-fits to max-content; clamp with max-width instead. */
+  max-width: min(36rem, 100%);
 }
 
 @media (min-width: 880px) {
@@ -86,7 +88,7 @@
   color: var(--color-text-secondary);
   font-size: 1.02rem;
   line-height: 1.75;
-  max-width: 32rem;
+  max-width: min(32rem, 100%);
   margin: 0;
 }
 
