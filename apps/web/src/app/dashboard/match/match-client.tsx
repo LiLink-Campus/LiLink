@@ -24,6 +24,7 @@ import {
   reportHandlingChipLabel,
 } from "../_lib/format";
 import { describeRevealMoment } from "../_lib/focus";
+import { useClientNow } from "../_lib/use-client-now";
 import type { DashboardPayload, DashboardTask } from "../_lib/types";
 
 function avatarInitialFor(displayName: string | null | undefined) {
@@ -45,9 +46,11 @@ function findMeetupTaskFor(
 }
 
 export function MatchClient({
+  initialNowMs,
   initialUser,
   initialDashboard,
 }: {
+  initialNowMs: number;
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
 }) {
@@ -55,6 +58,7 @@ export function MatchClient({
 
   return (
     <MatchClientView
+      initialNowMs={initialNowMs}
       initialUser={initialUser}
       initialDashboard={initialDashboard}
     />
@@ -62,13 +66,16 @@ export function MatchClient({
 }
 
 export function MatchClientView({
+  initialNowMs,
   initialUser,
   initialDashboard,
 }: {
+  initialNowMs: number;
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
 }) {
   const router = useRouter();
+  const nowMs = useClientNow(initialNowMs);
 
   const {
     dashboard,
@@ -114,7 +121,10 @@ export function MatchClientView({
   const meetupSummary = dashboard?.meetupSummary ?? null;
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
   const currentCycle = dashboard?.currentCycle ?? null;
-  const canEditParticipation = canEditCurrentCycleParticipation(currentCycle);
+  const canEditParticipation = canEditCurrentCycleParticipation(
+    currentCycle,
+    nowMs,
+  );
   const currentCycleIsLocked = currentCycle !== null && !canEditParticipation;
   const hasMissingIntent =
     currentCycle?.participationStatus === "OPTED_IN" &&

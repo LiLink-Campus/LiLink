@@ -22,6 +22,7 @@ export function lastRoundUnmatched(
 
 export function canEditCurrentCycleParticipation(
   cycle: DashboardCurrentCycle | null,
+  nowMs: number,
 ): boolean {
   if (!cycle) {
     return false;
@@ -29,7 +30,7 @@ export function canEditCurrentCycleParticipation(
 
   return (
     cycle.status === "OPEN" &&
-    new Date(cycle.participationDeadline).getTime() > Date.now()
+    new Date(cycle.participationDeadline).getTime() > nowMs
   );
 }
 
