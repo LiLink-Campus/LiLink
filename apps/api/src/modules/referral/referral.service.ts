@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import {
   generateHumanCode,
-  INVITE_CODE_LENGTH,
   PERSONAL_CODE_LENGTH,
   REFERRAL_CHANNELS,
   readReferralChannel,
@@ -15,16 +14,11 @@ import { isUniqueConstraintError } from '../../common/prisma/errors';
 
 // Accepts either the base client or a transaction client, so attribution can be
 // resolved and frozen inside the registration transaction.
-type ReferralReadClient = Pick<
-  PrismaClient,
-  'user' | 'inviteCode' | 'campaign'
->;
+type ReferralReadClient = Pick<PrismaClient, 'user' | 'campaign'>;
 
 const PERSONAL_CODE_MAX_ATTEMPTS = 8;
 
 export interface RegistrationSourceInput {
-  // Recruiter code already resolved to its id by AuthService (8-char system).
-  inviteCodeId?: string | null;
   // Personal referral code from the invite link / cookie (10-char system).
   referralCode?: string | null;
   channel?: string | null;
@@ -115,11 +109,9 @@ export class ReferralService {
   /**
    * Resolve the attribution to freeze on a new user at registration.
    *
-   * A recruiter code (already resolved to `inviteCodeId` by AuthService) takes
-   * priority and discards any personal code. The campaign is frozen here and
-   * MUST NOT be re-derived later (activation reads only the frozen value):
-   *   recruiter inviteCode.campaignId (snapshot)
-   *   > personal link campaign (only when ACTIVE)
+   * The campaign is frozen here and MUST NOT be re-derived later (activation
+   * reads only the frozen value):
+   *   personal link campaign (only when ACTIVE)
    *   > current ACTIVE default campaign
    *   > none
    */
@@ -131,14 +123,7 @@ export class ReferralService {
     let referralChannel: ReferralChannel | null = null;
     let referralCampaignId: string | null = null;
 
-    if (input.inviteCodeId) {
-      // Recruiter path: snapshot the invite code's campaign; ignore personal code.
-      const inviteCode = await client.inviteCode.findUnique({
-        where: { id: input.inviteCodeId },
-        select: { campaignId: true },
-      });
-      referralCampaignId = inviteCode?.campaignId ?? null;
-    } else if (input.referralCode) {
+    if (input.referralCode) {
       const code = input.referralCode.trim().toUpperCase();
       if (code) {
         const referrer = await client.user.findUnique({
@@ -199,9 +184,9 @@ export class ReferralService {
   }
 
   /**
-   * Record a landing-page click. The code is routed by length (8 = recruiter,
-   * 10 = personal); other lengths or unknown codes are INVALID. The campaign is
-   * the *current* campaign of this link (`?c=` when ACTIVE, else the active
+   * Record a landing-page click. Only the personal referral code length is
+   * accepted; other lengths or unknown codes are INVALID. The campaign is the
+   * *current* campaign of this link (`?c=` when ACTIVE, else the active
    * default) — NOT the referrer's own source campaign, so the funnel attributes
    * the click to the running campaign. CLICK is UV-deduped per (code, day,
    * visitor): a dedupeKey collision is a same-visitor repeat and is ignored.
@@ -214,7 +199,6 @@ export class ReferralService {
   }): Promise<{ result: 'OK' | 'INVALID' }> {
     const code = input.code.trim().toUpperCase();
     let referrerUserId: string | null = null;
-    let inviteCodeId: string | null = null;
 
     if (code.length === PERSONAL_CODE_LENGTH) {
       const referrer = await this.prisma.user.findUnique({
@@ -223,13 +207,6 @@ export class ReferralService {
       });
       if (!referrer) return { result: 'INVALID' };
       referrerUserId = referrer.id;
-    } else if (code.length === INVITE_CODE_LENGTH) {
-      const inviteCode = await this.prisma.inviteCode.findUnique({
-        where: { code },
-        select: { id: true, isActive: true },
-      });
-      if (!inviteCode?.isActive) return { result: 'INVALID' };
-      inviteCodeId = inviteCode.id;
     } else {
       return { result: 'INVALID' };
     }
@@ -244,7 +221,6 @@ export class ReferralService {
         data: {
           type: 'CLICK',
           referrerUserId,
-          inviteCodeId,
           campaignId,
           channel: readReferralChannel(input.channel),
           dedupeKey,

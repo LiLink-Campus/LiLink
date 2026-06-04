@@ -5,14 +5,14 @@ import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
-import inviteStyles from "../invite-codes/admin-invite-codes.module.css";
+import cardStyles from "../admin-card.module.css";
 import { AdminRefreshButton, MERCHANT_ROLE_LABELS } from "../merchant-admin-ui";
 import merchantStyles from "../merchant-admin.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
 import type { AdminMerchant, AdminMerchantUser } from "../types";
 
-const adminStyles = [commonStyles, inviteStyles, merchantStyles];
+const adminStyles = [commonStyles, cardStyles, merchantStyles];
 
 type StatusFilter = "" | "active" | "inactive";
 

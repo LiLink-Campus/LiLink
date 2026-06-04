@@ -18,7 +18,6 @@ import { CyclesModule } from './modules/cycles/cycles.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AdminSessionModule } from './modules/admin-session/admin-session.module';
 import { MeetupModule } from './modules/meetup/meetup.module';
-import { InviteCodeModule } from './modules/invite-code/invite-code.module';
 import { ReferralModule } from './modules/referral/referral.module';
 import { MerchantModule } from './modules/merchant/merchant.module';
 import { CampaignModule } from './modules/campaign/campaign.module';
@@ -71,7 +70,6 @@ import { authEmailThrottler } from './modules/auth/auth-throttle';
     CyclesModule,
     AdminModule,
     AdminSessionModule,
-    InviteCodeModule,
     ReferralModule,
     MerchantModule,
     CampaignModule,

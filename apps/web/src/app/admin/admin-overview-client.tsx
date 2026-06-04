@@ -28,7 +28,6 @@ const SHORTCUTS: { href: string; label: string }[] = [
   { href: "/admin/campaigns", label: "活动券包" },
   { href: "/admin/merchants", label: "商家管理" },
   { href: "/admin/promotion", label: "推广数据" },
-  { href: "/admin/invite-codes", label: "邀请码" },
   { href: "/admin/reports", label: "举报中心" },
   { href: "/admin/audit", label: "审计日志" },
 ];

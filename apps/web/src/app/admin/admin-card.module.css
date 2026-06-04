@@ -1,0 +1,162 @@
+/* Shared admin card, list, and toolbar styles (create panel, copy button,
+   list panel, search bar, status tabs, gender legend, pagination). Originally
+   extracted from the admin invite-codes page; now reused across campaigns,
+   merchants, promotion, and schools. */
+.ic-create-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.ic-create-panel h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.ic-copy-btn {
+  min-height: 1.75rem !important;
+  padding: 0 0.6rem !important;
+  font-size: 0.78rem !important;
+}
+
+.ic-copy-btn:global(.is-copied) {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+/* List panel — soft cards, no table grid lines */
+.ic-list-panel {
+  margin-top: 1.5rem;
+  padding: 1.1rem 1.15rem 1.2rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: linear-gradient(
+    180deg,
+    var(--color-surface) 0%,
+    var(--color-surface-tinted) 100%
+  );
+  box-shadow: var(--shadow-xs);
+}
+
+.ic-search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.85rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-canvas);
+  box-shadow: inset 0 1px 2px rgba(44, 24, 16, 0.04);
+}
+
+.ic-search-bar input {
+  flex: 1 1 10rem;
+  min-height: 2.2rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.ic-search-bar input:focus {
+  outline: none;
+}
+
+.ic-search-bar input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.ic-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ic-search-clear:hover {
+  background: var(--color-neutral-soft);
+  color: var(--color-text);
+}
+
+.ic-search-submit {
+  min-height: 2rem !important;
+  padding: 0 1rem !important;
+  border-radius: var(--radius-pill) !important;
+  font-size: 0.84rem !important;
+}
+
+.ic-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.2rem;
+  border-radius: var(--radius-pill);
+  background: rgba(44, 24, 16, 0.04);
+}
+
+.ic-status-tab {
+  border: none;
+  padding: 0.42rem 0.9rem;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.ic-status-tab:hover {
+  color: var(--color-text);
+}
+
+.ic-status-tab:global(.is-active) {
+  background: var(--color-surface);
+  color: var(--color-brand-ink);
+  box-shadow: var(--shadow-xs);
+}
+
+.ic-list-meta {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(44, 24, 16, 0.08);
+}
+
+.ic-gender-legend {
+  margin: 0;
+  gap: 0.55rem 0.9rem;
+}
+
+.ic-list-empty {
+  margin-top: 0.35rem;
+  padding: 1.5rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.ic-list-pagination {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed rgba(44, 24, 16, 0.08);
+}
+
+@media (max-width: 720px) {
+  .ic-list-panel {
+    padding: 0.95rem;
+  }
+}
