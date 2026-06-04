@@ -22,7 +22,7 @@ const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 const DISPLAY_NAME_MAX_LENGTH = 30;
 const VERIFICATION_CODE_LENGTH = 6;
-const INVITE_CODE_MAX_LENGTH = 64;
+const REGISTER_REFERRAL_CODE_MAX_LENGTH = 64;
 
 function loginHrefFromSearch(search: string) {
   const nextPath = new URLSearchParams(search).get("next");
@@ -284,7 +284,7 @@ export default function RegisterPageClient() {
               <Input
                 readOnly={attributionLocked}
                 value={referralCode}
-                maxLength={INVITE_CODE_MAX_LENGTH}
+                maxLength={REGISTER_REFERRAL_CODE_MAX_LENGTH}
                 onChange={(event) => setReferralCode(event.target.value)}
                 placeholder={
                   attributionLocked ? undefined : "如有邀请码可填写"

@@ -16,7 +16,7 @@ import {
 } from '../../common/validation/display-name';
 import {
   EMAIL_MAX_LENGTH,
-  INVITE_CODE_MAX_INPUT_LENGTH,
+  REGISTER_REFERRAL_CODE_MAX_LENGTH,
   PROFILE_FULL_NAME_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 import { REFERRAL_CHANNELS } from '@lilink/shared';
@@ -64,7 +64,7 @@ export class RegisterDto {
   // Personal referral code (10-char) from the invite link / cookie.
   @IsOptional()
   @IsString()
-  @MaxLength(INVITE_CODE_MAX_INPUT_LENGTH)
+  @MaxLength(REGISTER_REFERRAL_CODE_MAX_LENGTH)
   referralCode?: string;
 
   // Channel the user arrived through (?ch=); only known channels are accepted.

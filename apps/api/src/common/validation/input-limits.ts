@@ -40,7 +40,10 @@ export const ADMIN_REPORT_BATCH_MAX_ITEMS = 100;
 export const ADMIN_REPORT_REVIEW_NOTES_MAX_LENGTH = 2_000;
 export const ADMIN_SETTINGS_VALUE_MAX_LENGTH = 12;
 
-export const INVITE_CODE_MAX_INPUT_LENGTH = 64;
+// Referral code typed into the registration form: generous upper bound
+// (personal codes are 10 chars; the slack tolerates trimming/casing on manual
+// entry). Distinct from the referral module's landing-click code limit.
+export const REGISTER_REFERRAL_CODE_MAX_LENGTH = 64;
 
 // Merchant promotion system (M2/M3 admin CRUD). Lengths mirror the contract DTOs.
 export const MERCHANT_NAME_MAX_LENGTH = 80;
