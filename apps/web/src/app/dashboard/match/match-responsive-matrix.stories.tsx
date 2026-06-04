@@ -194,6 +194,7 @@ function ResponsiveMatrixPreview() {
 export const ResponsiveMatrix = {
   name: "Responsive matrix",
   args: {
+    initialNowMs: Date.parse("2030-04-10T12:00:00+08:00"),
     initialUser: matchStoryUser,
     initialDashboard: matchDashboardFixtures.introducedContactCompleted,
   },

@@ -45,6 +45,7 @@ type Story = StoryObj<typeof meta>;
 
 function fixtureArgs(fixtureName: keyof typeof matchDashboardFixtures) {
   return {
+    initialNowMs: Date.parse(matchPageFixedNow),
     initialUser: matchStoryUser,
     initialDashboard: matchDashboardFixtures[fixtureName],
   };

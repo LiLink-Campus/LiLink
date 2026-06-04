@@ -88,6 +88,8 @@ export type Agenda = {
 
 export type AgendaInputs = {
   dashboard: DashboardPayload;
+  /** Frozen render-time clock so agenda copy stays hydration-stable. */
+  nowMs: number;
   contactPreferences: ContactPreferencesPayload;
   counterpartDisplayName: string | null;
   questionnaire: {
@@ -311,7 +313,7 @@ function couponAgendaItem(inputs: AgendaInputs): AgendaItemDraft | null {
 
 function participationItem(inputs: AgendaInputs): AgendaItemDraft {
   const cycle = inputs.dashboard.currentCycle;
-  const canEdit = canEditCurrentCycleParticipation(cycle);
+  const canEdit = canEditCurrentCycleParticipation(cycle, inputs.nowMs);
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
   const intent = cycle?.intent ?? null;
   const unmatchedNote = lastRoundUnmatched(inputs.dashboard)
@@ -334,7 +336,7 @@ function participationItem(inputs: AgendaInputs): AgendaItemDraft {
   }
 
   const revealLabel = describeRevealMoment(cycle.revealAt);
-  const relative = describeRelativeUntil(cycle.revealAt);
+  const relative = describeRelativeUntil(cycle.revealAt, inputs.nowMs);
 
   if (isOptedIn && intent && canEdit) {
     return {

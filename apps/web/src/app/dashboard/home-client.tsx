@@ -25,6 +25,7 @@ import {
   consumeDashboardCouponAgendaRefreshRequest,
 } from "./_lib/coupon-agenda-read-cache";
 import { canEditCurrentCycleParticipation } from "./_lib/format";
+import { useClientNow } from "./_lib/use-client-now";
 import type {
   ContactPreferencesPayload,
   DashboardPayload,
@@ -35,6 +36,7 @@ import styles from "./home-client.module.css";
 const HOME_VISIBLE_REFRESH_TTL_MS = 30_000;
 
 export function HomeClient({
+  initialNowMs,
   initialUser,
   initialDashboard,
   questionnairePercent,
@@ -48,6 +50,7 @@ export function HomeClient({
   questionnaireAttention,
   contactPreferences,
 }: {
+  initialNowMs: number;
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
   questionnairePercent: number;
@@ -78,6 +81,7 @@ export function HomeClient({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const nowMs = useClientNow(initialNowMs);
 
   useEffect(() => {
     setDashboard(applyCachedCouponAgendaReadState(initialDashboard, userId));
@@ -124,7 +128,7 @@ export function HomeClient({
   }, [router, userId]);
 
   const cycle = dashboard.currentCycle;
-  const canEdit = canEditCurrentCycleParticipation(cycle);
+  const canEdit = canEditCurrentCycleParticipation(cycle, nowMs);
   const isOptedIn = cycle?.participationStatus === "OPTED_IN";
   const intent = cycle?.intent ?? null;
 
@@ -140,6 +144,7 @@ export function HomeClient({
     () =>
       resolveAgenda({
         dashboard,
+        nowMs,
         contactPreferences,
         counterpartDisplayName,
         questionnaire: {
@@ -155,6 +160,7 @@ export function HomeClient({
       }),
     [
       dashboard,
+      nowMs,
       contactPreferences,
       counterpartDisplayName,
       questionnairePercent,
@@ -298,7 +304,7 @@ export function HomeClient({
   const pendingCount = countActionableAgendaItems(agenda);
 
   const cycleEyebrow = cycle
-    ? ["本轮", cycle.codename, describeDaysUntilLabel(cycle.revealAt)]
+    ? ["本轮", cycle.codename, describeDaysUntilLabel(cycle.revealAt, nowMs)]
         .filter(Boolean)
         .join(" · ")
     : "本周";

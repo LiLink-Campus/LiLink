@@ -60,11 +60,14 @@ export function describeRevealMoment(iso: string | null): string | null {
 /**
  * Relative "in N hours / days / minutes" copy for waiting states.
  */
-export function describeRelativeUntil(iso: string | null): string | null {
+export function describeRelativeUntil(
+  iso: string | null,
+  nowMs: number,
+): string | null {
   if (!iso) return null;
   const target = new Date(iso).getTime();
   if (Number.isNaN(target)) return null;
-  const diff = target - Date.now();
+  const diff = target - nowMs;
   if (diff <= 0) return "已开启";
   const days = Math.floor(diff / DAY_MS);
   const hours = Math.floor((diff % DAY_MS) / (60 * 60 * 1000));
@@ -83,11 +86,14 @@ export function describeRelativeUntil(iso: string | null): string | null {
  * counting whole days until the reveal moment. Returns "D-Day" on the
  * reveal day and null when the timestamp is missing or already past.
  */
-export function describeDaysUntilLabel(iso: string | null): string | null {
+export function describeDaysUntilLabel(
+  iso: string | null,
+  nowMs: number,
+): string | null {
   if (!iso) return null;
   const target = new Date(iso).getTime();
   if (Number.isNaN(target)) return null;
-  const diff = target - Date.now();
+  const diff = target - nowMs;
   if (diff <= 0) return null;
   const days = Math.floor(diff / DAY_MS);
   return days <= 0 ? "D-Day" : `D-${days}`;

@@ -3,6 +3,9 @@ import { computeQuestionnaireProgress } from "./_lib/progress";
 import { HomeClient } from "./home-client";
 
 export default async function DashboardHubPage() {
+  // Freeze the render-time clock so the server HTML and the client hydration
+  // share the same `nowMs` (see issue #75).
+  const initialNowMs = Date.now();
   const {
     user,
     dashboard,
@@ -29,6 +32,7 @@ export default async function DashboardHubPage() {
 
   return (
     <HomeClient
+      initialNowMs={initialNowMs}
       initialUser={user}
       initialDashboard={dashboard}
       questionnairePercent={questionnairePercent}
