@@ -4,10 +4,10 @@ import { useState } from "react";
 import { COUPON_GIFT_DESCRIPTION_MAX, COUPON_RULE_VERSION } from "@lilink/shared";
 import { cx } from "./admin-class-names";
 import commonStyles from "./admin-common.module.css";
-import inviteStyles from "./invite-codes/admin-invite-codes.module.css";
+import cardStyles from "./admin-card.module.css";
 import merchantStyles from "./merchant-admin.module.css";
 
-const adminStyles = [commonStyles, inviteStyles, merchantStyles];
+const adminStyles = [commonStyles, cardStyles, merchantStyles];
 
 export const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
   DRAFT: "草稿",

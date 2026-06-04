@@ -34,8 +34,6 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
     "手机号请使用国际格式，例如 中国 +86 138 0013 8000。",
   "Contact method value is too long.": "联系方式内容过长。",
   "Duplicate contact method type.": "联系方式类型重复。",
-  "Invite code is invalid or inactive.": "邀请码无效或已停用。",
-  "Owner name is required.": "请填写姓名。",
   MEETUP_LOCATION_OPTION_AMBIGUOUS:
     "每个地点选项只能二选一：推荐地点或自定义地点，不能同时填写。",
   "Merchant email or password is invalid.": "商家邮箱或密码不正确。",

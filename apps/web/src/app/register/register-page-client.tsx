@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  INVITE_CODE_LENGTH,
   PERSONAL_CODE_LENGTH,
   REFERRAL_CHANNELS,
   sanitizeSameOriginRelativePath,
@@ -52,7 +51,6 @@ export default function RegisterPageClient() {
   const [displayName, setDisplayName] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [fullName, setFullName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [referralChannel, setReferralChannel] = useState("");
   const [attributionLocked, setAttributionLocked] = useState(false);
@@ -82,10 +80,7 @@ export default function RegisterPageClient() {
         decodeURIComponent(refCookie.slice("lilink_ref=".length)),
       ) as { code?: unknown; channel?: unknown; campaignSlug?: unknown };
       const refCode = typeof parsed.code === "string" ? parsed.code : "";
-      if (refCode.length === INVITE_CODE_LENGTH) {
-        setInviteCode(refCode);
-        setAttributionLocked(true);
-      } else if (refCode.length === PERSONAL_CODE_LENGTH) {
+      if (refCode.length === PERSONAL_CODE_LENGTH) {
         setReferralCode(refCode);
         setAttributionLocked(true);
       }
@@ -162,7 +157,6 @@ export default function RegisterPageClient() {
           displayName,
           fullName,
           acceptedTerms,
-          inviteCode: inviteCode.trim() || undefined,
           referralCode: referralCode.trim() || undefined,
           channel: referralChannel || undefined,
           campaignSlug: campaignSlug || undefined,
@@ -188,13 +182,6 @@ export default function RegisterPageClient() {
       setPending(false);
     }
   }
-
-  const lockedIsReferral =
-    attributionLocked && !inviteCode.trim() && referralCode.trim().length > 0;
-  const lockedAttributionCode = attributionLocked
-    ? inviteCode.trim() || referralCode.trim()
-    : "";
-  const lockedAttributionLabel = lockedIsReferral ? "推荐码" : "邀请码";
 
   return (
     <main
@@ -287,20 +274,18 @@ export default function RegisterPageClient() {
               />
             </Field>
             <Field
-              label={
-                attributionLocked ? lockedAttributionLabel : "邀请码（可选）"
-              }
+              label={attributionLocked ? "邀请码" : "邀请码（可选）"}
               hint={
                 attributionLocked
-                  ? `已通过${lockedIsReferral ? "推荐" : "邀请"}链接带入，不可修改。`
+                  ? "已通过邀请链接带入，不可修改。"
                   : undefined
               }
             >
               <Input
                 readOnly={attributionLocked}
-                value={attributionLocked ? lockedAttributionCode : inviteCode}
+                value={referralCode}
                 maxLength={INVITE_CODE_MAX_LENGTH}
-                onChange={(event) => setInviteCode(event.target.value)}
+                onChange={(event) => setReferralCode(event.target.value)}
                 placeholder={
                   attributionLocked ? undefined : "如有邀请码可填写"
                 }

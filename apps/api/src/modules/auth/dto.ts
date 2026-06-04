@@ -61,11 +61,6 @@ export class RegisterDto {
   @Equals(true, { message: 'Terms must be accepted.' })
   acceptedTerms!: boolean;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(INVITE_CODE_MAX_INPUT_LENGTH)
-  inviteCode?: string;
-
   // Personal referral code (10-char) from the invite link / cookie.
   @IsOptional()
   @IsString()

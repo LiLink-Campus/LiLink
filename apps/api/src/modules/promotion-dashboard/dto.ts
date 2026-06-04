@@ -33,9 +33,9 @@ export class PromotionQueryDto {
 }
 
 export class PromotionLeaderboardQueryDto extends PromotionQueryDto {
-  // Accepts canonical UPPERCASE values (PERSONAL, RECRUITER, DEFAULT).
+  // Accepts canonical UPPERCASE values (PERSONAL, DEFAULT).
   // For backward compatibility, lowercase inputs are normalized to uppercase
-  // before validation so that existing clients sending 'personal'/'recruiter'
+  // before validation so that existing clients sending 'personal'/'default'
   // continue to work.
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.toUpperCase() : value,
