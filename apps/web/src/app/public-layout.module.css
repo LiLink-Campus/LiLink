@@ -43,9 +43,23 @@
 
 .pageHero.withIllustration {
   display: grid;
-  grid-template-columns: 1fr;
+  /* `1fr` resolves to `minmax(auto, 1fr)`, whose `auto` floor equals the widest
+     child's min-content. iOS Safari measures the `text-balance` <h1> at its
+     unwrapped max-content for that floor, inflating this single mobile column far
+     past the viewport so the heading, copy, and SVG all overflow (verified by a
+     real-iPhone screenshot; Chromium/Playwright don't reproduce it). `minmax(0,
+     1fr)` drops the floor to 0 so the track tracks the container — same pattern
+     the ≥880px rule below already uses. */
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(1rem, 2vw, 1.5rem);
   align-items: center;
+}
+
+/* Grid items default to `min-width: auto`, which re-introduces a min-content
+   floor per item; pin to 0 so they shrink with the (now unfloored) track. */
+.pageHero.withIllustration > .pageHeroContent,
+.pageHero.withIllustration > .pageHeroIllustration {
+  min-width: 0;
 }
 
 @media (min-width: 880px) {
