@@ -6,7 +6,7 @@ import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
-import inviteStyles from "../invite-codes/admin-invite-codes.module.css";
+import cardStyles from "../admin-card.module.css";
 import {
   AdminRefreshButton,
   CAMPAIGN_STATUS_LABELS,
@@ -22,7 +22,7 @@ import type {
   PromotionRedemptionRow,
 } from "../types";
 
-const adminStyles = [commonStyles, inviteStyles, merchantStyles];
+const adminStyles = [commonStyles, cardStyles, merchantStyles];
 
 const PAGE_SIZE = 20;
 
@@ -458,7 +458,7 @@ export default function AdminPromotionPage() {
   const [campaignId, setCampaignId] = useState("");
   const [from, setFrom] = useState(isoDay(-29));
   const [to, setTo] = useState(isoDay(0));
-  const [source, setSource] = useState<"PERSONAL" | "RECRUITER" | "DEFAULT">("PERSONAL");
+  const [source, setSource] = useState<"PERSONAL" | "DEFAULT">("PERSONAL");
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
 
   const [funnel, setFunnel] = useState<PromotionFunnel | null>(null);
@@ -878,15 +878,6 @@ export default function AdminPromotionPage() {
                 <button
                   type="button"
                   className={
-                    source === "RECRUITER" ? "ui-segmented-item active" : "ui-segmented-item"
-                  }
-                  onClick={() => setSource("RECRUITER")}
-                >
-                  运营码榜
-                </button>
-                <button
-                  type="button"
-                  className={
                     source === "DEFAULT" ? "ui-segmented-item active" : "ui-segmented-item"
                   }
                   onClick={() => setSource("DEFAULT")}
@@ -902,7 +893,7 @@ export default function AdminPromotionPage() {
               ) : leaderboard.items.length === 0 ? (
                 <div className={cx(adminStyles, "admin-empty-state mp-empty-query")}>
                   该时间范围内暂无
-                  {source === "PERSONAL" ? "个人码" : source === "RECRUITER" ? "运营码" : "默认活动"}邀请记录。
+                  {source === "PERSONAL" ? "个人码" : "默认活动"}邀请记录。
                   {hasCouponActivity
                     ? " 若下方「券与对账」已有数据，说明用户可能通过其他渠道注册或直接领券，未计入本榜。"
                     : ""}

@@ -40,8 +40,10 @@ export const ADMIN_REPORT_BATCH_MAX_ITEMS = 100;
 export const ADMIN_REPORT_REVIEW_NOTES_MAX_LENGTH = 2_000;
 export const ADMIN_SETTINGS_VALUE_MAX_LENGTH = 12;
 
-export const INVITE_CODE_OWNER_NAME_MAX_LENGTH = 100;
-export const INVITE_CODE_MAX_INPUT_LENGTH = 64;
+// Referral code typed into the registration form: generous upper bound
+// (personal codes are 10 chars; the slack tolerates trimming/casing on manual
+// entry). Distinct from the referral module's landing-click code limit.
+export const REGISTER_REFERRAL_CODE_MAX_LENGTH = 64;
 
 // Merchant promotion system (M2/M3 admin CRUD). Lengths mirror the contract DTOs.
 export const MERCHANT_NAME_MAX_LENGTH = 80;
@@ -57,7 +59,7 @@ export const COUPON_VALID_DAYS_MAX = 3_650;
 export const MERCHANT_USER_PASSWORD_MIN = 8;
 export const MERCHANT_USER_PASSWORD_MAX = 200;
 export const MERCHANT_USER_DISPLAY_NAME_MAX = 80;
-// Redemption short code: 8 (recruiter) / 10 (personal + coupon); accept a bit
+// Redemption short code: 10 (personal) / 6 (coupon); accept a bit
 // of slack for trimming/casing on input.
 export const REDEEM_CODE_MAX_LENGTH = 16;
 // Order amount entered at redemption (cents, §B). Bounded like faceValue.

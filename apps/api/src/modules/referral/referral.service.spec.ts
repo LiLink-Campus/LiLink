@@ -8,7 +8,6 @@ import { ReferralService } from './referral.service';
 function makePrisma() {
   return {
     user: { findUnique: jest.fn(), updateMany: jest.fn(), findMany: jest.fn() },
-    inviteCode: { findUnique: jest.fn() },
     campaign: { findUnique: jest.fn(), findFirst: jest.fn() },
     referralEvent: { create: jest.fn().mockResolvedValue({}) },
     campaignActivation: { findMany: jest.fn().mockResolvedValue([]) },
@@ -104,29 +103,6 @@ describe('ReferralService', () => {
   });
 
   describe('resolveRegistrationAttribution', () => {
-    it('snapshots the recruiter invite code campaign and ignores any personal code', async () => {
-      const prisma = makePrisma();
-      prisma.inviteCode.findUnique.mockResolvedValue({
-        campaignId: 'camp-recruiter',
-      });
-      const service = new ReferralService(prisma as never);
-
-      const result = await service.resolveRegistrationAttribution({
-        inviteCodeId: 'ic-1',
-        referralCode: 'SHOULDIGNORE',
-        channel: 'WECHAT_MOMENTS',
-        campaignSlug: 'spring',
-      });
-
-      expect(result).toEqual({
-        referredByUserId: null,
-        referralChannel: null,
-        referralCampaignId: 'camp-recruiter',
-      });
-      expect(prisma.user.findUnique).not.toHaveBeenCalled();
-      expect(prisma.campaign.findUnique).not.toHaveBeenCalled();
-    });
-
     it('resolves referrer + channel + ACTIVE link campaign for a personal code', async () => {
       const prisma = makePrisma();
       prisma.user.findUnique.mockResolvedValue({ id: 'ref-1' });
@@ -297,60 +273,12 @@ describe('ReferralService', () => {
           data: expect.objectContaining({
             type: 'CLICK',
             referrerUserId: 'ref-1',
-            inviteCodeId: null,
             campaignId: 'camp-default',
             channel: 'WECHAT_GROUP',
             visitorHash: 'vh',
           }) as object,
         }) as object,
       );
-    });
-
-    it('records a CLICK for an 8-char recruiter code', async () => {
-      const prisma = makePrisma();
-      prisma.inviteCode.findUnique.mockResolvedValue({
-        id: 'ic-1',
-        isActive: true,
-      });
-      prisma.campaign.findFirst.mockResolvedValue({ id: 'camp-default' });
-      const service = new ReferralService(prisma as never);
-
-      const result = await service.recordClickEvent({
-        code: 'ABCD2345',
-        visitorHash: 'vh',
-      });
-
-      expect(result).toEqual({ result: 'OK' });
-      expect(prisma.inviteCode.findUnique).toHaveBeenCalledWith({
-        where: { code: 'ABCD2345' },
-        select: { id: true, isActive: true },
-      });
-      expect(prisma.referralEvent.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            inviteCodeId: 'ic-1',
-            referrerUserId: null,
-          }) as object,
-        }) as object,
-      );
-    });
-
-    it('returns INVALID for an inactive recruiter code without writing', async () => {
-      const prisma = makePrisma();
-      prisma.inviteCode.findUnique.mockResolvedValue({
-        id: 'ic-1',
-        isActive: false,
-      });
-      const service = new ReferralService(prisma as never);
-
-      const result = await service.recordClickEvent({
-        code: 'ABCD2345',
-        visitorHash: 'vh',
-      });
-
-      expect(result).toEqual({ result: 'INVALID' });
-      expect(prisma.referralEvent.create).not.toHaveBeenCalled();
-      expect(prisma.campaign.findFirst).not.toHaveBeenCalled();
     });
 
     it('returns INVALID for an unexpected code length without writing', async () => {

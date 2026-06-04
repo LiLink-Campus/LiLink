@@ -15,45 +15,27 @@ const {
 
 // --- REFERRAL_SOURCE_TYPES ---
 
-test("REFERRAL_SOURCE_TYPES contains PERSONAL, RECRUITER, DEFAULT", () => {
+test("REFERRAL_SOURCE_TYPES contains PERSONAL, DEFAULT", () => {
   assert.ok(REFERRAL_SOURCE_TYPES.includes("PERSONAL"));
-  assert.ok(REFERRAL_SOURCE_TYPES.includes("RECRUITER"));
   assert.ok(REFERRAL_SOURCE_TYPES.includes("DEFAULT"));
-  assert.equal(REFERRAL_SOURCE_TYPES.length, 3);
+  assert.equal(REFERRAL_SOURCE_TYPES.length, 2);
 });
 
 // --- deriveReferralSource ---
 
-test("deriveReferralSource: inviteCodeId present → RECRUITER", () => {
-  assert.equal(
-    deriveReferralSource({ inviteCodeId: "code-123", referredByUserId: null }),
-    "RECRUITER"
-  );
-});
-
 test("deriveReferralSource: referredByUserId present → PERSONAL", () => {
   assert.equal(
-    deriveReferralSource({ inviteCodeId: null, referredByUserId: "user-456" }),
+    deriveReferralSource({ referredByUserId: "user-456" }),
     "PERSONAL"
   );
 });
 
-test("deriveReferralSource: neither present → DEFAULT", () => {
-  assert.equal(
-    deriveReferralSource({ inviteCodeId: null, referredByUserId: null }),
-    "DEFAULT"
-  );
+test("deriveReferralSource: no referrer → DEFAULT", () => {
+  assert.equal(deriveReferralSource({ referredByUserId: null }), "DEFAULT");
 });
 
 test("deriveReferralSource: undefined params → DEFAULT", () => {
   assert.equal(deriveReferralSource({}), "DEFAULT");
-});
-
-test("deriveReferralSource: recruiter wins over personal when both present", () => {
-  assert.equal(
-    deriveReferralSource({ inviteCodeId: "code-abc", referredByUserId: "user-xyz" }),
-    "RECRUITER"
-  );
 });
 
 // --- REFERRAL_MEDIUMS / REFERRAL_SCENES ---

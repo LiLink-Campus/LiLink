@@ -210,11 +210,9 @@ export class PromotionDashboardService {
     // before pulling the full user list into application memory.
     const sourceFilter =
       source === 'PERSONAL'
-        ? { referredByUserId: { not: null }, inviteCodeId: null }
-        : source === 'RECRUITER'
-          ? { inviteCodeId: { not: null } }
-          : // DEFAULT: no personal referrer and no invite code
-            { referredByUserId: null, inviteCodeId: null };
+        ? { referredByUserId: { not: null } }
+        : // DEFAULT: no personal referrer
+          { referredByUserId: null };
 
     const users = await this.prisma.user.findMany({
       where: {
@@ -226,8 +224,6 @@ export class PromotionDashboardService {
       select: {
         referredByUserId: true,
         referredBy: { select: { referralCode: true, displayName: true } },
-        inviteCodeId: true,
-        inviteCode: { select: { ownerName: true } },
         questionnaireResponse: { select: { submittedAt: true, answers: true } },
         campaignActivations: {
           where: { campaignId },
@@ -245,27 +241,20 @@ export class PromotionDashboardService {
     for (const user of users) {
       // Use shared helper so source derivation stays consistent across the app.
       const derivedSource = deriveReferralSource({
-        inviteCodeId: user.inviteCodeId,
         referredByUserId: user.referredByUserId,
       });
 
-      // Group key: referrer identity for PERSONAL/RECRUITER; a fixed sentinel
-      // for DEFAULT (all default-attributed users share the one DEFAULT row).
+      // Group key: referrer identity for PERSONAL; a fixed sentinel for DEFAULT
+      // (all default-attributed users share the one DEFAULT row).
       const key =
-        derivedSource === 'PERSONAL'
-          ? user.referredByUserId!
-          : derivedSource === 'RECRUITER'
-            ? user.inviteCodeId!
-            : '__DEFAULT__';
+        derivedSource === 'PERSONAL' ? user.referredByUserId! : '__DEFAULT__';
 
       const refLabel =
         derivedSource === 'PERSONAL'
           ? (user.referredBy?.displayName ??
             user.referredBy?.referralCode ??
             key)
-          : derivedSource === 'RECRUITER'
-            ? (user.inviteCode?.ownerName ?? key)
-            : 'DEFAULT';
+          : 'DEFAULT';
 
       const row =
         rows.get(key) ??

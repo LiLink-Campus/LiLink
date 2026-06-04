@@ -1,16 +1,15 @@
 /**
- * Human-friendly short codes shared across recruiter invite codes (8 chars),
- * personal referral codes (10 chars), and coupon redemption codes (6 chars).
+ * Human-friendly short codes shared across personal referral codes (10 chars)
+ * and coupon redemption codes (6 chars).
  *
- * The lengths MUST stay distinct: the public landing page `/i/:code` routes by
- * code length (8 -> recruiter invite code, 10 -> personal referral code), so a
- * shared length constant keeps generation, DTO validation, and routing aligned.
+ * The lengths MUST stay distinct: the public landing page `/i/:code` only
+ * accepts the personal referral code length, so a shared length constant keeps
+ * generation, DTO validation, and routing aligned.
  */
 
 // Unambiguous uppercase alphanumerics (no I, L, O, 0, 1).
 export const HUMAN_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
-export const INVITE_CODE_LENGTH = 8; // recruiter invite codes (existing system)
 export const PERSONAL_CODE_LENGTH = 10; // per-user personal referral codes
 export const COUPON_CODE_LENGTH = 6; // coupon redemption codes
 

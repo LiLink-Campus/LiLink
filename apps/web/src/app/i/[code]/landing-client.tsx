@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  INVITE_CODE_LENGTH,
-  PERSONAL_CODE_LENGTH,
-  REFERRAL_CHANNELS,
-} from "@lilink/shared";
+import { PERSONAL_CODE_LENGTH, REFERRAL_CHANNELS } from "@lilink/shared";
 import { recordReferralClick } from "../../../lib/api";
 import styles from "./landing.module.css";
 
@@ -26,19 +22,18 @@ function readCampaignSlug(raw: string | null): string | undefined {
 }
 
 /**
- * Public invite landing page. Routes by code length (8 = recruiter, 10 =
- * personal; other lengths are invalid). The click is recorded first; only when
- * the server confirms a valid code (result OK) is the attribution stashed in a
- * cookie for the register form. ch/c are validated here (and again on register)
- * so invalid values never reach the register DTO and block sign-up.
+ * Public invite landing page. Only the personal referral code length is valid;
+ * other lengths are invalid. The click is recorded first; only when the server
+ * confirms a valid code (result OK) is the attribution stashed in a cookie for
+ * the register form. ch/c are validated here (and again on register) so invalid
+ * values never reach the register DTO and block sign-up.
  */
 export function ReferralLandingClient({ code }: { code: string }) {
   const [valid, setValid] = useState<boolean | null>(null);
 
   useEffect(() => {
     const normalized = code.trim().toUpperCase();
-    const len = normalized.length;
-    if (len !== PERSONAL_CODE_LENGTH && len !== INVITE_CODE_LENGTH) {
+    if (normalized.length !== PERSONAL_CODE_LENGTH) {
       setValid(false);
       return;
     }

@@ -12,21 +12,6 @@ export type AdminSchool = {
   };
 };
 
-export type AdminInviteCode = {
-  id: string;
-  code: string;
-  ownerName: string;
-  isActive: boolean;
-  createdAt: string;
-  stats: {
-    total: number;
-    male: number;
-    female: number;
-    nonBinary: number;
-    unknown: number;
-  };
-};
-
 // --- Merchant promotion system (admin views) ---
 
 export type AdminCampaign = {
@@ -104,7 +89,7 @@ export type PromotionFunnel = {
 };
 
 export type PromotionLeaderboardRow = {
-  sourceType: "PERSONAL" | "RECRUITER" | "DEFAULT";
+  sourceType: "PERSONAL" | "DEFAULT";
   refLabel: string;
   invited: number;
   registered: number;

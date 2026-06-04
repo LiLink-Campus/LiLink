@@ -4,7 +4,6 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { env } from '../../config/env';
 import { userSessionConfig } from '../../common/auth/session-config';
-import { InviteCodeModule } from '../invite-code/invite-code.module';
 import { ReferralModule } from '../referral/referral.module';
 
 @Module({
@@ -16,7 +15,6 @@ import { ReferralModule } from '../referral/referral.module';
         expiresIn: userSessionConfig.jwtExpiresIn,
       },
     }),
-    InviteCodeModule,
     ReferralModule,
   ],
   controllers: [AuthController],

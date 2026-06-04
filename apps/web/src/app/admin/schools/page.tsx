@@ -11,13 +11,13 @@ import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
-import inviteStyles from "../invite-codes/admin-invite-codes.module.css";
+import cardStyles from "../admin-card.module.css";
 import schoolStyles from "./admin-schools.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
 import type { AdminSchool } from "../types";
 
-const adminStyles = [commonStyles, inviteStyles, schoolStyles];
+const adminStyles = [commonStyles, cardStyles, schoolStyles];
 
 function emptySchoolForm() {
   return { name: "", slug: "", description: "", domains: "" };

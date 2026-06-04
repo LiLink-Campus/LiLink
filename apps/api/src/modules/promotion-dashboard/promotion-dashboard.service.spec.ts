@@ -114,8 +114,6 @@ describe('PromotionDashboardService', () => {
         {
           referredByUserId: 'r1',
           referredBy: { referralCode: 'CODE1', displayName: '小红' },
-          inviteCodeId: null,
-          inviteCode: null,
           questionnaireResponse: {
             submittedAt: submitted,
             answers: { [HARD_MATCH_KEYS.gender]: '男' },
@@ -126,8 +124,6 @@ describe('PromotionDashboardService', () => {
         {
           referredByUserId: 'r1',
           referredBy: { referralCode: 'CODE1', displayName: '小红' },
-          inviteCodeId: null,
-          inviteCode: null,
           questionnaireResponse: {
             submittedAt: submitted,
             answers: { [HARD_MATCH_KEYS.gender]: '女' },
@@ -157,14 +153,12 @@ describe('PromotionDashboardService', () => {
       });
     });
 
-    it('returns a DEFAULT bucket for users with no referredByUserId and no inviteCodeId', async () => {
+    it('returns a DEFAULT bucket for users with no referredByUserId', async () => {
       const prisma = makePrisma();
       prisma.user.findMany.mockResolvedValue([
         {
           referredByUserId: null,
           referredBy: null,
-          inviteCodeId: null,
-          inviteCode: null,
           questionnaireResponse: null,
           campaignActivations: [],
           coupons: [],
@@ -172,8 +166,6 @@ describe('PromotionDashboardService', () => {
         {
           referredByUserId: null,
           referredBy: null,
-          inviteCodeId: null,
-          inviteCode: null,
           questionnaireResponse: {
             submittedAt: submitted,
             answers: { [HARD_MATCH_KEYS.gender]: '女' },
@@ -197,34 +189,6 @@ describe('PromotionDashboardService', () => {
         registered: 2,
         activated: 1,
         byGender: expect.objectContaining({ female: 1, unknown: 1 }) as object,
-      });
-    });
-
-    it('uses deriveReferralSource: RECRUITER beats PERSONAL when both fields are set', async () => {
-      const prisma = makePrisma();
-      // A user with both fields set is classified as RECRUITER (priority rule).
-      prisma.user.findMany.mockResolvedValue([
-        {
-          referredByUserId: 'u1',
-          referredBy: { referralCode: 'C1', displayName: 'Alice' },
-          inviteCodeId: 'inv1',
-          inviteCode: { ownerName: 'RecruiterCo' },
-          questionnaireResponse: null,
-          campaignActivations: [],
-          coupons: [],
-        },
-      ]);
-      const service = new PromotionDashboardService(prisma as never);
-
-      const result = await service.getLeaderboard({
-        ...range,
-        source: 'RECRUITER',
-      });
-
-      expect(result.total).toBe(1);
-      expect(result.items[0]).toMatchObject({
-        sourceType: 'RECRUITER',
-        refLabel: 'RecruiterCo',
       });
     });
   });

@@ -10,7 +10,7 @@ import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
-import inviteStyles from "../invite-codes/admin-invite-codes.module.css";
+import cardStyles from "../admin-card.module.css";
 import {
   AdminRefreshButton,
   BENEFIT_TYPE_LABELS,
@@ -32,7 +32,7 @@ import type {
 } from "../types";
 import merchantStyles from "../merchant-admin.module.css";
 
-const adminStyles = [commonStyles, inviteStyles, merchantStyles];
+const adminStyles = [commonStyles, cardStyles, merchantStyles];
 
 type StatusFilter = "" | "DRAFT" | "ACTIVE" | "ENDED";
 

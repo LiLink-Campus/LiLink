@@ -3,7 +3,7 @@
  *
  * A new user's source is split into two orthogonal concepts:
  *  - source *identity*: who brought them in — a personal referrer
- *    (`User.referredByUserId`) or a recruiter invite code (`User.inviteCodeId`).
+ *    (`User.referredByUserId`), or none.
  *  - source *campaign*: the attribution frozen at registration
  *    (`User.referralCampaignId`), the single source of truth for funnels.
  */
@@ -18,12 +18,8 @@ export const REFERRAL_CHANNELS = [
 ] as const;
 export type ReferralChannel = (typeof REFERRAL_CHANNELS)[number];
 
-// Layer 1: source identity — who brought the user in (recruiter > personal > default).
-export const REFERRAL_SOURCE_TYPES = [
-  "PERSONAL",
-  "RECRUITER",
-  "DEFAULT",
-] as const;
+// Layer 1: source identity — who brought the user in (personal > default).
+export const REFERRAL_SOURCE_TYPES = ["PERSONAL", "DEFAULT"] as const;
 export type ReferralSourceType = (typeof REFERRAL_SOURCE_TYPES)[number];
 
 // Layer 2a: medium — which platform/mechanism was used.
@@ -49,16 +45,13 @@ export function readReferralChannel(value: unknown): ReferralChannel | null {
 
 /**
  * Derives the attribution source from registration fields.
- * Priority: recruiter (inviteCodeId) > personal (referredByUserId) > default.
+ * Priority: personal (referredByUserId) > default.
  */
 export function deriveReferralSource({
-  inviteCodeId,
   referredByUserId,
 }: {
-  inviteCodeId?: string | null;
   referredByUserId?: string | null;
 }): ReferralSourceType {
-  if (inviteCodeId != null) return "RECRUITER";
   if (referredByUserId != null) return "PERSONAL";
   return "DEFAULT";
 }

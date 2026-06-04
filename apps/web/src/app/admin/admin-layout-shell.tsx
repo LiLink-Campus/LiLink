@@ -30,7 +30,6 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "商家推广",
     items: [
-      { href: "/admin/invite-codes", label: "邀请码" },
       { href: "/admin/campaigns", label: "活动券包" },
       { href: "/admin/merchants", label: "商家" },
       { href: "/admin/promotion", label: "推广数据" },
