@@ -584,8 +584,16 @@ export class MailService {
         },
       });
 
+      const localDevFallbackPrinted =
+        this.printLocalDevVerificationCodeFallback(email);
+
       await this.syncVerificationCodeStatus(email.dedupeKey, {
-        deliveryStatus: exhausted ? 'EXHAUSTED' : 'FAILED',
+        deliveryStatus: localDevFallbackPrinted
+          ? 'SENT'
+          : exhausted
+            ? 'EXHAUSTED'
+            : 'FAILED',
+        sentAt: localDevFallbackPrinted ? new Date() : undefined,
       });
 
       this.logger.warn(
@@ -594,6 +602,39 @@ export class MailService {
     }
 
     return 'processed';
+  }
+
+  private printLocalDevVerificationCodeFallback(email: OutboundEmailRecord) {
+    if (process.env.NODE_ENV === 'production') {
+      return false;
+    }
+
+    if (!email.dedupeKey.startsWith('verification-code:')) {
+      return false;
+    }
+
+    const code = this.extractVerificationCode(email);
+    const lines = [
+      '┌────────────────────────────────────────────────────────┐',
+      '│  [LOCAL DEV OVERRIDE] 验证码发送失败，本地控制台打印:  │',
+      `│  邮箱: ${email.recipientEmail.padEnd(47, ' ')}│`,
+      `│  验证码: ${(code ?? '未能从邮件内容解析').padEnd(43, ' ')}│`,
+      '└────────────────────────────────────────────────────────┘',
+    ];
+
+    process.stdout.write(`${lines.join('\n')}\n`);
+    return code !== null;
+  }
+
+  private extractVerificationCode(email: OutboundEmailRecord) {
+    const candidates = [email.subject, email.text ?? '', email.html];
+    for (const candidate of candidates) {
+      const match = candidate.match(/\b\d{6}\b/);
+      if (match) {
+        return match[0];
+      }
+    }
+    return null;
   }
 
   private async syncVerificationCodeStatus(

@@ -212,6 +212,8 @@ model User {
   referralChannel            ReferralChannel?
   referralCampaignId         String?
   referralCampaign           Campaign?                    @relation("UserReferralCampaign", fields: [referralCampaignId], references: [id], onDelete: Restrict)
+  nonEduReferralLimit        Int                          @default(3)
+  nonEduReferralUses         Int                          @default(0)
   firstOptedInAt             DateTime?
   campaignActivations        CampaignActivation[]
   coupons                    Coupon[]

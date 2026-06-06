@@ -192,6 +192,33 @@ export function Input({
   );
 }
 
+export type SelectProps = ComponentPropsWithoutRef<"select"> & {
+  controlSize?: ControlSize;
+  radius?: ControlRadius;
+  border?: ControlBorder;
+};
+
+export function Select({
+  controlSize,
+  radius,
+  border,
+  className,
+  ...props
+}: SelectProps) {
+  return (
+    <select
+      className={controlClassName(
+        "ui-select",
+        controlSize,
+        radius,
+        border,
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export type FormMessageProps = ComponentPropsWithoutRef<"p"> & {
   tone?: "error" | "success";
 };

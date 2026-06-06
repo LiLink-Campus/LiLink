@@ -41,6 +41,14 @@ const REGISTRATION_CAPACITY_LOCK_KEY = 120_404_260;
 const MAX_REGISTRATIONS_SETTING_KEY = 'max_registrations';
 const REGISTRATION_CAPACITY_LIMIT_PATTERN = /^\d+$/;
 const UNLIMITED_REGISTRATION_CAPACITY_LIMIT = 0;
+const REGISTRATION_SCHOOL_SLUG_ALLOWLIST = new Set([
+  'cuc-hainan-international',
+  'muc-hainan-international',
+  'bsu-ualberta-hainan',
+  'blcu-lian-exchange',
+  'bupt-qmul-hainan',
+  'uestc-glasgow-hainan',
+]);
 
 @Injectable()
 export class AuthService {
@@ -60,16 +68,23 @@ export class AuthService {
 
   async requestCode(email: string) {
     const normalizedEmail = email.trim().toLowerCase();
-    const school = await this.resolveAllowedSchool(normalizedEmail);
+    const school = await this.resolveSchoolByEmail(normalizedEmail);
 
     const result = await this.sendVerificationCode(normalizedEmail, 'register');
 
-    return { ...result, school };
+    return {
+      ...result,
+      school,
+      registrationMode: school
+        ? 'SCHOOL_EMAIL'
+        : 'NON_EDU_REFERRAL_REQUIRED',
+    };
   }
 
   async register(input: RegisterDto, localeCookie?: SupportedLocale | null) {
     const normalizedEmail = input.email.trim().toLowerCase();
-    const school = await this.resolveAllowedSchool(normalizedEmail);
+    const school = await this.resolveSchoolByEmail(normalizedEmail);
+    const isNonEduEmail = !school;
     await this.assertRegistrationCapacityPreflight(this.prisma);
     await this.assertVerificationCodeIsValid(
       this.prisma,
@@ -81,16 +96,15 @@ export class AuthService {
 
     const user = await this.prisma.$transaction(async (tx) => {
       await this.assertRegistrationCapacity(tx);
-      await this.consumeVerificationCode(
-        tx,
-        normalizedEmail,
-        'register',
-        input.code,
-      );
+      const schoolId = school
+        ? school.schoolId
+        : await this.resolveManualSchoolId(tx, input.manualSchoolId);
 
       // Resolve + freeze the referral attribution inside the transaction so the
       // campaign snapshot is consistent with the committed user row. The frozen
-      // campaign is never re-derived later (activation reads it as-is).
+      // campaign is never re-derived later (activation reads it as-is). This
+      // runs before consuming the verification code so referral failures do not
+      // burn a valid email code.
       const attribution =
         (await this.referralService?.resolveRegistrationAttribution(
           {
@@ -99,11 +113,29 @@ export class AuthService {
             campaignSlug: input.campaignSlug,
           },
           tx,
+          {
+            requireReferralCode: isNonEduEmail,
+            rejectInvalidReferralCode: Boolean(input.referralCode?.trim()),
+          },
         )) ?? {
           referredByUserId: null,
           referralChannel: null,
           referralCampaignId: null,
         };
+
+      if (isNonEduEmail && !attribution.isDevMockReferral) {
+        await this.consumeNonEduReferralQuota(
+          tx,
+          attribution.referredByUserId,
+        );
+      }
+
+      await this.consumeVerificationCode(
+        tx,
+        normalizedEmail,
+        'register',
+        input.code,
+      );
 
       const now = new Date();
 
@@ -115,7 +147,7 @@ export class AuthService {
             status: 'ACTIVE',
             displayName: input.displayName,
             preferredLocale: localeCookie ?? undefined,
-            schoolId: school?.schoolId,
+            schoolId,
             referredByUserId: attribution.referredByUserId,
             referralChannel: attribution.referralChannel,
             referralCampaignId: attribution.referralCampaignId,
@@ -451,16 +483,62 @@ export class AuthService {
     return latestCode;
   }
 
-  private async resolveAllowedSchool(email: string) {
-    const resolvedSchool =
-      await this.schoolResolverService.resolveByEmail(email);
-    if (!resolvedSchool) {
+  private async resolveSchoolByEmail(email: string) {
+    const school = await this.schoolResolverService.resolveByEmail(email);
+    if (!school) {
+      return null;
+    }
+
+    return REGISTRATION_SCHOOL_SLUG_ALLOWLIST.has(school.schoolSlug)
+      ? school
+      : null;
+  }
+
+  private async resolveManualSchoolId(
+    tx: TransactionClient,
+    manualSchoolId?: string | null,
+  ) {
+    const schoolId = manualSchoolId?.trim();
+    if (!schoolId) {
       throw new BadRequestException(
-        'This email domain is not currently accepted.',
+        'School selection is required for non-school email registration.',
       );
     }
 
-    return resolvedSchool;
+    const school = await tx.school.findUnique({
+      where: { id: schoolId },
+      select: { id: true, slug: true },
+    });
+
+    if (!school || !REGISTRATION_SCHOOL_SLUG_ALLOWLIST.has(school.slug)) {
+      throw new BadRequestException('Selected school is invalid.');
+    }
+
+    return school.id;
+  }
+
+  private async consumeNonEduReferralQuota(
+    tx: TransactionClient,
+    referrerUserId: string | null,
+  ) {
+    if (!referrerUserId) {
+      throw new BadRequestException(
+        'Referral code is required for non-school email registration.',
+      );
+    }
+
+    const affectedRows = await tx.$executeRaw(Prisma.sql`
+      UPDATE "User"
+      SET "nonEduReferralUses" = "nonEduReferralUses" + 1
+      WHERE "id" = ${referrerUserId}
+        AND "nonEduReferralUses" < "nonEduReferralLimit"
+    `);
+
+    if (affectedRows !== 1) {
+      throw new BadRequestException(
+        'Referral quota for non-school email registration has been exhausted.',
+      );
+    }
   }
 
   private createVerificationCodeDigest(input: {

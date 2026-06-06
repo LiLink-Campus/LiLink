@@ -1,80 +1,89 @@
 # LiLink 个人推荐码注册与非教育邮箱次数风控开发计划书
 
-当前分支：`feature/invite-registration`  
-核心原则：本功能不改 `InviteCode`，不涉及 8 位运营邀请码；主角是现有 10 位 `User.referralCode`。
+当前分支：`feature/invite-registration`
 
-## 1. 目标与业务规则
+本文基于最新主干重新扫描后的真实代码编写。核心原则：本功能完全不改 `InviteCode`，不涉及 8 位运营邀请码；唯一邀请入口是现有 10 位个人推荐码 `User.referralCode`。
 
-本次功能围绕“个人推荐码”建立注册关系：
+## 1. 当前真源对齐结论
 
-- 教育邮箱注册：可不填推荐码；若填写有效 `referralCode`，必须绑定 `referredByUserId`，不消耗推荐额度。
-- 非教育邮箱注册：必须填写有效 `referralCode`，必须手动选择学校，并消耗推荐人的非教育邮箱推荐额度。
-- 推荐额度属于“推荐人用户”，不是邀请码表：默认每个用户允许推荐 3 个非教育邮箱用户。
-- “我的邀请”页面继续基于 `User.referredByUserId` 展示被邀请人，同时新增非教育邮箱额度信息。
+### 后端注册链路
 
-## 2. Step 1 验证码阶段调整
+- `apps/api/src/modules/auth/auth.service.ts`
+  - `AuthService.requestCode(email)` 目前约在第 61 行，先将邮箱 trim/lowercase，然后调用 `resolveAllowedSchool(normalizedEmail)`。这会让非教育邮箱在验证码阶段直接被拒绝。
+  - `AuthService.register(input, localeCookie?)` 目前约在第 70 行，同样先调用 `resolveAllowedSchool(normalizedEmail)`。注册事务内当前先 `consumeVerificationCode(...)`，再调用 `referralService?.resolveRegistrationAttribution(...)`，最后创建 `User`。
+  - 当前 `AuthService` 构造函数只注入 `ReferralService`，已经没有 `InviteCodeService` 注入，这与本次“不碰 8 位运营邀请码”的业务方向一致。
 
-目标文件：[auth.service.ts](D:/yanyingtong/Github/LiLink/apps/api/src/modules/auth/auth.service.ts:65)
+### 推荐码与邀请统计
 
-当前 `requestCode` 会调用严格的 `resolveAllowedSchool`，非教育邮箱无法收到验证码。需要拆分 nullable 解析与严格解析：
+- `apps/api/src/modules/referral/referral.service.ts`
+  - `assignReferralCodeIfMissing(userId)` 目前约在第 60 行，为用户生成 10 位个人推荐码，使用 `updateMany({ where: { id: userId, referralCode: null } })` 做 CAS，避免并发覆盖。
+  - `resolveRegistrationAttribution(input, client)` 目前约在第 118 行，按 `input.referralCode` 查找推荐人，并返回 `referredByUserId / referralChannel / referralCampaignId`。
+  - 现有行为中，无效 `referralCode` 会被忽略，注册仍继续。本功能需要改为：只要用户填写了推荐码但无效，就抛错；非教育邮箱则必须填写有效推荐码。
+  - `getMyReferralOverview(userId)` 目前约在第 266 行，返回 `referralCode`、`links` 和 `funnel`。`funnel` 字段为 `invited / registered / activated / granted / redeemed`。
 
-```ts
-private async resolveSchoolByEmail(email: string) {
-  return this.schoolResolverService.resolveByEmail(email);
-}
+### 前端注册页
 
-private async resolveAllowedSchool(email: string) {
-  const resolvedSchool = await this.resolveSchoolByEmail(email);
-  if (!resolvedSchool) {
-    throw new BadRequestException(
-      'This email domain is not currently accepted.',
-    );
-  }
-  return resolvedSchool;
-}
-```
+- `apps/web/src/app/register/register-page-client.tsx`
+  - 当前状态变量只有 `referralCode`、`referralChannel`、`attributionLocked`、`campaignSlug`，没有 `inviteCode` state。
+  - 当前常量为 `REGISTER_REFERRAL_CODE_MAX_LENGTH`，不是 `INVITE_CODE_MAX_LENGTH`。
+  - `/i/[code]` 写入的 `lilink_ref` cookie 只在 `refCode.length === PERSONAL_CODE_LENGTH` 时填入 `setReferralCode(refCode)` 并锁定。
+  - 当前 UI 文案仍显示“邀请码”，但实际字段和请求体都是 `referralCode`。
 
-`requestCode` 改为允许非教育邮箱：
+### 我的邀请页
 
-```ts
-async requestCode(email: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-  const school = await this.resolveSchoolByEmail(normalizedEmail);
-  const result = await this.sendVerificationCode(normalizedEmail, 'register');
+- `apps/web/src/app/dashboard/referrals/referrals-client.tsx`
+  - 使用 `fetchMyReferral()` 拉取 `MyReferralOverview`。
+  - 当前页面读取 `data.referralCode`、`data.links`、`data.funnel.invited`。
+  - `INVITE_PROGRESS` 目前只渲染 `"invited" | "activated"` 两个步骤；后端已有 `registered / granted / redeemed` 字段，但该页面未全部展示。
 
-  return {
-    ...result,
-    school,
-    registrationMode: school ? 'SCHOOL_EMAIL' : 'NON_EDU_REFERRAL_REQUIRED',
-  };
-}
-```
+## 2. 业务规则
 
-前端 Step 1 收到 `school: null` 时进入非教育邮箱模式，并提示：
+1. 教育邮箱注册：
+   - 可以不填推荐码。
+   - 如果填写有效 `referralCode`，必须绑定 `User.referredByUserId`。
+   - 不消耗推荐人的非教育邮箱推荐额度。
+   - 如果填写了无效推荐码，应抛错，避免用户误以为邀请关系已建立。
 
-> 检测到非教育邮箱，后续步骤将必须填写有效推荐码，并选择你的学校。
+2. 非教育邮箱注册：
+   - 验证码阶段允许发送验证码。
+   - 注册阶段必须填写有效 10 位个人推荐码。
+   - 注册阶段必须手动选择学校，写入新用户的 `schoolId`。
+   - 必须在同一个注册事务内对推荐人执行 CAS 额度扣减。
+   - 额度条件为 `nonEduReferralUses < nonEduReferralLimit`。
+
+3. 本功能不改：
+   - `InviteCode` 模型。
+   - `InviteCodeService`。
+   - `admin/invite-codes` 后台页面和接口。
+   - 8 位运营邀请码路径。
 
 ## 3. Prisma Schema 变更
 
-目标文件：[schema.prisma](D:/yanyingtong/Github/LiLink/apps/api/prisma/schema.prisma:187)
+目标文件：`apps/api/prisma/schema.prisma`
 
-只修改 `User` 模型：
+只在 `User` 模型增加两个字段：
 
 ```prisma
 model User {
-  id                    String  @id @default(cuid())
-  email                 String  @unique
-  passwordHash          String
+  id                         String                       @id @default(cuid())
+  email                      String                       @unique
+  passwordHash               String
+  status                     UserStatus                   @default(PENDING)
+  schoolId                   String?
+  school                     School?                      @relation(fields: [schoolId], references: [id])
 
   // existing fields...
 
-  referralCode          String? @unique
-  referredByUserId      String?
-  referredBy            User?   @relation("UserReferral", fields: [referredByUserId], references: [id], onDelete: SetNull)
-  referrals             User[]  @relation("UserReferral")
+  referralCode               String?                      @unique
+  referredByUserId           String?
+  referredBy                 User?                        @relation("UserReferral", fields: [referredByUserId], references: [id], onDelete: SetNull)
+  referrals                  User[]                       @relation("UserReferral")
+  referralChannel            ReferralChannel?
+  referralCampaignId         String?
+  referralCampaign           Campaign?                    @relation("UserReferralCampaign", fields: [referralCampaignId], references: [id], onDelete: Restrict)
 
-  nonEduReferralLimit   Int     @default(3)
-  nonEduReferralUses    Int     @default(0)
+  nonEduReferralLimit        Int                          @default(3)
+  nonEduReferralUses         Int                          @default(0)
 
   // existing relations and indexes...
 
@@ -82,7 +91,7 @@ model User {
 }
 ```
 
-建议 migration SQL 增加约束：
+建议 migration SQL：
 
 ```sql
 ALTER TABLE "User"
@@ -98,71 +107,170 @@ ALTER TABLE "User"
   CHECK ("nonEduReferralUses" >= 0);
 ```
 
-## 4. 注册事务改造
+字段语义：
 
-目标文件：
+- `nonEduReferralLimit`：该用户作为推荐人时，可邀请非教育邮箱注册的总额度，默认 3。
+- `nonEduReferralUses`：该用户作为推荐人时，已经消耗的非教育邮箱注册次数。
+- 教育邮箱通过该推荐码注册时，只写 `referredByUserId`，不改变 `nonEduReferralUses`。
 
-- [auth.service.ts](D:/yanyingtong/Github/LiLink/apps/api/src/modules/auth/auth.service.ts:74)
-- [dto.ts](D:/yanyingtong/Github/LiLink/apps/api/src/modules/auth/dto.ts:24)
-- [referral.service.ts](D:/yanyingtong/Github/LiLink/apps/api/src/modules/referral/referral.service.ts:126)
+## 4. Step 1 验证码阶段改造
 
-`RegisterDto` 新增：
+目标文件：`apps/api/src/modules/auth/auth.service.ts`
+
+当前 `requestCode` 调用严格的 `resolveAllowedSchool`，需要拆出 nullable 解析方法：
 
 ```ts
-@IsOptional()
-@IsString()
-@MaxLength(64)
-manualSchoolId?: string;
+private async resolveSchoolByEmail(email: string) {
+  return this.schoolResolverService.resolveByEmail(email);
+}
+
+private async resolveAllowedSchool(email: string) {
+  const resolvedSchool = await this.resolveSchoolByEmail(email);
+  if (!resolvedSchool) {
+    throw new BadRequestException(
+      'This email domain is not currently accepted.',
+    );
+  }
+
+  return resolvedSchool;
+}
 ```
 
-推荐码解析建议迁入 `ReferralService`，让推荐归属逻辑集中：
+`requestCode` 改为：
 
 ```ts
-async resolvePersonalReferralForRegistration(
-  input: {
-    referralCode?: string | null;
-    channel?: string | null;
-    campaignSlug?: string | null;
-  },
-  client: ReferralReadClient,
-  options: { requireValid: boolean },
-) {
-  const code = input.referralCode?.trim().toUpperCase();
+async requestCode(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const school = await this.resolveSchoolByEmail(normalizedEmail);
 
-  if (!code) {
-    if (options.requireValid) {
-      throw new BadRequestException(
-        'Referral code is required for non-school email registration.',
-      );
-    }
-    return {
-      referredByUserId: null,
-      referralChannel: null,
-      referralCampaignId: await this.resolveDefaultCampaignId(client),
-    };
-  }
-
-  const referrer = await client.user.findUnique({
-    where: { referralCode: code },
-    select: { id: true },
-  });
-
-  if (!referrer) {
-    throw new BadRequestException('Referral code is invalid.');
-  }
+  const result = await this.sendVerificationCode(normalizedEmail, 'register');
 
   return {
-    referredByUserId: referrer.id,
-    referralChannel: readReferralChannel(input.channel),
-    referralCampaignId: await this.resolveReferralCampaignId(
-      client,
-      input.campaignSlug,
-    ),
+    ...result,
+    school,
+    registrationMode: school ? 'SCHOOL_EMAIL' : 'NON_EDU_REFERRAL_REQUIRED',
   };
 }
 ```
 
-`AuthService.register` 核心流程：
+说明：
+
+- 非教育邮箱仍必须满足 `RequestCodeDto` 的 `@IsEmail()` 和 `EMAIL_MAX_LENGTH`。
+- `requestCode` 只负责验证码发送和 UX 分流，不负责最终准入。
+- 最终准入必须放在 `register` 事务内完成。
+
+## 5. RegisterDto 扩展
+
+目标文件：`apps/api/src/modules/auth/dto.ts`
+
+当前 `RegisterDto` 已有：
+
+```ts
+@IsOptional()
+@IsString()
+@MaxLength(REGISTER_REFERRAL_CODE_MAX_LENGTH)
+referralCode?: string;
+```
+
+新增非教育邮箱手动学校字段：
+
+```ts
+@IsOptional()
+@IsString()
+@MaxLength(ADMIN_ID_MAX_LENGTH)
+manualSchoolId?: string;
+```
+
+如果不希望 `auth` DTO 依赖 admin 命名常量，也可以在通用输入限制中新增 `SCHOOL_ID_MAX_LENGTH`，并在 `AdminUpdateUserDto.schoolId` 与 `RegisterDto.manualSchoolId` 共用。
+
+## 6. ReferralService 改造
+
+目标文件：`apps/api/src/modules/referral/referral.service.ts`
+
+当前 `resolveRegistrationAttribution` 会忽略无效个人推荐码。新功能需要支持严格模式：
+
+```ts
+async resolveRegistrationAttribution(
+  input: RegistrationSourceInput,
+  client: ReferralReadClient = this.prisma,
+  options: {
+    requireReferralCode?: boolean;
+    rejectInvalidReferralCode?: boolean;
+  } = {},
+): Promise<RegistrationAttribution> {
+  let referredByUserId: string | null = null;
+  let referralChannel: ReferralChannel | null = null;
+  let referralCampaignId: string | null = null;
+
+  const code = input.referralCode?.trim().toUpperCase() ?? '';
+
+  if (!code && options.requireReferralCode) {
+    throw new BadRequestException(
+      'Referral code is required for non-school email registration.',
+    );
+  }
+
+  if (code) {
+    const referrer = await client.user.findUnique({
+      where: { referralCode: code },
+      select: { id: true },
+    });
+
+    if (!referrer) {
+      if (options.requireReferralCode || options.rejectInvalidReferralCode) {
+        throw new BadRequestException('Referral code is invalid.');
+      }
+    } else {
+      referredByUserId = referrer.id;
+      referralChannel = readReferralChannel(input.channel);
+
+      if (input.campaignSlug) {
+        const campaign = await client.campaign.findUnique({
+          where: { slug: input.campaignSlug },
+          select: { id: true, status: true },
+        });
+        if (campaign && campaign.status === 'ACTIVE') {
+          referralCampaignId = campaign.id;
+        }
+      }
+    }
+  }
+
+  if (!referralCampaignId) {
+    const fallback = await client.campaign.findFirst({
+      where: { isDefault: true, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    referralCampaignId = fallback?.id ?? null;
+  }
+
+  return { referredByUserId, referralChannel, referralCampaignId };
+}
+```
+
+需要同步修改 imports：
+
+```ts
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+```
+
+调用规则：
+
+- 非教育邮箱：`requireReferralCode: true`。
+- 教育邮箱且用户填写了推荐码：`rejectInvalidReferralCode: true`。
+- 教育邮箱且用户未填写推荐码：保持可注册，默认 campaign fallback 逻辑不变。
+
+## 7. AuthService.register 事务改造
+
+目标文件：`apps/api/src/modules/auth/auth.service.ts`
+
+关键调整：
+
+- `register` 开头改用 nullable `resolveSchoolByEmail`。
+- 当前事务内先消费验证码，再解析推荐关系；新功能应先解析推荐关系并扣减额度，再消费验证码，避免无效推荐码或额度耗尽时烧掉验证码。
+- 非教育邮箱必须验证 `manualSchoolId`，并写入新用户的 `schoolId`。
+
+核心伪代码：
 
 ```ts
 async register(input: RegisterDto, localeCookie?: SupportedLocale | null) {
@@ -188,7 +296,7 @@ async register(input: RegisterDto, localeCookie?: SupportedLocale | null) {
       : await this.resolveManualSchoolId(tx, input.manualSchoolId);
 
     const attribution =
-      await this.referralService!.resolvePersonalReferralForRegistration(
+      (await this.referralService?.resolveRegistrationAttribution(
         {
           referralCode: input.referralCode,
           channel: input.channel,
@@ -196,14 +304,19 @@ async register(input: RegisterDto, localeCookie?: SupportedLocale | null) {
         },
         tx,
         {
-          requireValid: isNonEduEmail || Boolean(input.referralCode?.trim()),
+          requireReferralCode: isNonEduEmail,
+          rejectInvalidReferralCode: Boolean(input.referralCode?.trim()),
         },
-      );
+      )) ?? {
+        referredByUserId: null,
+        referralChannel: null,
+        referralCampaignId: null,
+      };
 
     if (isNonEduEmail) {
       await this.consumeNonEduReferralQuota(
         tx,
-        attribution.referredByUserId!,
+        attribution.referredByUserId,
       );
     }
 
@@ -213,6 +326,8 @@ async register(input: RegisterDto, localeCookie?: SupportedLocale | null) {
       'register',
       input.code,
     );
+
+    const now = new Date();
 
     return tx.user.create({
       data: {
@@ -225,26 +340,73 @@ async register(input: RegisterDto, localeCookie?: SupportedLocale | null) {
         referredByUserId: attribution.referredByUserId,
         referralChannel: attribution.referralChannel,
         referralCampaignId: attribution.referralCampaignId,
-        acceptedTermsAt: input.acceptedTerms ? new Date() : null,
-        lastLoginAt: new Date(),
-        lastActiveAt: new Date(),
-        profile: { create: { fullName: input.fullName } },
+        acceptedTermsAt: input.acceptedTerms ? now : null,
+        lastLoginAt: now,
+        lastActiveAt: now,
+        profile: {
+          create: {
+            fullName: input.fullName,
+          },
+        },
       },
     });
   });
 
-  await this.referralService?.assignReferralCodeIfMissing(user.id);
-  return this.issueAuthPayload(/* existing args */);
+  if (this.referralService) {
+    await this.referralService.assignReferralCodeIfMissing(user.id);
+  }
+
+  return this.issueAuthPayload(
+    user.id,
+    user.email,
+    user.displayName,
+    user.preferredLocale,
+    user.meetupExpirationWeeks,
+    localeCookie,
+  );
 }
 ```
 
-CAS 扣减建议使用单条 SQL，可靠比较同一行两个字段：
+手动学校校验：
+
+```ts
+private async resolveManualSchoolId(
+  tx: TransactionClient,
+  manualSchoolId?: string | null,
+) {
+  const schoolId = manualSchoolId?.trim();
+  if (!schoolId) {
+    throw new BadRequestException(
+      'School selection is required for non-school email registration.',
+    );
+  }
+
+  const school = await tx.school.findUnique({
+    where: { id: schoolId },
+    select: { id: true },
+  });
+
+  if (!school) {
+    throw new BadRequestException('Selected school is invalid.');
+  }
+
+  return school.id;
+}
+```
+
+非教育邮箱额度 CAS 扣减：
 
 ```ts
 private async consumeNonEduReferralQuota(
   tx: TransactionClient,
-  referrerUserId: string,
+  referrerUserId: string | null,
 ) {
+  if (!referrerUserId) {
+    throw new BadRequestException(
+      'Referral code is required for non-school email registration.',
+    );
+  }
+
   const affectedRows = await tx.$executeRaw(Prisma.sql`
     UPDATE "User"
     SET "nonEduReferralUses" = "nonEduReferralUses" + 1
@@ -260,21 +422,27 @@ private async consumeNonEduReferralQuota(
 }
 ```
 
-该扣减发生在同一个注册事务内。如果后续验证码消费或 `user.create` 失败，额度扣减自动回滚。
+并发说明：
 
-## 5. 管理后台接口与审计
+- 额度扣减是单条 `UPDATE ... WHERE uses < limit`。
+- PostgreSQL 会对被更新的 `User` 行加行锁。
+- 多个非教育邮箱注册同时抢最后一个名额时，只有一个事务能更新成功。
+- 如果后续验证码消费或 `user.create` 失败，事务回滚，`nonEduReferralUses` 不会被误扣。
+
+## 8. 管理后台接口与审计
 
 目标路径：
 
 ```http
-PATCH /v1/admin/users/:id/referral-limit
+PATCH /v1/admin/users/:userId/referral-limit
 ```
 
 目标文件：
 
-- [admin.controller.ts](D:/yanyingtong/Github/LiLink/apps/api/src/modules/admin/admin.controller.ts:227)
-- [admin.service.ts](D:/yanyingtong/Github/LiLink/apps/api/src/modules/admin/admin.service.ts:1562)
-- [admin-audit.service.ts](D:/yanyingtong/Github/LiLink/apps/api/src/modules/admin/admin-audit.service.ts:147)
+- `apps/api/src/modules/admin/admin.controller.ts`
+- `apps/api/src/modules/admin/dto.ts`
+- `apps/api/src/modules/admin/admin.service.ts`
+- `apps/api/src/modules/admin/admin-audit.service.ts`
 
 DTO：
 
@@ -288,7 +456,7 @@ export class UpdateUserReferralLimitDto {
 }
 ```
 
-Controller：
+Controller 延续当前 `users/:userId` 命名：
 
 ```ts
 @Patch('users/:userId/referral-limit')
@@ -349,39 +517,79 @@ async updateUserReferralLimit(
 }
 ```
 
-建议允许管理员把上限调低到小于已使用数，此时剩余额度按 `max(0, limit - uses)` 展示，效果是立即阻止新的非教育邮箱推荐注册。
+策略说明：
 
-## 6. “我的邀请”页面联动
+- 允许管理员把 `nonEduReferralLimit` 调低到小于 `nonEduReferralUses`。
+- 前端展示剩余额度时统一使用 `Math.max(0, limit - uses)`。
+- 当 `uses >= limit` 后，该用户的推荐码仍可无限邀请教育邮箱，但不可再邀请非教育邮箱注册。
+
+## 9. 我的邀请页面联动
 
 目标文件：
 
-- [referral.service.ts](D:/yanyingtong/Github/LiLink/apps/api/src/modules/referral/referral.service.ts:290)
-- [api.ts](D:/yanyingtong/Github/LiLink/apps/web/src/lib/api.ts:462)
-- [referrals-client.tsx](D:/yanyingtong/Github/LiLink/apps/web/src/app/dashboard/referrals/referrals-client.tsx:38)
+- `apps/api/src/modules/referral/referral.service.ts`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/app/dashboard/referrals/referrals-client.tsx`
 
-`getMyReferralOverview` 增加额度字段：
+后端 `MyReferralOverview` 增加额度字段：
+
+```ts
+export interface MyReferralOverview {
+  referralCode: string | null;
+  links: { channel: ReferralChannel; url: string }[];
+  funnel: {
+    invited: number;
+    registered: number;
+    activated: number;
+    granted: number;
+    redeemed: number;
+  };
+  nonEduReferralQuota: {
+    limit: number;
+    uses: number;
+    remaining: number;
+  };
+}
+```
+
+`getMyReferralOverview` 需要额外读取当前用户额度：
+
+```ts
+const owner = await this.prisma.user.findUnique({
+  where: { id: userId },
+  select: {
+    nonEduReferralLimit: true,
+    nonEduReferralUses: true,
+  },
+});
+```
+
+返回：
 
 ```ts
 return {
   referralCode,
   links,
   funnel: { invited, registered: invited, activated, granted, redeemed },
-  nonEduQuota: {
-    limit: user.nonEduReferralLimit,
-    uses: user.nonEduReferralUses,
-    remaining: Math.max(0, user.nonEduReferralLimit - user.nonEduReferralUses),
+  nonEduReferralQuota: {
+    limit: owner?.nonEduReferralLimit ?? 3,
+    uses: owner?.nonEduReferralUses ?? 0,
+    remaining: Math.max(
+      0,
+      (owner?.nonEduReferralLimit ?? 3) - (owner?.nonEduReferralUses ?? 0),
+    ),
   },
 };
 ```
 
-前端类型：
+前端 `apps/web/src/lib/api.ts` 的 `MyReferralOverview` 同步加字段：
 
 ```ts
 export type MyReferralOverview = {
   referralCode: string | null;
   links: { channel: string; url: string }[];
   funnel: ReferralFunnel;
-  nonEduQuota: {
+  nonEduReferralQuota: {
     limit: number;
     uses: number;
     remaining: number;
@@ -389,35 +597,65 @@ export type MyReferralOverview = {
 };
 ```
 
-页面展示建议：
+`referrals-client.tsx` 展示建议：
 
-- 在个人推荐码卡片附近显示“普通邮箱推荐名额：已用 X / 共 Y”。
-- 教育邮箱邀请仍进入 funnel，不占用该额度。
-- 不展示被邀请人的敏感邮箱明细，沿用现有 funnel 汇总风格。
+- 在当前“我的邀请码/推荐码”卡片附近展示 `data.nonEduReferralQuota.uses / data.nonEduReferralQuota.limit`。
+- 文案明确：该额度只影响“普通邮箱注册”，不影响学校邮箱同学通过你的链接注册。
+- 现有 `INVITE_PROGRESS` 只展示 `invited` 和 `activated`，本次无需强制扩展 funnel UI。
 
-## 7. 注册页前端联动
+## 10. 注册页前端联动
 
-目标文件：[register-page-client.tsx](D:/yanyingtong/Github/LiLink/apps/web/src/app/register/register-page-client.tsx:47)
+目标文件：`apps/web/src/app/register/register-page-client.tsx`
 
-新增状态：
+当前真实 state：
+
+```ts
+const [referralCode, setReferralCode] = useState("");
+const [referralChannel, setReferralChannel] = useState("");
+const [attributionLocked, setAttributionLocked] = useState(false);
+const [campaignSlug, setCampaignSlug] = useState("");
+```
+
+新增：
 
 ```ts
 const [requiresNonEduReferral, setRequiresNonEduReferral] = useState(false);
 const [manualSchoolId, setManualSchoolId] = useState("");
 ```
 
-Step 1 成功后：
+`CodeResponse` 增加：
 
 ```ts
+type CodeResponse = {
+  email: string;
+  expiresAt: string;
+  school?: {
+    schoolName: string;
+    matchedDomain: string;
+  } | null;
+  registrationMode?: "SCHOOL_EMAIL" | "NON_EDU_REFERRAL_REQUIRED";
+  devCode?: string;
+};
+```
+
+`requestCode` 成功后：
+
+```ts
+const result = await fetchApi<CodeResponse>("/auth/request-code", {
+  method: "POST",
+  body: JSON.stringify({ email }),
+});
+
 const isNonEdu =
   result.registrationMode === "NON_EDU_REFERRAL_REQUIRED" || !result.school;
 
 setResolvedSchool(result.school ?? null);
 setRequiresNonEduReferral(isNonEdu);
+setDevCode(result.devCode);
 setStep(2);
 ```
 
-Step 2 校验：
+`register` 提交前增加校验：
 
 ```ts
 if (requiresNonEduReferral && !referralCode.trim()) {
@@ -431,7 +669,7 @@ if (requiresNonEduReferral && !manualSchoolId.trim()) {
 }
 ```
 
-提交 body：
+提交体保持使用当前真实字段 `referralCode`，并新增 `manualSchoolId`：
 
 ```ts
 body: JSON.stringify({
@@ -448,42 +686,99 @@ body: JSON.stringify({
 })
 ```
 
-UI 设计：
+推荐码输入框继续使用同一个 `Input`，只调整 required 与文案：
 
 ```tsx
 <Field
   label={requiresNonEduReferral ? "推荐码（必填）" : "推荐码（可选）"}
   hint={
-    requiresNonEduReferral
-      ? "普通邮箱注册必须填写一位已注册用户的个人推荐码。"
-      : "如果是朋友邀请你加入，可填写 TA 的个人推荐码。"
+    attributionLocked
+      ? "已通过邀请链接带入，不可修改。"
+      : requiresNonEduReferral
+        ? "普通邮箱注册必须填写一位已注册用户的个人推荐码。"
+        : undefined
   }
 >
   <Input
     required={requiresNonEduReferral}
     readOnly={attributionLocked}
     value={referralCode}
-    maxLength={INVITE_CODE_MAX_LENGTH}
+    maxLength={REGISTER_REFERRAL_CODE_MAX_LENGTH}
     onChange={(event) => setReferralCode(event.target.value)}
-    placeholder="请输入 10 位推荐码"
+    placeholder={attributionLocked ? undefined : "如有推荐码可填写"}
   />
 </Field>
 ```
 
-学校下拉需要公共学校数据包含 `id`。建议扩展 `GET /v1/public/schools` 返回 `id`，并新增或补齐 `Select` primitive，复用 `.ui-select` 样式，避免业务 CSS 重写输入控件。
+学校下拉：
 
-## 8. 测试计划
+- 当前 `GET /v1/public/schools` 只返回 `name / description / domains`，不返回 `id`。
+- 非教育邮箱要提交 `manualSchoolId`，因此需要扩展 public schools payload，或新增只返回 `id/name` 的 public endpoint。
+- 当前 `@/components/ui` 只有 `Field / Input / FormMessage`，没有 `Select` 导出；但 `primitives.css` 已有 `.ui-select` 样式。建议在 `apps/web/src/components/ui/index.tsx` 补齐 `Select` primitive。
 
-后端重点测试：
+`Select` primitive：
 
-- 非教育邮箱 `requestCode` 不抛错，返回 `school: null`。
-- 非教育邮箱注册缺少 `referralCode` 时拒绝，且不消费验证码。
-- 非教育邮箱注册推荐码无效时拒绝，且不消费验证码。
-- 非教育邮箱注册推荐人额度已满时拒绝，且不创建用户。
-- 非教育邮箱注册成功时，`nonEduReferralUses + 1`，新用户写入 `referredByUserId`。
-- 教育邮箱填写推荐码时，写入 `referredByUserId`，但不增加 `nonEduReferralUses`。
-- 教育邮箱未填写推荐码时，保持现有注册路径。
-- 管理员修改 `nonEduReferralLimit` 写入 `AdminAuditService`。
+```tsx
+export type SelectProps = ComponentPropsWithoutRef<"select"> & {
+  controlSize?: ControlSize;
+  radius?: ControlRadius;
+  border?: ControlBorder;
+};
+
+export function Select({
+  controlSize,
+  radius,
+  border,
+  className,
+  ...props
+}: SelectProps) {
+  return (
+    <select
+      className={controlClassName(
+        "ui-select",
+        controlSize,
+        radius,
+        border,
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+```
+
+## 11. 测试计划
+
+后端单元测试：
+
+- `AuthService.requestCode`
+  - 教育邮箱：返回 `school`，`registrationMode = "SCHOOL_EMAIL"`。
+  - 非教育邮箱：不抛错，发送验证码，返回 `school: null`，`registrationMode = "NON_EDU_REFERRAL_REQUIRED"`。
+
+- `AuthService.register`
+  - 教育邮箱未填推荐码：保持现有注册成功路径。
+  - 教育邮箱填写有效推荐码：写入 `referredByUserId`，不增加推荐人的 `nonEduReferralUses`。
+  - 教育邮箱填写无效推荐码：抛 `Referral code is invalid.`，不消费验证码。
+  - 非教育邮箱未填推荐码：抛 `Referral code is required...`，不消费验证码。
+  - 非教育邮箱填写无效推荐码：抛 `Referral code is invalid.`，不消费验证码。
+  - 非教育邮箱推荐人额度已满：抛 quota exhausted，事务回滚。
+  - 非教育邮箱注册成功：新用户写入 `referredByUserId`，推荐人 `nonEduReferralUses + 1`。
+
+- `ReferralService`
+  - `assignReferralCodeIfMissing` 现有 CAS 行为保持不变。
+  - `resolveRegistrationAttribution` strict options 覆盖缺失、无效、有效推荐码。
+  - `getMyReferralOverview` 返回 `nonEduReferralQuota`。
+
+- `AdminService`
+  - `updateUserReferralLimit` 更新字段。
+  - `updateUserReferralLimit` 写 `AdminAuditService.write(adminActorId, 'user.referral_limit_updated', ...)`。
+
+前端检查：
+
+- `register-page-client.tsx` 中无新增 `inviteCode` state。
+- 非教育邮箱 Step 2 中 `referralCode` 输入框和学校下拉为 required。
+- 教育邮箱保持推荐码可选。
+- `referrals-client.tsx` 展示 `data.nonEduReferralQuota`，现有 `data.funnel.invited` 逻辑不被破坏。
 
 建议执行：
 
@@ -494,6 +789,12 @@ npm run typecheck:web
 npm run lint:web-boundary
 ```
 
-## 9. 最终决策摘要
+## 12. 汇报摘要
 
-本计划以 `User.referralCode` 为唯一邀请入口。教育邮箱使用推荐码只建立邀请关系，不消耗额度；非教育邮箱必须使用有效个人推荐码，并在注册事务内对推荐人执行 CAS 扣减。`InviteCode`、8 位运营码和 `InviteCode` 后台本次全部不改动。
+本方案已按最新主干校准：
+
+- 不使用 `inviteCode` state；注册页真实载体是 `referralCode`。
+- 不使用 `INVITE_CODE_MAX_LENGTH`；当前注册页常量是 `REGISTER_REFERRAL_CODE_MAX_LENGTH`。
+- 不修改 `InviteCode` / `InviteCodeService` / `admin/invite-codes`。
+- 非教育邮箱额度字段落在 `User` 上：`nonEduReferralLimit` 与 `nonEduReferralUses`。
+- 推荐关系仍通过现有 `User.referredByUserId` 建立，并由 `getMyReferralOverview` 的 `funnel.invited` / `registered` 统计进入“我的邀请”页面。

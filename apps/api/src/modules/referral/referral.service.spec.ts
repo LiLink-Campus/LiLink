@@ -7,7 +7,12 @@ import { ReferralService } from './referral.service';
 
 function makePrisma() {
   return {
-    user: { findUnique: jest.fn(), updateMany: jest.fn(), findMany: jest.fn() },
+    user: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      updateMany: jest.fn(),
+      findMany: jest.fn(),
+    },
     campaign: { findUnique: jest.fn(), findFirst: jest.fn() },
     referralEvent: { create: jest.fn().mockResolvedValue({}) },
     campaignActivation: { findMany: jest.fn().mockResolvedValue([]) },

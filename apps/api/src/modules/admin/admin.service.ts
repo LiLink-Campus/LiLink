@@ -39,6 +39,7 @@ import {
   RunCycleDto,
   ReorderQuestionsDto,
   ReviewReportDto,
+  UpdateUserReferralLimitDto,
   UpdateUserStatusDto,
   UpdateSettingsDto,
   UpsertCycleDto,
@@ -1653,6 +1654,46 @@ export class AdminService {
     ) {
       await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
     }
+
+    return updatedUser;
+  }
+
+  async updateUserReferralLimit(
+    userId: string,
+    input: UpdateUserReferralLimitDto,
+    adminActorId: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        nonEduReferralLimit: true,
+        nonEduReferralUses: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        nonEduReferralLimit: input.nonEduReferralLimit,
+      },
+      omit: { passwordHash: true },
+    });
+
+    await this.adminAuditService.write(
+      adminActorId,
+      'user.referral_limit_updated',
+      {
+        userId,
+        previousLimit: user.nonEduReferralLimit,
+        nextLimit: input.nonEduReferralLimit,
+        nonEduReferralUses: user.nonEduReferralUses,
+      },
+    );
 
     return updatedUser;
   }

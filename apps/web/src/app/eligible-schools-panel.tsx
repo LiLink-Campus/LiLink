@@ -173,7 +173,9 @@ export function EligibleSchoolsPanel({
             <strong>
               <code>@{emailDomainHint}</code> 暂不在白名单内
             </strong>
-            <span>请确认邮箱拼写，或在下方查找你所在的学校。</span>
+            <span>
+              你仍可继续使用普通邮箱注册；后续步骤需要填写有效推荐码并手动选择学校。
+            </span>
           </div>
         </div>
       );

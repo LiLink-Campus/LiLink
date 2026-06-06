@@ -139,6 +139,17 @@
   border-radius: var(--radius-sm);
 }
 
+.schoolLockWarning {
+  margin: -0.35rem 0 0;
+  padding: 0.58rem 0.8rem;
+  background: var(--color-warning-soft);
+  color: #6f5114;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 24%, transparent);
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
 .termsCheckboxLabel {
   display: flex;
   align-items: flex-start;

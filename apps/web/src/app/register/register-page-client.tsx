@@ -8,8 +8,19 @@ import {
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { ActionGroup } from "@/components/semantic";
-import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
+import {
+  Button,
+  Card,
+  Field,
+  FormMessage,
+  Input,
+  Select,
+} from "@/components/ui";
 import { fetchApi } from "../../lib/api";
+import {
+  fetchEligibleSchools,
+  type EligibleSchool,
+} from "../../lib/eligible-schools";
 import {
   GrassRowIllustration,
   OliveSprigIllustration,
@@ -24,6 +35,8 @@ const DISPLAY_NAME_MAX_LENGTH = 30;
 const VERIFICATION_CODE_LENGTH = 6;
 const REGISTER_REFERRAL_CODE_MAX_LENGTH = 64;
 
+type RegistrationMode = "SCHOOL_EMAIL" | "NON_EDU_REFERRAL_REQUIRED";
+
 function loginHrefFromSearch(search: string) {
   const nextPath = new URLSearchParams(search).get("next");
   if (!nextPath) {
@@ -37,9 +50,11 @@ type CodeResponse = {
   email: string;
   expiresAt: string;
   school?: {
+    schoolId: string;
     schoolName: string;
     matchedDomain: string;
   } | null;
+  registrationMode?: RegistrationMode;
   devCode?: string;
 };
 
@@ -59,6 +74,11 @@ export default function RegisterPageClient() {
   const [resolvedSchool, setResolvedSchool] = useState<CodeResponse["school"]>(
     null,
   );
+  const [requiresNonEduReferral, setRequiresNonEduReferral] = useState(false);
+  const [manualSchoolId, setManualSchoolId] = useState("");
+  const [eligibleSchools, setEligibleSchools] = useState<EligibleSchool[]>([]);
+  const [schoolsPending, setSchoolsPending] = useState(false);
+  const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [devCode, setDevCode] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -101,6 +121,48 @@ export default function RegisterPageClient() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!requiresNonEduReferral) {
+      setManualSchoolId("");
+      setSchoolsError(null);
+      setSchoolsPending(false);
+      return;
+    }
+
+    if (eligibleSchools.length > 0) {
+      return;
+    }
+
+    let active = true;
+    setSchoolsPending(true);
+    setSchoolsError(null);
+
+    fetchEligibleSchools()
+      .then((payload) => {
+        if (active) {
+          setEligibleSchools(payload.schools);
+        }
+      })
+      .catch((caughtError) => {
+        if (active) {
+          setSchoolsError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "学校列表加载失败，请稍后重试。",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setSchoolsPending(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [eligibleSchools.length, requiresNonEduReferral]);
+
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -111,8 +173,15 @@ export default function RegisterPageClient() {
         method: "POST",
         body: JSON.stringify({ email }),
       });
+      const requiresReferral =
+        result.registrationMode === "NON_EDU_REFERRAL_REQUIRED" ||
+        !result.school;
 
       setResolvedSchool(result.school ?? null);
+      setRequiresNonEduReferral(requiresReferral);
+      if (!requiresReferral) {
+        setManualSchoolId("");
+      }
       setDevCode(result.devCode);
       setStep(2);
     } catch (caughtError) {
@@ -145,6 +214,19 @@ export default function RegisterPageClient() {
       return;
     }
 
+    const trimmedReferralCode = referralCode.trim();
+    const trimmedManualSchoolId = manualSchoolId.trim();
+
+    if (requiresNonEduReferral && !trimmedReferralCode) {
+      setError("检测到非教育邮箱，请填写有效推荐码。");
+      return;
+    }
+
+    if (requiresNonEduReferral && !trimmedManualSchoolId) {
+      setError("检测到非教育邮箱，请选择你的学校。");
+      return;
+    }
+
     setPending(true);
 
     try {
@@ -157,7 +239,10 @@ export default function RegisterPageClient() {
           displayName,
           fullName,
           acceptedTerms,
-          referralCode: referralCode.trim() || undefined,
+          referralCode: trimmedReferralCode || undefined,
+          manualSchoolId: requiresNonEduReferral
+            ? trimmedManualSchoolId
+            : undefined,
           channel: referralChannel || undefined,
           campaignSlug: campaignSlug || undefined,
         }),
@@ -195,20 +280,25 @@ export default function RegisterPageClient() {
         <h1>{step === 1 ? "先验证身份" : "完善你的账号"}</h1>
         <p>
           {step === 1
-            ? "LiLink 仅接受合作高校的学校邮箱。输入邮箱，我们来验证你的身份。"
+            ? "LiLink 推荐使用合作高校的学校邮箱注册以自动激活。若使用普通邮箱注册，后续步骤必须填写有效推荐码并手动选择你所在的学校。"
             : "设置一个昵称和密码，准备好就可以参加下一轮匹配。"}
         </p>
 
         {step === 1 ? (
           <form className={authStyles.stack} onSubmit={requestCode}>
-            <Field label="学校邮箱">
+            <Field label="邮箱">
               <Input
                 required
                 type="email"
                 autoComplete="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="your.name@school.edu"
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setResolvedSchool(null);
+                  setRequiresNonEduReferral(false);
+                  setManualSchoolId("");
+                }}
+                placeholder="your.name@example.com"
               />
             </Field>
             <EligibleSchoolsPanel emailInput={email} variant="compact" />
@@ -246,6 +336,11 @@ export default function RegisterPageClient() {
             {canRevealDevCode && devCode ? (
               <p className={authStyles.devNote}>开发环境验证码：{devCode}</p>
             ) : null}
+            {requiresNonEduReferral ? (
+              <FormMessage tone="success">
+                检测到非教育邮箱，后续步骤必须填写有效推荐码，并选择你的学校。
+              </FormMessage>
+            ) : null}
             <Field label="验证码">
               <Input
                 required
@@ -274,23 +369,66 @@ export default function RegisterPageClient() {
               />
             </Field>
             <Field
-              label={attributionLocked ? "邀请码" : "邀请码（可选）"}
+              label={
+                requiresNonEduReferral
+                  ? "推荐码（必填）"
+                  : attributionLocked
+                    ? "推荐码"
+                    : "推荐码（可选）"
+              }
               hint={
                 attributionLocked
                   ? "已通过邀请链接带入，不可修改。"
-                  : undefined
+                  : requiresNonEduReferral
+                    ? "请填写推荐人的 10 位个人推荐码。"
+                    : undefined
               }
             >
               <Input
+                required={requiresNonEduReferral}
                 readOnly={attributionLocked}
                 value={referralCode}
                 maxLength={REGISTER_REFERRAL_CODE_MAX_LENGTH}
                 onChange={(event) => setReferralCode(event.target.value)}
                 placeholder={
-                  attributionLocked ? undefined : "如有邀请码可填写"
+                  attributionLocked
+                    ? undefined
+                    : requiresNonEduReferral
+                      ? "请输入推荐人的 10 位推荐码"
+                      : "如有推荐码可填写"
                 }
               />
             </Field>
+            {requiresNonEduReferral ? (
+              <>
+                <Field
+                  label="学校（必填）"
+                  hint="请选择你当前就读或所属的学校，用于后续资料与匹配配置。"
+                >
+                  <Select
+                    required
+                    value={manualSchoolId}
+                    disabled={schoolsPending || eligibleSchools.length === 0}
+                    onChange={(event) => setManualSchoolId(event.target.value)}
+                  >
+                    <option value="">
+                      {schoolsPending ? "学校列表加载中..." : "请选择学校"}
+                    </option>
+                    {eligibleSchools.map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <p className={authStyles.schoolLockWarning}>
+                  ⚠️ 注意：学校一旦在注册时选定，后续将作为身份凭证，无法自行更改，请务必准确选择。
+                </p>
+                {schoolsError ? (
+                  <FormMessage>{schoolsError}</FormMessage>
+                ) : null}
+              </>
+            ) : null}
             <Field label="密码">
               <Input
                 required

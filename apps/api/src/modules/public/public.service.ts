@@ -17,6 +17,7 @@ type LandingPayload = {
 };
 
 type EligibleSchool = {
+  id: string;
   name: string;
   description: string | null;
   domains: string[];
@@ -161,6 +162,7 @@ export class PublicService {
         domains: { some: {} },
       },
       select: {
+        id: true,
         name: true,
         description: true,
         domains: {
@@ -172,6 +174,7 @@ export class PublicService {
     });
 
     const eligibleSchools: EligibleSchool[] = schools.map((school) => ({
+      id: school.id,
       name: school.name,
       description: school.description,
       domains: school.domains.map((entry) => entry.domain),

@@ -15,6 +15,7 @@ import {
   DISPLAY_NAME_MIN_LENGTH,
 } from '../../common/validation/display-name';
 import {
+  ADMIN_ID_MAX_LENGTH,
   EMAIL_MAX_LENGTH,
   REGISTER_REFERRAL_CODE_MAX_LENGTH,
   PROFILE_FULL_NAME_MAX_LENGTH,
@@ -66,6 +67,11 @@ export class RegisterDto {
   @IsString()
   @MaxLength(REGISTER_REFERRAL_CODE_MAX_LENGTH)
   referralCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(ADMIN_ID_MAX_LENGTH)
+  manualSchoolId?: string;
 
   // Channel the user arrived through (?ch=); only known channels are accepted.
   @IsOptional()

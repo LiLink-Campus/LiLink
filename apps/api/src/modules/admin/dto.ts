@@ -312,6 +312,14 @@ export class AdminUpdateUserDto {
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 }
 
+export class UpdateUserReferralLimitDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100000)
+  nonEduReferralLimit!: number;
+}
+
 export class ToggleTestFlagDto {
   @IsBoolean()
   isTest!: boolean;

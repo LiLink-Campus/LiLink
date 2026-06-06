@@ -124,6 +124,7 @@ export function ReferralsClient({
 
   const funnelTotal = data.funnel.invited;
   const canShare = data.links.length > 0;
+  const nonEduQuota = data.nonEduReferralQuota;
 
   return (
     <div className={dcx("app-page-shell v2-page-shell referrals-page")}>
@@ -157,6 +158,10 @@ export function ReferralsClient({
         </div>
         <p className={dcx("referrals-invite-hint")}>
           点击下方按钮，选择微信或其他 App 分享给你的同学。
+        </p>
+        <p className={dcx("referrals-invite-hint")}>
+          普通邮箱邀请名额：已用 {nonEduQuota.uses} / {nonEduQuota.limit}，
+          剩余 {nonEduQuota.remaining}。学校邮箱同学不占用名额。
         </p>
         <button
           type="button"
