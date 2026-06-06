@@ -130,6 +130,23 @@ export function extractEmailDomain(rawEmail: string): string | null {
   return normalized.slice(atIndex + 1);
 }
 
+export function isEmailMatchedByRegistrationAllowlist(rawEmail: string) {
+  const emailDomain = extractEmailDomain(rawEmail);
+  if (!emailDomain) {
+    return false;
+  }
+
+  return REGISTRATION_ELIGIBLE_SCHOOLS.some((school) =>
+    school.domains.some((domain) => {
+      const normalizedDomain = domain.toLowerCase();
+      return (
+        emailDomain === normalizedDomain ||
+        emailDomain.endsWith(`.${normalizedDomain}`)
+      );
+    }),
+  );
+}
+
 export function findMatchingSchool(
   schools: readonly EligibleSchool[],
   rawEmail: string,

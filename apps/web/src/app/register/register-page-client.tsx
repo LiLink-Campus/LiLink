@@ -6,7 +6,7 @@ import {
   sanitizeSameOriginRelativePath,
 } from "@lilink/shared";
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ActionGroup } from "@/components/semantic";
 import {
   Button,
@@ -18,7 +18,9 @@ import {
 } from "@/components/ui";
 import { fetchApi } from "../../lib/api";
 import {
+  extractEmailDomain,
   fetchEligibleSchools,
+  isEmailMatchedByRegistrationAllowlist,
   type EligibleSchool,
 } from "../../lib/eligible-schools";
 import {
@@ -84,6 +86,14 @@ export default function RegisterPageClient() {
   const [pending, setPending] = useState(false);
   const [canRevealDevCode, setCanRevealDevCode] = useState(false);
   const [loginHref, setLoginHref] = useState("/login");
+  const emailDomainHint = useMemo(() => extractEmailDomain(email), [email]);
+  const requiresReferralBeforeCode = useMemo(
+    () =>
+      Boolean(
+        emailDomainHint && !isEmailMatchedByRegistrationAllowlist(email),
+      ),
+    [email, emailDomainHint],
+  );
 
   useEffect(() => {
     const localhostHosts = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -165,13 +175,23 @@ export default function RegisterPageClient() {
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
     setError(null);
+
+    const trimmedReferralCode = referralCode.trim();
+    if (requiresReferralBeforeCode && !trimmedReferralCode) {
+      setError("普通邮箱获取验证码前，请先填写有效邀请码。");
+      return;
+    }
+
+    setPending(true);
 
     try {
       const result = await fetchApi<CodeResponse>("/auth/request-code", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({
+          email,
+          referralCode: trimmedReferralCode || undefined,
+        }),
       });
       const requiresReferral =
         result.registrationMode === "NON_EDU_REFERRAL_REQUIRED" ||
@@ -218,7 +238,7 @@ export default function RegisterPageClient() {
     const trimmedManualSchoolId = manualSchoolId.trim();
 
     if (requiresNonEduReferral && !trimmedReferralCode) {
-      setError("检测到非教育邮箱，请填写有效推荐码。");
+      setError("检测到非教育邮箱，请填写有效邀请码。");
       return;
     }
 
@@ -280,7 +300,7 @@ export default function RegisterPageClient() {
         <h1>{step === 1 ? "先验证身份" : "完善你的账号"}</h1>
         <p>
           {step === 1
-            ? "LiLink 推荐使用合作高校的学校邮箱注册以自动激活。若使用普通邮箱注册，后续步骤必须填写有效推荐码并手动选择你所在的学校。"
+            ? "LiLink 推荐使用合作高校的学校邮箱注册以自动激活。若使用普通邮箱注册，后续步骤必须填写有效邀请码并手动选择你所在的学校。"
             : "设置一个昵称和密码，准备好就可以参加下一轮匹配。"}
         </p>
 
@@ -302,6 +322,25 @@ export default function RegisterPageClient() {
               />
             </Field>
             <EligibleSchoolsPanel emailInput={email} variant="compact" />
+            {requiresReferralBeforeCode ? (
+              <Field
+                label="邀请码（获取验证码前必填）"
+                hint="普通邮箱需要先通过邀请码校验，校验通过后才会发送验证码。"
+              >
+                <Input
+                  required
+                  readOnly={attributionLocked}
+                  value={referralCode}
+                  maxLength={REGISTER_REFERRAL_CODE_MAX_LENGTH}
+                  onChange={(event) => setReferralCode(event.target.value)}
+                  placeholder={
+                    attributionLocked
+                      ? undefined
+                      : "请输入邀请人的 10 位邀请码"
+                  }
+                />
+              </Field>
+            ) : null}
             {resolvedSchool ? (
               <FormMessage tone="success">
                 已识别学校：{resolvedSchool.schoolName}（@
@@ -338,7 +377,7 @@ export default function RegisterPageClient() {
             ) : null}
             {requiresNonEduReferral ? (
               <FormMessage tone="success">
-                检测到非教育邮箱，后续步骤必须填写有效推荐码，并选择你的学校。
+                检测到非教育邮箱，后续步骤必须填写有效邀请码，并选择你的学校。
               </FormMessage>
             ) : null}
             <Field label="验证码">
@@ -371,16 +410,16 @@ export default function RegisterPageClient() {
             <Field
               label={
                 requiresNonEduReferral
-                  ? "推荐码（必填）"
+                  ? "邀请码（必填）"
                   : attributionLocked
-                    ? "推荐码"
-                    : "推荐码（可选）"
+                    ? "邀请码"
+                    : "邀请码（可选）"
               }
               hint={
                 attributionLocked
                   ? "已通过邀请链接带入，不可修改。"
                   : requiresNonEduReferral
-                    ? "请填写推荐人的 10 位个人推荐码。"
+                    ? "请填写邀请人的 10 位邀请码。"
                     : undefined
               }
             >
@@ -394,8 +433,8 @@ export default function RegisterPageClient() {
                   attributionLocked
                     ? undefined
                     : requiresNonEduReferral
-                      ? "请输入推荐人的 10 位推荐码"
-                      : "如有推荐码可填写"
+                      ? "请输入邀请人的 10 位邀请码"
+                      : "如有邀请码可填写"
                 }
               />
             </Field>

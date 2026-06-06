@@ -30,6 +30,11 @@ export class RequestCodeDto {
   @IsEmail()
   @MaxLength(EMAIL_MAX_LENGTH)
   email!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(REGISTER_REFERRAL_CODE_MAX_LENGTH)
+  referralCode?: string;
 }
 
 export class RegisterDto {

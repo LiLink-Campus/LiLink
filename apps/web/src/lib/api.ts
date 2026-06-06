@@ -16,10 +16,10 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
     "验证码不正确或已失效，请重新获取验证码。",
   "This email is already registered.": "该邮箱已注册，请直接登录。",
   "Referral code is required for non-school email registration.":
-    "检测到非教育邮箱，请填写有效推荐码。",
-  "Referral code is invalid.": "推荐码无效，请检查后重新输入。",
+    "检测到非教育邮箱，请填写有效邀请码。",
+  "Referral code is invalid.": "邀请码无效，请检查后重新输入。",
   "Referral quota for non-school email registration has been exhausted.":
-    "该推荐码的普通邮箱邀请名额已用完，请联系推荐人或更换推荐码。",
+    "该邀请码的普通邮箱邀请名额已用完，请更换邀请码。",
   "School selection is required for non-school email registration.":
     "检测到非教育邮箱，请选择你的学校。",
   "Selected school is invalid.": "所选学校无效，请重新选择。",

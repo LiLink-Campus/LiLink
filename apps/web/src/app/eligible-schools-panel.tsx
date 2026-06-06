@@ -174,7 +174,7 @@ export function EligibleSchoolsPanel({
               <code>@{emailDomainHint}</code> 暂不在白名单内
             </strong>
             <span>
-              你仍可继续使用普通邮箱注册；后续步骤需要填写有效推荐码并手动选择学校。
+              你仍可继续使用普通邮箱注册；请先在下方填写有效邀请码以获取验证码，后续还需手动选择学校。
             </span>
           </div>
         </div>

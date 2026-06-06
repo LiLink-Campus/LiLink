@@ -109,6 +109,8 @@ const adminUserListSelect = {
   displayName: true,
   isTest: true,
   createdAt: true,
+  nonEduReferralLimit: true,
+  nonEduReferralUses: true,
   school: {
     select: adminSchoolNameSelect,
   },
@@ -382,6 +384,8 @@ export class AdminService {
       displayName: user.displayName,
       isTest: user.isTest,
       createdAt: user.createdAt,
+      nonEduReferralLimit: user.nonEduReferralLimit,
+      nonEduReferralUses: user.nonEduReferralUses,
       school: user.school,
       profile: user.profile,
       questionnaireResponse: user.questionnaireResponse

@@ -5,6 +5,7 @@ jest.mock('argon2', () => ({
 
 import {
   BadRequestException,
+  ForbiddenException,
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -314,7 +315,31 @@ describe('AuthService', () => {
     expect(updateMany).not.toHaveBeenCalled();
   });
 
-  it('allows requestCode for non-school email and returns referral-required mode', async () => {
+  it('rejects requestCode for non-school email without a valid referral code', async () => {
+    const transaction = jest.fn();
+    const buildVerificationCodeEmail = jest.fn();
+    const deliverQueuedEmailNow = jest.fn();
+    const authService = new AuthService(
+      { $transaction: transaction } as never,
+      {
+        buildVerificationCodeEmail,
+        deliverQueuedEmailNow,
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue(null),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      authService.requestCode('user@invalid.example'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
+    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
+  });
+
+  it('allows requestCode for non-school email with an available referral code', async () => {
     const create = jest.fn().mockResolvedValue({
       id: 'code-1',
       email: 'user@invalid.example',
@@ -347,6 +372,13 @@ describe('AuthService', () => {
             outboundEmail: { create: outboundCreate },
           }),
       ),
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: 'ACTIVE',
+          nonEduReferralLimit: 3,
+          nonEduReferralUses: 1,
+        }),
+      },
     };
     const authService = new AuthService(
       prisma as never,
@@ -361,11 +393,19 @@ describe('AuthService', () => {
     );
 
     await expect(
-      authService.requestCode('user@invalid.example'),
+      authService.requestCode('user@invalid.example', 'validcode1'),
     ).resolves.toMatchObject({
       email: 'user@invalid.example',
       school: null,
       registrationMode: 'NON_EDU_REFERRAL_REQUIRED',
+    });
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { referralCode: 'VALIDCODE1' },
+      select: {
+        status: true,
+        nonEduReferralLimit: true,
+        nonEduReferralUses: true,
+      },
     });
     expect(buildVerificationCodeEmail).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledTimes(1);

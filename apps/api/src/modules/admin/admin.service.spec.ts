@@ -868,6 +868,8 @@ describe('AdminService', () => {
         displayName: true,
         isTest: true,
         createdAt: true,
+        nonEduReferralLimit: true,
+        nonEduReferralUses: true,
         school: {
           select: {
             name: true,

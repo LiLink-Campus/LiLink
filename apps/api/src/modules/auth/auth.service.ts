@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -41,6 +42,9 @@ const REGISTRATION_CAPACITY_LOCK_KEY = 120_404_260;
 const MAX_REGISTRATIONS_SETTING_KEY = 'max_registrations';
 const REGISTRATION_CAPACITY_LIMIT_PATTERN = /^\d+$/;
 const UNLIMITED_REGISTRATION_CAPACITY_LIMIT = 0;
+const NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR =
+  '非学校邮箱必须提供有效邀请码方可获取验证码';
+const LOCAL_DEV_REFERRAL_CODE = 'LILINKDEV1';
 const REGISTRATION_SCHOOL_SLUG_ALLOWLIST = new Set([
   'cuc-hainan-international',
   'muc-hainan-international',
@@ -66,9 +70,13 @@ export class AuthService {
     private readonly referralService?: ReferralService,
   ) {}
 
-  async requestCode(email: string) {
+  async requestCode(email: string, referralCode?: string | null) {
     const normalizedEmail = email.trim().toLowerCase();
     const school = await this.resolveSchoolByEmail(normalizedEmail);
+
+    if (!school) {
+      await this.assertValidReferralBeforeNonSchoolRequestCode(referralCode);
+    }
 
     const result = await this.sendVerificationCode(normalizedEmail, 'register');
 
@@ -535,6 +543,44 @@ export class AuthService {
         'Referral quota for non-school email registration has been exhausted.',
       );
     }
+  }
+
+  private async assertValidReferralBeforeNonSchoolRequestCode(
+    referralCode?: string | null,
+  ) {
+    const code = referralCode?.trim().toUpperCase();
+    if (!code) {
+      throw new ForbiddenException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
+    }
+
+    if (this.isLocalDevMockReferralCode(code)) {
+      return;
+    }
+
+    const referrer = await this.prisma.user.findUnique({
+      where: { referralCode: code },
+      select: {
+        status: true,
+        nonEduReferralLimit: true,
+        nonEduReferralUses: true,
+      },
+    });
+
+    if (
+      !referrer ||
+      referrer.status !== 'ACTIVE' ||
+      referrer.nonEduReferralUses >= referrer.nonEduReferralLimit
+    ) {
+      throw new ForbiddenException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
+    }
+  }
+
+  private isLocalDevMockReferralCode(code: string) {
+    return (
+      env.APP_ENV === 'development' &&
+      process.env.NODE_ENV !== 'production' &&
+      code === LOCAL_DEV_REFERRAL_CODE
+    );
   }
 
   private createVerificationCodeDigest(input: {
