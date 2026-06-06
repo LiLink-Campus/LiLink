@@ -11,7 +11,6 @@ import {
   PrismaClient,
 } from '../src/common/prisma/client';
 import { createHmac, randomUUID } from 'crypto';
-import { SchoolResolverService } from '../src/common/schools/school-resolver.service';
 import { env } from '../src/config/env';
 import { AuthService } from '../src/modules/auth/auth.service';
 
@@ -23,6 +22,7 @@ const MAX_REGISTRATIONS_KEY = 'max_registrations';
 const TEST_RUN_TAG = `${process.pid}-${Date.now()}`;
 const TEST_EMAIL_DOMAIN = `lilink-cap-${TEST_RUN_TAG}.example`;
 const TEST_SCHOOL_SLUG = `lilink-cap-${TEST_RUN_TAG}`;
+const TEST_REGISTRATION_SCHOOL_SLUG = 'bupt-qmul-hainan';
 
 function hashRegistrationCode(input: {
   email: string;
@@ -151,7 +151,22 @@ describe('Registration capacity advisory lock (e2e)', () => {
     };
 
     beforeEach(() => {
-      const schoolResolver = new SchoolResolverService(prisma as never);
+      const schoolResolver = {
+        resolveByEmail: jest.fn((email: string) => {
+          const normalizedEmail = email.trim().toLowerCase();
+          if (!normalizedEmail.endsWith(`@${TEST_EMAIL_DOMAIN}`)) {
+            return null;
+          }
+
+          return {
+            schoolId: testSchoolId,
+            matchedDomain: TEST_EMAIL_DOMAIN,
+            schoolName: `Capacity Test School ${TEST_RUN_TAG}`,
+            schoolSlug: TEST_REGISTRATION_SCHOOL_SLUG,
+            schoolDescription: null,
+          };
+        }),
+      };
       const jwtService = new JwtService({ secret: env.JWT_SECRET });
       const mailServiceStub = {
         buildVerificationCodeEmail: jest.fn(),
@@ -160,7 +175,7 @@ describe('Registration capacity advisory lock (e2e)', () => {
       authService = new AuthService(
         prisma as never,
         mailServiceStub as never,
-        schoolResolver,
+        schoolResolver as never,
         jwtService,
       );
     });

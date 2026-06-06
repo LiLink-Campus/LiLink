@@ -18,7 +18,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      APP_ENV: test
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:4000/v1"
+      DATABASE_URL: "postgresql://lilink:lilink@127.0.0.1:5432/lilink?schema=public"
+      JWT_SECRET: 1234567890abcdef
+      ADMIN_JWT_SECRET: abcdef1234567890
+      MERCHANT_JWT_SECRET: merchant1234567890abcdef
+      ADMIN_COOKIE_NAME: lilink_admin_token
+      SMTP_FROM: "LiLink <hello@lilink.zone>"
+      CRON_SECRET: abcdef1234567890
+      REDEEM_TICKET_SECRET: test-redeem-ticket-secret-0123456789
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -62,6 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      APP_ENV: test
       DATABASE_URL: "postgresql://lilink:lilink@127.0.0.1:5432/lilink?schema=public"
       JWT_SECRET: 1234567890abcdef
       ADMIN_JWT_SECRET: abcdef1234567890

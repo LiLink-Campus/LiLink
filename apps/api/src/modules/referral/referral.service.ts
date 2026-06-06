@@ -163,10 +163,7 @@ export class ReferralService {
       });
 
       if (!referrer) {
-        if (
-          options.requireReferralCode ||
-          options.rejectInvalidReferralCode
-        ) {
+        if (options.requireReferralCode || options.rejectInvalidReferralCode) {
           throw new BadRequestException('Referral code is invalid.');
         }
       } else {

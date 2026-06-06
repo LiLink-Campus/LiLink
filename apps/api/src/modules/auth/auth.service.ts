@@ -75,9 +75,7 @@ export class AuthService {
     return {
       ...result,
       school,
-      registrationMode: school
-        ? 'SCHOOL_EMAIL'
-        : 'NON_EDU_REFERRAL_REQUIRED',
+      registrationMode: school ? 'SCHOOL_EMAIL' : 'NON_EDU_REFERRAL_REQUIRED',
     };
   }
 
@@ -121,13 +119,11 @@ export class AuthService {
           referredByUserId: null,
           referralChannel: null,
           referralCampaignId: null,
+          isDevMockReferral: false,
         };
 
       if (isNonEduEmail && !attribution.isDevMockReferral) {
-        await this.consumeNonEduReferralQuota(
-          tx,
-          attribution.referredByUserId,
-        );
+        await this.consumeNonEduReferralQuota(tx, attribution.referredByUserId);
       }
 
       await this.consumeVerificationCode(

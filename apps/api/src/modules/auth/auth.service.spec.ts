@@ -324,11 +324,7 @@ describe('AuthService', () => {
     const outboundCreate = jest.fn().mockResolvedValue(undefined);
     const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
     const buildVerificationCodeEmail = jest.fn(
-      (input: {
-        dedupeKey: string;
-        recipientEmail: string;
-        code: string;
-      }) => ({
+      (input: { dedupeKey: string; recipientEmail: string; code: string }) => ({
         dedupeKey: input.dedupeKey,
         recipientEmail: input.recipientEmail,
         subject: 'LiLink verification code',
@@ -401,9 +397,10 @@ describe('AuthService', () => {
           }),
       ),
     };
-    const resolveByEmail = jest
-      .fn()
-      .mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' });
+    const resolveByEmail = jest.fn().mockResolvedValue({
+      schoolId: 'school-1',
+      schoolSlug: 'bupt-qmul-hainan',
+    });
     const authService = new AuthService(
       prisma as never,
       {
@@ -473,14 +470,18 @@ describe('AuthService', () => {
     expect(resolveByEmail).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       email: 'user@example.com',
-      school: { schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' },
+      school: {
+        schoolId: 'school-1',
+        schoolSlug: 'bupt-qmul-hainan',
+      },
     });
   });
 
   it('normalizes email casing and whitespace before resolving the school', async () => {
-    const resolveByEmail = jest
-      .fn()
-      .mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' });
+    const resolveByEmail = jest.fn().mockResolvedValue({
+      schoolId: 'school-1',
+      schoolSlug: 'bupt-qmul-hainan',
+    });
     const create = jest.fn().mockResolvedValue({ id: 'code-1' });
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     const outboundCreate = jest.fn().mockResolvedValue(undefined);
@@ -578,7 +579,10 @@ describe('AuthService', () => {
         deliverQueuedEmailNow,
       } as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+        }),
       } as never,
       {} as never,
     );
@@ -751,7 +755,10 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -822,7 +829,10 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -905,7 +915,10 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+        }),
       } as never,
       {
         sign: jest.fn().mockReturnValue('jwt-token'),
@@ -978,7 +991,10 @@ describe('AuthService', () => {
       $transaction: transaction,
     };
     const schoolResolver = {
-      resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+      resolveByEmail: jest.fn().mockResolvedValue({
+        schoolId: 'school-1',
+        schoolSlug: 'bupt-qmul-hainan',
+      }),
     };
     return {
       prisma,
@@ -1065,7 +1081,10 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -1117,7 +1136,10 @@ describe('AuthService', () => {
         prisma as never,
         {} as never,
         {
-          resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+          resolveByEmail: jest.fn().mockResolvedValue({
+            schoolId: 'school-1',
+            schoolSlug: 'bupt-qmul-hainan',
+          }),
         } as never,
         {
           sign: jest.fn(),
@@ -1162,7 +1184,10 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -1200,7 +1225,10 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -1271,7 +1299,10 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -1367,7 +1398,10 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1', schoolSlug: 'bupt-qmul-hainan' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+        }),
       } as never,
       {
         sign: jest.fn().mockReturnValue('jwt-token'),
