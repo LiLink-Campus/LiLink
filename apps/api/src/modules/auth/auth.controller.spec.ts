@@ -22,7 +22,31 @@ describe('AuthController', () => {
     });
 
     expect(requestCode).toHaveBeenCalledTimes(1);
-    expect(requestCode).toHaveBeenCalledWith('user@example.com');
+    expect(requestCode).toHaveBeenCalledWith('user@example.com', undefined);
+  });
+
+  it('forwards requestCode to AuthService with the submitted referral code', async () => {
+    const requestCode = jest.fn().mockResolvedValue({
+      email: 'user@qq.com',
+      expiresAt: new Date(),
+      school: null,
+    });
+    const authController = new AuthController({
+      requestCode,
+    } as never);
+
+    await expect(
+      authController.requestCode({
+        email: 'user@qq.com',
+        referralCode: 'VALIDCODE1',
+      }),
+    ).resolves.toMatchObject({
+      email: 'user@qq.com',
+      school: null,
+    });
+
+    expect(requestCode).toHaveBeenCalledTimes(1);
+    expect(requestCode).toHaveBeenCalledWith('user@qq.com', 'VALIDCODE1');
   });
 
   it('strips the token from the login response body while still setting the cookie', async () => {
