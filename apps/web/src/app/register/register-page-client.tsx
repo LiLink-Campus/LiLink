@@ -445,10 +445,13 @@ export default function RegisterPageClient() {
             </Field>
             <Field
               label={
-                requiresNonEduReferral
-                  ? "邀请码（必填）"
-                  : attributionLocked
-                    ? "邀请码"
+                // A locked (invite-link) code is already a valid value, so it is
+                // never "必填" of the user; prioritize the locked label to stay
+                // consistent with the "不可修改" hint below.
+                attributionLocked
+                  ? "邀请码"
+                  : requiresNonEduReferral
+                    ? "邀请码（必填）"
                     : "邀请码（可选）"
               }
               hint={
