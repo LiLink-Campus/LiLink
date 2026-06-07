@@ -87,6 +87,7 @@ describe('PublicService', () => {
       const findMany = jest.fn<
         Promise<
           Array<{
+            id: string;
             name: string;
             description: string | null;
             domains: Array<{ domain: string }>;
@@ -96,11 +97,13 @@ describe('PublicService', () => {
       >();
       findMany.mockResolvedValue([
         {
+          id: 'fudan',
           name: '复旦大学',
           description: 'fudan',
           domains: [{ domain: 'fudan.edu.cn' }, { domain: 'm.fudan.edu.cn' }],
         },
         {
+          id: 'sjtu',
           name: '上海交通大学',
           description: null,
           domains: [{ domain: 'sjtu.edu.cn' }],
@@ -113,13 +116,18 @@ describe('PublicService', () => {
 
       expect(payload.totalSchoolCount).toBe(2);
       expect(payload.totalDomainCount).toBe(3);
+      // id is asserted explicitly: the manual-school dropdown uses school.id as
+      // the <option value>, so a regression dropping it would silently break
+      // non-edu registration.
       expect(payload.schools).toEqual([
         {
+          id: 'fudan',
           name: '复旦大学',
           description: 'fudan',
           domains: ['fudan.edu.cn', 'm.fudan.edu.cn'],
         },
         {
+          id: 'sjtu',
           name: '上海交通大学',
           description: null,
           domains: ['sjtu.edu.cn'],

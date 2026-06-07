@@ -3,7 +3,10 @@ import {
   PERSONAL_CODE_LENGTH,
   REFERRAL_CHANNELS,
 } from '@lilink/shared';
-import { ReferralService } from './referral.service';
+import {
+  ReferralService,
+  isLocalDevMockReferralCode,
+} from './referral.service';
 
 function makePrisma() {
   return {
@@ -467,6 +470,54 @@ describe('ReferralService', () => {
         redeemed: 0,
       });
       expect(prisma.campaignActivation.findMany).not.toHaveBeenCalled();
+    });
+
+    it('reports the non-edu referral quota for the owner', async () => {
+      const prisma = makePrisma();
+      // One row backs both findUnique calls (assign reads referralCode, the owner
+      // read selects the quota columns).
+      prisma.user.findUnique.mockResolvedValue({
+        referralCode: 'PERSONAL10',
+        nonEduReferralLimit: 5,
+        nonEduReferralUses: 2,
+      });
+      prisma.user.findMany.mockResolvedValue([]);
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.getMyReferralOverview('user-1');
+
+      expect(result.nonEduReferralQuota).toEqual({
+        limit: 5,
+        uses: 2,
+        remaining: 3,
+      });
+    });
+
+    it('clamps the remaining quota to zero when uses exceed the limit', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        referralCode: 'PERSONAL10',
+        nonEduReferralLimit: 1,
+        nonEduReferralUses: 4,
+      });
+      prisma.user.findMany.mockResolvedValue([]);
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.getMyReferralOverview('user-1');
+
+      expect(result.nonEduReferralQuota).toEqual({
+        limit: 1,
+        uses: 4,
+        remaining: 0,
+      });
+    });
+  });
+
+  describe('isLocalDevMockReferralCode', () => {
+    it('never honors a code other than the master dev code', () => {
+      // Robust regardless of APP_ENV/NODE_ENV: a non-matching code is always
+      // rejected. The environment gate itself is covered in config/env.spec.ts.
+      expect(isLocalDevMockReferralCode('ABC2345XYZ')).toBe(false);
     });
   });
 });
