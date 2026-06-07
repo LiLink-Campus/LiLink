@@ -130,7 +130,7 @@ describe('ReferralService', () => {
       });
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { referralCode: 'ABC2345XYZ' },
-        select: { id: true },
+        select: { id: true, status: true },
       });
       expect(prisma.campaign.findFirst).not.toHaveBeenCalled();
     });
@@ -202,6 +202,102 @@ describe('ReferralService', () => {
       const result = await service.resolveRegistrationAttribution({});
 
       expect(result.referralCampaignId).toBeNull();
+    });
+
+    it('throws when requireReferralCode is set but no code is provided', async () => {
+      const prisma = makePrisma();
+      const service = new ReferralService(prisma as never);
+
+      await expect(
+        service.resolveRegistrationAttribution({}, prisma as never, {
+          requireReferralCode: true,
+        }),
+      ).rejects.toThrow('Referral code is required');
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('throws when requireReferralCode is set and the code is unknown', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue(null);
+      const service = new ReferralService(prisma as never);
+
+      await expect(
+        service.resolveRegistrationAttribution(
+          { referralCode: 'NOSUCHCODE' },
+          prisma as never,
+          { requireReferralCode: true },
+        ),
+      ).rejects.toThrow('Referral code is invalid');
+    });
+
+    it('rejects a non-ACTIVE referrer for non-school (requireReferralCode) registration', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'SUSPENDED',
+      });
+      const service = new ReferralService(prisma as never);
+
+      await expect(
+        service.resolveRegistrationAttribution(
+          { referralCode: 'ABC2345XYZ' },
+          prisma as never,
+          { requireReferralCode: true },
+        ),
+      ).rejects.toThrow('Referral code is invalid');
+    });
+
+    it('accepts an ACTIVE referrer for non-school (requireReferralCode) registration', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'ACTIVE',
+      });
+      prisma.campaign.findFirst.mockResolvedValue(null);
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.resolveRegistrationAttribution(
+        { referralCode: 'ABC2345XYZ', channel: 'WECHAT_GROUP' },
+        prisma as never,
+        { requireReferralCode: true },
+      );
+
+      expect(result.referredByUserId).toBe('ref-1');
+      expect(result.referralChannel).toBe('WECHAT_GROUP');
+    });
+
+    it('throws on an unknown code when rejectInvalidReferralCode is set (edu typed an invalid code)', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue(null);
+      const service = new ReferralService(prisma as never);
+
+      await expect(
+        service.resolveRegistrationAttribution(
+          { referralCode: 'NOSUCHCODE' },
+          prisma as never,
+          { rejectInvalidReferralCode: true },
+        ),
+      ).rejects.toThrow('Referral code is invalid');
+    });
+
+    it('still records attribution for a non-ACTIVE referrer on school (optional-code) registration', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'SUSPENDED',
+      });
+      prisma.campaign.findFirst.mockResolvedValue(null);
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.resolveRegistrationAttribution(
+        { referralCode: 'ABC2345XYZ' },
+        prisma as never,
+        { rejectInvalidReferralCode: true },
+      );
+
+      // School registration does not gate on referrer status, so attribution is
+      // preserved even when the referrer is suspended (no quota is consumed).
+      expect(result.referredByUserId).toBe('ref-1');
     });
   });
 

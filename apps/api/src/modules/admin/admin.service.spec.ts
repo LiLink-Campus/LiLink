@@ -7,7 +7,11 @@ jest.mock('../../config/env', () => ({
 }));
 
 import { AdminService } from './admin.service';
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
@@ -1499,6 +1503,94 @@ describe('AdminService', () => {
       await expect(service.seedTestUsers('admin-1')).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('updateUserReferralLimit', () => {
+    const buildService = (overrides: {
+      findUnique: jest.Mock;
+      update?: jest.Mock;
+      write?: jest.Mock;
+    }) => {
+      const adminAuditService = {
+        listAuditLogs: jest.fn(),
+        getRecentAuditLogsByCondition: jest.fn(),
+        write: overrides.write ?? jest.fn(),
+      };
+      const prisma = {
+        user: {
+          findUnique: overrides.findUnique,
+          update: overrides.update ?? jest.fn(),
+        },
+      };
+      const service = new AdminService(
+        prisma as never,
+        {} as never,
+        adminAuditService as never,
+        {} as never,
+      );
+      return { service, prisma, adminAuditService };
+    };
+
+    it('updates the limit and writes an audit log with previous/next values', async () => {
+      const write = jest.fn();
+      const update = jest.fn().mockResolvedValue({
+        id: 'user-1',
+        nonEduReferralLimit: 10,
+        nonEduReferralUses: 2,
+      });
+      const { service, prisma, adminAuditService } = buildService({
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'user-1',
+          nonEduReferralLimit: 3,
+          nonEduReferralUses: 2,
+        }),
+        update,
+        write,
+      });
+
+      const result = await service.updateUserReferralLimit(
+        'user-1',
+        { nonEduReferralLimit: 10 },
+        'admin-1',
+      );
+
+      expect(result).toMatchObject({ id: 'user-1', nonEduReferralLimit: 10 });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { nonEduReferralLimit: 10 },
+        omit: { passwordHash: true },
+      });
+      expect(adminAuditService.write).toHaveBeenCalledWith(
+        'admin-1',
+        'user.referral_limit_updated',
+        {
+          userId: 'user-1',
+          previousLimit: 3,
+          nextLimit: 10,
+          nonEduReferralUses: 2,
+        },
+      );
+    });
+
+    it('throws NotFoundException and writes no audit log when the user is missing', async () => {
+      const write = jest.fn();
+      const update = jest.fn();
+      const { service } = buildService({
+        findUnique: jest.fn().mockResolvedValue(null),
+        update,
+        write,
+      });
+
+      await expect(
+        service.updateUserReferralLimit(
+          'missing',
+          { nonEduReferralLimit: 5 },
+          'admin-1',
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(update).not.toHaveBeenCalled();
+      expect(write).not.toHaveBeenCalled();
     });
   });
 });

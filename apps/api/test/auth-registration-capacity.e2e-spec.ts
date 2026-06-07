@@ -13,6 +13,7 @@ import {
 import { createHmac, randomUUID } from 'crypto';
 import { env } from '../src/config/env';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { ReferralService } from '../src/modules/referral/referral.service';
 
 const REGISTRATION_CAPACITY_LOCK_KEY = 120_404_260;
 const VERIFICATION_CODE_HMAC_CONTEXT = 'verification-code';
@@ -289,6 +290,215 @@ describe('Registration capacity advisory lock (e2e)', () => {
       });
       const finalUserCount = await prisma.user.count();
       expect(finalUserCount).toBe(limit);
+    });
+  });
+
+  describe('AuthService.register non-edu referral quota (real DB)', () => {
+    const NON_EDU_DOMAIN = `lilink-nonedu-${TEST_RUN_TAG}.example`;
+    // resolveManualSchoolId only accepts schools whose slug is in the
+    // registration allowlist; reuse the allowlisted partner slug.
+    const MANUAL_SCHOOL_SLUG = TEST_REGISTRATION_SCHOOL_SLUG;
+    const MANUAL_SCHOOL_DOMAIN = `lilink-manual-${TEST_RUN_TAG}.example`;
+
+    let authService: AuthService;
+    let manualSchoolId: string;
+
+    const seedNonEduCode = async (email: string, code: string) => {
+      const deliveryDedupeKey = `verification-code:${randomUUID()}`;
+      await prisma.emailCode.create({
+        data: {
+          email,
+          codeHash: hashRegistrationCode({ email, deliveryDedupeKey, code }),
+          purpose: 'register',
+          deliveryDedupeKey,
+          deliveryStatus: OutboundEmailStatus.SENT,
+          expiresAt: new Date(Date.now() + VERIFICATION_CODE_TTL_MS),
+        },
+      });
+    };
+
+    const createReferrer = async (overrides: {
+      status?: 'ACTIVE' | 'SUSPENDED' | 'PENDING';
+      limit?: number;
+      uses?: number;
+    }) => {
+      const referralCode = `REF${randomUUID()
+        .replace(/-/g, '')
+        .slice(0, 12)
+        .toUpperCase()}`;
+      return prisma.user.create({
+        data: {
+          email: `referrer-${randomUUID().slice(0, 8)}@${NON_EDU_DOMAIN}`,
+          passwordHash: 'placeholder-not-a-real-hash',
+          status: overrides.status ?? 'ACTIVE',
+          schoolId: manualSchoolId,
+          referralCode,
+          nonEduReferralLimit: overrides.limit ?? 3,
+          nonEduReferralUses: overrides.uses ?? 0,
+        },
+      });
+    };
+
+    beforeAll(async () => {
+      const manualSchool = await prisma.school.upsert({
+        where: { slug: MANUAL_SCHOOL_SLUG },
+        update: {},
+        create: {
+          name: `Manual School ${TEST_RUN_TAG}`,
+          slug: MANUAL_SCHOOL_SLUG,
+          domains: { create: [{ domain: MANUAL_SCHOOL_DOMAIN }] },
+        },
+      });
+      manualSchoolId = manualSchool.id;
+
+      const schoolResolver = { resolveByEmail: jest.fn(() => null) };
+      const jwtService = new JwtService({ secret: env.JWT_SECRET });
+      const mailServiceStub = {
+        buildVerificationCodeEmail: jest.fn(),
+        deliverQueuedEmailNow: jest.fn().mockResolvedValue(undefined),
+      };
+      const referralService = new ReferralService(prisma as never);
+      authService = new AuthService(
+        prisma as never,
+        mailServiceStub as never,
+        schoolResolver as never,
+        jwtService,
+        referralService,
+      );
+    });
+
+    afterEach(async () => {
+      await prisma.user.deleteMany({
+        where: { email: { endsWith: `@${NON_EDU_DOMAIN}` } },
+      });
+      await prisma.emailCode.deleteMany({
+        where: { email: { endsWith: `@${NON_EDU_DOMAIN}` } },
+      });
+    });
+
+    afterAll(async () => {
+      await prisma.user.deleteMany({ where: { schoolId: manualSchoolId } });
+      await prisma.school
+        .delete({ where: { id: manualSchoolId } })
+        .catch(() => undefined);
+    });
+
+    it('consumes exactly one quota unit and starts the new non-edu user at limit 0', async () => {
+      const referrer = await createReferrer({ limit: 2, uses: 0 });
+      const email = `joiner-${randomUUID().slice(0, 8)}@${NON_EDU_DOMAIN}`;
+      await seedNonEduCode(email, '654321');
+
+      const result = await authService.register({
+        email,
+        code: '654321',
+        password: 'Password123',
+        displayName: 'Joiner',
+        acceptedTerms: true,
+        referralCode: referrer.referralCode!,
+        manualSchoolId,
+      });
+
+      expect(result.user.email).toBe(email);
+      const persisted = await prisma.user.findUniqueOrThrow({
+        where: { email },
+      });
+      expect(persisted.schoolId).toBe(manualSchoolId);
+      expect(persisted.referredByUserId).toBe(referrer.id);
+      // A non-edu registrant cannot itself invite other non-edu users.
+      expect(persisted.nonEduReferralLimit).toBe(0);
+
+      const refreshedReferrer = await prisma.user.findUniqueOrThrow({
+        where: { id: referrer.id },
+      });
+      expect(refreshedReferrer.nonEduReferralUses).toBe(1);
+    });
+
+    it('rejects and rolls back when the referrer quota is exhausted', async () => {
+      const referrer = await createReferrer({ limit: 1, uses: 1 });
+      const email = `joiner-${randomUUID().slice(0, 8)}@${NON_EDU_DOMAIN}`;
+      await seedNonEduCode(email, '111222');
+
+      await expect(
+        authService.register({
+          email,
+          code: '111222',
+          password: 'Password123',
+          displayName: 'Joiner',
+          acceptedTerms: true,
+          referralCode: referrer.referralCode!,
+          manualSchoolId,
+        }),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining('exhausted') as unknown,
+      });
+
+      const refreshedReferrer = await prisma.user.findUniqueOrThrow({
+        where: { id: referrer.id },
+      });
+      expect(refreshedReferrer.nonEduReferralUses).toBe(1);
+      await expect(
+        prisma.user.findUnique({ where: { email } }),
+      ).resolves.toBeNull();
+    });
+
+    it('rejects a code from a non-ACTIVE referrer without consuming quota', async () => {
+      const referrer = await createReferrer({
+        status: 'SUSPENDED',
+        limit: 3,
+        uses: 0,
+      });
+      const email = `joiner-${randomUUID().slice(0, 8)}@${NON_EDU_DOMAIN}`;
+      await seedNonEduCode(email, '333444');
+
+      await expect(
+        authService.register({
+          email,
+          code: '333444',
+          password: 'Password123',
+          displayName: 'Joiner',
+          acceptedTerms: true,
+          referralCode: referrer.referralCode!,
+          manualSchoolId,
+        }),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining('invalid') as unknown,
+      });
+
+      const refreshedReferrer = await prisma.user.findUniqueOrThrow({
+        where: { id: referrer.id },
+      });
+      expect(refreshedReferrer.nonEduReferralUses).toBe(0);
+      await expect(
+        prisma.user.findUnique({ where: { email } }),
+      ).resolves.toBeNull();
+    });
+
+    it('rejects a manual school whose slug is not in the registration allowlist', async () => {
+      const referrer = await createReferrer({ limit: 3, uses: 0 });
+      const email = `joiner-${randomUUID().slice(0, 8)}@${NON_EDU_DOMAIN}`;
+      await seedNonEduCode(email, '555666');
+
+      await expect(
+        authService.register({
+          email,
+          code: '555666',
+          password: 'Password123',
+          displayName: 'Joiner',
+          acceptedTerms: true,
+          referralCode: referrer.referralCode!,
+          // testSchoolId has a non-allowlisted slug (lilink-cap-*).
+          manualSchoolId: testSchoolId,
+        }),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining(
+          'Selected school is invalid',
+        ) as unknown,
+      });
+
+      const refreshedReferrer = await prisma.user.findUniqueOrThrow({
+        where: { id: referrer.id },
+      });
+      expect(refreshedReferrer.nonEduReferralUses).toBe(0);
     });
   });
 });

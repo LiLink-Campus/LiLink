@@ -159,10 +159,19 @@ export class ReferralService {
 
       const referrer = await client.user.findUnique({
         where: { referralCode: code },
-        select: { id: true },
+        select: { id: true, status: true },
       });
 
-      if (!referrer) {
+      // For non-school registration the referrer must be an ACTIVE account
+      // (mirrors the request-code gate): a SUSPENDED/PENDING referrer's code is
+      // treated as invalid so it cannot grant non-edu access or consume quota.
+      // School (optional-code) registration still records attribution regardless
+      // of referrer status, preserving the prior behavior.
+      const referrerIsUsable =
+        referrer &&
+        (!options.requireReferralCode || referrer.status === 'ACTIVE');
+
+      if (!referrerIsUsable) {
         if (options.requireReferralCode || options.rejectInvalidReferralCode) {
           throw new BadRequestException('Referral code is invalid.');
         }

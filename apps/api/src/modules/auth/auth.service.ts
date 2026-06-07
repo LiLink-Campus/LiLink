@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -155,6 +154,11 @@ export class AuthService {
             referredByUserId: attribution.referredByUserId,
             referralChannel: attribution.referralChannel,
             referralCampaignId: attribution.referralCampaignId,
+            // Non-school registrants cannot themselves pull in other non-school
+            // users: their non-edu referral quota starts at 0. School registrants
+            // keep the column default (3). Admins can later raise a user's quota
+            // via PATCH /admin/users/:id/referral-limit (the "ambassador" tier).
+            nonEduReferralLimit: isNonEduEmail ? 0 : undefined,
             acceptedTermsAt: input.acceptedTerms ? now : null,
             lastLoginAt: now,
             lastActiveAt: now,
@@ -531,10 +535,15 @@ export class AuthService {
       );
     }
 
+    // Atomic CAS debit. The status guard is defense-in-depth against a referrer
+    // being suspended between attribution resolution and this UPDATE within the
+    // same transaction; the primary ACTIVE check lives in
+    // ReferralService.resolveRegistrationAttribution.
     const affectedRows = await tx.$executeRaw(Prisma.sql`
       UPDATE "User"
       SET "nonEduReferralUses" = "nonEduReferralUses" + 1
       WHERE "id" = ${referrerUserId}
+        AND "status" = 'ACTIVE'
         AND "nonEduReferralUses" < "nonEduReferralLimit"
     `);
 
@@ -550,7 +559,7 @@ export class AuthService {
   ) {
     const code = referralCode?.trim().toUpperCase();
     if (!code) {
-      throw new ForbiddenException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
+      throw new BadRequestException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
     }
 
     if (this.isLocalDevMockReferralCode(code)) {
@@ -571,7 +580,7 @@ export class AuthService {
       referrer.status !== 'ACTIVE' ||
       referrer.nonEduReferralUses >= referrer.nonEduReferralLimit
     ) {
-      throw new ForbiddenException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
+      throw new BadRequestException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
     }
   }
 

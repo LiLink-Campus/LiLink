@@ -5,7 +5,6 @@ jest.mock('argon2', () => ({
 
 import {
   BadRequestException,
-  ForbiddenException,
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -333,7 +332,7 @@ describe('AuthService', () => {
 
     await expect(
       authService.requestCode('user@invalid.example'),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(transaction).not.toHaveBeenCalled();
     expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
     expect(deliverQueuedEmailNow).not.toHaveBeenCalled();

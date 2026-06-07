@@ -605,7 +605,15 @@ export class MailService {
   }
 
   private printLocalDevVerificationCodeFallback(email: OutboundEmailRecord) {
-    if (process.env.NODE_ENV === 'production') {
+    // Local-dev-only escape hatch: print the code and mark it SENT so a failed
+    // SMTP delivery does not block local registration. Gate on the SAME dual
+    // condition used by the auth/referral dev overrides (APP_ENV === 'development'
+    // AND NODE_ENV !== 'production') so it can never fire in CI (APP_ENV=test) or
+    // on a staging/prod host where NODE_ENV happens to be unset.
+    if (
+      env.APP_ENV !== 'development' ||
+      process.env.NODE_ENV === 'production'
+    ) {
       return false;
     }
 
