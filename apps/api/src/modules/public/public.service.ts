@@ -158,7 +158,11 @@ export class PublicService {
 
   private async loadEligibleSchools() {
     const schools = await this.prisma.school.findMany({
+      // Only schools flagged eligible in the admin school center are offered for
+      // self-registration; this is the single source of truth shared by the
+      // public schools page and the registration manual-school dropdown.
       where: {
+        registrationEligible: true,
         domains: { some: {} },
       },
       select: {

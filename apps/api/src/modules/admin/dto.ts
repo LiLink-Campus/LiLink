@@ -130,6 +130,11 @@ export class CreateSchoolDto {
   @MaxLength(ADMIN_DESCRIPTION_MAX_LENGTH)
   description?: string;
 
+  // When omitted, the school defaults to registration-eligible (schema default).
+  @IsOptional()
+  @IsBoolean()
+  registrationEligible?: boolean;
+
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(ADMIN_SCHOOL_DOMAIN_MAX_ITEMS)
@@ -147,6 +152,11 @@ export class UpdateSchoolDto {
   @IsString()
   @MaxLength(ADMIN_DESCRIPTION_MAX_LENGTH)
   description?: string;
+
+  // When omitted, the school's current eligibility is left unchanged.
+  @IsOptional()
+  @IsBoolean()
+  registrationEligible?: boolean;
 
   @IsArray()
   @ArrayMinSize(1)

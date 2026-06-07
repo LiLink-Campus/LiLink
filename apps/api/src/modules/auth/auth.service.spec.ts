@@ -439,6 +439,7 @@ describe('AuthService', () => {
     const resolveByEmail = jest.fn().mockResolvedValue({
       schoolId: 'school-1',
       schoolSlug: 'bupt-qmul-hainan',
+      registrationEligible: true,
     });
     const authService = new AuthService(
       prisma as never,
@@ -512,6 +513,7 @@ describe('AuthService', () => {
       school: {
         schoolId: 'school-1',
         schoolSlug: 'bupt-qmul-hainan',
+        registrationEligible: true,
       },
     });
   });
@@ -520,6 +522,7 @@ describe('AuthService', () => {
     const resolveByEmail = jest.fn().mockResolvedValue({
       schoolId: 'school-1',
       schoolSlug: 'bupt-qmul-hainan',
+      registrationEligible: true,
     });
     const create = jest.fn().mockResolvedValue({ id: 'code-1' });
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
@@ -621,6 +624,7 @@ describe('AuthService', () => {
         resolveByEmail: jest.fn().mockResolvedValue({
           schoolId: 'school-1',
           schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
         }),
       } as never,
       {} as never,
@@ -797,6 +801,7 @@ describe('AuthService', () => {
         resolveByEmail: jest.fn().mockResolvedValue({
           schoolId: 'school-1',
           schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
         }),
       } as never,
       {
@@ -871,6 +876,7 @@ describe('AuthService', () => {
         resolveByEmail: jest.fn().mockResolvedValue({
           schoolId: 'school-1',
           schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
         }),
       } as never,
       {
@@ -957,6 +963,7 @@ describe('AuthService', () => {
         resolveByEmail: jest.fn().mockResolvedValue({
           schoolId: 'school-1',
           schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
         }),
       } as never,
       {
@@ -1033,6 +1040,7 @@ describe('AuthService', () => {
       resolveByEmail: jest.fn().mockResolvedValue({
         schoolId: 'school-1',
         schoolSlug: 'bupt-qmul-hainan',
+        registrationEligible: true,
       }),
     };
     return {
@@ -1123,6 +1131,7 @@ describe('AuthService', () => {
         resolveByEmail: jest.fn().mockResolvedValue({
           schoolId: 'school-1',
           schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
         }),
       } as never,
       {
@@ -1178,6 +1187,7 @@ describe('AuthService', () => {
           resolveByEmail: jest.fn().mockResolvedValue({
             schoolId: 'school-1',
             schoolSlug: 'bupt-qmul-hainan',
+            registrationEligible: true,
           }),
         } as never,
         {
@@ -1226,6 +1236,7 @@ describe('AuthService', () => {
         resolveByEmail: jest.fn().mockResolvedValue({
           schoolId: 'school-1',
           schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
         }),
       } as never,
       {
@@ -1267,6 +1278,7 @@ describe('AuthService', () => {
         resolveByEmail: jest.fn().mockResolvedValue({
           schoolId: 'school-1',
           schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
         }),
       } as never,
       {
@@ -1341,6 +1353,7 @@ describe('AuthService', () => {
         resolveByEmail: jest.fn().mockResolvedValue({
           schoolId: 'school-1',
           schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
         }),
       } as never,
       {
@@ -1440,6 +1453,7 @@ describe('AuthService', () => {
         resolveByEmail: jest.fn().mockResolvedValue({
           schoolId: 'school-1',
           schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
         }),
       } as never,
       {

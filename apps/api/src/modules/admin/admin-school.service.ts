@@ -129,6 +129,8 @@ export class AdminSchoolService {
         name: input.name,
         slug: input.slug,
         description: input.description,
+        // Omitted (undefined) falls back to the schema default (eligible).
+        registrationEligible: input.registrationEligible,
         domains: {
           create: normalizedDomains.map((domain) => ({ domain })),
         },
@@ -141,6 +143,7 @@ export class AdminSchoolService {
     await this.adminAuditService.write(adminActorId, 'school.created', {
       schoolId: school.id,
       slug: school.slug,
+      registrationEligible: school.registrationEligible,
     });
     this.schoolResolverService.invalidateResolutionCache();
 
@@ -172,6 +175,8 @@ export class AdminSchoolService {
         data: {
           name: input.name,
           description: input.description,
+          // Omitted (undefined) leaves the current eligibility unchanged.
+          registrationEligible: input.registrationEligible,
           domains: {
             create: normalizedDomains.map((domain) => ({ domain })),
           },
@@ -183,6 +188,7 @@ export class AdminSchoolService {
     await this.adminAuditService.write(adminActorId, 'school.updated', {
       schoolId: updatedSchool.id,
       slug: updatedSchool.slug,
+      registrationEligible: updatedSchool.registrationEligible,
     });
     this.schoolResolverService.invalidateResolutionCache();
 

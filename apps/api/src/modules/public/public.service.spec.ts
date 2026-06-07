@@ -127,10 +127,14 @@ describe('PublicService', () => {
       ]);
       expect(payload.generatedAt).toBeInstanceOf(Date);
 
-      // Schools without any domain are excluded so the public list never shows
-      // an entry that users cannot actually use to register.
+      // Only registration-eligible schools that have at least one domain are
+      // returned, so the public list never shows an entry users cannot actually
+      // use to register.
       const findManyArgs = findMany.mock.calls[0][0];
-      expect(findManyArgs.where).toEqual({ domains: { some: {} } });
+      expect(findManyArgs.where).toEqual({
+        registrationEligible: true,
+        domains: { some: {} },
+      });
     });
 
     it('reuses the cached eligible schools payload within the TTL window', async () => {

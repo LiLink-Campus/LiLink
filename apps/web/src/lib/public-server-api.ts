@@ -1,10 +1,7 @@
 import "server-only";
 
 import { getServerApiBaseUrl } from "./api-base-url";
-import {
-  normalizeRegistrationEligibleSchoolsPayload,
-  type EligibleSchoolsPayload,
-} from "./eligible-schools";
+import { type EligibleSchoolsPayload } from "./eligible-schools";
 import type { LandingPayload } from "./landing-payload";
 
 function parseFailedResponseBody(text: string, status: number): string {
@@ -68,6 +65,5 @@ export async function getEligibleSchools() {
     throw new Error(parseFailedResponseBody(body, response.status));
   }
 
-  const payload = (await response.json()) as EligibleSchoolsPayload;
-  return normalizeRegistrationEligibleSchoolsPayload(payload);
+  return (await response.json()) as EligibleSchoolsPayload;
 }

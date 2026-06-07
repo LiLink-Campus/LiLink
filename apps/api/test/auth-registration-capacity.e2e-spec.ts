@@ -165,6 +165,7 @@ describe('Registration capacity advisory lock (e2e)', () => {
             schoolName: `Capacity Test School ${TEST_RUN_TAG}`,
             schoolSlug: TEST_REGISTRATION_SCHOOL_SLUG,
             schoolDescription: null,
+            registrationEligible: true,
           };
         }),
       };
@@ -295,13 +296,15 @@ describe('Registration capacity advisory lock (e2e)', () => {
 
   describe('AuthService.register non-edu referral quota (real DB)', () => {
     const NON_EDU_DOMAIN = `lilink-nonedu-${TEST_RUN_TAG}.example`;
-    // resolveManualSchoolId only accepts schools whose slug is in the
-    // registration allowlist; reuse the allowlisted partner slug.
+    // resolveManualSchoolId only accepts schools flagged registrationEligible.
     const MANUAL_SCHOOL_SLUG = TEST_REGISTRATION_SCHOOL_SLUG;
     const MANUAL_SCHOOL_DOMAIN = `lilink-manual-${TEST_RUN_TAG}.example`;
+    const INELIGIBLE_SCHOOL_SLUG = `lilink-ineligible-${TEST_RUN_TAG}`;
+    const INELIGIBLE_SCHOOL_DOMAIN = `lilink-ineligible-${TEST_RUN_TAG}.example`;
 
     let authService: AuthService;
     let manualSchoolId: string;
+    let ineligibleSchoolId: string;
 
     const seedNonEduCode = async (email: string, code: string) => {
       const deliveryDedupeKey = `verification-code:${randomUUID()}`;
@@ -342,14 +345,27 @@ describe('Registration capacity advisory lock (e2e)', () => {
     beforeAll(async () => {
       const manualSchool = await prisma.school.upsert({
         where: { slug: MANUAL_SCHOOL_SLUG },
-        update: {},
+        update: { registrationEligible: true },
         create: {
           name: `Manual School ${TEST_RUN_TAG}`,
           slug: MANUAL_SCHOOL_SLUG,
+          registrationEligible: true,
           domains: { create: [{ domain: MANUAL_SCHOOL_DOMAIN }] },
         },
       });
       manualSchoolId = manualSchool.id;
+
+      const ineligibleSchool = await prisma.school.upsert({
+        where: { slug: INELIGIBLE_SCHOOL_SLUG },
+        update: { registrationEligible: false },
+        create: {
+          name: `Ineligible School ${TEST_RUN_TAG}`,
+          slug: INELIGIBLE_SCHOOL_SLUG,
+          registrationEligible: false,
+          domains: { create: [{ domain: INELIGIBLE_SCHOOL_DOMAIN }] },
+        },
+      });
+      ineligibleSchoolId = ineligibleSchool.id;
 
       const schoolResolver = { resolveByEmail: jest.fn(() => null) };
       const jwtService = new JwtService({ secret: env.JWT_SECRET });
@@ -380,6 +396,9 @@ describe('Registration capacity advisory lock (e2e)', () => {
       await prisma.user.deleteMany({ where: { schoolId: manualSchoolId } });
       await prisma.school
         .delete({ where: { id: manualSchoolId } })
+        .catch(() => undefined);
+      await prisma.school
+        .delete({ where: { id: ineligibleSchoolId } })
         .catch(() => undefined);
     });
 
@@ -473,7 +492,7 @@ describe('Registration capacity advisory lock (e2e)', () => {
       ).resolves.toBeNull();
     });
 
-    it('rejects a manual school whose slug is not in the registration allowlist', async () => {
+    it('rejects a manual school that is not registration-eligible', async () => {
       const referrer = await createReferrer({ limit: 3, uses: 0 });
       const email = `joiner-${randomUUID().slice(0, 8)}@${NON_EDU_DOMAIN}`;
       await seedNonEduCode(email, '555666');
@@ -486,8 +505,8 @@ describe('Registration capacity advisory lock (e2e)', () => {
           displayName: 'Joiner',
           acceptedTerms: true,
           referralCode: referrer.referralCode!,
-          // testSchoolId has a non-allowlisted slug (lilink-cap-*).
-          manualSchoolId: testSchoolId,
+          // This school has registrationEligible=false.
+          manualSchoolId: ineligibleSchoolId,
         }),
       ).rejects.toMatchObject({
         message: expect.stringContaining(

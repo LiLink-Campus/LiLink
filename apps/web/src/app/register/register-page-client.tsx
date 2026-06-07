@@ -20,7 +20,7 @@ import { fetchApi } from "../../lib/api";
 import {
   extractEmailDomain,
   fetchEligibleSchools,
-  isEmailMatchedByRegistrationAllowlist,
+  findMatchingSchool,
   type EligibleSchool,
 } from "../../lib/eligible-schools";
 import {
@@ -87,12 +87,16 @@ export default function RegisterPageClient() {
   const [canRevealDevCode, setCanRevealDevCode] = useState(false);
   const [loginHref, setLoginHref] = useState("/login");
   const emailDomainHint = useMemo(() => extractEmailDomain(email), [email]);
+  // A code is required before sending the verification code only when we have
+  // the eligible-school list and the email matches none of it. If the list
+  // hasn't loaded (or failed), defer to the server instead of pre-gating, so a
+  // school email is never wrongly blocked client-side.
   const requiresReferralBeforeCode = useMemo(
     () =>
-      Boolean(
-        emailDomainHint && !isEmailMatchedByRegistrationAllowlist(email),
-      ),
-    [email, emailDomainHint],
+      eligibleSchools.length > 0 &&
+      Boolean(emailDomainHint) &&
+      !findMatchingSchool(eligibleSchools, email),
+    [eligibleSchools, email, emailDomainHint],
   );
 
   useEffect(() => {
@@ -131,18 +135,11 @@ export default function RegisterPageClient() {
     }
   }, []);
 
+  // Load the registration-eligible school list once on mount. It drives both
+  // the step-1 "needs a code first" gate (via findMatchingSchool) and the
+  // step-2 manual-school dropdown, keeping the client in sync with the
+  // backend's registrationEligible flag without any hardcoded list.
   useEffect(() => {
-    if (!requiresNonEduReferral) {
-      setManualSchoolId("");
-      setSchoolsError(null);
-      setSchoolsPending(false);
-      return;
-    }
-
-    if (eligibleSchools.length > 0) {
-      return;
-    }
-
     let active = true;
     setSchoolsPending(true);
     setSchoolsError(null);
@@ -171,7 +168,7 @@ export default function RegisterPageClient() {
     return () => {
       active = false;
     };
-  }, [eligibleSchools.length, requiresNonEduReferral]);
+  }, []);
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

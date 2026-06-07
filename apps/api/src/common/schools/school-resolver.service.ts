@@ -7,6 +7,7 @@ type SchoolResolution = {
   schoolName: string;
   schoolSlug: string;
   schoolDescription: string | null;
+  registrationEligible: boolean;
 };
 
 type CachedSchoolResolution = {
@@ -113,6 +114,7 @@ export class SchoolResolverService {
           schoolName: match.school.name,
           schoolSlug: match.school.slug,
           schoolDescription: match.school.description,
+          registrationEligible: match.school.registrationEligible,
         }
       : null;
 

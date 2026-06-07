@@ -155,6 +155,11 @@ model School {
   name        String
   slug        String         @unique
   description String?
+  // When true, this school's email domains count as a trusted "school email"
+  // for self-registration (free verification code + default non-edu referral
+  // quota) and the school is offered in the manual-school dropdown. Managed from
+  // the admin school center; new schools default to eligible.
+  registrationEligible Boolean  @default(true)
   domains     SchoolDomain[]
   users       User[]
   createdAt   DateTime       @default(now())

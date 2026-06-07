@@ -44,14 +44,6 @@ const UNLIMITED_REGISTRATION_CAPACITY_LIMIT = 0;
 const NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR =
   '非学校邮箱必须提供有效邀请码方可获取验证码';
 const LOCAL_DEV_REFERRAL_CODE = 'LILINKDEV1';
-const REGISTRATION_SCHOOL_SLUG_ALLOWLIST = new Set([
-  'cuc-hainan-international',
-  'muc-hainan-international',
-  'bsu-ualberta-hainan',
-  'blcu-lian-exchange',
-  'bupt-qmul-hainan',
-  'uestc-glasgow-hainan',
-]);
 
 @Injectable()
 export class AuthService {
@@ -497,9 +489,11 @@ export class AuthService {
       return null;
     }
 
-    return REGISTRATION_SCHOOL_SLUG_ALLOWLIST.has(school.schoolSlug)
-      ? school
-      : null;
+    // Eligibility is data-driven: a school counts as a trusted school-email
+    // source only while it is flagged registrationEligible in the admin school
+    // center. Disabling the flag (or matching a non-partner domain) routes the
+    // email through the non-edu referral path.
+    return school.registrationEligible ? school : null;
   }
 
   private async resolveManualSchoolId(
@@ -515,10 +509,10 @@ export class AuthService {
 
     const school = await tx.school.findUnique({
       where: { id: schoolId },
-      select: { id: true, slug: true },
+      select: { id: true, registrationEligible: true },
     });
 
-    if (!school || !REGISTRATION_SCHOOL_SLUG_ALLOWLIST.has(school.slug)) {
+    if (!school || !school.registrationEligible) {
       throw new BadRequestException('Selected school is invalid.');
     }
 
