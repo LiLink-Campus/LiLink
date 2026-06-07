@@ -6,7 +6,7 @@ import {
   sanitizeSameOriginRelativePath,
 } from "@lilink/shared";
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ActionGroup } from "@/components/semantic";
 import {
   Button,
@@ -87,17 +87,28 @@ export default function RegisterPageClient() {
   const [canRevealDevCode, setCanRevealDevCode] = useState(false);
   const [loginHref, setLoginHref] = useState("/login");
   const emailDomainHint = useMemo(() => extractEmailDomain(email), [email]);
-  // A code is required before sending the verification code only when we have
-  // the eligible-school list and the email matches none of it. If the list
-  // hasn't loaded (or failed), defer to the server instead of pre-gating, so a
-  // school email is never wrongly blocked client-side.
-  const requiresReferralBeforeCode = useMemo(
-    () =>
-      eligibleSchools.length > 0 &&
-      Boolean(emailDomainHint) &&
-      !findMatchingSchool(eligibleSchools, email),
-    [eligibleSchools, email, emailDomainHint],
+  // The list is "confirmed" only once it has loaded with at least one school.
+  const schoolsListReady = eligibleSchools.length > 0;
+  // A confirmed match is only possible once the list is ready.
+  const matchedSchool = useMemo(
+    () => (schoolsListReady ? findMatchingSchool(eligibleSchools, email) : null),
+    [schoolsListReady, eligibleSchools, email],
   );
+  // The email *looks* non-edu when it has a domain and matches no eligible
+  // school. When the list is not yet confirmed (loading / failed / empty),
+  // matchedSchool is null, so an unmatched email is treated as possibly non-edu.
+  const emailLooksNonEdu = Boolean(emailDomainHint) && !matchedSchool;
+  // Render the step-1 referral input whenever the email looks non-edu (but not
+  // mid-load, to avoid a flash on school emails). Crucially this includes the
+  // list-failed / list-empty case, so a user who already holds a valid code can
+  // always supply it instead of dead-ending on an opaque server rejection.
+  const showReferralBeforeCode = emailLooksNonEdu && !schoolsPending;
+  // Hard-require a code client-side ONLY when we are confident the email is
+  // non-edu (the list loaded and confirmed no match). When the list could not be
+  // confirmed we render the field but defer the requirement to the server, so a
+  // school email is never wrongly blocked and a non-edu email is never left
+  // without a way to enter its code.
+  const requiresReferralBeforeCode = emailLooksNonEdu && schoolsListReady;
 
   useEffect(() => {
     const localhostHosts = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -135,40 +146,32 @@ export default function RegisterPageClient() {
     }
   }, []);
 
-  // Load the registration-eligible school list once on mount. It drives both
-  // the step-1 "needs a code first" gate (via findMatchingSchool) and the
-  // step-2 manual-school dropdown, keeping the client in sync with the
-  // backend's registrationEligible flag without any hardcoded list.
-  useEffect(() => {
-    let active = true;
+  // Load the registration-eligible school list. It drives both the step-1
+  // "needs a code first" gate (via findMatchingSchool) and the step-2
+  // manual-school dropdown, keeping the client in sync with the backend's
+  // registrationEligible flag without any hardcoded list. Exposed as a callable
+  // so a failed load can be retried (otherwise a transient /public/schools
+  // outage would dead-end non-edu registration on this page load).
+  const loadEligibleSchools = useCallback(async () => {
     setSchoolsPending(true);
     setSchoolsError(null);
-
-    fetchEligibleSchools()
-      .then((payload) => {
-        if (active) {
-          setEligibleSchools(payload.schools);
-        }
-      })
-      .catch((caughtError) => {
-        if (active) {
-          setSchoolsError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "学校列表加载失败，请稍后重试。",
-          );
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setSchoolsPending(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
+    try {
+      const payload = await fetchEligibleSchools();
+      setEligibleSchools(payload.schools);
+    } catch (caughtError) {
+      setSchoolsError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "学校列表加载失败，请稍后重试。",
+      );
+    } finally {
+      setSchoolsPending(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadEligibleSchools();
+  }, [loadEligibleSchools]);
 
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -319,13 +322,19 @@ export default function RegisterPageClient() {
               />
             </Field>
             <EligibleSchoolsPanel emailInput={email} variant="compact" />
-            {requiresReferralBeforeCode ? (
+            {showReferralBeforeCode ? (
               <Field
-                label="邀请码（获取验证码前必填）"
-                hint="普通邮箱需要先通过邀请码校验，校验通过后才会发送验证码。"
+                label={
+                  requiresReferralBeforeCode ? "邀请码（获取验证码前必填）" : "邀请码"
+                }
+                hint={
+                  requiresReferralBeforeCode
+                    ? "普通邮箱需要先通过邀请码校验，校验通过后才会发送验证码。"
+                    : "暂时无法确认你的邮箱是否为合作学校邮箱；如使用普通邮箱，请填写有效邀请码后再获取验证码。"
+                }
               >
                 <Input
-                  required
+                  required={requiresReferralBeforeCode}
                   readOnly={attributionLocked}
                   value={referralCode}
                   maxLength={REGISTER_REFERRAL_CODE_MAX_LENGTH}
@@ -337,6 +346,19 @@ export default function RegisterPageClient() {
                   }
                 />
               </Field>
+            ) : null}
+            {schoolsError ? (
+              <div className={authStyles.schoolListRetry}>
+                <FormMessage>{schoolsError}</FormMessage>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={schoolsPending}
+                  onClick={() => void loadEligibleSchools()}
+                >
+                  {schoolsPending ? "重试中…" : "重试加载学校列表"}
+                </Button>
+              </div>
             ) : null}
             {resolvedSchool ? (
               <FormMessage tone="success">
@@ -460,8 +482,20 @@ export default function RegisterPageClient() {
                 <p className={authStyles.schoolLockWarning}>
                   ⚠️ 注意：学校一旦在注册时选定，后续将作为身份凭证，无法自行更改，请务必准确选择。
                 </p>
-                {schoolsError ? (
-                  <FormMessage>{schoolsError}</FormMessage>
+                {schoolsError || (!schoolsPending && eligibleSchools.length === 0) ? (
+                  <div className={authStyles.schoolListRetry}>
+                    <FormMessage>
+                      {schoolsError ?? "暂时没有可选的学校，请稍后重试。"}
+                    </FormMessage>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={schoolsPending}
+                      onClick={() => void loadEligibleSchools()}
+                    >
+                      {schoolsPending ? "重试中…" : "重试加载学校列表"}
+                    </Button>
+                  </div>
                 ) : null}
               </>
             ) : null}

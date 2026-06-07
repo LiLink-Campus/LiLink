@@ -67,6 +67,12 @@ export class AuthService {
 
     if (!school) {
       await this.assertValidReferralBeforeNonSchoolRequestCode(referralCode);
+      // Observability for the abuse surface this path opens: a non-school
+      // verification email is only sent after a (read-only) referral check, and
+      // the per-referral-code throttle (auth-throttle.ts) caps fan-out. Logging
+      // the redacted code + target domain lets ops spot a single code being
+      // replayed across many inboxes even within the throttle.
+      this.logNonSchoolRequestCode(normalizedEmail, referralCode);
     }
 
     const result = await this.sendVerificationCode(normalizedEmail, 'register');
@@ -111,8 +117,11 @@ export class AuthService {
           },
           tx,
           {
+            // Non-school registration requires a valid, usable code (this throws
+            // on a missing/invalid one). School registration keeps the original
+            // tolerant behavior: an invalid optional code is silently ignored and
+            // registration proceeds without recording an attribution.
             requireReferralCode: isNonEduEmail,
-            rejectInvalidReferralCode: Boolean(input.referralCode?.trim()),
           },
         )) ?? {
           referredByUserId: null,
@@ -583,6 +592,20 @@ export class AuthService {
       env.APP_ENV === 'development' &&
       process.env.NODE_ENV !== 'production' &&
       code === LOCAL_DEV_REFERRAL_CODE
+    );
+  }
+
+  private logNonSchoolRequestCode(email: string, referralCode?: string | null) {
+    const code = referralCode?.trim().toUpperCase() ?? '';
+    const atIndex = email.lastIndexOf('@');
+    const domain = atIndex === -1 ? '(unknown)' : email.slice(atIndex + 1);
+    // Redact the code (prefix + length) so logs stay useful for spotting fan-out
+    // per code without persisting the full shareable referral credential.
+    const redactedCode = code
+      ? `${code.slice(0, 4)}…(${code.length})`
+      : '(none)';
+    this.logger.log(
+      `Non-school verification code requested for @${domain} via referral ${redactedCode}`,
     );
   }
 

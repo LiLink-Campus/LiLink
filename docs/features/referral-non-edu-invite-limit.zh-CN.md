@@ -18,7 +18,7 @@
 - `apps/api/src/modules/referral/referral.service.ts`
   - `assignReferralCodeIfMissing(userId)` 目前约在第 60 行，为用户生成 10 位个人推荐码，使用 `updateMany({ where: { id: userId, referralCode: null } })` 做 CAS，避免并发覆盖。
   - `resolveRegistrationAttribution(input, client)` 目前约在第 118 行，按 `input.referralCode` 查找推荐人，并返回 `referredByUserId / referralChannel / referralCampaignId`。
-  - 现有行为中，无效 `referralCode` 会被忽略，注册仍继续。本功能需要改为：只要用户填写了推荐码但无效，就抛错；非教育邮箱则必须填写有效推荐码。
+  - 行为约定：**仅非教育邮箱**必须填写有效推荐码（缺失/无效一律抛错）。教育邮箱保持原有宽松行为——无效推荐码静默忽略，注册照常继续（仅不记录推荐关系），避免一个过期/手误的可选推荐码挡住合法学校邮箱注册。
   - `getMyReferralOverview(userId)` 目前约在第 266 行，返回 `referralCode`、`links` 和 `funnel`。`funnel` 字段为 `invited / registered / activated / granted / redeemed`。
 
 ### 前端注册页
@@ -42,10 +42,11 @@
    - 可以不填推荐码。
    - 如果填写有效 `referralCode`，必须绑定 `User.referredByUserId`。
    - 不消耗推荐人的非教育邮箱推荐额度。
-   - 如果填写了无效推荐码，应抛错，避免用户误以为邀请关系已建立。
+   - 如果填写了无效推荐码，**静默忽略该推荐码**，注册照常成功（不记录推荐关系），不报错。
 
 2. 非教育邮箱注册：
-   - 验证码阶段允许发送验证码。
+   - 验证码阶段：必须先提交有效个人推荐码（推荐人 `ACTIVE` 且有剩余额度）才会发送验证码。该预检为**只读**（不扣额度），仅用于把验证码邮件限定在持有有效邀请码的请求；额度的真正扣减在 `register` 事务内完成。
+   - 防滥用：`request-code` 增设按推荐码维度的限流桶（`auth-throttle.ts` 的 `authReferral`，默认每分钟 10 次/码），防止单个有效邀请码被复用向任意邮箱发起验证码邮件轰炸（每 IP 上限 1000/分钟，单靠它不足以约束按邮箱变化的扇出）。
    - 注册阶段必须填写有效 10 位个人推荐码。
    - 注册阶段必须手动选择学校，写入新用户的 `schoolId`。
    - 必须在同一个注册事务内对推荐人执行 CAS 额度扣减。
@@ -139,9 +140,14 @@ private async resolveAllowedSchool(email: string) {
 `requestCode` 改为：
 
 ```ts
-async requestCode(email: string) {
+async requestCode(email: string, referralCode?: string | null) {
   const normalizedEmail = email.trim().toLowerCase();
   const school = await this.resolveSchoolByEmail(normalizedEmail);
+
+  if (!school) {
+    // 只读预检：非学校邮箱必须先提交有效邀请码才发码；不扣额度。
+    await this.assertValidReferralBeforeNonSchoolRequestCode(referralCode);
+  }
 
   const result = await this.sendVerificationCode(normalizedEmail, 'register');
 
@@ -156,8 +162,8 @@ async requestCode(email: string) {
 说明：
 
 - 非教育邮箱仍必须满足 `RequestCodeDto` 的 `@IsEmail()` 和 `EMAIL_MAX_LENGTH`。
-- `requestCode` 只负责验证码发送和 UX 分流，不负责最终准入。
-- 最终准入必须放在 `register` 事务内完成。
+- `requestCode` 对非学校邮箱做**只读**推荐码预检（`assertValidReferralBeforeNonSchoolRequestCode`）后才发送验证码：把验证码邮件限定在持有有效邀请码的请求，并配合 `authReferral` 按码限流防止邮件轰炸。该预检不扣额度、不做最终准入。
+- 最终准入（额度 CAS 扣减、手动选校、建号）仍必须放在 `register` 事务内完成。
 
 ## 5. RegisterDto 扩展
 
@@ -187,7 +193,9 @@ manualSchoolId?: string;
 
 目标文件：`apps/api/src/modules/referral/referral.service.ts`
 
-当前 `resolveRegistrationAttribution` 会忽略无效个人推荐码。新功能需要支持严格模式：
+当前 `resolveRegistrationAttribution` 会忽略无效个人推荐码。新功能只需一个 `requireReferralCode`
+开关：开启（非教育邮箱）时缺失/无效推荐码一律抛错；关闭（教育邮箱）时保持原有宽松行为，无效
+推荐码静默忽略、注册继续：
 
 ```ts
 async resolveRegistrationAttribution(
@@ -195,7 +203,6 @@ async resolveRegistrationAttribution(
   client: ReferralReadClient = this.prisma,
   options: {
     requireReferralCode?: boolean;
-    rejectInvalidReferralCode?: boolean;
   } = {},
 ): Promise<RegistrationAttribution> {
   let referredByUserId: string | null = null;
@@ -213,11 +220,17 @@ async resolveRegistrationAttribution(
   if (code) {
     const referrer = await client.user.findUnique({
       where: { referralCode: code },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
-    if (!referrer) {
-      if (options.requireReferralCode || options.rejectInvalidReferralCode) {
+    // 非教育邮箱要求推荐人 ACTIVE；教育邮箱不限制推荐人状态。
+    const referrerIsUsable =
+      referrer &&
+      (!options.requireReferralCode || referrer.status === 'ACTIVE');
+
+    if (!referrerIsUsable) {
+      // 仅非教育邮箱（requireReferralCode）抛错；教育邮箱静默忽略并继续。
+      if (options.requireReferralCode) {
         throw new BadRequestException('Referral code is invalid.');
       }
     } else {
@@ -256,9 +269,8 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 
 调用规则：
 
-- 非教育邮箱：`requireReferralCode: true`。
-- 教育邮箱且用户填写了推荐码：`rejectInvalidReferralCode: true`。
-- 教育邮箱且用户未填写推荐码：保持可注册，默认 campaign fallback 逻辑不变。
+- 非教育邮箱：`requireReferralCode: true`（缺失/无效推荐码一律抛错）。
+- 教育邮箱：不传 `requireReferralCode`。无效推荐码静默忽略，注册继续；有效推荐码记录推荐关系。默认 campaign fallback 逻辑不变。
 
 ## 7. AuthService.register 事务改造
 
@@ -304,8 +316,8 @@ async register(input: RegisterDto, localeCookie?: SupportedLocale | null) {
         },
         tx,
         {
+          // 仅非教育邮箱强制有效推荐码；教育邮箱无效推荐码静默忽略。
           requireReferralCode: isNonEduEmail,
-          rejectInvalidReferralCode: Boolean(input.referralCode?.trim()),
         },
       )) ?? {
         referredByUserId: null,
@@ -753,12 +765,14 @@ export function Select({
 
 - `AuthService.requestCode`
   - 教育邮箱：返回 `school`，`registrationMode = "SCHOOL_EMAIL"`。
-  - 非教育邮箱：不抛错，发送验证码，返回 `school: null`，`registrationMode = "NON_EDU_REFERRAL_REQUIRED"`。
+  - 非教育邮箱 + 有效邀请码：发送验证码，返回 `school: null`，`registrationMode = "NON_EDU_REFERRAL_REQUIRED"`。
+  - 非教育邮箱 + 缺失/无效邀请码：抛错（`非学校邮箱必须提供有效邀请码方可获取验证码`），不发送验证码。
+  - 同一邀请码在 `request-code` 上受 `authReferral` 限流（默认 10 次/分钟/码）。
 
 - `AuthService.register`
   - 教育邮箱未填推荐码：保持现有注册成功路径。
   - 教育邮箱填写有效推荐码：写入 `referredByUserId`，不增加推荐人的 `nonEduReferralUses`。
-  - 教育邮箱填写无效推荐码：抛 `Referral code is invalid.`，不消费验证码。
+  - 教育邮箱填写无效推荐码：静默忽略该推荐码，注册照常成功（不写 `referredByUserId`，不抛错）。
   - 非教育邮箱未填推荐码：抛 `Referral code is required...`，不消费验证码。
   - 非教育邮箱填写无效推荐码：抛 `Referral code is invalid.`，不消费验证码。
   - 非教育邮箱推荐人额度已满：抛 quota exhausted，事务回滚。

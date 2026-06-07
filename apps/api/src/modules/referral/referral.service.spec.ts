@@ -266,18 +266,21 @@ describe('ReferralService', () => {
       expect(result.referralChannel).toBe('WECHAT_GROUP');
     });
 
-    it('throws on an unknown code when rejectInvalidReferralCode is set (edu typed an invalid code)', async () => {
+    it('silently ignores an unknown code on school (optional-code) registration', async () => {
       const prisma = makePrisma();
       prisma.user.findUnique.mockResolvedValue(null);
+      prisma.campaign.findFirst.mockResolvedValue(null);
       const service = new ReferralService(prisma as never);
 
-      await expect(
-        service.resolveRegistrationAttribution(
-          { referralCode: 'NOSUCHCODE' },
-          prisma as never,
-          { rejectInvalidReferralCode: true },
-        ),
-      ).rejects.toThrow('Referral code is invalid');
+      // School registration is tolerant: an invalid optional code is ignored and
+      // registration proceeds without recording an attribution (no throw).
+      const result = await service.resolveRegistrationAttribution(
+        { referralCode: 'NOSUCHCODE' },
+        prisma as never,
+      );
+
+      expect(result.referredByUserId).toBeNull();
+      expect(result.referralChannel).toBeNull();
     });
 
     it('still records attribution for a non-ACTIVE referrer on school (optional-code) registration', async () => {
@@ -292,7 +295,6 @@ describe('ReferralService', () => {
       const result = await service.resolveRegistrationAttribution(
         { referralCode: 'ABC2345XYZ' },
         prisma as never,
-        { rejectInvalidReferralCode: true },
       );
 
       // School registration does not gate on referrer status, so attribution is

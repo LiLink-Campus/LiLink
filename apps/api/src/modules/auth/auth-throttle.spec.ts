@@ -2,6 +2,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import {
   createPublicAuthThrottle,
   getAuthEmailThrottleTracker,
+  getAuthReferralThrottleTracker,
   isPublicAuthThrottleRequest,
   publicAuthRouteThrottles,
 } from './auth-throttle';
@@ -61,5 +62,53 @@ describe('auth throttle helpers', () => {
         getTracker: getAuthEmailThrottleTracker,
       },
     });
+  });
+
+  it('normalizes the referral code as the per-code throttle tracker', () => {
+    expect(
+      getAuthReferralThrottleTracker(
+        {
+          body: { email: 'user@qq.com', referralCode: ' abcDEF1234 ' },
+          ip: '203.0.113.9',
+        },
+        stubContext,
+      ),
+    ).toBe('referral:ABCDEF1234');
+  });
+
+  it('falls back to the client ip when no referral code is present', () => {
+    expect(
+      getAuthReferralThrottleTracker(
+        {
+          body: { email: 'user@qq.com' },
+          ip: '203.0.113.9',
+          socket: { remoteAddress: '203.0.113.9' },
+        },
+        stubContext,
+      ),
+    ).toBe('ip:203.0.113.9');
+  });
+
+  it('adds a per-referral-code bucket only for request-code', () => {
+    expect(createPublicAuthThrottle('requestCode')).toEqual({
+      default: {
+        ttl: publicAuthRouteThrottles.requestCode.ttlMs,
+        limit: publicAuthRouteThrottles.requestCode.ipLimit,
+      },
+      authEmail: {
+        ttl: publicAuthRouteThrottles.requestCode.ttlMs,
+        limit: publicAuthRouteThrottles.requestCode.emailLimit,
+        getTracker: getAuthEmailThrottleTracker,
+      },
+      authReferral: {
+        ttl: publicAuthRouteThrottles.requestCode.ttlMs,
+        limit: publicAuthRouteThrottles.requestCode.referralLimit,
+        getTracker: getAuthReferralThrottleTracker,
+      },
+    });
+
+    expect(createPublicAuthThrottle('login')).not.toHaveProperty(
+      'authReferral',
+    );
   });
 });

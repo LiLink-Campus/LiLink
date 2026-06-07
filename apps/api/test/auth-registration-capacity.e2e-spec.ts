@@ -23,7 +23,9 @@ const MAX_REGISTRATIONS_KEY = 'max_registrations';
 const TEST_RUN_TAG = `${process.pid}-${Date.now()}`;
 const TEST_EMAIL_DOMAIN = `lilink-cap-${TEST_RUN_TAG}.example`;
 const TEST_SCHOOL_SLUG = `lilink-cap-${TEST_RUN_TAG}`;
-const TEST_REGISTRATION_SCHOOL_SLUG = 'bupt-qmul-hainan';
+// Cosmetic value returned by the capacity-block resolver stub; never read from
+// the DB. Kept unique-per-run so nothing in this suite touches a seeded school.
+const TEST_REGISTRATION_SCHOOL_SLUG = `lilink-reg-${TEST_RUN_TAG}`;
 
 function hashRegistrationCode(input: {
   email: string;
@@ -297,7 +299,9 @@ describe('Registration capacity advisory lock (e2e)', () => {
   describe('AuthService.register non-edu referral quota (real DB)', () => {
     const NON_EDU_DOMAIN = `lilink-nonedu-${TEST_RUN_TAG}.example`;
     // resolveManualSchoolId only accepts schools flagged registrationEligible.
-    const MANUAL_SCHOOL_SLUG = TEST_REGISTRATION_SCHOOL_SLUG;
+    // A unique-per-run slug so the suite creates and tears down its own school
+    // instead of mutating/deleting a seeded partner school (e.g. bupt-qmul-hainan).
+    const MANUAL_SCHOOL_SLUG = `lilink-manual-${TEST_RUN_TAG}`;
     const MANUAL_SCHOOL_DOMAIN = `lilink-manual-${TEST_RUN_TAG}.example`;
     const INELIGIBLE_SCHOOL_SLUG = `lilink-ineligible-${TEST_RUN_TAG}`;
     const INELIGIBLE_SCHOOL_DOMAIN = `lilink-ineligible-${TEST_RUN_TAG}.example`;
@@ -343,10 +347,10 @@ describe('Registration capacity advisory lock (e2e)', () => {
     };
 
     beforeAll(async () => {
-      const manualSchool = await prisma.school.upsert({
-        where: { slug: MANUAL_SCHOOL_SLUG },
-        update: { registrationEligible: true },
-        create: {
+      // Unique-per-run slugs -> plain create (no upsert), so the suite never
+      // matches, mutates, or later deletes a seeded partner school row.
+      const manualSchool = await prisma.school.create({
+        data: {
           name: `Manual School ${TEST_RUN_TAG}`,
           slug: MANUAL_SCHOOL_SLUG,
           registrationEligible: true,
@@ -355,10 +359,8 @@ describe('Registration capacity advisory lock (e2e)', () => {
       });
       manualSchoolId = manualSchool.id;
 
-      const ineligibleSchool = await prisma.school.upsert({
-        where: { slug: INELIGIBLE_SCHOOL_SLUG },
-        update: { registrationEligible: false },
-        create: {
+      const ineligibleSchool = await prisma.school.create({
+        data: {
           name: `Ineligible School ${TEST_RUN_TAG}`,
           slug: INELIGIBLE_SCHOOL_SLUG,
           registrationEligible: false,

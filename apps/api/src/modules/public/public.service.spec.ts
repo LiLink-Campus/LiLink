@@ -153,5 +153,25 @@ describe('PublicService', () => {
 
       expect(findMany).toHaveBeenCalledTimes(1);
     });
+
+    it('refetches after invalidateEligibleSchoolsCache, even within the TTL window', async () => {
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          name: '复旦大学',
+          description: null,
+          domains: [{ domain: 'fudan.edu.cn' }],
+        },
+      ]);
+      const prisma = { school: { findMany } };
+      const service = new PublicService(prisma as never);
+
+      await service.getEligibleSchools();
+      // An admin school mutation invalidates the cache; the next read must hit
+      // the DB again rather than serving the stale within-TTL snapshot.
+      service.invalidateEligibleSchoolsCache();
+      await service.getEligibleSchools();
+
+      expect(findMany).toHaveBeenCalledTimes(2);
+    });
   });
 });

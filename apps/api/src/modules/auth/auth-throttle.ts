@@ -8,6 +8,7 @@ import { getRealClientIp } from '../../common/http/client-ip';
 type AuthThrottleRequest = {
   body?: {
     email?: unknown;
+    referralCode?: unknown;
   };
   headers?: Record<string, unknown>;
   ip?: string;
@@ -30,13 +31,26 @@ type PublicAuthRouteThrottle = {
   emailLimit: number;
   ipLimit: number;
   ttlMs: number;
+  // Optional per-referral-code cap. Only request-code sets this: it bounds how
+  // many verification emails a single referral code can fan out per window,
+  // independent of the target email. Without it, one reusable valid code could
+  // be replayed to blast verification mail at arbitrary inboxes up to the much
+  // larger per-IP ceiling (the request-code precheck only reads the referrer's
+  // quota, it never consumes it).
+  referralLimit?: number;
 };
 
 const AUTH_EMAIL_THROTTLER_NAME = 'authEmail';
+const AUTH_REFERRAL_THROTTLER_NAME = 'authReferral';
 const AUTH_THROTTLE_TTL_MS = 60_000;
 const PUBLIC_SIGNUP_IP_LIMIT = 1000;
+// Per-referral-code request-code cap. Generous enough for organic invite bursts
+// (a referrer's default non-edu quota is only 3) yet ~100x below the per-IP
+// ceiling, so a single shared code cannot drive verification-mail bombing.
+const PUBLIC_REQUEST_CODE_REFERRAL_LIMIT = 10;
+const REQUEST_CODE_ROUTE_SIGNATURE = 'POST:/v1/auth/request-code';
 const AUTH_THROTTLE_ROUTE_SIGNATURES = new Set([
-  'POST:/v1/auth/request-code',
+  REQUEST_CODE_ROUTE_SIGNATURE,
   'POST:/v1/auth/register',
   'POST:/v1/auth/request-password-reset-code',
   'POST:/v1/auth/reset-password',
@@ -53,6 +67,7 @@ export const publicAuthRouteThrottles: Record<
   requestCode: {
     emailLimit: 3,
     ipLimit: PUBLIC_SIGNUP_IP_LIMIT,
+    referralLimit: PUBLIC_REQUEST_CODE_REFERRAL_LIMIT,
     ttlMs: AUTH_THROTTLE_TTL_MS,
   },
   register: {
@@ -88,6 +103,20 @@ function extractNormalizedEmail(request: AuthThrottleRequest): string | null {
 
   const normalizedEmail = email.trim().toLowerCase();
   return normalizedEmail || null;
+}
+
+function extractNormalizedReferralCode(
+  request: AuthThrottleRequest,
+): string | null {
+  const referralCode = request.body?.referralCode;
+  if (typeof referralCode !== 'string') {
+    return null;
+  }
+
+  // Mirror the service-side normalization (trim + uppercase) so the same code
+  // maps to one bucket regardless of how the caller cased/padded it.
+  const normalizedCode = referralCode.trim().toUpperCase();
+  return normalizedCode || null;
 }
 
 function getRequestSignature(request: AuthThrottleRequest): string | null {
@@ -142,6 +171,45 @@ export const authEmailThrottler: ThrottlerOptions = {
   getTracker: getAuthEmailThrottleTracker,
 };
 
+/**
+ * @internal Exported for throttling tests.
+ *
+ * Buckets a request-code call by its referral code so a single shared code can
+ * only fan out a bounded number of verification emails per window regardless of
+ * the (varying) target email. Falls back to the client IP for safety, though
+ * the skip guard below means it only runs when a code is actually present.
+ */
+export const getAuthReferralThrottleTracker: ThrottlerGetTrackerFunction = (
+  request: AuthThrottleRequest,
+) => {
+  const referralCode = extractNormalizedReferralCode(request);
+  if (referralCode) {
+    return `referral:${referralCode}`;
+  }
+
+  return `ip:${getRealClientIp(request)}`;
+};
+
+function shouldSkipAuthReferralThrottle(context: ExecutionContext): boolean {
+  const request = context.switchToHttp().getRequest<AuthThrottleRequest>();
+  // Only the request-code route, and only when it carries a referral code, is
+  // subject to the per-code cap. Every other route (register, login, reset) and
+  // code-less request-code call is left to the email/IP buckets.
+  if (getRequestSignature(request) !== REQUEST_CODE_ROUTE_SIGNATURE) {
+    return true;
+  }
+
+  return extractNormalizedReferralCode(request) === null;
+}
+
+export const authReferralThrottler: ThrottlerOptions = {
+  name: AUTH_REFERRAL_THROTTLER_NAME,
+  ttl: AUTH_THROTTLE_TTL_MS,
+  limit: Number.MAX_SAFE_INTEGER,
+  skipIf: shouldSkipAuthReferralThrottle,
+  getTracker: getAuthReferralThrottleTracker,
+};
+
 export function createPublicAuthThrottle(route: PublicAuthRouteKey) {
   const throttle = publicAuthRouteThrottles[route];
 
@@ -155,5 +223,17 @@ export function createPublicAuthThrottle(route: PublicAuthRouteKey) {
       limit: throttle.emailLimit,
       getTracker: getAuthEmailThrottleTracker,
     },
+    // Per-referral-code bucket, only when the route declares a referralLimit
+    // (request-code). The named throttler is registered globally and skips
+    // itself everywhere else, so omitting it here leaves other routes untouched.
+    ...(throttle.referralLimit !== undefined
+      ? {
+          [AUTH_REFERRAL_THROTTLER_NAME]: {
+            ttl: throttle.ttlMs,
+            limit: throttle.referralLimit,
+            getTracker: getAuthReferralThrottleTracker,
+          },
+        }
+      : {}),
   };
 }

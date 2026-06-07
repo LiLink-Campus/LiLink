@@ -249,6 +249,10 @@ export default function AdminSchoolsPage() {
             />{" "}
             允许该校邮箱直接注册（作为学校邮箱：免邀请码、默认 3 个非教育邮箱推荐名额）
           </span>
+          <p className={cx(adminStyles, "qb-hint")}>
+            关闭后该校将同时：① 从公开学校列表中隐藏；② 从注册页「手动选择学校」下拉中移除；③
+            其邮箱不再被视为学校邮箱，需改走「普通邮箱 + 有效邀请码」注册流程。三项联动，请谨慎切换。
+          </p>
         </label>
 
         <div className={cx(adminStyles, "qb-editor-actions")}>

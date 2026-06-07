@@ -150,6 +150,13 @@
   line-height: 1.55;
 }
 
+.schoolListRetry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
 .termsCheckboxLabel {
   display: flex;
   align-items: flex-start;

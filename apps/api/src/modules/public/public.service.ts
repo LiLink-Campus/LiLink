@@ -50,6 +50,7 @@ export class PublicService {
   private cachedEligibleSchools: CachedEligibleSchoolsPayload | null = null;
   private eligibleSchoolsInFlight: Promise<EligibleSchoolsPayload> | null =
     null;
+  private eligibleSchoolsCacheEpoch = 0;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -80,11 +81,29 @@ export class PublicService {
       return this.eligibleSchoolsInFlight;
     }
 
-    this.eligibleSchoolsInFlight = this.loadEligibleSchools().finally(() => {
-      this.eligibleSchoolsInFlight = null;
-    });
+    const cacheEpoch = this.eligibleSchoolsCacheEpoch;
+    this.eligibleSchoolsInFlight = this.loadEligibleSchools(cacheEpoch).finally(
+      () => {
+        this.eligibleSchoolsInFlight = null;
+      },
+    );
 
     return this.eligibleSchoolsInFlight;
+  }
+
+  /**
+   * Drop the cached eligible-schools payload so the next read reflects an admin
+   * change immediately. Kept consistent with SchoolResolverService's resolution
+   * cache, which AdminSchoolService invalidates on the same mutations: both back
+   * the registrationEligible flag, so a school toggled in the admin center must
+   * disappear from (or reappear in) the public list and the manual-school
+   * dropdown without waiting out the TTL. The epoch bump prevents a load started
+   * before the change from re-caching stale data.
+   */
+  invalidateEligibleSchoolsCache() {
+    this.eligibleSchoolsCacheEpoch += 1;
+    this.cachedEligibleSchools = null;
+    this.eligibleSchoolsInFlight = null;
   }
 
   private readCachedLandingPayload() {
@@ -156,7 +175,7 @@ export class PublicService {
     return landingPayload;
   }
 
-  private async loadEligibleSchools() {
+  private async loadEligibleSchools(cacheEpoch: number) {
     const schools = await this.prisma.school.findMany({
       // Only schools flagged eligible in the admin school center are offered for
       // self-registration; this is the single source of truth shared by the
@@ -196,10 +215,14 @@ export class PublicService {
       generatedAt: new Date(),
     };
 
-    this.cachedEligibleSchools = {
-      expiresAt: Date.now() + ELIGIBLE_SCHOOLS_CACHE_TTL_MS,
-      value: payload,
-    };
+    // Skip caching if the data was invalidated while this load was in flight,
+    // so a concurrent admin change is never masked by a stale snapshot.
+    if (cacheEpoch === this.eligibleSchoolsCacheEpoch) {
+      this.cachedEligibleSchools = {
+        expiresAt: Date.now() + ELIGIBLE_SCHOOLS_CACHE_TTL_MS,
+        value: payload,
+      };
+    }
 
     return payload;
   }

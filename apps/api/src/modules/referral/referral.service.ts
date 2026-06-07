@@ -36,8 +36,10 @@ export interface RegistrationAttribution {
 }
 
 export interface RegistrationAttributionOptions {
+  // When set (non-school registration), a missing or unusable referral code is a
+  // hard error. When unset (school registration), an invalid optional code is
+  // silently ignored and registration proceeds without an attribution.
   requireReferralCode?: boolean;
-  rejectInvalidReferralCode?: boolean;
 }
 
 export interface MyReferralOverview {
@@ -172,7 +174,10 @@ export class ReferralService {
         (!options.requireReferralCode || referrer.status === 'ACTIVE');
 
       if (!referrerIsUsable) {
-        if (options.requireReferralCode || options.rejectInvalidReferralCode) {
+        // Non-school registration hard-fails on an unusable code; school
+        // registration silently ignores it and proceeds (invalid personal code
+        // -> no attribution, registration still succeeds).
+        if (options.requireReferralCode) {
           throw new BadRequestException('Referral code is invalid.');
         }
       } else {

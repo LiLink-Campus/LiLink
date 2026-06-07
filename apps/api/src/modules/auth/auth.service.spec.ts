@@ -1095,7 +1095,6 @@ describe('AuthService', () => {
       expect.anything(),
       {
         requireReferralCode: false,
-        rejectInvalidReferralCode: true,
       },
     );
     expect(userCreate).toHaveBeenCalledWith(
