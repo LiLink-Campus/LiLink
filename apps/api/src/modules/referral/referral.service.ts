@@ -7,7 +7,7 @@ import {
   readReferralChannel,
   type ReferralChannel,
 } from '@lilink/shared';
-import { env } from '../../config/env';
+import { env, isLocalDevRuntime } from '../../config/env';
 import { PrismaClient } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { isUniqueConstraintError } from '../../common/prisma/errors';
@@ -18,7 +18,16 @@ type ReferralReadClient = Pick<PrismaClient, 'user' | 'campaign'>;
 
 const PERSONAL_CODE_MAX_ATTEMPTS = 8;
 const DEFAULT_NON_EDU_REFERRAL_LIMIT = 3;
-const LOCAL_DEV_REFERRAL_CODE = 'LILINKDEV1';
+export const LOCAL_DEV_REFERRAL_CODE = 'LILINKDEV1';
+
+/**
+ * The universal "master" referral code only honored in a local dev runtime.
+ * Shared by AuthService (request-code precheck) and the register attribution
+ * path so the gate and code live in one place.
+ */
+export function isLocalDevMockReferralCode(code: string): boolean {
+  return isLocalDevRuntime() && code === LOCAL_DEV_REFERRAL_CODE;
+}
 
 export interface RegistrationSourceInput {
   // Personal referral code from the invite link / cookie (10-char system).
@@ -147,7 +156,7 @@ export class ReferralService {
     }
 
     if (code) {
-      if (this.isLocalDevMockReferralCode(code)) {
+      if (isLocalDevMockReferralCode(code)) {
         const referredByUserId =
           await this.resolveLocalDevMockReferrerUserId(client);
         this.printLocalDevMockReferralHint(referredByUserId);
@@ -201,14 +210,6 @@ export class ReferralService {
     }
 
     return { referredByUserId, referralChannel, referralCampaignId };
-  }
-
-  private isLocalDevMockReferralCode(code: string) {
-    return (
-      env.APP_ENV === 'development' &&
-      process.env.NODE_ENV !== 'production' &&
-      code === LOCAL_DEV_REFERRAL_CODE
-    );
   }
 
   private async resolveLocalDevMockReferrerUserId(client: ReferralReadClient) {
@@ -400,18 +401,18 @@ export class ReferralService {
       redeemed = redeemedUsers.length;
     }
 
+    const nonEduReferralLimit =
+      owner?.nonEduReferralLimit ?? DEFAULT_NON_EDU_REFERRAL_LIMIT;
+    const nonEduReferralUses = owner?.nonEduReferralUses ?? 0;
+
     return {
       referralCode,
       links,
       funnel: { invited, registered: invited, activated, granted, redeemed },
       nonEduReferralQuota: {
-        limit: owner?.nonEduReferralLimit ?? DEFAULT_NON_EDU_REFERRAL_LIMIT,
-        uses: owner?.nonEduReferralUses ?? 0,
-        remaining: Math.max(
-          0,
-          (owner?.nonEduReferralLimit ?? DEFAULT_NON_EDU_REFERRAL_LIMIT) -
-            (owner?.nonEduReferralUses ?? 0),
-        ),
+        limit: nonEduReferralLimit,
+        uses: nonEduReferralUses,
+        remaining: Math.max(0, nonEduReferralLimit - nonEduReferralUses),
       },
     };
   }

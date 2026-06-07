@@ -132,6 +132,10 @@ function getNonEduReferralRemaining(user: AdminUser) {
   return Math.max(0, user.nonEduReferralLimit - user.nonEduReferralUses);
 }
 
+function formatNonEduReferralQuota(user: AdminUser) {
+  return `已用 ${user.nonEduReferralUses} / 上限 ${user.nonEduReferralLimit} · 剩余 ${getNonEduReferralRemaining(user)}`;
+}
+
 export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminUser["status"]>("ALL");
   const [questionnaireFilter, setQuestionnaireFilter] = useState<"all" | "submitted" | "missing">("all");
@@ -645,11 +649,7 @@ export default function AdminUsersPage() {
                 <div className={cx(adminStyles, "admin-inline-meta")}>
                   <span>{user.school?.name ?? "未识别学校"}</span>
                   <span>{user.questionnaireResponse?.submittedAt ? "已填问卷" : "未填问卷"}</span>
-                  <span>
-                    普通邮箱邀请码：已用 {user.nonEduReferralUses} / 上限{" "}
-                    {user.nonEduReferralLimit} · 剩余{" "}
-                    {getNonEduReferralRemaining(user)}
-                  </span>
+                  <span>普通邮箱邀请码：{formatNonEduReferralQuota(user)}</span>
                 </div>
               </button>
             ))}
@@ -721,25 +721,13 @@ export default function AdminUsersPage() {
                   <span>轮次参与</span>
                   <strong>{detailLoading || !userDetail ? "…" : userDetail.participationCount}</strong>
                 </div>
-                <div>
-                  <span>普通邮箱邀请码额度</span>
-                  <strong>
-                    已用 {displayUser.nonEduReferralUses} / 上限{" "}
-                    {displayUser.nonEduReferralLimit} · 剩余{" "}
-                    {getNonEduReferralRemaining(displayUser)}
-                  </strong>
-                </div>
               </div>
 
               <div className={cx(adminStyles, "admin-review-box")}>
                 <div className={cx(adminStyles, "admin-section-header admin-section-header-tight")}>
                   <div>
                     <h3>普通邮箱邀请码额度</h3>
-                    <p>
-                      已用 {displayUser.nonEduReferralUses} / 上限{" "}
-                      {displayUser.nonEduReferralLimit} · 剩余{" "}
-                      {getNonEduReferralRemaining(displayUser)}
-                    </p>
+                    <p>{formatNonEduReferralQuota(displayUser)}</p>
                   </div>
                   {!editingReferralLimit ? (
                     <button

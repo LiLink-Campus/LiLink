@@ -60,6 +60,30 @@ type CodeResponse = {
   devCode?: string;
 };
 
+function SchoolListRetry({
+  message,
+  pending,
+  onRetry,
+}: {
+  message: string;
+  pending: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div className={authStyles.schoolListRetry}>
+      <FormMessage>{message}</FormMessage>
+      <Button
+        type="button"
+        variant="secondary"
+        disabled={pending}
+        onClick={onRetry}
+      >
+        {pending ? "重试中…" : "重试加载学校列表"}
+      </Button>
+    </div>
+  );
+}
+
 export default function RegisterPageClient() {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
@@ -266,7 +290,6 @@ export default function RegisterPageClient() {
           channel: referralChannel || undefined,
           campaignSlug: campaignSlug || undefined,
         }),
-
       });
 
       // Attribution has been consumed; clear the landing cookie.
@@ -348,17 +371,11 @@ export default function RegisterPageClient() {
               </Field>
             ) : null}
             {schoolsError ? (
-              <div className={authStyles.schoolListRetry}>
-                <FormMessage>{schoolsError}</FormMessage>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={schoolsPending}
-                  onClick={() => void loadEligibleSchools()}
-                >
-                  {schoolsPending ? "重试中…" : "重试加载学校列表"}
-                </Button>
-              </div>
+              <SchoolListRetry
+                message={schoolsError}
+                pending={schoolsPending}
+                onRetry={() => void loadEligibleSchools()}
+              />
             ) : null}
             {resolvedSchool ? (
               <FormMessage tone="success">
@@ -483,19 +500,11 @@ export default function RegisterPageClient() {
                   ⚠️ 注意：学校一旦在注册时选定，后续将作为身份凭证，无法自行更改，请务必准确选择。
                 </p>
                 {schoolsError || (!schoolsPending && eligibleSchools.length === 0) ? (
-                  <div className={authStyles.schoolListRetry}>
-                    <FormMessage>
-                      {schoolsError ?? "暂时没有可选的学校，请稍后重试。"}
-                    </FormMessage>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={schoolsPending}
-                      onClick={() => void loadEligibleSchools()}
-                    >
-                      {schoolsPending ? "重试中…" : "重试加载学校列表"}
-                    </Button>
-                  </div>
+                  <SchoolListRetry
+                    message={schoolsError ?? "暂时没有可选的学校，请稍后重试。"}
+                    pending={schoolsPending}
+                    onRetry={() => void loadEligibleSchools()}
+                  />
                 ) : null}
               </>
             ) : null}

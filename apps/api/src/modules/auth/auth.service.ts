@@ -21,7 +21,10 @@ import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
 import { env } from '../../config/env';
 import { RegisterDto, LoginDto, ResetPasswordDto } from './dto';
-import { ReferralService } from '../referral/referral.service';
+import {
+  ReferralService,
+  isLocalDevMockReferralCode,
+} from '../referral/referral.service';
 
 type TransactionClient = Omit<
   PrismaClient,
@@ -43,7 +46,6 @@ const REGISTRATION_CAPACITY_LIMIT_PATTERN = /^\d+$/;
 const UNLIMITED_REGISTRATION_CAPACITY_LIMIT = 0;
 const NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR =
   '非学校邮箱必须提供有效邀请码方可获取验证码';
-const LOCAL_DEV_REFERRAL_CODE = 'LILINKDEV1';
 
 @Injectable()
 export class AuthService {
@@ -565,7 +567,7 @@ export class AuthService {
       throw new BadRequestException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
     }
 
-    if (this.isLocalDevMockReferralCode(code)) {
+    if (isLocalDevMockReferralCode(code)) {
       return;
     }
 
@@ -585,14 +587,6 @@ export class AuthService {
     ) {
       throw new BadRequestException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
     }
-  }
-
-  private isLocalDevMockReferralCode(code: string) {
-    return (
-      env.APP_ENV === 'development' &&
-      process.env.NODE_ENV !== 'production' &&
-      code === LOCAL_DEV_REFERRAL_CODE
-    );
   }
 
   private logNonSchoolRequestCode(email: string, referralCode?: string | null) {

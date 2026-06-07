@@ -138,6 +138,15 @@ const envSchema = z.object({
 
 export const env = envSchema.parse(process.env);
 
+/**
+ * True only in a local developer runtime, never in CI (APP_ENV=test) or on any
+ * staging/prod host (NODE_ENV=production). Single gate for all dev-only escape
+ * hatches (mock referral code, SMTP-failure code printing).
+ */
+export function isLocalDevRuntime(): boolean {
+  return env.APP_ENV === 'development' && process.env.NODE_ENV !== 'production';
+}
+
 function resolveBundledSentryRelease() {
   const candidates = [
     join(__dirname, '..', '..', '.sentry-release'),

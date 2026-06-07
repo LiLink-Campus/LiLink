@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { OutboundEmailMessageCategory } from '../prisma/client';
 import nodemailer from 'nodemailer';
-import { env } from '../../config/env';
+import { env, isLocalDevRuntime } from '../../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   WEEKLY_INTENT_LABELS,
@@ -606,14 +606,9 @@ export class MailService {
 
   private printLocalDevVerificationCodeFallback(email: OutboundEmailRecord) {
     // Local-dev-only escape hatch: print the code and mark it SENT so a failed
-    // SMTP delivery does not block local registration. Gate on the SAME dual
-    // condition used by the auth/referral dev overrides (APP_ENV === 'development'
-    // AND NODE_ENV !== 'production') so it can never fire in CI (APP_ENV=test) or
-    // on a staging/prod host where NODE_ENV happens to be unset.
-    if (
-      env.APP_ENV !== 'development' ||
-      process.env.NODE_ENV === 'production'
-    ) {
+    // SMTP delivery does not block local registration. isLocalDevRuntime() keeps
+    // it off in CI (APP_ENV=test) and on any staging/prod host.
+    if (!isLocalDevRuntime()) {
       return false;
     }
 
