@@ -87,6 +87,7 @@ describe('PublicService', () => {
       const findMany = jest.fn<
         Promise<
           Array<{
+            id: string;
             name: string;
             description: string | null;
             domains: Array<{ domain: string }>;
@@ -96,11 +97,17 @@ describe('PublicService', () => {
       >();
       findMany.mockResolvedValue([
         {
+          id: 'fudan',
           name: '复旦大学',
           description: 'fudan',
-          domains: [{ domain: 'fudan.edu.cn' }, { domain: 'm.fudan.edu.cn' }],
+          domains: [
+            { domain: 'cn' },
+            { domain: 'fudan.edu.cn' },
+            { domain: 'm.fudan.edu.cn' },
+          ],
         },
         {
+          id: 'sjtu',
           name: '上海交通大学',
           description: null,
           domains: [{ domain: 'sjtu.edu.cn' }],
@@ -113,13 +120,18 @@ describe('PublicService', () => {
 
       expect(payload.totalSchoolCount).toBe(2);
       expect(payload.totalDomainCount).toBe(3);
+      // id is asserted explicitly: the manual-school dropdown uses school.id as
+      // the <option value>, so a regression dropping it would silently break
+      // non-edu registration.
       expect(payload.schools).toEqual([
         {
+          id: 'fudan',
           name: '复旦大学',
           description: 'fudan',
           domains: ['fudan.edu.cn', 'm.fudan.edu.cn'],
         },
         {
+          id: 'sjtu',
           name: '上海交通大学',
           description: null,
           domains: ['sjtu.edu.cn'],
@@ -127,10 +139,14 @@ describe('PublicService', () => {
       ]);
       expect(payload.generatedAt).toBeInstanceOf(Date);
 
-      // Schools without any domain are excluded so the public list never shows
-      // an entry that users cannot actually use to register.
+      // Only registration-eligible schools that have at least one domain are
+      // returned, so the public list never shows an entry users cannot actually
+      // use to register.
       const findManyArgs = findMany.mock.calls[0][0];
-      expect(findManyArgs.where).toEqual({ domains: { some: {} } });
+      expect(findManyArgs.where).toEqual({
+        registrationEligible: true,
+        domains: { some: {} },
+      });
     });
 
     it('reuses the cached eligible schools payload within the TTL window', async () => {
@@ -148,6 +164,26 @@ describe('PublicService', () => {
       await service.getEligibleSchools();
 
       expect(findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('refetches after invalidateEligibleSchoolsCache, even within the TTL window', async () => {
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          name: '复旦大学',
+          description: null,
+          domains: [{ domain: 'fudan.edu.cn' }],
+        },
+      ]);
+      const prisma = { school: { findMany } };
+      const service = new PublicService(prisma as never);
+
+      await service.getEligibleSchools();
+      // An admin school mutation invalidates the cache; the next read must hit
+      // the DB again rather than serving the stale within-TTL snapshot.
+      service.invalidateEligibleSchoolsCache();
+      await service.getEligibleSchools();
+
+      expect(findMany).toHaveBeenCalledTimes(2);
     });
   });
 });

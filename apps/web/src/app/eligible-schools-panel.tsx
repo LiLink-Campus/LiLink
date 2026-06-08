@@ -120,6 +120,12 @@ export function EligibleSchoolsPanel({
     });
   }, [matchResult, expanded, collapsible]);
 
+  // Help users confirm whether their domain is whitelisted when it does not match.
+  useEffect(() => {
+    if (!collapsible || !emailDomainHint || matchResult) return;
+    setExpanded(true);
+  }, [collapsible, emailDomainHint, matchResult]);
+
   function renderSummaryBadge() {
     if (dataState.status === "loading") {
       return <span className={styles.summaryCount}>正在加载…</span>;
@@ -173,7 +179,9 @@ export function EligibleSchoolsPanel({
             <strong>
               <code>@{emailDomainHint}</code> 暂不在白名单内
             </strong>
-            <span>请确认邮箱拼写，或在下方查找你所在的学校。</span>
+            <span>
+              你仍可继续使用普通邮箱注册；请先在下方填写有效邀请码以获取验证码，后续还需手动选择学校。
+            </span>
           </div>
         </div>
       );
@@ -317,7 +325,7 @@ export function EligibleSchoolsPanel({
         disabled={!collapsible}
       >
         <span className={styles.toggleLabel}>
-          <span className="eyebrow">Eligible schools</span>
+          <span className="eyebrow">合作高校</span>
           <strong>查看支持的学校邮箱后缀</strong>
         </span>
         <span className={styles.toggleMeta}>

@@ -16,7 +16,7 @@ import {
   Matches,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ADMIN_CYCLE_CODENAME_MAX_LENGTH,
   ADMIN_CYCLE_NOTES_MAX_LENGTH,
@@ -40,6 +40,19 @@ import {
   ADMIN_SETTINGS_VALUE_MAX_LENGTH,
   EMAIL_MAX_LENGTH,
 } from '../../common/validation/input-limits';
+
+function strictIntegerInput(value: unknown) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (!/^-?\d+$/.test(trimmed)) {
+    return Number.NaN;
+  }
+
+  return Number(trimmed);
+}
 
 class ListQueryDto {
   @IsOptional()
@@ -130,6 +143,10 @@ export class CreateSchoolDto {
   @MaxLength(ADMIN_DESCRIPTION_MAX_LENGTH)
   description?: string;
 
+  @IsOptional()
+  @IsBoolean()
+  registrationEligible?: boolean;
+
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(ADMIN_SCHOOL_DOMAIN_MAX_ITEMS)
@@ -147,6 +164,10 @@ export class UpdateSchoolDto {
   @IsString()
   @MaxLength(ADMIN_DESCRIPTION_MAX_LENGTH)
   description?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  registrationEligible?: boolean;
 
   @IsArray()
   @ArrayMinSize(1)
@@ -310,6 +331,14 @@ export class AdminUpdateUserDto {
   @IsOptional()
   @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])
   status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+}
+
+export class UpdateUserReferralLimitDto {
+  @Transform(({ value }) => strictIntegerInput(value))
+  @IsInt()
+  @Min(0)
+  @Max(100000)
+  nonEduReferralLimit!: number;
 }
 
 export class ToggleTestFlagDto {

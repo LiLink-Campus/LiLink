@@ -252,12 +252,46 @@ describe('AuthService', () => {
     });
   });
 
-  it('rechecks the email domain during registration', async () => {
-    const findFirst = jest.fn();
+  it('requires manual school selection for non-school email registration', async () => {
+    const deliveryDedupeKey = 'verification-code:test';
+    const findFirst = jest.fn().mockResolvedValue({
+      id: 'code-1',
+      codeHash: createVerificationCodeDigest({
+        email: 'user@invalid.example',
+        purpose: 'register',
+        deliveryDedupeKey,
+        code: '123456',
+      }),
+      deliveryDedupeKey,
+    });
+    const updateMany = jest.fn();
+    const tx = {
+      $executeRaw: jest.fn(),
+      emailCode: {
+        findFirst,
+        updateMany,
+      },
+      systemSetting: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      user: {
+        count: jest.fn().mockResolvedValue(0),
+      },
+    };
     const authService = new AuthService(
       {
+        $transaction: jest.fn(
+          async (callback: (transaction: typeof tx) => Promise<unknown>) =>
+            callback(tx),
+        ),
         emailCode: {
           findFirst,
+        },
+        systemSetting: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+        user: {
+          count: jest.fn().mockResolvedValue(0),
         },
       } as never,
       {} as never,
@@ -276,15 +310,19 @@ describe('AuthService', () => {
         acceptedTerms: true,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(findFirst).not.toHaveBeenCalled();
+    expect(findFirst).toHaveBeenCalledTimes(1);
+    expect(updateMany).not.toHaveBeenCalled();
   });
 
-  it('rejects requestCode when the email domain does not resolve to a configured school', async () => {
+  it('rejects requestCode for non-school email without a valid referral code', async () => {
+    const transaction = jest.fn();
     const buildVerificationCodeEmail = jest.fn();
+    const deliverQueuedEmailNow = jest.fn();
     const authService = new AuthService(
-      {} as never,
+      { $transaction: transaction } as never,
       {
         buildVerificationCodeEmail,
+        deliverQueuedEmailNow,
       } as never,
       {
         resolveByEmail: jest.fn().mockResolvedValue(null),
@@ -295,7 +333,148 @@ describe('AuthService', () => {
     await expect(
       authService.requestCode('user@invalid.example'),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(transaction).not.toHaveBeenCalled();
     expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
+    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
+  });
+
+  it('allows requestCode for non-school email with an available referral code', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'code-1',
+      email: 'user@invalid.example',
+      deliveryStatus: 'PENDING',
+    });
+    const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
+    const outboundCreate = jest.fn().mockResolvedValue(undefined);
+    const deliverQueuedEmailNow = jest.fn().mockResolvedValue(undefined);
+    const buildVerificationCodeEmail = jest.fn(
+      (input: { dedupeKey: string; recipientEmail: string; code: string }) => ({
+        dedupeKey: input.dedupeKey,
+        recipientEmail: input.recipientEmail,
+        subject: 'LiLink verification code',
+        html: '<p>Code</p>',
+        maxAttempts: 3,
+      }),
+    );
+    const prisma = {
+      $transaction: jest.fn(
+        async (
+          callback: (
+            transaction: VerificationCodeTransaction,
+          ) => Promise<unknown>,
+        ) =>
+          callback({
+            emailCode: {
+              create,
+              updateMany: invalidateExistingCodes,
+            },
+            outboundEmail: { create: outboundCreate },
+          }),
+      ),
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          status: 'ACTIVE',
+          nonEduReferralLimit: 3,
+          nonEduReferralUses: 1,
+        }),
+      },
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {
+        buildVerificationCodeEmail,
+        deliverQueuedEmailNow,
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue(null),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      authService.requestCode('user@invalid.example', 'validcode1'),
+    ).resolves.toMatchObject({
+      email: 'user@invalid.example',
+      school: null,
+      registrationMode: 'NON_EDU_REFERRAL_REQUIRED',
+    });
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { referralCode: 'VALIDCODE1' },
+      select: {
+        status: true,
+        nonEduReferralLimit: true,
+        nonEduReferralUses: true,
+      },
+    });
+    expect(buildVerificationCodeEmail).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(outboundCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects requestCode for non-school email when the referrer is suspended', async () => {
+    const transaction = jest.fn();
+    const buildVerificationCodeEmail = jest.fn();
+    const deliverQueuedEmailNow = jest.fn();
+    const findUnique = jest.fn().mockResolvedValue({
+      status: 'SUSPENDED',
+      nonEduReferralLimit: 3,
+      nonEduReferralUses: 0,
+    });
+    const authService = new AuthService(
+      { $transaction: transaction, user: { findUnique } } as never,
+      {
+        buildVerificationCodeEmail,
+        deliverQueuedEmailNow,
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue(null),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      authService.requestCode('user@invalid.example', 'validcode1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
+    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
+  });
+
+  it('rejects requestCode for non-school email when the referrer quota is exhausted', async () => {
+    const transaction = jest.fn();
+    const buildVerificationCodeEmail = jest.fn();
+    const deliverQueuedEmailNow = jest.fn();
+    const findUnique = jest.fn().mockResolvedValue({
+      status: 'ACTIVE',
+      nonEduReferralLimit: 3,
+      nonEduReferralUses: 3,
+    });
+    const authService = new AuthService(
+      { $transaction: transaction, user: { findUnique } } as never,
+      {
+        buildVerificationCodeEmail,
+        deliverQueuedEmailNow,
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue(null),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      authService.requestCode('user@invalid.example', 'validcode1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { referralCode: 'VALIDCODE1' },
+      select: {
+        status: true,
+        nonEduReferralLimit: true,
+        nonEduReferralUses: true,
+      },
+    });
+    expect(transaction).not.toHaveBeenCalled();
+    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
+    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
   });
 
   it('queues a verification email and kicks off async delivery', async () => {
@@ -323,9 +502,11 @@ describe('AuthService', () => {
           }),
       ),
     };
-    const resolveByEmail = jest
-      .fn()
-      .mockResolvedValue({ schoolId: 'school-1' });
+    const resolveByEmail = jest.fn().mockResolvedValue({
+      schoolId: 'school-1',
+      schoolSlug: 'bupt-qmul-hainan',
+      registrationEligible: true,
+    });
     const authService = new AuthService(
       prisma as never,
       {
@@ -395,14 +576,90 @@ describe('AuthService', () => {
     expect(resolveByEmail).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       email: 'user@example.com',
-      school: { schoolId: 'school-1' },
+      school: {
+        schoolId: 'school-1',
+        schoolSlug: 'bupt-qmul-hainan',
+        registrationEligible: true,
+      },
     });
   });
 
+  it('does not return devCode on a production Node runtime even if APP_ENV is development', async () => {
+    const originalAppEnv = env.APP_ENV;
+    const originalNodeEnv = process.env.NODE_ENV;
+    env.APP_ENV = 'development';
+    process.env.NODE_ENV = 'production';
+
+    const prisma = {
+      $transaction: jest.fn(
+        async (
+          callback: (
+            transaction: VerificationCodeTransaction,
+          ) => Promise<unknown>,
+        ) =>
+          callback({
+            emailCode: {
+              create: jest.fn().mockResolvedValue({ id: 'code-1' }),
+              updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+            },
+            outboundEmail: {
+              create: jest.fn().mockResolvedValue(undefined),
+            },
+          }),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {
+        buildVerificationCodeEmail: jest.fn(
+          (input: {
+            dedupeKey: string;
+            recipientEmail: string;
+            code: string;
+          }) => ({
+            dedupeKey: input.dedupeKey,
+            recipientEmail: input.recipientEmail,
+            subject: 'LiLink verification code',
+            html: `<p>${input.code}</p>`,
+            maxAttempts: 3,
+          }),
+        ),
+        deliverQueuedEmailNow: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
+      } as never,
+      {} as never,
+    );
+
+    try {
+      await expect(
+        authService.requestCode('user@example.com'),
+      ).resolves.toEqual(
+        expect.objectContaining({
+          devCode: undefined,
+        }),
+      );
+    } finally {
+      env.APP_ENV = originalAppEnv;
+      if (originalNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+    }
+  });
+
   it('normalizes email casing and whitespace before resolving the school', async () => {
-    const resolveByEmail = jest
-      .fn()
-      .mockResolvedValue({ schoolId: 'school-1' });
+    const resolveByEmail = jest.fn().mockResolvedValue({
+      schoolId: 'school-1',
+      schoolSlug: 'bupt-qmul-hainan',
+      registrationEligible: true,
+    });
     const create = jest.fn().mockResolvedValue({ id: 'code-1' });
     const invalidateExistingCodes = jest.fn().mockResolvedValue({ count: 0 });
     const outboundCreate = jest.fn().mockResolvedValue(undefined);
@@ -500,7 +757,11 @@ describe('AuthService', () => {
         deliverQueuedEmailNow,
       } as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
       } as never,
       {} as never,
     );
@@ -673,7 +934,11 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -744,7 +1009,11 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -827,7 +1096,11 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
       } as never,
       {
         sign: jest.fn().mockReturnValue('jwt-token'),
@@ -900,15 +1173,13 @@ describe('AuthService', () => {
       $transaction: transaction,
     };
     const schoolResolver = {
-      resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+      resolveByEmail: jest.fn().mockResolvedValue({
+        schoolId: 'school-1',
+        schoolSlug: 'bupt-qmul-hainan',
+        registrationEligible: true,
+      }),
     };
-    return {
-      prisma,
-      transaction,
-      userCreate,
-      emailCodeUpdateMany,
-      schoolResolver,
-    };
+    return { prisma, userCreate, schoolResolver };
   }
 
   const registerInput = {
@@ -952,6 +1223,9 @@ describe('AuthService', () => {
         campaignSlug: 'spring',
       },
       expect.anything(),
+      {
+        requireReferralCode: false,
+      },
     );
     expect(userCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -983,7 +1257,11 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -1035,7 +1313,11 @@ describe('AuthService', () => {
         prisma as never,
         {} as never,
         {
-          resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+          resolveByEmail: jest.fn().mockResolvedValue({
+            schoolId: 'school-1',
+            schoolSlug: 'bupt-qmul-hainan',
+            registrationEligible: true,
+          }),
         } as never,
         {
           sign: jest.fn(),
@@ -1080,7 +1362,11 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -1118,7 +1404,11 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -1189,7 +1479,11 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
       } as never,
       {
         sign: jest.fn(),
@@ -1285,7 +1579,11 @@ describe('AuthService', () => {
       prisma as never,
       {} as never,
       {
-        resolveByEmail: jest.fn().mockResolvedValue({ schoolId: 'school-1' }),
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
       } as never,
       {
         sign: jest.fn().mockReturnValue('jwt-token'),

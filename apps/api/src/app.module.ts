@@ -28,7 +28,10 @@ import { PromotionDashboardModule } from './modules/promotion-dashboard/promotio
 import { AdminAnalyticsModule } from './modules/admin-analytics/admin-analytics.module';
 import { ProductAnalyticsModule } from './modules/product-analytics/product-analytics.module';
 import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
-import { authEmailThrottler } from './modules/auth/auth-throttle';
+import {
+  authEmailThrottler,
+  authReferralThrottler,
+} from './modules/auth/auth-throttle';
 
 @Module({
   providers: [
@@ -55,6 +58,7 @@ import { authEmailThrottler } from './modules/auth/auth-throttle';
           limit: 1000,
         },
         authEmailThrottler,
+        authReferralThrottler,
       ],
     }),
     PrismaModule,

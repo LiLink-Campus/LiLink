@@ -70,16 +70,16 @@ export default function LoginPageClient() {
         </div>
         <p className="eyebrow">Login</p>
         <h1>回到本周轮次</h1>
-        <p>使用你的学校邮箱和密码登录，继续上一次未完成的匹配。</p>
+        <p>输入已注册的邮箱，我们来验证你的身份。</p>
         <form className={authStyles.stack} onSubmit={handleSubmit}>
-          <Field label="学校邮箱">
+          <Field label="邮箱">
             <Input
               required
               type="email"
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="your.name@school.edu"
+              placeholder="name@example.com"
             />
           </Field>
           <Field label="密码">

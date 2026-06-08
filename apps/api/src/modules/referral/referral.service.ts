@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import {
   generateHumanCode,
@@ -7,7 +7,7 @@ import {
   readReferralChannel,
   type ReferralChannel,
 } from '@lilink/shared';
-import { env } from '../../config/env';
+import { env, isLocalDevRuntime } from '../../config/env';
 import { PrismaClient } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { isUniqueConstraintError } from '../../common/prisma/errors';
@@ -17,6 +17,17 @@ import { isUniqueConstraintError } from '../../common/prisma/errors';
 type ReferralReadClient = Pick<PrismaClient, 'user' | 'campaign'>;
 
 const PERSONAL_CODE_MAX_ATTEMPTS = 8;
+const DEFAULT_NON_EDU_REFERRAL_LIMIT = 3;
+const LOCAL_DEV_REFERRAL_CODE = 'LILINKDEV1';
+
+/**
+ * The universal "master" referral code only honored in a local dev runtime.
+ * Shared by AuthService (request-code precheck) and the register attribution
+ * path so the gate and code live in one place.
+ */
+export function isLocalDevMockReferralCode(code: string): boolean {
+  return isLocalDevRuntime() && code === LOCAL_DEV_REFERRAL_CODE;
+}
 
 export interface RegistrationSourceInput {
   // Personal referral code from the invite link / cookie (10-char system).
@@ -30,6 +41,14 @@ export interface RegistrationAttribution {
   referralChannel: ReferralChannel | null;
   // Frozen at registration; never re-derived afterwards.
   referralCampaignId: string | null;
+  isDevMockReferral?: boolean;
+}
+
+export interface RegistrationAttributionOptions {
+  // When set (non-school registration), a missing or unusable referral code is a
+  // hard error. When unset (school registration), an invalid optional code is
+  // silently ignored and registration proceeds without an attribution.
+  requireReferralCode?: boolean;
 }
 
 export interface MyReferralOverview {
@@ -41,6 +60,11 @@ export interface MyReferralOverview {
     activated: number;
     granted: number;
     redeemed: number;
+  };
+  nonEduReferralQuota: {
+    limit: number;
+    uses: number;
+    remaining: number;
   };
 }
 
@@ -118,45 +142,97 @@ export class ReferralService {
   async resolveRegistrationAttribution(
     input: RegistrationSourceInput,
     client: ReferralReadClient = this.prisma,
+    options: RegistrationAttributionOptions = {},
   ): Promise<RegistrationAttribution> {
     let referredByUserId: string | null = null;
     let referralChannel: ReferralChannel | null = null;
     let referralCampaignId: string | null = null;
+    const code = input.referralCode?.trim().toUpperCase() ?? '';
 
-    if (input.referralCode) {
-      const code = input.referralCode.trim().toUpperCase();
-      if (code) {
-        const referrer = await client.user.findUnique({
-          where: { referralCode: code },
-          select: { id: true },
-        });
-        if (referrer) {
-          referredByUserId = referrer.id;
-          referralChannel = readReferralChannel(input.channel);
-          if (input.campaignSlug) {
-            const campaign = await client.campaign.findUnique({
-              where: { slug: input.campaignSlug },
-              select: { id: true, status: true },
-            });
-            if (campaign && campaign.status === 'ACTIVE') {
-              referralCampaignId = campaign.id;
-            }
+    if (!code && options.requireReferralCode) {
+      throw new BadRequestException(
+        'Referral code is required for non-school email registration.',
+      );
+    }
+
+    if (code) {
+      if (isLocalDevMockReferralCode(code)) {
+        referredByUserId = await this.resolveLocalDevMockReferrerUserId(client);
+        this.printLocalDevMockReferralHint(referredByUserId);
+        return {
+          referredByUserId,
+          referralChannel: readReferralChannel(input.channel),
+          referralCampaignId: await this.resolveActiveDefaultCampaignId(client),
+          isDevMockReferral: true,
+        };
+      }
+
+      const referrer = await client.user.findUnique({
+        where: { referralCode: code },
+        select: { id: true, status: true },
+      });
+
+      // For non-school registration the referrer must be an ACTIVE account
+      // (mirrors the request-code gate): a SUSPENDED/PENDING referrer's code is
+      // treated as invalid so it cannot grant non-edu access or consume quota.
+      // School (optional-code) registration still records attribution regardless
+      // of referrer status, preserving the prior behavior.
+      const referrerIsUsable =
+        referrer &&
+        (!options.requireReferralCode || referrer.status === 'ACTIVE');
+
+      if (!referrerIsUsable) {
+        // School registration silently ignores an unusable code (no attribution,
+        // still succeeds); non-school registration hard-fails.
+        if (options.requireReferralCode) {
+          throw new BadRequestException('Referral code is invalid.');
+        }
+      } else {
+        referredByUserId = referrer.id;
+        referralChannel = readReferralChannel(input.channel);
+        if (input.campaignSlug) {
+          const campaign = await client.campaign.findUnique({
+            where: { slug: input.campaignSlug },
+            select: { id: true, status: true },
+          });
+          if (campaign && campaign.status === 'ACTIVE') {
+            referralCampaignId = campaign.id;
           }
         }
-        // Invalid personal code -> ignore source, registration still proceeds.
       }
     }
 
     // No source campaign resolved -> freeze the current ACTIVE default (if any).
     if (!referralCampaignId) {
-      const fallback = await client.campaign.findFirst({
-        where: { isDefault: true, status: 'ACTIVE' },
-        select: { id: true },
-      });
-      referralCampaignId = fallback?.id ?? null;
+      referralCampaignId = await this.resolveActiveDefaultCampaignId(client);
     }
 
     return { referredByUserId, referralChannel, referralCampaignId };
+  }
+
+  private async resolveLocalDevMockReferrerUserId(client: ReferralReadClient) {
+    const referrer = await client.user.findFirst({
+      where: { isTest: true, status: 'ACTIVE' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    return referrer?.id ?? null;
+  }
+
+  private async resolveActiveDefaultCampaignId(client: ReferralReadClient) {
+    const fallback = await client.campaign.findFirst({
+      where: { isDefault: true, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    return fallback?.id ?? null;
+  }
+
+  private printLocalDevMockReferralHint(referredByUserId: string | null) {
+    this.logger.warn(
+      `[LOCAL DEV OVERRIDE] 万能推荐码 ${LOCAL_DEV_REFERRAL_CODE} 已启用；归属用户: ${
+        referredByUserId ?? '未找到本地 isTest 用户，仅放行注册自测'
+      }`,
+    );
   }
 
   /** Record a share-button click (intent). Not deduped — every tap counts. */
@@ -265,6 +341,13 @@ export class ReferralService {
    */
   async getMyReferralOverview(userId: string): Promise<MyReferralOverview> {
     const referralCode = await this.assignReferralCodeIfMissing(userId);
+    const owner = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        nonEduReferralLimit: true,
+        nonEduReferralUses: true,
+      },
+    });
     const origin = env.CLIENT_ORIGIN[0]?.replace(/\/+$/, '') ?? '';
     const links = referralCode
       ? REFERRAL_CHANNELS.map((channel) => ({
@@ -309,10 +392,19 @@ export class ReferralService {
       redeemed = redeemedUsers.length;
     }
 
+    const nonEduReferralLimit =
+      owner?.nonEduReferralLimit ?? DEFAULT_NON_EDU_REFERRAL_LIMIT;
+    const nonEduReferralUses = owner?.nonEduReferralUses ?? 0;
+
     return {
       referralCode,
       links,
       funnel: { invited, registered: invited, activated, granted, redeemed },
+      nonEduReferralQuota: {
+        limit: nonEduReferralLimit,
+        uses: nonEduReferralUses,
+        remaining: Math.max(0, nonEduReferralLimit - nonEduReferralUses),
+      },
     };
   }
 }

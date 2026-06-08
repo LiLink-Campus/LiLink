@@ -30,6 +30,7 @@ function createAdminServiceMock() {
     getReportContext: jest.fn().mockResolvedValue({ id: 'r1' }),
     updateUserStatus: jest.fn().mockResolvedValue({ ok: true }),
     updateUser: jest.fn().mockResolvedValue({ ok: true }),
+    updateUserReferralLimit: jest.fn().mockResolvedValue({ id: 'u1' }),
     setTestFlag: jest.fn().mockResolvedValue({ ok: true }),
     seedTestUsers: jest.fn().mockResolvedValue({ created: 0 }),
     deleteAllTestUsers: jest.fn().mockResolvedValue({ deleted: 0 }),
@@ -217,6 +218,18 @@ describe('AdminController', () => {
     expect(adminService.updateUser).toHaveBeenCalledWith(
       'u-1',
       patchUserBody,
+      'admin-actor-1',
+    );
+
+    const referralLimitBody = { nonEduReferralLimit: 10 } as never;
+    await controller.updateUserReferralLimit(
+      adminRequest,
+      'u-1',
+      referralLimitBody,
+    );
+    expect(adminService.updateUserReferralLimit).toHaveBeenCalledWith(
+      'u-1',
+      referralLimitBody,
       'admin-actor-1',
     );
 

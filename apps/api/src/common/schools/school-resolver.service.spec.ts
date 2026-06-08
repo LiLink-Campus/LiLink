@@ -41,13 +41,71 @@ describe('SchoolResolverService', () => {
     expect(prisma.schoolDomain.findMany).toHaveBeenCalledWith({
       where: {
         domain: {
-          in: ['mail.cs.school.edu', 'cs.school.edu', 'school.edu', 'edu'],
+          // The bare TLD "edu" is intentionally excluded from the candidates.
+          in: ['mail.cs.school.edu', 'cs.school.edu', 'school.edu'],
         },
       },
       include: {
         school: true,
       },
     });
+  });
+
+  it('resolves a two-label organization domain such as bupt.cn', async () => {
+    const prisma = {
+      schoolDomain: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            domain: 'bupt.cn',
+            schoolId: 'school-bupt',
+            school: {
+              name: 'BUPT',
+              slug: 'bupt',
+              description: null,
+              registrationEligible: true,
+            },
+          },
+        ]),
+      },
+    };
+    const service = new SchoolResolverService(prisma as never);
+
+    await expect(
+      service.resolveByEmail('student@bupt.cn'),
+    ).resolves.toMatchObject({
+      schoolId: 'school-bupt',
+      matchedDomain: 'bupt.cn',
+      registrationEligible: true,
+    });
+  });
+
+  it('never trusts a bare top-level domain even if one is stored', async () => {
+    const findMany = jest.fn<
+      Promise<unknown>,
+      [{ where: { domain: { in: string[] } } }]
+    >();
+    findMany.mockResolvedValue([
+      {
+        domain: 'cn',
+        schoolId: 'school-x',
+        school: {
+          name: 'X',
+          slug: 'x',
+          description: null,
+          registrationEligible: true,
+        },
+      },
+    ]);
+    const prisma = { schoolDomain: { findMany } };
+    const service = new SchoolResolverService(prisma as never);
+
+    // A bare TLD must never grant trusted school-email status: even with a "cn"
+    // row in the table, an unrelated *.cn address resolves to null, and "cn" is
+    // not even queried as a candidate.
+    await expect(
+      service.resolveByEmail('attacker@evil.cn'),
+    ).resolves.toBeNull();
+    expect(findMany.mock.calls[0][0].where.domain.in).not.toContain('cn');
   });
 
   it('reuses the cached domain resolution inside the TTL window', async () => {

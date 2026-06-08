@@ -19,9 +19,12 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { isUniqueConstraintError } from '../../common/prisma/errors';
 import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
-import { env } from '../../config/env';
+import { env, isLocalDevRuntime } from '../../config/env';
 import { RegisterDto, LoginDto, ResetPasswordDto } from './dto';
-import { ReferralService } from '../referral/referral.service';
+import {
+  ReferralService,
+  isLocalDevMockReferralCode,
+} from '../referral/referral.service';
 
 type TransactionClient = Omit<
   PrismaClient,
@@ -41,6 +44,8 @@ const REGISTRATION_CAPACITY_LOCK_KEY = 120_404_260;
 const MAX_REGISTRATIONS_SETTING_KEY = 'max_registrations';
 const REGISTRATION_CAPACITY_LIMIT_PATTERN = /^\d+$/;
 const UNLIMITED_REGISTRATION_CAPACITY_LIMIT = 0;
+const NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR =
+  '非学校邮箱必须提供有效邀请码方可获取验证码';
 
 @Injectable()
 export class AuthService {
@@ -58,18 +63,33 @@ export class AuthService {
     private readonly referralService?: ReferralService,
   ) {}
 
-  async requestCode(email: string) {
+  async requestCode(email: string, referralCode?: string | null) {
     const normalizedEmail = email.trim().toLowerCase();
-    const school = await this.resolveAllowedSchool(normalizedEmail);
+    const school = await this.resolveSchoolByEmail(normalizedEmail);
+
+    if (!school) {
+      await this.assertValidReferralBeforeNonSchoolRequestCode(referralCode);
+      // Observability for the abuse surface this path opens: a non-school
+      // verification email is only sent after a (read-only) referral check, and
+      // the per-referral-code throttle (auth-throttle.ts) caps fan-out. Logging
+      // the redacted code + target domain lets ops spot a single code being
+      // replayed across many inboxes even within the throttle.
+      this.logNonSchoolRequestCode(normalizedEmail, referralCode);
+    }
 
     const result = await this.sendVerificationCode(normalizedEmail, 'register');
 
-    return { ...result, school };
+    return {
+      ...result,
+      school,
+      registrationMode: school ? 'SCHOOL_EMAIL' : 'NON_EDU_REFERRAL_REQUIRED',
+    };
   }
 
   async register(input: RegisterDto, localeCookie?: SupportedLocale | null) {
     const normalizedEmail = input.email.trim().toLowerCase();
-    const school = await this.resolveAllowedSchool(normalizedEmail);
+    const school = await this.resolveSchoolByEmail(normalizedEmail);
+    const isNonEduEmail = !school;
     await this.assertRegistrationCapacityPreflight(this.prisma);
     await this.assertVerificationCodeIsValid(
       this.prisma,
@@ -81,16 +101,15 @@ export class AuthService {
 
     const user = await this.prisma.$transaction(async (tx) => {
       await this.assertRegistrationCapacity(tx);
-      await this.consumeVerificationCode(
-        tx,
-        normalizedEmail,
-        'register',
-        input.code,
-      );
+      const schoolId = school
+        ? school.schoolId
+        : await this.resolveManualSchoolId(tx, input.manualSchoolId);
 
       // Resolve + freeze the referral attribution inside the transaction so the
       // campaign snapshot is consistent with the committed user row. The frozen
-      // campaign is never re-derived later (activation reads it as-is).
+      // campaign is never re-derived later (activation reads it as-is). This
+      // runs before consuming the verification code so referral failures do not
+      // burn a valid email code.
       const attribution =
         (await this.referralService?.resolveRegistrationAttribution(
           {
@@ -99,11 +118,30 @@ export class AuthService {
             campaignSlug: input.campaignSlug,
           },
           tx,
+          {
+            // Non-school registration requires a valid, usable code (this throws
+            // on a missing/invalid one). School registration keeps the original
+            // tolerant behavior: an invalid optional code is silently ignored and
+            // registration proceeds without recording an attribution.
+            requireReferralCode: isNonEduEmail,
+          },
         )) ?? {
           referredByUserId: null,
           referralChannel: null,
           referralCampaignId: null,
+          isDevMockReferral: false,
         };
+
+      if (isNonEduEmail && !attribution.isDevMockReferral) {
+        await this.consumeNonEduReferralQuota(tx, attribution.referredByUserId);
+      }
+
+      await this.consumeVerificationCode(
+        tx,
+        normalizedEmail,
+        'register',
+        input.code,
+      );
 
       const now = new Date();
 
@@ -115,10 +153,15 @@ export class AuthService {
             status: 'ACTIVE',
             displayName: input.displayName,
             preferredLocale: localeCookie ?? undefined,
-            schoolId: school?.schoolId,
+            schoolId,
             referredByUserId: attribution.referredByUserId,
             referralChannel: attribution.referralChannel,
             referralCampaignId: attribution.referralCampaignId,
+            // Non-school registrants cannot themselves pull in other non-school
+            // users: their non-edu referral quota starts at 0. School registrants
+            // keep the column default (3). Admins can later raise a user's quota
+            // via PATCH /admin/users/:id/referral-limit (the "ambassador" tier).
+            nonEduReferralLimit: isNonEduEmail ? 0 : undefined,
             acceptedTermsAt: input.acceptedTerms ? now : null,
             lastLoginAt: now,
             lastActiveAt: now,
@@ -363,7 +406,7 @@ export class AuthService {
     return {
       email,
       expiresAt,
-      devCode: env.APP_ENV === 'development' ? code : undefined,
+      devCode: isLocalDevRuntime() ? code : undefined,
     };
   }
 
@@ -451,16 +494,113 @@ export class AuthService {
     return latestCode;
   }
 
-  private async resolveAllowedSchool(email: string) {
-    const resolvedSchool =
-      await this.schoolResolverService.resolveByEmail(email);
-    if (!resolvedSchool) {
+  private async resolveSchoolByEmail(email: string) {
+    const school = await this.schoolResolverService.resolveByEmail(email);
+    if (!school) {
+      return null;
+    }
+
+    // Eligibility is data-driven: a school counts as a trusted school-email
+    // source only while it is flagged registrationEligible in the admin school
+    // center. Disabling the flag (or matching a non-partner domain) routes the
+    // email through the non-edu referral path.
+    return school.registrationEligible ? school : null;
+  }
+
+  private async resolveManualSchoolId(
+    tx: TransactionClient,
+    manualSchoolId?: string | null,
+  ) {
+    const schoolId = manualSchoolId?.trim();
+    if (!schoolId) {
       throw new BadRequestException(
-        'This email domain is not currently accepted.',
+        'School selection is required for non-school email registration.',
       );
     }
 
-    return resolvedSchool;
+    const school = await tx.school.findUnique({
+      where: { id: schoolId },
+      select: { id: true, registrationEligible: true },
+    });
+
+    if (!school || !school.registrationEligible) {
+      throw new BadRequestException('Selected school is invalid.');
+    }
+
+    return school.id;
+  }
+
+  private async consumeNonEduReferralQuota(
+    tx: TransactionClient,
+    referrerUserId: string | null,
+  ) {
+    if (!referrerUserId) {
+      throw new BadRequestException(
+        'Referral code is required for non-school email registration.',
+      );
+    }
+
+    // Atomic CAS debit. The status guard is defense-in-depth against a referrer
+    // being suspended between attribution resolution and this UPDATE within the
+    // same transaction; the primary ACTIVE check lives in
+    // ReferralService.resolveRegistrationAttribution.
+    const affectedRows = await tx.$executeRaw(Prisma.sql`
+      UPDATE "User"
+      SET "nonEduReferralUses" = "nonEduReferralUses" + 1
+      WHERE "id" = ${referrerUserId}
+        AND "status" = 'ACTIVE'
+        AND "nonEduReferralUses" < "nonEduReferralLimit"
+    `);
+
+    if (affectedRows !== 1) {
+      throw new BadRequestException(
+        'Referral quota for non-school email registration has been exhausted.',
+      );
+    }
+  }
+
+  private async assertValidReferralBeforeNonSchoolRequestCode(
+    referralCode?: string | null,
+  ) {
+    const code = referralCode?.trim().toUpperCase();
+    if (!code) {
+      throw new BadRequestException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
+    }
+
+    if (isLocalDevMockReferralCode(code)) {
+      return;
+    }
+
+    const referrer = await this.prisma.user.findUnique({
+      where: { referralCode: code },
+      select: {
+        status: true,
+        nonEduReferralLimit: true,
+        nonEduReferralUses: true,
+      },
+    });
+
+    if (
+      !referrer ||
+      referrer.status !== 'ACTIVE' ||
+      referrer.nonEduReferralUses >= referrer.nonEduReferralLimit
+    ) {
+      throw new BadRequestException(NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR);
+    }
+  }
+
+  private logNonSchoolRequestCode(email: string, referralCode?: string | null) {
+    const code = referralCode?.trim().toUpperCase() ?? '';
+    const atIndex = email.lastIndexOf('@');
+    const domain = atIndex === -1 ? '(unknown)' : email.slice(atIndex + 1);
+    // Redact the code (prefix + length) so logs stay useful for spotting fan-out
+    // per code without persisting the full shareable referral credential.
+    const redactedCode = code
+      ? `${code.slice(0, 4)}…(${code.length})`
+      : '(none)';
+    this.logger.log(
+      `Non-school verification code requested for @${domain} via referral ${redactedCode}`,
+    );
   }
 
   private createVerificationCodeDigest(input: {

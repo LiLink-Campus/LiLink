@@ -1,6 +1,7 @@
 import { getClientApiBaseUrl } from "./api-base-url";
 
 export type EligibleSchool = {
+  id: string;
   name: string;
   description: string | null;
   domains: string[];
@@ -35,11 +36,15 @@ export function findMatchingSchool(
 
   const candidates = schools
     .flatMap((school) =>
-      school.domains.map((domain) => ({ school, domain: domain.toLowerCase() })),
+      school.domains.map((domain) => ({
+        school,
+        domain: domain.trim().toLowerCase(),
+      })),
     )
     .filter(
       ({ domain }) =>
-        emailDomain === domain || emailDomain.endsWith(`.${domain}`),
+        domain.includes(".") &&
+        (emailDomain === domain || emailDomain.endsWith(`.${domain}`)),
     )
     .sort((left, right) => right.domain.length - left.domain.length);
 
@@ -51,6 +56,11 @@ export function findMatchingSchool(
   return { school: match.school, matchedDomain: match.domain };
 }
 
+// The registration-eligible school set is the single source of truth served by
+// GET /public/schools (schools flagged registrationEligible in the admin school
+// center). The web no longer hardcodes the partner list, so adding a school +
+// domains in the backend makes its email range count as a school email
+// automatically.
 export async function fetchEligibleSchools(): Promise<EligibleSchoolsPayload> {
   const response = await fetch(`${getClientApiBaseUrl()}/public/schools`, {
     headers: { Accept: "application/json" },

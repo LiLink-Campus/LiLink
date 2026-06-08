@@ -9,7 +9,11 @@ import { CustomThrottlerGuard } from '../../common/http/custom-throttler.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { authEmailThrottler, publicAuthRouteThrottles } from './auth-throttle';
+import {
+  authEmailThrottler,
+  authReferralThrottler,
+  publicAuthRouteThrottles,
+} from './auth-throttle';
 
 type AuthServiceStub = {
   requestCode: jest.Mock;
@@ -141,6 +145,10 @@ async function createTestApp() {
             limit: 1000,
           },
           authEmailThrottler,
+          // Registered globally like AppModule so the request-code route-level
+          // @Throttle(authReferral) override is actually enforced here. Without
+          // this entry @nestjs/throttler silently ignores the named bucket.
+          authReferralThrottler,
         ],
       }),
     ],
@@ -423,6 +431,52 @@ describe('Auth throttling integration', () => {
       expect(otherCfResponse.status).toBe(SUCCESS_STATUS);
       expect(sameCfResponse.status).toBe(429);
       expect(authService.requestCode).toHaveBeenCalledTimes(ipLimit + 1);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('caps request-code verification mail per referral code across different target emails', async () => {
+    const { app, authService, httpServer } = await createTestApp();
+    const referralLimit =
+      publicAuthRouteThrottles.requestCode.referralLimit ?? 0;
+    const referralCode = 'SHAREDCODE';
+
+    expect(referralLimit).toBeGreaterThan(0);
+
+    try {
+      // Same shared code, a fresh email each request, so the per-email bucket
+      // never trips and only the per-referral-code cap is under test — the exact
+      // fan-out (one code -> many inboxes) the referral bucket exists to bound.
+      for (let attempt = 0; attempt < referralLimit; attempt += 1) {
+        const response = await postAuth(
+          httpServer,
+          '/v1/auth/request-code',
+          SHARED_PROXY_IP,
+          { email: `target-${attempt}@example.com`, referralCode },
+        );
+
+        expect(response.status).toBe(SUCCESS_STATUS);
+      }
+
+      const blockedResponse = await postAuth(
+        httpServer,
+        '/v1/auth/request-code',
+        SHARED_PROXY_IP,
+        { email: 'target-over-limit@example.com', referralCode },
+      );
+
+      // A different code in the same window keeps its own bucket (isolation).
+      const otherCodeResponse = await postAuth(
+        httpServer,
+        '/v1/auth/request-code',
+        SHARED_PROXY_IP,
+        { email: 'other-target@example.com', referralCode: 'OTHERCODE1' },
+      );
+
+      expect(blockedResponse.status).toBe(429);
+      expect(otherCodeResponse.status).toBe(SUCCESS_STATUS);
+      expect(authService.requestCode).toHaveBeenCalledTimes(referralLimit + 1);
     } finally {
       await app.close();
     }

@@ -17,6 +17,7 @@ type LandingPayload = {
 };
 
 type EligibleSchool = {
+  id: string;
   name: string;
   description: string | null;
   domains: string[];
@@ -42,6 +43,10 @@ type CachedEligibleSchoolsPayload = {
 const LANDING_PAYLOAD_CACHE_TTL_MS = 30 * 1000;
 const ELIGIBLE_SCHOOLS_CACHE_TTL_MS = 30 * 1000;
 
+function isTrustedSchoolEmailDomain(domain: string) {
+  return domain.includes('.');
+}
+
 @Injectable()
 export class PublicService {
   private cachedLandingPayload: CachedLandingPayload | null = null;
@@ -49,6 +54,7 @@ export class PublicService {
   private cachedEligibleSchools: CachedEligibleSchoolsPayload | null = null;
   private eligibleSchoolsInFlight: Promise<EligibleSchoolsPayload> | null =
     null;
+  private eligibleSchoolsCacheEpoch = 0;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -79,11 +85,21 @@ export class PublicService {
       return this.eligibleSchoolsInFlight;
     }
 
-    this.eligibleSchoolsInFlight = this.loadEligibleSchools().finally(() => {
-      this.eligibleSchoolsInFlight = null;
-    });
+    const cacheEpoch = this.eligibleSchoolsCacheEpoch;
+    this.eligibleSchoolsInFlight = this.loadEligibleSchools(cacheEpoch).finally(
+      () => {
+        this.eligibleSchoolsInFlight = null;
+      },
+    );
 
     return this.eligibleSchoolsInFlight;
+  }
+
+  // Drop the cached payload so the next read reflects an admin eligibility change before the TTL expires.
+  invalidateEligibleSchoolsCache() {
+    this.eligibleSchoolsCacheEpoch += 1;
+    this.cachedEligibleSchools = null;
+    this.eligibleSchoolsInFlight = null;
   }
 
   private readCachedLandingPayload() {
@@ -155,12 +171,17 @@ export class PublicService {
     return landingPayload;
   }
 
-  private async loadEligibleSchools() {
+  private async loadEligibleSchools(cacheEpoch: number) {
     const schools = await this.prisma.school.findMany({
+      // Only schools flagged eligible in the admin school center are offered for
+      // self-registration; this is the single source of truth shared by the
+      // public schools page and the registration manual-school dropdown.
       where: {
+        registrationEligible: true,
         domains: { some: {} },
       },
       select: {
+        id: true,
         name: true,
         description: true,
         domains: {
@@ -171,11 +192,16 @@ export class PublicService {
       orderBy: { name: 'asc' },
     });
 
-    const eligibleSchools: EligibleSchool[] = schools.map((school) => ({
-      name: school.name,
-      description: school.description,
-      domains: school.domains.map((entry) => entry.domain),
-    }));
+    const eligibleSchools: EligibleSchool[] = schools
+      .map((school) => ({
+        id: school.id,
+        name: school.name,
+        description: school.description,
+        domains: school.domains
+          .map((entry) => entry.domain)
+          .filter(isTrustedSchoolEmailDomain),
+      }))
+      .filter((school) => school.domains.length > 0);
 
     const totalDomainCount = eligibleSchools.reduce(
       (count, school) => count + school.domains.length,
@@ -189,10 +215,14 @@ export class PublicService {
       generatedAt: new Date(),
     };
 
-    this.cachedEligibleSchools = {
-      expiresAt: Date.now() + ELIGIBLE_SCHOOLS_CACHE_TTL_MS,
-      value: payload,
-    };
+    // Skip caching if the data was invalidated while this load was in flight,
+    // so a concurrent admin change is never masked by a stale snapshot.
+    if (cacheEpoch === this.eligibleSchoolsCacheEpoch) {
+      this.cachedEligibleSchools = {
+        expiresAt: Date.now() + ELIGIBLE_SCHOOLS_CACHE_TTL_MS,
+        value: payload,
+      };
+    }
 
     return payload;
   }

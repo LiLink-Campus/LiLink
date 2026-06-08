@@ -7,7 +7,12 @@ import { ReferralService } from './referral.service';
 
 function makePrisma() {
   return {
-    user: { findUnique: jest.fn(), updateMany: jest.fn(), findMany: jest.fn() },
+    user: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      updateMany: jest.fn(),
+      findMany: jest.fn(),
+    },
     campaign: { findUnique: jest.fn(), findFirst: jest.fn() },
     referralEvent: { create: jest.fn().mockResolvedValue({}) },
     campaignActivation: { findMany: jest.fn().mockResolvedValue([]) },
@@ -125,7 +130,7 @@ describe('ReferralService', () => {
       });
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { referralCode: 'ABC2345XYZ' },
-        select: { id: true },
+        select: { id: true, status: true },
       });
       expect(prisma.campaign.findFirst).not.toHaveBeenCalled();
     });
@@ -197,6 +202,104 @@ describe('ReferralService', () => {
       const result = await service.resolveRegistrationAttribution({});
 
       expect(result.referralCampaignId).toBeNull();
+    });
+
+    it('throws when requireReferralCode is set but no code is provided', async () => {
+      const prisma = makePrisma();
+      const service = new ReferralService(prisma as never);
+
+      await expect(
+        service.resolveRegistrationAttribution({}, prisma as never, {
+          requireReferralCode: true,
+        }),
+      ).rejects.toThrow('Referral code is required');
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('throws when requireReferralCode is set and the code is unknown', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue(null);
+      const service = new ReferralService(prisma as never);
+
+      await expect(
+        service.resolveRegistrationAttribution(
+          { referralCode: 'NOSUCHCODE' },
+          prisma as never,
+          { requireReferralCode: true },
+        ),
+      ).rejects.toThrow('Referral code is invalid');
+    });
+
+    it('rejects a non-ACTIVE referrer for non-school (requireReferralCode) registration', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'SUSPENDED',
+      });
+      const service = new ReferralService(prisma as never);
+
+      await expect(
+        service.resolveRegistrationAttribution(
+          { referralCode: 'ABC2345XYZ' },
+          prisma as never,
+          { requireReferralCode: true },
+        ),
+      ).rejects.toThrow('Referral code is invalid');
+    });
+
+    it('accepts an ACTIVE referrer for non-school (requireReferralCode) registration', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'ACTIVE',
+      });
+      prisma.campaign.findFirst.mockResolvedValue(null);
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.resolveRegistrationAttribution(
+        { referralCode: 'ABC2345XYZ', channel: 'WECHAT_GROUP' },
+        prisma as never,
+        { requireReferralCode: true },
+      );
+
+      expect(result.referredByUserId).toBe('ref-1');
+      expect(result.referralChannel).toBe('WECHAT_GROUP');
+    });
+
+    it('silently ignores an unknown code on school (optional-code) registration', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.campaign.findFirst.mockResolvedValue(null);
+      const service = new ReferralService(prisma as never);
+
+      // School registration is tolerant: an invalid optional code is ignored and
+      // registration proceeds without recording an attribution (no throw).
+      const result = await service.resolveRegistrationAttribution(
+        { referralCode: 'NOSUCHCODE' },
+        prisma as never,
+      );
+
+      expect(result.referredByUserId).toBeNull();
+      expect(result.referralChannel).toBeNull();
+    });
+
+    it('still records attribution for a non-ACTIVE referrer on school (optional-code) registration', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'SUSPENDED',
+      });
+      prisma.campaign.findFirst.mockResolvedValue(null);
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.resolveRegistrationAttribution(
+        { referralCode: 'ABC2345XYZ' },
+        prisma as never,
+      );
+
+      // School registration does not gate on referrer status, so attribution is
+      // preserved even when the referrer is suspended (no quota is consumed).
+      expect(result.referredByUserId).toBe('ref-1');
     });
   });
 
@@ -364,6 +467,46 @@ describe('ReferralService', () => {
         redeemed: 0,
       });
       expect(prisma.campaignActivation.findMany).not.toHaveBeenCalled();
+    });
+
+    it('reports the non-edu referral quota for the owner', async () => {
+      const prisma = makePrisma();
+      // One row backs both findUnique calls (assign reads referralCode, the owner
+      // read selects the quota columns).
+      prisma.user.findUnique.mockResolvedValue({
+        referralCode: 'PERSONAL10',
+        nonEduReferralLimit: 5,
+        nonEduReferralUses: 2,
+      });
+      prisma.user.findMany.mockResolvedValue([]);
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.getMyReferralOverview('user-1');
+
+      expect(result.nonEduReferralQuota).toEqual({
+        limit: 5,
+        uses: 2,
+        remaining: 3,
+      });
+    });
+
+    it('clamps the remaining quota to zero when uses exceed the limit', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        referralCode: 'PERSONAL10',
+        nonEduReferralLimit: 1,
+        nonEduReferralUses: 4,
+      });
+      prisma.user.findMany.mockResolvedValue([]);
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.getMyReferralOverview('user-1');
+
+      expect(result.nonEduReferralQuota).toEqual({
+        limit: 1,
+        uses: 4,
+        remaining: 0,
+      });
     });
   });
 });

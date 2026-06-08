@@ -30,6 +30,7 @@ import {
   ReorderQuestionsDto,
   ReviewReportDto,
   ToggleTestFlagDto,
+  UpdateUserReferralLimitDto,
   UpdateUserStatusDto,
   UpdateSettingsDto,
   UpdateSchoolDto,
@@ -231,6 +232,19 @@ export class AdminController {
     @Body() body: AdminUpdateUserDto,
   ) {
     return this.adminService.updateUser(userId, body, request.admin!.id);
+  }
+
+  @Patch('users/:userId/referral-limit')
+  updateUserReferralLimit(
+    @Req() request: AdminAuthenticatedRequest,
+    @Param('userId') userId: string,
+    @Body() body: UpdateUserReferralLimitDto,
+  ) {
+    return this.adminService.updateUserReferralLimit(
+      userId,
+      body,
+      request.admin!.id,
+    );
   }
 
   @Put('users/:userId/test-flag')

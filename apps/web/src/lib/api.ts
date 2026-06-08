@@ -15,6 +15,14 @@ const API_ERROR_EN_TO_ZH: Record<string, string> = {
   "Verification code is invalid. Please request a new one.":
     "验证码不正确或已失效，请重新获取验证码。",
   "This email is already registered.": "该邮箱已注册，请直接登录。",
+  "Referral code is required for non-school email registration.":
+    "检测到非教育邮箱，请填写有效邀请码。",
+  "Referral code is invalid.": "邀请码无效，请检查后重新输入。",
+  "Referral quota for non-school email registration has been exhausted.":
+    "该邀请码的普通邮箱邀请名额已用完，请更换邀请码。",
+  "School selection is required for non-school email registration.":
+    "检测到非教育邮箱，请选择你的学校。",
+  "Selected school is invalid.": "所选学校无效，请重新选择。",
   "Email or password is incorrect.": "邮箱或密码不正确。",
   "Account has been suspended.": "账号已被暂停使用。",
   "Account is not active yet.": "账号尚未激活。",
@@ -456,10 +464,17 @@ type ReferralFunnel = {
   redeemed: number;
 };
 
+type NonEduReferralQuota = {
+  limit: number;
+  uses: number;
+  remaining: number;
+};
+
 export type MyReferralOverview = {
   referralCode: string | null;
   links: { channel: string; url: string }[];
   funnel: ReferralFunnel;
+  nonEduReferralQuota: NonEduReferralQuota;
 };
 
 export function fetchMyReferral() {
