@@ -6,6 +6,7 @@ export type AdminSchool = {
   name: string;
   slug: string;
   description: string | null;
+  registrationEligible: boolean;
   domains: Array<{ id: string; domain: string }>;
   _count: {
     users: number;
@@ -155,6 +156,8 @@ export type AdminUser = {
   displayName: string | null;
   isTest: boolean;
   createdAt: string;
+  nonEduReferralLimit: number;
+  nonEduReferralUses: number;
   school: { name: string } | null;
   profile: {
     fullName: string | null;

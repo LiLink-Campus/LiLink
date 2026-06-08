@@ -62,6 +62,89 @@ describe('AdminSchoolService', () => {
     ).toHaveBeenCalledTimes(1);
   });
 
+  it('persists registrationEligible and records it in the audit log', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'school-1',
+      slug: 'example-school',
+      registrationEligible: false,
+      domains: [],
+    });
+    const auditService = {
+      write: jest.fn().mockResolvedValue(undefined),
+    };
+    const schoolResolverService = {
+      invalidateResolutionCache: jest.fn(),
+    };
+    const service = new AdminSchoolService(
+      { school: { create } } as never,
+      auditService as never,
+      undefined,
+      schoolResolverService as never,
+    );
+
+    await service.create(
+      {
+        name: 'Example School',
+        slug: 'example-school',
+        registrationEligible: false,
+        domains: ['example.edu'],
+      },
+      'admin-1',
+    );
+
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          registrationEligible: false,
+        }) as object,
+      }) as object,
+    );
+    expect(auditService.write).toHaveBeenCalledWith(
+      'admin-1',
+      'school.created',
+      {
+        schoolId: 'school-1',
+        slug: 'example-school',
+        registrationEligible: false,
+      },
+    );
+  });
+
+  it('invalidates both the resolver cache and the public eligible-schools cache on create', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'school-1',
+      slug: 'example-school',
+      registrationEligible: true,
+      domains: [],
+    });
+    const auditService = { write: jest.fn().mockResolvedValue(undefined) };
+    const schoolResolverService = { invalidateResolutionCache: jest.fn() };
+    const publicService = { invalidateEligibleSchoolsCache: jest.fn() };
+    const service = new AdminSchoolService(
+      { school: { create } } as never,
+      auditService as never,
+      undefined,
+      schoolResolverService as never,
+      publicService as never,
+    );
+
+    await service.create(
+      {
+        name: 'Example School',
+        slug: 'example-school',
+        domains: ['example.edu'],
+      },
+      'admin-1',
+    );
+
+    expect(
+      schoolResolverService.invalidateResolutionCache,
+    ).toHaveBeenCalledTimes(1);
+    expect(publicService.invalidateEligibleSchoolsCache).toHaveBeenCalledTimes(
+      1,
+    );
+  });
+
   it('rejects school creation when all domains are blank', async () => {
     const service = new AdminSchoolService(
       {

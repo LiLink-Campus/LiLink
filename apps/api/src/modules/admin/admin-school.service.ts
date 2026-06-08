@@ -15,6 +15,7 @@ import {
 import { CreateSchoolDto, ListSchoolsQueryDto, UpdateSchoolDto } from './dto';
 import { AdminAuditService } from './admin-audit.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
+import { PublicService } from '../public/public.service';
 import {
   buildPageResult,
   normalizeAdminListPagination,
@@ -34,6 +35,11 @@ type SchoolResolverPort = Pick<
   'invalidateResolutionCache'
 >;
 
+type EligibleSchoolsCachePort = Pick<
+  PublicService,
+  'invalidateEligibleSchoolsCache'
+>;
+
 const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
   syncMatchSnapshots() {
     return Promise.resolve();
@@ -46,21 +52,38 @@ const defaultSchoolResolverPort: SchoolResolverPort = {
   },
 };
 
+const defaultEligibleSchoolsCachePort: EligibleSchoolsCachePort = {
+  invalidateEligibleSchoolsCache() {
+    return;
+  },
+};
+
 @Injectable()
 export class AdminSchoolService {
   private readonly dashboardSnapshotService: DashboardSnapshotPort;
   private readonly schoolResolverService: SchoolResolverPort;
+  private readonly publicService: EligibleSchoolsCachePort;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly adminAuditService: AdminAuditService,
     @Optional() dashboardSnapshotService?: DashboardSnapshotService,
     @Optional() schoolResolverService?: SchoolResolverService,
+    @Optional() publicService?: PublicService,
   ) {
     this.dashboardSnapshotService =
       dashboardSnapshotService ?? defaultDashboardSnapshotPort;
     this.schoolResolverService =
       schoolResolverService ?? defaultSchoolResolverPort;
+    this.publicService = publicService ?? defaultEligibleSchoolsCachePort;
+  }
+
+  // Invalidate every cache that derives from school rows / the registrationEligible
+  // flag, so an admin change is reflected immediately by both the resolver
+  // (school-email detection) and the public list + manual-school dropdown.
+  private invalidateSchoolCaches() {
+    this.schoolResolverService.invalidateResolutionCache();
+    this.publicService.invalidateEligibleSchoolsCache();
   }
 
   async list(query: ListSchoolsQueryDto = {}) {
@@ -129,6 +152,7 @@ export class AdminSchoolService {
         name: input.name,
         slug: input.slug,
         description: input.description,
+        registrationEligible: input.registrationEligible,
         domains: {
           create: normalizedDomains.map((domain) => ({ domain })),
         },
@@ -141,8 +165,9 @@ export class AdminSchoolService {
     await this.adminAuditService.write(adminActorId, 'school.created', {
       schoolId: school.id,
       slug: school.slug,
+      registrationEligible: school.registrationEligible,
     });
-    this.schoolResolverService.invalidateResolutionCache();
+    this.invalidateSchoolCaches();
 
     return school;
   }
@@ -172,6 +197,7 @@ export class AdminSchoolService {
         data: {
           name: input.name,
           description: input.description,
+          registrationEligible: input.registrationEligible,
           domains: {
             create: normalizedDomains.map((domain) => ({ domain })),
           },
@@ -183,8 +209,9 @@ export class AdminSchoolService {
     await this.adminAuditService.write(adminActorId, 'school.updated', {
       schoolId: updatedSchool.id,
       slug: updatedSchool.slug,
+      registrationEligible: updatedSchool.registrationEligible,
     });
-    this.schoolResolverService.invalidateResolutionCache();
+    this.invalidateSchoolCaches();
 
     await this.syncSnapshotsForSchoolUsers(updatedSchool.id);
 
@@ -251,7 +278,7 @@ export class AdminSchoolService {
       movedUserCount: source._count.users,
       movedDomainCount: source.domains.length,
     });
-    this.schoolResolverService.invalidateResolutionCache();
+    this.invalidateSchoolCaches();
 
     await this.syncSnapshotsForUserIds(affectedUserIds);
 
@@ -292,7 +319,7 @@ export class AdminSchoolService {
       schoolId,
       slug: school.slug,
     });
-    this.schoolResolverService.invalidateResolutionCache();
+    this.invalidateSchoolCaches();
     await this.syncSnapshotsForUserIds(affectedUserIds);
     return { ok: true };
   }

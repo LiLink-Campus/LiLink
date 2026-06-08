@@ -128,6 +128,11 @@ function buildEditForm(user: AdminUser): EditForm {
   };
 }
 
+function formatNonEduReferralQuota(user: AdminUser) {
+  const remaining = Math.max(0, user.nonEduReferralLimit - user.nonEduReferralUses);
+  return `已用 ${user.nonEduReferralUses} / 上限 ${user.nonEduReferralLimit} · 剩余 ${remaining}`;
+}
+
 export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<"ALL" | AdminUser["status"]>("ALL");
   const [questionnaireFilter, setQuestionnaireFilter] = useState<"all" | "submitted" | "missing">("all");
@@ -137,9 +142,12 @@ export default function AdminUsersPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("profile");
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [editingReferralLimit, setEditingReferralLimit] = useState(false);
+  const [referralLimitDraft, setReferralLimitDraft] = useState("");
   const [userDetail, setUserDetail] = useState<AdminUserDetail | null>(null);
   const [questionnaireData, setQuestionnaireData] = useState<AdminUserQuestionnaire>(null);
   const [participationsData, setParticipationsData] = useState<PaginatedResult<AdminUserParticipation> | null>(null);
@@ -260,6 +268,9 @@ export default function AdminUsersPage() {
     setDetailTab("profile");
     setEditing(false);
     setEditForm(null);
+    setEditingReferralLimit(false);
+    setReferralLimitDraft("");
+    setActionMessage(null);
     setQuestionnaireData(null);
     setParticipationsData(null);
   }, [selectedUserId]);
@@ -358,6 +369,7 @@ export default function AdminUsersPage() {
     setEditForm(buildEditForm(selectedUser));
     setEditing(true);
     setActionError(null);
+    setActionMessage(null);
   }
 
   function cancelEditing() {
@@ -366,10 +378,25 @@ export default function AdminUsersPage() {
     setActionError(null);
   }
 
+  function startEditingReferralLimit() {
+    if (!displayUser) return;
+    setReferralLimitDraft(String(displayUser.nonEduReferralLimit));
+    setEditingReferralLimit(true);
+    setActionError(null);
+    setActionMessage(null);
+  }
+
+  function cancelEditingReferralLimit() {
+    setEditingReferralLimit(false);
+    setReferralLimitDraft("");
+    setActionError(null);
+  }
+
   async function saveEdit() {
     if (!selectedUser || !editForm) return;
     setPending("edit");
     setActionError(null);
+    setActionMessage(null);
     try {
       const payload: Record<string, unknown> = {};
       if (editForm.displayName !== (selectedUser.displayName ?? "")) payload.displayName = editForm.displayName || null;
@@ -400,11 +427,53 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function saveReferralLimit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!displayUser) return;
+
+    const trimmedDraft = referralLimitDraft.trim();
+    const nextLimit = Number(trimmedDraft);
+    if (
+      !trimmedDraft ||
+      !Number.isInteger(nextLimit) ||
+      nextLimit < 0 ||
+      nextLimit > 100000
+    ) {
+      // Guard the empty/blank case explicitly: Number("") === 0 would otherwise
+      // silently revoke the user's quota instead of being rejected as no input.
+      setActionError("普通邮箱邀请码额度上限必须是 0 到 100000 之间的整数。");
+      return;
+    }
+
+    const userId = displayUser.id;
+    setPending("referral-limit");
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      await fetchApi(`/admin/users/${userId}/referral-limit`, {
+        method: "PATCH",
+        body: JSON.stringify({ nonEduReferralLimit: nextLimit }),
+      });
+      setEditingReferralLimit(false);
+      setReferralLimitDraft("");
+      setActionMessage("普通邮箱邀请码额度已更新。");
+      await refresh();
+      await reloadUserDetail();
+    } catch (caughtError) {
+      setActionError(
+        caughtError instanceof Error ? caughtError.message : "普通邮箱邀请码额度更新失败。",
+      );
+    } finally {
+      setPending(null);
+    }
+  }
+
   async function toggleTestFlag() {
     if (!selectedUser) return;
     const nextValue = !selectedUser.isTest;
     setPending("test-flag");
     setActionError(null);
+    setActionMessage(null);
     try {
       await fetchApi(`/admin/users/${selectedUser.id}/test-flag`, {
         method: "PUT",
@@ -423,6 +492,7 @@ export default function AdminUsersPage() {
     if (!confirm("确定删除所有标记为「测试用户」的账号？\n此操作会删除这些用户的所有数据（问卷、匹配记录、举报等），且不可撤回。")) return;
     setPending("delete-test");
     setActionError(null);
+    setActionMessage(null);
     try {
       const result = await fetchApi<{ deletedCount: number }>("/admin/users/test-users", { method: "DELETE" });
       setActionError(null);
@@ -440,6 +510,7 @@ export default function AdminUsersPage() {
     if (!selectedUser) return;
     setPending(status);
     setActionError(null);
+    setActionMessage(null);
     try {
       await fetchApi(`/admin/users/${selectedUser.id}/status`, {
         method: "PUT",
@@ -482,6 +553,7 @@ export default function AdminUsersPage() {
 
       {error && <p className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-bottom-sm")}>{error}</p>}
       {actionError && <p className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-bottom-sm")}>{actionError}</p>}
+      {actionMessage && <p className={cx(adminStyles, "ui-form-message ui-form-message--success admin-message-bottom-sm")}>{actionMessage}</p>}
 
       <section className={cx(adminStyles, "admin-workspace-grid")}>
         {/* ── User list ─── */}
@@ -578,6 +650,7 @@ export default function AdminUsersPage() {
                 <div className={cx(adminStyles, "admin-inline-meta")}>
                   <span>{user.school?.name ?? "未识别学校"}</span>
                   <span>{user.questionnaireResponse?.submittedAt ? "已填问卷" : "未填问卷"}</span>
+                  <span>普通邮箱邀请码：{formatNonEduReferralQuota(user)}</span>
                 </div>
               </button>
             ))}
@@ -649,6 +722,57 @@ export default function AdminUsersPage() {
                   <span>轮次参与</span>
                   <strong>{detailLoading || !userDetail ? "…" : userDetail.participationCount}</strong>
                 </div>
+              </div>
+
+              <div className={cx(adminStyles, "admin-review-box")}>
+                <div className={cx(adminStyles, "admin-section-header admin-section-header-tight")}>
+                  <div>
+                    <h3>普通邮箱邀请码额度</h3>
+                    <p>{formatNonEduReferralQuota(displayUser)}</p>
+                  </div>
+                  {!editingReferralLimit ? (
+                    <button
+                      className="ui-button ui-button--secondary"
+                      type="button"
+                      onClick={startEditingReferralLimit}
+                    >
+                      调整额度
+                    </button>
+                  ) : null}
+                </div>
+                {editingReferralLimit ? (
+                  <form className={cx(adminStyles, "admin-form-grid")} onSubmit={saveReferralLimit}>
+                    <label>
+                      <span>普通邮箱邀请码额度上限</span>
+                      <input
+                        className={cx(adminStyles, "admin-full-control")}
+                        type="number"
+                        min={0}
+                        max={100000}
+                        step={1}
+                        value={referralLimitDraft}
+                        onChange={(event) => setReferralLimitDraft(event.target.value)}
+                      />
+                    </label>
+                    <div className="auth-actions">
+                      <button
+                        className="ui-button ui-button--primary"
+                        type="submit"
+                        disabled={pending === "referral-limit"}
+                      >
+                        {pending === "referral-limit" ? "保存中…" : "保存额度"}
+                      </button>
+                      <button
+                        className="ui-button ui-button--secondary"
+                        type="button"
+                        disabled={pending === "referral-limit"}
+                        onClick={cancelEditingReferralLimit}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
               </div>
 
               {/* Detail tabs */}

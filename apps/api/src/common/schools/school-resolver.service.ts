@@ -7,6 +7,7 @@ type SchoolResolution = {
   schoolName: string;
   schoolSlug: string;
   schoolDescription: string | null;
+  registrationEligible: boolean;
 };
 
 type CachedSchoolResolution = {
@@ -85,7 +86,11 @@ export class SchoolResolverService {
     const candidateDomains = emailDomain
       .split('.')
       .map((_, index, parts) => parts.slice(index).join('.'))
-      .filter(Boolean);
+      // Drop the bare single-label TLD candidate (e.g. "cn", "edu", "com"): a
+      // trusted school-email domain must be at least two labels, so a bare-TLD
+      // SchoolDomain row can never be queried or matched and an entire TLD is
+      // never trusted. Specific org domains like "bupt.cn" still resolve.
+      .filter((candidate) => candidate.includes('.'));
 
     const domains = await this.prisma.schoolDomain.findMany({
       where: {
@@ -102,8 +107,11 @@ export class SchoolResolverService {
       .sort((left, right) => right.domain.length - left.domain.length)
       .find(
         (item) =>
-          emailDomain === item.domain ||
-          emailDomain.endsWith(`.${item.domain}`),
+          // Defense in depth: a bare single-label TLD is never trusted, even if a
+          // row for it somehow exists, so "evil.cn" can never match a "cn" row.
+          item.domain.includes('.') &&
+          (emailDomain === item.domain ||
+            emailDomain.endsWith(`.${item.domain}`)),
       );
 
     const resolution = match
@@ -113,6 +121,7 @@ export class SchoolResolverService {
           schoolName: match.school.name,
           schoolSlug: match.school.slug,
           schoolDescription: match.school.description,
+          registrationEligible: match.school.registrationEligible,
         }
       : null;
 

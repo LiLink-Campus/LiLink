@@ -1,5 +1,6 @@
 import { redirectAuthenticatedUser } from "../../lib/server-api";
-import RegisterPageClient from "./register-page-client";
+import RegisterChooserClient from "./register-chooser-client";
+import { firstSearchParam } from "./utils";
 
 type RegisterPageProps = {
   searchParams: Promise<{ next?: string | string[] }>;
@@ -7,15 +8,9 @@ type RegisterPageProps = {
 
 export default async function RegisterPage({ searchParams }: RegisterPageProps) {
   const params = await searchParams;
-  const nextParam = params.next;
-  const nextCandidate =
-    typeof nextParam === "string"
-      ? nextParam
-      : Array.isArray(nextParam)
-        ? nextParam[0]
-        : undefined;
+  const nextCandidate = firstSearchParam(params.next);
 
   await redirectAuthenticatedUser({ nextCandidate });
 
-  return <RegisterPageClient />;
+  return <RegisterChooserClient />;
 }

@@ -104,9 +104,12 @@ describe('Auth registration HTTP validation (e2e)', () => {
     });
 
     it('returns 400 when unknown JSON properties are present', async () => {
+      // Distinct email per request-code case: the throttle guard runs before the
+      // ValidationPipe and the per-email request-code bucket is now 1/30s, so
+      // reusing an address across cases in this shared app would 429 the second.
       const response = await request(httpServer())
         .post('/v1/auth/request-code')
-        .send({ email: 'user@example.com', extra: 'nope' });
+        .send({ email: 'unknown-prop@example.com', extra: 'nope' });
 
       expect(response.status).toBe(400);
       expect(requestCode).not.toHaveBeenCalled();
@@ -119,11 +122,24 @@ describe('Auth registration HTTP validation (e2e)', () => {
 
       expect(response.status).toBe(201);
       expect(requestCode).toHaveBeenCalledTimes(1);
-      expect(requestCode).toHaveBeenCalledWith('user@example.com');
+      expect(requestCode).toHaveBeenCalledWith('user@example.com', undefined);
       expect(response.body).toMatchObject({
         email: 'user@example.com',
         school: { schoolId: 'school-1' },
       });
+    });
+
+    it('forwards the referral code to AuthService when provided', async () => {
+      const response = await request(httpServer())
+        .post('/v1/auth/request-code')
+        .send({
+          email: 'user@qq.com',
+          referralCode: 'VALIDCODE1',
+        });
+
+      expect(response.status).toBe(201);
+      expect(requestCode).toHaveBeenCalledTimes(1);
+      expect(requestCode).toHaveBeenCalledWith('user@qq.com', 'VALIDCODE1');
     });
   });
 
