@@ -29,6 +29,10 @@ type PublicAuthRouteKey =
 
 type PublicAuthRouteThrottle = {
   emailLimit: number;
+  // Optional override for the per-email window (defaults to ttlMs). request-code
+  // uses a tighter 30s window so one inbox can receive at most one verification
+  // code every 30s, instead of the default per-minute allowance.
+  emailTtlMs?: number;
   ipLimit: number;
   ttlMs: number;
   // Optional per-referral-code cap. Only request-code sets this: it bounds how
@@ -44,6 +48,11 @@ const AUTH_EMAIL_THROTTLER_NAME = 'authEmail';
 const AUTH_REFERRAL_THROTTLER_NAME = 'authReferral';
 const AUTH_THROTTLE_TTL_MS = 60_000;
 const PUBLIC_SIGNUP_IP_LIMIT = 1000;
+// request-code per-email cap: one verification code per email per 30s. This
+// bounds per-inbox verification-mail spam (the register page mirrors it as a
+// resend cooldown) and is tighter than the old 3/min allowance.
+const PUBLIC_REQUEST_CODE_EMAIL_LIMIT = 1;
+const PUBLIC_REQUEST_CODE_EMAIL_TTL_MS = 30_000;
 // Per-referral-code request-code cap. Generous enough for organic invite bursts
 // (a referrer's default non-edu quota is only 3) yet ~100x below the per-IP
 // ceiling, so a single shared code cannot drive verification-mail bombing.
@@ -65,7 +74,8 @@ export const publicAuthRouteThrottles: Record<
   PublicAuthRouteThrottle
 > = {
   requestCode: {
-    emailLimit: 3,
+    emailLimit: PUBLIC_REQUEST_CODE_EMAIL_LIMIT,
+    emailTtlMs: PUBLIC_REQUEST_CODE_EMAIL_TTL_MS,
     ipLimit: PUBLIC_SIGNUP_IP_LIMIT,
     referralLimit: PUBLIC_REQUEST_CODE_REFERRAL_LIMIT,
     ttlMs: AUTH_THROTTLE_TTL_MS,
@@ -236,7 +246,7 @@ export function createPublicAuthThrottle(route: PublicAuthRouteKey) {
       limit: throttle.ipLimit,
     },
     [AUTH_EMAIL_THROTTLER_NAME]: {
-      ttl: throttle.ttlMs,
+      ttl: throttle.emailTtlMs ?? throttle.ttlMs,
       limit: throttle.emailLimit,
       getTracker: getAuthEmailThrottleTracker,
     },

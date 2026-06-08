@@ -104,9 +104,12 @@ describe('Auth registration HTTP validation (e2e)', () => {
     });
 
     it('returns 400 when unknown JSON properties are present', async () => {
+      // Distinct email per request-code case: the throttle guard runs before the
+      // ValidationPipe and the per-email request-code bucket is now 1/30s, so
+      // reusing an address across cases in this shared app would 429 the second.
       const response = await request(httpServer())
         .post('/v1/auth/request-code')
-        .send({ email: 'user@example.com', extra: 'nope' });
+        .send({ email: 'unknown-prop@example.com', extra: 'nope' });
 
       expect(response.status).toBe(400);
       expect(requestCode).not.toHaveBeenCalled();

@@ -16,7 +16,7 @@ import {
   Input,
   Select,
 } from "@/components/ui";
-import { fetchApi } from "../../lib/api";
+import { fetchApi, isApiRequestError } from "../../lib/api";
 import {
   extractEmailDomain,
   fetchEligibleSchools,
@@ -36,6 +36,9 @@ const PASSWORD_MAX_LENGTH = 128;
 const DISPLAY_NAME_MAX_LENGTH = 30;
 const VERIFICATION_CODE_LENGTH = 6;
 const REGISTER_REFERRAL_CODE_MAX_LENGTH = 64;
+// Mirrors the backend per-email request-code window (PUBLIC_REQUEST_CODE_EMAIL_TTL_MS):
+// one verification code per email per 30s. Drives the resend cooldown below.
+const RESEND_COOLDOWN_SECONDS = 30;
 
 type RegistrationMode = "SCHOOL_EMAIL" | "NON_EDU_REFERRAL_REQUIRED";
 
@@ -109,6 +112,8 @@ export default function RegisterPageClient() {
   const [devCode, setDevCode] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Seconds left before the same email may request another verification code.
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [canRevealDevCode, setCanRevealDevCode] = useState(false);
   const [loginHref, setLoginHref] = useState("/login");
   const emailDomainHint = useMemo(() => extractEmailDomain(email), [email]);
@@ -201,9 +206,20 @@ export default function RegisterPageClient() {
     void loadEligibleSchools();
   }, [loadEligibleSchools]);
 
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(
+      () => setResendCooldown((seconds) => Math.max(0, seconds - 1)),
+      1000,
+    );
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
   async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    if (resendCooldown > 0) return;
 
     const trimmedReferralCode = referralCode.trim();
     if (requiresReferralBeforeCode && !trimmedReferralCode) {
@@ -231,13 +247,21 @@ export default function RegisterPageClient() {
         setManualSchoolId("");
       }
       setDevCode(result.devCode);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
       setStep(2);
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "验证码发送失败，请稍后再试。",
-      );
+      if (isApiRequestError(caughtError) && caughtError.status === 429) {
+        setResendCooldown(RESEND_COOLDOWN_SECONDS);
+        setError(
+          `同一邮箱每 ${RESEND_COOLDOWN_SECONDS} 秒只能获取一次验证码，请稍后再试。`,
+        );
+      } else {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "验证码发送失败，请稍后再试。",
+        );
+      }
     } finally {
       setPending(false);
     }
@@ -344,6 +368,9 @@ export default function RegisterPageClient() {
                   setResolvedSchool(null);
                   setRequiresNonEduReferral(false);
                   setManualSchoolId("");
+                  // The cooldown is per-email on the server; a new address gets
+                  // its own bucket, so don't keep the previous email's timer.
+                  setResendCooldown(0);
                 }}
                 placeholder="your.name@example.com"
               />
@@ -396,11 +423,20 @@ export default function RegisterPageClient() {
             {error ? <FormMessage>{error}</FormMessage> : null}
             <Button
               block
-              disabled={pending}
+              disabled={pending || resendCooldown > 0}
               type="submit"
             >
-              {pending ? "发送中…" : "发送验证码"}
+              {pending
+                ? "发送中…"
+                : resendCooldown > 0
+                  ? `重新发送（${resendCooldown}s）`
+                  : "发送验证码"}
             </Button>
+            <p className={authStyles.hint}>
+              {resendCooldown > 0
+                ? `同一邮箱每 ${RESEND_COOLDOWN_SECONDS} 秒只能获取一次验证码。`
+                : "同一邮箱 30 秒内只能获取一次验证码，请填好邮箱后再发送。"}
+            </p>
             <p className={authStyles.hint}>
               没找到你的学校？前往
               {" "}

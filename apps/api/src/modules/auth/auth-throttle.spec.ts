@@ -117,7 +117,8 @@ describe('auth throttle helpers', () => {
         limit: publicAuthRouteThrottles.requestCode.ipLimit,
       },
       authEmail: {
-        ttl: publicAuthRouteThrottles.requestCode.ttlMs,
+        // request-code narrows the per-email window to emailTtlMs (30s).
+        ttl: publicAuthRouteThrottles.requestCode.emailTtlMs,
         limit: publicAuthRouteThrottles.requestCode.emailLimit,
         getTracker: getAuthEmailThrottleTracker,
       },
@@ -131,6 +132,11 @@ describe('auth throttle helpers', () => {
     expect(createPublicAuthThrottle('login')).not.toHaveProperty(
       'authReferral',
     );
+  });
+
+  it('caps request-code verification mail at one per email per 30s', () => {
+    expect(publicAuthRouteThrottles.requestCode.emailLimit).toBe(1);
+    expect(publicAuthRouteThrottles.requestCode.emailTtlMs).toBe(30_000);
   });
 
   it('keeps the per-referral-code throttle active for request-code variants carrying a code', () => {

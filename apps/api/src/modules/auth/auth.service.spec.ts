@@ -411,6 +411,72 @@ describe('AuthService', () => {
     expect(outboundCreate).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects requestCode for non-school email when the referrer is suspended', async () => {
+    const transaction = jest.fn();
+    const buildVerificationCodeEmail = jest.fn();
+    const deliverQueuedEmailNow = jest.fn();
+    const findUnique = jest.fn().mockResolvedValue({
+      status: 'SUSPENDED',
+      nonEduReferralLimit: 3,
+      nonEduReferralUses: 0,
+    });
+    const authService = new AuthService(
+      { $transaction: transaction, user: { findUnique } } as never,
+      {
+        buildVerificationCodeEmail,
+        deliverQueuedEmailNow,
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue(null),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      authService.requestCode('user@invalid.example', 'validcode1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
+    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
+  });
+
+  it('rejects requestCode for non-school email when the referrer quota is exhausted', async () => {
+    const transaction = jest.fn();
+    const buildVerificationCodeEmail = jest.fn();
+    const deliverQueuedEmailNow = jest.fn();
+    const findUnique = jest.fn().mockResolvedValue({
+      status: 'ACTIVE',
+      nonEduReferralLimit: 3,
+      nonEduReferralUses: 3,
+    });
+    const authService = new AuthService(
+      { $transaction: transaction, user: { findUnique } } as never,
+      {
+        buildVerificationCodeEmail,
+        deliverQueuedEmailNow,
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue(null),
+      } as never,
+      {} as never,
+    );
+
+    await expect(
+      authService.requestCode('user@invalid.example', 'validcode1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { referralCode: 'VALIDCODE1' },
+      select: {
+        status: true,
+        nonEduReferralLimit: true,
+        nonEduReferralUses: true,
+      },
+    });
+    expect(transaction).not.toHaveBeenCalled();
+    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
+    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
+  });
+
   it('queues a verification email and kicks off async delivery', async () => {
     const create = jest.fn().mockResolvedValue({
       id: 'code-1',
