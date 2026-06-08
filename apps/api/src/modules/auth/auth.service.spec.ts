@@ -637,7 +637,9 @@ describe('AuthService', () => {
     );
 
     try {
-      await expect(authService.requestCode('user@example.com')).resolves.toEqual(
+      await expect(
+        authService.requestCode('user@example.com'),
+      ).resolves.toEqual(
         expect.objectContaining({
           devCode: undefined,
         }),

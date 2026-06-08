@@ -80,7 +80,7 @@ export function ReferralLandingClient({ code }: { code: string }) {
             <p className={styles.text}>
               该邀请码无效或已过期，你仍然可以直接注册加入 LiLink。
             </p>
-            <a className={styles.cta} href="/register/personal">
+            <a className={styles.cta} href="/register">
               前往注册
             </a>
           </>
