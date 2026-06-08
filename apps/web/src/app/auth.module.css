@@ -88,6 +88,18 @@
   box-shadow: 0 0 0 4px rgba(139, 58, 74, 0.12);
 }
 
+.stack :global(.ui-input:read-only) {
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  cursor: default;
+}
+
+.stack :global(.ui-input:read-only:focus) {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -139,17 +151,6 @@
   border-radius: var(--radius-sm);
 }
 
-.schoolLockWarning {
-  margin: -0.35rem 0 0;
-  padding: 0.58rem 0.8rem;
-  background: var(--color-warning-soft);
-  color: #6f5114;
-  border: 1px solid color-mix(in srgb, var(--color-warning) 24%, transparent);
-  border-radius: var(--radius-sm);
-  font-size: 0.84rem;
-  line-height: 1.55;
-}
-
 .schoolListRetry {
   display: flex;
   flex-direction: column;
@@ -175,6 +176,111 @@
 }
 
 .termsCheckboxLabel a {
+  color: var(--color-brand-ink);
+  border-bottom: 1px solid var(--color-brand-soft);
+}
+
+.backLink {
+  margin: 0 0 0.75rem;
+  font-size: 0.84rem;
+}
+
+.backLink a {
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.pathChooser {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.pathChoice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+
+.pathChoice:hover {
+  border-color: var(--color-brand);
+  background: var(--color-brand-tint);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.pathChoice:focus-visible {
+  outline: none;
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 4px rgba(139, 58, 74, 0.12);
+}
+
+.pathChoiceBadge {
+  align-self: flex-start;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-brand);
+  color: var(--color-text-on-brand);
+}
+
+.pathChoiceBadgeMuted {
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+}
+
+.pathChoiceTitle {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--color-brand-ink);
+}
+
+.pathChoiceDesc {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.pathChoiceAction {
+  margin-top: 0.15rem;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--color-brand-ink);
+}
+
+.pathChooserNote {
+  margin: 0.85rem 0 0;
+  padding: 0.75rem 0.95rem;
+  border-radius: var(--radius-md);
+  background: var(--color-brand-tint);
+  border: 1px solid var(--color-brand-soft);
+  font-size: 0.86rem;
+  color: var(--color-brand-ink);
+}
+
+.inlineSwitchHint {
+  margin: -0.25rem 0 0;
+  font-size: 0.86rem;
+  color: var(--color-text-secondary);
+}
+
+.inlineSwitchHint a {
   color: var(--color-brand-ink);
   border-bottom: 1px solid var(--color-brand-soft);
 }

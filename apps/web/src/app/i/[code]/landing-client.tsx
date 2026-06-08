@@ -55,7 +55,7 @@ export function ReferralLandingClient({ code }: { code: string }) {
           );
           document.cookie = `${REFERRAL_COOKIE}=${payload}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; samesite=lax`;
           redirectTimer = setTimeout(() => {
-            window.location.href = "/register";
+            window.location.href = "/register/personal";
           }, 1200);
         }
         setValid(ok);
@@ -80,7 +80,7 @@ export function ReferralLandingClient({ code }: { code: string }) {
             <p className={styles.text}>
               该邀请码无效或已过期，你仍然可以直接注册加入 LiLink。
             </p>
-            <a className={styles.cta} href="/register">
+            <a className={styles.cta} href="/register/personal">
               前往注册
             </a>
           </>
@@ -88,7 +88,7 @@ export function ReferralLandingClient({ code }: { code: string }) {
           <>
             <h1 className={styles.title}>欢迎加入 LiLink</h1>
             <p className={styles.text}>正在为你跳转到注册页……</p>
-            <a className={styles.cta} href="/register">
+            <a className={styles.cta} href="/register/personal">
               没有自动跳转？点此注册
             </a>
           </>

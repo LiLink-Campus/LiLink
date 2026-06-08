@@ -1,11 +1,13 @@
-import { redirectAuthenticatedUser } from "../../lib/server-api";
-import RegisterChooserClient from "./register-chooser-client";
+import { redirectAuthenticatedUser } from "../../../lib/server-api";
+import RegisterSchoolClient from "../register-school-client";
 
-type RegisterPageProps = {
+type RegisterSchoolPageProps = {
   searchParams: Promise<{ next?: string | string[] }>;
 };
 
-export default async function RegisterPage({ searchParams }: RegisterPageProps) {
+export default async function RegisterSchoolPage({
+  searchParams,
+}: RegisterSchoolPageProps) {
   const params = await searchParams;
   const nextParam = params.next;
   const nextCandidate =
@@ -17,5 +19,5 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
 
   await redirectAuthenticatedUser({ nextCandidate });
 
-  return <RegisterChooserClient />;
+  return <RegisterSchoolClient />;
 }

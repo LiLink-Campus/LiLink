@@ -221,6 +221,20 @@
   box-shadow: 0 0 0 4px rgba(139, 58, 74, 0.12);
 }
 
+.ui-input:read-only,
+.ui-textarea:read-only {
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  cursor: default;
+}
+
+.ui-input:read-only:focus,
+.ui-textarea:read-only:focus {
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
 .ui-control--lg {
   padding: 0.85rem 1rem;
   font-size: 1rem;

@@ -125,6 +125,15 @@ export function ReferralsClient({
   const funnelTotal = data.funnel.invited;
   const canShare = data.links.length > 0;
   const nonEduQuota = data.nonEduReferralQuota;
+  const canInviteNonEdu = nonEduQuota.limit > 0;
+  const nonEduQuotaExhausted =
+    canInviteNonEdu && nonEduQuota.remaining <= 0;
+
+  const inviteHint = !canInviteNonEdu
+    ? "分享链接邀请学校邮箱同学注册。"
+    : nonEduQuotaExhausted
+      ? "普通邮箱名额已用完，分享链接仍可邀请学校邮箱同学。"
+      : null;
 
   return (
     <div className={dcx("app-page-shell v2-page-shell referrals-page")}>
@@ -134,35 +143,87 @@ export function ReferralsClient({
           邀请有礼
         </span>
         <h1>我的邀请</h1>
-        <p>分享专属链接，邀请同学加入 LiLink，一起解锁校园社交</p>
       </header>
 
       <section className={dcx("referrals-invite-card")} aria-label="我的邀请码">
-        <span className={dcx("referrals-invite-label")}>我的邀请码</span>
-        <div className={dcx("referrals-code-row")}>
-          <code className={dcx("referrals-code")}>
-            {data.referralCode ?? "尚未生成"}
-          </code>
-          {data.referralCode && (
-            <button
-              type="button"
-              className={dcx(`referrals-icon-btn${
-                copiedCode ? " is-copied" : ""
-              }`)}
-              aria-label="复制邀请码"
-              onClick={() => void copyReferralCode(data.referralCode!)}
+        <div className={dcx("referrals-invite-head")}>
+          <span className={dcx("referrals-invite-label")}>我的邀请码</span>
+          {canInviteNonEdu ? (
+            <span
+              className={dcx(
+                `referrals-status-badge${
+                  nonEduQuotaExhausted ? " is-exhausted" : " is-active"
+                }`,
+              )}
             >
-              {copiedCode ? <CheckCircleIcon /> : <CopyIcon />}
-            </button>
+              {nonEduQuotaExhausted
+                ? "名额已用完"
+                : `剩余 ${nonEduQuota.remaining} 个名额`}
+            </span>
+          ) : (
+            <span className={dcx("referrals-status-badge is-locked")}>
+              仅可邀请学校邮箱
+            </span>
           )}
         </div>
-        <p className={dcx("referrals-invite-hint")}>
-          点击下方按钮，选择微信或其他 App 分享给你的同学。
-        </p>
-        <p className={dcx("referrals-invite-hint")}>
-          普通邮箱邀请名额：已用 {nonEduQuota.uses} / {nonEduQuota.limit}，
-          剩余 {nonEduQuota.remaining}。学校邮箱同学不占用名额。
-        </p>
+
+        <div className={dcx("referrals-code-block")}>
+          <div className={dcx("referrals-code-row")}>
+            <code className={dcx("referrals-code")}>
+              {data.referralCode ?? "尚未生成"}
+            </code>
+          </div>
+          {data.referralCode ? (
+            <button
+              type="button"
+              className={dcx(`referrals-copy-btn${
+                copiedCode ? " is-copied" : ""
+              }`)}
+              aria-label={copiedCode ? "邀请码已复制" : "复制邀请码"}
+              onClick={() => void copyReferralCode(data.referralCode!)}
+            >
+              {copiedCode ? (
+                <CheckCircleIcon aria-hidden="true" />
+              ) : (
+                <CopyIcon aria-hidden="true" />
+              )}
+            </button>
+          ) : null}
+        </div>
+
+        {canInviteNonEdu ? (
+          <div className={dcx("referrals-quota")}>
+            <div className={dcx("referrals-quota-head")}>
+              <span>普通邮箱邀请名额</span>
+              <span>
+                {nonEduQuota.uses} / {nonEduQuota.limit}
+              </span>
+            </div>
+            <div
+              className={dcx("referrals-quota-bar")}
+              role="progressbar"
+              aria-valuenow={nonEduQuota.uses}
+              aria-valuemin={0}
+              aria-valuemax={nonEduQuota.limit}
+              aria-label="普通邮箱邀请名额使用情况"
+            >
+              <span
+                className={dcx("referrals-quota-fill")}
+                style={{
+                  width: `${Math.min(
+                    100,
+                    (nonEduQuota.uses / nonEduQuota.limit) * 100,
+                  )}%`,
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {inviteHint ? (
+          <p className={dcx("referrals-invite-hint")}>{inviteHint}</p>
+        ) : null}
+
         <button
           type="button"
           className={dcx("referrals-share-cta")}

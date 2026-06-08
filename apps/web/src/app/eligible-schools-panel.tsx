@@ -120,6 +120,12 @@ export function EligibleSchoolsPanel({
     });
   }, [matchResult, expanded, collapsible]);
 
+  // Help users confirm whether their domain is whitelisted when it does not match.
+  useEffect(() => {
+    if (!collapsible || !emailDomainHint || matchResult) return;
+    setExpanded(true);
+  }, [collapsible, emailDomainHint, matchResult]);
+
   function renderSummaryBadge() {
     if (dataState.status === "loading") {
       return <span className={styles.summaryCount}>正在加载…</span>;
@@ -319,7 +325,7 @@ export function EligibleSchoolsPanel({
         disabled={!collapsible}
       >
         <span className={styles.toggleLabel}>
-          <span className="eyebrow">Eligible schools</span>
+          <span className="eyebrow">合作高校</span>
           <strong>查看支持的学校邮箱后缀</strong>
         </span>
         <span className={styles.toggleMeta}>
