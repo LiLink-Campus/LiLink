@@ -126,7 +126,19 @@ function getRequestSignature(request: AuthThrottleRequest): string | null {
     return null;
   }
 
-  const normalizedPath = rawPath.split('?')[0];
+  // Canonicalize the path so router-equivalent variants collapse to one
+  // signature. Express matches routes case-insensitively and ignores a trailing
+  // slash, so without this `/v1/auth/REQUEST-CODE` or `/v1/auth/request-code/`
+  // would reach the same handler yet produce a non-matching signature, dodging
+  // the per-email / per-referral skip guards below and falling through to the
+  // looser per-IP default bucket. The route signature constants are already
+  // lower-case and slash-canonical.
+  const pathWithoutQuery = rawPath.split('?')[0].toLowerCase();
+  const collapsedPath = pathWithoutQuery.replace(/\/{2,}/g, '/');
+  const normalizedPath =
+    collapsedPath.length > 1
+      ? collapsedPath.replace(/\/+$/, '')
+      : collapsedPath;
   return `${method}:${normalizedPath}`;
 }
 
@@ -190,7 +202,12 @@ export const getAuthReferralThrottleTracker: ThrottlerGetTrackerFunction = (
   return `ip:${getRealClientIp(request)}`;
 };
 
-function shouldSkipAuthReferralThrottle(context: ExecutionContext): boolean {
+/**
+ * @internal Exported for throttling tests.
+ */
+export function shouldSkipAuthReferralThrottle(
+  context: ExecutionContext,
+): boolean {
   const request = context.switchToHttp().getRequest<AuthThrottleRequest>();
   // Only the request-code route, and only when it carries a referral code, is
   // subject to the per-code cap. Every other route (register, login, reset) and

@@ -5,9 +5,20 @@ import {
   getAuthReferralThrottleTracker,
   isPublicAuthThrottleRequest,
   publicAuthRouteThrottles,
+  shouldSkipAuthReferralThrottle,
 } from './auth-throttle';
 
 const stubContext = {} as ExecutionContext;
+
+function referralSkipContext(request: {
+  method?: string;
+  path?: string;
+  body?: { email?: unknown; referralCode?: unknown };
+}): ExecutionContext {
+  return {
+    switchToHttp: () => ({ getRequest: () => request }),
+  } as unknown as ExecutionContext;
+}
 
 describe('auth throttle helpers', () => {
   it('uses the normalized email as the auth email throttle tracker', () => {
@@ -48,6 +59,16 @@ describe('auth throttle helpers', () => {
         path: '/v1/auth/me',
       }),
     ).toBe(false);
+  });
+
+  it('recognizes router-equivalent request-code variants (trailing slash, casing, double slash)', () => {
+    for (const path of [
+      '/v1/auth/request-code/',
+      '/v1/auth/REQUEST-CODE',
+      '/v1/auth//request-code',
+    ]) {
+      expect(isPublicAuthThrottleRequest({ method: 'POST', path })).toBe(true);
+    }
   });
 
   it('builds a dual-layer throttle definition for public auth routes', () => {
@@ -110,5 +131,44 @@ describe('auth throttle helpers', () => {
     expect(createPublicAuthThrottle('login')).not.toHaveProperty(
       'authReferral',
     );
+  });
+
+  it('keeps the per-referral-code throttle active for request-code variants carrying a code', () => {
+    for (const path of [
+      '/v1/auth/request-code',
+      '/v1/auth/request-code/',
+      '/v1/auth/REQUEST-CODE',
+    ]) {
+      expect(
+        shouldSkipAuthReferralThrottle(
+          referralSkipContext({
+            method: 'POST',
+            path,
+            body: { referralCode: 'ABCDEF1234' },
+          }),
+        ),
+      ).toBe(false);
+    }
+  });
+
+  it('skips the per-referral-code throttle for code-less request-code and other routes', () => {
+    expect(
+      shouldSkipAuthReferralThrottle(
+        referralSkipContext({
+          method: 'POST',
+          path: '/v1/auth/request-code',
+          body: {},
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      shouldSkipAuthReferralThrottle(
+        referralSkipContext({
+          method: 'POST',
+          path: '/v1/auth/register',
+          body: { referralCode: 'ABCDEF1234' },
+        }),
+      ),
+    ).toBe(true);
   });
 });
