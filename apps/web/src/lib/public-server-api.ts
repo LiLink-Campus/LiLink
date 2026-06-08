@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getServerApiBaseUrl } from "./api-base-url";
-import { type EligibleSchoolsPayload } from "./eligible-schools";
+import type { EligibleSchoolsPayload } from "./eligible-schools";
 import type { LandingPayload } from "./landing-payload";
 
 function parseFailedResponseBody(text: string, status: number): string {
@@ -65,5 +65,5 @@ export async function getEligibleSchools() {
     throw new Error(parseFailedResponseBody(body, response.status));
   }
 
-  return (await response.json()) as EligibleSchoolsPayload;
+  return response.json() as Promise<EligibleSchoolsPayload>;
 }

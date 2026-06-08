@@ -137,9 +137,6 @@ describe('AdminSchoolService', () => {
       'admin-1',
     );
 
-    // Both caches derive from registrationEligible, so a school mutation must
-    // refresh the resolver (school-email detection) and the public list +
-    // manual-school dropdown together.
     expect(
       schoolResolverService.invalidateResolutionCache,
     ).toHaveBeenCalledTimes(1);

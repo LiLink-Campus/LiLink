@@ -1043,13 +1043,7 @@ describe('AuthService', () => {
         registrationEligible: true,
       }),
     };
-    return {
-      prisma,
-      transaction,
-      userCreate,
-      emailCodeUpdateMany,
-      schoolResolver,
-    };
+    return { prisma, userCreate, schoolResolver };
   }
 
   const registerInput = {

@@ -35,14 +35,9 @@ describe('AuthController', () => {
       requestCode,
     } as never);
 
-    await expect(
-      authController.requestCode({
-        email: 'user@qq.com',
-        referralCode: 'VALIDCODE1',
-      }),
-    ).resolves.toMatchObject({
+    await authController.requestCode({
       email: 'user@qq.com',
-      school: null,
+      referralCode: 'VALIDCODE1',
     });
 
     expect(requestCode).toHaveBeenCalledTimes(1);

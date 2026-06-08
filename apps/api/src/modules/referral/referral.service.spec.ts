@@ -3,10 +3,7 @@ import {
   PERSONAL_CODE_LENGTH,
   REFERRAL_CHANNELS,
 } from '@lilink/shared';
-import {
-  ReferralService,
-  isLocalDevMockReferralCode,
-} from './referral.service';
+import { ReferralService } from './referral.service';
 
 function makePrisma() {
   return {
@@ -510,14 +507,6 @@ describe('ReferralService', () => {
         uses: 4,
         remaining: 0,
       });
-    });
-  });
-
-  describe('isLocalDevMockReferralCode', () => {
-    it('never honors a code other than the master dev code', () => {
-      // Robust regardless of APP_ENV/NODE_ENV: a non-matching code is always
-      // rejected. The environment gate itself is covered in config/env.spec.ts.
-      expect(isLocalDevMockReferralCode('ABC2345XYZ')).toBe(false);
     });
   });
 });

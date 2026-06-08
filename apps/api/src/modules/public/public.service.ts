@@ -91,15 +91,7 @@ export class PublicService {
     return this.eligibleSchoolsInFlight;
   }
 
-  /**
-   * Drop the cached eligible-schools payload so the next read reflects an admin
-   * change immediately. Kept consistent with SchoolResolverService's resolution
-   * cache, which AdminSchoolService invalidates on the same mutations: both back
-   * the registrationEligible flag, so a school toggled in the admin center must
-   * disappear from (or reappear in) the public list and the manual-school
-   * dropdown without waiting out the TTL. The epoch bump prevents a load started
-   * before the change from re-caching stale data.
-   */
+  // Drop the cached payload so the next read reflects an admin eligibility change before the TTL expires.
   invalidateEligibleSchoolsCache() {
     this.eligibleSchoolsCacheEpoch += 1;
     this.cachedEligibleSchools = null;

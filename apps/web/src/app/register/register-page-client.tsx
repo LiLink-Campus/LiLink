@@ -21,7 +21,7 @@ import {
   extractEmailDomain,
   fetchEligibleSchools,
   findMatchingSchool,
-  type EligibleSchool,
+  type EligibleSchoolsPayload,
 } from "../../lib/eligible-schools";
 import {
   GrassRowIllustration,
@@ -102,7 +102,8 @@ export default function RegisterPageClient() {
   );
   const [requiresNonEduReferral, setRequiresNonEduReferral] = useState(false);
   const [manualSchoolId, setManualSchoolId] = useState("");
-  const [eligibleSchools, setEligibleSchools] = useState<EligibleSchool[]>([]);
+  const [schoolsPayload, setSchoolsPayload] =
+    useState<EligibleSchoolsPayload | null>(null);
   const [schoolsPending, setSchoolsPending] = useState(false);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [devCode, setDevCode] = useState<string | undefined>();
@@ -111,12 +112,15 @@ export default function RegisterPageClient() {
   const [canRevealDevCode, setCanRevealDevCode] = useState(false);
   const [loginHref, setLoginHref] = useState("/login");
   const emailDomainHint = useMemo(() => extractEmailDomain(email), [email]);
+  const eligibleSchools = useMemo(
+    () => schoolsPayload?.schools ?? [],
+    [schoolsPayload],
+  );
   // The list is "confirmed" only once it has loaded with at least one school.
   const schoolsListReady = eligibleSchools.length > 0;
-  // A confirmed match is only possible once the list is ready.
   const matchedSchool = useMemo(
-    () => (schoolsListReady ? findMatchingSchool(eligibleSchools, email) : null),
-    [schoolsListReady, eligibleSchools, email],
+    () => findMatchingSchool(eligibleSchools, email),
+    [eligibleSchools, email],
   );
   // The email *looks* non-edu when it has a domain and matches no eligible
   // school. When the list is not yet confirmed (loading / failed / empty),
@@ -181,7 +185,7 @@ export default function RegisterPageClient() {
     setSchoolsError(null);
     try {
       const payload = await fetchEligibleSchools();
-      setEligibleSchools(payload.schools);
+      setSchoolsPayload(payload);
     } catch (caughtError) {
       setSchoolsError(
         caughtError instanceof Error
@@ -344,7 +348,13 @@ export default function RegisterPageClient() {
                 placeholder="your.name@example.com"
               />
             </Field>
-            <EligibleSchoolsPanel emailInput={email} variant="compact" />
+            {schoolsPayload ? (
+              <EligibleSchoolsPanel
+                emailInput={email}
+                variant="compact"
+                initialPayload={schoolsPayload}
+              />
+            ) : null}
             {showReferralBeforeCode ? (
               <Field
                 label={

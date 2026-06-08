@@ -128,12 +128,9 @@ function buildEditForm(user: AdminUser): EditForm {
   };
 }
 
-function getNonEduReferralRemaining(user: AdminUser) {
-  return Math.max(0, user.nonEduReferralLimit - user.nonEduReferralUses);
-}
-
 function formatNonEduReferralQuota(user: AdminUser) {
-  return `已用 ${user.nonEduReferralUses} / 上限 ${user.nonEduReferralLimit} · 剩余 ${getNonEduReferralRemaining(user)}`;
+  const remaining = Math.max(0, user.nonEduReferralLimit - user.nonEduReferralUses);
+  return `已用 ${user.nonEduReferralUses} / 上限 ${user.nonEduReferralLimit} · 剩余 ${remaining}`;
 }
 
 export default function AdminUsersPage() {

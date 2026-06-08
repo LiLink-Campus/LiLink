@@ -130,7 +130,6 @@ export class CreateSchoolDto {
   @MaxLength(ADMIN_DESCRIPTION_MAX_LENGTH)
   description?: string;
 
-  // When omitted, the school defaults to registration-eligible (schema default).
   @IsOptional()
   @IsBoolean()
   registrationEligible?: boolean;

@@ -230,18 +230,11 @@ export class ReferralService {
   }
 
   private printLocalDevMockReferralHint(referredByUserId: string | null) {
-    const attributionLine = referredByUserId
-      ? `归属用户: ${referredByUserId}`
-      : '归属用户: 未找到本地 isTest 用户，仅放行注册自测';
-    const lines = [
-      '┌────────────────────────────────────────────────────────┐',
-      '│  [LOCAL DEV OVERRIDE] 万能推荐码已启用                 │',
-      `│  推荐码: ${LOCAL_DEV_REFERRAL_CODE.padEnd(45, ' ')}│`,
-      `│  ${attributionLine.padEnd(53, ' ')}│`,
-      '└────────────────────────────────────────────────────────┘',
-    ];
-
-    process.stdout.write(`${lines.join('\n')}\n`);
+    this.logger.warn(
+      `[LOCAL DEV OVERRIDE] 万能推荐码 ${LOCAL_DEV_REFERRAL_CODE} 已启用；归属用户: ${
+        referredByUserId ?? '未找到本地 isTest 用户，仅放行注册自测'
+      }`,
+    );
   }
 
   /** Record a share-button click (intent). Not deduped — every tap counts. */
