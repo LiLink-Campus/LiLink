@@ -55,7 +55,10 @@ const PUBLIC_REQUEST_CODE_EMAIL_LIMIT = 1;
 const PUBLIC_REQUEST_CODE_EMAIL_TTL_MS = 30_000;
 // Per-referral-code request-code cap. Generous enough for organic invite bursts
 // (a referrer's default non-edu quota is only 3) yet ~100x below the per-IP
-// ceiling, so a single shared code cannot drive verification-mail bombing.
+// ceiling. It bounds — but does not eliminate — verification-mail fan-out: a
+// shared code can still reach up to this many distinct inboxes per window (the
+// per-email cap below blocks repeat mail to any single inbox), so
+// logNonSchoolRequestCode records a redacted code + domain for abuse monitoring.
 const PUBLIC_REQUEST_CODE_REFERRAL_LIMIT = 10;
 const REQUEST_CODE_ROUTE_SIGNATURE = 'POST:/v1/auth/request-code';
 const AUTH_THROTTLE_ROUTE_SIGNATURES = new Set([
@@ -142,7 +145,9 @@ function getRequestSignature(request: AuthThrottleRequest): string | null {
   // would reach the same handler yet produce a non-matching signature, dodging
   // the per-email / per-referral skip guards below and falling through to the
   // looser per-IP default bucket. The route signature constants are already
-  // lower-case and slash-canonical.
+  // lower-case and slash-canonical. (Lower-casing + trailing-slash stripping are
+  // the load-bearing steps; the double-slash fold below is belt-and-suspenders,
+  // since Express 5 already 404s a `//` path before it reaches the handler.)
   const pathWithoutQuery = rawPath.split('?')[0].toLowerCase();
   const collapsedPath = pathWithoutQuery.replace(/\/{2,}/g, '/');
   const normalizedPath =

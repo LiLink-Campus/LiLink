@@ -11,7 +11,6 @@ export type CodeResponse = {
   email: string;
   expiresAt: string;
   school?: {
-    schoolId: string;
     schoolName: string;
     matchedDomain: string;
   } | null;

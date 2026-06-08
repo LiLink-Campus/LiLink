@@ -18,7 +18,7 @@ type ReferralReadClient = Pick<PrismaClient, 'user' | 'campaign'>;
 
 const PERSONAL_CODE_MAX_ATTEMPTS = 8;
 const DEFAULT_NON_EDU_REFERRAL_LIMIT = 3;
-export const LOCAL_DEV_REFERRAL_CODE = 'LILINKDEV1';
+const LOCAL_DEV_REFERRAL_CODE = 'LILINKDEV1';
 
 /**
  * The universal "master" referral code only honored in a local dev runtime.
@@ -157,8 +157,7 @@ export class ReferralService {
 
     if (code) {
       if (isLocalDevMockReferralCode(code)) {
-        const referredByUserId =
-          await this.resolveLocalDevMockReferrerUserId(client);
+        referredByUserId = await this.resolveLocalDevMockReferrerUserId(client);
         this.printLocalDevMockReferralHint(referredByUserId);
         return {
           referredByUserId,
@@ -183,9 +182,8 @@ export class ReferralService {
         (!options.requireReferralCode || referrer.status === 'ACTIVE');
 
       if (!referrerIsUsable) {
-        // Non-school registration hard-fails on an unusable code; school
-        // registration silently ignores it and proceeds (invalid personal code
-        // -> no attribution, registration still succeeds).
+        // School registration silently ignores an unusable code (no attribution,
+        // still succeeds); non-school registration hard-fails.
         if (options.requireReferralCode) {
           throw new BadRequestException('Referral code is invalid.');
         }

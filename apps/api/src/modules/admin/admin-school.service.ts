@@ -152,7 +152,6 @@ export class AdminSchoolService {
         name: input.name,
         slug: input.slug,
         description: input.description,
-        // Omitted (undefined) falls back to the schema default (eligible).
         registrationEligible: input.registrationEligible,
         domains: {
           create: normalizedDomains.map((domain) => ({ domain })),
@@ -198,7 +197,6 @@ export class AdminSchoolService {
         data: {
           name: input.name,
           description: input.description,
-          // Omitted (undefined) leaves the current eligibility unchanged.
           registrationEligible: input.registrationEligible,
           domains: {
             create: normalizedDomains.map((domain) => ({ domain })),

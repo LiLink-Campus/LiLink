@@ -152,7 +152,6 @@ export class UpdateSchoolDto {
   @MaxLength(ADMIN_DESCRIPTION_MAX_LENGTH)
   description?: string;
 
-  // When omitted, the school's current eligibility is left unchanged.
   @IsOptional()
   @IsBoolean()
   registrationEligible?: boolean;
