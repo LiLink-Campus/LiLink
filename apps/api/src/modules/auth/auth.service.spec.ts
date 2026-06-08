@@ -584,6 +584,74 @@ describe('AuthService', () => {
     });
   });
 
+  it('does not return devCode on a production Node runtime even if APP_ENV is development', async () => {
+    const originalAppEnv = env.APP_ENV;
+    const originalNodeEnv = process.env.NODE_ENV;
+    env.APP_ENV = 'development';
+    process.env.NODE_ENV = 'production';
+
+    const prisma = {
+      $transaction: jest.fn(
+        async (
+          callback: (
+            transaction: VerificationCodeTransaction,
+          ) => Promise<unknown>,
+        ) =>
+          callback({
+            emailCode: {
+              create: jest.fn().mockResolvedValue({ id: 'code-1' }),
+              updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+            },
+            outboundEmail: {
+              create: jest.fn().mockResolvedValue(undefined),
+            },
+          }),
+      ),
+    };
+    const authService = new AuthService(
+      prisma as never,
+      {
+        buildVerificationCodeEmail: jest.fn(
+          (input: {
+            dedupeKey: string;
+            recipientEmail: string;
+            code: string;
+          }) => ({
+            dedupeKey: input.dedupeKey,
+            recipientEmail: input.recipientEmail,
+            subject: 'LiLink verification code',
+            html: `<p>${input.code}</p>`,
+            maxAttempts: 3,
+          }),
+        ),
+        deliverQueuedEmailNow: jest.fn().mockResolvedValue(undefined),
+      } as never,
+      {
+        resolveByEmail: jest.fn().mockResolvedValue({
+          schoolId: 'school-1',
+          schoolSlug: 'bupt-qmul-hainan',
+          registrationEligible: true,
+        }),
+      } as never,
+      {} as never,
+    );
+
+    try {
+      await expect(authService.requestCode('user@example.com')).resolves.toEqual(
+        expect.objectContaining({
+          devCode: undefined,
+        }),
+      );
+    } finally {
+      env.APP_ENV = originalAppEnv;
+      if (originalNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+    }
+  });
+
   it('normalizes email casing and whitespace before resolving the school', async () => {
     const resolveByEmail = jest.fn().mockResolvedValue({
       schoolId: 'school-1',

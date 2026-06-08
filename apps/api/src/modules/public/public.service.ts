@@ -43,6 +43,10 @@ type CachedEligibleSchoolsPayload = {
 const LANDING_PAYLOAD_CACHE_TTL_MS = 30 * 1000;
 const ELIGIBLE_SCHOOLS_CACHE_TTL_MS = 30 * 1000;
 
+function isTrustedSchoolEmailDomain(domain: string) {
+  return domain.includes('.');
+}
+
 @Injectable()
 export class PublicService {
   private cachedLandingPayload: CachedLandingPayload | null = null;
@@ -188,12 +192,16 @@ export class PublicService {
       orderBy: { name: 'asc' },
     });
 
-    const eligibleSchools: EligibleSchool[] = schools.map((school) => ({
-      id: school.id,
-      name: school.name,
-      description: school.description,
-      domains: school.domains.map((entry) => entry.domain),
-    }));
+    const eligibleSchools: EligibleSchool[] = schools
+      .map((school) => ({
+        id: school.id,
+        name: school.name,
+        description: school.description,
+        domains: school.domains
+          .map((entry) => entry.domain)
+          .filter(isTrustedSchoolEmailDomain),
+      }))
+      .filter((school) => school.domains.length > 0);
 
     const totalDomainCount = eligibleSchools.reduce(
       (count, school) => count + school.domains.length,

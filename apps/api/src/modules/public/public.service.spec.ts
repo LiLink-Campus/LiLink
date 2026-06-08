@@ -100,7 +100,11 @@ describe('PublicService', () => {
           id: 'fudan',
           name: '复旦大学',
           description: 'fudan',
-          domains: [{ domain: 'fudan.edu.cn' }, { domain: 'm.fudan.edu.cn' }],
+          domains: [
+            { domain: 'cn' },
+            { domain: 'fudan.edu.cn' },
+            { domain: 'm.fudan.edu.cn' },
+          ],
         },
         {
           id: 'sjtu',

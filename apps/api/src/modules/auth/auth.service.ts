@@ -19,7 +19,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { isUniqueConstraintError } from '../../common/prisma/errors';
 import { MailService } from '../../common/mail/mail.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
-import { env } from '../../config/env';
+import { env, isLocalDevRuntime } from '../../config/env';
 import { RegisterDto, LoginDto, ResetPasswordDto } from './dto';
 import {
   ReferralService,
@@ -406,7 +406,7 @@ export class AuthService {
     return {
       email,
       expiresAt,
-      devCode: env.APP_ENV === 'development' ? code : undefined,
+      devCode: isLocalDevRuntime() ? code : undefined,
     };
   }
 

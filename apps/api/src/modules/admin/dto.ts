@@ -16,7 +16,7 @@ import {
   Matches,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ADMIN_CYCLE_CODENAME_MAX_LENGTH,
   ADMIN_CYCLE_NOTES_MAX_LENGTH,
@@ -40,6 +40,19 @@ import {
   ADMIN_SETTINGS_VALUE_MAX_LENGTH,
   EMAIL_MAX_LENGTH,
 } from '../../common/validation/input-limits';
+
+function strictIntegerInput(value: unknown) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (!/^-?\d+$/.test(trimmed)) {
+    return Number.NaN;
+  }
+
+  return Number(trimmed);
+}
 
 class ListQueryDto {
   @IsOptional()
@@ -321,7 +334,7 @@ export class AdminUpdateUserDto {
 }
 
 export class UpdateUserReferralLimitDto {
-  @Type(() => Number)
+  @Transform(({ value }) => strictIntegerInput(value))
   @IsInt()
   @Min(0)
   @Max(100000)

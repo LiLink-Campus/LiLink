@@ -1,10 +1,12 @@
-import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { validate, validateSync } from 'class-validator';
 import {
   BatchReviewReportsDto,
   CreateSchoolDto,
   ListSchoolsQueryDto,
   QuestionOptionDto,
   UpdateSettingsDto,
+  UpdateUserReferralLimitDto,
   UpsertQuestionDto,
 } from './dto';
 import {
@@ -92,5 +94,25 @@ describe('admin DTOs', () => {
         expect.objectContaining({ property: 'max_registrations' }),
       ]),
     );
+  });
+
+  describe('UpdateUserReferralLimitDto', () => {
+    function validationErrorsFor(value: unknown) {
+      const dto = plainToInstance(UpdateUserReferralLimitDto, {
+        nonEduReferralLimit: value,
+      });
+      return validateSync(dto);
+    }
+
+    it.each(['', '   ', false])(
+      'rejects malformed quota input that would otherwise coerce to zero: %p',
+      (value) => {
+        expect(validationErrorsFor(value)).not.toHaveLength(0);
+      },
+    );
+
+    it.each([0, 5, '0', '5'])('accepts integer quota input: %p', (value) => {
+      expect(validationErrorsFor(value)).toHaveLength(0);
+    });
   });
 });

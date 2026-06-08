@@ -36,11 +36,15 @@ export function findMatchingSchool(
 
   const candidates = schools
     .flatMap((school) =>
-      school.domains.map((domain) => ({ school, domain: domain.toLowerCase() })),
+      school.domains.map((domain) => ({
+        school,
+        domain: domain.trim().toLowerCase(),
+      })),
     )
     .filter(
       ({ domain }) =>
-        emailDomain === domain || emailDomain.endsWith(`.${domain}`),
+        domain.includes(".") &&
+        (emailDomain === domain || emailDomain.endsWith(`.${domain}`)),
     )
     .sort((left, right) => right.domain.length - left.domain.length);
 
