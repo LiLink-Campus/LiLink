@@ -221,7 +221,7 @@ export class PromotionDashboardService {
       20,
       ADMIN_LIST_PAGE_SIZE_MAX,
     );
-    // source is normalized to UPPERCASE by the DTO Transform decorator.
+    // DTO validation narrows the source to PERSONAL or DEFAULT.
     const source = query.source;
 
     // Build a DB-level pre-filter that narrows to the requested source bucket

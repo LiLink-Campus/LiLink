@@ -6,13 +6,6 @@
   background: var(--color-canvas);
 }
 
-.shell {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-canvas);
-}
-
 .loginCard {
   width: 100%;
   max-width: 26rem;

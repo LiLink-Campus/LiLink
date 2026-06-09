@@ -1,12 +1,10 @@
-    # 商家核销重构：动态二维码 + TOTP + 用户端推广展示（设计 spec）
+# 商家核销重构：动态二维码 + TOTP + 用户端推广展示
 
-> 状态：设计定稿待评审（已并入 codex 第 1 轮评审修订，见 §13）
-> 范围：本 spec 仅覆盖「核销流程重构」，对应 review 的 P0 + 两个 P1。
-> review 的 P2（个人邀请链接渠道分类两层重构）不在本 spec 内，另开独立 spec。
+本文档记录商家核销流程的当前实现设计：用户出示动态二维码或文本码，商家完成两步核销，用户端在核销后展示商家推广信息。
 
 ## 1. 背景与动机
 
-当前核销流程为：用户在 dashboard 看到一串 10 位明文核销码（`Coupon.code`），商家在自己的 portal 手动输入该码完成核销。review 提出三点产品问题：
+旧核销流程中，用户在 dashboard 看到一串 10 位明文核销码（`Coupon.code`），商家在自己的 portal 手动输入该码完成核销。重构解决三点产品问题：
 
 - **P0**：核销码应渲染为二维码。不必做 app 内置扫码要权限，二维码直接编码一个 redeem URL，商家用任意扫码工具扫出网址、用已登录商家账户的浏览器打开即可核销。
 - **P1（防转卖）**：用 TOTP，每张券依据 seed 生成、60s 动态刷新二维码，防止二手贩子转卖截图。不追求强安全，可接受 seed 保存在浏览器。
@@ -29,7 +27,6 @@
 - 不追求强安全：接受 seed 存浏览器、`code` 为公开明文定位标识。
 - 不引入对象存储 / 图片上传：商家公众号二维码沿用现状的图片 https URL。
 - 不做实时推送（WebSocket/SSE）：用户端用轮询。
-- 不在本 spec 处理 P2 渠道分类重构。
 
 ## 3. 核心决策摘要
 
@@ -86,7 +83,7 @@
 - `Redemption` 新增 `giftLabel String?`：核销命中 GIFT 档位时，把赠品文案**快照**进表（与现有 `faceValueSnapshot` 同样的快照哲学）。配合已有 `orderAmount` / `actualDiscountAmount`，使 `GET /me/coupons/:id/status` 能稳定重建完整 `applied`，且不受后续模板规则变更影响（解决 B1）。
 - 无新增表：`redeemTicket` 为无状态签名 JWT。
 
-迁移说明：`feat/merchant-system` 未合并、无生产数据，开发库可重置或新增迁移加列 + 缩短新券 code 长度。`totpSecret` 非空列对历史开发券用一次性脚本补随机值或直接重置数据。
+迁移说明：`Coupon.totpSecret` 和 `Redemption.giftLabel` 已随商家核销实现落库；旧开发数据如缺少 `totpSecret`，应通过本地重置或一次性补值脚本处理，不在运行时做兼容分支。
 
 ## 6. TOTP 设计
 
@@ -144,11 +141,11 @@
 - 渲染：①二维码 `origin/r/<code>#t=<totp>`；②文本码 `<code>-<totp>`；③刷新倒计时。
 - 后台轮询 `status`，REDEEMED → 切换到「核销成功」视图（展示 `applied` + 商家电话 + 公众号二维码 `<img>`）。
 
-### 9.2 商家确认页（`apps/web/src/app/r/[code]/` 新增 + 改造 `apps/web/src/app/merchant/redeem/page.tsx`）
+### 9.2 商家确认页与手动入口
 - 扫码进入 `/r/<code>#t=<totp>`：页面加载读 `location.hash` 取 totp → 调 `prepare`。
-- 现有 `/merchant/redeem` 改为手动后备入口：商家输 `code-totp` → 拆分 → 调 `prepare`。
+- `/merchant/redeem` 是手动后备入口：商家输 `code-totp` → 拆分 → 调 `prepare`。
 - 两条路径汇聚同一「确认核销」UI：显示券信息 + 金额输入（`needAmount` 时）+ "确认核销" → 调 `redeem`。
-- **未登录处理（解决 B2）**：扩展商家侧鉴权——`/r` 未登录时跳 `/merchant/login?next=/r/<code>`，商家登录支持 `next` 参数并回跳（需改 `merchant/login` 固定跳 `/merchant/redeem` 的逻辑，并让 proxy/中间件放行/识别 `/r`）。注意：totp 在 hash fragment 中，跳转登录后必然丢失，故回跳到 `/r/<code>` 后无有效 totp → 页面提示"请让用户重新出示二维码并再次扫码"。
+- **未登录处理（解决 B2）**：`/r` 未登录时跳 `/merchant/login?next=/r/<code>`，商家登录后回跳；totp 在 hash fragment 中，跳转登录后必然丢失，故回跳到 `/r/<code>` 后无有效 totp → 页面提示"请让用户重新出示二维码并再次扫码"。
 - totp 过期/无效 → 明确提示。
 - 核销成功 → 只显示「✓ 核销成功 + 折扣/消费金额」，**不展示 promotion**。
 
@@ -168,13 +165,13 @@
 - 出码页 secret 缺失（首次/清缓存）：重新调 `redeem-secret`。
 - 用户端轮询：REDEEMED 或券过期/失效后停止，避免无限轮询。
 
-## 11. 受影响代码清单（供 writing-plans 拆解）
+## 11. 实现位置
 
 - `packages/shared`：新增 `otpauth` 运行时依赖；`coupon.ts`（code 长度常量、TOTP 参数与生成/校验 helper、文本码拼装/解析、redeem 响应类型去掉 promotion）、`human-code.ts`（长度 6）、`merchant.ts`（响应类型）。
 - `apps/api`：`prisma/schema.prisma`（`Coupon.totpSecret`、`Redemption.giftLabel`）、`activation.service.ts`（生成 secret + 6 位 code）、`redemption/*`（prepare、ticket 签发/校验、totp 校验、redeem 改造、写 `giftLabel`、去掉 promotion 返回、路由级 throttle）、me/coupons 模块（`redeem-secret`、`status` 端点）。
 - `apps/web`：新增 `qrcode` 依赖；`dashboard/coupons/*`（出码页 + 轮询 + 用户成功页）、`merchant/redeem/page.tsx`（确认页 + 手动入口 + 去 promotion）、`merchant/login`（支持 `next` 回跳）、`proxy`/中间件（识别 `/r`）、新增 `app/r/[code]/*` 确认页路由、新增 `QrCode` 组件。
 
-## 12. 验收标准
+## 12. 行为检查清单
 
 1. 用户出码页：二维码与文本码每 60s 同步刷新，倒计时正确。
 2. 商家扫码打开 `/r/<code>#t=<totp>` → 确认页 → （满减券输金额）→ 确认 → 核销成功；商家端只显示成功 + 金额（不含 promotion）。
@@ -186,9 +183,9 @@
 8. 商家未登录扫码 → 跳登录回跳 `/r/<code>` → 提示重新出示再扫。
 9. `@lilink/shared` 构建、API typecheck/lint/build、web typecheck/lint 通过；核销相关单测覆盖 totp 校验、ticket 流程、节流。
 
-## 13. 评审修订记录（codex 第 1 轮）
+## 13. 设计取舍记录
 
-| 编号 | 评审意见 | 处理 |
+| 编号 | 设计问题 | 处理 |
 | --- | --- | --- |
 | B1 | status 的 `applied` 无法稳定重建（gift 仅在 audit metadata） | `Redemption` 增 `giftLabel` 快照字段，status 由表字段重建 applied（§5/§8.4） |
 | B2 | 未登录商家扫码回跳丢 TOTP、商家侧无 `next` | 补商家登录 `next` 回跳 `/r/<code>` + proxy 识别 `/r`；明确 fragment 丢失后提示重扫（§9.2/§10） |

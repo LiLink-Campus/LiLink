@@ -65,11 +65,6 @@
   margin: 0;
 }
 
-.pageHeader :global(.eyebrow) {
-  margin: 0 0 0.15rem;
-  color: var(--color-brand);
-}
-
 .status {
   margin: 0;
   color: var(--color-text-secondary);

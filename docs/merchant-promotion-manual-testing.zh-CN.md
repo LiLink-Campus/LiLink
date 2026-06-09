@@ -8,7 +8,7 @@
 - 后台运营（`/admin/*`，`lilink_admin_token` cookie）
 - 商家核销（`/merchant/*`，`lilink_merchant_token` cookie）
 
-与破冰测试不同，本系统没有一键 seed 脚本，数据需要按下面的「数据准备」手动配置一次；配好后多数场景可重复测试。设计依据见 `docs/merchant-promotion-contract-design.zh-CN.md`、`docs/merchant-redemption-qr-totp-redesign.zh-CN.md`（核销重构）、`docs/referral-channel-two-layer-redesign.zh-CN.md`（渠道两层）。
+与破冰测试不同，本系统的端到端测试数据需要按下面的「数据准备」手动配置一次；如只需预置优惠券 demo 数据，可使用 `npm run db:seed-coupon-demo`。核销重构见 `docs/merchant-redemption-qr-totp-redesign.zh-CN.md`，优惠券阶梯规则见 `docs/merchant-coupon-rule-and-redemption.zh-CN.md`。
 
 ## 前置条件
 
@@ -156,7 +156,7 @@ npm run dev
 
 ### D4. 防转卖：TOTP 过期
 
-8. 截图 B 某张券的二维码，等 **>2 分钟**后再扫该截图（或用过期的 `?t=`）。
+8. 截图 B 某张券的二维码，等 **>2 分钟**后再扫该截图（或用过期的 `#t=`）。
 9. **验证（EXPIRED_CODE）**：提示「二维码已过期，请让用户刷新后重试」。说明动态码在约 1–2 分钟（含 ±1 时间窗容错）后失效，旧截图无法核销。
 
 ### D5. 重复核销
@@ -192,7 +192,7 @@ npm run dev
 1. 打开 `/admin/promotion`，选择场景 A 的活动 + 覆盖测试时间的日期范围，点「查询」。
 2. **拉新漏斗**：验证分享 / 点击 / 注册 / 激活 / 领券 / 核销六步计数，以及分性别表格与相邻转化率。
 3. **渠道分解（channelBreakdown）**：验证漏斗下方出现按**媒介 → 场景**分组的渠道分布表（微信→朋友圈/群/私聊，链接，二维码，其他），数字与场景 B 用过的 `ch` 一致。注意表下「仅展示已标记渠道，合计可能小于分享/点击总数」的说明——无 `?ch=` 的旧链接/直访点击不计入分解。
-4. **邀请排行榜**：来源筛选有**三个**——「个人码（PERSONAL）/ 运营码（RECRUITER）/ 默认活动（DEFAULT）」。验证 A 出现在个人码榜；通过运营码注册的用户出现在运营码榜；无个人/运营来源、仅默认活动归属的用户出现在「默认活动」榜（展示为「默认活动」而非 `DEFAULT`）。邀请 / 激活 / 领券 / 核销与性别分桶正确；超过 20 条翻页可用。
+4. **邀请排行榜**：来源筛选有**两个**——「个人码（PERSONAL）/ 默认活动（DEFAULT）」。验证 A 出现在个人码榜；无个人来源、仅默认活动归属的用户出现在「默认活动」榜（展示为「默认活动」而非 `DEFAULT`）。邀请 / 激活 / 领券 / 核销与性别分桶正确；超过 20 条翻页可用。
 5. **券情况**：按商家显示发放 / 核销数。
 6. **核销对账**：按商家 + 天（Asia/Shanghai）显示核销单数与面值合计；翻页可用。
 
@@ -200,22 +200,21 @@ npm run dev
 
 - 注册数 = 该活动归属、非测试用户；漏斗「核销」与排行榜 `redeemed` 是**去重人数**，而券情况 / 对账是**核销单数**，两套口径不混。
 - 把日期范围调到 00:00–08:00（中国时间）边界，验证当天数据按上海日归属，不漏不重。
-- 兼容性：看板 source 参数大小写均可（服务端归一化），但前端发送大写（PERSONAL/RECRUITER/DEFAULT）。
+- API 会把 source 参数大小写归一化，但语义上只接受 PERSONAL/DEFAULT；前端发送这两个大写值。
 
 ---
 
-## 场景 F：运营码 + 停用边界
+## 场景 F：停用边界
 
-1. **运营码**：在 `/admin/invite-codes` 为某拉新同学生成 8 位运营码，用它在 `/register` 的邀请码栏注册一个用户，验证该用户归属对应来源（RECRUITER），且出现在看板「运营码榜」。
-2. **停用商家**：在 `/admin/merchants` 停用场景 A 的商家，验证该商家账号登录 / 核销被拒。
-3. **停用账号**：重新启用商家后，单独停用某个商家账号，验证该账号登录被拒，但同商家其它启用账号正常。
+1. **停用商家**：在 `/admin/merchants` 停用场景 A 的商家，验证该商家账号登录 / 核销被拒。
+2. **停用账号**：重新启用商家后，单独停用某个商家账号，验证该账号登录被拒，但同商家其它启用账号正常。
 
 ---
 
 ## 检查重点
 
 - 三套会话严格隔离：用户、后台、商家各用独立 cookie 与 secret；互相不能越权访问。
-- 归属在**注册时冻结**到 `referralCampaignId`，不随后续活动变更漂移。渠道分两层：来源（PERSONAL/RECRUITER/DEFAULT，由 `inviteCodeId`/`referredByUserId` 派生）+ 分享信息（媒介/场景，由 `channel` 派生）。
+- 归属在**注册时冻结**到 `referralCampaignId`，不随后续活动变更漂移。渠道分两层：来源（PERSONAL/DEFAULT，由 `referredByUserId` 是否存在派生）+ 分享信息（媒介/场景，由 `channel` 派生）。
 - 激活 = 问卷提交 + 首次 opt-in；自动发 `ISSUED` 券（含 `totpSecret`），无手动领取。
 - 核销是**两步**：`prepare`（校验券 + 验当前 TOTP 新鲜度，签 3 分钟一次性票据，不改状态）→ `redeem`（验票据 + CAS 置 `REDEEMED`）。动态码约 1–2 分钟失效以防截图转卖。
 - 只有 `status==ACTIVE` 用户的券可核销；一券一次（CAS 兜底重放）；INVALID 不泄露券是否存在。

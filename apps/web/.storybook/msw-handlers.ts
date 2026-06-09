@@ -109,6 +109,5 @@ export const mswHandlers = {
         meetupExpirationWeeks: 2,
       }),
     ),
-    http.put("/api/locale", () => new HttpResponse(null, { status: 204 })),
   ],
 };

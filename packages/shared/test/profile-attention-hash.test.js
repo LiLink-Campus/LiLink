@@ -16,10 +16,10 @@ test("profileAttentionHashForKey round-trips through profileAttentionKeyFromHash
   }
 });
 
-test("profileAttentionKeyFromHash reads legacy questionnaire hashes", () => {
+test("profileAttentionKeyFromHash ignores retired questionnaire hashes", () => {
   assert.equal(
     profileAttentionKeyFromHash("#questionnaire-question-custom_key"),
-    "custom_key",
+    null,
   );
 });
 
@@ -31,10 +31,6 @@ test("profileAttentionKeyFromHash returns null for unrelated hashes", () => {
 test("profileAttentionKeyFromHash returns null when the segment is not valid URI encoding", () => {
   assert.equal(
     profileAttentionKeyFromHash("#profile-attention-bad%"),
-    null,
-  );
-  assert.equal(
-    profileAttentionKeyFromHash("#questionnaire-question-bad%"),
     null,
   );
 });

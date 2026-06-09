@@ -12,8 +12,6 @@ export const MINIMUM_GIT_VERSION = Object.freeze({
   patch: 0,
 });
 
-export const HOOK_CONFIGS = GIT_HOOK_CONFIGS;
-
 export function parseGitVersion(gitVersionOutput) {
   if (typeof gitVersionOutput !== "string" || gitVersionOutput.trim() === "") {
     throw new Error("Expected git --version output to be a non-empty string.");
@@ -69,14 +67,14 @@ function installHooks() {
     );
   }
 
-  for (const hookConfig of HOOK_CONFIGS) {
+  for (const hookConfig of GIT_HOOK_CONFIGS) {
     for (const args of buildGitConfigArgs(hookConfig)) {
       runGit(args, { stdio: "inherit" });
     }
   }
 
   console.log("Installed LiLink Git config-based hooks:");
-  for (const hookConfig of HOOK_CONFIGS) {
+  for (const hookConfig of GIT_HOOK_CONFIGS) {
     console.log(`- ${hookConfig.event}: ${hookConfig.command}`);
   }
 
