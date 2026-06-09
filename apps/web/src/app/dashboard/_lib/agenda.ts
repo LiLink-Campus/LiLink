@@ -22,9 +22,9 @@ export type AgendaIconKey =
   | "profile"
   | "circle";
 
-export type AgendaPriority = "high" | "medium" | "low";
+type AgendaPriority = "high" | "medium" | "low";
 
-export type AgendaItemStatus =
+type AgendaItemStatus =
   | "done"
   | "todo"
   | "attention"
@@ -40,7 +40,7 @@ export type AgendaItemAction = {
   meetupEntryMetadata?: Record<string, string>;
 };
 
-export type AgendaItemProgress = {
+type AgendaItemProgress = {
   confirmedPercent: number;
   unconfirmedPercent: number;
   unconfirmedCount: number;

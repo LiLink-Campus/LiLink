@@ -3,7 +3,6 @@ import "../src/app/globals.css";
 import MockDate from "mockdate";
 import { initialize, mswLoader } from "msw-storybook-addon";
 import { AuthSessionProvider } from "../src/app/auth-session";
-import { LocaleProvider } from "../src/app/locale-context";
 import { ToastProvider } from "../src/app/dashboard/_components/ToastProvider";
 import { mswHandlers } from "./msw-handlers";
 
@@ -23,11 +22,9 @@ const preview: Preview = {
   decorators: [
     (Story) => (
       <AuthSessionProvider>
-        <LocaleProvider initialLocale="zh-CN" hasLocaleCookie={true}>
-          <ToastProvider>
-            <Story />
-          </ToastProvider>
-        </LocaleProvider>
+        <ToastProvider>
+          <Story />
+        </ToastProvider>
       </AuthSessionProvider>
     ),
   ],

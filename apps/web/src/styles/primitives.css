@@ -189,7 +189,6 @@
 }
 
 .ui-input,
-.ui-textarea,
 .ui-select {
   width: 100%;
   padding: 0.78rem 0.95rem;
@@ -203,34 +202,25 @@
     box-shadow 0.15s;
 }
 
-.ui-textarea {
-  min-height: 7rem;
-  resize: vertical;
-}
-
-.ui-input::placeholder,
-.ui-textarea::placeholder {
+.ui-input::placeholder {
   color: var(--color-text-muted);
 }
 
 .ui-input:focus,
-.ui-textarea:focus,
 .ui-select:focus {
   outline: none;
   border-color: var(--color-brand);
   box-shadow: 0 0 0 4px rgba(139, 58, 74, 0.12);
 }
 
-.ui-input:read-only,
-.ui-textarea:read-only {
+.ui-input:read-only {
   background: var(--color-surface-muted);
   color: var(--color-text-secondary);
   border-color: var(--color-border);
   cursor: default;
 }
 
-.ui-input:read-only:focus,
-.ui-textarea:read-only:focus {
+.ui-input:read-only:focus {
   border-color: var(--color-border);
   box-shadow: none;
 }
@@ -272,41 +262,6 @@
   color: var(--color-text-secondary);
 }
 
-.ui-badge--brand {
-  background: var(--color-brand-tint);
-  color: var(--color-brand-ink);
-}
-
-.ui-badge--accent {
-  background: var(--color-accent-soft);
-  color: var(--color-accent-ink);
-}
-
-.ui-badge--success {
-  background: var(--color-success-soft);
-  color: var(--color-success);
-}
-
-.ui-badge--warning {
-  background: var(--color-warning-soft);
-  color: #6f5114;
-}
-
-.ui-badge--danger {
-  background: var(--color-danger-soft);
-  color: var(--color-danger);
-}
-
-.ui-badge--gold {
-  background: var(--color-gold-soft);
-  color: #6f5114;
-}
-
-.ui-badge--coral {
-  background: var(--color-coral-soft);
-  color: var(--color-coral);
-}
-
 .ui-form-message {
   margin: 0;
   padding: 0.7rem 0.95rem;
@@ -324,19 +279,6 @@
   background: var(--color-success-soft);
   color: var(--color-success);
   border: 1px solid color-mix(in srgb, var(--color-success) 20%, transparent);
-}
-
-.ui-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--stack-gap, 1rem);
-}
-
-.ui-inline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--inline-gap, 0.6rem);
 }
 
 .ui-segmented {

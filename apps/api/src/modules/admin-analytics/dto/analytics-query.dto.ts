@@ -7,7 +7,7 @@ const toBool = ({ value }: { value: unknown }) => {
   return value;
 };
 
-export const LEADERBOARD_SORT_KEYS = [
+const LEADERBOARD_SORT_KEYS = [
   'unmatchedStreak',
   'matchStreak',
   'matchRate',
@@ -16,7 +16,7 @@ export const LEADERBOARD_SORT_KEYS = [
 ] as const;
 export type LeaderboardSortKey = (typeof LEADERBOARD_SORT_KEYS)[number];
 
-export const PRODUCT_ANALYTICS_RANGES = ['7d', '30d', '60d'] as const;
+const PRODUCT_ANALYTICS_RANGES = ['7d', '30d', '60d'] as const;
 export type ProductAnalyticsRangeKey =
   (typeof PRODUCT_ANALYTICS_RANGES)[number];
 

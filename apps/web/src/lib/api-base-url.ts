@@ -37,7 +37,7 @@ function normalizeHostname(host: string | null | undefined): string | null {
   return stripPort(trimmed).toLowerCase();
 }
 
-export function resolveApiBaseUrlForHost(
+function resolveApiBaseUrlForHost(
   host: string | null | undefined,
 ): string {
   if (process.env.NODE_ENV === "production") {
