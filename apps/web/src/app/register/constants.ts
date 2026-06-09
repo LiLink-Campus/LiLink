@@ -5,7 +5,7 @@ export const VERIFICATION_CODE_LENGTH = 6;
 export const REGISTER_REFERRAL_CODE_MAX_LENGTH = 64;
 export const RESEND_COOLDOWN_SECONDS = 30;
 
-export type RegistrationMode = "SCHOOL_EMAIL" | "NON_EDU_REFERRAL_REQUIRED";
+type RegistrationMode = "SCHOOL_EMAIL" | "NON_EDU_REFERRAL_REQUIRED";
 
 export type CodeResponse = {
   email: string;

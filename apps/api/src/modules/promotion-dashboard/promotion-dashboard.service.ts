@@ -50,7 +50,7 @@ export interface PromotionFunnelResponse {
   channelBreakdown: ChannelBreakdownRow[];
 }
 
-export interface PromotionLeaderboardRow {
+interface PromotionLeaderboardRow {
   sourceType: string;
   refLabel: string;
   invited: number;
@@ -68,12 +68,28 @@ export interface PromotionCouponsRow {
   redeemed: number;
 }
 
-export interface PromotionRedemptionRow {
+interface PromotionRedemptionRow {
   merchantId: string;
   merchantName: string;
   day: string;
   count: number;
   faceValueTotal: number;
+}
+
+export interface PromotionLeaderboardResponse {
+  items: PromotionLeaderboardRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface PromotionRedemptionsResponse {
+  items: PromotionRedemptionRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 /**
@@ -194,7 +210,9 @@ export class PromotionDashboardService {
     };
   }
 
-  async getLeaderboard(query: PromotionLeaderboardQueryDto) {
+  async getLeaderboard(
+    query: PromotionLeaderboardQueryDto,
+  ): Promise<PromotionLeaderboardResponse> {
     const { from, to } = this.parseRange(query);
     const campaignId = query.campaignId;
     const page = clampPositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);
@@ -367,7 +385,9 @@ export class PromotionDashboardService {
     return { items: rows };
   }
 
-  async getRedemptions(query: PromotionRedemptionsQueryDto) {
+  async getRedemptions(
+    query: PromotionRedemptionsQueryDto,
+  ): Promise<PromotionRedemptionsResponse> {
     const { from, to } = this.parseRange(query);
     const campaignId = query.campaignId;
     const page = clampPositiveInt(query.page, 1, ADMIN_LIST_PAGE_MAX);

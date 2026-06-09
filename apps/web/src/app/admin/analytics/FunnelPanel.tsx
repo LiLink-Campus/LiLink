@@ -6,9 +6,9 @@ import styles from "./admin-analytics.module.css";
 
 const adminStyles = [commonStyles, styles];
 
-export type FunnelEventKind = "footprint" | "intent" | "outcome";
+type FunnelEventKind = "footprint" | "intent" | "outcome";
 
-export type FunnelStep = {
+type FunnelStep = {
   key: string;
   label: string;
   value: number;

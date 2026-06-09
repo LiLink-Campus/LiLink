@@ -20,11 +20,7 @@ export interface RedeemCouponView {
 }
 
 /** Outcome of the freshness check before a redemption is confirmed. */
-export type PrepareRedeemResult =
-  | 'OK'
-  | 'INVALID'
-  | 'ALREADY_USED'
-  | 'EXPIRED_CODE';
+type PrepareRedeemResult = 'OK' | 'INVALID' | 'ALREADY_USED' | 'EXPIRED_CODE';
 
 export interface PrepareRedeemResponse {
   result: PrepareRedeemResult;
