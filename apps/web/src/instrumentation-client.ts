@@ -8,6 +8,7 @@ import {
   sentryEnabled,
   sentrySendDefaultPii,
   sentryTracesSampleRate,
+  shouldDropInjectedAddEventListenerTagNameError,
 } from "./lib/sentry-config";
 
 Sentry.init({
@@ -33,6 +34,14 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: sentrySendDefaultPii,
+
+  beforeSend(event) {
+    if (shouldDropInjectedAddEventListenerTagNameError(event)) {
+      return null;
+    }
+
+    return event;
+  },
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
