@@ -322,16 +322,6 @@
   color: var(--color-text-muted);
 }
 
-.mp-context-line {
-  margin: -0.35rem 0 1rem;
-  font-size: 0.88rem;
-  color: var(--color-text-secondary);
-}
-
-.mp-context-line strong {
-  color: var(--color-text);
-}
-
 .mp-context-sep {
   margin: 0 0.35rem;
   color: var(--color-text-muted);
@@ -350,19 +340,11 @@
   margin-bottom: 0.85rem;
 }
 
-.mp-section-head h3 {
-  margin: 0;
-}
-
 .mp-section-hint {
   margin: 0.35rem 0 0.85rem;
   font-size: 0.82rem;
   line-height: 1.45;
   color: var(--color-text-secondary);
-}
-
-.mp-section-head .mp-section-hint {
-  margin-bottom: 0;
 }
 
 .mp-gender-cell {
@@ -410,13 +392,6 @@
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 2px var(--color-accent-soft);
-}
-
-.mp-filter-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
 }
 
 .mp-date-presets {
@@ -891,18 +866,6 @@
   .mp-filter-bar-summary {
     display: none;
   }
-}
-
-.merchant-subheading {
-  margin-top: 0.25rem;
-}
-
-.merchant-subheading-large {
-  margin-top: 1rem;
-}
-
-.merchant-actions-top {
-  margin-top: 0.5rem;
 }
 
 .campaign-subheading {
