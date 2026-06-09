@@ -134,7 +134,7 @@ describe('PromotionDashboardService', () => {
       ]);
       const service = new PromotionDashboardService(prisma as never);
 
-      // Canonical UPPERCASE source value (post-normalization by DTO Transform).
+      // Canonical source value accepted by the DTO.
       const result = await service.getLeaderboard({
         ...range,
         source: 'PERSONAL',

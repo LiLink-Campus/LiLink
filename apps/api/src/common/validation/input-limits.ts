@@ -63,7 +63,7 @@ export const MERCHANT_USER_DISPLAY_NAME_MAX = 80;
 // of slack for trimming/casing on input.
 export const REDEEM_CODE_MAX_LENGTH = 16;
 // Order amount entered at redemption (cents, §B). Bounded like faceValue.
-export const REDEEM_ORDER_AMOUNT_MAX = COUPON_FACE_VALUE_MAX;
+export const REDEEM_ORDER_AMOUNT_MAX = 100_000_000;
 // Redeem ticket is a short-lived JWT bound to {couponId, merchantId}; bound the
 // accepted length generously to reject oversized input without truncating valid
 // tokens.

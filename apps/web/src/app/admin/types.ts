@@ -72,7 +72,7 @@ export type AdminMerchantUser = {
   updatedAt: string;
 };
 
-export type PromotionFunnelStep = { key: string; count: number };
+type PromotionFunnelStep = { key: string; count: number };
 
 export type PromotionChannelBreakdownRow = {
   medium: ReferralMedium;
@@ -248,7 +248,7 @@ export type CycleParticipantDetail = {
   user: AdminUser;
 };
 
-export type CycleMatchFeedback = {
+type CycleMatchFeedback = {
   id: string;
   authorUserId: string;
   subjectUserId: string;

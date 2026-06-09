@@ -599,7 +599,7 @@ export function fetchMerchantMe() {
 }
 
 /** Coupon snapshot returned by both prepare and redeem endpoints. */
-export type RedeemCouponInfo = {
+type RedeemCouponInfo = {
   title: string;
   benefitText: string;
   faceValue: number;
@@ -615,7 +615,7 @@ export type PrepareRedeemOk = {
 };
 
 /** Prepare failed with a specific reason. */
-export type PrepareRedeemFail = {
+type PrepareRedeemFail = {
   result: "INVALID" | "ALREADY_USED" | "EXPIRED_CODE";
 };
 

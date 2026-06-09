@@ -67,17 +67,6 @@ box-shadow: 0 8px 24px rgba(125, 46, 58, 0.22);
     word-break: break-all;
 }
 
-/* ── Group section label ── */
-
-.me-group-label {
-    font-size: 0.72rem;
-    font-weight: 600;
-  color: var(--color-text-muted);
-letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 0.25rem 0.2rem 0.4rem;
-}
-
 /* ── Group card (iOS-style rounded list) ── */
 
 .me-group {

@@ -42,12 +42,6 @@
   z-index: 0;
 }
 
-.toneAttention::before {
-  background: radial-gradient(circle,
-            color-mix(in srgb, var(--color-brand) 15%, transparent) 0%,
-            transparent 70%);
-}
-
 .toneWaiting::before {
   background: radial-gradient(circle,
             color-mix(in srgb, var(--color-gold) 15%, transparent) 0%,
@@ -71,10 +65,6 @@
   pointer-events: none;
   z-index: 0;
   opacity: 0.5;
-}
-
-.toneAttention::after {
-  background: linear-gradient(to top, color-mix(in srgb, var(--color-brand) 4%, transparent), transparent);
 }
 
 .toneWaiting::after {
@@ -116,11 +106,6 @@
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-}
-
-.toneAttention .eyebrow {
-  background: color-mix(in srgb, var(--color-brand) 16%, var(--color-surface));
-  color: var(--color-brand-ink);
 }
 
 .toneWaiting .eyebrow {

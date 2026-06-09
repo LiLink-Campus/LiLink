@@ -1,17 +1,8 @@
 /* ──────────────────────────────────────────────────────────────
-   Merchant portal · login + redeem console
+   Merchant portal · redeem console
    Built on globals.css design tokens (LiLink wine-red identity).
    Flat selectors only (no nesting) for broad PostCSS compatibility.
    ────────────────────────────────────────────────────────────── */
-
-/* ── Shells ────────────────────────────────────────────────── */
-.mc-center {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  background: var(--color-canvas);
-}
 
 .mc-shell {
   min-height: 100dvh;
@@ -20,27 +11,6 @@
   background: var(--color-canvas);
 }
 
-/* ── Login card ────────────────────────────────────────────── */
-.mc-login-card {
-  width: 100%;
-  max-width: 26rem;
-}
-
-.mc-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.mc-subtitle {
-  margin: 0.4rem 0 0;
-  color: var(--color-text-secondary);
-  font-size: 0.95rem;
-}
-
-/* ── Form ──────────────────────────────────────────────────── */
 .mc-form {
   display: flex;
   flex-direction: column;
@@ -48,13 +18,6 @@
   margin-top: 1.5rem;
 }
 
-.mc-error {
-  margin: 0;
-  color: var(--color-danger);
-  font-size: 0.9rem;
-}
-
-/* ── Redeem console ────────────────────────────────────────── */
 .mc-topbar {
   display: flex;
   justify-content: space-between;

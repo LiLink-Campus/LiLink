@@ -23,39 +23,6 @@
     max-width: 100%;
 }
 
-.v2-greeting-status {
-    flex-shrink: 0;
-}
-
-.v2-greeting-pill {
-  display: inline-flex;
-align-items: center;
-    padding: 0.25rem 0.6rem;
-  border-radius: var(--radius-pill);
-font-size: 0.75rem;
-    font-weight: 500;
-  letter-spacing: 0.02em;
-white-space: nowrap;
-}
-
-.v2-greeting-pill.tone-on {
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-    color: var(--color-accent);
-    border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
-}
-
-.v2-greeting-pill.tone-warn {
-    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
-    color: var(--color-warning);
-    border: 1px solid color-mix(in srgb, var(--color-warning) 20%, transparent);
-}
-
-.v2-greeting-pill.tone-off {
-    background: var(--color-surface-muted);
-    color: var(--color-text-muted);
-    border: 1px solid var(--color-border);
-}
-
 .v2-greeting h1 {
   font-family: var(--font-display);
 font-size: clamp(1.55rem, 4vw, 2rem);
@@ -199,9 +166,5 @@ font-size: 0.95rem;
     .v2-greeting {
         flex-direction: column;
         align-items: stretch;
-    }
-
-    .v2-greeting-status {
-        align-self: flex-start;
     }
 }

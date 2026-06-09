@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { GIT_HOOK_CONFIGS } from "./hooks/registry.mjs";
 import {
-  HOOK_CONFIGS,
   MINIMUM_GIT_VERSION,
   buildGitConfigArgs,
   isGitVersionAtLeast,
@@ -33,7 +33,7 @@ test("checks the minimum Git version", () => {
 });
 
 test("builds config commands for the LiLink hooks", () => {
-  assert.deepEqual(HOOK_CONFIGS, [
+  assert.deepEqual(GIT_HOOK_CONFIGS, [
     {
       name: "lilink-pre-commit-lint",
       event: "pre-commit",
@@ -46,7 +46,7 @@ test("builds config commands for the LiLink hooks", () => {
     },
   ]);
 
-  assert.deepEqual(buildGitConfigArgs(HOOK_CONFIGS[0]), [
+  assert.deepEqual(buildGitConfigArgs(GIT_HOOK_CONFIGS[0]), [
     ["config", "set", "hook.lilink-pre-commit-lint.event", "pre-commit"],
     [
       "config",

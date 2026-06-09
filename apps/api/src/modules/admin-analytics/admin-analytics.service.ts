@@ -25,7 +25,7 @@ import {
   UserCycleOutcome,
 } from './leaderboard-metrics';
 
-export interface SchoolGenderRow extends GenderBuckets {
+interface SchoolGenderRow extends GenderBuckets {
   schoolId: string | null;
   schoolName: string;
   total: number;
@@ -37,7 +37,7 @@ export interface SchoolsGenderResponse {
   includeTest: boolean;
 }
 
-export interface WeeklyOptinCycle {
+interface WeeklyOptinCycle {
   cycleId: string;
   codename: string;
   revealAt: string;
@@ -51,7 +51,7 @@ export interface WeeklyOptinResponse {
   includeTest: boolean;
 }
 
-export interface LeaderboardRow {
+interface LeaderboardRow {
   userId: string;
   displayName: string | null;
   email: string;
@@ -72,7 +72,7 @@ export interface MatchLeaderboardResponse {
   includeTest: boolean;
 }
 
-export interface ProductAnalyticsKpis {
+interface ProductAnalyticsKpis {
   activeUsers: number;
   totalEvents: number;
   todayEvents: number;
@@ -81,7 +81,7 @@ export interface ProductAnalyticsKpis {
   optinRate: null;
 }
 
-export interface ProductAnalyticsFunnelStep {
+interface ProductAnalyticsFunnelStep {
   key: string;
   label: string;
   eventName: ProductEventName;
@@ -89,14 +89,14 @@ export interface ProductAnalyticsFunnelStep {
   kind: Extract<ProductEventKind, 'footprint' | 'intent' | 'outcome'>;
 }
 
-export interface ProductAnalyticsFunnel {
+interface ProductAnalyticsFunnel {
   key: string;
   title: string;
   description: string;
   steps: ProductAnalyticsFunnelStep[];
 }
 
-export interface ProductAnalyticsMissing {
+interface ProductAnalyticsMissing {
   key: string;
   label: string;
   reason: string;

@@ -45,7 +45,7 @@ type FootprintOptions = TrackProductEventOptions & {
   durationMs?: number;
 };
 
-export function trackFootprint(
+function trackFootprint(
   name: ProductEventName,
   options: TrackProductEventOptions = {},
 ) {

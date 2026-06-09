@@ -1,11 +1,11 @@
-export type GenderBuckets = {
+type GenderBuckets = {
   male: number;
   female: number;
   nonBinary: number;
   unknown: number;
 };
 
-export type SchoolGenderRow = GenderBuckets & {
+type SchoolGenderRow = GenderBuckets & {
   schoolId: string | null;
   schoolName: string;
   total: number;
@@ -17,7 +17,7 @@ export type SchoolsGenderResponse = {
   includeTest: boolean;
 };
 
-export type WeeklyOptinCycle = {
+type WeeklyOptinCycle = {
   cycleId: string;
   codename: string;
   revealAt: string;
@@ -61,9 +61,9 @@ export type MatchLeaderboardResponse = {
   includeTest: boolean;
 };
 
-export type ProductAnalyticsRangeKey = "7d" | "30d" | "60d";
+type ProductAnalyticsRangeKey = "7d" | "30d" | "60d";
 
-export type ProductAnalyticsKpis = {
+type ProductAnalyticsKpis = {
   activeUsers: number;
   totalEvents: number;
   todayEvents: number;
@@ -72,7 +72,7 @@ export type ProductAnalyticsKpis = {
   optinRate: null;
 };
 
-export type ProductAnalyticsFunnelStep = {
+type ProductAnalyticsFunnelStep = {
   key: string;
   label: string;
   eventName: string;
@@ -80,7 +80,7 @@ export type ProductAnalyticsFunnelStep = {
   kind: "footprint" | "intent" | "outcome";
 };
 
-export type ProductAnalyticsFunnel = {
+type ProductAnalyticsFunnel = {
   key: string;
   title: string;
   description: string;

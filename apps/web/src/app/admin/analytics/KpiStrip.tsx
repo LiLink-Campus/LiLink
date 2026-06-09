@@ -6,7 +6,7 @@ import styles from "./admin-analytics.module.css";
 
 const adminStyles = [commonStyles, styles];
 
-export type KpiTrend = "up" | "down" | "flat";
+type KpiTrend = "up" | "down" | "flat";
 
 export type KpiTile = {
   key: string;

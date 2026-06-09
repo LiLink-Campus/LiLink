@@ -200,10 +200,6 @@ const QUESTIONNAIRE_AUTOSAVE_TIMEOUT_MS = 15000;
 const QUESTIONNAIRE_ATTENTION_VIEW_MS = 200;
 const MULTI_CHOICE_REOPEN_GUARD_MS = 350;
 
-function questionnaireQuestionElementId(key: string) {
-  return `questionnaire-question-${key}`;
-}
-
 function initialProfileTab(
   questions: Question[],
   savedQuestionnaire: SavedQuestionnairePayload,
@@ -1015,8 +1011,7 @@ export function ProfileClient({
     const timeoutId = window.setTimeout(() => {
       const target =
         questionBlockRefs.current.get(key) ??
-        document.getElementById(profileAttentionElementId(key)) ??
-        document.getElementById(questionnaireQuestionElementId(key));
+        document.getElementById(profileAttentionElementId(key));
       target?.scrollIntoView({ block: "center" });
 
       if (target && window.location.hash === attentionHash) {
@@ -2184,7 +2179,7 @@ export function ProfileClient({
                       ref={(node) =>
                         setAttentionBlockRef([question.key], node)
                       }
-                      id={questionnaireQuestionElementId(question.key)}
+                      id={profileAttentionElementId(question.key)}
                       className={attentionBlockClassName([question.key])}
                     >
                       <legend className={dcx("question-block-legend")}>
@@ -2262,7 +2257,7 @@ export function ProfileClient({
                   <fieldset
                     key={question.id}
                     ref={(node) => setAttentionBlockRef([question.key], node)}
-                    id={questionnaireQuestionElementId(question.key)}
+                    id={profileAttentionElementId(question.key)}
                     className={attentionBlockClassName([question.key])}
                   >
                     <legend className={dcx("question-block-legend")}>
