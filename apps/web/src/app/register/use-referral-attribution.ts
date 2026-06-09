@@ -3,6 +3,8 @@
 import { PERSONAL_CODE_LENGTH, REFERRAL_CHANNELS } from "@lilink/shared";
 import { useEffect, useState } from "react";
 
+const REFERRAL_COOKIE = "lilink_ref";
+
 export function useReferralAttribution() {
   const [referralCode, setReferralCode] = useState("");
   const [referralChannel, setReferralChannel] = useState("");
@@ -13,14 +15,14 @@ export function useReferralAttribution() {
   useEffect(() => {
     const refCookie = document.cookie
       .split("; ")
-      .find((entry) => entry.startsWith("lilink_ref="));
+      .find((entry) => entry.startsWith(`${REFERRAL_COOKIE}=`));
     if (!refCookie) return;
 
     setHasReferralCookie(true);
 
     try {
       const parsed = JSON.parse(
-        decodeURIComponent(refCookie.slice("lilink_ref=".length)),
+        decodeURIComponent(refCookie.slice(`${REFERRAL_COOKIE}=`.length)),
       ) as { code?: unknown; channel?: unknown; campaignSlug?: unknown };
       const refCode = typeof parsed.code === "string" ? parsed.code : "";
       if (refCode.length === PERSONAL_CODE_LENGTH) {
@@ -44,6 +46,15 @@ export function useReferralAttribution() {
     }
   }, []);
 
+  function clearReferralAttribution() {
+    document.cookie = `${REFERRAL_COOKIE}=; path=/; max-age=0; samesite=lax`;
+    setReferralCode("");
+    setReferralChannel("");
+    setCampaignSlug("");
+    setAttributionLocked(false);
+    setHasReferralCookie(false);
+  }
+
   return {
     referralCode,
     setReferralCode,
@@ -51,5 +62,6 @@ export function useReferralAttribution() {
     campaignSlug,
     attributionLocked,
     hasReferralCookie,
+    clearReferralAttribution,
   };
 }

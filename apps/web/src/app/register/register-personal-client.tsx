@@ -59,6 +59,7 @@ export default function RegisterPersonalClient() {
     referralChannel,
     campaignSlug,
     attributionLocked,
+    clearReferralAttribution,
   } = useReferralAttribution();
 
   const eligibleSchools = useMemo(
@@ -149,6 +150,14 @@ export default function RegisterPersonalClient() {
     }
   }
 
+  function useDifferentReferralCode() {
+    clearReferralAttribution();
+    setCode("");
+    setDevCode(undefined);
+    setResendCooldown(0);
+    setError(null);
+  }
+
   async function register(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -236,7 +245,7 @@ export default function RegisterPersonalClient() {
             label="邀请码"
             hint={
               attributionLocked
-                ? "已通过邀请链接带入，不可修改。"
+                ? "已通过邀请链接带入。若该邀请码不可用，可以更换。"
                 : "向已经在 LiLink 注册的教育邮箱用户索取。"
             }
           >
@@ -249,6 +258,17 @@ export default function RegisterPersonalClient() {
               placeholder={attributionLocked ? undefined : "请输入 10 位邀请码"}
             />
           </Field>
+          {attributionLocked ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              elevation="flat"
+              type="button"
+              onClick={useDifferentReferralCode}
+            >
+              更换邀请码
+            </Button>
+          ) : null}
           <Field
             label="普通邮箱"
             hint="QQ、163、Gmail 等均可。若你有学校邮箱，请改用学校邮箱注册。"
