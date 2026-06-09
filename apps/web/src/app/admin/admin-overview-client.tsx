@@ -3,18 +3,17 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../lib/api";
+import { formatChinaStandardDateTime } from "../../lib/china-standard-time";
 import { cx } from "./admin-class-names";
 import { useAdmin } from "./admin-context";
 import commonStyles from "./admin-common.module.css";
 import type { AdminDashboardData } from "./types";
 
 const adminStyles = [commonStyles];
+const adminNumberFormatter = new Intl.NumberFormat("zh-CN");
 
 function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
+  return formatChinaStandardDateTime(value);
 }
 
 type SystemSettings = Record<string, string>;
@@ -267,7 +266,7 @@ export default function AdminOverviewPage({
           >
             <span className={cx(adminStyles, "ops-stat-label")}>{s.label}</span>
             <span className={cx(adminStyles, "ops-stat-value")}>
-              {s.value.toLocaleString()}
+              {adminNumberFormatter.format(s.value)}
             </span>
             {s.note ? (
               <span className={cx(adminStyles, "ops-stat-note")}>{s.note}</span>
