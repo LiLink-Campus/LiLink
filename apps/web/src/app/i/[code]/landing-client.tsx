@@ -78,7 +78,7 @@ export function ReferralLandingClient({ code }: { code: string }) {
           <>
             <h1 className={styles.title}>邀请链接无法识别</h1>
             <p className={styles.text}>
-              该邀请码无效或已过期，你仍然可以直接注册加入 LiLink。
+              该邀请码无效、不可用或已过期，你仍然可以直接注册加入 LiLink。
             </p>
             <a className={styles.cta} href="/register">
               前往注册

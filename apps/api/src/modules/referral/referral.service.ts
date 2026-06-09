@@ -261,11 +261,12 @@ export class ReferralService {
 
   /**
    * Record a landing-page click. Only the personal referral code length is
-   * accepted; other lengths or unknown codes are INVALID. The campaign is the
-   * *current* campaign of this link (`?c=` when ACTIVE, else the active
-   * default) — NOT the referrer's own source campaign, so the funnel attributes
-   * the click to the running campaign. CLICK is UV-deduped per (code, day,
-   * visitor): a dedupeKey collision is a same-visitor repeat and is ignored.
+   * accepted; other lengths, unknown codes, or codes unusable for non-school
+   * registration are INVALID. The campaign is the *current* campaign of this
+   * link (`?c=` when ACTIVE, else the active default) — NOT the referrer's own
+   * source campaign, so the funnel attributes the click to the running campaign.
+   * CLICK is UV-deduped per (code, day, visitor): a dedupeKey collision is a
+   * same-visitor repeat and is ignored.
    */
   async recordClickEvent(input: {
     code: string;
@@ -279,9 +280,20 @@ export class ReferralService {
     if (code.length === PERSONAL_CODE_LENGTH) {
       const referrer = await this.prisma.user.findUnique({
         where: { referralCode: code },
-        select: { id: true },
+        select: {
+          id: true,
+          status: true,
+          nonEduReferralLimit: true,
+          nonEduReferralUses: true,
+        },
       });
-      if (!referrer) return { result: 'INVALID' };
+      if (
+        !referrer ||
+        referrer.status !== 'ACTIVE' ||
+        referrer.nonEduReferralUses >= referrer.nonEduReferralLimit
+      ) {
+        return { result: 'INVALID' };
+      }
       referrerUserId = referrer.id;
     } else {
       return { result: 'INVALID' };

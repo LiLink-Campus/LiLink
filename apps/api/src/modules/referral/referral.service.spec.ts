@@ -360,7 +360,12 @@ describe('ReferralService', () => {
   describe('recordClickEvent', () => {
     it('records a CLICK for a 10-char personal code, attributed to the current campaign', async () => {
       const prisma = makePrisma();
-      prisma.user.findUnique.mockResolvedValue({ id: 'ref-1' });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'ACTIVE',
+        nonEduReferralLimit: 3,
+        nonEduReferralUses: 1,
+      });
       prisma.campaign.findFirst.mockResolvedValue({ id: 'camp-default' });
       const service = new ReferralService(prisma as never);
 
@@ -411,9 +416,52 @@ describe('ReferralService', () => {
       expect(prisma.referralEvent.create).not.toHaveBeenCalled();
     });
 
+    it('returns INVALID for a suspended referrer without writing', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'SUSPENDED',
+        nonEduReferralLimit: 3,
+        nonEduReferralUses: 1,
+      });
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.recordClickEvent({
+        code: 'ABC2345XYZ',
+        visitorHash: 'vh',
+      });
+
+      expect(result).toEqual({ result: 'INVALID' });
+      expect(prisma.referralEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('returns INVALID for an exhausted non-school referral quota without writing', async () => {
+      const prisma = makePrisma();
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'ACTIVE',
+        nonEduReferralLimit: 3,
+        nonEduReferralUses: 3,
+      });
+      const service = new ReferralService(prisma as never);
+
+      const result = await service.recordClickEvent({
+        code: 'ABC2345XYZ',
+        visitorHash: 'vh',
+      });
+
+      expect(result).toEqual({ result: 'INVALID' });
+      expect(prisma.referralEvent.create).not.toHaveBeenCalled();
+    });
+
     it('treats a dedupeKey collision as an already-counted visit (still OK)', async () => {
       const prisma = makePrisma();
-      prisma.user.findUnique.mockResolvedValue({ id: 'ref-1' });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'ref-1',
+        status: 'ACTIVE',
+        nonEduReferralLimit: 3,
+        nonEduReferralUses: 1,
+      });
       prisma.campaign.findFirst.mockResolvedValue({ id: 'camp-default' });
       prisma.referralEvent.create.mockRejectedValue(
         Object.assign(new Error('dup'), { code: 'P2002' }),
