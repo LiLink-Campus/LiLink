@@ -1,11 +1,14 @@
 import type {
   MeetupCancelReason,
+  MeetupFeedbackIssueTag,
+  MeetupFeedbackPositiveTag,
   MeetupMessageType,
   MeetupOptionKind,
   MeetupOptionStatus,
   MeetupParticipantTurnState,
   MeetupProposalScope,
   MeetupProposalStatus,
+  MeetupSafetyBoundaryLevel,
   MeetupSessionStatus,
 } from './constants';
 
@@ -34,6 +37,7 @@ export type MeetupTransactionClient = {
   meetupOption: MeetupDelegate;
   meetupParticipant: MeetupDelegate;
   meetupProposal: MeetupDelegate;
+  meetupFeedback: MeetupDelegate;
   meetupSession: MeetupDelegate;
   outboundEmail: MeetupDelegate;
   productEventOutbox: MeetupDelegate;
@@ -120,6 +124,22 @@ type MeetupMessageRecord = {
   proposal: MeetupProposalRecord | null;
 };
 
+export type MeetupFeedbackRecord = {
+  id: string;
+  sessionId: string;
+  matchId: string;
+  authorUserId: string;
+  subjectUserId: string;
+  personalFitScore: number;
+  interactionQualityScore: number;
+  safetyBoundaryLevel: MeetupSafetyBoundaryLevel;
+  positiveTags: MeetupFeedbackPositiveTag[];
+  issueTags: MeetupFeedbackIssueTag[];
+  note: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type MeetupSessionRecord = {
   id: string;
   matchId: string;
@@ -150,4 +170,5 @@ export type MeetupSessionRecord = {
   updatedAt?: Date;
   participants: MeetupParticipantRecord[];
   messages: MeetupMessageRecord[];
+  feedback: MeetupFeedbackRecord[];
 };

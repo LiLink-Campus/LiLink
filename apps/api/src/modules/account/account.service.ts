@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  GoneException,
   Injectable,
   NotFoundException,
   Optional,
@@ -111,6 +112,18 @@ const dashboardMeetupSessionSelect = {
   confirmedLocationOption: {
     select: {
       placeName: true,
+    },
+  },
+  feedback: {
+    select: {
+      personalFitScore: true,
+      interactionQualityScore: true,
+      safetyBoundaryLevel: true,
+      positiveTags: true,
+      issueTags: true,
+      note: true,
+      authorUserId: true,
+      updatedAt: true,
     },
   },
   participants: {
@@ -528,7 +541,7 @@ export class AccountService {
         : this.buildDefaultDashboardHistoryItem(revealedCycle);
     });
     const latestMatch = this.readLatestDashboardMatch(latestSnapshot);
-    await this.attachCurrentUserFeedback(userId, [
+    this.attachCurrentUserFeedback(userId, [
       latestMatch,
       ...recentMatchHistory.map((item) => item.match),
     ]);
@@ -574,6 +587,16 @@ export class AccountService {
       }),
       getDashboardCouponAgenda(this.prisma, userId),
     ]);
+    await this.attachHistoryMeetupSummaries(
+      userId,
+      recentMatchHistory,
+      latestMatch?.id ?? null,
+    );
+    this.attachLatestMeetupSummaryToHistory(
+      latestMatch?.id ?? null,
+      meetupDashboard.meetupSummary,
+      recentMatchHistory,
+    );
 
     return {
       profile,
@@ -612,6 +635,7 @@ export class AccountService {
       visibility: DashboardHistoryVisibility.NOT_APPLICABLE,
       limitedReason: null,
       match: null,
+      meetupSummary: null,
     };
   }
 
@@ -633,7 +657,101 @@ export class AccountService {
       match: this.dashboardSnapshotService.readDashboardMatchPayload(
         snapshot.matchPayload,
       ),
+      meetupSummary: null,
     };
+  }
+
+  private async attachHistoryMeetupSummaries(
+    userId: string,
+    items: DashboardHistoryItemResponseDto[],
+    excludedMatchId: string | null,
+  ) {
+    const matchIds = [
+      ...new Set(
+        items
+          .map((item) => item.match?.id ?? null)
+          .filter(
+            (matchId): matchId is string =>
+              matchId != null && matchId !== excludedMatchId,
+          ),
+      ),
+    ];
+
+    if (matchIds.length === 0) {
+      return;
+    }
+
+    const matches = await this.prisma.match.findMany({
+      where: {
+        id: { in: matchIds },
+      },
+      select: {
+        id: true,
+        introducedAt: true,
+        participants: {
+          select: {
+            userId: true,
+          },
+        },
+        meetupSession: {
+          select: dashboardMeetupSessionSelect,
+        },
+      },
+    });
+    const matchById = new Map(matches.map((match) => [match.id, match]));
+    const now = new Date();
+
+    for (const item of items) {
+      item.meetupSummary = null;
+      if (!item.match) {
+        continue;
+      }
+
+      const match = matchById.get(item.match.id);
+      if (!match?.introducedAt || !match.meetupSession) {
+        continue;
+      }
+
+      const currentParticipant = match.participants.find(
+        (participant) => participant.userId === userId,
+      );
+      const counterpart = match.participants.find(
+        (participant) => participant.userId !== userId,
+      );
+
+      if (
+        !currentParticipant ||
+        !counterpart ||
+        match.participants.length !== 2
+      ) {
+        continue;
+      }
+
+      const session = await this.convergeDashboardMeetupSession(
+        match.meetupSession,
+      );
+      item.meetupSummary = this.buildDashboardMeetupSummary({
+        session,
+        currentUserId: userId,
+        now,
+      });
+    }
+  }
+
+  private attachLatestMeetupSummaryToHistory(
+    latestMatchId: string | null,
+    meetupSummary: DashboardMeetupSummaryResponseDto | null,
+    items: DashboardHistoryItemResponseDto[],
+  ) {
+    if (!latestMatchId || !meetupSummary) {
+      return;
+    }
+
+    for (const item of items) {
+      if (item.match?.id === latestMatchId) {
+        item.meetupSummary = meetupSummary;
+      }
+    }
   }
 
   private readLatestDashboardMatch(snapshot: DashboardSnapshotRecord | null) {
@@ -922,6 +1040,24 @@ export class AccountService {
     const reopenedStartIsFuture =
       input.session.reopenedFromLockedStartsAt == null ||
       input.session.reopenedFromLockedStartsAt > input.now;
+    const feedbackEligibleAt =
+      (input.session.status === 'LOCKED' ||
+        input.session.status === 'ARCHIVED') &&
+      input.session.lockedAt
+        ? confirmedStartsAt
+        : null;
+    const currentUserFeedback =
+      input.session.feedback.find(
+        (feedback) => feedback.authorUserId === input.currentUserId,
+      ) ?? null;
+    const canSubmitFeedback =
+      feedbackEligibleAt != null &&
+      feedbackEligibleAt <= input.now &&
+      input.session.participants.length === 2 &&
+      currentParticipant != null &&
+      input.session.participants.some(
+        (participant) => participant.userId !== input.currentUserId,
+      );
 
     return {
       sessionId: input.session.id,
@@ -946,6 +1082,20 @@ export class AccountService {
       )
         ? MEETUP_TERMINAL_SUMMARY_TEXT
         : null,
+      currentUserFeedback: currentUserFeedback
+        ? {
+            personalFitScore: currentUserFeedback.personalFitScore,
+            interactionQualityScore:
+              currentUserFeedback.interactionQualityScore,
+            safetyBoundaryLevel: currentUserFeedback.safetyBoundaryLevel,
+            positiveTags: [...currentUserFeedback.positiveTags],
+            issueTags: [...currentUserFeedback.issueTags],
+            note: currentUserFeedback.note,
+            submittedAt: currentUserFeedback.updatedAt.toISOString(),
+          }
+        : null,
+      canSubmitFeedback,
+      feedbackEligibleAt: this.toIsoString(feedbackEligibleAt),
     };
   }
 
@@ -2257,149 +2407,33 @@ export class AccountService {
     };
   }
 
-  private async attachCurrentUserFeedback(
+  private attachCurrentUserFeedback(
     userId: string,
     matches: Array<DashboardMatchResponseDto | null>,
   ) {
+    void userId;
     const present = matches.filter(
       (match): match is DashboardMatchResponseDto => match != null,
     );
-    if (present.length === 0) {
-      return;
-    }
-
-    const matchIds = [...new Set(present.map((match) => match.id))];
-    const feedbacks = await this.prisma.matchFeedback.findMany({
-      where: {
-        matchId: { in: matchIds },
-        authorUserId: userId,
-      },
-      select: {
-        matchId: true,
-        rating: true,
-        comment: true,
-        updatedAt: true,
-      },
-    });
-    const feedbackByMatchId = new Map(
-      feedbacks.map((feedback) => [feedback.matchId, feedback]),
-    );
 
     for (const match of present) {
-      const feedback = feedbackByMatchId.get(match.id);
-      match.currentUserFeedback = feedback
-        ? {
-            rating: feedback.rating,
-            comment: feedback.comment,
-            submittedAt: feedback.updatedAt.toISOString(),
-          }
-        : null;
+      match.currentUserFeedback = null;
     }
   }
 
-  async submitMatchFeedback(
+  submitMatchFeedback(
     userId: string,
     matchId: string,
     input: SubmitMatchFeedbackDto,
   ): Promise<MatchFeedbackResponseDto> {
-    const participant = await this.prisma.matchParticipant.findFirst({
-      where: {
-        matchId,
-        userId,
-      },
-      include: {
-        match: {
-          select: {
-            id: true,
-            revealedAt: true,
-            participants: {
-              select: { userId: true },
-            },
-            reports: {
-              where: { reporterId: userId },
-              select: { id: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!participant) {
-      throw new NotFoundException('Match was not found for this user.');
-    }
-
-    if (participant.match.revealedAt == null) {
-      throw new BadRequestException('This match is not revealed yet.');
-    }
-
-    const counterpart = participant.match.participants.find(
-      (item) => item.userId !== userId,
+    void userId;
+    void matchId;
+    void input;
+    return Promise.reject(
+      new GoneException(
+        'Match feedback has been replaced by post-meetup feedback.',
+      ),
     );
-
-    if (!counterpart) {
-      throw new BadRequestException(
-        'Counterpart was not found for this match.',
-      );
-    }
-
-    if (participant.match.reports.length > 0) {
-      throw new BadRequestException(
-        'This match is no longer available for feedback.',
-      );
-    }
-
-    const block = await this.prisma.block.findFirst({
-      where: {
-        OR: [
-          { blockerId: userId, blockedId: counterpart.userId },
-          { blockerId: counterpart.userId, blockedId: userId },
-        ],
-      },
-      select: { id: true },
-    });
-
-    if (block) {
-      throw new BadRequestException(
-        'This match is no longer available for feedback.',
-      );
-    }
-
-    const comment =
-      typeof input.comment === 'string' && input.comment.trim().length > 0
-        ? input.comment.trim()
-        : null;
-
-    const feedback = await this.prisma.matchFeedback.upsert({
-      where: {
-        matchId_authorUserId: {
-          matchId,
-          authorUserId: userId,
-        },
-      },
-      update: {
-        rating: input.rating,
-        comment,
-        subjectUserId: counterpart.userId,
-      },
-      create: {
-        matchId,
-        authorUserId: userId,
-        subjectUserId: counterpart.userId,
-        rating: input.rating,
-        comment,
-      },
-    });
-
-    await this.createAuditLog(userId, 'match.feedback_submitted', {
-      matchId,
-      rating: feedback.rating,
-    });
-
-    return {
-      rating: feedback.rating,
-      comment: feedback.comment,
-      submittedAt: feedback.updatedAt.toISOString(),
-    };
   }
 
   async reportMatch(userId: string, matchId: string, input: ReportMatchDto) {

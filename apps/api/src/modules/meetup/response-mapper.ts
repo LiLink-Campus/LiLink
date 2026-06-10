@@ -6,6 +6,7 @@ import {
 import {
   MeetupAvailableActionsResponseDto,
   MeetupCurrentPlanResponseDto,
+  MeetupFeedbackResponseDto,
   MeetupMessageResponseDto,
   MeetupOptionResponseDto,
   MeetupParticipantResponseDto,
@@ -13,6 +14,7 @@ import {
   MeetupSessionResponseDto,
 } from './dto';
 import type {
+  MeetupFeedbackRecord,
   MeetupOptionRecord,
   MeetupProposalRecord,
   MeetupSessionRecord,
@@ -107,6 +109,19 @@ export function mapMeetupSessionResponse(
   const confirmedLocationOption = session.confirmedLocationOption
     ? mapOption(session.confirmedLocationOption)
     : null;
+  const feedbackEligibleAt = deriveFeedbackEligibleAt(session);
+  const canSubmitFeedback =
+    feedbackEligibleAt != null &&
+    feedbackEligibleAt <= now &&
+    session.participants.length === 2 &&
+    session.participants.some(
+      (participant) => participant.userId === currentUserId,
+    ) &&
+    counterpart != null;
+  const currentUserFeedback =
+    session.feedback.find(
+      (feedback) => feedback.authorUserId === currentUserId,
+    ) ?? null;
 
   return {
     id: session.id,
@@ -164,6 +179,37 @@ export function mapMeetupSessionResponse(
       now,
       currentPendingProposal,
     }),
+    currentUserFeedback: currentUserFeedback
+      ? mapMeetupFeedbackResponse(currentUserFeedback)
+      : null,
+    canSubmitFeedback,
+    feedbackEligibleAt: toIsoString(feedbackEligibleAt),
+  };
+}
+
+function deriveFeedbackEligibleAt(session: MeetupSessionRecord) {
+  if (session.status !== 'LOCKED' && session.status !== 'ARCHIVED') {
+    return null;
+  }
+
+  if (!session.lockedAt) {
+    return null;
+  }
+
+  return session.confirmedTimeOption?.startsAt ?? null;
+}
+
+export function mapMeetupFeedbackResponse(
+  feedback: MeetupFeedbackRecord,
+): MeetupFeedbackResponseDto {
+  return {
+    personalFitScore: feedback.personalFitScore,
+    interactionQualityScore: feedback.interactionQualityScore,
+    safetyBoundaryLevel: feedback.safetyBoundaryLevel,
+    positiveTags: [...feedback.positiveTags],
+    issueTags: [...feedback.issueTags],
+    note: feedback.note,
+    submittedAt: feedback.updatedAt.toISOString(),
   };
 }
 
