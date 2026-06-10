@@ -151,19 +151,19 @@ model AdminOperator {
 }
 
 model School {
-  id          String         @id @default(cuid())
-  name        String
-  slug        String         @unique
-  description String?
+  id                   String         @id @default(cuid())
+  name                 String
+  slug                 String         @unique
+  description          String?
   // When true, this school's email domains count as a trusted "school email"
   // for self-registration (free verification code + default non-edu referral
   // quota) and the school is offered in the manual-school dropdown. Managed from
   // the admin school center; new schools default to eligible.
-  registrationEligible Boolean  @default(true)
-  domains     SchoolDomain[]
-  users       User[]
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  registrationEligible Boolean        @default(true)
+  domains              SchoolDomain[]
+  users                User[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 }
 
 model SchoolDomain {
@@ -201,6 +201,8 @@ model User {
   matchParticipants          MatchParticipant[]
   matchFeedbackAuthored      MatchFeedback[]              @relation("FeedbackAuthor")
   matchFeedbackReceived      MatchFeedback[]              @relation("FeedbackSubject")
+  meetupFeedbackAuthored     MeetupFeedback[]             @relation("MeetupFeedbackAuthor")
+  meetupFeedbackReceived     MeetupFeedback[]             @relation("MeetupFeedbackSubject")
   meetupSessionsStarted      MeetupSession[]              @relation("MeetupSessionStartedBy")
   meetupSessionsCanceled     MeetupSession[]              @relation("MeetupSessionCanceledBy")
   meetupSessionsFinalConfirm MeetupSession[]              @relation("MeetupSessionFinalConfirmUser")
@@ -366,18 +368,19 @@ model CycleParticipation {
 }
 
 model Match {
-  id            String             @id @default(cuid())
-  cycleId       String
-  cycle         MatchCycle         @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  score         Float
-  revealedAt    DateTime?
-  introducedAt  DateTime?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  participants  MatchParticipant[]
-  meetupSession MeetupSession?
-  reports       Report[]
-  feedback      MatchFeedback[]
+  id             String             @id @default(cuid())
+  cycleId        String
+  cycle          MatchCycle         @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  score          Float
+  revealedAt     DateTime?
+  introducedAt   DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  participants   MatchParticipant[]
+  meetupSession  MeetupSession?
+  reports        Report[]
+  feedback       MatchFeedback[]
+  meetupFeedback MeetupFeedback[]
 
   @@index([cycleId, createdAt])
 }
@@ -559,6 +562,7 @@ model MeetupSession {
   messages                 MeetupMessage[]
   proposals                MeetupProposal[]    @relation("MeetupSessionProposals")
   options                  MeetupOption[]      @relation("MeetupSessionOptions")
+  feedback                 MeetupFeedback[]
 
   @@index([status, lastActiveAt])
   @@index([status, expiresAt])
@@ -649,6 +653,31 @@ model MeetupOption {
 
   @@index([sessionId, kind, status])
   @@index([proposalId, kind])
+}
+
+model MeetupFeedback {
+  id                      String        @id @default(cuid())
+  sessionId               String
+  session                 MeetupSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  matchId                 String
+  match                   Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  authorUserId            String
+  author                  User          @relation("MeetupFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  subjectUserId           String
+  subject                 User          @relation("MeetupFeedbackSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  personalFitScore        Int
+  interactionQualityScore Int
+  safetyBoundaryLevel     String
+  positiveTags            String[]      @default([])
+  issueTags               String[]      @default([])
+  note                    String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  @@unique([sessionId, authorUserId])
+  @@index([matchId])
+  @@index([subjectUserId, safetyBoundaryLevel])
+  @@index([authorUserId, createdAt])
 }
 
 // --- Merchant redemption & promotion system ---
@@ -870,27 +899,27 @@ model ReferralEvent {
 }
 
 model ProductEvent {
-  id            String             @id @default(cuid())
-  eventId       String             @unique
-  name          String
-  kind          ProductEventKind
-  source        ProductEventSource
-  eventVersion  Int                @default(1)
+  id           String             @id @default(cuid())
+  eventId      String             @unique
+  name         String
+  kind         ProductEventKind
+  source       ProductEventSource
+  eventVersion Int                @default(1)
 
   userId        String?
-  user          User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user          User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   sessionId     String?
   intentId      String?
   correlationId String?
 
-  route         String?
-  surface       String?
-  entityType    String?
-  entityId      String?
-  metadata      Json?
+  route      String?
+  surface    String?
+  entityType String?
+  entityId   String?
+  metadata   Json?
 
-  occurredAt    DateTime?
-  createdAt     DateTime           @default(now())
+  occurredAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([name, createdAt])
   @@index([kind, createdAt])
@@ -902,15 +931,15 @@ model ProductEvent {
 }
 
 model ProductEventOutbox {
-  id            String                   @id @default(cuid())
-  eventId       String                   @unique
-  name          String
-  eventVersion  Int                      @default(1)
-  userId        String?
-  entityType    String?
-  entityId      String?
-  metadata      Json?
-  occurredAt    DateTime?
+  id           String    @id @default(cuid())
+  eventId      String    @unique
+  name         String
+  eventVersion Int       @default(1)
+  userId       String?
+  entityType   String?
+  entityId     String?
+  metadata     Json?
+  occurredAt   DateTime?
 
   status        ProductEventOutboxStatus @default(PENDING)
   attempts      Int                      @default(0)

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  GoneException,
   Param,
   Post,
   Put,
@@ -22,7 +23,6 @@ import {
   MatchEstimateResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
-  SubmitMatchFeedbackDto,
   ToggleParticipationDto,
   UpdateContactPreferencesDto,
   UpdateProfileDto,
@@ -173,12 +173,11 @@ export class AccountController {
   submitMatchFeedback(
     @Req() request: AuthenticatedRequest,
     @Param('matchId') matchId: string,
-    @Body() body: SubmitMatchFeedbackDto,
   ) {
-    return this.accountService.submitMatchFeedback(
-      request.user!.sub,
-      matchId,
-      body,
+    void request;
+    void matchId;
+    throw new GoneException(
+      'Match feedback has been replaced by post-meetup feedback.',
     );
   }
 
