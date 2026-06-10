@@ -7,6 +7,7 @@ import type {
 import type {
   CouponAgendaReadState,
   MeetupExpirationWeeks,
+  MeetupFeedback,
   MeetupProgressStatus,
   MeetupUserTurnStatus,
 } from "../../../lib/api";
@@ -41,12 +42,6 @@ type DashboardMatchParticipant = {
   weeklyIntent?: WeeklyIntent | null;
 };
 
-export type MatchFeedback = {
-  rating: number;
-  comment: string | null;
-  submittedAt: string;
-};
-
 type ContactMethodPayload = {
   type: EditableContactChannelType;
   value: string;
@@ -71,7 +66,6 @@ export type DashboardMatch = {
   currentUserRequestedAt: string | null;
   reportStatus: string | null;
   participants: DashboardMatchParticipant[];
-  currentUserFeedback: MatchFeedback | null;
 };
 
 export type DashboardHistoryItem = {
@@ -84,6 +78,7 @@ export type DashboardHistoryItem = {
   visibility: "VISIBLE" | "LIMITED" | "NOT_APPLICABLE";
   limitedReason: "REPORTED" | "BLOCKED" | null;
   match: DashboardMatch | null;
+  meetupSummary?: DashboardMeetupSummary | null;
 };
 
 export type DashboardTask = {
@@ -112,6 +107,9 @@ export type DashboardMeetupSummary = {
   canReviseAfterLock: boolean;
   canCancel: boolean;
   terminalText: string | null;
+  currentUserFeedback: MeetupFeedback | null;
+  canSubmitFeedback: boolean;
+  feedbackEligibleAt: string | null;
 };
 
 export type DashboardCurrentCycle = {
