@@ -3,11 +3,13 @@ import type {
   DashboardMeetupSummary,
   DashboardTask,
 } from "../_lib/types";
+import { expect, within } from "storybook/test";
 import { MeetupStatusRibbon } from "./MeetupStatusRibbon";
 
 type MeetupStatus = DashboardMeetupSummary["status"];
 type ProgressStatus = DashboardMeetupSummary["progressStatus"];
 type TurnStatus = DashboardTask["userTurnStatus"];
+type FeedbackState = "none" | "available" | "submitted";
 
 type MeetupStatusRibbonDemoArgs = {
   status: MeetupStatus;
@@ -15,15 +17,29 @@ type MeetupStatusRibbonDemoArgs = {
   turnStatus: TurnStatus;
   taskText: string;
   showTask: boolean;
+  feedbackState: FeedbackState;
 };
 
 function MeetupStatusRibbonDemo({
+  feedbackState,
   progressStatus,
   showTask,
   status,
   taskText,
   turnStatus,
 }: MeetupStatusRibbonDemoArgs) {
+  const currentUserFeedback =
+    feedbackState === "submitted"
+      ? {
+          personalFitScore: 4,
+          interactionQualityScore: 5,
+          safetyBoundaryLevel: "NO_CONCERN",
+          positiveTags: ["EASY_TO_TALK"],
+          issueTags: [],
+          note: null,
+          submittedAt: "2030-04-18T13:30:00.000Z",
+        }
+      : null;
   const summary = {
     sessionId: "meetup-session-story-001",
     matchId: "match-story-001",
@@ -36,9 +52,12 @@ function MeetupStatusRibbonDemo({
     canReviseAfterLock: status === "LOCKED",
     canCancel: status === "ACTIVE",
     terminalText: null,
-    currentUserFeedback: null,
-    canSubmitFeedback: false,
-    feedbackEligibleAt: status === "LOCKED" ? "2030-04-18T11:00:00.000Z" : null,
+    currentUserFeedback,
+    canSubmitFeedback: feedbackState !== "none",
+    feedbackEligibleAt:
+      feedbackState !== "none" || status === "LOCKED"
+        ? "2030-04-18T11:00:00.000Z"
+        : null,
   } satisfies DashboardMeetupSummary;
   const task = showTask
     ? ({
@@ -110,6 +129,10 @@ const meta = {
     showTask: {
       control: "boolean",
     },
+    feedbackState: {
+      control: "inline-radio",
+      options: ["none", "available", "submitted"],
+    },
   },
   args: {
     status: "ACTIVE",
@@ -117,6 +140,7 @@ const meta = {
     turnStatus: "NEEDS_YOUR_RESPONSE",
     taskText: "选择一个你可行的时间，或补充新的地点建议。",
     showTask: true,
+    feedbackState: "none",
   },
 } satisfies Meta<typeof MeetupStatusRibbonDemo>;
 
@@ -139,5 +163,22 @@ export const WaitingForCounterpart: Story = {
   args: {
     turnStatus: "WAITING_FOR_COUNTERPART",
     taskText: "已提交你的可行选项，等待对方确认。",
+  },
+};
+
+export const SubmittedFeedback: Story = {
+  args: {
+    status: "LOCKED",
+    progressStatus: "LOCKED",
+    turnStatus: "NONE",
+    taskText: "时间和地点已经确认。",
+    feedbackState: "submitted",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(canvas.getByText("已反馈")).toBeVisible();
+    await expect(canvas.getByText("查看会后反馈")).toBeVisible();
+    await expect(canvas.queryByText("可反馈")).toBeNull();
   },
 };
