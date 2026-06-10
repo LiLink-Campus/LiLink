@@ -43,6 +43,7 @@
     "build:web": "npm run build --workspace web",
     "build:api": "npm run build --workspace api",
     "typecheck:web": "npm run build:shared && npm run typecheck --workspace web",
+    "typecheck:api": "npm run build:shared && npm run typecheck --workspace api",
     "hooks:audit": "node scripts/hooks/audit-hook-configs.mjs",
     "hooks:install": "node scripts/install-git-hooks.mjs",
     "hooks:sync": "node scripts/hooks/sync-hook-configs.mjs",
