@@ -64,7 +64,6 @@ function ScoreOptions({
             </span>
             <span className={dcx("meetup-feedback-option-body")}>
               <strong>{option.label}</strong>
-              <small>{option.copy}</small>
             </span>
           </button>
         );
@@ -100,7 +99,6 @@ function SafetyOptions({
           >
             <span className={dcx("meetup-feedback-option-body")}>
               <strong>{option.label}</strong>
-              <small>{option.copy}</small>
             </span>
           </button>
         );
@@ -161,6 +159,8 @@ export function MeetupFeedbackForm({
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const noteFieldId = buildDashboardFieldId("meetup-feedback-note");
+  const noteCountId = `${noteFieldId}-count`;
   const [state, setState] = useState<MeetupFeedbackFormState>(() =>
     createMeetupFeedbackFormState(feedback),
   );
@@ -350,19 +350,31 @@ export function MeetupFeedbackForm({
             />
           </section>
 
-          <label className={dcx("v2-report-dialog-field")}>
-            <span>补充说明（可选）</span>
+          <div
+            className={dcx("v2-report-dialog-field meetup-feedback-note-field")}
+          >
+            <div className={dcx("meetup-feedback-note-heading")}>
+              <label htmlFor={noteFieldId}>补充说明（可选）</label>
+              <span
+                id={noteCountId}
+                className={dcx("meetup-feedback-note-count")}
+                aria-live="polite"
+              >
+                {state.note.length} / {MEETUP_FEEDBACK_NOTE_MAX_LENGTH} 字
+              </span>
+            </div>
             <textarea
-              id={buildDashboardFieldId("meetup-feedback-note")}
+              id={noteFieldId}
               name="meetupFeedbackNote"
               rows={4}
               maxLength={MEETUP_FEEDBACK_NOTE_MAX_LENGTH}
+              aria-describedby={noteCountId}
               value={state.note}
               disabled={saving}
               placeholder="还有什么想让平台知道？请不要填写联系方式或敏感隐私。"
               onChange={(event) => updateState({ note: event.target.value })}
             />
-          </label>
+          </div>
         </div>
 
         <footer className={dcx("v2-report-dialog-foot")}>

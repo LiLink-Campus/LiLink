@@ -553,6 +553,24 @@ margin-top: 0.1rem;
   opacity: 0.72;
 }
 
+.meetup-feedback-note-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.meetup-feedback-note-count {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 /* ── V2 Participants row (你 / 对方 状态) ──────────────── */
 
 /* ── V2 Inline details card summary (proposal / revise) ── */

@@ -15,7 +15,6 @@ export type MeetupFeedbackFormState = {
 export type MeetupFeedbackOption<T extends string | number = string> = {
   value: T;
   label: string;
-  copy: string;
 };
 
 export const MEETUP_FEEDBACK_NOTE_MAX_LENGTH = 1000;
@@ -25,27 +24,22 @@ export const PERSONAL_FIT_OPTIONS = [
   {
     value: 1,
     label: "不适合我",
-    copy: "只评价你自己的感觉、化学反应和偏好；不代表对方做错了什么。",
   },
   {
     value: 2,
     label: "可能不适合",
-    copy: "只评价你自己的感觉、化学反应和偏好；不代表对方做错了什么。",
   },
   {
     value: 3,
     label: "说不清",
-    copy: "只评价你自己的感觉、化学反应和偏好；不代表对方做错了什么。",
   },
   {
     value: 4,
     label: "比较合适",
-    copy: "只评价你自己的感觉、化学反应和偏好；不代表对方做错了什么。",
   },
   {
     value: 5,
     label: "很合适",
-    copy: "只评价你自己的感觉、化学反应和偏好；不代表对方做错了什么。",
   },
 ] satisfies MeetupFeedbackOption<number>[];
 
@@ -53,27 +47,22 @@ export const INTERACTION_QUALITY_OPTIONS = [
   {
     value: 1,
     label: "很难沟通",
-    copy: "评价这次见面是否容易沟通、尊重彼此、自然推进；尽量和个人心动程度分开。",
   },
   {
     value: 2,
     label: "有些吃力",
-    copy: "评价这次见面是否容易沟通、尊重彼此、自然推进；尽量和个人心动程度分开。",
   },
   {
     value: 3,
     label: "普通",
-    copy: "评价这次见面是否容易沟通、尊重彼此、自然推进；尽量和个人心动程度分开。",
   },
   {
     value: 4,
     label: "比较顺畅",
-    copy: "评价这次见面是否容易沟通、尊重彼此、自然推进；尽量和个人心动程度分开。",
   },
   {
     value: 5,
     label: "很轻松舒服",
-    copy: "评价这次见面是否容易沟通、尊重彼此、自然推进；尽量和个人心动程度分开。",
   },
 ] satisfies MeetupFeedbackOption<number>[];
 
@@ -81,17 +70,14 @@ export const SAFETY_BOUNDARY_OPTIONS = [
   {
     value: "NO_CONCERN",
     label: "没有安全或边界问题",
-    copy: "这里只记录安全、骚扰、压力、身份或边界问题；单纯不来电请放在第一项。",
   },
   {
     value: "MINOR_CONCERN",
     label: "有一点不舒服或边界感不足",
-    copy: "这里只记录安全、骚扰、压力、身份或边界问题；单纯不来电请放在第一项。",
   },
   {
     value: "SERIOUS_CONCERN",
     label: "有明显骚扰、压力、威胁或身份风险",
-    copy: "这里只记录安全、骚扰、压力、身份或边界问题；单纯不来电请放在第一项。",
   },
 ] satisfies MeetupFeedbackOption[];
 
