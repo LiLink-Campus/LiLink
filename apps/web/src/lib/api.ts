@@ -255,6 +255,19 @@ type MeetupCurrentPlan = {
   longitude: number | null;
 };
 
+export type MeetupFeedback = {
+  id?: string;
+  personalFitScore: number;
+  interactionQualityScore: number;
+  safetyBoundaryLevel: string;
+  positiveTags: string[];
+  issueTags: string[];
+  note: string | null;
+  submittedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type MeetupSessionResponse = {
   id: string;
   matchId: string;
@@ -280,6 +293,9 @@ export type MeetupSessionResponse = {
   participants: MeetupParticipant[];
   messages: MeetupMessage[];
   availableActions: MeetupAvailableActions;
+  currentUserFeedback: MeetupFeedback | null;
+  canSubmitFeedback: boolean;
+  feedbackEligibleAt: string | null;
 };
 
 type MeetupTimeOptionInput = {
@@ -316,6 +332,15 @@ export type AcceptMeetupOptionsPayload = {
 export type MeetupNotePayload = {
   notePreset?: string;
   noteText?: string;
+};
+
+export type SubmitMeetupFeedbackPayload = {
+  personalFitScore: number;
+  interactionQualityScore: number;
+  safetyBoundaryLevel: string;
+  positiveTags: string[];
+  issueTags: string[];
+  note: string | null;
 };
 
 export type CancelMeetupSessionPayload = {
@@ -416,6 +441,19 @@ export async function markMeetupSessionSeen(sessionId: string) {
   await fetchApi<null>(`/me/meetup-sessions/${sessionId}/seen`, {
     method: "POST",
   });
+}
+
+export function submitMeetupFeedback(
+  sessionId: string,
+  payload: SubmitMeetupFeedbackPayload,
+) {
+  return fetchApi<MeetupFeedback>(
+    `/me/meetup-sessions/${sessionId}/feedback`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 let authMeInflight: Promise<AuthMePayload | null> | null = null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { dcx } from "../_lib/dashboard-class-names";
+import Link from "next/link";
 import {
   REPORT_FORM_SECTION_ID,
   formatCycleRevealAt,
@@ -8,16 +9,15 @@ import {
   reportHandlingChipLabel,
 } from "../_lib/format";
 import { CounterpartInfo } from "./CounterpartInfo";
-import type { DashboardHistoryItem, MatchFeedback } from "../_lib/types";
+import type { DashboardHistoryItem } from "../_lib/types";
 
 type MatchHistoryListProps = {
   history: DashboardHistoryItem[];
   currentUserId: string;
-  saving: null | "contact" | "report" | "feedback";
+  saving: null | "contact" | "report";
   reportFormIsOpenForMatch: (matchId: string) => boolean;
   onRequestContact: (matchId: string) => void;
   onToggleReport: (matchId: string) => void;
-  onToggleFeedback: (matchId: string, existing: MatchFeedback | null) => void;
 };
 
 /**
@@ -32,7 +32,6 @@ export function MatchHistoryList({
   reportFormIsOpenForMatch,
   onRequestContact,
   onToggleReport,
-  onToggleFeedback,
 }: MatchHistoryListProps) {
   if (history.length === 0) {
     return (
@@ -77,6 +76,12 @@ export function MatchHistoryList({
                     hm.participants.find((p) => p.userId !== currentUserId) ??
                     null;
                   const introducedRow = Boolean(hm.introducedAt);
+                  const meetupSummary = item.meetupSummary ?? null;
+                  const showMeetupFeedbackCta = Boolean(
+                    meetupSummary &&
+                      (meetupSummary.canSubmitFeedback ||
+                        meetupSummary.currentUserFeedback),
+                  );
                   const publicContact =
                     counterpart?.contact ??
                     (counterpart?.email
@@ -148,16 +153,16 @@ export function MatchHistoryList({
                             </button>
                           );
                         })()}
-                        <button
-                          className={dcx("ui-button ui-button--secondary")}
-                          disabled={saving === "feedback"}
-                          type="button"
-                          onClick={() =>
-                            onToggleFeedback(hm.id, hm.currentUserFeedback)
-                          }
-                        >
-                          {hm.currentUserFeedback ? "查看 / 修改评价" : "填写反馈"}
-                        </button>
+                        {showMeetupFeedbackCta && meetupSummary ? (
+                          <Link
+                            className={dcx("ui-button ui-button--secondary")}
+                            href={meetupSummary.href}
+                          >
+                            {meetupSummary.currentUserFeedback
+                              ? "查看 / 修改会后反馈"
+                              : "填写会后反馈"}
+                          </Link>
+                        ) : null}
                       </div>
                     </>
                   );

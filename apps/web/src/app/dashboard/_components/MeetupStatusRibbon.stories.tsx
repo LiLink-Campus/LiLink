@@ -36,6 +36,9 @@ function MeetupStatusRibbonDemo({
     canReviseAfterLock: status === "LOCKED",
     canCancel: status === "ACTIVE",
     terminalText: null,
+    currentUserFeedback: null,
+    canSubmitFeedback: false,
+    feedbackEligibleAt: status === "LOCKED" ? "2030-04-18T11:00:00.000Z" : null,
   } satisfies DashboardMeetupSummary;
   const task = showTask
     ? ({

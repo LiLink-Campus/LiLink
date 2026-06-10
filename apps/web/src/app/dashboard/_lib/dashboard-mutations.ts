@@ -2,7 +2,6 @@ import type {
   DashboardHistoryItem,
   DashboardMatch,
   DashboardPayload,
-  MatchFeedback,
 } from "./types";
 
 export function applyContactSuccessToDashboard(
@@ -55,7 +54,6 @@ export function applyReportSuccessToDashboard(
   const limitMatch = (match: DashboardMatch): DashboardMatch => ({
     ...match,
     reportStatus: "OPEN",
-    currentUserFeedback: null,
     participants: [],
   });
 
@@ -84,37 +82,6 @@ export function applyReportSuccessToDashboard(
     latestMatchLimitedReason: isLatest
       ? ("REPORTED" as const)
       : current.latestMatchLimitedReason,
-    recentMatchHistory: nextRecentMatchHistory,
-  };
-}
-
-export function applyFeedbackSuccessToDashboard(
-  current: DashboardPayload | null,
-  matchId: string,
-  feedback: MatchFeedback,
-) {
-  if (!current) {
-    return current;
-  }
-
-  const updateMatch = (match: DashboardMatch): DashboardMatch => ({
-    ...match,
-    currentUserFeedback: feedback,
-  });
-
-  const nextRecentMatchHistory =
-    current.recentMatchHistory.map<DashboardHistoryItem>((item) =>
-      item.match?.id === matchId && item.result === "MATCHED"
-        ? { ...item, match: updateMatch(item.match) }
-        : item,
-    );
-
-  return {
-    ...current,
-    latestMatch:
-      current.latestMatch?.id === matchId
-        ? updateMatch(current.latestMatch)
-        : current.latestMatch,
     recentMatchHistory: nextRecentMatchHistory,
   };
 }
