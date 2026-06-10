@@ -103,9 +103,11 @@ export const EmptyReady: Story = {
     const canvas = within(canvasElement);
     const heading = await canvas.findByRole("heading", { name: "会后反馈" });
     const submitButton = canvas.getByRole("button", { name: "保存会后反馈" });
+    const noteCounter = canvas.getByText("0 / 1000 字");
 
     await waitFor(() => expect(heading).toBeVisible());
     await waitFor(() => expect(submitButton).toBeEnabled());
+    await expect(noteCounter).toBeVisible();
   },
 };
 
@@ -157,5 +159,20 @@ export const ExistingFeedbackEdit: Story = {
       canvas.getByRole("radio", { name: /很轻松舒服/ }),
     ).toHaveAttribute("aria-checked", "true");
     await waitFor(() => expect(note).toBeVisible());
+  },
+};
+
+export const NoteCharacterCounter: Story = {
+  play: async ({ canvasElement, userEvent }) => {
+    const canvas = within(canvasElement);
+    const noteInput = await canvas.findByRole("textbox", {
+      name: "补充说明（可选）",
+    });
+
+    await waitFor(() => expect(noteInput).toBeVisible());
+    await userEvent.type(noteInput, "测试说明");
+    await waitFor(() =>
+      expect(canvas.getByText("4 / 1000 字")).toBeVisible(),
+    );
   },
 };
