@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  GoneException,
   Injectable,
   NotFoundException,
   Optional,
@@ -69,10 +68,8 @@ import {
   DashboardMatchResponseDto,
   DashboardResponseDto,
   DashboardTaskResponseDto,
-  MatchFeedbackResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
-  SubmitMatchFeedbackDto,
   ToggleParticipationDto,
   UpdateContactPreferencesDto,
   UpdateLocaleDto,
@@ -2419,21 +2416,6 @@ export class AccountService {
     for (const match of present) {
       match.currentUserFeedback = null;
     }
-  }
-
-  submitMatchFeedback(
-    userId: string,
-    matchId: string,
-    input: SubmitMatchFeedbackDto,
-  ): Promise<MatchFeedbackResponseDto> {
-    void userId;
-    void matchId;
-    void input;
-    return Promise.reject(
-      new GoneException(
-        'Match feedback has been replaced by post-meetup feedback.',
-      ),
-    );
   }
 
   async reportMatch(userId: string, matchId: string, input: ReportMatchDto) {

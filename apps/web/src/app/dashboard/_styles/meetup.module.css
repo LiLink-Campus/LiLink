@@ -385,6 +385,36 @@ margin-top: 0.1rem;
   gap: 1rem;
 }
 
+.meetup-feedback-toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.72rem 0.8rem 0.72rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 22%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  box-shadow: var(--shadow-md);
+  font-size: 0.92rem;
+}
+
+.meetup-feedback-toast button {
+  width: 1.8rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.meetup-feedback-toast button:hover {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+}
+
 .meetup-feedback-body {
   gap: 1rem;
 }
