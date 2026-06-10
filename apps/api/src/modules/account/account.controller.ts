@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  GoneException,
   Param,
   Post,
   Put,
@@ -167,18 +166,6 @@ export class AccountController {
     @Body() body: ReportMatchDto,
   ) {
     return this.accountService.reportMatch(request.user!.sub, matchId, body);
-  }
-
-  @Put('matches/:matchId/feedback')
-  submitMatchFeedback(
-    @Req() request: AuthenticatedRequest,
-    @Param('matchId') matchId: string,
-  ) {
-    void request;
-    void matchId;
-    throw new GoneException(
-      'Match feedback has been replaced by post-meetup feedback.',
-    );
   }
 
   private readLocaleCookie(request: AuthenticatedRequest) {

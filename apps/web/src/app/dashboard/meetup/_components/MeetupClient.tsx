@@ -557,6 +557,9 @@ function MeetupSessionView({
   // Locked-state revision form visibility.
   const [revisionFormOpen, setRevisionFormOpen] = useState(false);
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackSubmitError, setFeedbackSubmitError] = useState<string | null>(
+    null,
+  );
 
   const actionState = resolveMeetupActionState(session);
 
@@ -567,6 +570,7 @@ function MeetupSessionView({
     setSelectedLocationId(null);
     setNoteText("");
     setError(null);
+    setFeedbackSubmitError(null);
     setRevisionFormOpen(false);
   }, [session.id, session.status, session.currentProposalId]);
 
@@ -717,7 +721,7 @@ function MeetupSessionView({
 
   async function submitFeedback(payload: SubmitMeetupFeedbackPayload) {
     setSaving("feedback");
-    setError(null);
+    setFeedbackSubmitError(null);
     try {
       const saved = await submitMeetupFeedback(session.id, payload);
       onSessionChange({
@@ -727,7 +731,7 @@ function MeetupSessionView({
       setFeedbackDialogOpen(false);
       showToast("会后反馈已保存");
     } catch (caughtError) {
-      setError(errorMessage(caughtError, "会后反馈提交失败。"));
+      setFeedbackSubmitError(errorMessage(caughtError, "会后反馈提交失败。"));
     } finally {
       setSaving(null);
     }
@@ -977,7 +981,10 @@ function MeetupSessionView({
             canSubmitFeedback={session.canSubmitFeedback}
             feedbackEligibleAt={session.feedbackEligibleAt}
             saving={saving === "feedback"}
-            onOpen={() => setFeedbackDialogOpen(true)}
+            onOpen={() => {
+              setFeedbackSubmitError(null);
+              setFeedbackDialogOpen(true);
+            }}
           />
         ) : null}
 
@@ -1023,8 +1030,13 @@ function MeetupSessionView({
         open={feedbackDialogOpen}
         feedback={session.currentUserFeedback}
         saving={saving === "feedback"}
+        submitError={feedbackSubmitError}
         onSubmit={(payload) => void submitFeedback(payload)}
-        onCancel={() => setFeedbackDialogOpen(false)}
+        onCancel={() => {
+          setFeedbackSubmitError(null);
+          setFeedbackDialogOpen(false);
+        }}
+        onDismissSubmitError={() => setFeedbackSubmitError(null)}
       />
 
       <ConfirmActionDialog

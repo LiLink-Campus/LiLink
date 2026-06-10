@@ -51,7 +51,6 @@ import {
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEY_MAX_LENGTH,
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEYS_MAX_ITEMS,
   REPORT_DETAILS_MAX_LENGTH,
-  MATCH_FEEDBACK_COMMENT_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 
 export class UpdateProfileDto {
@@ -354,21 +353,6 @@ export class DashboardMeetupFeedbackResponseDto {
 
   @ApiProperty({ format: 'date-time' })
   submittedAt!: string;
-}
-
-export class SubmitMatchFeedbackDto {
-  @ApiProperty({ minimum: 1, maximum: 5 })
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  rating!: number;
-
-  @ApiPropertyOptional({ nullable: true })
-  @IsOptional()
-  @IsString()
-  @MaxLength(MATCH_FEEDBACK_COMMENT_MAX_LENGTH)
-  comment?: string | null;
 }
 
 export class DashboardMatchResponseDto {

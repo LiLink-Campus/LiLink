@@ -26,8 +26,10 @@ type MeetupFeedbackFormProps = {
   open: boolean;
   feedback: MeetupFeedback | null;
   saving: boolean;
+  submitError: string | null;
   onSubmit: (payload: SubmitMeetupFeedbackPayload) => void;
   onCancel: () => void;
+  onDismissSubmitError: () => void;
 };
 
 function ScoreOptions({
@@ -150,8 +152,10 @@ export function MeetupFeedbackForm({
   open,
   feedback,
   saving,
+  submitError,
   onSubmit,
   onCancel,
+  onDismissSubmitError,
 }: MeetupFeedbackFormProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -229,6 +233,19 @@ export function MeetupFeedbackForm({
             这些反馈仅供平台诊断匹配和见面体验，对方不会看到。选择填写后，三项都需要完成。
           </p>
         </header>
+
+        {submitError ? (
+          <div className={dcx("meetup-feedback-toast")} role="alert">
+            <span>{submitError}</span>
+            <button
+              type="button"
+              aria-label="关闭反馈提交失败提示"
+              onClick={onDismissSubmitError}
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
 
         <div className={dcx("v2-report-dialog-body meetup-feedback-body")}>
           {error ? (

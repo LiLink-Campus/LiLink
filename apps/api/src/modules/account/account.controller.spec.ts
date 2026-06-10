@@ -1,6 +1,5 @@
 import { AccountController } from './account.controller';
 import type { AccountService } from './account.service';
-import { GoneException } from '@nestjs/common';
 
 describe('AccountController', () => {
   it('returns the signed-in user and dashboard in one bootstrap payload', async () => {
@@ -91,34 +90,5 @@ describe('AccountController', () => {
         details: 'test details',
       },
     );
-  });
-
-  it('returns 410 for legacy match feedback submissions', () => {
-    const accountService = {
-      submitMatchFeedback: jest.fn(),
-    };
-    const accountController = new AccountController(accountService as never);
-
-    expect(() =>
-      accountController.submitMatchFeedback(
-        {
-          user: {
-            sub: 'user-1',
-          },
-        } as never,
-        'match-1',
-      ),
-    ).toThrow(GoneException);
-    expect(() =>
-      accountController.submitMatchFeedback(
-        {
-          user: {
-            sub: 'user-1',
-          },
-        } as never,
-        'match-1',
-      ),
-    ).toThrow('Match feedback has been replaced by post-meetup feedback.');
-    expect(accountService.submitMatchFeedback).not.toHaveBeenCalled();
   });
 });
