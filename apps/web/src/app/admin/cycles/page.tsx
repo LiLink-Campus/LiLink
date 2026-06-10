@@ -25,11 +25,17 @@ import type {
 
 const adminStyles = [commonStyles];
 
-const STATUS_STYLES: Record<AdminCycle["status"], { bg: string; color: string }> = {
+const STATUS_STYLES: Record<
+  AdminCycle["status"],
+  { bg: string; color: string }
+> = {
   OPEN: { bg: "var(--sage-soft)", color: "var(--sage)" },
   PREPARING: { bg: "rgba(191, 219, 254, 0.35)", color: "#1d4ed8" },
   DRAFT: { bg: "var(--color-gold-soft)", color: "#8a6d2b" },
-  REVEAL_READY: { bg: "var(--color-accent-soft)", color: "var(--color-accent-ink)" },
+  REVEAL_READY: {
+    bg: "var(--color-accent-soft)",
+    color: "var(--color-accent-ink)",
+  },
   REVEALED: { bg: "var(--color-coral-soft)", color: "var(--color-coral)" },
 };
 
@@ -41,10 +47,7 @@ const CYCLE_STATUS_LABELS: Record<"ALL" | AdminCycle["status"], string> = {
   REVEAL_READY: "待揭晓",
   REVEALED: "已揭晓",
 };
-const EDITABLE_CYCLE_STATUSES = [
-  "DRAFT",
-  "OPEN",
-] as const;
+const EDITABLE_CYCLE_STATUSES = ["DRAFT", "OPEN"] as const;
 
 const PARTICIPATION_STATUS_LABELS: Record<"OPTED_IN" | "OPTED_OUT", string> = {
   OPTED_IN: "已参加",
@@ -101,15 +104,22 @@ function buildAdminQueryString(
 
 export default function AdminCyclesPage() {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"ALL" | AdminCycle["status"]>("ALL");
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | AdminCycle["status"]
+  >("ALL");
   const [page, setPage] = useState(1);
   const [cycleDataRefreshKey, setCycleDataRefreshKey] = useState(0);
   const [cycleForm, setCycleForm] = useState(createEmptyCycleForm);
   const [cycleDetail, setCycleDetail] = useState<AdminCycleDetail | null>(null);
-  const [participantsData, setParticipantsData] = useState<PaginatedResult<CycleParticipantDetail> | null>(null);
-  const [matchesData, setMatchesData] = useState<PaginatedResult<CycleMatchDetail> | null>(null);
-  const [logsData, setLogsData] = useState<PaginatedResult<AuditLogEntry> | null>(null);
-  const [cyclePreview, setCyclePreview] = useState<AdminCyclePreview | null>(null);
+  const [participantsData, setParticipantsData] =
+    useState<PaginatedResult<CycleParticipantDetail> | null>(null);
+  const [matchesData, setMatchesData] =
+    useState<PaginatedResult<CycleMatchDetail> | null>(null);
+  const [logsData, setLogsData] =
+    useState<PaginatedResult<AuditLogEntry> | null>(null);
+  const [cyclePreview, setCyclePreview] = useState<AdminCyclePreview | null>(
+    null,
+  );
   const [detailLoading, setDetailLoading] = useState(false);
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [matchesLoading, setMatchesLoading] = useState(false);
@@ -118,14 +128,17 @@ export default function AdminCyclesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  const [participantFilter, setParticipantFilter] = useState<"ALL" | "OPTED_IN" | "OPTED_OUT">("ALL");
+  const [participantFilter, setParticipantFilter] = useState<
+    "ALL" | "OPTED_IN" | "OPTED_OUT"
+  >("ALL");
   const [participantPage, setParticipantPage] = useState(1);
   const [matchPage, setMatchPage] = useState(1);
   const [logPage, setLogPage] = useState(1);
   const [pairPage, setPairPage] = useState(1);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
 
-  const { draftSearch, submittedSearch, setDraftSearch, submitSearch } = useAdminSearch();
+  const { draftSearch, submittedSearch, setDraftSearch, submitSearch } =
+    useAdminSearch();
   const { data, loading, error, refresh } = useAdminCollection<AdminCycle>(
     "/admin/cycles",
     {
@@ -151,12 +164,16 @@ export default function AdminCyclesPage() {
       return;
     }
 
-    if (!selectedCycleId || !cycles.some((cycle) => cycle.id === selectedCycleId)) {
+    if (
+      !selectedCycleId ||
+      !cycles.some((cycle) => cycle.id === selectedCycleId)
+    ) {
       setSelectedCycleId(cycles[0].id);
     }
   }, [cycles, selectedCycleId]);
 
-  const selectedCycle = cycles.find((cycle) => cycle.id === selectedCycleId) ?? null;
+  const selectedCycle =
+    cycles.find((cycle) => cycle.id === selectedCycleId) ?? null;
   const isSystemLockedCycleStatus =
     cycleForm.status === "PREPARING" ||
     cycleForm.status === "REVEAL_READY" ||
@@ -223,14 +240,18 @@ export default function AdminCyclesPage() {
       .catch((caughtError) => {
         if (!active) return;
         setActionError(
-          caughtError instanceof Error ? caughtError.message : "轮次详情加载失败。",
+          caughtError instanceof Error
+            ? caughtError.message
+            : "轮次详情加载失败。",
         );
       })
       .finally(() => {
         if (active) setDetailLoading(false);
       });
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [selectedCycleId]);
 
   useEffect(() => {
@@ -257,7 +278,9 @@ export default function AdminCyclesPage() {
       .catch((caughtError) => {
         if (active) {
           setActionError(
-            caughtError instanceof Error ? caughtError.message : "轮次参与者加载失败。",
+            caughtError instanceof Error
+              ? caughtError.message
+              : "轮次参与者加载失败。",
           );
         }
       })
@@ -270,7 +293,12 @@ export default function AdminCyclesPage() {
     return () => {
       active = false;
     };
-  }, [cycleDataRefreshKey, participantFilter, participantPage, selectedCycleId]);
+  }, [
+    cycleDataRefreshKey,
+    participantFilter,
+    participantPage,
+    selectedCycleId,
+  ]);
 
   useEffect(() => {
     if (!isExistingCycleSelection(selectedCycleId)) {
@@ -295,7 +323,9 @@ export default function AdminCyclesPage() {
       .catch((caughtError) => {
         if (active) {
           setActionError(
-            caughtError instanceof Error ? caughtError.message : "轮次匹配结果加载失败。",
+            caughtError instanceof Error
+              ? caughtError.message
+              : "轮次匹配结果加载失败。",
           );
         }
       })
@@ -333,7 +363,9 @@ export default function AdminCyclesPage() {
       .catch((caughtError) => {
         if (active) {
           setActionError(
-            caughtError instanceof Error ? caughtError.message : "轮次日志加载失败。",
+            caughtError instanceof Error
+              ? caughtError.message
+              : "轮次日志加载失败。",
           );
         }
       })
@@ -358,8 +390,13 @@ export default function AdminCyclesPage() {
       return;
     }
 
-    if (cycleForm.status === "REVEALED" && selectedCycle?.status !== "REVEALED") {
-      setActionError("REVEALED 必须通过执行轮次来设置，不能通过后台表单手动保存。");
+    if (
+      cycleForm.status === "REVEALED" &&
+      selectedCycle?.status !== "REVEALED"
+    ) {
+      setActionError(
+        "REVEALED 必须通过执行轮次来设置，不能通过后台表单手动保存。",
+      );
       return;
     }
 
@@ -367,7 +404,9 @@ export default function AdminCyclesPage() {
       cycleForm.status === "REVEAL_READY" &&
       selectedCycle?.status !== "REVEAL_READY"
     ) {
-      setActionError("REVEAL_READY 必须通过预生成流程设置，不能通过后台表单手动保存。");
+      setActionError(
+        "REVEAL_READY 必须通过预生成流程设置，不能通过后台表单手动保存。",
+      );
       return;
     }
 
@@ -397,7 +436,9 @@ export default function AdminCyclesPage() {
       setSelectedCycleId(saved.id);
       await loadCycleSummary(saved.id);
     } catch (caughtError) {
-      setActionError(caughtError instanceof Error ? caughtError.message : "轮次保存失败。");
+      setActionError(
+        caughtError instanceof Error ? caughtError.message : "轮次保存失败。",
+      );
     } finally {
       setPending(null);
     }
@@ -418,10 +459,14 @@ export default function AdminCyclesPage() {
     setActionMessage(null);
 
     try {
-      const result = await fetchApi<{ ok: boolean; message?: string; createdMatches?: number }>(
-        "/admin/cycles/run",
-        { method: "POST", body: JSON.stringify({ cycleId: selectedCycleId, force }) },
-      );
+      const result = await fetchApi<{
+        ok: boolean;
+        message?: string;
+        createdMatches?: number;
+      }>("/admin/cycles/run", {
+        method: "POST",
+        body: JSON.stringify({ cycleId: selectedCycleId, force }),
+      });
       setActionMessage(
         result.message ??
           (typeof result.createdMatches === "number"
@@ -434,7 +479,9 @@ export default function AdminCyclesPage() {
         refreshSelectedCycleDataViews();
       }
     } catch (caughtError) {
-      setActionError(caughtError instanceof Error ? caughtError.message : "轮次执行失败。");
+      setActionError(
+        caughtError instanceof Error ? caughtError.message : "轮次执行失败。",
+      );
     } finally {
       setPending(null);
     }
@@ -447,13 +494,18 @@ export default function AdminCyclesPage() {
     setActionMessage(null);
 
     try {
-      const duplicate = await fetchApi<AdminCycle>(`/admin/cycles/${selectedCycleId}/duplicate`, { method: "POST" });
+      const duplicate = await fetchApi<AdminCycle>(
+        `/admin/cycles/${selectedCycleId}/duplicate`,
+        { method: "POST" },
+      );
       setActionMessage(`已复制轮次 ${duplicate.codename}，状态为 DRAFT。`);
       setPage(1);
       await refresh();
       setSelectedCycleId(duplicate.id);
     } catch (caughtError) {
-      setActionError(caughtError instanceof Error ? caughtError.message : "轮次复制失败。");
+      setActionError(
+        caughtError instanceof Error ? caughtError.message : "轮次复制失败。",
+      );
     } finally {
       setPending(null);
     }
@@ -466,11 +518,15 @@ export default function AdminCyclesPage() {
     setActionMessage(null);
 
     try {
-      const preview = await fetchApi<AdminCyclePreview>(`/admin/cycles/${selectedCycleId}/preview`);
+      const preview = await fetchApi<AdminCyclePreview>(
+        `/admin/cycles/${selectedCycleId}/preview`,
+      );
       setCyclePreview(preview);
       setActionMessage(preview.message ?? "预演结果已生成。");
     } catch (caughtError) {
-      setActionError(caughtError instanceof Error ? caughtError.message : "轮次预演失败。");
+      setActionError(
+        caughtError instanceof Error ? caughtError.message : "轮次预演失败。",
+      );
     } finally {
       setPending(null);
     }
@@ -478,7 +534,9 @@ export default function AdminCyclesPage() {
 
   function exportCycleDetail() {
     if (!cycleDetail) return;
-    const blob = new Blob([JSON.stringify(cycleDetail, null, 2)], { type: "application/json;charset=utf-8" });
+    const blob = new Blob([JSON.stringify(cycleDetail, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -494,15 +552,24 @@ export default function AdminCyclesPage() {
   }
 
   if (loading) {
-    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载轮次中心...</div>;
+    return (
+      <div className={cx(adminStyles, "admin-empty-state")}>
+        正在加载轮次中心...
+      </div>
+    );
   }
 
   return (
-    <div className={cx(adminStyles, "qb-container")} style={{ maxWidth: "72rem" }}>
+    <div
+      className={cx(adminStyles, "qb-container")}
+      style={{ maxWidth: "72rem" }}
+    >
       <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>轮次中心</h1>
-          <p className={cx(adminStyles, "qb-header-desc")}>管理轮次列表、编辑详情、执行匹配和查看阶段状态。</p>
+          <p className={cx(adminStyles, "qb-header-desc")}>
+            管理轮次列表、编辑详情、执行匹配和查看阶段状态。
+          </p>
         </div>
         <div className="auth-actions">
           <button
@@ -520,26 +587,60 @@ export default function AdminCyclesPage() {
           >
             新建轮次
           </button>
-          <button className="ui-button ui-button--secondary" onClick={() => void refresh()} type="button" style={{ minHeight: "2.4rem", padding: "0 1rem" }}>
+          <button
+            className="ui-button ui-button--secondary"
+            onClick={() => void refresh()}
+            type="button"
+            style={{ minHeight: "2.4rem", padding: "0 1rem" }}
+          >
             刷新
           </button>
         </div>
       </div>
 
-      {error ? <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "0.75rem" }}>{error}</p> : null}
-      {actionError ? <p className="ui-form-message ui-form-message--error" style={{ marginBottom: "0.75rem" }}>{actionError}</p> : null}
-      {actionMessage ? <p className="ui-form-message ui-form-message--success" style={{ marginBottom: "0.75rem" }}>{actionMessage}</p> : null}
+      {error ? (
+        <p
+          className="ui-form-message ui-form-message--error"
+          style={{ marginBottom: "0.75rem" }}
+        >
+          {error}
+        </p>
+      ) : null}
+      {actionError ? (
+        <p
+          className="ui-form-message ui-form-message--error"
+          style={{ marginBottom: "0.75rem" }}
+        >
+          {actionError}
+        </p>
+      ) : null}
+      {actionMessage ? (
+        <p
+          className="ui-form-message ui-form-message--success"
+          style={{ marginBottom: "0.75rem" }}
+        >
+          {actionMessage}
+        </p>
+      ) : null}
 
       <section className={cx(adminStyles, "admin-workspace-grid")}>
         {/* ── Cycle list ─── */}
-        <article className={cx(adminStyles, "ui-card ui-card--padded ui-card--plain admin-list-panel")}>
+        <article
+          className={cx(
+            adminStyles,
+            "ui-card ui-card--padded ui-card--plain admin-list-panel",
+          )}
+        >
           <div className={cx(adminStyles, "admin-section-header")}>
             <div>
               <p className="eyebrow">轮次列表</p>
               <h2>全部轮次</h2>
             </div>
           </div>
-          <form className={cx(adminStyles, "admin-search-bar")} onSubmit={handleSearchSubmit}>
+          <form
+            className={cx(adminStyles, "admin-search-bar")}
+            onSubmit={handleSearchSubmit}
+          >
             <input
               value={draftSearch}
               onChange={(event) => setDraftSearch(event.target.value)}
@@ -547,12 +648,28 @@ export default function AdminCyclesPage() {
             />
           </form>
           <div className={cx(adminStyles, "admin-tabs")}>
-            {(["ALL", "DRAFT", "OPEN", "PREPARING", "REVEAL_READY", "REVEALED"] as const).map((s) => (
+            {(
+              [
+                "ALL",
+                "DRAFT",
+                "OPEN",
+                "PREPARING",
+                "REVEAL_READY",
+                "REVEALED",
+              ] as const
+            ).map((s) => (
               <button
                 key={s}
                 type="button"
-                className={statusFilter === s ? "ui-segmented-item active" : "ui-segmented-item"}
-                onClick={() => { setStatusFilter(s); setPage(1); }}
+                className={
+                  statusFilter === s
+                    ? "ui-segmented-item active"
+                    : "ui-segmented-item"
+                }
+                onClick={() => {
+                  setStatusFilter(s);
+                  setPage(1);
+                }}
               >
                 {CYCLE_STATUS_LABELS[s]}
               </button>
@@ -572,7 +689,12 @@ export default function AdminCyclesPage() {
               >
                 <div className={cx(adminStyles, "admin-record-topline")}>
                   <strong>{cycle.codename}</strong>
-                  <span className="ui-badge ui-badge--neutral" style={STATUS_STYLES[cycle.status]}>{CYCLE_STATUS_LABELS[cycle.status]}</span>
+                  <span
+                    className="ui-badge ui-badge--neutral"
+                    style={STATUS_STYLES[cycle.status]}
+                  >
+                    {CYCLE_STATUS_LABELS[cycle.status]}
+                  </span>
                 </div>
                 <p>揭晓：{formatChinaStandardDateTime(cycle.revealAt)}</p>
                 <div className={cx(adminStyles, "admin-inline-meta")}>
@@ -581,7 +703,11 @@ export default function AdminCyclesPage() {
                 </div>
               </button>
             ))}
-            {cycles.length === 0 && <div className={cx(adminStyles, "admin-empty-state")}>没有找到匹配的轮次。</div>}
+            {cycles.length === 0 && (
+              <div className={cx(adminStyles, "admin-empty-state")}>
+                没有找到匹配的轮次。
+              </div>
+            )}
           </div>
           {data && (
             <AdminPagination
@@ -596,7 +722,12 @@ export default function AdminCyclesPage() {
         </article>
 
         {/* ── Cycle editor ─── */}
-        <article className={cx(adminStyles, "ui-card ui-card--padded ui-card--plain admin-detail-panel")}>
+        <article
+          className={cx(
+            adminStyles,
+            "ui-card ui-card--padded ui-card--plain admin-detail-panel",
+          )}
+        >
           <div className={cx(adminStyles, "admin-section-header")}>
             <div>
               <p className="eyebrow">轮次编辑</p>
@@ -608,21 +739,52 @@ export default function AdminCyclesPage() {
             <>
               <div className={cx(adminStyles, "adm-action-toolbar")}>
                 <div className={cx(adminStyles, "adm-action-group")}>
-                  <span className={cx(adminStyles, "adm-action-label")}>管理</span>
-                  <button className="ui-button ui-button--secondary" type="button" disabled={pending === "duplicate"} onClick={() => void duplicateCycle()}>
+                  <span className={cx(adminStyles, "adm-action-label")}>
+                    管理
+                  </span>
+                  <button
+                    className="ui-button ui-button--secondary"
+                    type="button"
+                    disabled={pending === "duplicate"}
+                    onClick={() => void duplicateCycle()}
+                  >
                     {pending === "duplicate" ? "复制中…" : "复制为草稿"}
                   </button>
-                  <button className="ui-button ui-button--secondary" type="button" disabled={!cycleDetail} onClick={exportCycleDetail}>导出详情</button>
+                  <button
+                    className="ui-button ui-button--secondary"
+                    type="button"
+                    disabled={!cycleDetail}
+                    onClick={exportCycleDetail}
+                  >
+                    导出详情
+                  </button>
                 </div>
                 <div className={cx(adminStyles, "adm-action-group")}>
-                  <span className={cx(adminStyles, "adm-action-label")}>执行</span>
-                  <button className="ui-button ui-button--secondary" type="button" disabled={pending === "preview"} onClick={() => void previewCycle()}>
+                  <span className={cx(adminStyles, "adm-action-label")}>
+                    执行
+                  </span>
+                  <button
+                    className="ui-button ui-button--secondary"
+                    type="button"
+                    disabled={pending === "preview"}
+                    onClick={() => void previewCycle()}
+                  >
                     {pending === "preview" ? "预演中…" : "预演匹配"}
                   </button>
-                  <button className="ui-button ui-button--primary" type="button" disabled={pending === "run"} onClick={() => void runCycle(false)}>
+                  <button
+                    className="ui-button ui-button--primary"
+                    type="button"
+                    disabled={pending === "run"}
+                    onClick={() => void runCycle(false)}
+                  >
                     {pending === "run" ? "执行中…" : "正常执行"}
                   </button>
-                  <button className="ui-button ui-button--ghost" type="button" disabled={pending === "force-run"} onClick={() => void runCycle(true)}>
+                  <button
+                    className="ui-button ui-button--ghost"
+                    type="button"
+                    disabled={pending === "force-run"}
+                    onClick={() => void runCycle(true)}
+                  >
                     {pending === "force-run" ? "强制中…" : "强制执行"}
                   </button>
                 </div>
@@ -635,25 +797,57 @@ export default function AdminCyclesPage() {
 
           {selectedCycle && (
             <div className={cx(adminStyles, "admin-inline-metrics")}>
-              <div><span>状态</span><strong>{CYCLE_STATUS_LABELS[selectedCycle.status]}</strong></div>
-              <div><span>可匹配人数</span><strong>{selectedCycle._count.participations}</strong></div>
-              <div><span>匹配数</span><strong>{selectedCycle._count.matches}</strong></div>
+              <div>
+                <span>状态</span>
+                <strong>{CYCLE_STATUS_LABELS[selectedCycle.status]}</strong>
+              </div>
+              <div>
+                <span>可匹配人数</span>
+                <strong>{selectedCycle._count.participations}</strong>
+              </div>
+              <div>
+                <span>匹配数</span>
+                <strong>{selectedCycle._count.matches}</strong>
+              </div>
             </div>
           )}
 
           <form className="auth-stack" onSubmit={saveCycle}>
             <label>
               <span>轮次代号</span>
-              <input required value={cycleForm.codename} onChange={(e) => setCycleForm((f) => ({ ...f, codename: e.target.value }))} />
+              <input
+                required
+                value={cycleForm.codename}
+                onChange={(e) =>
+                  setCycleForm((f) => ({ ...f, codename: e.target.value }))
+                }
+              />
             </label>
             <div className={cx(adminStyles, "admin-form-grid")}>
               <label>
                 <span>参与截止（北京时间）</span>
-                <input required type="datetime-local" value={cycleForm.participationDeadline} onChange={(e) => setCycleForm((f) => ({ ...f, participationDeadline: e.target.value }))} />
+                <input
+                  required
+                  type="datetime-local"
+                  value={cycleForm.participationDeadline}
+                  onChange={(e) =>
+                    setCycleForm((f) => ({
+                      ...f,
+                      participationDeadline: e.target.value,
+                    }))
+                  }
+                />
               </label>
               <label>
                 <span>揭晓时间（北京时间）</span>
-                <input required type="datetime-local" value={cycleForm.revealAt} onChange={(e) => setCycleForm((f) => ({ ...f, revealAt: e.target.value }))} />
+                <input
+                  required
+                  type="datetime-local"
+                  value={cycleForm.revealAt}
+                  onChange={(e) =>
+                    setCycleForm((f) => ({ ...f, revealAt: e.target.value }))
+                  }
+                />
               </label>
             </div>
             <label>
@@ -661,7 +855,12 @@ export default function AdminCyclesPage() {
               <select
                 value={cycleForm.status}
                 disabled={isSystemLockedCycleStatus}
-                onChange={(e) => setCycleForm((f) => ({ ...f, status: e.target.value as AdminCycle["status"] }))}
+                onChange={(e) =>
+                  setCycleForm((f) => ({
+                    ...f,
+                    status: e.target.value as AdminCycle["status"],
+                  }))
+                }
               >
                 {cycleForm.status === "PREPARING" ? (
                   <option value="PREPARING" disabled>
@@ -687,17 +886,34 @@ export default function AdminCyclesPage() {
             </label>
             <label>
               <span>备注</span>
-              <textarea rows={4} value={cycleForm.notes} onChange={(e) => setCycleForm((f) => ({ ...f, notes: e.target.value }))} />
+              <textarea
+                rows={4}
+                value={cycleForm.notes}
+                onChange={(e) =>
+                  setCycleForm((f) => ({ ...f, notes: e.target.value }))
+                }
+              />
             </label>
-            <button className="ui-button ui-button--primary" type="submit" disabled={pending === "save"}>
-              {pending === "save" ? "保存中..." : cycleForm.cycleId ? "保存轮次" : "创建轮次"}
+            <button
+              className="ui-button ui-button--primary"
+              type="submit"
+              disabled={pending === "save"}
+            >
+              {pending === "save"
+                ? "保存中..."
+                : cycleForm.cycleId
+                  ? "保存轮次"
+                  : "创建轮次"}
             </button>
           </form>
         </article>
       </section>
 
       {/* ── Participants (compact table) ─────────────────── */}
-      <section className="ui-card ui-card--padded ui-card--plain" style={{ marginTop: "1.25rem" }}>
+      <section
+        className="ui-card ui-card--padded ui-card--plain"
+        style={{ marginTop: "1.25rem" }}
+      >
         <div className={cx(adminStyles, "admin-section-header")}>
           <div>
             <p className="eyebrow">参与者</p>
@@ -706,14 +922,33 @@ export default function AdminCyclesPage() {
         </div>
 
         {detailLoading ? (
-          <div className={cx(adminStyles, "admin-empty-state")}>正在加载轮次详情...</div>
+          <div className={cx(adminStyles, "admin-empty-state")}>
+            正在加载轮次详情...
+          </div>
         ) : cycleDetail ? (
           <div className={cx(adminStyles, "admin-page-stack")}>
             <div className={cx(adminStyles, "admin-inline-metrics")}>
-              <div><span>总参与</span><strong>{cycleDetail.summary.participationCount}</strong></div>
-              <div><span>可匹配人数</span><strong>{cycleDetail.summary.matchableParticipantCount}</strong></div>
-              <div><span>已提交问卷</span><strong>{cycleDetail.summary.submittedQuestionnaireCount}</strong></div>
-              <div><span>未提交问卷</span><strong>{cycleDetail.summary.participationCount - cycleDetail.summary.submittedQuestionnaireCount}</strong></div>
+              <div>
+                <span>总参与</span>
+                <strong>{cycleDetail.summary.participationCount}</strong>
+              </div>
+              <div>
+                <span>可匹配人数</span>
+                <strong>{cycleDetail.summary.matchableParticipantCount}</strong>
+              </div>
+              <div>
+                <span>已提交问卷</span>
+                <strong>
+                  {cycleDetail.summary.submittedQuestionnaireCount}
+                </strong>
+              </div>
+              <div>
+                <span>未提交问卷</span>
+                <strong>
+                  {cycleDetail.summary.participationCount -
+                    cycleDetail.summary.submittedQuestionnaireCount}
+                </strong>
+              </div>
             </div>
 
             <div className={cx(adminStyles, "admin-tabs")}>
@@ -721,8 +956,15 @@ export default function AdminCyclesPage() {
                 <button
                   key={f}
                   type="button"
-                  className={participantFilter === f ? "ui-segmented-item active" : "ui-segmented-item"}
-                  onClick={() => { setParticipantFilter(f); setParticipantPage(1); }}
+                  className={
+                    participantFilter === f
+                      ? "ui-segmented-item active"
+                      : "ui-segmented-item"
+                  }
+                  onClick={() => {
+                    setParticipantFilter(f);
+                    setParticipantPage(1);
+                  }}
                 >
                   {f === "ALL" ? "全部" : PARTICIPATION_STATUS_LABELS[f]}
                 </button>
@@ -730,7 +972,9 @@ export default function AdminCyclesPage() {
             </div>
 
             {participantsLoading ? (
-              <div className={cx(adminStyles, "admin-empty-state")}>正在加载参与者列表...</div>
+              <div className={cx(adminStyles, "admin-empty-state")}>
+                正在加载参与者列表...
+              </div>
             ) : participantsData && participantsData.items.length > 0 ? (
               <div className={cx(adminStyles, "admin-table-wrap")}>
                 <table className={cx(adminStyles, "admin-table")}>
@@ -747,23 +991,41 @@ export default function AdminCyclesPage() {
                   <tbody>
                     {participantsData.items.map((p) => (
                       <tr key={p.id}>
-                        <td><strong style={{ fontSize: "0.88rem" }}>{p.user.displayName ?? p.user.email}</strong></td>
+                        <td>
+                          <strong style={{ fontSize: "0.88rem" }}>
+                            {p.user.displayName ?? p.user.email}
+                          </strong>
+                        </td>
                         <td>{p.user.school?.name ?? "—"}</td>
-                        <td><span className="ui-badge ui-badge--neutral">{PARTICIPATION_STATUS_LABELS[p.status]}</span></td>
+                        <td>
+                          <span className="ui-badge ui-badge--neutral">
+                            {PARTICIPATION_STATUS_LABELS[p.status]}
+                          </span>
+                        </td>
                         <td>{formatParticipantIntent(p)}</td>
                         <td>
-                          {p.user.questionnaireResponse?.submittedAt
-                            ? <span style={{ color: "var(--sage)" }}>已提交</span>
-                            : <span style={{ color: "var(--color-coral)" }}>未提交</span>}
+                          {p.user.questionnaireResponse?.submittedAt ? (
+                            <span style={{ color: "var(--sage)" }}>已提交</span>
+                          ) : (
+                            <span style={{ color: "var(--color-coral)" }}>
+                              未提交
+                            </span>
+                          )}
                         </td>
-                        <td>{p.optedInAt ? formatChinaStandardDateTime(p.optedInAt) : "—"}</td>
+                        <td>
+                          {p.optedInAt
+                            ? formatChinaStandardDateTime(p.optedInAt)
+                            : "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className={cx(adminStyles, "admin-empty-state")}>当前筛选条件下没有参与者。</div>
+              <div className={cx(adminStyles, "admin-empty-state")}>
+                当前筛选条件下没有参与者。
+              </div>
             )}
 
             {participantsData && participantsData.totalPages > 1 && (
@@ -778,12 +1040,17 @@ export default function AdminCyclesPage() {
             )}
           </div>
         ) : (
-          <div className={cx(adminStyles, "admin-empty-state")}>选择轮次后查看参与者列表。</div>
+          <div className={cx(adminStyles, "admin-empty-state")}>
+            选择轮次后查看参与者列表。
+          </div>
         )}
       </section>
 
       {/* ── Matches & logs ───────────────────────────────── */}
-      <section className="ui-card ui-card--padded ui-card--plain" style={{ marginTop: "1.25rem" }}>
+      <section
+        className="ui-card ui-card--padded ui-card--plain"
+        style={{ marginTop: "1.25rem" }}
+      >
         <div className={cx(adminStyles, "admin-section-header")}>
           <div>
             <p className="eyebrow">匹配结果</p>
@@ -792,72 +1059,173 @@ export default function AdminCyclesPage() {
         </div>
 
         {detailLoading ? (
-          <div className={cx(adminStyles, "admin-empty-state")}>正在加载匹配结果...</div>
+          <div className={cx(adminStyles, "admin-empty-state")}>
+            正在加载匹配结果...
+          </div>
         ) : cycleDetail ? (
           <div className={cx(adminStyles, "admin-page-stack")}>
             <div className={cx(adminStyles, "admin-inline-metrics")}>
-              <div><span>总参与</span><strong>{cycleDetail.summary.participationCount}</strong></div>
-              <div><span>可匹配人数</span><strong>{cycleDetail.summary.matchableParticipantCount}</strong></div>
-              <div><span>匹配对数</span><strong>{cycleDetail.summary.matchedPairCount}</strong></div>
-              <div><span>待联系</span><strong>{cycleDetail.summary.pendingContactCount}</strong></div>
+              <div>
+                <span>总参与</span>
+                <strong>{cycleDetail.summary.participationCount}</strong>
+              </div>
+              <div>
+                <span>可匹配人数</span>
+                <strong>{cycleDetail.summary.matchableParticipantCount}</strong>
+              </div>
+              <div>
+                <span>匹配对数</span>
+                <strong>{cycleDetail.summary.matchedPairCount}</strong>
+              </div>
+              <div>
+                <span>待联系</span>
+                <strong>{cycleDetail.summary.pendingContactCount}</strong>
+              </div>
             </div>
 
             {matchesLoading ? (
-              <div className={cx(adminStyles, "admin-empty-state")}>正在加载匹配结果...</div>
+              <div className={cx(adminStyles, "admin-empty-state")}>
+                正在加载匹配结果...
+              </div>
             ) : matchesData && matchesData.items.length > 0 ? (
               <>
                 <div className={cx(adminStyles, "admin-record-list")}>
                   {matchesData.items.map((match) => {
                     const isExpanded = expandedMatchId === match.id;
+                    const meetupFeedback = match.meetupFeedback ?? [];
 
                     return (
-                    <div key={match.id} className={cx(adminStyles, "admin-record-item")}>
-                      <div className={cx(adminStyles, "admin-record-topline")}>
-                        <strong>{match.participants.map((p) => p.user.displayName ?? p.user.email).join(" × ")}</strong>
-                        <span className="ui-badge ui-badge--neutral">分数 {match.score.toFixed(1)}</span>
-                      </div>
-                      <div className={cx(adminStyles, "admin-inline-meta")}>
-                        <span>揭晓：{match.revealedAt ? formatChinaStandardDateTime(match.revealedAt) : "待揭晓"}</span>
-                        <span>引荐：{match.introducedAt ? formatChinaStandardDateTime(match.introducedAt) : "未引荐"}</span>
-                        <span>举报数：{match.reports.length}</span>
-                        <span>反馈数：{match.feedback.length}</span>
-                      </div>
-                      <div className="auth-actions" style={{ marginTop: "0.75rem" }}>
-                        <button
-                          className="ui-button ui-button--secondary"
-                          type="button"
-                          onClick={() => setExpandedMatchId(isExpanded ? null : match.id)}
+                      <div
+                        key={match.id}
+                        className={cx(adminStyles, "admin-record-item")}
+                      >
+                        <div
+                          className={cx(adminStyles, "admin-record-topline")}
                         >
-                          {isExpanded ? "收起反馈" : "查看反馈"}
-                        </button>
+                          <strong>
+                            {match.participants
+                              .map((p) => p.user.displayName ?? p.user.email)
+                              .join(" × ")}
+                          </strong>
+                          <span className="ui-badge ui-badge--neutral">
+                            分数 {match.score.toFixed(1)}
+                          </span>
+                        </div>
+                        <div className={cx(adminStyles, "admin-inline-meta")}>
+                          <span>
+                            揭晓：
+                            {match.revealedAt
+                              ? formatChinaStandardDateTime(match.revealedAt)
+                              : "待揭晓"}
+                          </span>
+                          <span>
+                            引荐：
+                            {match.introducedAt
+                              ? formatChinaStandardDateTime(match.introducedAt)
+                              : "未引荐"}
+                          </span>
+                          <span>举报数：{match.reports.length}</span>
+                          <span>旧匹配反馈：{match.feedback.length}</span>
+                          <span>会后反馈：{meetupFeedback.length}</span>
+                        </div>
+                        <div
+                          className="auth-actions"
+                          style={{ marginTop: "0.75rem" }}
+                        >
+                          <button
+                            className="ui-button ui-button--secondary"
+                            type="button"
+                            onClick={() =>
+                              setExpandedMatchId(isExpanded ? null : match.id)
+                            }
+                          >
+                            {isExpanded ? "收起反馈" : "查看反馈"}
+                          </button>
+                        </div>
+                        {isExpanded ? (
+                          <div style={{ marginTop: "0.75rem" }}>
+                            <h4>旧匹配反馈</h4>
+                            {match.feedback.length > 0 ? (
+                              <ul
+                                className={cx(adminStyles, "admin-reason-list")}
+                              >
+                                {match.feedback.map((fb) => {
+                                  const author = match.participants.find(
+                                    (p) => p.userId === fb.authorUserId,
+                                  );
+                                  const authorName =
+                                    author?.user.displayName ??
+                                    author?.user.email ??
+                                    fb.authorUserId;
+                                  return (
+                                    <li key={fb.id}>
+                                      {authorName} 评分 {fb.rating}/5
+                                      {fb.comment ? `：${fb.comment}` : ""}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p style={{ margin: "0.5rem 0 0" }}>
+                                暂无旧匹配反馈。
+                              </p>
+                            )}
+                            <h4 style={{ marginTop: "0.9rem" }}>会后反馈</h4>
+                            {meetupFeedback.length > 0 ? (
+                              <ul
+                                className={cx(adminStyles, "admin-reason-list")}
+                              >
+                                {meetupFeedback.map((fb) => {
+                                  const author = match.participants.find(
+                                    (p) => p.userId === fb.authorUserId,
+                                  );
+                                  const authorName =
+                                    author?.user.displayName ??
+                                    author?.user.email ??
+                                    fb.authorUserId;
+                                  const subject = match.participants.find(
+                                    (p) => p.userId === fb.subjectUserId,
+                                  );
+                                  const subjectName =
+                                    subject?.user.displayName ??
+                                    subject?.user.email ??
+                                    fb.subjectUserId;
+                                  const tags = [
+                                    ...fb.positiveTags,
+                                    ...fb.issueTags,
+                                  ];
+                                  return (
+                                    <li key={fb.id}>
+                                      {authorName} → {subjectName}：契合{" "}
+                                      {fb.personalFitScore}/5， 互动{" "}
+                                      {fb.interactionQualityScore}/5， 边界{" "}
+                                      {fb.safetyBoundaryLevel}
+                                      {tags.length > 0
+                                        ? `；标签：${tags.join("、")}`
+                                        : ""}
+                                      {fb.note ? `；说明：${fb.note}` : ""}
+                                      ；创建{" "}
+                                      {formatChinaStandardDateTime(
+                                        fb.createdAt,
+                                      )}
+                                      ；更新{" "}
+                                      {formatChinaStandardDateTime(
+                                        fb.updatedAt,
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p style={{ margin: "0.5rem 0 0" }}>
+                                暂无会后反馈。
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
-                      {isExpanded ? (
-                        match.feedback.length > 0 ? (
-                          <ul className={cx(adminStyles, "admin-reason-list")} style={{ marginTop: "0.75rem" }}>
-                            {match.feedback.map((fb) => {
-                              const author = match.participants.find(
-                                (p) => p.userId === fb.authorUserId,
-                              );
-                              const authorName =
-                                author?.user.displayName ??
-                                author?.user.email ??
-                                fb.authorUserId;
-                              return (
-                                <li key={fb.id}>
-                                  {authorName} 评分 {fb.rating}/5
-                                  {fb.comment ? `：${fb.comment}` : ""}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : (
-                          <p style={{ margin: "0.75rem 0 0" }}>
-                            双方暂未提交反馈评价。
-                          </p>
-                        )
-                      ) : null}
-                    </div>
-                  )})}
+                    );
+                  })}
                 </div>
                 {matchesData.totalPages > 1 && (
                   <AdminPagination
@@ -871,21 +1239,32 @@ export default function AdminCyclesPage() {
                 )}
               </>
             ) : (
-              <div className={cx(adminStyles, "admin-empty-state")}>当前轮次还没有生成匹配。</div>
+              <div className={cx(adminStyles, "admin-empty-state")}>
+                当前轮次还没有生成匹配。
+              </div>
             )}
 
             <div>
               <h3>运行记录</h3>
               {logsLoading ? (
-                <div className={cx(adminStyles, "admin-empty-state")}>正在加载运行日志...</div>
+                <div className={cx(adminStyles, "admin-empty-state")}>
+                  正在加载运行日志...
+                </div>
               ) : logsData && logsData.items.length > 0 ? (
                 <>
                   <div className={cx(adminStyles, "admin-record-list")}>
                     {logsData.items.map((log) => (
-                      <div key={log.id} className={cx(adminStyles, "admin-record-item")}>
-                        <div className={cx(adminStyles, "admin-record-topline")}>
+                      <div
+                        key={log.id}
+                        className={cx(adminStyles, "admin-record-item")}
+                      >
+                        <div
+                          className={cx(adminStyles, "admin-record-topline")}
+                        >
                           <strong>{log.action}</strong>
-                          <span className="ui-badge ui-badge--neutral">{formatChinaStandardDateTime(log.createdAt)}</span>
+                          <span className="ui-badge ui-badge--neutral">
+                            {formatChinaStandardDateTime(log.createdAt)}
+                          </span>
                         </div>
                         <p>{JSON.stringify(log.metadata ?? {})}</p>
                       </div>
@@ -903,17 +1282,24 @@ export default function AdminCyclesPage() {
                   )}
                 </>
               ) : (
-                <div className={cx(adminStyles, "admin-empty-state")}>当前轮次还没有运行日志。</div>
+                <div className={cx(adminStyles, "admin-empty-state")}>
+                  当前轮次还没有运行日志。
+                </div>
               )}
             </div>
           </div>
         ) : (
-          <div className={cx(adminStyles, "admin-empty-state")}>选择轮次后查看匹配结果。</div>
+          <div className={cx(adminStyles, "admin-empty-state")}>
+            选择轮次后查看匹配结果。
+          </div>
         )}
       </section>
 
       {/* ── Preview ──────────────────────────────────────── */}
-      <section className="ui-card ui-card--padded ui-card--plain" style={{ marginTop: "1.25rem" }}>
+      <section
+        className="ui-card ui-card--padded ui-card--plain"
+        style={{ marginTop: "1.25rem" }}
+      >
         <div className={cx(adminStyles, "admin-section-header")}>
           <div>
             <p className="eyebrow">预演</p>
@@ -921,47 +1307,78 @@ export default function AdminCyclesPage() {
           </div>
         </div>
 
-        {cyclePreview ? (() => {
-          const allP = cyclePreview.suggestedPairs;
-          const pTotalPages = Math.max(1, Math.ceil(allP.length / PAGE_SIZE_PAIRS));
-          const pSafePage = Math.min(pairPage, pTotalPages);
-          const pStart = (pSafePage - 1) * PAGE_SIZE_PAIRS;
-          const visibleP = allP.slice(pStart, pStart + PAGE_SIZE_PAIRS);
+        {cyclePreview ? (
+          (() => {
+            const allP = cyclePreview.suggestedPairs;
+            const pTotalPages = Math.max(
+              1,
+              Math.ceil(allP.length / PAGE_SIZE_PAIRS),
+            );
+            const pSafePage = Math.min(pairPage, pTotalPages);
+            const pStart = (pSafePage - 1) * PAGE_SIZE_PAIRS;
+            const visibleP = allP.slice(pStart, pStart + PAGE_SIZE_PAIRS);
 
-          return (
-            <div className={cx(adminStyles, "admin-page-stack")}>
-              <div className={cx(adminStyles, "admin-inline-metrics")}>
-                <div><span>候选组合</span><strong>{cyclePreview.totalCandidateCount ?? cyclePreview.candidates.length}</strong></div>
-                <div><span>建议匹配</span><strong>{allP.length}</strong></div>
-                <div><span>未匹配用户</span><strong>{cyclePreview.unmatchedUserIds.length}</strong></div>
-              </div>
-
-              <div className={cx(adminStyles, "admin-record-list")}>
-                {visibleP.map((pair) => (
-                  <div key={`${pair.leftUserId}-${pair.rightUserId}`} className={cx(adminStyles, "admin-record-item")}>
-                    <div className={cx(adminStyles, "admin-record-topline")}>
-                      <strong>{pair.leftDisplayName ?? pair.leftUserId} × {pair.rightDisplayName ?? pair.rightUserId}</strong>
-                      <span className="ui-badge ui-badge--neutral">分数 {pair.score.toFixed(1)}</span>
-                    </div>
+            return (
+              <div className={cx(adminStyles, "admin-page-stack")}>
+                <div className={cx(adminStyles, "admin-inline-metrics")}>
+                  <div>
+                    <span>候选组合</span>
+                    <strong>
+                      {cyclePreview.totalCandidateCount ??
+                        cyclePreview.candidates.length}
+                    </strong>
                   </div>
-                ))}
-                {allP.length === 0 && <div className={cx(adminStyles, "admin-empty-state")}>当前没有建议匹配。</div>}
-              </div>
+                  <div>
+                    <span>建议匹配</span>
+                    <strong>{allP.length}</strong>
+                  </div>
+                  <div>
+                    <span>未匹配用户</span>
+                    <strong>{cyclePreview.unmatchedUserIds.length}</strong>
+                  </div>
+                </div>
 
-              {pTotalPages > 1 && (
-                <AdminPagination
-                  className={cx(adminStyles, "admin-pagination")}
-                  page={pSafePage}
-                  totalPages={pTotalPages}
-                  total={allP.length}
-                  unit="组"
-                  onPageChange={setPairPage}
-                />
-              )}
-            </div>
-          );
-        })() : (
-          <div className={cx(adminStyles, "admin-empty-state")}>先选择轮次，再点击「预演匹配」。</div>
+                <div className={cx(adminStyles, "admin-record-list")}>
+                  {visibleP.map((pair) => (
+                    <div
+                      key={`${pair.leftUserId}-${pair.rightUserId}`}
+                      className={cx(adminStyles, "admin-record-item")}
+                    >
+                      <div className={cx(adminStyles, "admin-record-topline")}>
+                        <strong>
+                          {pair.leftDisplayName ?? pair.leftUserId} ×{" "}
+                          {pair.rightDisplayName ?? pair.rightUserId}
+                        </strong>
+                        <span className="ui-badge ui-badge--neutral">
+                          分数 {pair.score.toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {allP.length === 0 && (
+                    <div className={cx(adminStyles, "admin-empty-state")}>
+                      当前没有建议匹配。
+                    </div>
+                  )}
+                </div>
+
+                {pTotalPages > 1 && (
+                  <AdminPagination
+                    className={cx(adminStyles, "admin-pagination")}
+                    page={pSafePage}
+                    totalPages={pTotalPages}
+                    total={allP.length}
+                    unit="组"
+                    onPageChange={setPairPage}
+                  />
+                )}
+              </div>
+            );
+          })()
+        ) : (
+          <div className={cx(adminStyles, "admin-empty-state")}>
+            先选择轮次，再点击「预演匹配」。
+          </div>
         )}
       </section>
     </div>
