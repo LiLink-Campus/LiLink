@@ -76,12 +76,6 @@ async function readStorybookIndex() {
     })
     .sort((left, right) => String(left.id).localeCompare(String(right.id)));
 
-  if (stories.length === 0) {
-    throw new Error(
-      `No Storybook stories found with tags: ${includeTags.join(", ")}`,
-    );
-  }
-
   return stories;
 }
 
@@ -192,6 +186,12 @@ async function writeSummary(screenshots, failures) {
     "| --- | --- | --- |",
   ];
 
+  if (screenshots.length === 0 && failures.length === 0) {
+    lines.push(
+      `| _No stories matched tags: ${includeTags.join(", ")}_ | - | - |`,
+    );
+  }
+
   for (const screenshot of screenshots) {
     lines.push(
       `| ${screenshot.title} / ${screenshot.name} | ${screenshot.viewport.name} (${screenshot.viewport.width}x${screenshot.viewport.height}) | ${screenshot.file} |`,
@@ -215,6 +215,25 @@ async function main() {
 
   await rm(outputDir, { recursive: true, force: true });
   await mkdir(outputDir, { recursive: true });
+
+  if (stories.length === 0) {
+    console.warn(
+      `No Storybook stories matched tags: ${includeTags.join(", ")}. Skipping screenshot capture.`,
+    );
+    const manifest = {
+      generatedAt: new Date().toISOString(),
+      storybookDir: path.relative(repoRoot, storybookDir),
+      includeTags,
+      screenshots: [],
+      failures: [],
+    };
+    await writeFile(
+      path.join(outputDir, "manifest.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
+    await writeSummary([], []);
+    return;
+  }
 
   const { server, baseUrl } = await startStaticServer();
   const browser = await chromium.launch({ headless: true });
