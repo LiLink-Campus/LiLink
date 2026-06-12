@@ -182,7 +182,7 @@ async function captureStory(page, baseUrl, story, viewport) {
   };
 }
 
-async function writeSummary(screenshots) {
+async function writeSummary(screenshots, failures) {
   const lines = [
     "# Storybook Screenshots",
     "",
@@ -198,6 +198,15 @@ async function writeSummary(screenshots) {
     );
   }
 
+  if (failures.length > 0) {
+    lines.push("", "## Failed captures", "");
+    for (const failure of failures) {
+      lines.push(
+        `- ${failure.storyId} (${failure.viewport.name}): ${failure.error}`,
+      );
+    }
+  }
+
   await writeFile(path.join(outputDir, "summary.md"), `${lines.join("\n")}\n`);
 }
 
@@ -210,12 +219,19 @@ async function main() {
   const { server, baseUrl } = await startStaticServer();
   const browser = await chromium.launch({ headless: true });
   const screenshots = [];
+  const failures = [];
 
   try {
     const page = await browser.newPage();
     for (const story of stories) {
       for (const viewport of viewports) {
-        screenshots.push(await captureStory(page, baseUrl, story, viewport));
+        try {
+          screenshots.push(await captureStory(page, baseUrl, story, viewport));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`Failed to capture ${story.id} (${viewport.name}): ${message}`);
+          failures.push({ storyId: story.id, viewport, error: message });
+        }
       }
     }
     await page.close();
@@ -229,12 +245,13 @@ async function main() {
     storybookDir: path.relative(repoRoot, storybookDir),
     includeTags,
     screenshots,
+    failures,
   };
   await writeFile(
     path.join(outputDir, "manifest.json"),
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
-  await writeSummary(screenshots);
+  await writeSummary(screenshots, failures);
 
   console.log(
     `Captured ${screenshots.length} Storybook screenshots for ${stories.length} stories into ${path.relative(
@@ -242,6 +259,10 @@ async function main() {
       outputDir,
     )}.`,
   );
+
+  if (failures.length > 0) {
+    throw new Error(`${failures.length} screenshot capture(s) failed.`);
+  }
 }
 
 main().catch((error) => {
