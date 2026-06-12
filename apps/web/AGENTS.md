@@ -10,7 +10,7 @@ These instructions apply to the Next.js web application under `apps/web`.
 
 - For user-visible UI changes, update or add Storybook stories for the affected component or page state when practical.
 - Mark representative review states with `tags: ["smoke"]` so Storybook smoke tests and screenshot capture include them.
-- Generate visual evidence for UI PRs with `npm run visual:storybook:web`, or rely on the `Storybook Visual Evidence` workflow artifact when running in CI.
+- Generate visual evidence for UI PRs with `npm run visual:storybook:web`, or rely on the `Storybook Visual Evidence` workflow when running in CI: it uploads the screenshot artifact, pushes screenshots to a `storybook-evidence/pr-<number>` branch, and posts/updates a sticky PR comment linking each capture.
 - Do not commit generated screenshots or `storybook-static`; use GitHub Actions artifacts or PR comments for screenshot evidence.
 - Keep screenshot fixtures synthetic. Do not expose real user data, email addresses, secrets, production URLs, or private records in Storybook states.
 

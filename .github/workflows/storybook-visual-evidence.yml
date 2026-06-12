@@ -9,6 +9,7 @@ on:
       - "package-lock.json"
       - "vitest.config.ts"
       - "scripts/capture-storybook-screenshots.mjs"
+      - "scripts/render-storybook-evidence-comment.mjs"
       - ".github/workflows/storybook-visual-evidence.yml"
   workflow_dispatch:
 
@@ -24,6 +25,9 @@ jobs:
     name: Storybook smoke tests and screenshots
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: write
+      pull-requests: write
     env:
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:4000/v1"
       STORYBOOK_DISABLE_TELEMETRY: "1"
@@ -68,3 +72,56 @@ jobs:
           path: artifacts/storybook-screenshots
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Publish screenshots to evidence branch
+        id: evidence
+        if: >-
+          always() &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          DIR=artifacts/storybook-screenshots
+          if [ ! -f "$DIR/manifest.json" ]; then
+            echo "No screenshot manifest; skipping evidence publish."
+            exit 0
+          fi
+          BRANCH="storybook-evidence/pr-${PR_NUMBER}"
+          git -C "$DIR" init -q -b "$BRANCH"
+          git -C "$DIR" config user.name "github-actions[bot]"
+          git -C "$DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$DIR" add .
+          git -C "$DIR" commit -qm "Storybook evidence for PR #${PR_NUMBER} (${HEAD_SHA})"
+          git -C "$DIR" push -qf \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "HEAD:refs/heads/${BRANCH}"
+          echo "sha=$(git -C "$DIR" rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Post evidence comment on PR
+        if: >-
+          always() &&
+          steps.evidence.outputs.sha != '' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVIDENCE_BLOB_BASE_URL: ${{ format('{0}/{1}/blob/{2}', github.server_url, github.repository, steps.evidence.outputs.sha) }}
+          RUN_URL: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+        run: |
+          node scripts/render-storybook-evidence-comment.mjs > evidence-comment.md
+          MARKER="<!-- storybook-visual-evidence -->"
+          COMMENT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --paginate --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" | head -n 1)
+          if [ -n "$COMMENT_ID" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" \
+              -F body=@evidence-comment.md > /dev/null
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              -F body=@evidence-comment.md > /dev/null
+          fi
+          echo "Posted Storybook evidence comment on PR #${PR_NUMBER}."
