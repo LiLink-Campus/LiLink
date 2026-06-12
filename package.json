@@ -38,6 +38,8 @@
     "storybook:web": "npm run build:shared && npm run msw:init:web && npm run storybook --workspace web",
     "build-storybook:web": "npm run build:shared && npm run msw:init:web && npm run build-storybook --workspace web",
     "test:storybook:web": "npm run build:shared && npm run msw:init:web && vitest --config vitest.config.ts",
+    "screenshots:storybook:web": "node scripts/capture-storybook-screenshots.mjs",
+    "visual:storybook:web": "npm run build-storybook:web && npm run test:storybook:web && npm run screenshots:storybook:web",
     "build": "npm run build:shared && npm run typecheck:web && npm run build:web && npm run build:api",
     "build:shared": "npm run build --workspace @lilink/shared",
     "build:web": "npm run build --workspace web",
