@@ -11,4 +11,3 @@
 ## Visual Evidence
 
 Storybook screenshots artifact or representative screenshots:
-

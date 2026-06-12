@@ -29,6 +29,7 @@ const includeStories = (process.env.STORYBOOK_SCREENSHOT_STORIES || "")
   .split(",")
   .map((value) => value.trim().toLowerCase())
   .filter(Boolean);
+const allowEmptyScreenshots = process.env.STORYBOOK_ALLOW_EMPTY_SCREENSHOTS === "1";
 const filterDescription =
   includeStories.length > 0
     ? `stories: ${includeStories.join(", ")}`
@@ -230,9 +231,7 @@ async function main() {
   await mkdir(outputDir, { recursive: true });
 
   if (stories.length === 0) {
-    console.warn(
-      `No Storybook stories matched ${filterDescription}. Skipping screenshot capture.`,
-    );
+    const emptyCaptureMessage = `No Storybook stories matched ${filterDescription}.`;
     const manifest = {
       generatedAt: new Date().toISOString(),
       storybookDir: path.relative(repoRoot, storybookDir),
@@ -246,7 +245,13 @@ async function main() {
       `${JSON.stringify(manifest, null, 2)}\n`,
     );
     await writeSummary([], []);
-    return;
+    if (allowEmptyScreenshots) {
+      console.warn(`${emptyCaptureMessage} Skipping screenshot capture.`);
+      return;
+    }
+    throw new Error(
+      `${emptyCaptureMessage} Add a smoke-tagged story, adjust STORYBOOK_SCREENSHOT_STORIES, or set STORYBOOK_ALLOW_EMPTY_SCREENSHOTS=1.`,
+    );
   }
 
   const { server, baseUrl } = await startStaticServer();
