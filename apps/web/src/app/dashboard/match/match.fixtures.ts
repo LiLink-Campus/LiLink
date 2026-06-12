@@ -111,7 +111,6 @@ function makeMatch(
         displayName: "陈一诺",
       }),
     ],
-    currentUserFeedback: null,
     ...overrides,
   };
 }
@@ -147,6 +146,9 @@ const completedMeetup = {
   canReviseAfterLock: true,
   canCancel: true,
   terminalText: null,
+  currentUserFeedback: null,
+  canSubmitFeedback: false,
+  feedbackEligibleAt: "2029-12-21T06:00:00.000Z",
 } satisfies DashboardMeetupSummary;
 
 const completedMeetupTask = {
@@ -210,11 +212,6 @@ export const matchDashboardFixtures = {
           schoolName: "North Campus International Residential College",
         }),
       ],
-      currentUserFeedback: {
-        rating: 5,
-        comment: "聊天很顺利，见面安排也已经确认。",
-        submittedAt: "2029-12-18T10:00:00.000Z",
-      },
     }),
     latestMatchVisibility: "VISIBLE",
     meetupSummary: null,

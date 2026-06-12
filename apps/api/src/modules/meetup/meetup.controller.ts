@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -15,11 +16,13 @@ import {
   AcceptMeetupOptionsDto,
   CancelMeetupSessionDto,
   CreateMeetupProposalDto,
+  MeetupFeedbackResponseDto,
   MeetupLocationCandidateResponseDto,
   MeetupSessionResponseDto,
   RejectMeetupProposalDto,
   ReviseMeetupSessionDto,
   StartMeetupSessionDto,
+  SubmitMeetupFeedbackDto,
 } from './dto';
 import { MeetupService } from './meetup.service';
 
@@ -135,5 +138,19 @@ export class MeetupController {
     @Param('sessionId') sessionId: string,
   ) {
     await this.meetupService.markSeen(request.user!.sub, sessionId);
+  }
+
+  @Put('meetup-sessions/:sessionId/feedback')
+  @ApiOkResponse({ type: MeetupFeedbackResponseDto })
+  submitFeedback(
+    @Req() request: AuthenticatedRequest,
+    @Param('sessionId') sessionId: string,
+    @Body() body: SubmitMeetupFeedbackDto,
+  ) {
+    return this.meetupService.submitFeedback(
+      request.user!.sub,
+      sessionId,
+      body,
+    );
   }
 }

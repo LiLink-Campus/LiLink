@@ -258,6 +258,21 @@ type CycleMatchFeedback = {
   updatedAt: string;
 };
 
+type CycleMeetupFeedback = {
+  id: string;
+  sessionId: string;
+  authorUserId: string;
+  subjectUserId: string;
+  personalFitScore: number;
+  interactionQualityScore: number;
+  safetyBoundaryLevel: string;
+  positiveTags: string[];
+  issueTags: string[];
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CycleMatchDetail = {
   id: string;
   score: number;
@@ -275,6 +290,7 @@ export type CycleMatchDetail = {
   }>;
   reports: AdminReport[];
   feedback: CycleMatchFeedback[];
+  meetupFeedback: CycleMeetupFeedback[];
 };
 
 export type AdminCycleDetail = {

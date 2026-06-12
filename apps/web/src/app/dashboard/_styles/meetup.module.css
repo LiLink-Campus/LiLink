@@ -308,6 +308,269 @@ line-height: 1.4;
 margin-top: 0.1rem;
 }
 
+/* ── V2 meetup feedback (post-meetup diagnostic) ── */
+
+.meetup-feedback-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.meetup-feedback-card-body {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.meetup-feedback-summary {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .meetup-feedback-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.meetup-feedback-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-surface-muted) 60%, var(--color-surface));
+}
+
+.meetup-feedback-summary-item span {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.meetup-feedback-summary-item strong {
+  color: var(--color-text);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.meetup-feedback-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.meetup-feedback-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.meetup-feedback-dialog {
+  width: min(44rem, calc(100vw - 1.5rem));
+}
+
+.meetup-feedback-dialog-inner {
+  gap: 1rem;
+}
+
+.meetup-feedback-toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.72rem 0.8rem 0.72rem 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 22%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  box-shadow: var(--shadow-md);
+  font-size: 0.92rem;
+}
+
+.meetup-feedback-toast button {
+  width: 1.8rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.meetup-feedback-toast button:hover {
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+}
+
+.meetup-feedback-body {
+  gap: 1rem;
+}
+
+.meetup-feedback-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.meetup-feedback-section header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.meetup-feedback-section h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.meetup-feedback-section p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.meetup-feedback-section.optional {
+  padding-top: 0.15rem;
+}
+
+.meetup-feedback-options {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.meetup-feedback-option {
+  width: 100%;
+  min-height: 3.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.meetup-feedback-option:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-brand) 38%, var(--color-border));
+  background: color-mix(in srgb, var(--color-brand-tint) 42%, var(--color-surface));
+}
+
+.meetup-feedback-option.is-active {
+  border-color: color-mix(in srgb, var(--color-brand) 58%, var(--color-border));
+  background: color-mix(in srgb, var(--color-brand-tint) 62%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand) 36%, transparent);
+}
+
+.meetup-feedback-option:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.meetup-feedback-option-mark {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.meetup-feedback-option.is-active .meetup-feedback-option-mark {
+  background: var(--color-brand);
+  color: var(--color-text-on-brand);
+}
+
+.meetup-feedback-option-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.meetup-feedback-option-body strong {
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.meetup-feedback-option-body small {
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.meetup-feedback-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.meetup-feedback-tag {
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meetup-feedback-tag.is-active {
+  border-color: color-mix(in srgb, var(--color-brand) 50%, var(--color-border));
+  background: var(--color-brand-tint);
+  color: var(--color-brand-ink);
+}
+
+.meetup-feedback-tag:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.meetup-feedback-note-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.meetup-feedback-note-count {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 /* ── V2 Participants row (你 / 对方 状态) ──────────────── */
 
 /* ── V2 Inline details card summary (proposal / revise) ── */

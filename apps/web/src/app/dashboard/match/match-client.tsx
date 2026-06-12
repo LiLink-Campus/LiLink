@@ -12,7 +12,6 @@ import {
 } from "../../../lib/product-analytics";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { CounterpartInfo } from "../_components/CounterpartInfo";
-import { FeedbackForm } from "../_components/FeedbackForm";
 import { MatchStateHero } from "../_components/MatchStateHero";
 import { MatchWaitingStrip } from "../_components/MatchWaitingStrip";
 import { MeetupStatusRibbon } from "../_components/MeetupStatusRibbon";
@@ -92,14 +91,6 @@ export function MatchClientView({
     setReportDetails,
     closeReportForm,
     toggleReportForm,
-    feedbackRating,
-    feedbackComment,
-    setFeedbackRating,
-    setFeedbackComment,
-    closeFeedbackForm,
-    toggleFeedbackForm,
-    feedbackFormIsOpenForMatch,
-    submitFeedback,
   } = useMatchActions({
     initialDashboard,
     currentUserId: initialUser?.id ?? null,
@@ -584,25 +575,6 @@ export function MatchClientView({
           <button
             type="button"
             className={dcx("ui-button ui-button--ghost ui-button--block")}
-            onClick={() =>
-              toggleFeedbackForm(
-                latestMatch.id,
-                latestMatch.currentUserFeedback,
-              )
-            }
-            disabled={saving === "feedback"}
-          >
-            {latestMatch.currentUserFeedback
-              ? "查看 / 修改本次评价"
-              : "填写本次反馈评价"}
-          </button>
-        ) : null}
-        {latestMatch &&
-        dashboard?.latestMatchVisibility !== "LIMITED" &&
-        !reportHandlingChipLabel(latestMatch.reportStatus) ? (
-          <button
-            type="button"
-            className={dcx("ui-button ui-button--ghost ui-button--block")}
             onClick={() => toggleReportForm(latestMatch.id)}
             disabled={saving === "report"}
           >
@@ -620,17 +592,6 @@ export function MatchClientView({
         onDetailsChange={setReportDetails}
         onSubmit={() => void submitReport()}
         onCancel={closeReportForm}
-      />
-
-      <FeedbackForm
-        open={latestMatch ? feedbackFormIsOpenForMatch(latestMatch.id) : false}
-        rating={feedbackRating}
-        comment={feedbackComment}
-        saving={saving === "feedback"}
-        onRatingChange={setFeedbackRating}
-        onCommentChange={setFeedbackComment}
-        onSubmit={() => void submitFeedback()}
-        onCancel={closeFeedbackForm}
       />
     </div>
   );
