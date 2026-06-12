@@ -22,6 +22,17 @@ const includeTags = (
   .split(",")
   .map((tag) => tag.trim())
   .filter(Boolean);
+// Comma-separated, case-insensitive substrings matched against story id and
+// title. When set, only matching stories are captured and the tag filter is
+// skipped, so agents can target the stories affected by a change.
+const includeStories = (process.env.STORYBOOK_SCREENSHOT_STORIES || "")
+  .split(",")
+  .map((value) => value.trim().toLowerCase())
+  .filter(Boolean);
+const filterDescription =
+  includeStories.length > 0
+    ? `stories: ${includeStories.join(", ")}`
+    : `tags: ${includeTags.join(", ")}`;
 const viewports = [
   { name: "desktop", width: 1280, height: 720 },
   { name: "mobile", width: 390, height: 844 },
@@ -71,6 +82,10 @@ async function readStorybookIndex() {
   const stories = entries
     .filter((entry) => entry?.type === "story")
     .filter((entry) => {
+      if (includeStories.length > 0) {
+        const haystack = `${entry.id} ${entry.title}`.toLowerCase();
+        return includeStories.some((needle) => haystack.includes(needle));
+      }
       const tags = Array.isArray(entry.tags) ? entry.tags : [];
       return includeTags.every((tag) => tags.includes(tag));
     })
@@ -187,9 +202,7 @@ async function writeSummary(screenshots, failures) {
   ];
 
   if (screenshots.length === 0 && failures.length === 0) {
-    lines.push(
-      `| _No stories matched tags: ${includeTags.join(", ")}_ | - | - |`,
-    );
+    lines.push(`| _No stories matched ${filterDescription}_ | - | - |`);
   }
 
   for (const screenshot of screenshots) {
@@ -218,12 +231,13 @@ async function main() {
 
   if (stories.length === 0) {
     console.warn(
-      `No Storybook stories matched tags: ${includeTags.join(", ")}. Skipping screenshot capture.`,
+      `No Storybook stories matched ${filterDescription}. Skipping screenshot capture.`,
     );
     const manifest = {
       generatedAt: new Date().toISOString(),
       storybookDir: path.relative(repoRoot, storybookDir),
       includeTags,
+      includeStories,
       screenshots: [],
       failures: [],
     };
@@ -263,6 +277,7 @@ async function main() {
     generatedAt: new Date().toISOString(),
     storybookDir: path.relative(repoRoot, storybookDir),
     includeTags,
+    includeStories,
     screenshots,
     failures,
   };
