@@ -20,13 +20,24 @@ import {
   DEFAULT_MEETUP_TOLERANCE_MINUTES,
   MAX_MEETUP_EXPIRATION_WEEKS,
   MAX_MEETUP_PLACE_NAME_LENGTH,
+  MEETUP_FEEDBACK_ISSUE_TAG_MAX_COUNT,
+  MEETUP_FEEDBACK_ISSUE_TAGS,
+  MEETUP_FEEDBACK_NOTE_MAX_LENGTH,
+  MEETUP_FEEDBACK_POSITIVE_TAG_MAX_COUNT,
+  MEETUP_FEEDBACK_POSITIVE_TAGS,
+  MEETUP_FEEDBACK_SCORE_MAX,
+  MEETUP_FEEDBACK_SCORE_MIN,
   MEETUP_ARCHIVE_AFTER_FINAL_DECISION_MINUTES,
   MIN_MEETUP_EXPIRATION_WEEKS,
   MIN_MEETUP_PROPOSAL_LEAD_MINUTES,
+  MEETUP_SAFETY_BOUNDARY_LEVELS,
+  type MeetupFeedbackIssueTag,
+  type MeetupFeedbackPositiveTag,
   type MeetupMessageType,
   type MeetupOptionKind,
   type MeetupProposalScope,
   type MeetupProposalStatus,
+  type MeetupSafetyBoundaryLevel,
 } from './constants';
 import {
   AcceptMeetupOptionsDto,
@@ -35,14 +46,19 @@ import {
   RejectMeetupProposalDto,
   ReviseMeetupSessionDto,
   StartMeetupSessionDto,
+  SubmitMeetupFeedbackDto,
 } from './dto';
 import {
   findLocationCandidate,
   locationCandidates,
 } from './location-candidates';
-import { mapMeetupSessionResponse } from './response-mapper';
+import {
+  mapMeetupFeedbackResponse,
+  mapMeetupSessionResponse,
+} from './response-mapper';
 import type {
   CountResult,
+  MeetupFeedbackRecord,
   MeetupMatchRecord,
   MeetupProposalRecord,
   MeetupSessionRecord,
@@ -71,6 +87,7 @@ const MEETUP_SESSION_INCLUDE = {
   },
   confirmedTimeOption: true,
   confirmedLocationOption: true,
+  feedback: true,
   messages: {
     include: {
       proposal: {
@@ -128,6 +145,15 @@ type NormalizedProposalInput = {
   locationOptions: NormalizedLocationOptionInput[];
   notePreset?: string;
   noteText?: string;
+};
+
+type NormalizedMeetupFeedbackInput = {
+  personalFitScore: number;
+  interactionQualityScore: number;
+  safetyBoundaryLevel: MeetupSafetyBoundaryLevel;
+  positiveTags: MeetupFeedbackPositiveTag[];
+  issueTags: MeetupFeedbackIssueTag[];
+  note: string | null;
 };
 
 type MeetupReminderCandidate = {
@@ -1151,6 +1177,64 @@ export class MeetupService {
     });
   }
 
+  async submitFeedback(
+    userId: string,
+    sessionId: string,
+    input: SubmitMeetupFeedbackDto,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const normalizedInput = this.normalizeMeetupFeedbackInput(input);
+      const session = await this.loadConvergedAuthorizedSession(
+        tx,
+        userId,
+        sessionId,
+        now,
+      );
+      const { currentParticipant, counterpart } =
+        this.assertSessionParticipants(session, userId);
+
+      this.assertFeedbackEligible(session, now);
+
+      const feedback = (await tx.meetupFeedback.upsert({
+        where: {
+          sessionId_authorUserId: {
+            sessionId: session.id,
+            authorUserId: userId,
+          },
+        },
+        update: {
+          matchId: session.matchId,
+          subjectUserId: counterpart.userId,
+          ...normalizedInput,
+        },
+        create: {
+          sessionId: session.id,
+          matchId: session.matchId,
+          authorUserId: userId,
+          subjectUserId: counterpart.userId,
+          ...normalizedInput,
+        },
+      })) as MeetupFeedbackRecord;
+
+      await this.createAuditLog(tx, userId, 'meetup.feedback_submitted', {
+        sessionId: session.id,
+        matchId: session.matchId,
+        authorUserId: userId,
+        subjectUserId: counterpart.userId,
+        authorParticipantId: currentParticipant.id,
+        subjectParticipantId: counterpart.id,
+        personalFitScore: feedback.personalFitScore,
+        interactionQualityScore: feedback.interactionQualityScore,
+        safetyBoundaryLevel: feedback.safetyBoundaryLevel,
+        positiveTags: feedback.positiveTags,
+        issueTags: feedback.issueTags,
+      });
+
+      return mapMeetupFeedbackResponse(feedback);
+    });
+  }
+
   private buildMeetupSessionUrl(sessionId: string) {
     const origin = env.CLIENT_ORIGIN[0].replace(/\/+$/, '');
     return `${origin}/dashboard/meetup/${encodeURIComponent(sessionId)}`;
@@ -1319,6 +1403,24 @@ export class MeetupService {
 
     if (session.confirmedTimeOption.startsAt <= now) {
       throw new BadRequestException('MEETUP_CONFIRMED_TIME_ALREADY_STARTED');
+    }
+  }
+
+  private assertFeedbackEligible(session: MeetupSessionRecord, now: Date) {
+    if (session.status !== 'LOCKED' && session.status !== 'ARCHIVED') {
+      throw new BadRequestException('MEETUP_FEEDBACK_NOT_ELIGIBLE');
+    }
+
+    if (!session.lockedAt) {
+      throw new BadRequestException('MEETUP_FEEDBACK_NOT_ELIGIBLE');
+    }
+
+    if (!session.confirmedTimeOption?.startsAt) {
+      throw new BadRequestException('MEETUP_CONFIRMED_TIME_NOT_FOUND');
+    }
+
+    if (session.confirmedTimeOption.startsAt > now) {
+      throw new BadRequestException('MEETUP_FEEDBACK_NOT_YET_ELIGIBLE');
     }
   }
 
@@ -1763,6 +1865,137 @@ export class MeetupService {
       notePreset: this.normalizeOptionalText(record.notePreset),
       noteText: this.normalizeOptionalText(record.noteText),
     };
+  }
+
+  private normalizeMeetupFeedbackInput(
+    input: SubmitMeetupFeedbackDto,
+  ): NormalizedMeetupFeedbackInput {
+    if (!isRecord(input)) {
+      throw new BadRequestException('MEETUP_FEEDBACK_REQUIRED');
+    }
+
+    return {
+      personalFitScore: this.normalizeMeetupFeedbackScore(
+        input.personalFitScore,
+        'PERSONAL_FIT',
+      ),
+      interactionQualityScore: this.normalizeMeetupFeedbackScore(
+        input.interactionQualityScore,
+        'INTERACTION_QUALITY',
+      ),
+      safetyBoundaryLevel: this.normalizeSafetyBoundaryLevel(
+        input.safetyBoundaryLevel,
+      ),
+      positiveTags: this.normalizeMeetupFeedbackTags(
+        input.positiveTags,
+        MEETUP_FEEDBACK_POSITIVE_TAGS,
+        MEETUP_FEEDBACK_POSITIVE_TAG_MAX_COUNT,
+        'POSITIVE',
+      ),
+      issueTags: this.normalizeMeetupFeedbackTags(
+        input.issueTags,
+        MEETUP_FEEDBACK_ISSUE_TAGS,
+        MEETUP_FEEDBACK_ISSUE_TAG_MAX_COUNT,
+        'ISSUE',
+      ),
+      note: this.normalizeMeetupFeedbackNote(input.note),
+    };
+  }
+
+  private normalizeMeetupFeedbackScore(value: unknown, fieldName: string) {
+    if (
+      typeof value !== 'number' ||
+      !Number.isInteger(value) ||
+      value < MEETUP_FEEDBACK_SCORE_MIN ||
+      value > MEETUP_FEEDBACK_SCORE_MAX
+    ) {
+      throw new BadRequestException(
+        `MEETUP_FEEDBACK_${fieldName}_SCORE_INVALID`,
+      );
+    }
+
+    return value;
+  }
+
+  private normalizeSafetyBoundaryLevel(
+    value: unknown,
+  ): MeetupSafetyBoundaryLevel {
+    if (
+      typeof value !== 'string' ||
+      !MEETUP_SAFETY_BOUNDARY_LEVELS.includes(
+        value as MeetupSafetyBoundaryLevel,
+      )
+    ) {
+      throw new BadRequestException(
+        'MEETUP_FEEDBACK_SAFETY_BOUNDARY_LEVEL_INVALID',
+      );
+    }
+
+    return value as MeetupSafetyBoundaryLevel;
+  }
+
+  private normalizeMeetupFeedbackTags<const TTag extends string>(
+    value: unknown,
+    allowedTags: readonly TTag[],
+    maxCount: number,
+    fieldName: string,
+  ): TTag[] {
+    if (value === undefined) {
+      return [];
+    }
+
+    if (!Array.isArray(value)) {
+      throw new BadRequestException(
+        `MEETUP_FEEDBACK_${fieldName}_TAGS_INVALID`,
+      );
+    }
+
+    if (value.length > maxCount) {
+      throw new BadRequestException(
+        `MEETUP_FEEDBACK_${fieldName}_TAGS_TOO_MANY`,
+      );
+    }
+
+    const allowedTagSet = new Set(allowedTags);
+    const seenTags = new Set<TTag>();
+    return value.map((tag) => {
+      if (typeof tag !== 'string' || !allowedTagSet.has(tag as TTag)) {
+        throw new BadRequestException(
+          `MEETUP_FEEDBACK_${fieldName}_TAG_UNKNOWN`,
+        );
+      }
+
+      const normalizedTag = tag as TTag;
+      if (seenTags.has(normalizedTag)) {
+        throw new BadRequestException(
+          `MEETUP_FEEDBACK_${fieldName}_TAG_DUPLICATE`,
+        );
+      }
+      seenTags.add(normalizedTag);
+
+      return normalizedTag;
+    });
+  }
+
+  private normalizeMeetupFeedbackNote(value: unknown) {
+    if (value === undefined || value === null) {
+      return null;
+    }
+
+    if (typeof value !== 'string') {
+      throw new BadRequestException('MEETUP_FEEDBACK_NOTE_INVALID');
+    }
+
+    const normalized = value.trim();
+    if (normalized.length === 0) {
+      return null;
+    }
+
+    if (normalized.length > MEETUP_FEEDBACK_NOTE_MAX_LENGTH) {
+      throw new BadRequestException('MEETUP_FEEDBACK_NOTE_TOO_LONG');
+    }
+
+    return normalized;
   }
 
   private readProposalObject(input: unknown): CreateMeetupProposalDto {

@@ -51,7 +51,6 @@ import {
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEY_MAX_LENGTH,
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEYS_MAX_ITEMS,
   REPORT_DETAILS_MAX_LENGTH,
-  MATCH_FEEDBACK_COMMENT_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 
 export class UpdateProfileDto {
@@ -331,19 +330,29 @@ export class MatchFeedbackResponseDto {
   submittedAt!: string;
 }
 
-export class SubmitMatchFeedbackDto {
+export class DashboardMeetupFeedbackResponseDto {
   @ApiProperty({ minimum: 1, maximum: 5 })
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  rating!: number;
+  personalFitScore!: number;
 
-  @ApiPropertyOptional({ nullable: true })
-  @IsOptional()
-  @IsString()
-  @MaxLength(MATCH_FEEDBACK_COMMENT_MAX_LENGTH)
-  comment?: string | null;
+  @ApiProperty({ minimum: 1, maximum: 5 })
+  interactionQualityScore!: number;
+
+  @ApiProperty({
+    enum: ['NO_CONCERN', 'MINOR_CONCERN', 'SERIOUS_CONCERN'],
+  })
+  safetyBoundaryLevel!: string;
+
+  @ApiProperty({ type: String, isArray: true })
+  positiveTags!: string[];
+
+  @ApiProperty({ type: String, isArray: true })
+  issueTags!: string[];
+
+  @ApiProperty({ nullable: true })
+  note!: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  submittedAt!: string;
 }
 
 export class DashboardMatchResponseDto {
@@ -399,6 +408,12 @@ export class DashboardHistoryItemResponseDto {
 
   @ApiProperty({ type: () => DashboardMatchResponseDto, nullable: true })
   match!: DashboardMatchResponseDto | null;
+
+  @ApiProperty({
+    type: () => DashboardMeetupSummaryResponseDto,
+    nullable: true,
+  })
+  meetupSummary!: DashboardMeetupSummaryResponseDto | null;
 }
 
 export class DashboardCurrentCycleResponseDto {
@@ -518,6 +533,18 @@ export class DashboardMeetupSummaryResponseDto {
 
   @ApiProperty({ nullable: true })
   terminalText!: string | null;
+
+  @ApiProperty({
+    type: () => DashboardMeetupFeedbackResponseDto,
+    nullable: true,
+  })
+  currentUserFeedback!: DashboardMeetupFeedbackResponseDto | null;
+
+  @ApiProperty()
+  canSubmitFeedback!: boolean;
+
+  @ApiProperty({ nullable: true, format: 'date-time' })
+  feedbackEligibleAt!: string | null;
 }
 
 export class DashboardCouponAgendaResponseDto {

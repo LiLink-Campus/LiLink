@@ -22,12 +22,15 @@ import {
   rejectMeetupProposal,
   reviseMeetupSession,
   startMeetupSession,
+  submitMeetupFeedback,
   type AcceptMeetupOptionsPayload,
   type AuthMePayload,
+  type MeetupFeedback,
   type MeetupLocationCandidate,
   type MeetupProposalPayload,
   type MeetupProposalScope,
   type MeetupSessionResponse,
+  type SubmitMeetupFeedbackPayload,
 } from "../../../../lib/api";
 import {
   trackIntent,
@@ -38,8 +41,18 @@ import {
 } from "@/lib/china-standard-time";
 import { MAX_MEETUP_PLACE_NAME_LENGTH } from "@lilink/shared";
 import { useDashboardSessionSeed } from "../../_components/DashboardSessionSeed";
+import { MeetupFeedbackForm } from "../../_components/MeetupFeedbackForm";
 import { useToast } from "../../_components/ToastProvider";
 import { MapPinIcon } from "../../_components/icons";
+import {
+  INTERACTION_QUALITY_OPTIONS,
+  ISSUE_TAG_OPTIONS,
+  PERSONAL_FIT_OPTIONS,
+  POSITIVE_TAG_OPTIONS,
+  SAFETY_BOUNDARY_OPTIONS,
+  meetupFeedbackOptionLabel,
+  meetupFeedbackTagLabels,
+} from "../../_lib/meetup-feedback";
 import type { DashboardMeetupSummary } from "../../_lib/types";
 import { MeetupActionCard, resolveMeetupActionState } from "./MeetupActionCard";
 import {
@@ -54,6 +67,7 @@ import {
 } from "./MeetupProposalPreview";
 import {
   formatMeetupTimeRange,
+  formatMeetupShortDateTime,
   PROGRESS_LABELS,
   SCOPE_LABELS,
   sessionIsTerminal,
@@ -67,6 +81,7 @@ type SavingAction =
   | "finalConfirm"
   | "revise"
   | "cancel"
+  | "feedback"
   | null;
 
 type ConfirmDialogState =
@@ -243,6 +258,19 @@ function revisionConfirmationDetails(summary: MeetupProposalSubmitSummary) {
       : "地点选项：本次不修改地点",
     `说明：${summary.noteText ?? "无"}`,
   ];
+}
+
+function scoreOptionLabel(
+  options: Array<{ value: number; label: string }>,
+  score: number | null | undefined,
+) {
+  if (!score) return "未填写";
+  const option = options.find((item) => item.value === score);
+  return option ? `${score}/5 · ${option.label}` : `${score}/5`;
+}
+
+function feedbackSubmittedAt(feedback: MeetupFeedback) {
+  return feedback.submittedAt ?? feedback.updatedAt ?? feedback.createdAt ?? null;
 }
 
 export function MeetupStartClient({
@@ -528,6 +556,10 @@ function MeetupSessionView({
 
   // Locked-state revision form visibility.
   const [revisionFormOpen, setRevisionFormOpen] = useState(false);
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
+  const [feedbackSubmitError, setFeedbackSubmitError] = useState<string | null>(
+    null,
+  );
 
   const actionState = resolveMeetupActionState(session);
 
@@ -538,6 +570,7 @@ function MeetupSessionView({
     setSelectedLocationId(null);
     setNoteText("");
     setError(null);
+    setFeedbackSubmitError(null);
     setRevisionFormOpen(false);
   }, [session.id, session.status, session.currentProposalId]);
 
@@ -686,6 +719,24 @@ function MeetupSessionView({
     );
   }
 
+  async function submitFeedback(payload: SubmitMeetupFeedbackPayload) {
+    setSaving("feedback");
+    setFeedbackSubmitError(null);
+    try {
+      const saved = await submitMeetupFeedback(session.id, payload);
+      onSessionChange({
+        ...session,
+        currentUserFeedback: saved,
+      });
+      setFeedbackDialogOpen(false);
+      showToast("会后反馈已保存");
+    } catch (caughtError) {
+      setFeedbackSubmitError(errorMessage(caughtError, "会后反馈提交失败。"));
+    } finally {
+      setSaving(null);
+    }
+  }
+
   async function confirmRevision(
     proposal: MeetupProposalPayload,
     summary: MeetupProposalSubmitSummary,
@@ -710,6 +761,9 @@ function MeetupSessionView({
     session.availableActions.reject.enabled;
   const canCancel = session.availableActions.cancel.enabled;
   const canRevise = session.availableActions.reviseAfterLock.enabled;
+  const showFeedbackCard = Boolean(
+    session.canSubmitFeedback || session.currentUserFeedback,
+  );
 
   const { primary, secondary, hint } = useMemo<{
     primary: MeetupBottomPrimary | null;
@@ -921,6 +975,19 @@ function MeetupSessionView({
           <MeetupCurrentPlanCard session={session} />
         ) : null}
 
+        {showFeedbackCard ? (
+          <MeetupFeedbackCard
+            feedback={session.currentUserFeedback}
+            canSubmitFeedback={session.canSubmitFeedback}
+            feedbackEligibleAt={session.feedbackEligibleAt}
+            saving={saving === "feedback"}
+            onOpen={() => {
+              setFeedbackSubmitError(null);
+              setFeedbackDialogOpen(true);
+            }}
+          />
+        ) : null}
+
         {actionState === "needsPropose" ? (
           <section className={dcx("ui-card ui-card--padded")}>
             <div className={dcx("ui-card-header")}>
@@ -958,6 +1025,19 @@ function MeetupSessionView({
       </div>
 
       <MeetupBottomBar primary={primary} secondary={secondary} hint={hint} />
+
+      <MeetupFeedbackForm
+        open={feedbackDialogOpen}
+        feedback={session.currentUserFeedback}
+        saving={saving === "feedback"}
+        submitError={feedbackSubmitError}
+        onSubmit={(payload) => void submitFeedback(payload)}
+        onCancel={() => {
+          setFeedbackSubmitError(null);
+          setFeedbackDialogOpen(false);
+        }}
+        onDismissSubmitError={() => setFeedbackSubmitError(null)}
+      />
 
       <ConfirmActionDialog
         open={confirmDialog !== null}
@@ -997,6 +1077,116 @@ function MeetupSessionView({
         }}
       />
     </>
+  );
+}
+
+function MeetupFeedbackCard({
+  feedback,
+  canSubmitFeedback,
+  feedbackEligibleAt,
+  saving,
+  onOpen,
+}: {
+  feedback: MeetupFeedback | null;
+  canSubmitFeedback: boolean;
+  feedbackEligibleAt: string | null;
+  saving: boolean;
+  onOpen: () => void;
+}) {
+  const submittedAt = feedback ? feedbackSubmittedAt(feedback) : null;
+  const positiveTags = feedback
+    ? meetupFeedbackTagLabels(POSITIVE_TAG_OPTIONS, feedback.positiveTags)
+    : [];
+  const issueTags = feedback
+    ? meetupFeedbackTagLabels(ISSUE_TAG_OPTIONS, feedback.issueTags)
+    : [];
+
+  return (
+    <section
+      className={dcx("v2-plan-card meetup-feedback-card")}
+      aria-label="会后反馈"
+    >
+      <header className={dcx("v2-plan-card-head")}>
+        <h2>会后反馈</h2>
+        <span
+          className={dcx(
+            `v2-plan-card-pill${feedback ? " tone-locked" : ""}`,
+          )}
+        >
+          {feedback ? "已提交" : "可填写"}
+        </span>
+      </header>
+      <p className={dcx("meetup-feedback-card-body")}>
+        {feedback
+          ? `你已提交这次见面的诊断反馈${
+              submittedAt
+                ? `（${formatMeetupShortDateTime(submittedAt)}）`
+                : ""
+            }。`
+          : canSubmitFeedback
+            ? "见面已开始，可以填写会后反馈。反馈只用于平台改进匹配和安全判断，对方不会看到。"
+            : feedbackEligibleAt
+              ? `会后反馈将在 ${formatMeetupShortDateTime(feedbackEligibleAt)} 后开放。`
+              : "会后反馈会在见面开始后开放。"}
+      </p>
+      {feedback ? (
+        <>
+          <div className={dcx("meetup-feedback-summary")}>
+            <div className={dcx("meetup-feedback-summary-item")}>
+              <span>个人契合感</span>
+              <strong>
+                {scoreOptionLabel(
+                  PERSONAL_FIT_OPTIONS,
+                  feedback.personalFitScore,
+                )}
+              </strong>
+            </div>
+            <div className={dcx("meetup-feedback-summary-item")}>
+              <span>互动质量</span>
+              <strong>
+                {scoreOptionLabel(
+                  INTERACTION_QUALITY_OPTIONS,
+                  feedback.interactionQualityScore,
+                )}
+              </strong>
+            </div>
+            <div className={dcx("meetup-feedback-summary-item")}>
+              <span>安全与边界</span>
+              <strong>
+                {meetupFeedbackOptionLabel(
+                  SAFETY_BOUNDARY_OPTIONS,
+                  feedback.safetyBoundaryLevel,
+                )}
+              </strong>
+            </div>
+          </div>
+          {positiveTags.length > 0 || issueTags.length > 0 ? (
+            <div className={dcx("meetup-feedback-tag-row")}>
+              {[...positiveTags, ...issueTags].map((label) => (
+                <span key={label} className={dcx("meetup-feedback-tag-pill")}>
+                  {label}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {feedback.note ? (
+            <p className={dcx("meetup-feedback-card-body")}>{feedback.note}</p>
+          ) : null}
+        </>
+      ) : null}
+      <button
+        type="button"
+        className={dcx("ui-button ui-button--secondary meetup-inline-link")}
+        disabled={saving}
+        onClick={onOpen}
+      >
+        {saving
+          ? "提交中…"
+          : feedback
+            ? "查看 / 修改会后反馈"
+            : "填写会后反馈"}
+      </button>
+    </section>
   );
 }
 

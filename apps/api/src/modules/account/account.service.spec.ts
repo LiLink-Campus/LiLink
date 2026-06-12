@@ -378,6 +378,18 @@ function createDashboardPrismaMock({
     },
     match: {
       findUnique: jest.fn().mockResolvedValue(dashboardMeetupMatch),
+      findMany: jest
+        .fn()
+        .mockImplementation((args?: { where?: { id?: { in?: string[] } } }) => {
+          const matchIds = args?.where?.id?.in ?? [];
+          if (
+            dashboardMeetupMatch &&
+            matchIds.includes(dashboardMeetupMatch.id)
+          ) {
+            return [dashboardMeetupMatch];
+          }
+          return [];
+        }),
     },
     matchFeedback: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -515,6 +527,7 @@ function buildDashboardMeetupSession(
     lastActiveAt: new Date('2026-05-14T10:00:00.000Z'),
     confirmedTimeOption: null,
     confirmedLocationOption: null,
+    feedback: [],
     participants: [
       {
         userId: 'user-1',
@@ -2636,6 +2649,106 @@ describe('AccountService', () => {
         status: 'ISSUED',
         totpSecret: { not: null },
         OR: [{ expiresAt: null }, { expiresAt: { gt: ANY_DATE } }],
+      },
+    });
+  });
+
+  it('includes meetup feedback eligibility and current user feedback on dashboard summaries', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-14T10:00:00.000Z'));
+
+    const revealedCycles = [
+      buildRevealedCycle('cycle-2', '第二轮', '2026-05-08T12:00:00.000Z'),
+      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
+    ];
+    const session = buildDashboardMeetupSession({
+      matchId: 'match-2',
+      status: 'LOCKED',
+      currentProposalId: null,
+      finalConfirmRequiredByUserId: null,
+      expiresAt: null,
+      lockedAt: new Date('2026-05-14T08:30:00.000Z'),
+      archiveEligibleAt: new Date('2026-05-15T10:00:00.000Z'),
+      confirmedTimeOptionId: 'time-1',
+      confirmedLocationOptionId: 'location-1',
+      confirmedTimeOption: {
+        startsAt: new Date('2026-05-14T09:00:00.000Z'),
+        endsAt: new Date('2026-05-14T10:00:00.000Z'),
+      },
+      confirmedLocationOption: {
+        placeName: 'Cafe',
+      },
+      feedback: [
+        {
+          authorUserId: 'user-1',
+          personalFitScore: 4,
+          interactionQualityScore: 5,
+          safetyBoundaryLevel: 'NO_CONCERN',
+          positiveTags: ['EASY_TO_TALK'],
+          issueTags: [],
+          note: '聊得来。',
+          updatedAt: new Date('2026-05-14T10:05:00.000Z'),
+        },
+      ],
+    });
+    const prisma = createDashboardPrismaMock({
+      revealedCycles,
+      recentParticipations: [
+        { cycleId: 'cycle-2', status: 'OPTED_IN' },
+        { cycleId: 'cycle-1', status: 'OPTED_IN' },
+      ],
+      recentMatches: [
+        buildHistoryMatchParticipant({
+          cycleId: 'cycle-2',
+          matchId: 'match-2',
+          introducedAt: new Date('2026-05-08T13:00:00.000Z'),
+        }),
+        buildHistoryMatchParticipant({
+          cycleId: 'cycle-1',
+          matchId: 'match-old',
+          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
+        }),
+      ],
+      lastRevealedParticipation: {
+        cycleId: 'cycle-2',
+        status: 'OPTED_IN',
+        cycle: revealedCycles[0],
+      },
+      dashboardMeetupMatch: {
+        id: 'match-2',
+        introducedAt: new Date('2026-05-08T13:00:00.000Z'),
+        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
+        meetupSession: session,
+      },
+    });
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      {} as never,
+      createDashboardSnapshotServiceMock() as never,
+    );
+
+    const dashboard = await service.getDashboard('user-1');
+
+    expect(dashboard.meetupSummary).toMatchObject({
+      sessionId: 'session-1',
+      canSubmitFeedback: true,
+      feedbackEligibleAt: '2026-05-14T09:00:00.000Z',
+      currentUserFeedback: {
+        personalFitScore: 4,
+        interactionQualityScore: 5,
+        safetyBoundaryLevel: 'NO_CONCERN',
+        positiveTags: ['EASY_TO_TALK'],
+        issueTags: [],
+        note: '聊得来。',
+        submittedAt: '2026-05-14T10:05:00.000Z',
+      },
+    });
+    expect(dashboard.recentMatchHistory[0].meetupSummary).toMatchObject({
+      sessionId: 'session-1',
+      canSubmitFeedback: true,
+      currentUserFeedback: {
+        personalFitScore: 4,
       },
     });
   });

@@ -8,6 +8,7 @@ import { MeetupService } from './meetup.service';
 import { locationCandidates } from './location-candidates';
 import type {
   MeetupMatchRecord,
+  MeetupFeedbackRecord,
   MeetupOptionRecord,
   MeetupParticipantRecord,
   MeetupProposalRecord,
@@ -39,6 +40,7 @@ function createTx() {
     meetupOption: createDelegate(),
     meetupParticipant: createDelegate(),
     meetupProposal: createDelegate(),
+    meetupFeedback: createDelegate(),
     meetupSession: createDelegate(),
     outboundEmail: createDelegate(),
     productEventOutbox: createDelegate(),
@@ -211,6 +213,27 @@ function buildProposal(
   };
 }
 
+function buildFeedback(
+  overrides: Partial<MeetupFeedbackRecord> = {},
+): MeetupFeedbackRecord {
+  return {
+    id: 'feedback-1',
+    sessionId: 'session-1',
+    matchId: 'match-1',
+    authorUserId: 'user-a',
+    subjectUserId: 'user-b',
+    personalFitScore: 4,
+    interactionQualityScore: 5,
+    safetyBoundaryLevel: 'NO_CONCERN',
+    positiveTags: ['RESPECTFUL'],
+    issueTags: [],
+    note: 'Good meetup.',
+    createdAt: new Date('2026-05-14T10:05:00.000Z'),
+    updatedAt: new Date('2026-05-14T10:05:00.000Z'),
+    ...overrides,
+  };
+}
+
 function buildSession(
   overrides: Partial<MeetupSessionRecord> = {},
 ): MeetupSessionRecord {
@@ -258,6 +281,7 @@ function buildSession(
       }),
     ],
     messages: [],
+    feedback: [],
     ...overrides,
   };
 }
@@ -1227,6 +1251,224 @@ describe('MeetupService', () => {
     ).rejects.toThrow(NotFoundException);
     expect(tx.meetupSession.updateMany).not.toHaveBeenCalled();
     expect(tx.meetupParticipant.updateMany).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('maps post-start feedback eligibility and only the current user feedback on session reads', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+    const confirmedTime = buildTimeOption({
+      id: 'time-confirmed',
+      status: 'CONFIRMED',
+      startsAt: new Date('2026-05-14T09:00:00.000Z'),
+      endsAt: new Date('2026-05-14T10:00:00.000Z'),
+    });
+    const confirmedLocation = buildLocationOption({
+      id: 'location-confirmed',
+      status: 'CONFIRMED',
+    });
+    const session = buildSession({
+      status: 'LOCKED',
+      currentProposalId: null,
+      currentProposal: null,
+      confirmedTimeOptionId: confirmedTime.id,
+      confirmedTimeOption: confirmedTime,
+      confirmedLocationOptionId: confirmedLocation.id,
+      confirmedLocationOption: confirmedLocation,
+      lockedAt: new Date('2026-05-14T08:30:00.000Z'),
+      expiresAt: null,
+      archiveEligibleAt: new Date('2026-05-14T11:00:00.000Z'),
+      feedback: [
+        buildFeedback({
+          authorUserId: 'user-a',
+          subjectUserId: 'user-b',
+          personalFitScore: 4,
+          interactionQualityScore: 5,
+          positiveTags: ['RESPECTFUL', 'EASY_TO_TALK'],
+          note: 'Good meetup.',
+        }),
+        buildFeedback({
+          id: 'feedback-counterpart',
+          authorUserId: 'user-b',
+          subjectUserId: 'user-a',
+          personalFitScore: 1,
+          interactionQualityScore: 1,
+          positiveTags: [],
+          issueTags: ['LOW_EFFORT'],
+          note: 'Counterpart private note.',
+        }),
+      ],
+    });
+
+    tx.meetupSession.findUnique
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(session);
+
+    const response = await service.getSession('user-a', 'session-1');
+
+    expect(response.canSubmitFeedback).toBe(true);
+    expect(response.feedbackEligibleAt).toBe('2026-05-14T09:00:00.000Z');
+    expect(response.currentUserFeedback).toEqual({
+      personalFitScore: 4,
+      interactionQualityScore: 5,
+      safetyBoundaryLevel: 'NO_CONCERN',
+      positiveTags: ['RESPECTFUL', 'EASY_TO_TALK'],
+      issueTags: [],
+      note: 'Good meetup.',
+      submittedAt: '2026-05-14T10:05:00.000Z',
+    });
+  });
+
+  it('upserts post-meetup feedback with normalized payload and audit metadata without note text', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+    const confirmedTime = buildTimeOption({
+      id: 'time-confirmed',
+      status: 'CONFIRMED',
+      startsAt: new Date('2026-05-14T09:00:00.000Z'),
+      endsAt: new Date('2026-05-14T10:00:00.000Z'),
+    });
+    const confirmedLocation = buildLocationOption({
+      id: 'location-confirmed',
+      status: 'CONFIRMED',
+    });
+    const session = buildSession({
+      status: 'LOCKED',
+      currentProposalId: null,
+      currentProposal: null,
+      confirmedTimeOptionId: confirmedTime.id,
+      confirmedTimeOption: confirmedTime,
+      confirmedLocationOptionId: confirmedLocation.id,
+      confirmedLocationOption: confirmedLocation,
+      lockedAt: new Date('2026-05-14T08:30:00.000Z'),
+      expiresAt: null,
+      archiveEligibleAt: new Date('2026-05-14T11:00:00.000Z'),
+    });
+    const savedFeedback = buildFeedback({
+      personalFitScore: 5,
+      interactionQualityScore: 4,
+      safetyBoundaryLevel: 'MINOR_CONCERN',
+      positiveTags: ['RESPECTFUL', 'EASY_TO_TALK'],
+      issueTags: ['HARD_TO_COMMUNICATE'],
+      note: 'trim me',
+      updatedAt: new Date('2026-05-14T10:00:00.000Z'),
+    });
+
+    tx.meetupSession.findUnique
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(session);
+    tx.meetupFeedback.upsert.mockResolvedValue(savedFeedback);
+    tx.auditLog.create.mockResolvedValue({});
+
+    const response = await service.submitFeedback('user-a', 'session-1', {
+      personalFitScore: 5,
+      interactionQualityScore: 4,
+      safetyBoundaryLevel: 'MINOR_CONCERN',
+      positiveTags: ['RESPECTFUL', 'EASY_TO_TALK'],
+      issueTags: ['HARD_TO_COMMUNICATE'],
+      note: '  trim me  ',
+    });
+
+    expect(response).toEqual({
+      personalFitScore: 5,
+      interactionQualityScore: 4,
+      safetyBoundaryLevel: 'MINOR_CONCERN',
+      positiveTags: ['RESPECTFUL', 'EASY_TO_TALK'],
+      issueTags: ['HARD_TO_COMMUNICATE'],
+      note: 'trim me',
+      submittedAt: '2026-05-14T10:00:00.000Z',
+    });
+    expect(tx.meetupFeedback.upsert).toHaveBeenCalledWith({
+      where: {
+        sessionId_authorUserId: {
+          sessionId: 'session-1',
+          authorUserId: 'user-a',
+        },
+      },
+      update: {
+        matchId: 'match-1',
+        subjectUserId: 'user-b',
+        personalFitScore: 5,
+        interactionQualityScore: 4,
+        safetyBoundaryLevel: 'MINOR_CONCERN',
+        positiveTags: ['RESPECTFUL', 'EASY_TO_TALK'],
+        issueTags: ['HARD_TO_COMMUNICATE'],
+        note: 'trim me',
+      },
+      create: {
+        sessionId: 'session-1',
+        matchId: 'match-1',
+        authorUserId: 'user-a',
+        subjectUserId: 'user-b',
+        personalFitScore: 5,
+        interactionQualityScore: 4,
+        safetyBoundaryLevel: 'MINOR_CONCERN',
+        positiveTags: ['RESPECTFUL', 'EASY_TO_TALK'],
+        issueTags: ['HARD_TO_COMMUNICATE'],
+        note: 'trim me',
+      },
+    });
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        actorId: 'user-a',
+        action: 'meetup.feedback_submitted',
+        metadata: {
+          sessionId: 'session-1',
+          matchId: 'match-1',
+          authorUserId: 'user-a',
+          subjectUserId: 'user-b',
+          authorParticipantId: 'meetup-participant-a',
+          subjectParticipantId: 'meetup-participant-b',
+          personalFitScore: 5,
+          interactionQualityScore: 4,
+          safetyBoundaryLevel: 'MINOR_CONCERN',
+          positiveTags: ['RESPECTFUL', 'EASY_TO_TALK'],
+          issueTags: ['HARD_TO_COMMUNICATE'],
+        },
+      },
+    });
+  });
+
+  it('rejects post-meetup feedback before the confirmed start time', async () => {
+    const tx = createTx();
+    const { service } = createService(tx);
+    const confirmedTime = buildTimeOption({
+      id: 'time-confirmed',
+      status: 'CONFIRMED',
+      startsAt: new Date('2026-05-14T11:00:00.000Z'),
+      endsAt: new Date('2026-05-14T12:00:00.000Z'),
+    });
+    const confirmedLocation = buildLocationOption({
+      id: 'location-confirmed',
+      status: 'CONFIRMED',
+    });
+    const session = buildSession({
+      status: 'LOCKED',
+      currentProposalId: null,
+      currentProposal: null,
+      confirmedTimeOptionId: confirmedTime.id,
+      confirmedTimeOption: confirmedTime,
+      confirmedLocationOptionId: confirmedLocation.id,
+      confirmedLocationOption: confirmedLocation,
+      lockedAt: new Date('2026-05-14T08:30:00.000Z'),
+      expiresAt: null,
+      archiveEligibleAt: new Date('2026-05-14T13:00:00.000Z'),
+    });
+
+    tx.meetupSession.findUnique
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce(session);
+
+    await expect(
+      service.submitFeedback('user-a', 'session-1', {
+        personalFitScore: 5,
+        interactionQualityScore: 4,
+        safetyBoundaryLevel: 'NO_CONCERN',
+        positiveTags: [],
+        issueTags: [],
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(tx.meetupFeedback.upsert).not.toHaveBeenCalled();
     expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 

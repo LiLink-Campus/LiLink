@@ -1,10 +1,12 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsDefined,
   IsIn,
+  IsInt,
   IsISO8601,
   IsNotEmpty,
   IsNumber,
@@ -17,8 +19,18 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {
+  MEETUP_FEEDBACK_ISSUE_TAG_MAX_COUNT,
+  MEETUP_FEEDBACK_ISSUE_TAGS,
+  MEETUP_FEEDBACK_NOTE_MAX_LENGTH,
+  MEETUP_FEEDBACK_POSITIVE_TAG_MAX_COUNT,
+  MEETUP_FEEDBACK_POSITIVE_TAGS,
+  MEETUP_FEEDBACK_SCORE_MAX,
+  MEETUP_FEEDBACK_SCORE_MIN,
   MAX_MEETUP_PLACE_NAME_LENGTH,
   MEETUP_PROPOSAL_SCOPES,
+  MEETUP_SAFETY_BOUNDARY_LEVELS,
+  type MeetupFeedbackIssueTag,
+  type MeetupFeedbackPositiveTag,
   type MeetupMessageType,
   type MeetupOptionKind,
   type MeetupOptionStatus,
@@ -26,6 +38,7 @@ import {
   type MeetupProgressStatus,
   type MeetupProposalScope,
   type MeetupProposalStatus,
+  type MeetupSafetyBoundaryLevel,
   type MeetupSessionStatus,
   type MeetupUserTurnStatus,
 } from './constants';
@@ -145,6 +158,55 @@ export class CancelMeetupSessionDto {
   note?: string;
 }
 
+export class SubmitMeetupFeedbackDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(MEETUP_FEEDBACK_SCORE_MIN)
+  @Max(MEETUP_FEEDBACK_SCORE_MAX)
+  personalFitScore!: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(MEETUP_FEEDBACK_SCORE_MIN)
+  @Max(MEETUP_FEEDBACK_SCORE_MAX)
+  interactionQualityScore!: number;
+
+  @IsIn(MEETUP_SAFETY_BOUNDARY_LEVELS)
+  safetyBoundaryLevel!: MeetupSafetyBoundaryLevel;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MEETUP_FEEDBACK_POSITIVE_TAG_MAX_COUNT)
+  @ArrayUnique()
+  @IsIn(MEETUP_FEEDBACK_POSITIVE_TAGS, { each: true })
+  positiveTags?: MeetupFeedbackPositiveTag[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MEETUP_FEEDBACK_ISSUE_TAG_MAX_COUNT)
+  @ArrayUnique()
+  @IsIn(MEETUP_FEEDBACK_ISSUE_TAGS, { each: true })
+  issueTags?: MeetupFeedbackIssueTag[];
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MaxLength(MEETUP_FEEDBACK_NOTE_MAX_LENGTH)
+  note?: string | null;
+}
+
+export class MeetupFeedbackResponseDto {
+  personalFitScore!: number;
+  interactionQualityScore!: number;
+  safetyBoundaryLevel!: MeetupSafetyBoundaryLevel;
+  positiveTags!: MeetupFeedbackPositiveTag[];
+  issueTags!: MeetupFeedbackIssueTag[];
+  note!: string | null;
+  submittedAt!: string;
+}
+
 export class MeetupSessionResponseDto {
   id!: string;
   matchId!: string;
@@ -170,6 +232,9 @@ export class MeetupSessionResponseDto {
   participants!: MeetupParticipantResponseDto[];
   messages!: MeetupMessageResponseDto[];
   availableActions!: MeetupAvailableActionsResponseDto;
+  currentUserFeedback!: MeetupFeedbackResponseDto | null;
+  canSubmitFeedback!: boolean;
+  feedbackEligibleAt!: string | null;
 }
 
 export class MeetupCurrentPlanResponseDto {

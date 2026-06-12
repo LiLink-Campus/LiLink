@@ -9,6 +9,7 @@ import { ArrowRightIcon } from "./icons";
 
 type StepKey = "propose" | "select" | "confirm" | "meet";
 type StepStatus = "complete" | "active" | "pending" | "muted";
+type FeedbackDisplayState = "submitted" | "available" | "none";
 
 const STEP_LABELS: Record<StepKey, string> = {
   propose: "发起方案",
@@ -66,10 +67,29 @@ function stepStatesForSummary(
   }
 }
 
+function feedbackDisplayStateForSummary(
+  summary: DashboardMeetupSummary,
+): FeedbackDisplayState {
+  if (summary.currentUserFeedback) {
+    return "submitted";
+  }
+  if (summary.canSubmitFeedback) {
+    return "available";
+  }
+  return "none";
+}
+
 function pillForTask(
   summary: DashboardMeetupSummary,
   task: DashboardTask | null,
 ): { label: string; tone: "attention" | "waiting" | "on" | "default" } {
+  const feedbackState = feedbackDisplayStateForSummary(summary);
+  if (feedbackState === "submitted") {
+    return { label: "已反馈", tone: "on" };
+  }
+  if (feedbackState === "available") {
+    return { label: "可反馈", tone: "attention" };
+  }
   if (summary.status === "LOCKED") {
     return { label: "已确认", tone: "on" };
   }
@@ -105,10 +125,24 @@ export function MeetupStatusRibbon({
 }) {
   const stepStates = stepStatesForSummary(summary);
   const pill = pillForTask(summary, task);
+  const feedbackState = feedbackDisplayStateForSummary(summary);
   const isLocked = summary.status === "LOCKED";
-  const subtitle = isLocked
-    ? "时间和地点已经锁定。"
-    : task?.text || "可以继续推进见面安排。";
+  const subtitle =
+    feedbackState === "submitted"
+      ? "你已提交会后反馈。"
+      : feedbackState === "available"
+        ? "见面已开始，可以填写会后反馈。"
+        : isLocked
+          ? "时间和地点已经锁定。"
+          : task?.text || "可以继续推进见面安排。";
+  const ctaText =
+    feedbackState === "submitted"
+      ? "查看会后反馈"
+      : feedbackState === "available"
+        ? "填写会后反馈"
+        : isLocked
+          ? "查看确认的时间地点"
+          : "进入完整协商面板";
 
   return (
     <Link
@@ -146,9 +180,7 @@ export function MeetupStatusRibbon({
         ))}
       </ol>
       <div className={dcx("v2-meetup-ribbon-foot")}>
-        <span>
-          {isLocked ? "查看确认的时间地点" : "进入完整协商面板"}
-        </span>
+        <span>{ctaText}</span>
         <ArrowRightIcon />
       </div>
     </Link>
