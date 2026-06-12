@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-06-12T15:06:10.239Z",
+  "storybookDir": "apps/web/storybook-static",
+  "includeTags": [
+    "smoke"
+  ],
+  "includeStories": [
+    "modeselectcard"
+  ],
+  "screenshots": [
+    {
+      "storyId": "app-entry-modeselectcard--active-matching",
+      "title": "App Entry/ModeSelectCard",
+      "name": "Active Matching",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 720
+      },
+      "file": "artifacts/storybook-screenshots/app-entry-modeselectcard--active-matching--desktop.png"
+    },
+    {
+      "storyId": "app-entry-modeselectcard--active-matching",
+      "title": "App Entry/ModeSelectCard",
+      "name": "Active Matching",
+      "viewport": {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      },
+      "file": "artifacts/storybook-screenshots/app-entry-modeselectcard--active-matching--mobile.png"
+    },
+    {
+      "storyId": "app-entry-modeselectcard--upcoming-group-mode",
+      "title": "App Entry/ModeSelectCard",
+      "name": "Upcoming Group Mode",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 720
+      },
+      "file": "artifacts/storybook-screenshots/app-entry-modeselectcard--upcoming-group-mode--desktop.png"
+    },
+    {
+      "storyId": "app-entry-modeselectcard--upcoming-group-mode",
+      "title": "App Entry/ModeSelectCard",
+      "name": "Upcoming Group Mode",
+      "viewport": {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      },
+      "file": "artifacts/storybook-screenshots/app-entry-modeselectcard--upcoming-group-mode--mobile.png"
+    }
+  ],
+  "failures": []
+}
