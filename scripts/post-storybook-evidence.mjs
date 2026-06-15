@@ -95,18 +95,25 @@ function buildComment(manifest, { repoSlug, evidenceSha, headSha }) {
     "## Storybook Visual Evidence",
     "",
     `Screenshots for \`${headSha.slice(0, 7)}\` (${filter}).`,
-    "",
-    "| Story | Screenshots |",
-    "| --- | --- |",
   ];
   for (const [story, shots] of byStory) {
-    const links = shots
-      .map(
-        (shot) =>
-          `[${shot.viewport.name}](${blobBase}/${encodeURIComponent(path.basename(shot.file))})`,
-      )
-      .join(" · ");
-    lines.push(`| ${story} | ${links} |`);
+    // Render each capture inline. `?raw=true` makes the blob URL return the
+    // raw image bytes so the `![]()` embed displays in the PR comment; a
+    // logged-in reviewer loads it with their session, so it works on private
+    // repos too. One column per viewport.
+    const header = shots.map((shot) => shot.viewport.name);
+    const images = shots.map(
+      (shot) =>
+        `![${shot.viewport.name}](${blobBase}/${encodeURIComponent(path.basename(shot.file))}?raw=true)`,
+    );
+    lines.push(
+      "",
+      `### ${story}`,
+      "",
+      `| ${header.join(" | ")} |`,
+      `| ${header.map(() => "---").join(" | ")} |`,
+      `| ${images.join(" | ")} |`,
+    );
   }
 
   if (failures.length > 0) {
