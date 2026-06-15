@@ -467,31 +467,54 @@ function NeedsProposeBody({
     [session, currentUserId],
   );
 
-  if (!counterpartProposal) {
+  // Surface the reason the counterpart rejected so the proposer doesn't
+  // re-propose blindly. Only when the counterpart's most recent message is a
+  // rejection — a later partial-accept must not resurface a stale REJECT note.
+  const rejectNote = useMemo(() => {
+    const message = findLatestMessageBy(
+      session,
+      (msg) => msg.actorUserId !== currentUserId,
+    );
+    return message?.type === "REJECT"
+      ? (message.noteText ?? message.notePreset ?? null)
+      : null;
+  }, [session, currentUserId]);
+
+  if (!counterpartProposal && !rejectNote) {
     return null;
   }
 
-  const timeCount = counterpartProposal.options.filter((o) => o.kind === "TIME").length;
-  const locationCount = counterpartProposal.options.filter(
-    (o) => o.kind === "LOCATION",
-  ).length;
+  const timeCount =
+    counterpartProposal?.options.filter((o) => o.kind === "TIME").length ?? 0;
+  const locationCount =
+    counterpartProposal?.options.filter((o) => o.kind === "LOCATION").length ?? 0;
 
   return (
-    <ul className={dcx("v2-meetup-summary-list")}>
-      <li>
-        <span className={dcx("v2-meetup-summary-tag")}>对方之前提议</span>
-        <span>
-          <strong>
-            {[
-              timeCount > 0 ? `${timeCount} 个时间` : null,
-              locationCount > 0 ? `${locationCount} 个地点` : null,
-            ]
-              .filter(Boolean)
-              .join(" · ") || "已撤回方案"}
-          </strong>
-        </span>
-      </li>
-    </ul>
+    <>
+      {rejectNote ? (
+        <div className={dcx("v2-meetup-action-counterpart-note")}>
+          <span className={dcx("v2-meetup-action-section-label")}>对方的备注</span>
+          <p>{rejectNote}</p>
+        </div>
+      ) : null}
+      {counterpartProposal ? (
+        <ul className={dcx("v2-meetup-summary-list")}>
+          <li>
+            <span className={dcx("v2-meetup-summary-tag")}>对方之前提议</span>
+            <span>
+              <strong>
+                {[
+                  timeCount > 0 ? `${timeCount} 个时间` : null,
+                  locationCount > 0 ? `${locationCount} 个地点` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "已撤回方案"}
+              </strong>
+            </span>
+          </li>
+        </ul>
+      ) : null}
+    </>
   );
 }
 
