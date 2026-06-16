@@ -20,6 +20,105 @@
     var(--color-canvas);
 }
 
+.semesterNoticeWrap {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 1.75rem) var(--home-section-inline) 0;
+}
+
+.semesterNotice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: clamp(0.85rem, 2.5vw, 1.2rem);
+  padding: clamp(0.95rem, 2.6vw, 1.3rem) clamp(1.1rem, 3vw, 1.6rem);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    118deg,
+    var(--color-brand-ink) 0%,
+    var(--color-brand) 62%,
+    #a8485a 100%
+  );
+  color: #fff;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.semesterNotice::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 60% 130% at 100% 0%,
+    rgba(201, 168, 106, 0.45) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.semesterNoticeGlyph {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(2.5rem, 7vw, 3rem);
+  height: clamp(2.5rem, 7vw, 3rem);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.semesterNoticeIcon {
+  width: clamp(1.35rem, 4vw, 1.6rem);
+  height: clamp(1.35rem, 4vw, 1.6rem);
+}
+
+.semesterNoticeBody {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.semesterNoticeKicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.semesterNoticeHeadline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.02rem, 3.4vw, 1.2rem);
+  font-weight: 600;
+  line-height: 1.45;
+  color: #fff;
+}
+
+.semesterNoticeHeadline strong {
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 0.05em 0.42em;
+  margin: 0 0.1em;
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.semesterNoticeSub {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+}
+
 .hero {
   position: relative;
   width: 100%;

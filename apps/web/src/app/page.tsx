@@ -8,6 +8,7 @@ import {
   GrassRowIllustration,
   ThreeChairsIllustration,
 } from "./dashboard/_components/illustrations";
+import { CalendarIcon } from "./dashboard/_components/icons";
 import { HeroRevealCountdown } from "./hero-reveal-countdown";
 import { ModeSelectCard } from "./mode-select-card";
 import { RecentUpdates } from "./_components/RecentUpdates";
@@ -45,6 +46,24 @@ export default async function Home() {
 
   return (
     <main className={styles.homePage}>
+      <div className={styles.semesterNoticeWrap}>
+        <section className={styles.semesterNotice} aria-label="学期公告">
+          <span className={styles.semesterNoticeGlyph} aria-hidden="true">
+            <CalendarIcon className={styles.semesterNoticeIcon} />
+          </span>
+          <div className={styles.semesterNoticeBody}>
+            <p className={styles.semesterNoticeKicker}>学期公告</p>
+            <p className={styles.semesterNoticeHeadline}>
+              本学期即将步入尾声，<strong>6 月 23 日</strong>
+              将是这个学期的最后一次匹配。
+            </p>
+            <p className={styles.semesterNoticeSub}>
+              感谢这一路的认真相遇，我们下个学期再见。
+            </p>
+          </div>
+        </section>
+      </div>
+
       <section className={styles.hero}>
         <div className={`${styles.heroContent} animate-in`}>
           <p className="eyebrow">LiLink · 校园里的，认真相遇</p>
