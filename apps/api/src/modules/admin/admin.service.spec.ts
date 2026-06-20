@@ -24,6 +24,7 @@ describe('AdminService', () => {
     const prisma = {};
     const cyclesService = {
       runRevealCycle: jest.fn().mockResolvedValue({ ok: true }),
+      invalidateAutomationSchedule: jest.fn(),
     };
     const adminAuditService = {
       listAuditLogs: jest.fn(),
@@ -50,6 +51,7 @@ describe('AdminService', () => {
       force: true,
       adminActorId: 'admin-1',
     });
+    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('uses the full open report count while still returning a capped preview list', async () => {
@@ -73,7 +75,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -154,7 +159,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       adminAuditService as never,
       {} as never,
     );
@@ -246,9 +254,13 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn(),
     };
+    const cyclesService = {
+      runRevealCycle: jest.fn(),
+      invalidateAutomationSchedule: jest.fn(),
+    };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      cyclesService as never,
       adminAuditService as never,
       {} as never,
     );
@@ -314,6 +326,7 @@ describe('AdminService', () => {
         status: 'OPEN',
       },
     );
+    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('rejects manually setting the internal PREPARING cycle status', async () => {
@@ -325,7 +338,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -359,7 +375,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -393,7 +412,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -428,7 +450,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -468,7 +493,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -519,7 +547,10 @@ describe('AdminService', () => {
       };
       const service = new AdminService(
         prisma as never,
-        { runRevealCycle: jest.fn() } as never,
+        {
+          runRevealCycle: jest.fn(),
+          invalidateAutomationSchedule: jest.fn(),
+        } as never,
         {
           listAuditLogs: jest.fn(),
           getRecentAuditLogsByCondition: jest.fn(),
@@ -586,9 +617,13 @@ describe('AdminService', () => {
         ),
       ),
     };
+    const cyclesService = {
+      runRevealCycle: jest.fn(),
+      invalidateAutomationSchedule: jest.fn(),
+    };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      cyclesService as never,
       adminAuditService as never,
       {} as never,
     );
@@ -629,6 +664,7 @@ describe('AdminService', () => {
         status: 'REVEAL_READY',
       },
     );
+    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('allows saving an already revealed cycle without changing reveal state', async () => {
@@ -651,9 +687,13 @@ describe('AdminService', () => {
         }),
       },
     };
+    const cyclesService = {
+      runRevealCycle: jest.fn(),
+      invalidateAutomationSchedule: jest.fn(),
+    };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      cyclesService as never,
       adminAuditService as never,
       {} as never,
     );
@@ -694,6 +734,7 @@ describe('AdminService', () => {
         status: 'REVEALED',
       },
     );
+    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('loads cycle detail without backfilling participation rows', async () => {
@@ -723,7 +764,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -789,7 +833,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -826,7 +873,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -919,7 +969,10 @@ describe('AdminService', () => {
           findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
         },
       } as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -1015,7 +1068,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       audit as never,
       {} as never,
     );
@@ -1117,7 +1173,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -1140,7 +1199,10 @@ describe('AdminService', () => {
           findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
         },
       } as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -1193,7 +1255,10 @@ describe('AdminService', () => {
             .mockResolvedValue([{ id: 'school-bupt' }, { id: 'school-cuc' }]),
         },
       } as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
@@ -1270,7 +1335,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       adminAuditService as never,
       {} as never,
     );
@@ -1321,7 +1389,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       adminAuditService as never,
       {} as never,
       undefined,
@@ -1414,7 +1485,10 @@ describe('AdminService', () => {
     };
     const service = new AdminService(
       prisma as never,
-      { runRevealCycle: jest.fn() } as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       adminAuditService as never,
       {} as never,
       {

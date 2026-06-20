@@ -27,6 +27,12 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MAX_CLIENT_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const PRODUCT_EVENT_OUTBOX_FLUSH_BATCH_SIZE = 50;
 const PRODUCT_EVENT_OUTBOX_STALE_PROCESSING_MS = 10 * 60 * 1000;
+// Backstop flush window. The outbox cron only sweeps the DB while
+// Date.now() <= outboxPollUntil; enqueue and FAILED retries push this window
+// forward, so an idle cron tick skips the query entirely and lets Neon's
+// compute scale to zero. Analytics rows tolerate the resulting minute-scale
+// processing lag (their only consumer is the request-driven admin dashboard).
+const PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS = 15 * 60 * 1000;
 
 type ProductEventOutboxStatusDb =
   | 'PENDING'
@@ -206,8 +212,17 @@ export type MeetupFinalConfirmedOutcome = {
 @Injectable()
 export class ProductAnalyticsService {
   private readonly logger = new Logger(ProductAnalyticsService.name);
+  // Sweep until this epoch-ms; starts open so the first ticks after boot drain
+  // any rows orphaned by a restart, then lapses to let Neon sleep when idle.
+  private outboxPollUntil = Date.now() + PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private extendOutboxWindow(until: number) {
+    if (until > this.outboxPollUntil) {
+      this.outboxPollUntil = until;
+    }
+  }
 
   async recordBrowserEvent(userId: string, dto: CreateProductEventDto) {
     if (!isProductEventName(dto.name)) {
@@ -426,11 +441,18 @@ export class ProductAnalyticsService {
     };
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS, {
+  // Runs every 5 minutes but only touches the DB while the flush window is open
+  // (a recent enqueue or a pending FAILED retry). Idle ticks return without
+  // querying so Neon's compute can scale to zero.
+  @Cron(CronExpression.EVERY_5_MINUTES, {
     name: 'product-event-outbox-flush',
     waitForCompletion: true,
   })
   async handleProductEventOutbox() {
+    if (Date.now() > this.outboxPollUntil) {
+      return;
+    }
+
     try {
       await this.flushProductEventOutbox();
     } catch (error) {
@@ -643,6 +665,10 @@ export class ProductAnalyticsService {
     store: ProductEventOutboxStore,
     data: Prisma.ProductEventUncheckedCreateInput,
   ) {
+    // Keep the backstop window open so the cron sweeps the new row even when the
+    // process is otherwise idle.
+    this.extendOutboxWindow(Date.now() + PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS);
+
     return store.productEventOutbox.createMany({
       data: [this.productEventOutboxCreateData(data)],
       skipDuplicates: true,
@@ -668,6 +694,13 @@ export class ProductAnalyticsService {
     store: ProductOutcomeRecoveryStore,
     data: Prisma.ProductEventUncheckedCreateInput,
   ) {
+    // Reviving a recoverable row to PENDING re-queues it for the flush cron, so
+    // keep the backstop window open just like a fresh enqueue. The daily
+    // reconcile runs while compute may have scaled to zero and the gated flush
+    // cron skips closed-window ticks; without this the revived row would strand
+    // until the next live enqueue or a restart.
+    this.extendOutboxWindow(Date.now() + PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS);
+
     return store.productEventOutbox.updateMany({
       where: this.recoverableOutboxWhere(data.eventId),
       data: {
@@ -768,6 +801,19 @@ export class ProductAnalyticsService {
     });
     if (claimResult.count === 0) return;
 
+    // The row is now PROCESSING. If both the RECORDED success write and the
+    // catch-block FAILED/EXHAUSTED write below throw (a transient DB blip
+    // spanning both), it is left stuck PROCESSING with no other window
+    // extension and is only reclaimable at lastAttemptAt + stale threshold.
+    // Hold the backstop window open past that reclaim point so the gated cron
+    // re-sweeps it instead of stranding it until the daily reconcile. Mirrors
+    // MailService.processOutboundEmail's claim-time extension.
+    this.extendOutboxWindow(
+      claimedAt.getTime() +
+        PRODUCT_EVENT_OUTBOX_STALE_PROCESSING_MS +
+        PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS,
+    );
+
     try {
       if (!isProductEventName(row.name)) {
         throw new BadRequestException('Product outcome event name is invalid.');
@@ -817,6 +863,13 @@ export class ProductAnalyticsService {
           errorMessage,
         },
       });
+
+      // Keep the backstop window open through the scheduled retry.
+      if (nextAttemptAt) {
+        this.extendOutboxWindow(
+          nextAttemptAt.getTime() + PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS,
+        );
+      }
 
       this.logger.warn(
         `Product analytics outcome failed for ${row.eventId}: ${errorMessage}`,
