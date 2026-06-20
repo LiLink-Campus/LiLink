@@ -24,7 +24,6 @@
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
-  min-width: 0;
   padding: clamp(1rem, 3vw, 1.75rem) var(--home-section-inline) 0;
 }
 
@@ -33,9 +32,6 @@
   display: flex;
   align-items: flex-start;
   gap: clamp(0.85rem, 2.5vw, 1.2rem);
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
   padding: clamp(0.95rem, 2.6vw, 1.3rem) clamp(1.1rem, 3vw, 1.6rem);
   border-radius: var(--radius-lg);
   background: linear-gradient(
@@ -150,10 +146,6 @@
   overflow-wrap: anywhere;
 }
 
-.semesterNoticeHeadlineLine {
-  display: inline;
-}
-
 @media (max-width: 559px) {
   .semesterNoticeHeadline {
     grid-row: 2;
@@ -179,7 +171,6 @@
   font-weight: 700;
   white-space: nowrap;
   padding: 0.08em 0.45em;
-  margin: 0;
   border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.2);
   color: #fff;
@@ -197,10 +188,6 @@
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.82);
   overflow-wrap: anywhere;
-}
-
-.semesterNoticeSubLine {
-  display: inline;
 }
 
 @media (max-width: 559px) {
