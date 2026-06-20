@@ -54,19 +54,21 @@ const PRE_PRIORITY_UNMATCHED_STREAK_BONUS = 2;
 const NEW_OPT_IN_FIRST_CYCLE_BONUS = 6;
 
 /**
- * Only ACTIVE users with a stored weekly intent may appear in matching /
- * preview / reveal pools. Sticky carry-over preserves the latest intent for
- * OPTED_IN users and falls back to BOTH for pre-feature rows, so a NULL
- * intent here means the participation still lacks a usable cycle intent.
+ * Only ACTIVE, non-test users with a stored weekly intent may appear in
+ * matching / preview / reveal pools. Sticky carry-over preserves the latest
+ * intent for OPTED_IN users and falls back to BOTH for pre-feature rows, so a
+ * NULL intent here means the participation still lacks a usable cycle intent.
+ * `isTest: false` keeps demo/seed accounts out of the live pool so they can
+ * never be paired with real users, even while ACTIVE and opted in.
  */
 const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput =
   {
     status: 'OPTED_IN',
     intent: { not: null },
-    user: { status: 'ACTIVE' },
+    user: { status: 'ACTIVE', isTest: false },
   };
 
-const CYCLE_PROCESSING_INCLUDE = {
+export const CYCLE_PROCESSING_INCLUDE = {
   participations: {
     where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
     select: {
