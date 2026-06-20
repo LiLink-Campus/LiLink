@@ -24,14 +24,18 @@
   width: 100%;
   max-width: var(--container);
   margin: 0 auto;
+  min-width: 0;
   padding: clamp(1rem, 3vw, 1.75rem) var(--home-section-inline) 0;
 }
 
 .semesterNotice {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: clamp(0.85rem, 2.5vw, 1.2rem);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: clamp(0.95rem, 2.6vw, 1.3rem) clamp(1.1rem, 3vw, 1.6rem);
   border-radius: var(--radius-lg);
   background: linear-gradient(
@@ -43,6 +47,17 @@
   color: #fff;
   box-shadow: var(--shadow-md);
   overflow: hidden;
+}
+
+@media (max-width: 559px) {
+  .semesterNotice {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto auto;
+    column-gap: 0.7rem;
+    row-gap: 0.55rem;
+    padding: 1.15rem 1.2rem 1.25rem;
+  }
 }
 
 .semesterNotice::after {
@@ -71,6 +86,21 @@
   border: 1px solid rgba(255, 255, 255, 0.28);
 }
 
+@media (max-width: 559px) {
+  .semesterNoticeGlyph {
+    grid-row: 1;
+    grid-column: 1;
+    width: 2.15rem;
+    height: 2.15rem;
+    align-self: center;
+  }
+
+  .semesterNoticeIcon {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+}
+
 .semesterNoticeIcon {
   width: clamp(1.35rem, 4vw, 1.6rem);
   height: clamp(1.35rem, 4vw, 1.6rem);
@@ -81,7 +111,15 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 559px) {
+  .semesterNoticeBody {
+    display: contents;
+  }
 }
 
 .semesterNoticeKicker {
@@ -93,6 +131,15 @@
   color: rgba(255, 255, 255, 0.78);
 }
 
+@media (max-width: 559px) {
+  .semesterNoticeKicker {
+    grid-row: 1;
+    grid-column: 2;
+    align-self: center;
+    letter-spacing: 0.1em;
+  }
+}
+
 .semesterNoticeHeadline {
   margin: 0;
   font-family: var(--font-display);
@@ -100,16 +147,48 @@
   font-weight: 600;
   line-height: 1.45;
   color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.semesterNoticeHeadlineLine {
+  display: inline;
+}
+
+@media (max-width: 559px) {
+  .semesterNoticeHeadline {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    font-size: 0.98rem;
+    line-height: 1.68;
+  }
+
+  .semesterNoticeHeadlineLine {
+    display: block;
+  }
+
+  .semesterNoticeHeadlineLine + .semesterNoticeHeadlineLine {
+    margin-top: 0.2rem;
+  }
+
+  .semesterNoticeHeadlineDate {
+    margin-top: 0.35rem;
+  }
 }
 
 .semesterNoticeHeadline strong {
   font-weight: 700;
   white-space: nowrap;
-  padding: 0.05em 0.42em;
-  margin: 0 0.1em;
+  padding: 0.08em 0.45em;
+  margin: 0;
   border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.2);
   color: #fff;
+}
+
+@media (min-width: 560px) {
+  .semesterNoticeHeadline strong {
+    margin: 0 0.12em 0 0;
+  }
 }
 
 .semesterNoticeSub {
@@ -117,6 +196,36 @@
   font-size: 0.88rem;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.82);
+  overflow-wrap: anywhere;
+}
+
+.semesterNoticeSubLine {
+  display: inline;
+}
+
+@media (max-width: 559px) {
+  .semesterNoticeSub {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    font-size: 0.84rem;
+    line-height: 1.72;
+    padding-top: 0.15rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .semesterNoticeSubLine {
+    display: block;
+  }
+
+  .semesterNoticeSubLine + .semesterNoticeSubLine {
+    margin-top: 0.15rem;
+  }
+}
+
+@media (min-width: 880px) {
+  .semesterNotice {
+    align-items: center;
+  }
 }
 
 .hero {

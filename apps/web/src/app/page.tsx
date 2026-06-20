@@ -54,11 +54,25 @@ export default async function Home() {
           <div className={styles.semesterNoticeBody}>
             <p className={styles.semesterNoticeKicker}>学期公告</p>
             <p className={styles.semesterNoticeHeadline}>
-              本学期即将步入尾声，<strong>6 月 23 日</strong>
-              将是这个学期的最后一次匹配。
+              <span className={styles.semesterNoticeHeadlineLine}>
+                本学期即将步入尾声，
+              </span>
+              <span
+                className={`${styles.semesterNoticeHeadlineLine} ${styles.semesterNoticeHeadlineDate}`}
+              >
+                <strong>6 月 23 日</strong>
+              </span>
+              <span className={styles.semesterNoticeHeadlineLine}>
+                将是这个学期的最后一次匹配。
+              </span>
             </p>
             <p className={styles.semesterNoticeSub}>
-              感谢这一路的认真相遇，我们下个学期再见。
+              <span className={styles.semesterNoticeSubLine}>
+                感谢这一路的认真相遇，
+              </span>
+              <span className={styles.semesterNoticeSubLine}>
+                我们下个学期再见。
+              </span>
             </p>
           </div>
         </section>
