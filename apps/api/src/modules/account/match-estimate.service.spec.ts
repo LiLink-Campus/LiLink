@@ -215,7 +215,7 @@ describe('MatchEstimateService', () => {
           cycleId: 'cycle-1',
           status: 'OPTED_IN',
           intent: { not: null },
-          user: { status: 'ACTIVE' },
+          user: { status: 'ACTIVE', isTest: false },
         },
       }),
     );

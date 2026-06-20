@@ -14,14 +14,16 @@ import {
 } from '../questionnaire/hard-match';
 
 /**
- * Mirrors cycles.service: only ACTIVE users opted in with a usable weekly intent
- * form the live candidate pool that matching actually draws from.
+ * Mirrors cycles.service: only ACTIVE, non-test users opted in with a usable
+ * weekly intent form the live candidate pool that matching actually draws from.
+ * `isTest: false` keeps demo/seed accounts from inflating the pool a real user
+ * is estimated against, matching the matcher's own exclusion.
  */
 const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput =
   {
     status: 'OPTED_IN',
     intent: { not: null },
-    user: { status: 'ACTIVE' },
+    user: { status: 'ACTIVE', isTest: false },
   };
 
 /**
