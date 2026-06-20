@@ -18,6 +18,7 @@ coverage/
 apps/*/coverage/
 apps/*/storybook-static/
 apps/web/public/mockServiceWorker.js
+artifacts/
 out/
 build/
 

@@ -1,0 +1,70 @@
+name: Storybook Visual Evidence
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "packages/shared/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vitest.config.ts"
+      - "scripts/capture-storybook-screenshots.mjs"
+      - ".github/workflows/storybook-visual-evidence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storybook-visual-evidence-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  storybook-visual-evidence:
+    name: Storybook smoke tests and screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:4000/v1"
+      STORYBOOK_DISABLE_TELEMETRY: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build static Storybook
+        run: npm run build-storybook:web
+
+      - name: Run Storybook smoke tests
+        run: npm run test:storybook:web
+
+      - name: Capture Storybook screenshots
+        run: npm run screenshots:storybook:web
+
+      - name: Add screenshot summary
+        if: always()
+        run: |
+          if [ -f artifacts/storybook-screenshots/summary.md ]; then
+            cat artifacts/storybook-screenshots/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload Storybook screenshot artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook-screenshots
+          path: artifacts/storybook-screenshots
+          if-no-files-found: ignore
+          retention-days: 14
