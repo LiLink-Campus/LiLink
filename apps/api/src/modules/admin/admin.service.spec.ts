@@ -51,6 +51,7 @@ describe('AdminService', () => {
       force: true,
       adminActorId: 'admin-1',
     });
+    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('uses the full open report count while still returning a capped preview list', async () => {
@@ -253,12 +254,13 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn(),
     };
+    const cyclesService = {
+      runRevealCycle: jest.fn(),
+      invalidateAutomationSchedule: jest.fn(),
+    };
     const service = new AdminService(
       prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
+      cyclesService as never,
       adminAuditService as never,
       {} as never,
     );
@@ -324,6 +326,7 @@ describe('AdminService', () => {
         status: 'OPEN',
       },
     );
+    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('rejects manually setting the internal PREPARING cycle status', async () => {
@@ -614,12 +617,13 @@ describe('AdminService', () => {
         ),
       ),
     };
+    const cyclesService = {
+      runRevealCycle: jest.fn(),
+      invalidateAutomationSchedule: jest.fn(),
+    };
     const service = new AdminService(
       prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
+      cyclesService as never,
       adminAuditService as never,
       {} as never,
     );
@@ -660,6 +664,7 @@ describe('AdminService', () => {
         status: 'REVEAL_READY',
       },
     );
+    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('allows saving an already revealed cycle without changing reveal state', async () => {
@@ -682,12 +687,13 @@ describe('AdminService', () => {
         }),
       },
     };
+    const cyclesService = {
+      runRevealCycle: jest.fn(),
+      invalidateAutomationSchedule: jest.fn(),
+    };
     const service = new AdminService(
       prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
+      cyclesService as never,
       adminAuditService as never,
       {} as never,
     );
@@ -728,6 +734,7 @@ describe('AdminService', () => {
         status: 'REVEALED',
       },
     );
+    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('loads cycle detail without backfilling participation rows', async () => {

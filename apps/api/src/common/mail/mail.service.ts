@@ -428,12 +428,15 @@ export class MailService {
     };
   }
 
-  // Runs every 5 minutes but only touches the DB while the flush window is open
+  // Runs every minute but only touches the DB while the flush window is open
   // (recent enqueue / inline-delivery attempt / pending FAILED retry). Idle
-  // ticks return without querying so Neon's compute can scale to zero. Inline
-  // delivery still handles latency-sensitive mail immediately; this is the
-  // retry/rescue backstop.
-  @Cron(CronExpression.EVERY_5_MINUTES, {
+  // ticks return without querying so Neon's compute can scale to zero — the
+  // in-memory window gate (not the cron cadence) is what lets the DB sleep, so
+  // keeping a 1-min cadence costs nothing while idle yet preserves the
+  // verification-code retry budget (~3 min) inside its 10-min TTL when SMTP is
+  // flaky. Inline delivery still handles latency-sensitive mail immediately;
+  // this is the retry/rescue backstop.
+  @Cron(CronExpression.EVERY_MINUTE, {
     name: 'outbound-email-flush',
     waitForCompletion: true,
   })

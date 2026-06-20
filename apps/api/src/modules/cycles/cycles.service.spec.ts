@@ -2833,6 +2833,28 @@ describe('CyclesService automation scheduling gate', () => {
     ).toBe(true);
   });
 
+  it('caps the skip at the 6h idle re-check when the next boundary is far ahead', async () => {
+    const participationDeadline = new Date(NOW.getTime() + 10 * 60 * 60 * 1000);
+    const service = createService([
+      {
+        status: 'OPEN',
+        participationDeadline,
+        revealAt: new Date(NOW.getTime() + 20 * 60 * 60 * 1000),
+      },
+    ]);
+
+    await service.refreshAutomationSchedule(NOW);
+
+    expect(
+      service.isAutomationDue(new Date(NOW.getTime() + 5 * 60 * 60 * 1000)),
+    ).toBe(false);
+    expect(
+      service.isAutomationDue(
+        new Date(NOW.getTime() + 6 * 60 * 60 * 1000 + 1000),
+      ),
+    ).toBe(true);
+  });
+
   it('revisits promptly while a cycle is PREPARING', async () => {
     const service = createService([
       { status: 'PREPARING', participationDeadline: NOW, revealAt: NOW },

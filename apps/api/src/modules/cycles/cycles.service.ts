@@ -480,20 +480,17 @@ export class CyclesService {
       return new Date(now.getTime() + AUTOMATION_PREPARING_RECHECK_MS);
     }
 
-    const boundaries = activeCycles
-      .map((cycle) =>
-        cycle.status === 'REVEAL_READY'
+    // participationDeadline (OPEN) and revealAt (REVEAL_READY) are both
+    // non-nullable DateTime in the schema, and the empty / PREPARING cases
+    // already returned above, so every remaining cycle yields one boundary.
+    const nextBoundary = Math.min(
+      ...activeCycles.map((cycle) =>
+        (cycle.status === 'REVEAL_READY'
           ? cycle.revealAt
-          : cycle.participationDeadline,
-      )
-      .filter((boundary): boundary is Date => boundary != null)
-      .map((boundary) => boundary.getTime());
-
-    if (boundaries.length === 0) {
-      return new Date(now.getTime() + AUTOMATION_IDLE_RECHECK_MS);
-    }
-
-    const nextBoundary = Math.min(...boundaries);
+          : cycle.participationDeadline
+        ).getTime(),
+      ),
+    );
     // Cap how far ahead we skip so a missed invalidation self-heals; never
     // schedule in the past (a due boundary just means run on the next tick).
     const target = Math.min(

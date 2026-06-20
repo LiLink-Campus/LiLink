@@ -848,4 +848,52 @@ describe('ProductAnalyticsService outbox flush backstop window', () => {
       jest.useRealTimers();
     }
   });
+
+  it('keeps the window open past the stale reclaim when a claimed row double-faults', async () => {
+    jest.useFakeTimers();
+    try {
+      const prisma = makePrisma();
+      const stuck = {
+        id: 'outbox-stuck',
+        eventId: `match_contact_requested:${MATCH_ID}`,
+        name: 'match_contact_requested',
+        eventVersion: 1,
+        userId: 'user-1',
+        entityType: 'match',
+        entityId: MATCH_ID,
+        metadata: { matchId: MATCH_ID },
+        occurredAt: new Date(),
+        status: 'PENDING',
+        attempts: 0,
+        maxAttempts: 5,
+        lastAttemptAt: null,
+        nextAttemptAt: null,
+        createdAt: new Date(),
+      };
+      prisma.productEventOutbox.findMany.mockResolvedValue([stuck]);
+      // The claim succeeds (row -> PROCESSING) but both the RECORDED success
+      // write and the FAILED catch-block write throw, leaving the row stuck
+      // PROCESSING.
+      prisma.productEventOutbox.updateMany.mockResolvedValue({ count: 1 });
+      prisma.productEventOutbox.update.mockRejectedValue(new Error('db blip'));
+      const service = new ProductAnalyticsService(prisma as never);
+
+      // First sweep claims the row, then both follow-up writes fail. The claim
+      // itself must extend the window past the stale-processing reclaim.
+      await service.handleProductEventOutbox().catch(() => undefined);
+      expect(prisma.productEventOutbox.updateMany).toHaveBeenCalledTimes(1);
+
+      prisma.productEventOutbox.findMany.mockClear();
+
+      // 20 min: past the 10-min stale-processing reclaim point. Without the
+      // claim-time extension the 15-min window would have lapsed and the gated
+      // cron would skip, stranding the row. It must still sweep.
+      jest.advanceTimersByTime(20 * 60 * 1000);
+      await service.handleProductEventOutbox().catch(() => undefined);
+
+      expect(prisma.productEventOutbox.findMany).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

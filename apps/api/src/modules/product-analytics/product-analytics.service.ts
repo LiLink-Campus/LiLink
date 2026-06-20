@@ -801,6 +801,19 @@ export class ProductAnalyticsService {
     });
     if (claimResult.count === 0) return;
 
+    // The row is now PROCESSING. If both the RECORDED success write and the
+    // catch-block FAILED/EXHAUSTED write below throw (a transient DB blip
+    // spanning both), it is left stuck PROCESSING with no other window
+    // extension and is only reclaimable at lastAttemptAt + stale threshold.
+    // Hold the backstop window open past that reclaim point so the gated cron
+    // re-sweeps it instead of stranding it until the daily reconcile. Mirrors
+    // MailService.processOutboundEmail's claim-time extension.
+    this.extendOutboxWindow(
+      claimedAt.getTime() +
+        PRODUCT_EVENT_OUTBOX_STALE_PROCESSING_MS +
+        PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS,
+    );
+
     try {
       if (!isProductEventName(row.name)) {
         throw new BadRequestException('Product outcome event name is invalid.');
