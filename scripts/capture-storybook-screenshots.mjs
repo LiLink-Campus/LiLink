@@ -79,7 +79,7 @@ async function readStorybookIndex() {
   }
 
   const index = JSON.parse(await readFile(indexPath, "utf8"));
-  const entries = Object.values(index.entries || index.stories || {});
+  const entries = Object.values(index.entries || {});
   const stories = entries
     .filter((entry) => entry?.type === "story")
     .filter((entry) => {
@@ -173,9 +173,7 @@ async function captureStory(page, baseUrl, story, viewport) {
     timeout: 15_000,
   });
   await page.evaluate(async () => {
-    if ("fonts" in document) {
-      await document.fonts.ready;
-    }
+    await document.fonts.ready;
   });
   await page.waitForTimeout(400);
 

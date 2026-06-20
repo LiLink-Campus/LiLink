@@ -133,33 +133,40 @@ function buildComment(manifest, { repoSlug, evidenceSha, headSha }) {
 }
 
 async function upsertComment(prNumber, repoSlug, body) {
-  const bodyFile = path.join(outputDir, "evidence-comment.md");
+  // Write outside outputDir: outputDir is the git work-tree pushed to the
+  // evidence branch, so a comment file left there would be committed onto that
+  // branch on a subsequent run. Keep it in the OS temp dir and clean it up.
+  const bodyFile = path.join(tmpdir(), `evidence-comment-${prNumber}.md`);
   await writeFile(bodyFile, body);
-  const existingId = run("gh", [
-    "api",
-    `repos/${repoSlug}/issues/${prNumber}/comments`,
-    "--paginate",
-    "--jq",
-    `[.[] | select(.body | startswith("${MARKER}")) | .id] | first // empty`,
-  ]);
-  if (existingId) {
+  try {
+    const existingId = run("gh", [
+      "api",
+      `repos/${repoSlug}/issues/${prNumber}/comments`,
+      "--paginate",
+      "--jq",
+      `[.[] | select(.body | startswith("${MARKER}")) | .id] | first // empty`,
+    ]);
+    if (existingId) {
+      run("gh", [
+        "api",
+        "-X",
+        "PATCH",
+        `repos/${repoSlug}/issues/comments/${existingId}`,
+        "-F",
+        `body=@${bodyFile}`,
+      ]);
+      return "updated";
+    }
     run("gh", [
       "api",
-      "-X",
-      "PATCH",
-      `repos/${repoSlug}/issues/comments/${existingId}`,
+      `repos/${repoSlug}/issues/${prNumber}/comments`,
       "-F",
       `body=@${bodyFile}`,
     ]);
-    return "updated";
+    return "created";
+  } finally {
+    await rm(bodyFile, { force: true });
   }
-  run("gh", [
-    "api",
-    `repos/${repoSlug}/issues/${prNumber}/comments`,
-    "-F",
-    `body=@${bodyFile}`,
-  ]);
-  return "created";
 }
 
 async function main() {
