@@ -812,4 +812,40 @@ describe('ProductAnalyticsService outbox flush backstop window', () => {
       jest.useRealTimers();
     }
   });
+
+  it('reopens the flush window when reconcile revives a recoverable row', async () => {
+    jest.useFakeTimers();
+    try {
+      const prisma = makePrisma();
+      // A recent redemption whose outcome row the daily reconcile will revive.
+      prisma.redemption.findMany.mockResolvedValue([
+        {
+          couponId: COUPON_ID,
+          merchantId: MERCHANT_ID,
+          userId: 'user-1',
+          redeemedAt: new Date(),
+          coupon: { templateId: TEMPLATE_ID },
+        },
+      ]);
+      // The reset updateMany reports the recoverable row was revived to PENDING.
+      prisma.productEventOutbox.updateMany.mockResolvedValue({ count: 1 });
+      const service = new ProductAnalyticsService(prisma as never);
+
+      // Let the boot window lapse so the gated flush cron would otherwise skip.
+      jest.advanceTimersByTime(60 * 60 * 1000);
+      await service.handleProductEventOutbox();
+      expect(prisma.productEventOutbox.findMany).not.toHaveBeenCalled();
+
+      // The daily reconcile resets a recoverable row back to PENDING; the flush
+      // window must reopen so the next tick sweeps the revived row instead of
+      // stranding it until the next live enqueue or a restart.
+      await service.reconcileRecentOutcomeOutbox();
+      await service.handleProductEventOutbox();
+
+      expect(prisma.productEventOutbox.updateMany).toHaveBeenCalled();
+      expect(prisma.productEventOutbox.findMany).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
