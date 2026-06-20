@@ -762,3 +762,54 @@ describe('ProductAnalyticsService', () => {
     });
   });
 });
+
+describe('ProductAnalyticsService outbox flush backstop window', () => {
+  it('sweeps on the first tick after boot to drain orphaned rows', async () => {
+    const prisma = makePrisma();
+    const service = new ProductAnalyticsService(prisma as never);
+
+    await service.handleProductEventOutbox();
+
+    expect(prisma.productEventOutbox.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the DB sweep once the flush window has lapsed', async () => {
+    jest.useFakeTimers();
+    try {
+      const prisma = makePrisma();
+      const service = new ProductAnalyticsService(prisma as never);
+
+      jest.advanceTimersByTime(60 * 60 * 1000);
+      await service.handleProductEventOutbox();
+
+      expect(prisma.productEventOutbox.findMany).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reopens the flush window when a new outcome is enqueued', async () => {
+    jest.useFakeTimers();
+    try {
+      const prisma = makePrisma();
+      const service = new ProductAnalyticsService(prisma as never);
+
+      jest.advanceTimersByTime(60 * 60 * 1000);
+      await service.handleProductEventOutbox();
+      expect(prisma.productEventOutbox.findMany).not.toHaveBeenCalled();
+
+      await service.enqueueCouponRedeemedOutcome(prisma as never, {
+        couponId: COUPON_ID,
+        couponTemplateId: TEMPLATE_ID,
+        merchantId: MERCHANT_ID,
+        userId: 'user-1',
+        occurredAt: new Date(),
+      });
+      await service.handleProductEventOutbox();
+
+      expect(prisma.productEventOutbox.findMany).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});

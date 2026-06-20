@@ -198,7 +198,10 @@ export class MeetupService {
     return locationCandidates.map((candidate) => ({ ...candidate }));
   }
 
-  @Cron(CronExpression.EVERY_HOUR, {
+  // Every 6 hours: the reminder only fires once a required turn is already 24h
+  // overdue, so a few hours of extra slack is invisible while the DB gets long
+  // idle gaps to scale to zero (a per-session dedupeKey keeps it idempotent).
+  @Cron(CronExpression.EVERY_6_HOURS, {
     name: 'meetup-reminder-email',
     waitForCompletion: true,
   })
