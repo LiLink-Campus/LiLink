@@ -2753,4 +2753,31 @@ describe('CyclesService', () => {
       distinct: ['userId'],
     });
   });
+
+  it('keeps test accounts (isTest) out of the live candidate pool', async () => {
+    const findUnique = jest
+      .fn()
+      .mockResolvedValue({ id: 'cycle-1', participations: [] });
+    const prisma = {
+      matchCycle: { findUnique },
+      // No current questionnaire short-circuits previewCycle right after the
+      // candidate-pool query, so we only need to assert that query's filter.
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
+    const service = createCyclesService(prisma);
+
+    await service.previewCycle('cycle-1');
+
+    // The matching/preview/reveal pool must exclude isTest accounts so demo and
+    // seed users can never be paired with real users.
+    const calls = findUnique.mock.calls as Array<
+      [{ include: { participations: { where: { user: unknown } } } }]
+    >;
+    expect(calls[0]?.[0].include.participations.where.user).toEqual({
+      status: 'ACTIVE',
+      isTest: false,
+    });
+  });
 });
