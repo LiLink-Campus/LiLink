@@ -68,7 +68,7 @@ const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput 
     user: { status: 'ACTIVE', isTest: false },
   };
 
-const CYCLE_PROCESSING_INCLUDE = {
+export const CYCLE_PROCESSING_INCLUDE = {
   participations: {
     where: ACTIVE_OPTED_IN_PARTICIPATION_FILTER,
     select: {

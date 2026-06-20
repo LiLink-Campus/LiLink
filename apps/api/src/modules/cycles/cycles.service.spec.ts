@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotModule } from '../../common/dashboard/dashboard-snapshot.module';
-import { CyclesService } from './cycles.service';
+import { CyclesService, CYCLE_PROCESSING_INCLUDE } from './cycles.service';
 import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 import { CyclesModule } from './cycles.module';
 
@@ -2770,14 +2770,25 @@ describe('CyclesService', () => {
 
     await service.previewCycle('cycle-1');
 
-    // The matching/preview/reveal pool must exclude isTest accounts so demo and
-    // seed users can never be paired with real users.
+    // previewCycle reads the candidate pool through the shared participation
+    // filter; assert that path excludes isTest accounts.
     const calls = findUnique.mock.calls as Array<
       [{ include: { participations: { where: { user: unknown } } } }]
     >;
     expect(calls[0]?.[0].include.participations.where.user).toEqual({
       status: 'ACTIVE',
       isTest: false,
+    });
+  });
+
+  it('keeps test accounts out of the matching/reveal pool (CYCLE_PROCESSING_INCLUDE)', () => {
+    // runRevealCycle -> loadCycleForProcessing builds the real pairing pool from
+    // this shared include. Pin its filter directly so a future refactor cannot
+    // let isTest accounts back into the live matcher/reveal without failing here.
+    expect(CYCLE_PROCESSING_INCLUDE.participations.where).toEqual({
+      status: 'OPTED_IN',
+      intent: { not: null },
+      user: { status: 'ACTIVE', isTest: false },
     });
   });
 });
