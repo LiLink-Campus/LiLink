@@ -562,6 +562,17 @@ export class MailService {
       return 'claimed-by-another-worker';
     }
 
+    // The row is now PROCESSING. If both the SENT and the FAILED writes below
+    // throw (a transient DB blip spanning both), it is left stuck PROCESSING
+    // with no other window extension and is only reclaimable at lastAttemptAt +
+    // stale threshold. Hold the backstop window open past that reclaim point so
+    // the gated cron re-sweeps it instead of stranding it until the next restart.
+    this.extendFlushWindow(
+      claimedAt.getTime() +
+        OUTBOUND_EMAIL_STALE_PROCESSING_MS +
+        OUTBOUND_EMAIL_FLUSH_GRACE_MS,
+    );
+
     try {
       if (
         email.messageCategory === OutboundEmailMessageCategory.BULK &&

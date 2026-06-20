@@ -694,6 +694,13 @@ export class ProductAnalyticsService {
     store: ProductOutcomeRecoveryStore,
     data: Prisma.ProductEventUncheckedCreateInput,
   ) {
+    // Reviving a recoverable row to PENDING re-queues it for the flush cron, so
+    // keep the backstop window open just like a fresh enqueue. The daily
+    // reconcile runs while compute may have scaled to zero and the gated flush
+    // cron skips closed-window ticks; without this the revived row would strand
+    // until the next live enqueue or a restart.
+    this.extendOutboxWindow(Date.now() + PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS);
+
     return store.productEventOutbox.updateMany({
       where: this.recoverableOutboxWhere(data.eventId),
       data: {
