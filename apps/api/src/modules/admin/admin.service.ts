@@ -695,6 +695,10 @@ export class AdminService {
         status: cycle.status,
       });
 
+      // Cycle timing/state changed out of band; let the automation tick pick it
+      // up on its next run instead of waiting for the idle safety re-check.
+      this.cyclesService.invalidateAutomationSchedule();
+
       return cycle;
     }
 
@@ -714,6 +718,10 @@ export class AdminService {
       cycleId: cycle.id,
       status: cycle.status,
     });
+
+    // Cycle timing/state changed out of band; let the automation tick pick it
+    // up on its next run instead of waiting for the idle safety re-check.
+    this.cyclesService.invalidateAutomationSchedule();
 
     return cycle;
   }
@@ -948,11 +956,17 @@ export class AdminService {
   }
 
   async runCycle(input: RunCycleDto, adminActorId: string) {
-    return this.cyclesService.runRevealCycle({
+    const result = await this.cyclesService.runRevealCycle({
       cycleId: input.cycleId,
       force: input.force ?? false,
       adminActorId,
     });
+
+    // A manual run mutates cycle state outside the automation tick; reset the
+    // cached schedule so the next tick recomputes the next boundary.
+    this.cyclesService.invalidateAutomationSchedule();
+
+    return result;
   }
 
   private cloneQuestionForRevision(

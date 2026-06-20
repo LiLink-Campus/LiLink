@@ -2792,3 +2792,105 @@ describe('CyclesService', () => {
     });
   });
 });
+
+describe('CyclesService automation scheduling gate', () => {
+  const NOW = new Date('2026-06-20T12:00:00.000Z');
+
+  const createService = (cycles: unknown[]) =>
+    createCyclesService({
+      matchCycle: { findMany: jest.fn().mockResolvedValue(cycles) },
+    });
+
+  it('is due before the schedule is computed (e.g. after boot)', () => {
+    const service = createService([]);
+    expect(service.isAutomationDue(NOW)).toBe(true);
+  });
+
+  it('skips ticks until the next boundary once refreshed with an upcoming reveal', async () => {
+    const revealAt = new Date(NOW.getTime() + 20 * 60 * 1000);
+    const service = createService([
+      { status: 'REVEAL_READY', participationDeadline: NOW, revealAt },
+    ]);
+
+    await service.refreshAutomationSchedule(NOW);
+
+    expect(service.isAutomationDue(NOW)).toBe(false);
+    expect(service.isAutomationDue(new Date(revealAt.getTime() + 1000))).toBe(
+      true,
+    );
+  });
+
+  it('schedules a far idle re-check when no cycles are active', async () => {
+    const service = createService([]);
+
+    await service.refreshAutomationSchedule(NOW);
+
+    expect(
+      service.isAutomationDue(new Date(NOW.getTime() + 60 * 60 * 1000)),
+    ).toBe(false);
+    expect(
+      service.isAutomationDue(new Date(NOW.getTime() + 7 * 60 * 60 * 1000)),
+    ).toBe(true);
+  });
+
+  it('caps the skip at the 6h idle re-check when the next boundary is far ahead', async () => {
+    const participationDeadline = new Date(NOW.getTime() + 10 * 60 * 60 * 1000);
+    const service = createService([
+      {
+        status: 'OPEN',
+        participationDeadline,
+        revealAt: new Date(NOW.getTime() + 20 * 60 * 60 * 1000),
+      },
+    ]);
+
+    await service.refreshAutomationSchedule(NOW);
+
+    expect(
+      service.isAutomationDue(new Date(NOW.getTime() + 5 * 60 * 60 * 1000)),
+    ).toBe(false);
+    expect(
+      service.isAutomationDue(
+        new Date(NOW.getTime() + 6 * 60 * 60 * 1000 + 1000),
+      ),
+    ).toBe(true);
+  });
+
+  it('revisits promptly while a cycle is PREPARING', async () => {
+    const service = createService([
+      { status: 'PREPARING', participationDeadline: NOW, revealAt: NOW },
+    ]);
+
+    await service.refreshAutomationSchedule(NOW);
+
+    expect(service.isAutomationDue(new Date(NOW.getTime() + 30 * 1000))).toBe(
+      false,
+    );
+    expect(service.isAutomationDue(new Date(NOW.getTime() + 90 * 1000))).toBe(
+      true,
+    );
+  });
+
+  it('stays due when a boundary is already in the past', async () => {
+    const pastDeadline = new Date(NOW.getTime() - 60 * 1000);
+    const service = createService([
+      { status: 'OPEN', participationDeadline: pastDeadline, revealAt: NOW },
+    ]);
+
+    await service.refreshAutomationSchedule(NOW);
+
+    expect(service.isAutomationDue(NOW)).toBe(true);
+  });
+
+  it('invalidateAutomationSchedule forces the next tick to run', async () => {
+    const revealAt = new Date(NOW.getTime() + 20 * 60 * 1000);
+    const service = createService([
+      { status: 'REVEAL_READY', participationDeadline: NOW, revealAt },
+    ]);
+    await service.refreshAutomationSchedule(NOW);
+    expect(service.isAutomationDue(NOW)).toBe(false);
+
+    service.invalidateAutomationSchedule();
+
+    expect(service.isAutomationDue(NOW)).toBe(true);
+  });
+});

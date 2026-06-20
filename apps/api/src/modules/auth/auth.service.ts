@@ -390,7 +390,7 @@ export class AuthService {
     });
 
     // Kick off delivery without blocking the HTTP response. Failures fall
-    // through to the 30s cron (`handleEmailQueue`) and are retried up to
+    // through to the 1-minute cron (`handleEmailQueue`) and are retried up to
     // `maxAttempts`. This keeps /auth/request-code fast enough to absorb
     // traffic spikes (e.g. onboarding cohorts) while preserving at-least-once
     // delivery via the outbound queue.

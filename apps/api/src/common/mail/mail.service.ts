@@ -141,6 +141,12 @@ function renderHtmlDocument(input: { title: string; body: string }) {
 }
 
 const OUTBOUND_EMAIL_STALE_PROCESSING_MS = 10 * 60 * 1000;
+// Backstop flush window. The outbound-email cron only sweeps the DB while
+// Date.now() <= flushPollUntil; enqueue/inline-delivery and FAILED retries push
+// this window forward, so an idle cron tick skips the query entirely and lets
+// Neon's compute scale to zero. The grace keeps a few post-activity ticks
+// sweeping to catch rows whose inline delivery threw before claiming them.
+const OUTBOUND_EMAIL_FLUSH_GRACE_MS = 15 * 60 * 1000;
 const OUTBOUND_EMAIL_SYNC_WAIT_TIMEOUT_MS = 15_000;
 const OUTBOUND_EMAIL_SYNC_WAIT_INTERVAL_MS = 50;
 
@@ -188,6 +194,9 @@ class AsyncConcurrencyGate {
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private isFlushing = false;
+  // Sweep until this epoch-ms; starts open so the first ticks after boot rescue
+  // any rows orphaned by a restart, then lapses to let Neon sleep when idle.
+  private flushPollUntil = Date.now() + OUTBOUND_EMAIL_FLUSH_GRACE_MS;
   private readonly sendGate = new AsyncConcurrencyGate(
     env.SMTP_SEND_CONCURRENCY,
   );
@@ -419,17 +428,41 @@ export class MailService {
     };
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS, {
+  // Runs every minute but only touches the DB while the flush window is open
+  // (recent enqueue / inline-delivery attempt / pending FAILED retry). Idle
+  // ticks return without querying so Neon's compute can scale to zero — the
+  // in-memory window gate (not the cron cadence) is what lets the DB sleep, so
+  // keeping a 1-min cadence costs nothing while idle yet preserves the
+  // verification-code retry budget (~3 min) inside its 10-min TTL when SMTP is
+  // flaky. Inline delivery still handles latency-sensitive mail immediately;
+  // this is the retry/rescue backstop.
+  @Cron(CronExpression.EVERY_MINUTE, {
     name: 'outbound-email-flush',
     waitForCompletion: true,
   })
   async handleEmailQueue() {
+    if (Date.now() > this.flushPollUntil) {
+      return;
+    }
     await this.flushQueuedEmails();
+  }
+
+  private extendFlushWindow(until: number) {
+    if (until > this.flushPollUntil) {
+      this.flushPollUntil = until;
+    }
   }
 
   async flushQueuedEmails(
     options: { dedupeKeys?: string[]; limit?: number } = {},
   ) {
+    // A targeted (inline) flush means a caller just enqueued mail; keep the
+    // backstop window open so the cron re-sweeps even if this call no-ops on
+    // the isFlushing lock or its delivery throws before claiming the row.
+    if (options.dedupeKeys && options.dedupeKeys.length > 0) {
+      this.extendFlushWindow(Date.now() + OUTBOUND_EMAIL_FLUSH_GRACE_MS);
+    }
+
     if (this.isFlushing) {
       return;
     }
@@ -483,6 +516,10 @@ export class MailService {
   }
 
   async deliverQueuedEmailNow(dedupeKey: string) {
+    // Inline delivery path; keep the backstop window open so the cron retries
+    // if this attempt fails or leaves the row PENDING.
+    this.extendFlushWindow(Date.now() + OUTBOUND_EMAIL_FLUSH_GRACE_MS);
+
     const email = await this.prisma.outboundEmail.findUnique({
       where: { dedupeKey },
     });
@@ -527,6 +564,17 @@ export class MailService {
     if (claimResult.count === 0) {
       return 'claimed-by-another-worker';
     }
+
+    // The row is now PROCESSING. If both the SENT and the FAILED writes below
+    // throw (a transient DB blip spanning both), it is left stuck PROCESSING
+    // with no other window extension and is only reclaimable at lastAttemptAt +
+    // stale threshold. Hold the backstop window open past that reclaim point so
+    // the gated cron re-sweeps it instead of stranding it until the next restart.
+    this.extendFlushWindow(
+      claimedAt.getTime() +
+        OUTBOUND_EMAIL_STALE_PROCESSING_MS +
+        OUTBOUND_EMAIL_FLUSH_GRACE_MS,
+    );
 
     try {
       if (
@@ -583,6 +631,14 @@ export class MailService {
           errorMessage,
         },
       });
+
+      // Keep the backstop window open through the scheduled retry so the cron
+      // picks it up even if the process is otherwise idle.
+      if (nextAttemptAt) {
+        this.extendFlushWindow(
+          nextAttemptAt.getTime() + OUTBOUND_EMAIL_FLUSH_GRACE_MS,
+        );
+      }
 
       const localDevFallbackPrinted =
         this.printLocalDevVerificationCodeFallback(email);

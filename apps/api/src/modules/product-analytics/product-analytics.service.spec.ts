@@ -762,3 +762,138 @@ describe('ProductAnalyticsService', () => {
     });
   });
 });
+
+describe('ProductAnalyticsService outbox flush backstop window', () => {
+  it('sweeps on the first tick after boot to drain orphaned rows', async () => {
+    const prisma = makePrisma();
+    const service = new ProductAnalyticsService(prisma as never);
+
+    await service.handleProductEventOutbox();
+
+    expect(prisma.productEventOutbox.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the DB sweep once the flush window has lapsed', async () => {
+    jest.useFakeTimers();
+    try {
+      const prisma = makePrisma();
+      const service = new ProductAnalyticsService(prisma as never);
+
+      jest.advanceTimersByTime(60 * 60 * 1000);
+      await service.handleProductEventOutbox();
+
+      expect(prisma.productEventOutbox.findMany).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reopens the flush window when a new outcome is enqueued', async () => {
+    jest.useFakeTimers();
+    try {
+      const prisma = makePrisma();
+      const service = new ProductAnalyticsService(prisma as never);
+
+      jest.advanceTimersByTime(60 * 60 * 1000);
+      await service.handleProductEventOutbox();
+      expect(prisma.productEventOutbox.findMany).not.toHaveBeenCalled();
+
+      await service.enqueueCouponRedeemedOutcome(prisma as never, {
+        couponId: COUPON_ID,
+        couponTemplateId: TEMPLATE_ID,
+        merchantId: MERCHANT_ID,
+        userId: 'user-1',
+        occurredAt: new Date(),
+      });
+      await service.handleProductEventOutbox();
+
+      expect(prisma.productEventOutbox.findMany).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reopens the flush window when reconcile revives a recoverable row', async () => {
+    jest.useFakeTimers();
+    try {
+      const prisma = makePrisma();
+      // A recent redemption whose outcome row the daily reconcile will revive.
+      prisma.redemption.findMany.mockResolvedValue([
+        {
+          couponId: COUPON_ID,
+          merchantId: MERCHANT_ID,
+          userId: 'user-1',
+          redeemedAt: new Date(),
+          coupon: { templateId: TEMPLATE_ID },
+        },
+      ]);
+      // The reset updateMany reports the recoverable row was revived to PENDING.
+      prisma.productEventOutbox.updateMany.mockResolvedValue({ count: 1 });
+      const service = new ProductAnalyticsService(prisma as never);
+
+      // Let the boot window lapse so the gated flush cron would otherwise skip.
+      jest.advanceTimersByTime(60 * 60 * 1000);
+      await service.handleProductEventOutbox();
+      expect(prisma.productEventOutbox.findMany).not.toHaveBeenCalled();
+
+      // The daily reconcile resets a recoverable row back to PENDING; the flush
+      // window must reopen so the next tick sweeps the revived row instead of
+      // stranding it until the next live enqueue or a restart.
+      await service.reconcileRecentOutcomeOutbox();
+      await service.handleProductEventOutbox();
+
+      expect(prisma.productEventOutbox.updateMany).toHaveBeenCalled();
+      expect(prisma.productEventOutbox.findMany).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps the window open past the stale reclaim when a claimed row double-faults', async () => {
+    jest.useFakeTimers();
+    try {
+      const prisma = makePrisma();
+      const stuck = {
+        id: 'outbox-stuck',
+        eventId: `match_contact_requested:${MATCH_ID}`,
+        name: 'match_contact_requested',
+        eventVersion: 1,
+        userId: 'user-1',
+        entityType: 'match',
+        entityId: MATCH_ID,
+        metadata: { matchId: MATCH_ID },
+        occurredAt: new Date(),
+        status: 'PENDING',
+        attempts: 0,
+        maxAttempts: 5,
+        lastAttemptAt: null,
+        nextAttemptAt: null,
+        createdAt: new Date(),
+      };
+      prisma.productEventOutbox.findMany.mockResolvedValue([stuck]);
+      // The claim succeeds (row -> PROCESSING) but both the RECORDED success
+      // write and the FAILED catch-block write throw, leaving the row stuck
+      // PROCESSING.
+      prisma.productEventOutbox.updateMany.mockResolvedValue({ count: 1 });
+      prisma.productEventOutbox.update.mockRejectedValue(new Error('db blip'));
+      const service = new ProductAnalyticsService(prisma as never);
+
+      // First sweep claims the row, then both follow-up writes fail. The claim
+      // itself must extend the window past the stale-processing reclaim.
+      await service.handleProductEventOutbox().catch(() => undefined);
+      expect(prisma.productEventOutbox.updateMany).toHaveBeenCalledTimes(1);
+
+      prisma.productEventOutbox.findMany.mockClear();
+
+      // 20 min: past the 10-min stale-processing reclaim point. Without the
+      // claim-time extension the 15-min window would have lapsed and the gated
+      // cron would skip, stranding the row. It must still sweep.
+      jest.advanceTimersByTime(20 * 60 * 1000);
+      await service.handleProductEventOutbox().catch(() => undefined);
+
+      expect(prisma.productEventOutbox.findMany).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});

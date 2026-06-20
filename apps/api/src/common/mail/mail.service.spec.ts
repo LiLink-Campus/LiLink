@@ -562,4 +562,84 @@ describe('MailService', () => {
       status: 'SENT',
     });
   });
+
+  describe('flush backstop window', () => {
+    it('sweeps on the first tick after boot to rescue orphaned rows', async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const service = createMailService({ outboundEmail: { findMany } });
+
+      await service.handleEmailQueue();
+
+      expect(findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips the DB sweep once the flush window has lapsed', async () => {
+      jest.useFakeTimers();
+      try {
+        const findMany = jest.fn().mockResolvedValue([]);
+        const service = createMailService({ outboundEmail: { findMany } });
+
+        jest.advanceTimersByTime(60 * 60 * 1000);
+        await service.handleEmailQueue();
+
+        expect(findMany).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('reopens the flush window after an inline delivery request', async () => {
+      jest.useFakeTimers();
+      try {
+        const findMany = jest.fn().mockResolvedValue([]);
+        const findUnique = jest.fn().mockResolvedValue(null);
+        const service = createMailService({
+          outboundEmail: { findMany, findUnique },
+        });
+
+        jest.advanceTimersByTime(60 * 60 * 1000);
+        await service.handleEmailQueue();
+        expect(findMany).not.toHaveBeenCalled();
+
+        await service.deliverQueuedEmailNow('verification-code:code-x');
+        await service.handleEmailQueue();
+
+        expect(findMany).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('keeps the window open past the stale reclaim when a claimed row double-faults', async () => {
+      jest.useFakeTimers();
+      try {
+        const stuck = buildOutboundEmail({ status: 'PENDING' });
+        const findMany = jest.fn().mockResolvedValue([stuck]);
+        // The claim succeeds (row -> PROCESSING) but both the SENT and the
+        // FAILED writes throw, leaving the row stuck PROCESSING.
+        const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+        const update = jest.fn().mockRejectedValue(new Error('db blip'));
+        const service = createMailService({
+          outboundEmail: { findMany, updateMany, update },
+        });
+
+        // First sweep claims the row, then both follow-up writes fail. The
+        // claim itself must extend the window past the stale-processing reclaim.
+        await service.handleEmailQueue().catch(() => undefined);
+        expect(updateMany).toHaveBeenCalledTimes(1);
+
+        findMany.mockClear();
+
+        // 20 min: past the 10-min stale-processing reclaim point. Without the
+        // claim-time extension the 15-min window would have lapsed and the
+        // gated cron would skip, stranding the row. It must still sweep.
+        jest.advanceTimersByTime(20 * 60 * 1000);
+        await service.handleEmailQueue().catch(() => undefined);
+
+        expect(findMany).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
 });
