@@ -21,6 +21,7 @@ import {
   optionSecondaryText,
   sessionIsTerminal,
 } from "./meetup-format";
+import { deriveCounterpartRejectNote } from "./meetup-reject-note";
 
 export type MeetupActionState =
   | "accept"
@@ -470,15 +471,10 @@ function NeedsProposeBody({
   // Surface the reason the counterpart rejected so the proposer doesn't
   // re-propose blindly. Only when the counterpart's most recent message is a
   // rejection — a later partial-accept must not resurface a stale REJECT note.
-  const rejectNote = useMemo(() => {
-    const message = findLatestMessageBy(
-      session,
-      (msg) => msg.actorUserId !== currentUserId,
-    );
-    return message?.type === "REJECT"
-      ? (message.noteText ?? message.notePreset ?? null)
-      : null;
-  }, [session, currentUserId]);
+  const rejectNote = useMemo(
+    () => deriveCounterpartRejectNote(session, currentUserId),
+    [session, currentUserId],
+  );
 
   if (!counterpartProposal && !rejectNote) {
     return null;
