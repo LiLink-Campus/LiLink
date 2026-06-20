@@ -562,4 +562,52 @@ describe('MailService', () => {
       status: 'SENT',
     });
   });
+
+  describe('flush backstop window', () => {
+    it('sweeps on the first tick after boot to rescue orphaned rows', async () => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const service = createMailService({ outboundEmail: { findMany } });
+
+      await service.handleEmailQueue();
+
+      expect(findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips the DB sweep once the flush window has lapsed', async () => {
+      jest.useFakeTimers();
+      try {
+        const findMany = jest.fn().mockResolvedValue([]);
+        const service = createMailService({ outboundEmail: { findMany } });
+
+        jest.advanceTimersByTime(60 * 60 * 1000);
+        await service.handleEmailQueue();
+
+        expect(findMany).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('reopens the flush window after an inline delivery request', async () => {
+      jest.useFakeTimers();
+      try {
+        const findMany = jest.fn().mockResolvedValue([]);
+        const findUnique = jest.fn().mockResolvedValue(null);
+        const service = createMailService({
+          outboundEmail: { findMany, findUnique },
+        });
+
+        jest.advanceTimersByTime(60 * 60 * 1000);
+        await service.handleEmailQueue();
+        expect(findMany).not.toHaveBeenCalled();
+
+        await service.deliverQueuedEmailNow('verification-code:code-x');
+        await service.handleEmailQueue();
+
+        expect(findMany).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
 });

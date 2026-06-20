@@ -27,6 +27,12 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MAX_CLIENT_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const PRODUCT_EVENT_OUTBOX_FLUSH_BATCH_SIZE = 50;
 const PRODUCT_EVENT_OUTBOX_STALE_PROCESSING_MS = 10 * 60 * 1000;
+// Backstop flush window. The outbox cron only sweeps the DB while
+// Date.now() <= outboxPollUntil; enqueue and FAILED retries push this window
+// forward, so an idle cron tick skips the query entirely and lets Neon's
+// compute scale to zero. Analytics rows tolerate the resulting minute-scale
+// processing lag (their only consumer is the request-driven admin dashboard).
+const PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS = 15 * 60 * 1000;
 
 type ProductEventOutboxStatusDb =
   | 'PENDING'
@@ -206,8 +212,17 @@ export type MeetupFinalConfirmedOutcome = {
 @Injectable()
 export class ProductAnalyticsService {
   private readonly logger = new Logger(ProductAnalyticsService.name);
+  // Sweep until this epoch-ms; starts open so the first ticks after boot drain
+  // any rows orphaned by a restart, then lapses to let Neon sleep when idle.
+  private outboxPollUntil = Date.now() + PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private extendOutboxWindow(until: number) {
+    if (until > this.outboxPollUntil) {
+      this.outboxPollUntil = until;
+    }
+  }
 
   async recordBrowserEvent(userId: string, dto: CreateProductEventDto) {
     if (!isProductEventName(dto.name)) {
@@ -426,11 +441,18 @@ export class ProductAnalyticsService {
     };
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS, {
+  // Runs every 5 minutes but only touches the DB while the flush window is open
+  // (a recent enqueue or a pending FAILED retry). Idle ticks return without
+  // querying so Neon's compute can scale to zero.
+  @Cron(CronExpression.EVERY_5_MINUTES, {
     name: 'product-event-outbox-flush',
     waitForCompletion: true,
   })
   async handleProductEventOutbox() {
+    if (Date.now() > this.outboxPollUntil) {
+      return;
+    }
+
     try {
       await this.flushProductEventOutbox();
     } catch (error) {
@@ -643,6 +665,10 @@ export class ProductAnalyticsService {
     store: ProductEventOutboxStore,
     data: Prisma.ProductEventUncheckedCreateInput,
   ) {
+    // Keep the backstop window open so the cron sweeps the new row even when the
+    // process is otherwise idle.
+    this.extendOutboxWindow(Date.now() + PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS);
+
     return store.productEventOutbox.createMany({
       data: [this.productEventOutboxCreateData(data)],
       skipDuplicates: true,
@@ -817,6 +843,13 @@ export class ProductAnalyticsService {
           errorMessage,
         },
       });
+
+      // Keep the backstop window open through the scheduled retry.
+      if (nextAttemptAt) {
+        this.extendOutboxWindow(
+          nextAttemptAt.getTime() + PRODUCT_EVENT_OUTBOX_FLUSH_GRACE_MS,
+        );
+      }
 
       this.logger.warn(
         `Product analytics outcome failed for ${row.eventId}: ${errorMessage}`,

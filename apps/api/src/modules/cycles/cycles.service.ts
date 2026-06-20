@@ -42,6 +42,17 @@ const LOOKS_PREFERENCE_SOFT_BONUS = MULTI_SELECT_OVERLAP_BONUS;
 const AGE_PREFERENCE_SOFT_BONUS = 6;
 const AGE_PREFERENCE_DECAY_PER_YEAR = 0.25;
 const PREPARATION_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
+// Cycle automation scheduling. The tick gate (cycles-automation.service) skips
+// the periodic poll until nextAutomationAt, so Neon's compute can scale to zero
+// during the long waits between a cycle's deadline/reveal boundaries instead of
+// being pinned awake by an unconditional every-minute query. When no cycle is
+// active we still re-check at this cadence as a safety net in case an admin
+// mutation forgot to call invalidateAutomationSchedule().
+const AUTOMATION_IDLE_RECHECK_MS = 6 * 60 * 60 * 1000;
+// While a cycle is mid-preparation (PREPARING), revisit promptly so cross-tick
+// continuation and stale-preparation recovery (PREPARATION_RECOVERY_THRESHOLD_MS)
+// keep advancing.
+const AUTOMATION_PREPARING_RECHECK_MS = 60 * 1000;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
 const PRIORITY_UNMATCHED_STREAK_THRESHOLD = 3;
@@ -320,6 +331,9 @@ function normalizePreparedQuestionAnswer(
 @Injectable()
 export class CyclesService {
   private readonly logger = new Logger(CyclesService.name);
+  // Cached time the periodic automation tick next needs to run. null means
+  // "unknown" (after boot or an out-of-band cycle change) and forces a run.
+  private nextAutomationAt: Date | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -415,6 +429,78 @@ export class CyclesService {
     throw new BadRequestException(
       'Only open or prepared cycles can be executed.',
     );
+  }
+
+  /**
+   * Whether the periodic automation tick should run now. The cron handler
+   * (cycles-automation.service) consults this so it can skip the DB poll while
+   * no cycle boundary is due, letting Neon's compute scale to zero between
+   * cycles. Returns true when the schedule is unknown (null) so the next tick
+   * recomputes it.
+   */
+  isAutomationDue(now: Date = new Date()): boolean {
+    return (
+      this.nextAutomationAt === null ||
+      now.getTime() >= this.nextAutomationAt.getTime()
+    );
+  }
+
+  /**
+   * Forget the cached automation schedule so the next tick re-evaluates it.
+   * Call after any out-of-band change to cycle timing/state (admin create,
+   * edit, open, or manual run) so a newly actionable cycle is picked up within
+   * one tick interval instead of waiting for the idle safety re-check.
+   */
+  invalidateAutomationSchedule(): void {
+    this.nextAutomationAt = null;
+  }
+
+  /**
+   * Recompute when the next automation tick needs to run from the earliest
+   * upcoming boundary across active cycles. Called by the cron handler after a
+   * tick so the idle ticks in between are skipped.
+   */
+  async refreshAutomationSchedule(now: Date = new Date()): Promise<void> {
+    this.nextAutomationAt = await this.computeNextAutomationAt(now);
+  }
+
+  private async computeNextAutomationAt(now: Date): Promise<Date> {
+    const activeCycles = await this.prisma.matchCycle.findMany({
+      where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
+      select: { status: true, participationDeadline: true, revealAt: true },
+    });
+
+    if (activeCycles.length === 0) {
+      return new Date(now.getTime() + AUTOMATION_IDLE_RECHECK_MS);
+    }
+
+    // A PREPARING cycle is mid-flight (or crashed mid-prepare); revisit soon so
+    // continuation / stale-preparation recovery keeps progressing.
+    if (activeCycles.some((cycle) => cycle.status === 'PREPARING')) {
+      return new Date(now.getTime() + AUTOMATION_PREPARING_RECHECK_MS);
+    }
+
+    const boundaries = activeCycles
+      .map((cycle) =>
+        cycle.status === 'REVEAL_READY'
+          ? cycle.revealAt
+          : cycle.participationDeadline,
+      )
+      .filter((boundary): boundary is Date => boundary != null)
+      .map((boundary) => boundary.getTime());
+
+    if (boundaries.length === 0) {
+      return new Date(now.getTime() + AUTOMATION_IDLE_RECHECK_MS);
+    }
+
+    const nextBoundary = Math.min(...boundaries);
+    // Cap how far ahead we skip so a missed invalidation self-heals; never
+    // schedule in the past (a due boundary just means run on the next tick).
+    const target = Math.min(
+      nextBoundary,
+      now.getTime() + AUTOMATION_IDLE_RECHECK_MS,
+    );
+    return new Date(Math.max(target, now.getTime()));
   }
 
   async runAutomationTick() {
