@@ -40,16 +40,18 @@ type CachedEligibleSchoolsPayload = {
   value: EligibleSchoolsPayload;
 };
 
-// Public read-only snapshots. The TTL must exceed Neon's ~5min scale-to-zero
-// idle threshold. The homepage fetches these via ISR, and an uptime monitor
-// probing the homepage every 60s relays into a server-side landing fetch, so a
-// 30s TTL re-queried Postgres roughly once a minute and pinned the compute
-// awake 24/7. At 10min the DB is touched at most once per window, leaving a
-// >5min query-free gap so Neon can scale to zero. Staleness is acceptable:
-// landing counters are cosmetic, and eligible-schools edits invalidate the
-// cache immediately via invalidateEligibleSchoolsCache().
-const LANDING_PAYLOAD_CACHE_TTL_MS = 10 * 60 * 1000;
-const ELIGIBLE_SCHOOLS_CACHE_TTL_MS = 10 * 60 * 1000;
+// Public read-only snapshots. The TTL must clear Neon's ~5min scale-to-zero
+// idle threshold with margin. The homepage fetches these via ISR, and an uptime
+// monitor probing the homepage every 60s relays into a server-side landing
+// fetch, so a 30s TTL re-queried Postgres ~once a minute and pinned the compute
+// awake 24/7. At 30min the DB is touched at most once per window; each query
+// keeps the compute awake only ~5min (Neon's idle timer) then it suspends for
+// the rest, so it is billed ~5/30 of the time at steady idle, leaving headroom
+// under the free CU-h budget (10min worked too but left ~50% duty). Staleness
+// is acceptable: landing counters are cosmetic, and eligible-schools edits
+// invalidate the cache immediately via invalidateEligibleSchoolsCache().
+const LANDING_PAYLOAD_CACHE_TTL_MS = 30 * 60 * 1000;
+const ELIGIBLE_SCHOOLS_CACHE_TTL_MS = 30 * 60 * 1000;
 
 function isTrustedSchoolEmailDomain(domain: string) {
   return domain.includes('.');
