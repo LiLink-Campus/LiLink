@@ -110,7 +110,7 @@ describe('AdminSchoolService', () => {
     );
   });
 
-  it('invalidates both the resolver cache and the public eligible-schools cache on create', async () => {
+  it('invalidates the resolver, public eligible-schools, and current-questionnaire caches on create', async () => {
     const create = jest.fn().mockResolvedValue({
       id: 'school-1',
       slug: 'example-school',
@@ -120,12 +120,16 @@ describe('AdminSchoolService', () => {
     const auditService = { write: jest.fn().mockResolvedValue(undefined) };
     const schoolResolverService = { invalidateResolutionCache: jest.fn() };
     const publicService = { invalidateEligibleSchoolsCache: jest.fn() };
+    const questionnaireService = {
+      invalidateCurrentQuestionnaireCache: jest.fn(),
+    };
     const service = new AdminSchoolService(
       { school: { create } } as never,
       auditService as never,
       undefined,
       schoolResolverService as never,
       publicService as never,
+      questionnaireService as never,
     );
 
     await service.create(
@@ -143,6 +147,11 @@ describe('AdminSchoolService', () => {
     expect(publicService.invalidateEligibleSchoolsCache).toHaveBeenCalledTimes(
       1,
     );
+    // The current-questionnaire snapshot embeds the full school list, so a school
+    // mutation must drop it too (otherwise the long TTL serves a stale roster).
+    expect(
+      questionnaireService.invalidateCurrentQuestionnaireCache,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('rejects school creation when all domains are blank', async () => {

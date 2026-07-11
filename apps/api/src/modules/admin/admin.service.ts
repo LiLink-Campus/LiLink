@@ -16,6 +16,7 @@ import { env } from '../../config/env';
 import { CyclesService } from '../cycles/cycles.service';
 import { normalizeQuestionOptions } from '../questionnaire/questionnaire-config';
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
+import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminSchoolService } from './admin-school.service';
 import { generateSeedTestUserPassword } from './seed-test-user-password';
@@ -179,9 +180,21 @@ const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
   },
 };
 
+type CurrentQuestionnaireCachePort = Pick<
+  QuestionnaireService,
+  'invalidateCurrentQuestionnaireCache'
+>;
+
+const defaultCurrentQuestionnaireCachePort: CurrentQuestionnaireCachePort = {
+  invalidateCurrentQuestionnaireCache() {
+    return;
+  },
+};
+
 @Injectable()
 export class AdminService {
   private readonly dashboardSnapshotService: DashboardSnapshotPort;
+  private readonly questionnaireService: CurrentQuestionnaireCachePort;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -189,9 +202,12 @@ export class AdminService {
     private readonly adminAuditService: AdminAuditService,
     private readonly adminSchoolService: AdminSchoolService,
     @Optional() dashboardSnapshotService?: DashboardSnapshotService,
+    @Optional() questionnaireService?: QuestionnaireService,
   ) {
     this.dashboardSnapshotService =
       dashboardSnapshotService ?? defaultDashboardSnapshotPort;
+    this.questionnaireService =
+      questionnaireService ?? defaultCurrentQuestionnaireCachePort;
   }
 
   async getDashboard() {
@@ -990,7 +1006,7 @@ export class AdminService {
     questions: QuestionnaireRevisionQuestion[],
   ) {
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const revision = await this.prisma.$transaction(async (tx) => {
         await tx.questionnaireVersion.updateMany({
           where: {
             id: currentVersion.id,
@@ -1027,6 +1043,12 @@ export class AdminService {
           },
         });
       });
+
+      // A new revision flips isCurrent, so drop the public questionnaire cache
+      // to surface the change immediately instead of waiting out the long TTL.
+      this.questionnaireService.invalidateCurrentQuestionnaireCache();
+
+      return revision;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -1055,6 +1077,7 @@ export class AdminService {
         },
         include: { questions: true },
       });
+      this.questionnaireService.invalidateCurrentQuestionnaireCache();
       return {
         ...created,
         questions: created.questions.map((question) => ({

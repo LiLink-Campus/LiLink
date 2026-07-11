@@ -1066,6 +1066,9 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn(),
     };
+    const questionnaireCache = {
+      invalidateCurrentQuestionnaireCache: jest.fn(),
+    };
     const service = new AdminService(
       prisma as never,
       {
@@ -1074,6 +1077,8 @@ describe('AdminService', () => {
       } as never,
       audit as never,
       {} as never,
+      undefined,
+      questionnaireCache as never,
     );
 
     await expect(
@@ -1124,6 +1129,12 @@ describe('AdminService', () => {
         key: 'pace',
       }),
     );
+    // Publishing a revision must invalidate the public questionnaire cache so
+    // the /questionnaire/current snapshot reflects the edit rather than serving
+    // the stale within-TTL snapshot.
+    expect(
+      questionnaireCache.invalidateCurrentQuestionnaireCache,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it.each([

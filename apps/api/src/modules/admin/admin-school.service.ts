@@ -16,6 +16,7 @@ import { CreateSchoolDto, ListSchoolsQueryDto, UpdateSchoolDto } from './dto';
 import { AdminAuditService } from './admin-audit.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
 import { PublicService } from '../public/public.service';
+import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import {
   buildPageResult,
   normalizeAdminListPagination,
@@ -40,6 +41,11 @@ type EligibleSchoolsCachePort = Pick<
   'invalidateEligibleSchoolsCache'
 >;
 
+type CurrentQuestionnaireCachePort = Pick<
+  QuestionnaireService,
+  'invalidateCurrentQuestionnaireCache'
+>;
+
 const defaultDashboardSnapshotPort: DashboardSnapshotPort = {
   syncMatchSnapshots() {
     return Promise.resolve();
@@ -58,11 +64,18 @@ const defaultEligibleSchoolsCachePort: EligibleSchoolsCachePort = {
   },
 };
 
+const defaultCurrentQuestionnaireCachePort: CurrentQuestionnaireCachePort = {
+  invalidateCurrentQuestionnaireCache() {
+    return;
+  },
+};
+
 @Injectable()
 export class AdminSchoolService {
   private readonly dashboardSnapshotService: DashboardSnapshotPort;
   private readonly schoolResolverService: SchoolResolverPort;
   private readonly publicService: EligibleSchoolsCachePort;
+  private readonly questionnaireService: CurrentQuestionnaireCachePort;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -70,20 +83,25 @@ export class AdminSchoolService {
     @Optional() dashboardSnapshotService?: DashboardSnapshotService,
     @Optional() schoolResolverService?: SchoolResolverService,
     @Optional() publicService?: PublicService,
+    @Optional() questionnaireService?: QuestionnaireService,
   ) {
     this.dashboardSnapshotService =
       dashboardSnapshotService ?? defaultDashboardSnapshotPort;
     this.schoolResolverService =
       schoolResolverService ?? defaultSchoolResolverPort;
     this.publicService = publicService ?? defaultEligibleSchoolsCachePort;
+    this.questionnaireService =
+      questionnaireService ?? defaultCurrentQuestionnaireCachePort;
   }
 
   // Invalidate every cache that derives from school rows / the registrationEligible
-  // flag, so an admin change is reflected immediately by both the resolver
-  // (school-email detection) and the public list + manual-school dropdown.
+  // flag, so an admin change is reflected immediately by the resolver
+  // (school-email detection), the public list + manual-school dropdown, and the
+  // current-questionnaire snapshot (its payload embeds the full school list).
   private invalidateSchoolCaches() {
     this.schoolResolverService.invalidateResolutionCache();
     this.publicService.invalidateEligibleSchoolsCache();
+    this.questionnaireService.invalidateCurrentQuestionnaireCache();
   }
 
   async list(query: ListSchoolsQueryDto = {}) {
