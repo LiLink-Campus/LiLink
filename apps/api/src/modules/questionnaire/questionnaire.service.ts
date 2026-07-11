@@ -58,7 +58,12 @@ type CachedCurrentQuestionnaire = {
   value: CurrentQuestionnairePayload;
 };
 
-const CURRENT_QUESTIONNAIRE_CACHE_TTL_MS = 30 * 1000;
+// Public read-only snapshot, same class as the landing/eligible-schools caches
+// (see PublicService). The current questionnaire only changes when an admin
+// publishes a revision, so a long TTL keeps Neon idle while admin edits stay
+// fresh via invalidateCurrentQuestionnaireCache() rather than the TTL. This
+// mirrors the 30min TTL used for the landing/schools snapshots.
+const CURRENT_QUESTIONNAIRE_CACHE_TTL_MS = 30 * 60 * 1000;
 
 @Injectable()
 export class QuestionnaireService {
@@ -85,6 +90,13 @@ export class QuestionnaireService {
     );
 
     return this.currentQuestionnaireInFlight;
+  }
+
+  // Drop the cached snapshot so the next read reflects an admin questionnaire
+  // publish before the long TTL expires (mirrors invalidateEligibleSchoolsCache).
+  invalidateCurrentQuestionnaireCache() {
+    this.cachedCurrentQuestionnaire = null;
+    this.currentQuestionnaireInFlight = null;
   }
 
   private readCachedCurrentQuestionnaire() {

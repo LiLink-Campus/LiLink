@@ -224,6 +224,34 @@ describe('QuestionnaireService', () => {
     expect(prisma.school.findMany).toHaveBeenCalledTimes(1);
   });
 
+  it('refetches after invalidateCurrentQuestionnaireCache, even within the TTL window', async () => {
+    const prisma = {
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'version-1',
+          title: 'Current',
+          description: null,
+          isCurrent: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          questions: [],
+        }),
+      },
+      school: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+    };
+    const cacheAwareService = new QuestionnaireService(prisma as never);
+
+    await cacheAwareService.getCurrentVersion();
+    // An admin questionnaire publish invalidates the cache; the next read must
+    // hit the DB again rather than serving the stale within-TTL snapshot.
+    cacheAwareService.invalidateCurrentQuestionnaireCache();
+    await cacheAwareService.getCurrentVersion();
+
+    expect(prisma.questionnaireVersion.findFirst).toHaveBeenCalledTimes(2);
+  });
+
   it('drops stale saved answers whose options no longer exist', () => {
     expect(
       service.sanitizeStoredAnswers(
