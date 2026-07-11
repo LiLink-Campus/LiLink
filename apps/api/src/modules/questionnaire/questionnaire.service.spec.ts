@@ -252,6 +252,49 @@ describe('QuestionnaireService', () => {
     expect(prisma.questionnaireVersion.findFirst).toHaveBeenCalledTimes(2);
   });
 
+  it('does not let a load that started before invalidation repopulate the cache', async () => {
+    const stalePayload = {
+      id: 'version-old',
+      title: 'Old',
+      description: null,
+      isCurrent: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      questions: [],
+    };
+    const freshPayload = { ...stalePayload, id: 'version-new', title: 'New' };
+    let releaseStaleLoad!: (value: typeof stalePayload) => void;
+    const findFirst = jest
+      .fn()
+      .mockReturnValueOnce(
+        new Promise<typeof stalePayload>((resolve) => {
+          releaseStaleLoad = resolve;
+        }),
+      )
+      .mockResolvedValue(freshPayload);
+    const prisma = {
+      questionnaireVersion: { findFirst },
+      school: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new QuestionnaireService(prisma as never);
+
+    // A read starts a load that reads the pre-publish (stale) snapshot but has
+    // not resolved yet.
+    const staleRead = service.getCurrentVersion();
+    // An admin publish invalidates the cache while that load is still in flight.
+    service.invalidateCurrentQuestionnaireCache();
+    // The stale load now resolves; the epoch guard must stop it repopulating the
+    // cache, otherwise the pre-publish snapshot would be pinned for the full TTL.
+    releaseStaleLoad(stalePayload);
+    await expect(staleRead).resolves.toMatchObject({ id: 'version-old' });
+
+    // The next read must hit the DB again and serve the fresh snapshot.
+    await expect(service.getCurrentVersion()).resolves.toMatchObject({
+      id: 'version-new',
+    });
+    expect(findFirst).toHaveBeenCalledTimes(2);
+  });
+
   it('drops stale saved answers whose options no longer exist', () => {
     expect(
       service.sanitizeStoredAnswers(

@@ -70,6 +70,7 @@ export class QuestionnaireService {
   private cachedCurrentQuestionnaire: CachedCurrentQuestionnaire | null = null;
   private currentQuestionnaireInFlight: Promise<CurrentQuestionnairePayload> | null =
     null;
+  private currentQuestionnaireCacheEpoch = 0;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -83,18 +84,22 @@ export class QuestionnaireService {
       return this.currentQuestionnaireInFlight;
     }
 
-    this.currentQuestionnaireInFlight = this.loadCurrentVersion().finally(
-      () => {
-        this.currentQuestionnaireInFlight = null;
-      },
-    );
+    const requestEpoch = this.currentQuestionnaireCacheEpoch;
+    this.currentQuestionnaireInFlight = this.loadCurrentVersion(
+      requestEpoch,
+    ).finally(() => {
+      this.currentQuestionnaireInFlight = null;
+    });
 
     return this.currentQuestionnaireInFlight;
   }
 
   // Drop the cached snapshot so the next read reflects an admin questionnaire
   // publish before the long TTL expires (mirrors invalidateEligibleSchoolsCache).
+  // Bumping the epoch also discards any load that was already in flight when the
+  // publish happened, so a stale pre-publish snapshot cannot overwrite the cache.
   invalidateCurrentQuestionnaireCache() {
+    this.currentQuestionnaireCacheEpoch += 1;
     this.cachedCurrentQuestionnaire = null;
     this.currentQuestionnaireInFlight = null;
   }
@@ -112,7 +117,7 @@ export class QuestionnaireService {
     return this.cachedCurrentQuestionnaire.value;
   }
 
-  private async loadCurrentVersion() {
+  private async loadCurrentVersion(requestEpoch: number) {
     const [questionnaire, schools] = await Promise.all([
       this.prisma.questionnaireVersion.findFirst({
         where: { isCurrent: true },
@@ -146,10 +151,14 @@ export class QuestionnaireService {
       schools,
     } satisfies CurrentQuestionnairePayload;
 
-    this.cachedCurrentQuestionnaire = {
-      expiresAt: Date.now() + CURRENT_QUESTIONNAIRE_CACHE_TTL_MS,
-      value: currentQuestionnaire,
-    };
+    // Only publish to the cache if no invalidation happened while this load was
+    // in flight; otherwise a stale snapshot could overwrite fresher data.
+    if (requestEpoch === this.currentQuestionnaireCacheEpoch) {
+      this.cachedCurrentQuestionnaire = {
+        expiresAt: Date.now() + CURRENT_QUESTIONNAIRE_CACHE_TTL_MS,
+        value: currentQuestionnaire,
+      };
+    }
 
     return currentQuestionnaire;
   }
