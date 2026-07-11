@@ -295,6 +295,59 @@ describe('QuestionnaireService', () => {
     expect(findFirst).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps the replacement load single-flight when an invalidated load settles', async () => {
+    const stalePayload = {
+      id: 'version-old',
+      title: 'Old',
+      description: null,
+      isCurrent: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      questions: [],
+    };
+    const freshPayload = { ...stalePayload, id: 'version-new', title: 'New' };
+    let releaseStaleLoad!: (value: typeof stalePayload) => void;
+    let releaseFreshLoad!: (value: typeof freshPayload) => void;
+    const findFirst = jest
+      .fn()
+      .mockReturnValueOnce(
+        new Promise<typeof stalePayload>((resolve) => {
+          releaseStaleLoad = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise<typeof freshPayload>((resolve) => {
+          releaseFreshLoad = resolve;
+        }),
+      )
+      .mockResolvedValue(freshPayload);
+    const prisma = {
+      questionnaireVersion: { findFirst },
+      school: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new QuestionnaireService(prisma as never);
+
+    const staleRead = service.getCurrentVersion();
+    service.invalidateCurrentQuestionnaireCache();
+    const freshRead = service.getCurrentVersion();
+
+    releaseStaleLoad(stalePayload);
+    await expect(staleRead).resolves.toMatchObject({ id: 'version-old' });
+
+    // Settling the stale load must not clear the fresh in-flight pointer. A
+    // concurrent reader should join the replacement load instead of querying
+    // the database a third time.
+    const concurrentFreshRead = service.getCurrentVersion();
+    expect(findFirst).toHaveBeenCalledTimes(2);
+
+    releaseFreshLoad(freshPayload);
+    await expect(freshRead).resolves.toMatchObject({ id: 'version-new' });
+    await expect(concurrentFreshRead).resolves.toMatchObject({
+      id: 'version-new',
+    });
+    expect(findFirst).toHaveBeenCalledTimes(2);
+  });
+
   it('drops stale saved answers whose options no longer exist', () => {
     expect(
       service.sanitizeStoredAnswers(

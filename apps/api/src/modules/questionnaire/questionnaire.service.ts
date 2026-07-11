@@ -85,11 +85,15 @@ export class QuestionnaireService {
     }
 
     const requestEpoch = this.currentQuestionnaireCacheEpoch;
-    this.currentQuestionnaireInFlight = this.loadCurrentVersion(
-      requestEpoch,
-    ).finally(() => {
-      this.currentQuestionnaireInFlight = null;
+    const inFlight = this.loadCurrentVersion(requestEpoch).finally(() => {
+      // An invalidation can replace this promise before it settles. Only clear
+      // the single-flight slot when it still points at this load, otherwise the
+      // stale load would detach the fresh replacement and allow duplicate reads.
+      if (this.currentQuestionnaireInFlight === inFlight) {
+        this.currentQuestionnaireInFlight = null;
+      }
     });
+    this.currentQuestionnaireInFlight = inFlight;
 
     return this.currentQuestionnaireInFlight;
   }

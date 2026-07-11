@@ -2,14 +2,6 @@ name: Storybook Visual Evidence
 
 on:
   pull_request:
-    paths:
-      - "apps/web/**"
-      - "packages/shared/**"
-      - "package.json"
-      - "package-lock.json"
-      - "vitest.config.ts"
-      - "scripts/capture-storybook-screenshots.mjs"
-      - ".github/workflows/storybook-visual-evidence.yml"
   workflow_dispatch:
 
 permissions:
@@ -30,8 +22,34 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect Storybook-relevant changes
+        id: storybook_changes
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --quiet "${{ github.event.pull_request.base.sha }}" HEAD -- \
+            apps/web \
+            packages/shared \
+            package.json \
+            package-lock.json \
+            vitest.config.ts \
+            scripts/capture-storybook-screenshots.mjs \
+            .github/workflows/storybook-visual-evidence.yml; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No Storybook-relevant changes; expensive checks will be skipped."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Node.js
+        if: steps.storybook_changes.outputs.run == 'true'
         uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
@@ -39,29 +57,38 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
+        if: steps.storybook_changes.outputs.run == 'true'
         run: npm ci
 
       - name: Install Playwright Chromium
+        if: steps.storybook_changes.outputs.run == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Build static Storybook
+        if: steps.storybook_changes.outputs.run == 'true'
         run: npm run build-storybook:web
 
       - name: Run Storybook smoke tests
+        if: steps.storybook_changes.outputs.run == 'true'
         run: npm run test:storybook:web
 
       - name: Capture Storybook screenshots
+        if: steps.storybook_changes.outputs.run == 'true'
         run: npm run screenshots:storybook:web
 
+      - name: Record skipped Storybook checks
+        if: steps.storybook_changes.outputs.run != 'true'
+        run: echo "Storybook checks skipped because this pull request does not change Storybook-relevant files." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Add screenshot summary
-        if: always()
+        if: always() && steps.storybook_changes.outputs.run == 'true'
         run: |
           if [ -f artifacts/storybook-screenshots/summary.md ]; then
             cat artifacts/storybook-screenshots/summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload Storybook screenshot artifact
-        if: always()
+        if: always() && steps.storybook_changes.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: storybook-screenshots
