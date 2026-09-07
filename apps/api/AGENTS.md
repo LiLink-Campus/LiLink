@@ -1,19 +1,13 @@
 # API Agent Rules
 
-These rules extend the repository root `AGENTS.md` for `apps/api`.
-
-## Scope
-
-These instructions apply to the NestJS API and Prisma schema under `apps/api`.
+These rules extend the root `AGENTS.md` for the NestJS API and Prisma schema.
 
 ## Prisma
 
-- Run `npm run db:generate` after Prisma schema changes or Prisma client dependency changes.
-- Do not reintroduce `url = env("DATABASE_URL")` in `apps/api/prisma/schema.prisma`; runtime database configuration is handled through the Prisma driver adapter.
-- Do not print database URLs, JWT secrets, SMTP credentials, Sentry tokens, or other environment secrets.
+- Run `npm run db:generate` after schema or Prisma client dependency changes.
+- Keep database configuration in `src/common/prisma/client.ts` through the Prisma 7 driver adapter. Do not reintroduce `url = env("DATABASE_URL")` in `prisma/schema.prisma`.
 
 ## Validation
 
-- For API source or DTO changes, run `npm run typecheck:api` and the relevant API Jest suites.
-- For Prisma migrations or database behavior changes, run the relevant unit tests and e2e tests when PostgreSQL is available.
-- If e2e tests cannot run because local Postgres or Docker is unavailable, state that explicitly with the command attempted and the blocker.
+- For API source or DTO changes, run `npm run typecheck:api` and relevant API Jest suites.
+- For migrations or database behavior changes, also run relevant e2e tests with PostgreSQL and migrations available. If blocked, report the attempted command and missing prerequisite.

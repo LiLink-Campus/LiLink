@@ -3,11 +3,11 @@ node_modules/
 apps/*/node_modules/
 .npm-cache/
 
-# Agent local-only files (personal skills source + per-tool skill symlinks)
+# Local agent state and legacy tool directories
 .agent-local/
-.codex/skills/
-.claude/skills/
-.claude/worktrees/
+.codex/
+.claude/
+.cursor/
 
 # Build outputs
 .next/
@@ -47,7 +47,6 @@ Thumbs.db
 .idea/
 .vscode/
 AGENTS.override.md
-.claude/settings.local.json
 *.swp
 .eslintcache
 
@@ -82,3 +81,7 @@ loadtest/.staging-secrets/
 # Standalone poster render subproject (independent npm workspace, ships its
 # own node_modules; not part of the main app build)
 marketing/
+
+# Internal team & handover docs (local only)
+/公司架构/
+/交接文档/

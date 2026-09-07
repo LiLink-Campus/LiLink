@@ -2,7 +2,7 @@
 
 ARG PRISMA_GENERATE_DATABASE_URL="postgresql://lilink:lilink@localhost:5432/lilink?schema=public"
 
-FROM node:22.22.3-alpine
+FROM node:24.20.0-alpine
 ARG PRISMA_GENERATE_DATABASE_URL
 RUN corepack enable
 
@@ -14,7 +14,7 @@ COPY packages/shared/package.json packages/shared/tsconfig.json ./packages/share
 COPY apps/api/prisma ./apps/api/prisma/
 COPY apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 
-RUN npm ci --ignore-scripts \
+RUN npm ci --maxsockets=4 --fetch-retries=5 --ignore-scripts \
     --workspace=api --workspace=@lilink/shared --include-workspace-root \
   && DATABASE_URL="$PRISMA_GENERATE_DATABASE_URL" npm run prisma:generate --workspace api
 

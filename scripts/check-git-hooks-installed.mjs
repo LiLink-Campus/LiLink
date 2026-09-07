@@ -3,7 +3,7 @@
 import { pathToFileURL } from "node:url";
 
 import { auditGitHookConfigs } from "./hooks/audit-hook-configs.mjs";
-import { getRepoRoot } from "./hooks/sync-hook-configs.mjs";
+import { getRepoRoot } from "./get-repo-root.mjs";
 
 export function shouldSkipGitHookInstallCheck(env = process.env) {
   return (

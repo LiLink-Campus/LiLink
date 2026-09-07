@@ -2,20 +2,20 @@
   "name": "lilink",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "npm@10.9.8",
+  "packageManager": "npm@11.19.0",
   "engines": {
-    "node": "22.x",
-    "npm": "10.x"
+    "node": "24.x",
+    "npm": "11.x"
   },
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "22.x",
+      "version": "24.x",
       "onFail": "error"
     },
     "packageManager": {
       "name": "npm",
-      "version": "10.x",
+      "version": "11.x",
       "onFail": "error"
     }
   },
@@ -49,8 +49,6 @@
     "typecheck:api": "npm run build:shared && npm run typecheck --workspace api",
     "hooks:audit": "node scripts/hooks/audit-hook-configs.mjs",
     "hooks:install": "node scripts/install-git-hooks.mjs",
-    "hooks:sync": "node scripts/hooks/sync-hook-configs.mjs",
-    "skills:link": "node scripts/agent-skills-link.mjs",
     "lint": "npm run lint:shared && npm run lint:web && npm run lint:api",
     "lint:shared": "npm run lint --workspace @lilink/shared",
     "lint:web": "npm run lint --workspace web",
@@ -59,7 +57,7 @@
     "lint:pre-push": "node scripts/run-pre-push-lint.mjs",
     "lint:staged": "lint-staged",
     "lint:css": "node scripts/web-css-syntax.mjs",
-    "test:hooks": "node --test scripts/check-git-hooks-installed.test.mjs scripts/install-git-hooks.test.mjs scripts/run-git-hook-command.test.mjs scripts/hooks/hook-registry.test.mjs scripts/agent-skills-link.test.mjs",
+    "test:hooks": "node --test scripts/check-git-hooks-installed.test.mjs scripts/install-git-hooks.test.mjs scripts/run-git-hook-command.test.mjs scripts/hooks/hook-registry.test.mjs",
     "test:shared": "npm run test --workspace @lilink/shared",
     "db:bootstrap": "npm run db:bootstrap --workspace api",
     "db:generate": "npm run prisma:generate --workspace api",

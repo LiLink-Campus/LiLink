@@ -1,16 +1,10 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import {
-  AGENT_HOOK_CONFIG_FILES,
-  GIT_HOOK_CONFIGS,
-  serializeHookConfig,
-} from "./registry.mjs";
-import { getRepoRoot } from "./sync-hook-configs.mjs";
+import { GIT_HOOK_CONFIGS } from "./registry.mjs";
+import { getRepoRoot } from "../get-repo-root.mjs";
 
 export function auditGitHookConfigs(repoRoot = getRepoRoot()) {
   assertRepoRoot(repoRoot);
@@ -51,27 +45,6 @@ export function auditGitHookConfigs(repoRoot = getRepoRoot()) {
   });
 }
 
-export function auditAgentHookConfigs(repoRoot = getRepoRoot()) {
-  assertRepoRoot(repoRoot);
-
-  const results = [];
-
-  for (const hookFile of AGENT_HOOK_CONFIG_FILES) {
-    const targetPath = path.join(repoRoot, hookFile.path);
-    const expected = serializeHookConfig(hookFile.config);
-    const exists = existsSync(targetPath);
-    const actual = exists ? readFileSync(targetPath, "utf8") : "";
-
-    results.push({
-      path: hookFile.path,
-      ok: exists && actual === expected,
-      reason: exists ? "content mismatch" : "missing file",
-    });
-  }
-
-  return results;
-}
-
 function readGitConfigValues(repoRoot, key) {
   try {
     const output = execFileSync("git", ["-C", repoRoot, "config", "--get-all", key], {
@@ -105,10 +78,7 @@ function assertRepoRoot(repoRoot) {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const repoRoot = getRepoRoot();
-    const results = [
-      ...auditGitHookConfigs(repoRoot),
-      ...auditAgentHookConfigs(repoRoot),
-    ];
+    const results = auditGitHookConfigs(repoRoot);
     const failures = results.filter((result) => !result.ok);
 
     if (failures.length === 0) {
@@ -120,7 +90,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     for (const failure of failures) {
       console.error(`- ${failure.path}: ${failure.reason}`);
     }
-    console.error("Run npm run hooks:install to reinstall Git hooks and regenerate agent hook files.");
+    console.error("Run npm run hooks:install to reinstall Git hooks.");
     process.exitCode = 1;
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);

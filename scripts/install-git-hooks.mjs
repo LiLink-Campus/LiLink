@@ -4,7 +4,6 @@ import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 import { GIT_HOOK_CONFIGS } from "./hooks/registry.mjs";
-import { syncAgentHookConfigs } from "./hooks/sync-hook-configs.mjs";
 
 export const MINIMUM_GIT_VERSION = Object.freeze({
   major: 2,
@@ -76,12 +75,6 @@ function installHooks() {
   console.log("Installed LiLink Git config-based hooks:");
   for (const hookConfig of GIT_HOOK_CONFIGS) {
     console.log(`- ${hookConfig.event}: ${hookConfig.command}`);
-  }
-
-  const syncedFiles = syncAgentHookConfigs();
-  console.log("Synced LiLink agent hook config files:");
-  for (const syncedFile of syncedFiles) {
-    console.log(`- ${syncedFile}`);
   }
 }
 

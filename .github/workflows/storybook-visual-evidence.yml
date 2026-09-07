@@ -39,6 +39,7 @@ jobs:
             packages/shared \
             package.json \
             package-lock.json \
+            .node-version \
             vitest.config.ts \
             scripts/capture-storybook-screenshots.mjs \
             .github/workflows/storybook-visual-evidence.yml; then

@@ -13,6 +13,18 @@ Production does not run the local PostgreSQL service. The API reads Neon `DATABA
 
 The production `.env` must set `APP_ENV=production` or omit `APP_ENV`; any other value makes the production entrypoint fail.
 
+## Commands Inside the Container
+
+The entrypoint loads the secret into the running Node process. New `docker exec` shells intentionally do not inherit it. Load the same helper for ad-hoc Prisma commands:
+
+```sh
+docker exec lilink-api node scripts/production-entrypoint.mjs npx prisma migrate status
+```
+
+Prisma 7 uses the driver adapter in `apps/api/src/common/prisma/client.ts`; the schema does not declare `url = env("DATABASE_URL")`.
+
+Production source map uploads use the BuildKit secret `sentry_auth_token`. Never pass `SENTRY_AUTH_TOKEN` as a Docker build argument or runtime environment variable.
+
 ## One-Time Host Cleanup
 
 Older production hosts may have a local `skip-worktree` override on the removed root `docker-compose.yml`. Before merging the production compose split, remove that hidden override so the deleted local file cannot keep shadowing the committed production deploy path:

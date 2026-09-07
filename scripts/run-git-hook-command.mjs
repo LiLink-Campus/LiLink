@@ -3,7 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-import { getRepoRoot } from "./hooks/sync-hook-configs.mjs";
+import { getRepoRoot } from "./get-repo-root.mjs";
 
 export function buildGitHookCommand(scriptName, options = {}) {
   assertScriptName(scriptName);

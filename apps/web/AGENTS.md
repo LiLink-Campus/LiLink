@@ -1,23 +1,16 @@
 # Web Agent Rules
 
-These rules extend the repository root `AGENTS.md` for `apps/web`.
-
-## Scope
-
-These instructions apply to the Next.js web application under `apps/web`.
+These rules extend the root `AGENTS.md` for the Next.js application.
 
 ## UI Evidence
 
-- For user-visible UI changes, update or add Storybook stories for the affected component or page state when practical.
-- Mark representative review states with `tags: ["smoke"]` so Storybook smoke tests and screenshot capture include them.
-- Generate visual evidence for UI PRs with `npm run visual:storybook:web`, or rely on the `Storybook Visual Evidence` workflow artifact when running in CI.
-- After a user-visible UI change, post targeted evidence to the PR: capture only the affected stories with `STORYBOOK_SCREENSHOT_STORIES=<id-or-title-substrings> npm run screenshots:storybook:web` (after `npm run build-storybook:web`), then run `npm run evidence:storybook:web -- --pr <number>`. This pushes the screenshots to a `storybook-evidence/pr-<number>` branch and creates or updates one sticky PR comment that embeds each capture inline (`![](…/blob/<sha>/<file>?raw=true)`, which renders even on private repos). Do not post the full smoke set; keep the comment scoped to what the PR changes.
-- Do not commit generated screenshots or `storybook-static`; use GitHub Actions artifacts or PR comments for screenshot evidence.
-- Keep screenshot fixtures synthetic. Do not expose real user data, email addresses, secrets, production URLs, or private records in Storybook states.
+- For user-visible changes, verify the affected page or component states in a browser and retain visual evidence. Add or update Storybook stories when practical; tag representative regression states with `tags: ["smoke"]`.
+- Keep checks and captures scoped to affected states. Follow [visual verification](../../docs/web-visual-verification.md) for commands; use the full smoke suite when the change warrants it.
+- Post screenshots to a PR only when the task authorizes updating that PR. Otherwise, keep evidence local for review.
+- Use synthetic fixtures. Keep real user data, email addresses, secrets, production URLs, and private records out of Storybook. Keep generated screenshots and `storybook-static` out of application commits.
 
 ## Validation
 
-- For pure web logic changes, run `npm run test --workspace web`.
-- For typed Next.js or component API changes, run `npm run typecheck:web`.
-- For Storybook-covered UI changes, run `npm run visual:storybook:web` when local browser dependencies are available.
-- If a visual check cannot run locally, report the exact blocker and confirm the GitHub Actions artifact instead.
+- Run relevant web tests for logic changes and `npm run typecheck:web` for typed Next.js or component API changes.
+- Run `npm run lint:css -- <changed-css-paths>` for CSS edits; staged CSS is also checked by the Git pre-commit hook.
+- If browser or visual checks cannot run locally, report the blocker and inspect available CI evidence; do not claim an unperformed check passed.

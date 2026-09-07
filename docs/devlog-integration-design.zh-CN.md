@@ -156,7 +156,7 @@ RSS、sitemap、页面渲染、内容 schema 均不动。新增端点是纯增�
   - 首页「最近更新」区块显示前 3 条、「查看全部」跳 `/updates`；
   - 导航与页脚「更新」入口存在；NEW 标记：首次访问显示、访问 `/updates` 后消失；
   - **故障演练**：把 `DEVLOG_BASE_URL` 指到一个坏地址，确认首页区块消失、列表页兜底、首页其余部分与 NEW 标记均不报错。
-- 注意：根据项目经验，`next build` 在 `.claude/worktrees` 嵌套工作树下可能因 Turbopack root 推断失败；如在主工作树外执行，用 typecheck + lint 验证 web。
+- 在嵌套 Git worktree 中运行 `next build` 若遇到 Turbopack root 推断失败，记录具体阻碍；typecheck 和 lint 只能作为部分验证，不能替代构建成功。
 
 ## 10. 实施顺序（供 plan 展开）
 
