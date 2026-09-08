@@ -21,3 +21,5 @@ The web app runs on port 3000 and the API on port 4000. The web build wrapper de
 `npm run dev` builds the shared workspace first. A failed shared build prevents the app servers from starting. API unit tests do not need a database; e2e tests require PostgreSQL with migrations applied.
 
 Use `npm run infra:down` to stop local infrastructure. Production uses a separate compose file and entrypoint; see [production operations](2026-06-02-production-release-flow.md).
+
+Full demo seeding (`npm run db:seed`) requires `SEED_TEST_PASSWORD` (16-128 characters) in the local environment. It has no shared default and is not printed. `db:seed-defaults` does not create demo users and does not require this variable.

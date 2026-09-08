@@ -653,6 +653,7 @@ function seedScope(): 'full' | 'default' {
 
 async function main() {
   const scope = seedScope();
+  const demoPassword = scope === 'full' ? readDemoMatchPassword() : '';
 
   await seedDefaultRepositoryData();
   if (scope === 'default') {
@@ -695,10 +696,18 @@ async function main() {
     },
   });
 
-  await seedMatchDemoAccounts(prisma);
+  await seedMatchDemoAccounts(prisma, demoPassword);
 }
 
-const DEMO_MATCH_PASSWORD = 'REDACTED_TEST_PASSWORD';
+function readDemoMatchPassword(): string {
+  const password = process.env.SEED_TEST_PASSWORD;
+  if (!password || password.length < 16 || password.length > 128) {
+    throw new Error(
+      'Full seed requires SEED_TEST_PASSWORD (16-128 characters). Use a dedicated local/test database.',
+    );
+  }
+  return password;
+}
 
 /** Named demos (Alice/Bob/Carol) + bulk synthetic users ≈ this many participants. */
 const TARGET_SEED_PARTICIPANTS = 30;
@@ -1107,7 +1116,7 @@ async function upsertSeedUser(
   });
 }
 
-async function seedMatchDemoAccounts(prisma: PrismaClient) {
+async function seedMatchDemoAccounts(prisma: PrismaClient, password: string) {
   const version = await prisma.questionnaireVersion.findFirst({
     where: { isCurrent: true },
   });
@@ -1143,7 +1152,7 @@ async function seedMatchDemoAccounts(prisma: PrismaClient) {
   const questionnaireVersionId = version.id;
   const matchCycleId = cycle.id;
 
-  const passwordHash = await argon2.hash(DEMO_MATCH_PASSWORD);
+  const passwordHash = await argon2.hash(password);
   const soft = demoSoftAnswers();
   const allLooks = [...HARD_MATCH_LOOKS];
 
@@ -1291,7 +1300,7 @@ async function seedMatchDemoAccounts(prisma: PrismaClient) {
 
   console.log('');
   console.log(
-    `--- Seed users: ${3 + BULK_SEED_USER_COUNT} total (password all): ${DEMO_MATCH_PASSWORD}`,
+    `--- Seed users: ${3 + BULK_SEED_USER_COUNT} total; password supplied via SEED_TEST_PASSWORD`,
   );
   console.log('  Documented trio (full questionnaire, opted in):');
   console.log('    matched.alice@bupt.edu.cn');

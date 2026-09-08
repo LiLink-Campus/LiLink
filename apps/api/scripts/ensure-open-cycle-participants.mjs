@@ -108,7 +108,7 @@ async function main() {
     `Done: ${upserted} user(s) set to OPTED_IN for cycle "${cycle.codename}" (id=${cycle.id}).`,
   );
   console.log(
-    'You can run matching preview/run in admin. Password for seed users: REDACTED_TEST_PASSWORD',
+    'You can run matching preview/run in admin. Use your configured seed credentials.',
   );
 }
 

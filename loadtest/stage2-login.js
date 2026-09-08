@@ -7,6 +7,7 @@
 // 429 for ~50% of requests). We therefore stay at 100 VUs and pace each
 // VU at 12s between attempts so we mostly stay under the per-email cap.
 //
+// Set PASSWORD through the environment; no shared default credential is provided.
 // Prerequisite: run loadtest/seed-test-users.sh first to obtain
 //   ACCOUNTS_FILE (one email per line). Pass the path via env.
 //
@@ -23,7 +24,10 @@ import { Counter, Trend } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 
 const BASE_URL = __ENV.BASE_URL || 'https://api.lilink.top/v1';
-const PASSWORD = __ENV.PASSWORD || 'REDACTED_TEST_PASSWORD';
+const PASSWORD = __ENV.PASSWORD;
+if (!PASSWORD) {
+  throw new Error('Set PASSWORD explicitly for the dedicated load-test accounts.');
+}
 const ACCOUNTS_FILE = __ENV.ACCOUNTS_FILE || 'loadtest/.accounts.txt';
 // Default 12s pacing keeps each email under the 5/min cap. Override with
 // SLEEP_SECONDS=2 or similar to deliberately trip throttles and probe argon2

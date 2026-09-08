@@ -266,7 +266,7 @@ console.log('  Snapshots done for cycle2');
 console.log('\n✅  历史数据注入完成！');
 console.log('   · history-2026-3  ← 8 周前揭晓，Alice↔Bob 匹配（分 87.4），Carol 未匹配，无破冰');
 console.log('   · history-2026-4  ← 3 周前揭晓，Alice↔Bob 匹配（分 91.2），Alice 已发起破冰，Bob 待响应');
-console.log('\n   Alice 账号：matched.alice@bupt.edu.cn / REDACTED_TEST_PASSWORD');
-console.log('   Bob 账号  ：matched.bob@cuc.edu.cn   / REDACTED_TEST_PASSWORD');
+
+console.log('Use your configured SEED_TEST_PASSWORD for local demo accounts.');
 
 await prisma.$disconnect();
