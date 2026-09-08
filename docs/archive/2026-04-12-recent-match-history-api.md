@@ -1,5 +1,5 @@
 > 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
-> 来源提交：`9bffcceda50d25e82ad4ba5fa84cae29a4cf9e93`；原文件：`RECENT_MATCH_HISTORY_API.md`。
+> 来源提交：`000c3ba625e99ed0089399a75ec6e8f722052aa0`；原文件：`RECENT_MATCH_HISTORY_API.md`。
 > 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
 
 # 最近三次匹配记录 API

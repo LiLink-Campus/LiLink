@@ -1,5 +1,5 @@
 > 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
-> 来源提交：`fbeee15b60bc63dcf6906b729fbd10132e6390b9`；原文件：`docs/superpowers/plans/2026-05-21-pwa-adaptation.md`。
+> 来源提交：`d9697d1f78ed978654830bcd635ae4d3f838d273`；原文件：`docs/superpowers/plans/2026-05-21-pwa-adaptation.md`。
 > 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
 
 # LiLink PWA Adaptation Implementation Plan

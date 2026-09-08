@@ -1,5 +1,5 @@
 > 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
-> 来源提交：`8ad111f81b385b4db3de3e86e752339ba92db3ab`；原文件：`docs/referral-channel-two-layer-redesign.zh-CN.md`。
+> 来源提交：`3097f6e8116f241f73204368cb07963b84798363`；原文件：`docs/referral-channel-two-layer-redesign.zh-CN.md`。
 > 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
 
 # 邀请渠道分类两层重构（设计 spec · 草案）

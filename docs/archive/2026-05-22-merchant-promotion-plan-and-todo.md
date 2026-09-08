@@ -1,5 +1,5 @@
 > 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
-> 来源提交：`665c0bdee62dcad4ba1e0e1cb6011b3db459246d`；原文件：`docs/merchant-promotion-plan-and-todo.zh-CN.md`。
+> 来源提交：`74697f91fa9867b12be01dcf6a1ce96629ac5900`；原文件：`docs/merchant-promotion-plan-and-todo.zh-CN.md`。
 > 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
 
 # 商家核销与推广系统：实施计划与待办清单

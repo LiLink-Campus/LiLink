@@ -1,5 +1,5 @@
 > 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
-> 来源提交：`11d778da292e67116a4caa1a5c760e56f8fc379c`；原文件：`docs/superpowers/specs/2026-05-21-invite-code-system-design.md`。
+> 来源提交：`4afd9fcb1d4933c8a3f307a430075091bbcf9c97`；原文件：`docs/superpowers/specs/2026-05-21-invite-code-system-design.md`。
 > 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
 
 # 邀请码系统设计（Invite Code System）

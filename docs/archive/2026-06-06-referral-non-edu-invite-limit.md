@@ -1,5 +1,5 @@
 > 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
-> 来源提交：`b3da8c2734248ca75f4f1922f4435c37d72d2160`；原文件：`docs/features/referral-non-edu-invite-limit.zh-CN.md`。
+> 来源提交：`35785d78fb32d3fdf65f3305a008a8ffa7b4679d`；原文件：`docs/features/referral-non-edu-invite-limit.zh-CN.md`。
 > 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
 
 # LiLink 个人推荐码注册与非教育邮箱次数风控开发计划书

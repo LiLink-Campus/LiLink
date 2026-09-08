@@ -1,5 +1,5 @@
 > 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
-> 来源提交：`e4f99a682fee69659a56208d27b23a222e3861bf`；原文件：`docs/superpowers/specs/2026-05-22-merchant-promotion-system-design.md`。
+> 来源提交：`ed4fc1c8b52c9aae896fa9f78d69bbd38fa6a7f6`；原文件：`docs/superpowers/specs/2026-05-22-merchant-promotion-system-design.md`。
 > 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
 
 # 商家核销与推广系统 — 设计文档
