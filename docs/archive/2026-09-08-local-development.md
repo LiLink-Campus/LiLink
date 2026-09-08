@@ -1,3 +1,7 @@
+> 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
+> 来源提交：`a6b1bf4abd4e230be348e7f9316ba7c3b5f54190`；原文件：`docs/local-development.md`。
+> 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
+
 # Local Development
 
 Use Node 24 LTS (the version is pinned in `.node-version`), npm 11, and Git 2.54+ for config-based hooks. The pinned toolchain is Node 24.20.0 with bundled npm 11.19.0; `.nvmrc`, CI, and both API Dockerfiles use the same Node release. Start Docker before the local infrastructure.
@@ -16,4 +20,4 @@ The web app runs on port 3000 and the API on port 4000. The web build wrapper de
 
 `npm run dev` builds the shared workspace first. A failed shared build prevents the app servers from starting. API unit tests do not need a database; e2e tests require PostgreSQL with migrations applied.
 
-Use `npm run infra:down` to stop local infrastructure. Production uses a separate compose file and entrypoint; see [production operations](production-release-flow.md).
+Use `npm run infra:down` to stop local infrastructure. Production uses a separate compose file and entrypoint; see [production operations](2026-06-02-production-release-flow.md).

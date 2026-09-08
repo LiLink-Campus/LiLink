@@ -1,3 +1,7 @@
+> 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
+> 来源提交：`a6b1bf4abd4e230be348e7f9316ba7c3b5f54190`；原文件：`docs/production-release-flow.md`。
+> 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
+
 # Production Release Flow
 
 This flow is for the backend API host. The web app deploys separately through Vercel.

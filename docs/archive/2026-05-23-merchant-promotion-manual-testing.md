@@ -1,3 +1,7 @@
+> 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
+> 来源提交：`a6b1bf4abd4e230be348e7f9316ba7c3b5f54190`；原文件：`docs/merchant-promotion-manual-testing.zh-CN.md`。
+> 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
+
 # 商家核销与推广系统 手工测试指南
 
 这份指南用于在本地环境手工验证「商家核销与推广」全链路：**邀请追踪 → 激活发券 → 商家核销（动态二维码 + TOTP）→ 数据看板**。
@@ -8,7 +12,7 @@
 - 后台运营（`/admin/*`，`lilink_admin_token` cookie）
 - 商家核销（`/merchant/*`，`lilink_merchant_token` cookie）
 
-与破冰测试不同，本系统的端到端测试数据需要按下面的「数据准备」手动配置一次；如只需预置优惠券 demo 数据，可使用 `npm run db:seed-coupon-demo`。核销重构见 `docs/merchant-redemption-qr-totp-redesign.zh-CN.md`，优惠券阶梯规则见 `docs/merchant-coupon-rule-and-redemption.zh-CN.md`。
+与破冰测试不同，本系统的端到端测试数据需要按下面的「数据准备」手动配置一次；如只需预置优惠券 demo 数据，可使用 `npm run db:seed-coupon-demo`。核销重构见 `docs/archive/2026-05-24-merchant-redemption-qr-totp-redesign.md`，优惠券阶梯规则见 `docs/archive/2026-05-23-merchant-coupon-rule-and-redemption.md`。
 
 ## 前置条件
 

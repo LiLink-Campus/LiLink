@@ -69,7 +69,6 @@ apps/api/src/generated/prisma/
 tmp/
 *.pem
 .superpowers/
-docs/superpowers/
 
 # Anonymous user DB exports (see apps/api/scripts/export-anonymous-user-data.mjs).
 /anonymous-user-export*.json
@@ -85,3 +84,9 @@ marketing/
 # Internal team & handover docs (local only)
 /公司架构/
 /交接文档/
+
+# Private operational archives (local only; never publish).
+/运维笔记.md
+/docs/archive/2026-04-05-testing-operations.md
+/docs/archive/2026-04-12-operations-notes.md
+/docs/archive/2026-06-02-operations-topology.md

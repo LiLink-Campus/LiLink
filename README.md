@@ -122,7 +122,7 @@ apps/
 packages/
   shared/              # 前后端共享类型、规则与工具函数
 scripts/               # 仓库工具、Git hooks、CSS 校验与视觉证据
-docs/                  # 开发、设计、验收与部署文档
+docs/archive/          # 按日期命名的扁平文档归档
 .github/workflows/     # CI 与 Storybook 验证
 ```
 
@@ -166,7 +166,7 @@ npm run test:storybook:web -- --run
 npm run screenshots:storybook:web
 ```
 
-针对具体页面状态的截图筛选和 PR 发布方式见 [Web 视觉验证](docs/web-visual-verification.md)。截图与构建产物不提交到应用分支。
+针对具体页面状态的截图筛选和 PR 发布方式见 [Web 视觉验证](docs/archive/2026-09-08-web-visual-verification.md)。截图与构建产物不提交到应用分支。
 
 Git pre-commit 检查暂存文件，pre-push 执行 lint 并检查是否产生未提交改动。GitHub Actions 的主 CI 覆盖构建、类型检查、lint、单元和 e2e 测试；Storybook 工作流在 PR 或手动触发时提供浏览器测试与截图产物。远程提交以该提交的 CI 结果为准。
 
@@ -179,17 +179,19 @@ Agent 协作规则统一维护在 [AGENTS.md](AGENTS.md)，API 与 Web 的补充
 - **生产配置**：通过 Docker secret `api_env` 挂载，由 `production-entrypoint.mjs` 加载；不要使用 compose `environment` 或 `env_file` 暴露生产凭据。
 - **Source maps**：Sentry 上传使用 BuildKit secret `sentry_auth_token`。
 
-发布前检查对应提交的 CI，并按 [生产发布与回滚流程](docs/production-release-flow.md)操作。本地 `infra:*` 命令不用于生产部署。
+发布前检查对应提交的 CI，并按 [生产发布与回滚流程](docs/archive/2026-06-02-production-release-flow.md)操作。本地 `infra:*` 命令不用于生产部署。
 
 ## 文档入口
 
+完整清单见 [按时间排列的文档归档](docs/archive/2026-09-08-documentation-index.md)。归档包含旧版本设计与实施计划，请结合来源日期和当前代码阅读。
+
 | 文档 | 内容 |
 | --- | --- |
-| [本地开发](docs/local-development.md) | 工具链、基础服务与初始化 |
-| [Web 设计系统](docs/web-design-system.zh-CN.md) | Tokens、基础组件与业务组件边界 |
-| [Web 视觉验证](docs/web-visual-verification.md) | Storybook、截图与 PR 证据 |
-| [见面流程设计](docs/破冰/meetup-contract-design.zh-CN.md) | 见面协商与交互约定 |
-| [破冰流程验收](docs/破冰/meetup-icebreak-manual-testing.zh-CN.md) | 人工验证步骤 |
-| [优惠券规则与核销](docs/merchant-coupon-rule-and-redemption.zh-CN.md) | 优惠规则及核销流程 |
-| [商家推广验收](docs/merchant-promotion-manual-testing.zh-CN.md) | 商家与推广功能检查 |
-| [生产发布](docs/production-release-flow.md) | 容器启动、验证与回滚 |
+| [本地开发](docs/archive/2026-09-08-local-development.md) | 工具链、基础服务与初始化 |
+| [Web 设计系统](docs/archive/2026-05-23-web-design-system.md) | Tokens、基础组件与业务组件边界 |
+| [Web 视觉验证](docs/archive/2026-09-08-web-visual-verification.md) | Storybook、截图与 PR 证据 |
+| [见面流程设计](docs/archive/2026-05-14-meetup-contract-design.md) | 见面协商与交互约定 |
+| [破冰流程验收](docs/archive/2026-05-15-meetup-icebreak-manual-testing.md) | 人工验证步骤 |
+| [优惠券规则与核销](docs/archive/2026-05-23-merchant-coupon-rule-and-redemption.md) | 优惠规则及核销流程 |
+| [商家推广验收](docs/archive/2026-05-23-merchant-promotion-manual-testing.md) | 商家与推广功能检查 |
+| [生产发布](docs/archive/2026-06-02-production-release-flow.md) | 容器启动、验证与回滚 |
