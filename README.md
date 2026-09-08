@@ -183,7 +183,7 @@ Agent 协作规则统一维护在 [AGENTS.md](AGENTS.md)，API 与 Web 的补充
 
 ## 文档入口
 
-完整清单见 [按时间排列的文档归档](docs/archive/2026-09-08-documentation-index.md)。归档包含旧版本设计与实施计划，请结合来源日期和当前代码阅读。
+完整清单见 [按时间排列的文档归档](docs/archive/README.md)。归档包含旧版本设计与实施计划，请结合来源日期和当前代码阅读。
 
 | 文档 | 内容 |
 | --- | --- |
