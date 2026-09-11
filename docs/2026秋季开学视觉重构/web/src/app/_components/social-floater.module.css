@@ -1,0 +1,113 @@
+.floater {
+  position: fixed;
+  left: 12px;
+  bottom: 50svh;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.close {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(0 0 0 / 15%);
+  border-radius: 50%;
+  background: white;
+  color: #555;
+  font: 14px/1 var(--font-body);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 12%);
+  cursor: pointer;
+  z-index: 2;
+}
+.tab {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  white-space: nowrap;
+  padding: 14px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #e5e1dd;
+  color: #745043;
+  font: 15px/1.4 var(--font-display);
+  letter-spacing: 0.18em;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 12%);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.tab:hover {
+  background: #d8d4d0;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: rgb(255 255 255 / 96%);
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 12px;
+  box-shadow: 0 6px 22px rgb(0 0 0 / 14%);
+  backdrop-filter: blur(8px);
+}
+.panel[hidden] {
+  display: none;
+}
+.channel {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin: 0;
+}
+.channel figcaption {
+  font: 12px/1.5 var(--font-body);
+  color: #745043;
+}
+.placeholder {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  background: var(--color-canvas);
+  color: var(--color-text-secondary);
+}
+.placeholder span {
+  font-size: 24px;
+}
+.placeholder small {
+  font: 10px/1.5 var(--font-body);
+}
+.tab:focus-visible,
+.close:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .floater {
+    left: 8px;
+  }
+  .tab {
+    padding: 12px 6px;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+  }
+  .placeholder {
+    width: 88px;
+    height: 88px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}

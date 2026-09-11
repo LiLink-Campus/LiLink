@@ -73,7 +73,7 @@ describe('Auth registration HTTP validation (e2e)', () => {
       user: {
         id: 'user-1',
         email: 'user@example.com',
-        displayName: 'User',
+        displayName: null,
       },
     });
   });
@@ -151,7 +151,6 @@ describe('Auth registration HTTP validation (e2e)', () => {
           email: 'user@example.com',
           code: '12345',
           password: 'Password123',
-          displayName: 'Valid Name',
           acceptedTerms: true,
         });
 
@@ -166,7 +165,6 @@ describe('Auth registration HTTP validation (e2e)', () => {
           email: 'user@example.com',
           code: '123456',
           password: 'OnlyLetters',
-          displayName: 'Valid Name',
           acceptedTerms: true,
         });
 
@@ -181,7 +179,6 @@ describe('Auth registration HTTP validation (e2e)', () => {
           email: 'user@example.com',
           code: '123456',
           password: 'Password123',
-          displayName: 'Valid Name',
           acceptedTerms: false,
         });
 
@@ -189,14 +186,14 @@ describe('Auth registration HTTP validation (e2e)', () => {
       expect(register).not.toHaveBeenCalled();
     });
 
-    it('returns 400 when displayName is shorter than two characters', async () => {
+    it('returns 400 when a nickname is sent during registration', async () => {
       const response = await request(httpServer())
         .post('/v1/auth/register')
         .send({
           email: 'user@example.com',
           code: '123456',
           password: 'Password123',
-          displayName: 'U',
+          displayName: 'Valid Nickname',
           acceptedTerms: true,
         });
 
@@ -204,14 +201,13 @@ describe('Auth registration HTTP validation (e2e)', () => {
       expect(register).not.toHaveBeenCalled();
     });
 
-    it('returns 200, strips the token from JSON, and calls AuthService when valid', async () => {
+    it('registers without a nickname, strips the token, and sets the session cookie', async () => {
       const response = await request(httpServer())
         .post('/v1/auth/register')
         .send({
           email: 'user@example.com',
           code: '123456',
           password: 'Password123',
-          displayName: 'Valid Name',
           acceptedTerms: true,
         });
 
@@ -222,7 +218,6 @@ describe('Auth registration HTTP validation (e2e)', () => {
           email: 'user@example.com',
           code: '123456',
           password: 'Password123',
-          displayName: 'Valid Name',
           acceptedTerms: true,
         },
         null,
@@ -231,7 +226,7 @@ describe('Auth registration HTTP validation (e2e)', () => {
         user: {
           id: 'user-1',
           email: 'user@example.com',
-          displayName: 'User',
+          displayName: null,
         },
       });
       expect(response.headers['set-cookie']).toEqual(

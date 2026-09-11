@@ -1,0 +1,183 @@
+.page {
+  padding: 2rem 1.25rem;
+
+}
+.page p { word-break: normal; overflow-wrap: break-word; }
+.inner { max-width: 880px; margin: 0 auto; }
+.masthead {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-areas: "intro art";
+  align-items: start;
+  gap: 2rem;
+  row-gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+.intro { grid-area: intro; position: relative; z-index: 1; }
+.masthead h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+.meta {
+  margin: 1rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  line-height: 1.85;
+  text-wrap: pretty;
+}
+.campusArt, .botanicalArt, .petalsArt {
+  background-image: url('/images/about/watercolor-atlas.png');
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(ellipse at center, #000 45%, transparent 73%);
+}
+.campusArt {
+  grid-area: art;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  align-self: center;
+  justify-self: end;
+  background-position: left center;
+}
+.section { position: relative; padding-top: 1.5rem; }
+.section + .section { margin-top: 2.5rem; }
+.section h2 { margin: 0 0 1.5rem; font-family: var(--font-display); font-size: 1.7rem; line-height: 1.3; }
+.prose p { margin: 0 0 1rem; font-size: 1rem; color: var(--color-text-secondary); line-height: 1.85; }
+.prose p:last-child { margin-bottom: 0; }
+.storyLayout { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 3rem; align-items: start; }
+.storyVisual { min-width: 0; }
+.storyQuote {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 1.25rem 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+  line-height: 1.8;
+  color: var(--color-brand-ink);
+}
+.storyQuote::before { content: '“'; position: absolute; left: 0; top: -1rem; font-size: 5rem; color: #edd5ca; z-index: -1; }
+.botanicalArt { width: min(100%, 250px); aspect-ratio: 1; background-position: center; }
+.teamGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2rem; margin-top: 1.75rem; }
+.member { min-width: 0; text-align: center; }
+.memberHead { display: flex; flex-direction: column; align-items: center; gap: 0.85rem; }
+.avatarPlaceholder { width: 112px; aspect-ratio: 1; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-ink); text-align: center; font-size: 0.75rem; line-height: 1.6; }
+.member h3 { margin: 0; font-family: var(--font-body); font-size: 1rem; line-height: 1.4; font-weight: 600; }
+.memberRole { margin: 0.35rem 0 0; font-size: 0.75rem; line-height: 1.6; color: var(--color-text-muted); }
+.memberBio { margin: 1rem 0 0.5rem; color: var(--color-text-secondary); font-size: 0.9375rem; }
+.memberNote { max-width: 220px; margin: 0 auto; font-size: 0.8125rem; line-height: 1.85; color: var(--color-text-muted); }
+.teamFoot { max-width: 700px; margin: 2.5rem auto 0; text-align: center; }
+.contactSection { isolation: isolate; padding-bottom: 1rem; }
+.contactSection > .prose { max-width: 710px; }
+.petalsArt { position: absolute; z-index: -1; right: 0; bottom: 0; width: 160px; aspect-ratio: 1; background-position: right center; }
+.contactList { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; margin: 1.75rem 0 0; }
+.contactList > div { position: relative; padding-left: 44px; }
+.contactList dt { font-size: 0.9375rem; font-weight: 500; color: var(--color-text); }
+.contactList dd { margin: 0.4rem 0 0; font-size: 0.8125rem; color: var(--color-text-muted); }
+.contactIcon { position: absolute; left: 0; top: 3px; width: 28px; height: 28px; background: #956d60; mask: var(--contact-icon) center / contain no-repeat; }
+.mailIcon { --contact-icon: url('/icons/contact/mail.svg'); }
+.wechatIcon { --contact-icon: url('/icons/contact/wechat.svg'); }
+.rednoteIcon { --contact-icon: url('/icons/contact/xiaohongshu.svg'); }
+
+@media (max-width: 820px) {
+  .storyLayout { gap: 1.5rem; }
+  .masthead { gap: 1.25rem; }
+}
+@media (max-width: 640px) {
+  .page { padding: 1.5rem 1.25rem; }
+  .masthead {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "intro art";
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .masthead h1 { font-size: 2rem; }
+  .meta { font-size: 0.9375rem; line-height: 1.8; text-wrap: initial; }
+  .campusArt { max-width: 170px; opacity: 0.9; }
+  .section { padding-top: 1.75rem; }
+  .section + .section { margin-top: 1.25rem; }
+  .section h2 { font-size: 1.5rem; margin-bottom: 1rem; }
+  .storyLayout { display: block; }
+  .storyVisual { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 0.5rem; align-items: center; margin-bottom: 1.25rem; }
+  .storyQuote { padding: 0.5rem 0; font-size: clamp(1.05rem, 4.5vw, 1.3rem); line-height: 1.85; }
+  .storyQuote::before { content: none; }
+  .botanicalArt { width: 64px; opacity: 0.8; }
+  .prose p { font-size: 0.9375rem; line-height: 1.85; text-wrap: initial; }
+  .teamGrid { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; margin-top: 1.5rem; }
+  .member { text-align: left; display: grid; grid-template-columns: 64px minmax(0, 1fr); column-gap: 1rem; }
+  .memberHead { display: contents; }
+  .avatarPlaceholder { width: 64px; grid-column: 1; grid-row: 1 / 3; font-size: 0.625rem; }
+  .memberHead > div:last-child { grid-column: 2; }
+  .memberDetails { grid-column: 2; }
+  .memberBio { font-size: 0.875rem; margin-top: 0.5rem; margin-bottom: 0.25rem; }
+  .memberNote { max-width: none; font-size: 0.8125rem; }
+  .teamFoot { text-align: left; margin-top: 1.75rem; }
+  .contactList { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; margin-top: 1.5rem; }
+  .contactList > div { min-height: 44px; }
+  .petalsArt { width: 100px; right: 0; bottom: 0; opacity: 0.6; }
+}
+
+.mobileIntro { display: none; }
+@media (max-width: 640px) {
+  .masthead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "hero";
+    gap: 0;
+    align-items: stretch;
+    margin-bottom: 0;
+  }
+  .intro { grid-area: hero; align-self: start; text-align: center; }
+  .masthead h1 { font-size: 2rem; color: var(--color-brand-ink); }
+  .meta { display: none; }
+  .mobileIntro {
+    display: block;
+    margin: 0.85rem 0 0;
+    font-size: 0.9375rem;
+    line-height: 1.85;
+    color: var(--color-text-secondary);
+  }
+  .campusArt {
+    grid-area: hero;
+    z-index: 0;
+    width: 100%;
+    max-width: none;
+    aspect-ratio: 1;
+    height: auto;
+    margin: 0;
+    align-self: start;
+    background-size: 300% 100%;
+    background-position: left center;
+    mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 87%, transparent);
+    opacity: 1;
+  }
+  .section { padding-top: 1.75rem; }
+  .section + .section { margin-top: 0.5rem; }
+  .masthead + .section { padding-top: 0; }
+  .section h2 { color: var(--color-brand-ink); }
+  .storyVisual {
+    position: relative;
+    display: block;
+    padding: 1rem 0.875rem;
+    margin-bottom: 1rem;
+    border-radius: 12px;
+    background: #f4e6e280;
+    isolation: isolate;
+  }
+  .storyQuote { padding: 0; font-size: clamp(1.1rem, 4.6vw, 1.3rem); line-height: 1.65; }
+  .botanicalArt { position: absolute; right: 0; bottom: 0; width: 85px; opacity: 0.35; z-index: -1; }
+  .teamGrid { gap: 1.25rem; margin-top: 1.25rem; }
+  .member { grid-template-columns: 56px minmax(0, 1fr); column-gap: 0.85rem; }
+  .avatarPlaceholder { width: 56px; font-size: 0.6rem; }
+  .memberBio { margin-top: 0.25rem; margin-bottom: 0; font-size: 0.8125rem; }
+  .memberNote { display: none; }
+  .teamFoot { margin-top: 1.5rem; }
+}

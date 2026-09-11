@@ -45,7 +45,6 @@ import {
   PROFILE_ARRAY_ITEM_MAX_LENGTH,
   PROFILE_ARRAY_MAX_ITEMS,
   PROFILE_BIO_MAX_LENGTH,
-  PROFILE_FULL_NAME_MAX_LENGTH,
   PROFILE_HEADLINE_MAX_LENGTH,
   PROFILE_SHORT_TEXT_MAX_LENGTH,
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEY_MAX_LENGTH,
@@ -58,11 +57,6 @@ export class UpdateProfileDto {
   @IsString()
   @Length(DISPLAY_NAME_MIN_LENGTH, DISPLAY_NAME_MAX_LENGTH)
   displayName?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(PROFILE_FULL_NAME_MAX_LENGTH)
-  fullName?: string;
 
   @IsOptional()
   @IsString()

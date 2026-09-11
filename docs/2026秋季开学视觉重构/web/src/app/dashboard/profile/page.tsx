@@ -1,0 +1,17 @@
+import { loadDashboardProfile } from "../_lib/bootstrap";
+import { ProfileClient } from "./profile-client";
+
+export default async function DashboardProfilePage() {
+  const { user, dashboard, questionnaire, savedQuestionnaire, contactPreferences } =
+    await loadDashboardProfile();
+  return (
+    <ProfileClient
+      initialContactPreferences={contactPreferences}
+      initialUser={user}
+      initialDashboard={dashboard}
+      initialQuestions={questionnaire.questions}
+      initialSchools={questionnaire.schools}
+      initialSavedQuestionnaire={savedQuestionnaire}
+    />
+  );
+}

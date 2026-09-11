@@ -1,0 +1,91 @@
+.brandMark {
+  display: inline-grid;
+  grid-template-columns: 2.75rem auto;
+  grid-template-rows: 2.25rem;
+  align-items: center;
+  column-gap: 0.7rem;
+  text-decoration: none;
+  color: var(--color-text);
+}
+
+.brandMark.withTagline {
+  grid-template-rows: 2.25rem 1rem;
+}
+
+.brandMark .glyph {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.brandMark.withTagline:not(.stacked) .glyph {
+  /* User-approved optical offset; preserve when refining the logo. */
+  transform: translateY(4px);
+}
+
+.brandMark .text {
+  display: contents;
+}
+
+.brandMark .text strong {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.stacked {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.glyph {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  transform: translateY(-3px);
+}
+
+.stacked .glyph {
+  transform: none;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.stacked .text {
+  display: flex;
+}
+
+.art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.text strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  letter-spacing: 0.005em;
+  line-height: 1.1;
+  color: var(--color-logo);
+}
+
+.brandMark .text small {
+  grid-column: 2;
+  grid-row: 2;
+  display: block;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.04em;
+  line-height: 1rem;
+  margin-top: 0;
+}

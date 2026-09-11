@@ -1,0 +1,22 @@
+/* Default slot for compact icons (FAQ, updates). */
+.illustrationSlot {
+  width: min(11rem, 70vw);
+  height: 5.5rem;
+  flex-shrink: 0;
+}
+
+/* Wider viewport for panoramic CampusLineart (schools). */
+.illustrationSlotLandscape {
+  width: min(18rem, 92vw);
+  height: 6.75rem;
+}
+
+.illustrationSlot svg,
+.illustrationSlotLandscape svg {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  margin-inline: auto;
+}

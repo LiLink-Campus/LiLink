@@ -1,6 +1,5 @@
 export const EMAIL_MAX_LENGTH = 254;
 
-export const PROFILE_FULL_NAME_MAX_LENGTH = 80;
 export const PROFILE_HEADLINE_MAX_LENGTH = 160;
 export const PROFILE_BIO_MAX_LENGTH = 1_000;
 export const PROFILE_SHORT_TEXT_MAX_LENGTH = 80;

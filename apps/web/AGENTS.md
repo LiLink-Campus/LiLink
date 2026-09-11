@@ -4,6 +4,8 @@ These rules extend the root `AGENTS.md` for the Next.js application.
 
 ## UI Evidence
 
+- Every UI optimization must be verified on both desktop and mobile in a browser, including relevant open dialogs, expanded states, and breakpoint boundaries. Do not infer one layout works from checks on the other.
+
 - For user-visible changes, verify the affected page or component states in a browser and retain visual evidence. Add or update Storybook stories when practical; tag representative regression states with `tags: ["smoke"]`.
 - Keep checks and captures scoped to affected states. Follow [visual verification](../../docs/archive/2026-09-08-web-visual-verification.md) for commands; use the full smoke suite when the change warrants it.
 - Post screenshots to a PR only when the task authorizes updating that PR. Otherwise, keep evidence local for review.

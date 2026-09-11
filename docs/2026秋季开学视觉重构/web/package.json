@@ -1,0 +1,53 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1', LILINK_NEXT_TSCONFIG: 'build' }; execSync('next build', { stdio: 'inherit', env });\"",
+    "start": "next start",
+    "storybook": "node scripts/run-storybook.mjs dev",
+    "build-storybook": "node scripts/run-storybook.mjs build",
+    "lint": "eslint",
+    "test": "vitest run",
+    "pwa:icons": "node scripts/generate-pwa-icons.mjs",
+    "typecheck": "node -e \"const { execSync } = require('node:child_process'); const env = { ...process.env, NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/v1', LILINK_NEXT_TSCONFIG: 'build' }; execSync('npx next typegen && tsc --noEmit -p tsconfig.build.json', { stdio: 'inherit', env });\""
+  },
+  "dependencies": {
+    "@lilink/shared": "file:../../packages/shared",
+    "@sentry/nextjs": "^10.55.0",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "next": "^16.2.6",
+    "qrcode": "^1.5.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "^3.8.1",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@storybook/addon-a11y": "^10.4.1",
+    "@storybook/addon-docs": "^10.4.1",
+    "@storybook/nextjs-vite": "^10.4.1",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/node": "^24.13.3",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "sharp": "^0.34.5",
+    "storybook": "^10.4.1",
+    "tailwindcss": "^4.3.0",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.7"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

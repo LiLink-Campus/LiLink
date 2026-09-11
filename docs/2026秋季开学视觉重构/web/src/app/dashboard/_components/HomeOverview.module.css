@@ -1,0 +1,124 @@
+.page { color: var(--color-text); }
+.greeting { margin-bottom: 26px; }
+.greeting h1 { margin: 0; font-family: var(--font-display); font-size: 32px; }
+.greeting p { margin: 6px 0 0; color: #756d65; font-size: 14px; }
+.top { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 26px; }
+.task { padding: 30px 32px; border: 1px solid #e4ddd5; border-radius: 16px; background: #fff; }
+.status { margin: 0 0 7px; font-size: 13px; color: #64735f; }
+.task h2 { margin: 0 0 12px; font: 600 29px/1.4 var(--font-display); }
+.description { margin: 0; max-width: 440px; color: #746c65; font-size: 14px; line-height: 1.8; }
+.reveal { display: grid; gap: 5px; margin-top: 24px; }
+.reveal span { font-size: 12px; color: #746c65; }
+.reveal strong { font: 600 23px/1.5 var(--font-display); }
+.reveal p { margin: 0; font-size: 13px; color: #746c65; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; margin-top: 24px; }
+.primary { display: inline-flex; align-items: center; justify-content: center; padding: 11px 20px; min-height: 44px; border: 1px solid #89354f; border-radius: 8px; background: #89354f; color: #fff; font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1.5; text-decoration: none; cursor: pointer; }
+.secondary { padding: 8px 0; border: 0; background: transparent; color: #796c64; font-size: 13px; cursor: pointer; }
+.primary:disabled, .secondary:disabled { opacity: .55; cursor: wait; }
+.campaign { overflow: hidden; border-radius: 16px; background: #f1e9e3; }
+.campaignImage { width: 100%; height: 165px; object-fit: cover; object-position: center 48%; }
+.campaignCopy { padding: 23px 26px; }
+.campaignCopy > span { font-size: 12px; color: #855946; }
+.campaign h2 { margin: 6px 0; font: 600 25px/1.45 var(--font-display); }
+.campaign p { margin: 0; color: #746457; font-size: 13px; line-height: 1.8; }
+.campaign button { padding: 7px 0 4px; margin-top: 14px; border: 0; border-bottom: 1px solid #aa8b7a; background: none; color: #754c3e; font-size: 14px; cursor: pointer; }
+.guide { margin-top: 35px; }
+.sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.sectionHeading h2 { margin: 0; font: 600 22px/1.4 var(--font-display); }
+.sectionHeading button { border: 0; padding: 8px 0; background: none; color: #89354f; font-size: 13px; cursor: pointer; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.step { padding-bottom: 20px; border-bottom: 2px solid #e7e0d8; }
+.current { border-color: #91415a; }
+.step > div { display: flex; align-items: center; gap: 10px; }
+.number { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border: 1px solid #d9d0c6; border-radius: 50%; color: #7b6e63; font-size: 12px; }
+.current .number { border-color: #89354f; background: #89354f; color: white; }
+.step h3 { margin: 0; font-size: 14px; line-height: 1.4; transform: translateY(-1.5px); }
+.step small { margin-left: auto; font-size: 11px; color: #89354f; }
+.step p { margin: 9px 0 0 38px; color: #766e66; font-size: 13px; line-height: 1.7; }
+.dialog { margin: auto; inset: 0; width: min(510px, calc(100% - 32px)); max-height: 85dvh; padding: 30px; border: 1px solid #e0d7ce; border-radius: 18px; background: #fffcf8; color: #322e2b; }
+.dialog::backdrop { background: #29211e66; }
+.dialog h2 { margin: 0 0 16px; font: 600 25px/1.5 var(--font-display); }
+.dialog p, .dialog li { font-size: 14px; color: #756a61; line-height: 1.8; }
+.dialog li { margin-bottom: 14px; }
+.dialog ol { padding-left: 23px; list-style: decimal; }
+.close { float: right; padding: 0 0 10px 15px; border: 0; background: none; font-size: 24px; cursor: pointer; }
+.page button:focus-visible, .page a:focus-visible { outline: 3px solid #89354f; outline-offset: 3px; }
+@media (max-width: 760px) {
+  .greeting { margin-bottom: 20px; }
+  .greeting h1 { font-size: 27px; }
+  .greeting p { font-size: 13px; }
+  .top { display: flex; flex-direction: column; gap: 20px; }
+  .campaign { order: -1; position: relative; min-height: 110px; border-radius: 12px; }
+  .campaignImage { position: absolute; right: 0; top: 0; width: 36%; height: 100%; object-position: 60% center; mask-image: linear-gradient(to right, transparent, #000 25%); }
+  .campaignCopy { position: relative; width: 82%; padding: 16px 18px; }
+  .campaignCopy > span { font-size: 10px; }
+  .campaign h2 { margin: 2px 0 0; font-size: 20px; }
+  .campaign p { display: none; }
+  .campaign button { margin-top: 3px; padding: 3px 0; border: 0; font-size: 12px; }
+  .task { padding: 21px; border-radius: 12px; }
+  .task h2 { font-size: 24px; }
+  .description { font-size: 13px; }
+  .reveal { margin-top: 18px; }
+  .reveal strong { font-size: 21px; }
+  .guide { margin-top: 26px; }
+  .sectionHeading h2 { font-size: 20px; }
+  .sectionHeading button { font-size: 12px; }
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step { position: relative; padding-bottom: 21px; border: 0; }
+  .step:not(:last-child)::before { content: ''; position: absolute; top: 32px; left: 13px; width: 1px; height: calc(100% - 38px); background: #e0d6cc; }
+  .step p { margin-top: 3px; font-size: 12px; }
+  .dialog { padding: 24px; }
+}
+
+.preview { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; padding: 10px 14px; border: 1px solid #e4ddd5; border-radius: 8px; background: #fffdf9; font-size: 12px; color: #74685c; }
+.preview select { padding: 5px 8px; border: 1px solid #d9cfc4; border-radius: 5px; background: white; color: #89354f; font: inherit; }
+.preview small { font-size: 11px; }
+.reveal .countdown { display: flex; align-items: baseline; gap: 7px; margin: 4px 0 10px; color: #89354f; font-variant-numeric: tabular-nums; }
+.reveal .countdown span:nth-child(odd) { font-size: 28px; font-weight: 600; color: #89354f; }
+.reveal .countdown span:nth-child(even) { font-size: 13px; }
+
+.stepAction { margin-left: auto; white-space: nowrap; font-size: 12px; color: #89354f; }
+.stepAction button { padding: 4px 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+
+.campaign { position: relative; touch-action: pan-y; padding-bottom: 38px; }
+.carouselControls { z-index: 1; position: absolute; bottom: 8px; left: 24px; right: 24px; display: flex; align-items: center; gap: 10px; color: #754c3e; }
+.carouselControls button { margin: 0; padding: 0; border: 0; width: 28px; height: 28px; display: grid; place-items: center; font-size: 22px; }
+.carouselControls > span { font-size: 11px; margin-left: auto; }
+.carouselDots { display: flex; gap: 8px; }
+.carouselDots button { width: 24px; height: 28px; position: relative; }
+.carouselDots button::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #baa89b; }
+.carouselDots button[aria-pressed='true']::after { width: 17px; border-radius: 4px; background: #754c3e; }
+@media (max-width: 760px) {
+  .campaign { padding-bottom: 27px; }
+  .carouselControls { bottom: 3px; left: 16px; right: 16px; }
+  .campaign h2 { font-size: 19px; }
+}
+
+.campaign .carouselControls { justify-content: center; gap: 4px; height: 32px; }
+.campaign .carouselControls button { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; margin: 0; padding: 0; line-height: 1; background: transparent; border: 0; }
+.carouselDots { align-items: center; gap: 0; }
+.campaign .carouselDots button { width: 28px; }
+
+.carouselTrack { display: flex; width: 100%; transition: transform 420ms cubic-bezier(.22,.61,.36,1); }
+.carouselSlide { position: relative; flex: 0 0 100%; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .carouselTrack { transition: none; } }
+
+.counterpartName { font-family: "Kaiti SC", "STKaiti", "KaiTi", cursive; font-weight: 500; color: #89354f; font-size: 1.12em; letter-spacing: .04em; }
+
+@media (min-width: 761px) {
+  .task { display: flex; flex-direction: column; justify-content: center; }
+}
+
+.guideContent h2 { margin-bottom: 4px; font-size: 24px; }
+.guideContent .guideIntro { margin: 0 0 24px; font-size: 13px; }
+.dialog .guideSteps { list-style: none; padding: 0; margin: 0; display: grid; gap: 22px; }
+.dialog .guideSteps li { margin: 0; display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 12px; }
+.guideSteps li > span { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #f5e8ec; color: #89354f; font-size: 13px; }
+.guideSteps h3 { margin: 2px 0 6px; font-family: inherit; font-size: 15px; line-height: 1.6; color: #322e2b; }
+.dialog .guideSteps p { margin: 0; font-size: 13px; line-height: 1.75; }
+.dialog .guideSteps .guideHighlight { margin-top: 9px; padding-left: 10px; border-left: 2px solid #b86c82; color: #89354f; }
+.guideNotes { margin: 22px 0 18px; padding-top: 14px; border-top: 1px solid #e9e1d8; }
+.dialog .guideNotes p { margin: 0 0 5px; font-size: 12px; line-height: 1.65; }
+.guideContent > button { width: 100%; }
+
+.guideNotes .tipsTitle { margin: 0 0 8px; font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1.4; color: #89354f; }

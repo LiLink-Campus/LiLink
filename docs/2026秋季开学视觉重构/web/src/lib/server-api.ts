@@ -1,0 +1,175 @@
+import "server-only";
+import { VISUAL_PREVIEW } from "./visual-preview/mode";
+import { previewResponse } from "./visual-preview/data";
+
+import { sanitizeSameOriginRelativePath } from "@lilink/shared";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { getServerApiBaseUrl } from "./api-base-url";
+
+const USER_COOKIE_NAME = process.env.COOKIE_NAME?.trim() || "lilink_token";
+const ADMIN_COOKIE_NAME =
+  process.env.ADMIN_COOKIE_NAME?.trim() || "lilink_admin_token";
+
+type ServerFetchOptions = RequestInit & {
+  cookieNames?: string[];
+};
+
+function parseFailedResponseBody(text: string, status: number): string {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return `请求失败（${status}）`;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as { message?: unknown };
+    if (typeof parsed.message === "string") {
+      return parsed.message;
+    }
+    if (Array.isArray(parsed.message)) {
+      const parts = parsed.message.filter(
+        (item): item is string => typeof item === "string",
+      );
+      if (parts.length > 0) {
+        return parts.join("；");
+      }
+    }
+  } catch {
+    // Response is not JSON; show body as-is.
+  }
+
+  return trimmed;
+}
+
+async function buildForwardedCookieHeader(cookieNames: string[]) {
+  const cookieStore = await cookies();
+  const forwardedCookies = cookieNames
+    .map((name) => {
+      const value = cookieStore.get(name)?.value;
+      if (!value) {
+        return null;
+      }
+      return `${name}=${value}`;
+    })
+    .filter((value): value is string => Boolean(value));
+
+  return forwardedCookies.join("; ");
+}
+
+async function fetchApiServer<T>(
+  path: string,
+  options: ServerFetchOptions,
+): Promise<T> {
+  if (await isLocalVisualPreview()) {
+    const state = (await cookies()).get("lilink_visual_state")?.value;
+    return previewResponse(path, options.method, options.body, state) as T;
+  }
+  const cookieHeader = await buildForwardedCookieHeader(
+    options.cookieNames ?? [],
+  );
+  const response = await fetch(`${await getServerApiBaseUrl()}${path}`, {
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+      ...(options.headers ?? {}),
+    },
+    cache: options.cache ?? "no-store",
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(parseFailedResponseBody(body, response.status));
+  }
+
+  return response.json() as Promise<T>;
+}
+
+async function isLocalVisualPreview() {
+  if (!VISUAL_PREVIEW) return false;
+  const host = (await headers()).get("host") ?? "";
+  return /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+}
+
+export async function hasUserSessionCookie() {
+  if (await isLocalVisualPreview()) return true;
+  return cookies().then((cookieStore) => cookieStore.has(USER_COOKIE_NAME));
+}
+
+export function hasAdminSessionCookie() {
+  return cookies().then((cookieStore) => cookieStore.has(ADMIN_COOKIE_NAME));
+}
+
+export function fetchUserApiServer<T>(path: string, options: RequestInit = {}) {
+  return fetchApiServer<T>(path, {
+    ...options,
+    cookieNames: [USER_COOKIE_NAME],
+  });
+}
+
+export function fetchAdminApiServer<T>(
+  path: string,
+  options: RequestInit = {},
+) {
+  return fetchApiServer<T>(path, {
+    ...options,
+    cookieNames: [ADMIN_COOKIE_NAME],
+  });
+}
+
+async function resolveForwardedSiteOrigin(): Promise<string | null> {
+  const headerList = await headers();
+  const hostHeader =
+    headerList.get("x-forwarded-host") ?? headerList.get("host");
+  const host = hostHeader?.split(",")[0]?.trim();
+  if (!host) {
+    return null;
+  }
+
+  const protoHeader = headerList
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim();
+  const protocol =
+    protoHeader?.toLowerCase() === "https" ? "https:" : "http:";
+
+  try {
+    return new URL(`${protocol}//${host}`).origin;
+  } catch {
+    return null;
+  }
+}
+
+export async function redirectAuthenticatedUser(options?: {
+  /** Raw `next` query string from the request URL (unsafe until sanitized). */
+  nextCandidate?: string | null;
+  fallbackDestination?: string;
+}) {
+  if (await isLocalVisualPreview()) return;
+  if (!(await hasUserSessionCookie())) {
+    return;
+  }
+
+  try {
+    await fetchUserApiServer("/auth/me");
+  } catch {
+    // Ignore stale session cookies and render the public page.
+    return;
+  }
+
+  const fallbackDestination = options?.fallbackDestination ?? "/dashboard";
+  let destination = fallbackDestination;
+  const trimmedNext = options?.nextCandidate?.trim();
+  if (trimmedNext) {
+    const siteOrigin = await resolveForwardedSiteOrigin();
+    if (siteOrigin) {
+      const safeNext = sanitizeSameOriginRelativePath(trimmedNext, siteOrigin);
+      if (safeNext) {
+        destination = safeNext;
+      }
+    }
+  }
+
+  redirect(destination);
+}

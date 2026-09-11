@@ -1,0 +1,11 @@
+.tools { position: fixed; z-index: 100; right: 12px; bottom: 84px; font: 12px/1.6 var(--font-body); color: #68564b; }
+.tools > summary { list-style: none; cursor: pointer; padding: 7px 12px; border: 1px solid #d9cbbf; border-radius: 20px; background: #fffdfbf2; box-shadow: 0 2px 8px #493c3412; }
+.tools > summary::-webkit-details-marker { display: none; }
+.menu { position: absolute; bottom: 42px; right: 0; width: min(300px, calc(100vw - 24px)); padding: 16px; border: 1px solid #dfd6ce; border-radius: 12px; background: #fffdfb; box-shadow: 0 8px 30px #493c3420; max-height: 65dvh; overflow: auto; }
+.menu p { font-size: 12px; margin: 0 0 12px; }
+.menu nav { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.menu a { padding: 6px; border-radius: 4px; }
+.menu a:hover, .menu a[aria-current] { background: #f7eeea; color: var(--color-brand); }
+.menu label { display: grid; gap: 6px; margin-top: 12px; }
+.menu select { border: 1px solid #dfd6ce; padding: 8px; border-radius: 4px; font: inherit; background: white; }
+.menu small { display: block; margin-top: 10px; font-size: 10px; color: #8a7b70; }

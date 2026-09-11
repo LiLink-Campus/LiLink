@@ -306,7 +306,6 @@ describe('AuthService', () => {
         email: 'user@invalid.example',
         code: '123456',
         password: 'Password123',
-        displayName: 'User',
         acceptedTerms: true,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -950,7 +949,6 @@ describe('AuthService', () => {
         email: 'user@example.com',
         code: '123456',
         password: 'Password123',
-        displayName: 'User',
         acceptedTerms: true,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -1026,7 +1024,6 @@ describe('AuthService', () => {
         email: 'user@example.com',
         code: '123456',
         password: 'Password123',
-        displayName: 'User',
         acceptedTerms: true,
       }),
     ).rejects.toMatchObject({
@@ -1114,7 +1111,6 @@ describe('AuthService', () => {
           email: 'user@example.com',
           code: '123456',
           password: 'Password123',
-          displayName: 'User',
           acceptedTerms: true,
         },
         'en-US',
@@ -1186,9 +1182,31 @@ describe('AuthService', () => {
     email: 'user@example.com',
     code: '123456',
     password: 'Password123',
-    displayName: 'User',
     acceptedTerms: true,
   };
+
+  it('creates an account with no collected nickname', async () => {
+    const { prisma, userCreate, schoolResolver } = buildRegisterMocks();
+    userCreate.mockResolvedValue({
+      id: 'user-1',
+      email: registerInput.email,
+      displayName: null,
+      preferredLocale: 'zh-CN',
+    });
+    const service = new AuthService(
+      prisma as never,
+      {} as never,
+      schoolResolver as never,
+      { sign: jest.fn().mockReturnValue('test-token') } as never,
+    );
+    const result = await service.register(registerInput);
+    const calls = userCreate.mock.calls as unknown as Array<
+      [{ data: { displayName: string | null } }]
+    >;
+    const createArgs = calls[0][0];
+    expect(createArgs.data.displayName).toBeNull();
+    expect(result.user.displayName).toBeNull();
+  });
 
   it('freezes referral attribution and assigns a personal code on registration', async () => {
     const { prisma, userCreate, schoolResolver } = buildRegisterMocks();
@@ -1273,7 +1291,6 @@ describe('AuthService', () => {
         email: 'user@example.com',
         code: '123456',
         password: 'Password123',
-        displayName: 'User',
         acceptedTerms: true,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -1327,7 +1344,6 @@ describe('AuthService', () => {
         email: 'user@example.com',
         code: '123456',
         password: 'Password123',
-        displayName: 'User',
         acceptedTerms: true,
       });
 
@@ -1378,7 +1394,6 @@ describe('AuthService', () => {
         email: 'user@example.com',
         code: '123456',
         password: 'Password123',
-        displayName: 'User',
         acceptedTerms: true,
       }),
     ).rejects.toThrow('stop');
@@ -1420,7 +1435,6 @@ describe('AuthService', () => {
         email: 'user@example.com',
         code: '123456',
         password: 'Password123',
-        displayName: 'User',
         acceptedTerms: true,
       }),
     ).rejects.toThrow('stop');
@@ -1496,7 +1510,6 @@ describe('AuthService', () => {
         email: 'user@example.com',
         code: '123456',
         password: 'Password123',
-        displayName: 'User',
         acceptedTerms: true,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -1596,7 +1609,6 @@ describe('AuthService', () => {
         email: 'user@example.com',
         code: '123456',
         password: 'Password123',
-        displayName: 'User',
         acceptedTerms: true,
       }),
     ).resolves.toMatchObject({

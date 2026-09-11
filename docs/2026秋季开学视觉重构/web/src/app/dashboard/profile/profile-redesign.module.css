@@ -1,0 +1,217 @@
+.page {
+  width: 100%; max-width: 800px; box-sizing: border-box; margin-inline: auto;
+  gap: 0; padding-top: 12px;
+}
+.header { padding: 4px 0 12px; }
+.titleRow { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.titleRow h1 { margin: 0; font: 600 clamp(1.7rem, 3vw, 2.1rem)/1.25 var(--font-display); }
+.header > p { margin: 10px 0 0; color: var(--color-text-secondary); font-size: .95rem; line-height: 1.6; }
+.saveStatus { color: var(--color-text-secondary); font-size: .78rem; }
+.header .draftNote { color: var(--color-brand); font-size: .8rem; }
+.page > section { padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; gap: 0; }
+.page > section > div:empty { display: none; }
+.page nav { display: flex; width: 100%; gap: 0; border-radius: 0; background: transparent; border-bottom: 0; padding: 0; margin: 0 0 24px; }
+.page nav button { flex: 1; padding: 14px 4px; margin-bottom: -1px; white-space: nowrap; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none; font-size: .95rem; }
+.page nav button[aria-pressed="true"] { background: transparent; border-bottom-color: var(--color-brand); box-shadow: none; color: var(--color-brand); font-weight: 600; }
+.identity { display: grid; gap: 16px; padding: 0 0 6px; }
+.sectionHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 0 4px; }
+.sectionHeading h2 { font: 600 1.2rem/1.4 var(--font-display); margin: 0; }
+.sectionHeading p, .contactBody p { margin: 0; font-size: .8rem; color: var(--color-text-secondary); line-height: 1.6; }
+.identity label, .contactBody label { display: grid; gap: 8px; font-size: .95rem; }
+.identity input, .identity textarea, .contactBody input, .contactBody select { width: 100%; min-width: 0; box-sizing: border-box; padding: 11px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); font: inherit; line-height: 1.5; }
+.identity textarea { resize: vertical; min-height: 96px; }
+.nameInput { display: flex; align-items: center; gap: 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); padding: 6px 10px; }
+.nameInput input { padding: 4px 0; border: 0; background: transparent; min-height: 34px; }
+.monogram { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; background: #d68175; color: white; display: grid; place-items: center; font: 18px var(--font-display); }
+.charCount { justify-self: end; color: var(--color-text-muted); font-size: .75rem; line-height: 1; }
+ .contactSection { display: grid; gap: 12px; margin-block: 8px 12px; }
+.contact { background: var(--color-surface); border-radius: 12px; }
+.contact summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; cursor: pointer; padding: 16px; list-style: none; }
+.contact summary::-webkit-details-marker { display: none; }
+.contact summary > span:first-child { min-width: 0; display: grid; gap: 5px; }
+.contact summary strong { font-size: .95rem; font-weight: 500; overflow-wrap: anywhere; color: var(--color-text); }
+.contact summary small { font-size: .8rem; color: var(--color-text-secondary); }
+.editContact { flex-shrink: 0; padding: 8px 14px; border-radius: 8px; background: var(--color-brand-tint); color: var(--color-brand); font-size: .85rem; font-weight: 600; }
+.contactBody { display: grid; gap: 14px; padding: 0 16px 16px; }
+.page fieldset { background: transparent; box-shadow: none; border-radius: 0; padding: 10px 0; border: 0; }
+.page [id="profile-attention-hard_birth_date"] > div:last-child { grid-template-columns: 1.3fr 1fr 1fr; gap: 10px; }
+.page [id="profile-attention-hard_birth_date"] > div:last-child > label:first-child { grid-column: auto; }
+@media (max-width: 480px) {
+  .titleRow { gap: 12px; }
+  .sectionHeading { gap: 8px; }
+  .sectionHeading p { font-size: .75rem; }
+  .page nav button { font-size: .9rem; }
+}
+
+/* Survey cards and explicit module navigation, based on the local reference. */
+.header h1 { margin: 0; font: 600 1.9rem/1.3 var(--font-display); }
+.header .autoSaveHint { font-size: .82rem; color: var(--color-text-secondary); }
+.saveNotice { position: sticky; top: 64px; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 12px 16px; margin: 8px 0 20px; border-radius: 12px; background: #f0f5f1; color: #35654b; box-shadow: 0 2px 8px #00000008; }
+.saveNotice strong { font-size: .9rem; }
+.saveNotice span { font-size: .8rem; line-height: 1.5; }
+.saveNotice[data-tone="pending"], .saveNotice[data-tone="draft"] { background: #f8f1e7; color: #805c35; }
+.saveNotice[data-tone="error"] { background: #fae9e9; color: #9a3434; }
+.saveNotice button { background: white; border: 1px solid currentColor; border-radius: 8px; padding: 6px 12px; font: inherit; color: inherit; cursor: pointer; }
+.page fieldset, .identity > label { background: #fff; border: 1px solid #0000000f; border-radius: 32px; padding: 26px; box-shadow: 0 2px 8px #00000008; margin: 0; }
+.page fieldset:focus-within, .identity > label:focus-within { border-color: #8b3a4a55; }
+.identity { gap: 16px; }
+.contactSection { margin-block: 8px 16px; }
+.contact { border: 1px solid #0000000f; border-radius: 20px; box-shadow: 0 2px 8px #00000008; }
+.moduleFooter { margin-top: 20px; padding-block: 4px 24px; }
+.moduleActions { display: flex; align-items: center; justify-content: center; gap: 24px; }
+@media (max-width: 600px) {
+  .page fieldset, .identity > label { padding: 22px; border-radius: 28px; }
+  .saveNotice { padding: 10px 12px; }
+  .saveNotice span { flex-basis: 100%; }
+}
+
+.moduleDescription { margin: 0 0 8px; color: var(--color-text-secondary); font-size: .9rem; }
+
+.previousModule, .nextModule { min-height: 44px; padding: 10px 20px; font: 500 .95rem var(--font-body); cursor: pointer; border-radius: 999px; border: 0; }
+.previousModule { background: transparent; color: var(--color-text-secondary); padding-inline: 4px; }
+.nextModule { background: var(--color-brand); color: white; box-shadow: none; }
+.nextModule:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 400px) { .moduleActions { gap: 12px; } .nextModule { padding-inline: 16px; font-size: .875rem; } .previousModule { font-size: .875rem; } }
+
+.page nav { display: grid; grid-template-columns: minmax(0,1fr) 16px minmax(0,1fr) 16px minmax(0,1fr); align-items: center; gap: 8px; scroll-margin-top: 150px; }
+.page nav button { background: #fff; border: 1px solid #e7e1dc; border-radius: 16px; padding: 16px 4px; margin: 0; min-height: 52px; }
+.page nav button[aria-pressed="true"] { background: var(--color-brand-tint); border-color: #8b3a4a55; }
+.moduleArrow { color: var(--color-text-muted); font-size: 16px; text-align: center; }
+.moduleActions { gap: 16px; }
+.previousModule, .nextModule { padding: 10px 20px; background: #eeebe7; color: var(--color-text); font-weight: 400; }
+.previousModule:disabled, .nextModule:disabled { opacity: .4; cursor: not-allowed; }
+.previousModule:not(:disabled):hover, .nextModule:not(:disabled):hover { background: #e4ded8; }
+.modulePage { color: var(--color-text-muted); font-size: .875rem; white-space: nowrap; }
+@media (max-width: 400px) {
+  .page nav { gap: 5px; grid-template-columns: minmax(0,1fr) 12px minmax(0,1fr) 12px minmax(0,1fr); }
+  .page nav button { font-size: .85rem; }
+  .moduleActions { gap: 12px; }
+  .previousModule, .nextModule { padding: 10px 12px; font-size: .875rem; }
+}
+
+.introductionCard { display: grid; gap: 22px; padding: 26px; border-radius: 36px; background: white; box-shadow: 0 2px 8px #00000008; }
+.introductionCard label { padding: 0; border: 0; background: transparent; }
+.introductionCard .nameInput { border-radius: 16px; }
+.introductionCard textarea { border-radius: 18px; }
+.contactOptions { display: grid; gap: 16px; padding: 24px; border-radius: 32px; background: white; box-shadow: 0 2px 8px #00000008; }
+.contactOptions > p { margin: 0; font-size: .85rem; color: var(--color-text-secondary); line-height: 1.6; }
+.contactOption { display: grid; gap: 9px; }
+.contactChoice { display: flex; align-items: center; gap: 9px; cursor: pointer; font-size: .95rem; }
+.contactChoice input { width: 17px; height: 17px; accent-color: var(--color-brand); }
+.contactChoice small { margin-left: auto; color: var(--color-brand); font-size: .75rem; }
+.contactOption > input { min-width: 0; width: 100%; box-sizing: border-box; border: 1px solid var(--color-border); border-radius: 14px; padding: 12px 14px; font: inherit; color: var(--color-text); background: var(--color-surface); }
+.contactOption[data-selected="true"] > input { border-color: #8b3a4a66; }
+.page fieldset[id="profile-attention-hard_partner_height_min"] > div:last-child,
+.page fieldset[id="profile-attention-hard_partner_weight_min"] > div:last-child { display: flex; flex-direction: column; gap: 12px; }
+.page fieldset[id="profile-attention-hard_partner_height_min"] > div:last-child > label,
+.page fieldset[id="profile-attention-hard_partner_weight_min"] > div:last-child > label { display: flex; flex-direction: row; align-items: center; gap: 12px; }
+.page fieldset[id="profile-attention-hard_partner_height_min"] > div:last-child > label > span,
+.page fieldset[id="profile-attention-hard_partner_weight_min"] > div:last-child > label > span { flex-shrink: 0; width: 2.5em; font-size: .875rem; color: var(--color-text-secondary); }
+.page fieldset[id="profile-attention-hard_partner_height_min"] > div:last-child > label > div,
+.page fieldset[id="profile-attention-hard_partner_weight_min"] > div:last-child > label > div { flex: 1; min-width: 0; }
+.completionSuccess { margin: 16px 0 0; text-align: center; color: #35654b; font-size: .9rem; }
+@media(max-width: 600px) { .introductionCard { padding: 22px; border-radius: 30px; } .contactOptions { padding: 20px; border-radius: 28px; } }
+
+/* Flat form is limited to the About You module. */
+.page .selfFlat .introductionCard,
+.page .selfFlat .contactOptions,
+.page .selfFlat fieldset {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.selfFlat .introductionCard { gap: 20px; }
+.selfFlat .contactOptions { gap: 18px; }
+.selfFlat .contactSection { margin-block: 16px; }
+.selfFlat fieldset { margin-block: 8px; }
+.selfFlat .nameInput { padding: 8px 12px; border-radius: 10px; }
+.selfFlat .introductionCard textarea,
+.selfFlat .contactOption > input { border-radius: 10px; }
+
+.page .selfFlat[hidden] { display: none; }
+.selfFlat .contactRadios { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.selfFlat .contactChoice { gap: 10px; white-space: nowrap; }
+.selfFlat .contactChoice input { width: 23px; height: 23px; margin: 0; }
+.selfFlat .contactValue { width: 100%; box-sizing: border-box; border: 1px solid var(--color-border-strong); border-radius: 8px; background: white; color: var(--color-text); font: inherit; padding: 12px 14px; }
+.page .selfFlat fieldset { display: grid; grid-template-columns: 70px minmax(0,1fr); align-items: center; gap: 10px 16px; }
+.selfFlat fieldset > div:first-of-type { margin: 0; font-weight: 400; }
+.selfFlat fieldset > p { grid-column: 1 / -1; }
+.selfFlat fieldset[id="profile-attention-hard_gender"] { order: -2; }
+.selfFlat fieldset[id="profile-attention-hard_height_cm"] { order: -1; }
+.selfFlat fieldset[id="profile-attention-hard_gender"] > div:last-child { margin-top: 0; gap: 18px; }
+.selfFlat fieldset[id="profile-attention-hard_gender"] label { padding: 6px 0; border: 0; background: transparent; border-radius: 0; }
+.selfFlat fieldset[id="profile-attention-hard_gender"] input { appearance: auto; position: static; opacity: 1; width: 23px; height: 23px; pointer-events: auto; accent-color: var(--color-brand); }
+.selfFlat fieldset[id="profile-attention-hard_gender"] input::after { display: none; }
+@media (max-width: 400px) {
+  .selfFlat .contactRadios { gap: 8px; }
+  .selfFlat .contactChoice { gap: 6px; font-size: .9rem; }
+  .page .selfFlat fieldset { grid-template-columns: 55px minmax(0,1fr); gap: 10px; }
+  .selfFlat fieldset[id="profile-attention-hard_birth_date"] { grid-template-columns: 1fr; }
+  .selfFlat fieldset[id="profile-attention-hard_gender"] > div:last-child { gap: 10px; }
+}
+
+.page .selfFlat fieldset[id="profile-attention-hard_gender"] label:has(input:checked) { background: transparent; color: var(--color-text); }
+
+/* Remove repeated date captions while retaining accessible control names. */
+.page .selfFlat fieldset[id="profile-attention-hard_birth_date"] > div:last-child > label > span { display: none; }
+.languageLabel { display: flex; align-items: baseline; gap: 0; white-space: nowrap; }
+.languageLabel > span { white-space: nowrap; }
+.languageLabel small { white-space: nowrap; font-size: .65rem; font-weight: 400; color: var(--color-text-secondary); }
+.page nav button { border-radius: 999px; }
+
+.page .selfFlat fieldset[id="profile-attention-hard_languages"] { grid-template-columns: max-content minmax(0, 1fr); }
+
+.moduleActions .locateIncomplete { background: var(--color-brand); color: white; }
+.page .incompleteFocus { outline: 2px solid var(--color-brand); outline-offset: 6px; }
+@media(max-width: 480px) { .moduleActions:has(.locateIncomplete) { flex-wrap: wrap; } .moduleActions .locateIncomplete { max-width: 100%; } }
+
+.moduleActions .locateIncomplete:not(:disabled):hover { background: var(--color-brand-ink); color: white; }
+
+/* One surface per major About You section, with flat fields inside. */
+.page .selfFlat > .identity,
+.page .selfFlat > .contactSection,
+.page .selfFlat > .basicSection {
+  background: #fff;
+  border: 1px solid #0000000f;
+  border-radius: 32px;
+  box-shadow: 0 2px 8px #00000008;
+  padding: 24px;
+  margin: 0;
+  min-width: 0;
+}
+.basicSection { display: grid; gap: 18px; }
+.selfFlat { gap: 20px; }
+@media(max-width: 600px) {
+  .page .selfFlat > .identity,
+  .page .selfFlat > .contactSection,
+  .page .selfFlat > .basicSection { padding: 20px; border-radius: 28px; }
+}
+
+/* Align basic-information controls on compact screens. */
+@media (max-width: 600px) {
+  .page .selfFlat fieldset,
+  .page .selfFlat fieldset[id="profile-attention-hard_birth_date"],
+  .page .selfFlat fieldset[id="profile-attention-hard_languages"] {
+    grid-template-columns: 64px minmax(0, 1fr);
+    column-gap: 8px;
+  }
+  .selfFlat fieldset > div:first-of-type { white-space: nowrap; font-size: 14px; }
+  .languageLabel { flex-wrap: wrap; white-space: normal; }
+  .page .selfFlat fieldset[id="profile-attention-hard_birth_date"] > div:last-child {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 5px;
+  }
+  .page .selfFlat fieldset[id="profile-attention-hard_birth_date"] label { min-width: 0; }
+  .page .selfFlat fieldset[id="profile-attention-hard_birth_date"] select { padding-left: 6px; padding-right: 16px; font-size: 12px; min-width: 0; }
+  .page .selfFlat fieldset[id="profile-attention-hard_looks"] > div:last-child { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-top: 0; }
+  .page .selfFlat fieldset[id="profile-attention-hard_looks"] label { padding: 9px 2px; font-size: 12px; white-space: nowrap; min-width: 0; }
+}
+@media (max-width: 600px) {
+  .page .selfFlat fieldset[id="profile-attention-hard_birth_date"] [class*="picker-native-display"] { padding: 10px 5px; gap: 2px; font-size: 12px; }
+  .page .selfFlat fieldset[id="profile-attention-hard_birth_date"] [class*="picker-trigger-text"] { text-overflow: clip; }
+  .page .selfFlat fieldset[id="profile-attention-hard_birth_date"] [class*="picker-native-caret"] { font-size: 9px; width: 8px; flex: 0 0 8px; }
+}
+
+.page .selfFlat .birthDateInput { width: 100%; min-width: 0; box-sizing: border-box; min-height: 48px; padding: 10px 14px; border: 1px solid var(--color-border-strong); border-radius: 16px; background: var(--color-surface); color: var(--color-text); font: inherit; }

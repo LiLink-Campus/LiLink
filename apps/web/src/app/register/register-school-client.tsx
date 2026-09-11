@@ -20,7 +20,6 @@ import {
 import { EligibleSchoolsPanel } from "../eligible-schools-panel";
 import authStyles from "../auth.module.css";
 import {
-  DISPLAY_NAME_MAX_LENGTH,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   REGISTER_REFERRAL_CODE_MAX_LENGTH,
@@ -38,9 +37,7 @@ export default function RegisterSchoolClient() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [fullName, setFullName] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [schoolsPayload, setSchoolsPayload] =
     useState<EligibleSchoolsPayload | null>(null);
@@ -189,8 +186,6 @@ export default function RegisterSchoolClient() {
           email,
           code,
           password,
-          displayName,
-          fullName,
           acceptedTerms,
           referralCode: trimmedReferralCode || undefined,
           channel: referralChannel || undefined,
@@ -223,7 +218,7 @@ export default function RegisterSchoolClient() {
       description={
         step === 1
           ? "填写合作高校邮箱，系统会自动识别学校并发送验证码。"
-          : "设置昵称和密码，准备好就可以参加下一轮匹配。"
+          : "设置登录密码，昵称可在登录后填写。"
       }
       loginHref={loginHref}
       backHref={step === 1 ? chooserHref : undefined}
@@ -313,22 +308,6 @@ export default function RegisterSchoolClient() {
               autoComplete="one-time-code"
               onChange={(event) => setCode(event.target.value)}
               placeholder="6 位验证码"
-            />
-          </Field>
-          <Field label="显示昵称">
-            <Input
-              required
-              value={displayName}
-              maxLength={DISPLAY_NAME_MAX_LENGTH}
-              onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="别人会先看到这个昵称"
-            />
-          </Field>
-          <Field label="真实姓名（可选）">
-            <Input
-              value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
-              placeholder="可留空；仅在必要场景用于核验"
             />
           </Field>
           <Field

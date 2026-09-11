@@ -13,7 +13,6 @@ import {
   PROFILE_ARRAY_ITEM_MAX_LENGTH,
   PROFILE_ARRAY_MAX_ITEMS,
   PROFILE_BIO_MAX_LENGTH,
-  PROFILE_FULL_NAME_MAX_LENGTH,
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEY_MAX_LENGTH,
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEYS_MAX_ITEMS,
   REPORT_DETAILS_MAX_LENGTH,
@@ -57,7 +56,6 @@ describe('account DTOs', () => {
 
   it('rejects oversized profile text and list fields', async () => {
     const profileDto = Object.assign(new UpdateProfileDto(), {
-      fullName: 'A'.repeat(PROFILE_FULL_NAME_MAX_LENGTH + 1),
       bio: 'B'.repeat(PROFILE_BIO_MAX_LENGTH + 1),
       languages: Array.from(
         { length: PROFILE_ARRAY_MAX_ITEMS + 1 },
@@ -68,7 +66,6 @@ describe('account DTOs', () => {
 
     await expect(validate(profileDto)).resolves.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ property: 'fullName' }),
         expect.objectContaining({ property: 'bio' }),
         expect.objectContaining({ property: 'languages' }),
         expect.objectContaining({ property: 'interests' }),

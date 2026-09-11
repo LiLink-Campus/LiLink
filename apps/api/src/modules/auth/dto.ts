@@ -11,14 +11,9 @@ import {
   MinLength,
 } from 'class-validator';
 import {
-  DISPLAY_NAME_MAX_LENGTH,
-  DISPLAY_NAME_MIN_LENGTH,
-} from '../../common/validation/display-name';
-import {
   ADMIN_ID_MAX_LENGTH,
   EMAIL_MAX_LENGTH,
   REGISTER_REFERRAL_CODE_MAX_LENGTH,
-  PROFILE_FULL_NAME_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 import { REFERRAL_CHANNELS } from '@lilink/shared';
 
@@ -53,15 +48,6 @@ export class RegisterDto {
     message: 'Password must include at least one letter and one number.',
   })
   password!: string;
-
-  @IsString()
-  @Length(DISPLAY_NAME_MIN_LENGTH, DISPLAY_NAME_MAX_LENGTH)
-  displayName!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(PROFILE_FULL_NAME_MAX_LENGTH)
-  fullName?: string;
 
   @IsBoolean()
   @Equals(true, { message: 'Terms must be accepted.' })

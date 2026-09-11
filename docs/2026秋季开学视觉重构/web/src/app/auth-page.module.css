@@ -1,0 +1,16 @@
+.layout { flex: 1; display: grid; grid-template-columns: minmax(0, 42fr) minmax(0, 58fr); }
+.visual { position: relative; display: flex; align-items: flex-end; min-width: 0; min-height: calc(100dvh - 80px); background: linear-gradient(0deg, #301b22b8, #301b2226 70%), url("/images/campus-blossom-scene-anime.webp") center / cover; }
+.visualCopy { padding: clamp(28px, 4vw, 64px); color: white; }
+.visualCopy p { margin: 0 0 16px; font-size: clamp(28px, 3.1vw, 42px); font-family: var(--font-display); line-height: 1.5; font-weight: 600; }
+.visualCopy span { color: #f2daca; font-size: 15px; letter-spacing: .12em; }
+.content { display: flex; flex-direction: column; min-width: 0; padding: 16px 0; }
+.content > main { margin-block: auto; flex: 0 0 auto; }
+@media (max-width: 768px) {
+  .layout { grid-template-columns: minmax(0,1fr); grid-template-rows: 160px 1fr; }
+  .visual { min-height: 0; height: 160px; align-items: center; justify-content: center; background-position: center 42%; }
+  .visualCopy { padding: 20px; text-align: center; }
+  .visualCopy p { font-size: 24px; line-height: 1.4; margin-bottom: 10px; }
+  .visualCopy span { font-size: 12px; }
+  .content { padding: 8px 0; }
+}
+@media (max-width: 380px) { .layout { grid-template-rows: 140px 1fr; } .visual { height: 140px; } .visualCopy p { font-size: 22px; } }

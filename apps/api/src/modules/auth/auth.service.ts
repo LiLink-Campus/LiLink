@@ -151,7 +151,7 @@ export class AuthService {
             email: normalizedEmail,
             passwordHash,
             status: 'ACTIVE',
-            displayName: input.displayName,
+            displayName: null,
             preferredLocale: localeCookie ?? undefined,
             schoolId,
             referredByUserId: attribution.referredByUserId,
@@ -166,9 +166,7 @@ export class AuthService {
             lastLoginAt: now,
             lastActiveAt: now,
             profile: {
-              create: {
-                fullName: input.fullName,
-              },
+              create: {},
             },
           },
         });

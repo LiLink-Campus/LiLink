@@ -1,0 +1,101 @@
+.strip {
+  overflow: hidden;
+  border: 1px solid #e6ded7;
+  box-shadow: 0 3px 14px rgb(70 45 35 / 3%);
+  border-radius: 24px;
+  background: #fdfbf9;
+  color: #322e2b;
+}
+.content {
+  position: relative;
+  padding: 30px 28px;
+}
+.eyebrow {
+  margin: 0 0 14px;
+  color: #89354f;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: .05em;
+}
+.title {
+  margin: 0 0 14px;
+  color: #322e2b;
+  font: 600 28px/1.4 var(--font-display);
+}
+.sub {
+  max-width: 44em;
+  margin: 0;
+  color: #79695e;
+  font-size: 14px;
+  line-height: 1.85;
+  overflow-wrap: break-word;
+}
+.revealRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 0;
+}
+.countdownLabel, .revealWhen {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #8b7b70;
+}
+.revealCountdown {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: #89354f;
+  font-variant-numeric: tabular-nums;
+}
+.revealCountdown > span:nth-child(odd) {
+  color: #89354f;
+  font: 600 28px/1.2 var(--font-display);
+}
+.revealCountdown > span:nth-child(even) {
+  color: #8b7b70;
+  font-size: 12px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 0 28px 26px;
+}
+.actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  text-decoration: none;
+  text-align: center;
+}
+.primary {
+  border: 1px solid #89354f;
+  background: #89354f;
+  color: #fff;
+}
+.secondary {
+  border: 1px solid #ceb4be;
+  background: transparent;
+  color: #89354f;
+}
+.actions a:focus-visible {
+  outline: 2px solid #89354f;
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .content { padding: 26px 22px; }
+  .title { font-size: 25px; }
+  .sub { font-size: 13px; }
+  .actions { padding: 0 22px 22px; gap: 10px; }
+  .actions a { flex: 1 1 auto; min-width: 0; padding-inline: 12px; font-size: 13px; }
+}
