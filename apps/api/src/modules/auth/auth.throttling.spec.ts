@@ -58,7 +58,6 @@ const endpointCases: EndpointCase[] = [
       email,
       code: '123456',
       password: 'Password123',
-      displayName: 'Tester',
       acceptedTerms: true,
     }),
   },
