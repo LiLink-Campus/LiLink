@@ -2,7 +2,6 @@ import { HARD_MATCH_KEYS } from "../../../lib/hard-match";
 import { profileAttentionHashForKey } from "./profile-attention";
 import type {
   ContactPreferencesPayload,
-  DashboardTask,
   QuestionnaireAttentionPayload,
 } from "./types";
 
@@ -20,19 +19,11 @@ export function questionnaireHref(
       : attention?.pendingUpdatedKeys;
   const key = preferredKeys?.[0] ?? attention?.pendingKeys?.[0];
   if (key === HARD_MATCH_KEYS.oneLinerIntro) {
-    return "/dashboard/me/card";
+    return `/dashboard/profile${profileAttentionHashForKey(key)}`;
   }
   return key
     ? `/dashboard/profile${profileAttentionHashForKey(key)}`
     : "/dashboard/profile";
-}
-
-export function meetupTaskIsAttention(task: DashboardTask) {
-  return task.userTurnStatus === "NEEDS_YOUR_RESPONSE";
-}
-
-export function meetupTaskIsWaiting(task: DashboardTask) {
-  return task.userTurnStatus === "WAITING_FOR_COUNTERPART";
 }
 
 export function contactPreferencesAreDefault(prefs: ContactPreferencesPayload) {

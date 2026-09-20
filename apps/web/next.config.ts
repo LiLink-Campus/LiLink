@@ -31,7 +31,7 @@ function createNextConfig(phase: string): NextConfig {
     allowedDevOrigins: resolveAllowedDevOrigins(),
     transpilePackages: ["@lilink/shared"],
     turbopack: {
-      root: workspaceRoot,
+      root: process.env.LILINK_BUILD_WORKSPACE_ROOT || workspaceRoot,
     },
     typescript: {
       ignoreBuildErrors: false,

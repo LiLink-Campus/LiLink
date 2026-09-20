@@ -22,6 +22,7 @@ import {
   ADMIN_LIST_PAGE_SIZE_MAX,
 } from '../../common/validation/input-limits';
 import {
+  AcquisitionQueryDto,
   PromotionLeaderboardQueryDto,
   PromotionQueryDto,
   PromotionRedemptionsQueryDto,
@@ -103,6 +104,112 @@ export interface PromotionRedemptionsResponse {
 export class PromotionDashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getAcquisition(query: AcquisitionQueryDto) {
+    const { from, to } = this.parseRange(query);
+    const [events, users] = await Promise.all([
+      this.prisma.$queryRaw<
+        { channel: string | null; type: string; count: bigint }[]
+      >`
+        SELECT e."channel"::text, e."type"::text, COUNT(*)::bigint AS count
+        FROM "ReferralEvent" e JOIN "User" u ON u.id = e."referrerUserId"
+        WHERE e."createdAt" >= ${from} AND e."createdAt" < ${to}
+          AND u."isTest" = false AND u."deactivatedAt" IS NULL
+        GROUP BY e."channel", e."type"`,
+      this.prisma.user.findMany({
+        where: {
+          createdAt: { gte: from, lt: to },
+          isTest: false,
+          deactivatedAt: null,
+        },
+        select: {
+          referredByUserId: true,
+          referralChannel: true,
+          firstOptedInAt: true,
+          questionnaireResponse: { select: { submittedAt: true } },
+          referredBy: { select: { displayName: true, referralCode: true } },
+        },
+      }),
+    ]);
+    const channels = new Map<
+      string,
+      {
+        channel: string;
+        shares: number;
+        visits: number;
+        registrations: number;
+        qualified: number;
+      }
+    >();
+    const rowFor = (channel: string | null) => {
+      const key = channel ?? 'DIRECT';
+      if (!channels.has(key))
+        channels.set(key, {
+          channel: key,
+          shares: 0,
+          visits: 0,
+          registrations: 0,
+          qualified: 0,
+        });
+      return channels.get(key)!;
+    };
+    let shares = 0;
+    let visits = 0;
+    for (const event of events) {
+      const count = Number(event.count);
+      if (event.type === 'SHARE') {
+        shares += count;
+        rowFor(event.channel).shares += count;
+      }
+      if (event.type === 'CLICK') {
+        visits += count;
+        rowFor(event.channel).visits += count;
+      }
+    }
+    let qualified = 0;
+    const referrers = new Map<
+      string,
+      { id: string; name: string; registrations: number; qualified: number }
+    >();
+    for (const user of users) {
+      const ready = Boolean(
+        user.firstOptedInAt && user.questionnaireResponse?.submittedAt,
+      );
+      const row = rowFor(user.referralChannel);
+      row.registrations += 1;
+      if (ready) {
+        row.qualified += 1;
+        qualified += 1;
+      }
+      if (user.referredByUserId) {
+        const inviter = referrers.get(user.referredByUserId) ?? {
+          id: user.referredByUserId,
+          name:
+            user.referredBy?.displayName ??
+            user.referredBy?.referralCode ??
+            '未命名邀请人',
+          registrations: 0,
+          qualified: 0,
+        };
+        inviter.registrations += 1;
+        if (ready) inviter.qualified += 1;
+        referrers.set(inviter.id, inviter);
+      }
+    }
+    return {
+      shares,
+      visits,
+      registrations: users.length,
+      qualified,
+      invitedRegistrations: users.filter((u) => u.referredByUserId).length,
+      channels: [...channels.values()].sort(
+        (a, b) => b.registrations - a.registrations,
+      ),
+      referrers: [...referrers.values()]
+        .sort((a, b) => b.registrations - a.registrations)
+        .slice(0, 20),
+    };
+  }
+
   async getFunnel(query: PromotionQueryDto): Promise<PromotionFunnelResponse> {
     const { from, to } = this.parseRange(query);
     const campaignId = query.campaignId;
@@ -130,6 +237,7 @@ export class PromotionDashboardService {
       where: {
         referralCampaignId: campaignId,
         isTest: false,
+        deactivatedAt: null,
         createdAt: range,
       },
       select: {
@@ -235,6 +343,7 @@ export class PromotionDashboardService {
     const users = await this.prisma.user.findMany({
       where: {
         isTest: false,
+        deactivatedAt: null,
         createdAt: { gte: from, lt: to },
         referralCampaignId: campaignId,
         ...sourceFilter,
@@ -514,7 +623,7 @@ export class PromotionDashboardService {
     return conversions;
   }
 
-  private parseRange(query: PromotionQueryDto) {
+  private parseRange(query: Pick<PromotionQueryDto, 'from' | 'to'>) {
     const from = new Date(query.from);
     const to = new Date(query.to);
     if (

@@ -107,6 +107,7 @@ export class JwtAuthGuard implements CanActivate {
         email: true,
         displayName: true,
         status: true,
+        deactivatedAt: true,
         lastActiveAt: true,
       },
     });
@@ -115,7 +116,7 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('User account no longer exists.');
     }
 
-    if (user.status !== 'ACTIVE') {
+    if (user.deactivatedAt || user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Account is not active.');
     }
 
@@ -141,6 +142,7 @@ export class JwtAuthGuard implements CanActivate {
       where: {
         id: user.sub,
         status: 'ACTIVE',
+        deactivatedAt: null,
         OR: [{ lastActiveAt: null }, { lastActiveAt: { lt: staleBefore } }],
       },
       data: { lastActiveAt: now },

@@ -1,0 +1,21 @@
+.dialog { margin: auto; padding: 28px; width: min(440px, calc(100% - 32px)); border: 1px solid #e0d7ce; border-radius: 14px; background: #faf8f4; color: #382924; max-height: 85dvh; overflow: auto; }
+.dialog::backdrop { background: #30252180; }
+.dialog > h2 { font: 600 26px/1.4 var(--font-display); margin: 0 0 16px; }
+.dialog > form > p, .dialog > div > p { font-size: 14px; line-height: 1.8; }
+.close { float: right; border: 0; background: none; font-size: 26px; cursor: pointer; }
+.phone { display: grid; grid-template-columns: 85px 1fr; gap: 12px; margin: 20px 0; }
+.phone label { font-size: 13px; min-width: 0; }
+.phone > label > input { display: block; width: 100%; padding: 12px 8px; margin-top: 8px; border: 1px solid #cdbeb6; border-radius: 6px; background: white; font-size: 16px; }
+.consent { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.8; }
+.consent input { margin-top: 4px; }
+.submit { width: 100%; padding: 13px; margin-top: 20px; background: #89364f; color: white; border: 0; border-radius: 6px; cursor: pointer; }
+.submit:disabled { opacity: .6; }
+.phone { grid-template-columns: minmax(125px, .85fr) minmax(0, 1fr); }
+.country { min-width: 0; font-size: 13px; }
+.country > span { display: block; margin-bottom: 8px; }
+
+.phone { grid-template-columns: 112px minmax(0, 1fr); align-items: start; gap: 10px; }
+.phone > label, .country > span { line-height: 20px; }
+.country > button, .phone > label > input { height: 44px; min-height: 44px; padding: 10px 8px; border: 1px solid #cdbeb6; border-radius: 8px; background: white; box-sizing: border-box; }
+.country > button { font-size: 13px; gap: 5px; }
+.country > button > span:first-child { min-width: 0; }

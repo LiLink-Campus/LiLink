@@ -9,6 +9,8 @@ import {
   UserStatus,
 } from '../src/common/prisma/client';
 import {
+  SCHOOL_DIRECTORY,
+  LIFESTYLE_QUESTIONS,
   HARD_MATCH_GENDERS,
   HARD_MATCH_HEIGHT_MAX_CM,
   HARD_MATCH_HEIGHT_MIN_CM,
@@ -221,6 +223,12 @@ type QuestionnaireSeedQuestion = {
 };
 
 const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
+  ...LIFESTYLE_QUESTIONS.map((question, index) => ({
+    ...question,
+    type: QuestionType.SINGLE_SELECT,
+    order: 100 + index,
+    weight: 0,
+  })),
   {
     key: 'relationship_intent',
     prompt: '你更想进入一段怎样的关系？',
@@ -550,84 +558,27 @@ async function ensureCurrentQuestionnaireVersion() {
   return version;
 }
 
-const schools = [
-  {
-    name: '北京邮电大学玛丽女王海南学院',
-    slug: 'bupt-qmul-hainan',
-    description: '黎安试验区中外合作办学机构',
-    domains: ['bupt.cn', 'bupt.edu.cn', 'qmul.ac.uk'],
-  },
-  {
-    name: '中国传媒大学海南国际学院',
-    slug: 'cuc-hainan-international',
-    description: '黎安试验区中外合作办学机构',
-    domains: ['coventry.ac.uk', 'cuc.cn', 'cuc.edu.cn'],
-  },
-  {
-    name: '电子科技大学格拉斯哥海南学院',
-    slug: 'uestc-glasgow-hainan',
-    description: '黎安试验区中外合作办学机构',
-    domains: ['gla.ac.uk', 'glasgow.ac.uk', 'uestc.cn', 'uestc.edu.cn'],
-  },
-  {
-    name: '北京体育大学阿尔伯塔国际休闲体育学院',
-    slug: 'bsu-ualberta-hainan',
-    description: '黎安试验区中外合作办学机构',
-    domains: ['bsu.cn', 'bsu.edu.cn', 'ualberta.ca'],
-  },
-  {
-    name: '中央民族大学海南国际学院',
-    slug: 'muc-hainan-international',
-    description: '黎安试验区中外合作办学机构',
-    domains: ['live.mdx.ac.uk', 'mdx.ac.uk', 'muc.cn', 'muc.edu.cn'],
-  },
-  {
-    name: '海南比勒费尔德应用科学大学',
-    slug: 'hainan-biuh',
-    description: '黎安试验区境外高校独立办学项目',
-    domains: ['hainan-biuh.edu.cn', 'hsbi.de'],
-  },
-  {
-    name: '北京语言大学（黎安交流项目）',
-    slug: 'blcu-lian-exchange',
-    description: '政府公开提到的入园学习或交流院校',
-    domains: ['blcu.cn', 'blcu.edu.cn'],
-  },
-  {
-    name: '长安大学（黎安交流项目）',
-    slug: 'changan-lian-exchange',
-    description: '政府公开提到的入园学习或交流院校',
-    domains: ['chd.edu.cn'],
-  },
-  {
-    name: '华北电力大学（黎安交流项目）',
-    slug: 'ncepu-lian-exchange',
-    description: '政府公开提到的入园学习或交流院校',
-    domains: ['ncepu.edu.cn'],
-  },
-];
+const schools = SCHOOL_DIRECTORY;
 
 async function seedSchoolsAndDomains() {
   for (const school of schools) {
+    if (await prisma.school.findUnique({ where: { slug: school.slug } }))
+      continue;
     const createdSchool = await prisma.school.upsert({
       where: { slug: school.slug },
-      update: {
-        name: school.name,
-        description: school.description,
-      },
+      update: {},
       create: {
         name: school.name,
         slug: school.slug,
         description: school.description,
+        registrationEligible: true,
       },
     });
 
     for (const domain of school.domains) {
       await prisma.schoolDomain.upsert({
         where: { domain },
-        update: {
-          schoolId: createdSchool.id,
-        },
+        update: {},
         create: {
           domain,
           schoolId: createdSchool.id,

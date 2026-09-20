@@ -75,9 +75,7 @@
 
 .mp-card-expanded {
   border-color: var(--color-accent) !important;
-  box-shadow:
-    0 0 0 2px var(--color-accent-soft),
-    var(--shadow-sm);
+  background: var(--color-surface-tinted);
 }
 
 .mp-status-row {
@@ -256,21 +254,17 @@
   display: grid;
   gap: 0.75rem;
   margin-bottom: 1rem;
-  padding: 0.95rem 1.05rem 1rem;
+  padding: 18px 20px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: linear-gradient(
-    180deg,
-    var(--color-surface) 0%,
-    color-mix(in srgb, var(--color-surface-tinted) 28%, var(--color-surface)) 100%
-  );
+  border-radius: 8px;
+  background: #fff;
 }
 
 .mp-filter-bar-sticky {
   position: sticky;
   top: 0.65rem;
   z-index: 4;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .mp-filter-bar-head {
@@ -284,9 +278,9 @@
 }
 
 .mp-filter-bar-title {
-  font-size: 0.78rem;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
@@ -370,9 +364,9 @@
 }
 
 .mp-filter-field > span {
-  font-size: 0.78rem;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
@@ -383,8 +377,8 @@
   padding: 0 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--color-canvas);
-  font-size: 0.88rem;
+  background: #fff;
+  font-size: 13px;
 }
 
 .mp-filter-field select:focus,
@@ -398,9 +392,9 @@
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.3rem;
-  padding: 0.18rem;
+  padding: 3px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: 6px;
   background: var(--color-canvas);
   justify-self: start;
 }
@@ -413,9 +407,9 @@
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
-  border-radius: var(--radius-pill);
+  border-radius: 4px;
   padding: 0.34rem 0.72rem;
-  font-size: 0.78rem;
+  font-size: 11px;
   cursor: pointer;
   transition:
     color 0.15s ease,
@@ -461,19 +455,19 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
   overflow: hidden;
 }
 
 .mp-panel-head {
   padding: 0.85rem 1rem 0.75rem;
   border-bottom: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface-tinted) 35%, var(--color-surface));
+  background: #fff;
 }
 
 .mp-panel-head h3 {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 14px;
   color: var(--color-text);
 }
 

@@ -1,32 +1,26 @@
 "use client";
 
+import { normalizeMatchResults } from "../_lib/match-results";
 import { useEffect, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import {
-  applyContactSuccessToDashboard,
   applyReportSuccessToDashboard,
 } from "../_lib/dashboard-mutations";
 import { DEFAULT_REPORT_REASON } from "../_lib/format";
 import type { DashboardPayload } from "../_lib/types";
 
-type SavingKey = null | "contact" | "report";
+type SavingKey = null | "report";
 
 type UseMatchActionsOptions = {
   initialDashboard: DashboardPayload | null;
-  currentUserId: string | null;
 };
 
-/**
- * Shared mutation surface for `/dashboard/match` and `/dashboard/history`:
- * holds the dashboard snapshot, the optimistic mutation handlers for
- * "request contact" / "submit report", and the inline report form state.
- */
+// Shared report state for current and historical matches.
 export function useMatchActions({
   initialDashboard,
-  currentUserId,
 }: UseMatchActionsOptions) {
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(
-    initialDashboard,
+    initialDashboard ? normalizeMatchResults(initialDashboard) : null,
   );
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
@@ -42,7 +36,7 @@ export function useMatchActions({
   // Keep local dashboard state aligned with the latest server snapshot when
   // the RSC tree revalidates (e.g. router.refresh), matching the hub page.
   useEffect(() => {
-    setDashboard(initialDashboard);
+    setDashboard(initialDashboard ? normalizeMatchResults(initialDashboard) : null);
   }, [initialDashboard]);
 
   function closeReportForm() {
@@ -73,7 +67,7 @@ export function useMatchActions({
 
   async function refreshDashboard() {
     const next = await fetchApi<DashboardPayload>("/me/dashboard");
-    setDashboard(next);
+    setDashboard(normalizeMatchResults(next));
   }
 
   async function refreshDashboardAfterMutation(failureMessage: string) {
@@ -81,30 +75,6 @@ export function useMatchActions({
       await refreshDashboard();
     } catch {
       setError(failureMessage);
-    }
-  }
-
-  async function requestContact(matchId: string): Promise<boolean> {
-    setSaving("contact");
-    setSavedMessage(null);
-    setError(null);
-    try {
-      await fetchApi(`/me/matches/${matchId}/contact`, { method: "POST" });
-      setDashboard((current) =>
-        applyContactSuccessToDashboard(current, matchId, currentUserId),
-      );
-      setSavedMessage("已向双方发送引荐邮件。");
-      await refreshDashboardAfterMutation(
-        "引荐已提交，但页面刷新失败。请稍后手动刷新查看最新状态。",
-      );
-      return true;
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : "引荐发送失败。",
-      );
-      return false;
-    } finally {
-      setSaving(null);
     }
   }
 
@@ -144,7 +114,6 @@ export function useMatchActions({
     error,
     savedMessage,
     saving,
-    requestContact,
     submitReport,
     refreshDashboard,
     reportOpen,

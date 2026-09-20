@@ -1,0 +1,109 @@
+.floater {
+  position: fixed;
+  left: 12px;
+  bottom: 50svh;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.controls {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.close {
+  position: absolute;
+  top: -10px;
+  left: -6px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(0 0 0 / 15%);
+  border-radius: 50%;
+  background: white;
+  color: #555;
+  font: 14px/1 var(--font-body);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 12%);
+  cursor: pointer;
+  z-index: 2;
+}
+.tab {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  white-space: nowrap;
+  padding: 14px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #e5e1dd;
+  color: #745043;
+  font: 15px/1.4 var(--font-display);
+  letter-spacing: 0.18em;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 12%);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.tab:hover {
+  background: #d8d4d0;
+}
+.panel {
+  max-height: calc(50svh - 16px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 12px;
+  background: rgb(255 255 255 / 96%);
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 12px;
+  box-shadow: 0 6px 22px rgb(0 0 0 / 14%);
+  backdrop-filter: blur(8px);
+}
+.panel[hidden] {
+  display: none;
+}
+.channel {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin: 0;
+}
+.channel figcaption {
+  font: 12px/1.5 var(--font-body);
+  color: #745043;
+}
+.qrImage {
+  border-radius: 6px;
+  display: block;
+  width: 128px;
+  height: 128px;
+  background: white;
+}
+.tab:focus-visible,
+.close:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .floater {
+    left: 8px;
+  }
+  .tab {
+    padding: 12px 6px;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+  }
+
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}

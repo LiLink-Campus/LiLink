@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { AdminIcon, type AdminIconName } from "./admin-icon";
+import { useCallback, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
 import { formatChinaStandardDateTime } from "../../lib/china-standard-time";
 import { cx } from "./admin-class-names";
 import { useAdmin } from "./admin-context";
+import styles from "./admin-overview.module.css";
 import commonStyles from "./admin-common.module.css";
 import type { AdminDashboardData } from "./types";
 
@@ -16,38 +18,15 @@ function formatDateTime(value: string) {
   return formatChinaStandardDateTime(value);
 }
 
-type SystemSettings = Record<string, string>;
-
-const SHORTCUTS: { href: string; label: string }[] = [
-  { href: "/admin/users", label: "用户中心" },
-  { href: "/admin/schools", label: "学校中心" },
-  { href: "/admin/questionnaire", label: "问卷构建器" },
-  { href: "/admin/cycles", label: "轮次中心" },
-  { href: "/admin/analytics", label: "数据分析" },
-  { href: "/admin/campaigns", label: "活动券包" },
-  { href: "/admin/merchants", label: "商家管理" },
-  { href: "/admin/promotion", label: "推广数据" },
-  { href: "/admin/reports", label: "举报中心" },
-  { href: "/admin/audit", label: "审计日志" },
-];
-
 export default function AdminOverviewPage({
   initialDashboard,
-  initialSettings,
 }: {
   initialDashboard: AdminDashboardData | null;
-  initialSettings: SystemSettings | null;
 }) {
   const { authenticated } = useAdmin();
   const [data, setData] = useState<AdminDashboardData | null>(initialDashboard);
   const [loading, setLoading] = useState(() => !initialDashboard);
   const [error, setError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<SystemSettings | null>(initialSettings);
-  const [settingsForm, setSettingsForm] = useState({
-    maxReg: initialSettings?.max_registrations ?? "0",
-  });
-  const [settingsPending, setSettingsPending] = useState(false);
-  const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
 
   const [seedPending, setSeedPending] = useState(false);
   const [seedMsg, setSeedMsg] = useState<string | null>(null);
@@ -59,19 +38,10 @@ export default function AdminOverviewPage({
     setError(null);
 
     try {
-      const [nextDashboard, nextSettings] = await Promise.all([
-        fetchApi<AdminDashboardData>("/admin/dashboard"),
-        fetchApi<SystemSettings>("/admin/settings"),
-      ]);
+      const nextDashboard = await fetchApi<AdminDashboardData>("/admin/dashboard");
       setData(nextDashboard);
-      setSettings(nextSettings);
-      setSettingsForm({
-        maxReg: nextSettings.max_registrations ?? "0",
-      });
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : "后台数据加载失败。",
-      );
+      setError(caughtError instanceof Error ? caughtError.message : "后台数据加载失败。");
     } finally {
       setLoading(false);
     }
@@ -84,26 +54,6 @@ export default function AdminOverviewPage({
     void refresh();
   }, [authenticated, initialDashboard, refresh]);
 
-  async function saveSettings() {
-    setSettingsPending(true);
-    setSettingsMsg(null);
-    try {
-      const updated = await fetchApi<SystemSettings>("/admin/settings", {
-        method: "PATCH",
-        body: JSON.stringify({
-          max_registrations: settingsForm.maxReg,
-        }),
-      });
-      setSettings(updated);
-      setSettingsMsg("已保存");
-      setTimeout(() => setSettingsMsg(null), 2000);
-    } catch (e) {
-      setSettingsMsg(e instanceof Error ? e.message : "保存失败");
-    } finally {
-      setSettingsPending(false);
-    }
-  }
-
   async function runSeed() {
     setSeedPending(true);
     setSeedMsg(null);
@@ -115,7 +65,7 @@ export default function AdminOverviewPage({
         password: string;
       }>("/admin/seed-test-users", { method: "POST" });
       setSeedMsg(
-        `已创建 ${result.createdCount} 个测试用户，已加入轮次「${result.cycleName}」。本次密码（仅显示一次）：${result.password}`,
+        `已创建 ${result.createdCount} 个测试用户，已加入轮次「${result.cycleName}」。本次密码（仅显示一次）：${result.password}`
       );
       void refresh();
     } catch (e) {
@@ -133,10 +83,9 @@ export default function AdminOverviewPage({
     setDeleteMsg(null);
     setSeedMsg(null);
     try {
-      const result = await fetchApi<{ deletedCount: number }>(
-        "/admin/users/test-users",
-        { method: "DELETE" },
-      );
+      const result = await fetchApi<{ deletedCount: number }>("/admin/users/test-users", {
+        method: "DELETE",
+      });
       setDeleteMsg(`已删除 ${result.deletedCount} 个测试用户。`);
       void refresh();
     } catch (e) {
@@ -146,383 +95,303 @@ export default function AdminOverviewPage({
     }
   }
 
-  const summary = useMemo(() => {
-    if (!data) return null;
-    return {
-      openReports: data.metrics.openReports,
-      activeUsers: data.metrics.activeUsers,
-      completedQuestionnaires: data.metrics.completedQuestionnaires,
-      openCycle: data.recentCycles.find((c) => c.status === "OPEN"),
-    };
-  }, [data]);
-
-  if (loading) {
-    return (
-      <div className={cx(adminStyles, "admin-empty-state")}>正在加载后台概览...</div>
-    );
-  }
-
-  if (!data || !summary) {
-    return (
-      <div className={cx(adminStyles, "ops-container")}>
-        <div className={cx(adminStyles, "ops-header")}>
-          <div>
-            <h1>运营概览</h1>
-            <p className={cx(adminStyles, "ops-header-desc")}>后台数据暂时不可用。</p>
-          </div>
-          <button
-            className="ui-button ui-button--secondary"
-            onClick={() => void refresh()}
-            type="button"
-          >
-            重新加载
-          </button>
-        </div>
-        {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
-      </div>
-    );
-  }
-
-  const openCycle = summary.openCycle;
-  const stats: {
-    key: string;
-    label: string;
-    value: number;
-    tone: string;
-    note?: string;
-  }[] = [
-    { key: "active", label: "活跃用户", value: summary.activeUsers, tone: "sage" },
-    {
-      key: "quest",
-      label: "已填问卷",
-      value: summary.completedQuestionnaires,
-      tone: "gold",
-    },
-    {
-      key: "schools",
-      label: "学校数量",
-      value: data.metrics.schools,
-      tone: "accent",
-    },
-    {
-      key: "reports",
-      label: "待处理举报",
-      value: summary.openReports,
-      tone: "coral",
-      note: summary.openReports > 0 ? "需处理" : "无积压",
-    },
-    {
-      key: "cycleParts",
-      label: "本轮报名",
-      value: openCycle?._count.participations ?? 0,
-      tone: "brand",
-      note: openCycle?.codename ?? "无进行中轮次",
-    },
-    {
-      key: "cycleMatches",
-      label: "已生成匹配",
-      value: openCycle?._count.matches ?? 0,
-      tone: "accent",
-      note: openCycle ? "当前轮次" : "—",
-    },
-  ];
+  const currentCycle =
+    data?.recentCycles.find((cycle) => cycle.status === "OPEN") ??
+    data?.recentCycles.find((cycle) => ["PREPARING", "REVEAL_READY"].includes(cycle.status));
+  const labels = {
+    DRAFT: "未开放",
+    OPEN: "报名中",
+    PREPARING: "匹配中",
+    REVEAL_READY: "待揭晓",
+    REVEALED: "已揭晓",
+  };
 
   return (
-    <div className={cx(adminStyles, "ops-container")}>
-      <div className={cx(adminStyles, "ops-header")}>
+    <div className={styles.page}>
+      <header className={styles.header}>
         <div>
           <h1>运营概览</h1>
-          <p className={cx(adminStyles, "ops-header-desc")}>
-            本周轮次、风险工单与关键配置一屏速览。
-          </p>
+          <p>掌握运营进展，处理重要事项。</p>
         </div>
-        <div className={cx(adminStyles, "ops-header-actions")}>
-          <button
-            className="ui-button ui-button--secondary"
-            onClick={() => void refresh()}
-            type="button"
-            style={{ minHeight: "2.2rem", padding: "0 1rem" }}
-          >
-            刷新数据
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <p
-          className="ui-form-message ui-form-message--error"
-          style={{ marginBottom: "0.9rem" }}
+        <button
+          className="ui-button ui-button--secondary"
+          type="button"
+          disabled={loading}
+          onClick={() => void refresh()}
         >
+          <AdminIcon name="refresh" width="15" height="15" />
+          {loading ? "刷新中…" : "刷新数据"}
+        </button>
+      </header>
+      {error && (
+        <p role="alert" className="ui-form-message ui-form-message--error">
           {error}
         </p>
       )}
-
-      {/* KPI strip */}
-      <section className={cx(adminStyles, "ops-stat-strip")}>
-        {stats.map((s) => (
-          <div
-            key={s.key}
-            className={cx(adminStyles, "ops-stat-tile", `is-${s.tone}`)}
-          >
-            <span className={cx(adminStyles, "ops-stat-label")}>{s.label}</span>
-            <span className={cx(adminStyles, "ops-stat-value")}>
-              {adminNumberFormatter.format(s.value)}
-            </span>
-            {s.note ? (
-              <span className={cx(adminStyles, "ops-stat-note")}>{s.note}</span>
-            ) : null}
-          </div>
-        ))}
-      </section>
-
-      {/* Current cycle + open reports */}
-      <section className={cx(adminStyles, "ops-split")}>
-        <article className={cx(adminStyles, "ops-panel")}>
-          <div className={cx(adminStyles, "ops-panel-head")}>
-            <div>
-              <p className={cx(adminStyles, "ops-eyebrow")}>轮次雷达</p>
-              <h2>当前轮次</h2>
-            </div>
-            <Link className="ui-button ui-button--secondary" href="/admin/cycles">
-              进入轮次中心
-            </Link>
-          </div>
-
-          {openCycle ? (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: "0.6rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                <strong
-                  style={{
-                    fontSize: "1.15rem",
-                    fontFamily: "var(--font-display)",
-                  }}
-                >
-                  {openCycle.codename}
-                </strong>
-                <span className="ui-badge ui-badge--neutral">
-                  {openCycle.status}
-                </span>
-              </div>
-              <div className={cx(adminStyles, "adm-kv-grid")}>
-                <div className={cx(adminStyles, "adm-kv")}>
-                  <span>报名截止</span>
-                  <strong>{formatDateTime(openCycle.participationDeadline)}</strong>
-                </div>
-                <div className={cx(adminStyles, "adm-kv")}>
-                  <span>揭晓时间</span>
-                  <strong>{formatDateTime(openCycle.revealAt)}</strong>
-                </div>
-                <div className={cx(adminStyles, "adm-kv")}>
-                  <span>可匹配人数</span>
-                  <strong>{openCycle._count.participations}</strong>
-                </div>
-                <div className={cx(adminStyles, "adm-kv")}>
-                  <span>已生成匹配</span>
-                  <strong>{openCycle._count.matches}</strong>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className={cx(adminStyles, "admin-empty-state")}>
-              当前没有处于 OPEN 状态的轮次。
-            </div>
-          )}
-        </article>
-
-        <article className={cx(adminStyles, "ops-panel")}>
-          <div className={cx(adminStyles, "ops-panel-head")}>
-            <div>
-              <p className={cx(adminStyles, "ops-eyebrow")}>风险队列</p>
-              <h2>待处理举报</h2>
-            </div>
-            <Link className="ui-button ui-button--secondary" href="/admin/reports">
-              举报中心
-            </Link>
-          </div>
-
-          <div className={cx(adminStyles, "admin-mini-list")}>
-            {data.openReports.slice(0, 5).map((report) => (
-              <div
-                key={report.id}
-                className={cx(adminStyles, "admin-mini-list-item")}
-              >
-                <div className={cx(adminStyles, "admin-mini-list-main")}>
-                  <strong className={cx(adminStyles, "admin-mini-list-title")}>
-                    {report.reason}
-                  </strong>
-                  <p className={cx(adminStyles, "admin-mini-list-desc")}>
-                    {report.reporter.displayName ?? report.reporter.email}
-                    {" → "}
-                    {report.reportedUser.displayName ?? report.reportedUser.email}
-                  </p>
-                </div>
-                <span className="ui-badge ui-badge--neutral">
-                  {formatDateTime(report.createdAt)}
-                </span>
-              </div>
+      {!data ? (
+        <div className={styles.empty}>
+          {loading ? "正在加载运营数据…" : "数据暂时不可用，请重新刷新。"}
+        </div>
+      ) : (
+        <>
+          <section className={styles.metrics} aria-label="平台概况">
+            {[
+              {
+                label: "正常账号",
+                icon: "users" as AdminIconName,
+                value: data.metrics.activeUsers,
+                note: "账号状态正常，非日活",
+                href: "/admin/users",
+              },
+              {
+                label: "已提交问卷",
+                icon: "questionnaire" as AdminIconName,
+                value: data.metrics.completedQuestionnaires,
+                note: "累计提交人数",
+                href: "/admin/users",
+              },
+              {
+                label: "学校",
+                icon: "schools" as AdminIconName,
+                value: data.metrics.schools,
+                note: "已配置的学校",
+                href: "/admin/schools",
+              },
+              {
+                label: "待处理举报",
+                icon: "reports" as AdminIconName,
+                value: data.metrics.openReports,
+                note: data.metrics.openReports ? "需要跟进" : "暂无积压",
+                href: "/admin/reports",
+              },
+            ].map((metric) => (
+              <Link key={metric.label} href={metric.href} className={styles.metric}>
+                <AdminIcon name={metric.icon} className={styles.metricIcon} />
+                <span>{metric.label}</span>
+                <strong>{adminNumberFormatter.format(metric.value)}</strong>
+                <small>{metric.note}</small>
+              </Link>
             ))}
-            {summary.openReports === 0 && (
-              <div className={cx(adminStyles, "admin-empty-state")}>
-                当前没有待处理举报。
+          </section>
+          <div className={styles.columns}>
+            <section className={styles.panel} aria-labelledby="overview-cycle-title">
+              <div className={styles.panelHead}>
+                <h2 id="overview-cycle-title">当前轮次</h2>
+                <Link href="/admin/cycles">管理轮次 ↗</Link>
               </div>
-            )}
-          </div>
-        </article>
-      </section>
-
-      {/* Shortcuts */}
-      <section>
-        <p className={cx(adminStyles, "ops-eyebrow")}>快捷入口</p>
-        <div className={cx(adminStyles, "ops-shortcuts")}>
-          {SHORTCUTS.map((s) => (
-            <Link
-              key={s.href}
-              href={s.href}
-              className={cx(adminStyles, "ops-chip")}
-            >
-              {s.label}
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* Secondary utility region: config + test tools */}
-      <section className={cx(adminStyles, "ops-utility")}>
-        <div className={cx(adminStyles, "ops-utility-head")}>
-          <h2>系统配置 · 测试工具</h2>
-        </div>
-        <div className={cx(adminStyles, "ops-utility-grid")}>
-          {settings && (
-            <div className={cx(adminStyles, "ops-utility-card")}>
-              <h3>容量限制</h3>
-              <div className={cx(adminStyles, "admin-capacity-field")}>
-                <label
-                  className={cx(adminStyles, "admin-field-label")}
-                  htmlFor="admin-max-registrations"
-                >
-                  最大注册人数
-                </label>
-                <input
-                  id="admin-max-registrations"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={settingsForm.maxReg}
-                  onChange={(e) =>
-                    setSettingsForm((f) => ({ ...f, maxReg: e.target.value }))
-                  }
-                  placeholder="0 = 不限制"
-                />
-                <p className={cx(adminStyles, "admin-capacity-hint")}>
-                  0 表示不限制；达到上限后，新用户完成注册时会收到「名额已满」提示，无法再创建账号。
-                </p>
+              {currentCycle ? (
+                <>
+                  <div className={styles.cycleTitle}>
+                    <h3>{currentCycle.codename}</h3>
+                    <span className={styles.badge}>{labels[currentCycle.status]}</span>
+                  </div>
+                  <dl className={styles.cycleFacts}>
+                    <div>
+                      <dt>报名截止</dt>
+                      <dd>{formatDateTime(currentCycle.participationDeadline)}</dd>
+                    </div>
+                    <div>
+                      <dt>揭晓时间</dt>
+                      <dd>{formatDateTime(currentCycle.revealAt)}</dd>
+                    </div>
+                    <div>
+                      <dt>符合匹配条件</dt>
+                      <dd>{currentCycle._count.participations} 人</dd>
+                    </div>
+                    <div>
+                      <dt>已生成匹配</dt>
+                      <dd>{currentCycle._count.matches} 组</dd>
+                    </div>
+                  </dl>
+                  <ol className={styles.cycleProgress} aria-label="轮次进度">
+                    {["报名", "匹配", "揭晓"].map((step, index) => (
+                      <li
+                        key={step}
+                        data-active={
+                          index <=
+                          (currentCycle.status === "OPEN"
+                            ? 0
+                            : currentCycle.status === "PREPARING"
+                              ? 1
+                              : 2)
+                        }
+                      >
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              ) : (
+                <div className={styles.empty}>
+                  <AdminIcon name="cycles" className={styles.emptyIcon} />
+                  <strong>暂无进行中的轮次</strong>
+                  <p>前往轮次管理，安排下一次匹配。</p>
+                  <Link href="/admin/cycles">查看轮次 →</Link>
+                </div>
+              )}
+              {data.recentCycles.length > 0 && (
+                <details className={styles.recent}>
+                  <summary>最近轮次</summary>
+                  <ul>
+                    {data.recentCycles.slice(0, 4).map((cycle) => (
+                      <li key={cycle.id}>
+                        <span>{cycle.codename}</span>
+                        <span>{labels[cycle.status]}</span>
+                        <small>{formatDateTime(cycle.revealAt)}</small>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </section>
+            <section className={styles.panel} aria-labelledby="overview-todo-title">
+              <div className={styles.panelHead}>
+                <h2 id="overview-todo-title">待处理事项</h2>
+                <Link href="/admin/reports">查看举报 ↗</Link>
               </div>
-              <div
-                className="auth-actions"
-                style={{
-                  marginTop: "0.75rem",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                }}
-              >
-                <button
-                  className="ui-button ui-button--primary"
-                  type="button"
-                  disabled={settingsPending}
-                  onClick={() => void saveSettings()}
-                  style={{ minHeight: "2.1rem", padding: "0 1rem" }}
-                >
-                  {settingsPending ? "保存中…" : "保存限制"}
-                </button>
-                {settingsMsg && (
-                  <span
-                    style={{
-                      fontSize: "0.85rem",
-                      color:
-                        settingsMsg === "已保存"
-                          ? "var(--color-accent)"
-                          : "var(--color-danger)",
-                    }}
-                  >
-                    {settingsMsg}
+              {data.openReports.length ? (
+                <ul className={styles.reports}>
+                  {data.openReports.slice(0, 3).map((report) => (
+                    <li key={report.id}>
+                      <Link href="/admin/reports">
+                        <strong>{report.reason}</strong>
+                        <span>
+                          {report.reporter.displayName ?? report.reporter.email} →{" "}
+                          {report.reportedUser.displayName ?? report.reportedUser.email}
+                        </span>
+                        <small>{formatDateTime(report.createdAt)}</small>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className={styles.quiet}>
+                  <span className={styles.checkIcon}>
+                    <AdminIcon name="check" />
                   </span>
-                )}
-              </div>
+                  <div>
+                    <strong>暂无待处理举报</strong>
+                    <p>收到新的举报后，会在这里显示。</p>
+                  </div>
+                </div>
+              )}
+              <Link className={styles.taskLink} href="/admin/match-leads">
+                <AdminIcon name="leads" />
+                <span>
+                  <strong>人工匹配登记</strong>
+                  <small>查看报名信息，跟进咨询</small>
+                </span>
+                <AdminIcon name="arrow" width="16" height="16" />
+              </Link>
+            </section>
+          </div>
+          <section className={styles.panel}>
+            <div className={styles.shortcutHead}>
+              <h2>快捷入口</h2>
+              <span>常用运营操作</span>
             </div>
-          )}
-
-          <div className={cx(adminStyles, "ops-utility-card")}>
-            <h3>测试数据管理</h3>
-            <p
+            <nav className={styles.shortcuts} aria-label="常用操作">
+              {[
+                {
+                  href: "/admin/users",
+                  icon: "users" as const,
+                  title: "用户管理",
+                  note: "资料、状态与参与记录",
+                },
+                {
+                  href: "/admin/cycles",
+                  icon: "cycles" as const,
+                  title: "轮次管理",
+                  note: "报名进展、预演与最终匹配",
+                },
+                {
+                  href: "/admin/campaigns",
+                  icon: "campaigns" as const,
+                  title: "商户活动",
+                  note: "商家活动与优惠券",
+                },
+              ].map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <AdminIcon name={item.icon} className={styles.shortcutIcon} />
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>{item.note}</small>
+                  </span>
+                  <AdminIcon name="arrow" width="15" height="15" />
+                </Link>
+              ))}
+            </nav>
+          </section>
+        </>
+      )}
+      <details className={styles.utilities}>
+        <summary>
+          <AdminIcon name="settings" width="16" height="16" />
+          测试工具<span>模拟账号与匹配流程</span>
+        </summary>
+        <div className={cx(adminStyles, "ops-utility-card")}>
+          <h3>测试数据管理</h3>
+          <p
+            style={{
+              fontSize: "0.84rem",
+              color: "var(--color-text-secondary)",
+              margin: "0 0 0.75rem",
+              lineHeight: 1.5,
+            }}
+          >
+            用于验证注册后的问卷和匹配流程：生成 30
+            个模拟账号，自动填好问卷并加入可用轮次。账号均标记为「测试用户」，可统一删除。密码仅在成功提示中显示一次，请自行妥善保存。
+          </p>
+          <div className="auth-actions" style={{ gap: "0.6rem", flexWrap: "wrap" }}>
+            <button
+              className="ui-button ui-button--primary"
+              type="button"
+              disabled={seedPending || deletePending}
+              onClick={() => void runSeed()}
+              style={{ minHeight: "2.1rem", padding: "0 1rem" }}
+            >
+              {seedPending ? "生成中…" : "生成测试用户"}
+            </button>
+            <button
+              className="ui-button ui-button--secondary"
+              type="button"
+              disabled={deletePending || seedPending}
+              onClick={() => void runDelete()}
               style={{
-                fontSize: "0.84rem",
-                color: "var(--color-text-secondary)",
-                margin: "0 0 0.75rem",
-                lineHeight: 1.5,
+                minHeight: "2.1rem",
+                padding: "0 1rem",
+                color: "var(--color-danger, #c0392b)",
               }}
             >
-              一键生成 30 个测试用户（含问卷与轮次参与）。密码仅在成功提示中显示一次，请自行妥善保存。
-            </p>
-            <div className="auth-actions" style={{ gap: "0.6rem", flexWrap: "wrap" }}>
-              <button
-                className="ui-button ui-button--primary"
-                type="button"
-                disabled={seedPending}
-                onClick={() => void runSeed()}
-                style={{ minHeight: "2.1rem", padding: "0 1rem" }}
-              >
-                {seedPending ? "生成中…" : "生成测试用户"}
-              </button>
-              <button
-                className="ui-button ui-button--secondary"
-                type="button"
-                disabled={deletePending}
-                onClick={() => void runDelete()}
-                style={{
-                  minHeight: "2.1rem",
-                  padding: "0 1rem",
-                  color: "var(--color-danger, #c0392b)",
-                }}
-              >
-                {deletePending ? "删除中…" : "删除全部测试用户"}
-              </button>
-            </div>
-            {seedMsg && (
-              <p
-                style={{
-                  marginTop: "0.75rem",
-                  fontSize: "0.85rem",
-                  color: seedMsg.startsWith("已创建")
-                    ? "var(--color-accent)"
-                    : "var(--color-danger)",
-                }}
-              >
-                {seedMsg}
-              </p>
-            )}
-            {deleteMsg && (
-              <p
-                style={{
-                  marginTop: "0.75rem",
-                  fontSize: "0.85rem",
-                  color: deleteMsg.startsWith("已删除")
-                    ? "var(--color-accent)"
-                    : "var(--color-danger)",
-                }}
-              >
-                {deleteMsg}
-              </p>
-            )}
+              {deletePending ? "删除中…" : "删除全部测试用户"}
+            </button>
           </div>
+          {seedMsg && (
+            <p
+              style={{
+                marginTop: "0.75rem",
+                fontSize: "0.85rem",
+                color: seedMsg.startsWith("已创建") ? "var(--color-accent)" : "var(--color-danger)",
+              }}
+            >
+              {seedMsg}
+            </p>
+          )}
+          {deleteMsg && (
+            <p
+              style={{
+                marginTop: "0.75rem",
+                fontSize: "0.85rem",
+                color: deleteMsg.startsWith("已删除")
+                  ? "var(--color-accent)"
+                  : "var(--color-danger)",
+              }}
+            >
+              {deleteMsg}
+            </p>
+          )}
         </div>
-      </section>
+      </details>
     </div>
   );
 }

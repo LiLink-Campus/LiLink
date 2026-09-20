@@ -23,14 +23,9 @@ import {
   EDITABLE_CONTACT_CHANNEL_TYPES,
   HARD_MATCH_GENDERS,
   MATCH_ESTIMATE_BANDS,
-  MEETUP_PROGRESS_STATUSES,
-  MEETUP_TODO_PRIORITY,
-  MEETUP_USER_TURN_STATUSES,
   SUPPORTED_LOCALES,
   WEEKLY_INTENTS,
   type MatchEstimateBand,
-  type MeetupProgressStatus,
-  type MeetupUserTurnStatus,
   type ContactChannelType,
   type EditableContactChannelType,
   type SupportedLocale,
@@ -51,6 +46,15 @@ import {
   QUESTIONNAIRE_ACKNOWLEDGEMENT_KEYS_MAX_ITEMS,
   REPORT_DETAILS_MAX_LENGTH,
 } from '../../common/validation/input-limits';
+
+export class DeleteAccountDto {
+  @IsString()
+  @Length(8, 128)
+  password!: string;
+
+  @IsIn(['注销账号'])
+  confirmation!: string;
+}
 
 export class UpdateProfileDto {
   @ValidateIf((_, value: unknown) => value !== undefined)
@@ -219,6 +223,11 @@ export class ContactMethodDto {
 }
 
 export class UpdateContactPreferencesDto {
+  @IsInt()
+  @Min(0)
+  @Max(2147483646)
+  revision!: number;
+
   @IsIn(CONTACT_CHANNEL_TYPES)
   preferredContactChannel!: ContactChannelType;
 
@@ -268,7 +277,6 @@ export enum DashboardHistoryResult {
 
 export enum DashboardHistoryVisibility {
   VISIBLE = 'VISIBLE',
-  // LIMITED hides match-card details today; it is not a meetup access gate.
   LIMITED = 'LIMITED',
   NOT_APPLICABLE = 'NOT_APPLICABLE',
 }
@@ -276,6 +284,7 @@ export enum DashboardHistoryVisibility {
 export enum DashboardHistoryLimitedReason {
   REPORTED = 'REPORTED',
   BLOCKED = 'BLOCKED',
+  ACCOUNT_DEACTIVATED = 'ACCOUNT_DEACTIVATED',
 }
 
 export class DashboardMatchParticipantResponseDto {
@@ -300,9 +309,6 @@ export class DashboardMatchParticipantResponseDto {
   @ApiProperty({ nullable: true })
   schoolName!: string | null;
 
-  @ApiProperty({ nullable: true, format: 'date-time' })
-  contactRequestedAt!: string | null;
-
   @ApiProperty({ nullable: true })
   gender!: string | null;
 
@@ -311,42 +317,6 @@ export class DashboardMatchParticipantResponseDto {
 
   @ApiProperty({ enum: ['FRIEND', 'DATE', 'BOTH'], nullable: true })
   weeklyIntent!: WeeklyIntent | null;
-}
-
-export class MatchFeedbackResponseDto {
-  @ApiProperty({ minimum: 1, maximum: 5 })
-  rating!: number;
-
-  @ApiProperty({ nullable: true })
-  comment!: string | null;
-
-  @ApiProperty({ format: 'date-time' })
-  submittedAt!: string;
-}
-
-export class DashboardMeetupFeedbackResponseDto {
-  @ApiProperty({ minimum: 1, maximum: 5 })
-  personalFitScore!: number;
-
-  @ApiProperty({ minimum: 1, maximum: 5 })
-  interactionQualityScore!: number;
-
-  @ApiProperty({
-    enum: ['NO_CONCERN', 'MINOR_CONCERN', 'SERIOUS_CONCERN'],
-  })
-  safetyBoundaryLevel!: string;
-
-  @ApiProperty({ type: String, isArray: true })
-  positiveTags!: string[];
-
-  @ApiProperty({ type: String, isArray: true })
-  issueTags!: string[];
-
-  @ApiProperty({ nullable: true })
-  note!: string | null;
-
-  @ApiProperty({ format: 'date-time' })
-  submittedAt!: string;
 }
 
 export class DashboardMatchResponseDto {
@@ -359,9 +329,6 @@ export class DashboardMatchResponseDto {
   @ApiProperty({ nullable: true, format: 'date-time' })
   introducedAt!: string | null;
 
-  @ApiProperty({ nullable: true, format: 'date-time' })
-  currentUserRequestedAt!: string | null;
-
   @ApiPropertyOptional({
     enum: ['OPEN', 'RESOLVED', 'DISMISSED'],
     nullable: true,
@@ -373,9 +340,6 @@ export class DashboardMatchResponseDto {
     isArray: true,
   })
   participants!: DashboardMatchParticipantResponseDto[];
-
-  @ApiProperty({ type: () => MatchFeedbackResponseDto, nullable: true })
-  currentUserFeedback!: MatchFeedbackResponseDto | null;
 }
 
 export class DashboardHistoryItemResponseDto {
@@ -402,12 +366,6 @@ export class DashboardHistoryItemResponseDto {
 
   @ApiProperty({ type: () => DashboardMatchResponseDto, nullable: true })
   match!: DashboardMatchResponseDto | null;
-
-  @ApiProperty({
-    type: () => DashboardMeetupSummaryResponseDto,
-    nullable: true,
-  })
-  meetupSummary!: DashboardMeetupSummaryResponseDto | null;
 }
 
 export class DashboardCurrentCycleResponseDto {
@@ -435,7 +393,7 @@ export class DashboardCurrentCycleResponseDto {
     enum: WEEKLY_INTENTS as unknown as string[],
     nullable: true,
     description:
-      'Weekly matching intent (FRIEND/DATE/BOTH). Sticky carry-over preserves the last stored value for opted-in users; null means this participation still lacks a usable intent and will be excluded from matching.',
+      'Weekly matching intent (FRIEND/DATE/BOTH), explicitly confirmed for each cycle. Null means this participation lacks a usable intent and will be excluded from matching.',
   })
   intent!: WeeklyIntent | null;
 }
@@ -455,90 +413,6 @@ export class DashboardLastRevealedRoundResponseDto {
 
   @ApiProperty()
   matched!: boolean;
-}
-
-export class DashboardTaskResponseDto {
-  @ApiProperty()
-  id!: string;
-
-  @ApiProperty({ enum: ['MEETUP'] })
-  type!: 'MEETUP';
-
-  @ApiProperty({ default: MEETUP_TODO_PRIORITY })
-  priority!: number;
-
-  @ApiProperty()
-  title!: string;
-
-  @ApiProperty()
-  text!: string;
-
-  @ApiProperty()
-  href!: string;
-
-  @ApiProperty({ enum: MEETUP_USER_TURN_STATUSES as unknown as string[] })
-  userTurnStatus!: MeetupUserTurnStatus;
-
-  @ApiProperty({ enum: MEETUP_PROGRESS_STATUSES as unknown as string[] })
-  progressStatus!: MeetupProgressStatus;
-
-  @ApiProperty()
-  matchId!: string;
-
-  @ApiProperty({ nullable: true })
-  sessionId!: string | null;
-
-  @ApiProperty({ format: 'date-time' })
-  updatedAt!: string;
-}
-
-export class DashboardMeetupSummaryResponseDto {
-  @ApiProperty()
-  sessionId!: string;
-
-  @ApiProperty()
-  matchId!: string;
-
-  @ApiProperty({
-    enum: ['ACTIVE', 'LOCKED', 'CANCELED', 'EXPIRED', 'ARCHIVED'],
-  })
-  status!: 'ACTIVE' | 'LOCKED' | 'CANCELED' | 'EXPIRED' | 'ARCHIVED';
-
-  @ApiProperty({ enum: MEETUP_PROGRESS_STATUSES as unknown as string[] })
-  progressStatus!: MeetupProgressStatus;
-
-  @ApiProperty()
-  href!: string;
-
-  @ApiProperty({ nullable: true, format: 'date-time' })
-  confirmedStartsAt!: string | null;
-
-  @ApiProperty({ nullable: true, format: 'date-time' })
-  confirmedEndsAt!: string | null;
-
-  @ApiProperty({ nullable: true })
-  confirmedPlaceName!: string | null;
-
-  @ApiProperty()
-  canReviseAfterLock!: boolean;
-
-  @ApiProperty()
-  canCancel!: boolean;
-
-  @ApiProperty({ nullable: true })
-  terminalText!: string | null;
-
-  @ApiProperty({
-    type: () => DashboardMeetupFeedbackResponseDto,
-    nullable: true,
-  })
-  currentUserFeedback!: DashboardMeetupFeedbackResponseDto | null;
-
-  @ApiProperty()
-  canSubmitFeedback!: boolean;
-
-  @ApiProperty({ nullable: true, format: 'date-time' })
-  feedbackEligibleAt!: string | null;
 }
 
 export class DashboardCouponAgendaResponseDto {
@@ -590,8 +464,7 @@ export class DashboardResponseDto {
   @ApiPropertyOptional({
     enum: DashboardHistoryVisibility,
     nullable: true,
-    description:
-      'LIMITED reduces match detail visibility; existing meetup access is governed by participant/session policy.',
+    description: 'LIMITED hides participant details for unavailable matches.',
   })
   latestMatchVisibility!: DashboardHistoryVisibility | null;
 
@@ -603,15 +476,6 @@ export class DashboardResponseDto {
     isArray: true,
   })
   recentMatchHistory!: DashboardHistoryItemResponseDto[];
-
-  @ApiProperty({ type: () => DashboardTaskResponseDto, isArray: true })
-  tasks!: DashboardTaskResponseDto[];
-
-  @ApiProperty({
-    type: () => DashboardMeetupSummaryResponseDto,
-    nullable: true,
-  })
-  meetupSummary!: DashboardMeetupSummaryResponseDto | null;
 
   @ApiProperty({ type: () => DashboardCouponAgendaResponseDto })
   couponAgenda!: DashboardCouponAgendaResponseDto;

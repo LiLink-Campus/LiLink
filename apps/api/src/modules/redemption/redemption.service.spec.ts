@@ -148,39 +148,6 @@ describe('RedemptionService.redeem', () => {
     expect(result).not.toHaveProperty('merchantPromotion');
   });
 
-  it('SUCCESS: queues coupon redeemed product analytics outcome in the redemption transaction', async () => {
-    const { prisma, tx } = makeTxPrisma();
-    const productAnalytics = {
-      enqueueCouponRedeemedOutcome: jest
-        .fn()
-        .mockResolvedValue('coupon_redeemed:co1'),
-    };
-    tx.coupon.findFirst.mockResolvedValue(candidate(null));
-    tx.coupon.updateMany.mockResolvedValue({ count: 1 });
-    const { ticket } = makeTicketService();
-    const service = new RedemptionService(
-      prisma as never,
-      ticket,
-      productAnalytics as never,
-    );
-
-    const result = await service.redeem(VALID_TICKET, 'm1', 'mu1');
-
-    expect(result.result).toBe('SUCCESS');
-    expect(tx.redemption.create).toHaveBeenCalledTimes(1);
-    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
-    expect(productAnalytics.enqueueCouponRedeemedOutcome).toHaveBeenCalledWith(
-      tx,
-      {
-        couponId: 'co1',
-        couponTemplateId: 'ct1',
-        merchantId: 'm1',
-        userId: 'u1',
-        occurredAt: expect.any(Date) as Date,
-      },
-    );
-  });
-
   it('SUCCESS (gift coupon): persists the gift label on the Redemption', async () => {
     const { prisma, tx } = makeTxPrisma();
     tx.coupon.findFirst.mockResolvedValue(candidate(GIFT_RULE));

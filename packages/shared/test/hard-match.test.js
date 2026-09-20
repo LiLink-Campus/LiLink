@@ -116,8 +116,8 @@ test("parseHardMatchAnswers accepts stored heights above the form cap through th
     [HARD_MATCH_KEYS.partnerAgeMax]: 30,
     [HARD_MATCH_KEYS.gender]: "男",
     [HARD_MATCH_KEYS.partnerGenders]: ["女"],
-    [HARD_MATCH_KEYS.looks]: "普通人",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人"],
+    [HARD_MATCH_KEYS.looks]: "5",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5"],
     [HARD_MATCH_KEYS.partnerHeightMin]: HARD_MATCH_HEIGHT_MIN_CM,
     [HARD_MATCH_KEYS.partnerHeightMax]: HARD_MATCH_HEIGHT_MAX_CM,
     [HARD_MATCH_KEYS.oneLinerIntro]: "你好",
@@ -149,8 +149,8 @@ test("parseHardMatchAnswers normalizes valid records", () => {
     [HARD_MATCH_KEYS.partnerAgeMax]: 30,
     [HARD_MATCH_KEYS.gender]: "男",
     [HARD_MATCH_KEYS.partnerGenders]: ["女"],
-    [HARD_MATCH_KEYS.looks]: "普通人",
-    [HARD_MATCH_KEYS.partnerLooks]: ["小帅/美", "顶帅/美"],
+    [HARD_MATCH_KEYS.looks]: "5",
+    [HARD_MATCH_KEYS.partnerLooks]: ["7", "9"],
     [HARD_MATCH_KEYS.heightCm]: 178,
     [HARD_MATCH_KEYS.partnerHeightMin]: 150,
     [HARD_MATCH_KEYS.partnerHeightMax]: 180,
@@ -190,8 +190,8 @@ test("parseHardMatchAnswers rejects out-of-range and incomplete values", () => {
       [HARD_MATCH_KEYS.partnerAgeMax]: 20,
       [HARD_MATCH_KEYS.gender]: "男",
       [HARD_MATCH_KEYS.partnerGenders]: [],
-      [HARD_MATCH_KEYS.looks]: "普通人",
-      [HARD_MATCH_KEYS.partnerLooks]: ["普通人"],
+      [HARD_MATCH_KEYS.looks]: "5",
+      [HARD_MATCH_KEYS.partnerLooks]: ["5"],
       [HARD_MATCH_KEYS.heightCm]: 178,
       [HARD_MATCH_KEYS.partnerHeightMin]: 150,
       [HARD_MATCH_KEYS.partnerHeightMax]: 180,
@@ -209,8 +209,8 @@ test("parseHardMatchAnswers rejects out-of-range and incomplete values", () => {
       [HARD_MATCH_KEYS.partnerAgeMax]: 30,
       [HARD_MATCH_KEYS.gender]: "男",
       [HARD_MATCH_KEYS.partnerGenders]: ["女"],
-      [HARD_MATCH_KEYS.looks]: "普通人",
-      [HARD_MATCH_KEYS.partnerLooks]: ["普通人"],
+      [HARD_MATCH_KEYS.looks]: "5",
+      [HARD_MATCH_KEYS.partnerLooks]: ["5"],
       [HARD_MATCH_KEYS.heightCm]: 178,
       [HARD_MATCH_KEYS.partnerHeightMin]: 150,
       [HARD_MATCH_KEYS.partnerHeightMax]: 180,
@@ -240,8 +240,8 @@ test("areHardMatchAnswersCompatible checks both directions", () => {
     [HARD_MATCH_KEYS.partnerAgeMax]: 30,
     [HARD_MATCH_KEYS.gender]: "男",
     [HARD_MATCH_KEYS.partnerGenders]: ["女"],
-    [HARD_MATCH_KEYS.looks]: "普通人",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美"],
+    [HARD_MATCH_KEYS.looks]: "5",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7"],
     [HARD_MATCH_KEYS.heightCm]: 178,
     [HARD_MATCH_KEYS.partnerHeightMin]: 150,
     [HARD_MATCH_KEYS.partnerHeightMax]: 180,
@@ -255,8 +255,8 @@ test("areHardMatchAnswersCompatible checks both directions", () => {
     [HARD_MATCH_KEYS.partnerAgeMax]: 35,
     [HARD_MATCH_KEYS.gender]: "女",
     [HARD_MATCH_KEYS.partnerGenders]: ["男"],
-    [HARD_MATCH_KEYS.looks]: "小帅/美",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美", "顶帅/美"],
+    [HARD_MATCH_KEYS.looks]: "7",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7", "9"],
     [HARD_MATCH_KEYS.heightCm]: 165,
     [HARD_MATCH_KEYS.partnerHeightMin]: 170,
     [HARD_MATCH_KEYS.partnerHeightMax]: 185,
@@ -273,8 +273,8 @@ test("areHardMatchAnswersCompatible checks both directions", () => {
     [HARD_MATCH_KEYS.partnerAgeMax]: 35,
     [HARD_MATCH_KEYS.gender]: "女",
     [HARD_MATCH_KEYS.partnerGenders]: ["男"],
-    [HARD_MATCH_KEYS.looks]: "小帅/美",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美", "顶帅/美"],
+    [HARD_MATCH_KEYS.looks]: "7",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7", "9"],
     [HARD_MATCH_KEYS.heightCm]: 165,
     [HARD_MATCH_KEYS.partnerHeightMin]: 170,
     [HARD_MATCH_KEYS.partnerHeightMax]: 185,
@@ -291,8 +291,8 @@ test("areHardMatchAnswersCompatible checks both directions", () => {
     [HARD_MATCH_KEYS.partnerAgeMax]: 35,
     [HARD_MATCH_KEYS.gender]: "女",
     [HARD_MATCH_KEYS.partnerGenders]: ["男"],
-    [HARD_MATCH_KEYS.looks]: "小帅/美",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美", "顶帅/美"],
+    [HARD_MATCH_KEYS.looks]: "7",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7", "9"],
     [HARD_MATCH_KEYS.heightCm]: 165,
     [HARD_MATCH_KEYS.partnerHeightMin]: 170,
     [HARD_MATCH_KEYS.partnerHeightMax]: 185,
@@ -321,8 +321,8 @@ test("areHardMatchAnswersCompatible applies nationality language and nullable we
     [HARD_MATCH_KEYS.partnerNationalities]: ["法国"],
     [HARD_MATCH_KEYS.languages]: ["中文", "英语"],
     [HARD_MATCH_KEYS.partnerLanguages]: ["法语"],
-    [HARD_MATCH_KEYS.looks]: "普通人",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美"],
+    [HARD_MATCH_KEYS.looks]: "5",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7"],
     [HARD_MATCH_KEYS.heightCm]: 178,
     [HARD_MATCH_KEYS.partnerHeightMin]: 150,
     [HARD_MATCH_KEYS.partnerHeightMax]: 180,
@@ -343,8 +343,8 @@ test("areHardMatchAnswersCompatible applies nationality language and nullable we
     [HARD_MATCH_KEYS.partnerNationalities]: ["中国"],
     [HARD_MATCH_KEYS.languages]: ["法语", "英语"],
     [HARD_MATCH_KEYS.partnerLanguages]: ["中文"],
-    [HARD_MATCH_KEYS.looks]: "小帅/美",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美", "顶帅/美"],
+    [HARD_MATCH_KEYS.looks]: "7",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7", "9"],
     [HARD_MATCH_KEYS.heightCm]: 165,
     [HARD_MATCH_KEYS.partnerHeightMin]: 170,
     [HARD_MATCH_KEYS.partnerHeightMax]: 185,
@@ -368,7 +368,7 @@ test("areHardMatchAnswersCompatible applies nationality language and nullable we
     [HARD_MATCH_KEYS.languages]: ["德语"],
   });
   assert.ok(languageMismatch);
-  assert.equal(areHardMatchAnswersCompatible(left, languageMismatch), false);
+  assert.equal(areHardMatchAnswersCompatible(left, languageMismatch), true);
 
   const weightMismatch = parseHardMatchAnswers({
     ...rightAnswers,
@@ -385,8 +385,8 @@ test("areHardMatchAnswersCompatible accepts legacy objects without new optional 
     [HARD_MATCH_KEYS.partnerAgeMax]: 30,
     [HARD_MATCH_KEYS.gender]: "男",
     [HARD_MATCH_KEYS.partnerGenders]: ["女"],
-    [HARD_MATCH_KEYS.looks]: "普通人",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美"],
+    [HARD_MATCH_KEYS.looks]: "5",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7"],
     [HARD_MATCH_KEYS.heightCm]: 178,
     [HARD_MATCH_KEYS.partnerHeightMin]: 150,
     [HARD_MATCH_KEYS.partnerHeightMax]: 180,
@@ -400,8 +400,8 @@ test("areHardMatchAnswersCompatible accepts legacy objects without new optional 
     [HARD_MATCH_KEYS.partnerAgeMax]: 35,
     [HARD_MATCH_KEYS.gender]: "女",
     [HARD_MATCH_KEYS.partnerGenders]: ["男"],
-    [HARD_MATCH_KEYS.looks]: "小帅/美",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美", "顶帅/美"],
+    [HARD_MATCH_KEYS.looks]: "7",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7", "9"],
     [HARD_MATCH_KEYS.heightCm]: 165,
     [HARD_MATCH_KEYS.partnerHeightMin]: 170,
     [HARD_MATCH_KEYS.partnerHeightMax]: 185,
@@ -438,8 +438,8 @@ test("areHardMatchAnswersCompatible treats age range as a soft preference", () =
     [HARD_MATCH_KEYS.partnerAgeMax]: 30,
     [HARD_MATCH_KEYS.gender]: "男",
     [HARD_MATCH_KEYS.partnerGenders]: ["女"],
-    [HARD_MATCH_KEYS.looks]: "普通人",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美"],
+    [HARD_MATCH_KEYS.looks]: "5",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7"],
     [HARD_MATCH_KEYS.heightCm]: 178,
     [HARD_MATCH_KEYS.partnerHeightMin]: 150,
     [HARD_MATCH_KEYS.partnerHeightMax]: 195,
@@ -458,8 +458,8 @@ test("areHardMatchAnswersCompatible treats age range as a soft preference", () =
     [HARD_MATCH_KEYS.partnerAgeMax]: 5,
     [HARD_MATCH_KEYS.gender]: "女",
     [HARD_MATCH_KEYS.partnerGenders]: ["男"],
-    [HARD_MATCH_KEYS.looks]: "小帅/美",
-    [HARD_MATCH_KEYS.partnerLooks]: ["普通人", "小帅/美", "顶帅/美"],
+    [HARD_MATCH_KEYS.looks]: "7",
+    [HARD_MATCH_KEYS.partnerLooks]: ["5", "7", "9"],
     [HARD_MATCH_KEYS.heightCm]: 165,
     [HARD_MATCH_KEYS.partnerHeightMin]: 170,
     [HARD_MATCH_KEYS.partnerHeightMax]: 185,
@@ -509,4 +509,43 @@ test("hardMatchAttention registry keys are unique and aligned with hardMatchAtte
   const keys = fields.map((field) => field.key);
   assert.equal(keys.length, new Set(keys).size);
   assert.deepEqual([...hardMatchAttentionKeys()].sort(), [...keys].sort());
+});
+
+test("ten-point looks scores parse and preserve exact matching granularity", () => {
+  const base = {
+    hard_birth_date: "2003-06-15", hard_partner_age_min: 18, hard_partner_age_max: 30,
+    hard_gender: "男", hard_partner_genders: ["男"], hard_height_cm: 178,
+    hard_partner_height_min: 150, hard_partner_height_max: 200,
+    hard_one_liner_intro: "喜欢电影", hard_school: "school-bupt",
+    hard_partner_looks: ["7"], hard_looks: "7",
+  };
+  for (let score = 1; score <= 10; score++) {
+    const result = parseHardMatchAnswers({ ...base, hard_looks: String(score) });
+    assert.ok(result);
+    assert.equal(result.looks, String(score));
+  }
+  assert.equal(parseHardMatchAnswers({ ...base, hard_looks: "11" }), null);
+  const seven = parseHardMatchAnswers(base);
+  const eight = parseHardMatchAnswers({ ...base, hard_looks: "8" });
+  assert.deepEqual(seven.partnerLooks, ["7"]);
+  assert.equal(eight.looks, "8");
+});
+
+test("lifestyle filters are optional and enforced in both directions", () => {
+  const base = { hard_birth_date: "2003-06-15", hard_partner_age_min: 18, hard_partner_age_max: 30, hard_gender: "男", hard_partner_genders: ["男"], hard_height_cm: 178, hard_partner_height_min: 150, hard_partner_height_max: 200, hard_one_liner_intro: "喜欢电影", hard_school: "school-bupt", hard_partner_looks: ["7"], hard_looks: "7" };
+  const unfiltered = parseHardMatchAnswers(base);
+  assert.equal(areHardMatchAnswersCompatible(unfiltered, unfiltered), true);
+  for (const [selfKey, partnerKey, accepted, rejected] of [
+    ["smoking_status", "hard_partner_smoking_status", "不吸烟", "每天吸烟"],
+    ["drinking_frequency", "hard_partner_drinking_frequency", "不饮酒", "每周 3 次及以上"],
+    ["exercise_frequency", "hard_partner_exercise_frequency", "每周 3–4 次", "很少或不锻炼"],
+  ]) {
+    const filtered = parseHardMatchAnswers({ ...base, [partnerKey]: [accepted] });
+    const good = parseHardMatchAnswers({ ...base, [selfKey]: accepted });
+    const bad = parseHardMatchAnswers({ ...base, [selfKey]: rejected });
+    assert.equal(areHardMatchAnswersCompatible(filtered, good), true);
+    assert.equal(areHardMatchAnswersCompatible(filtered, bad), false);
+    assert.equal(areHardMatchAnswersCompatible(bad, filtered), false);
+    assert.equal(areHardMatchAnswersCompatible(filtered, unfiltered), false);
+  }
 });

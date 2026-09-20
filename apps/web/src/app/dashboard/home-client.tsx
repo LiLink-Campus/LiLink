@@ -1,21 +1,18 @@
 "use client";
 
+import { normalizeMatchResults } from "./_lib/match-results";
+
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchApi, type AuthMePayload } from "../../lib/api";
-import { usePageFootprint } from "../../lib/product-analytics";
 import {
   WEEKLY_INTENT_LABELS,
   type WeeklyIntent,
 } from "../../lib/weekly-intent";
 import { IntentSheet } from "./_components/IntentSheet";
-import { CountdownBanner } from "./_components/CountdownBanner";
-import { AgendaList } from "./_components/AgendaList";
-import { OliveSprigIllustration } from "./_components/illustrations";
+import { HomeOverview } from "./_components/HomeOverview";
 import { useDashboardSessionSeed } from "./_components/DashboardSessionSeed";
-import { describeDaysUntilLabel } from "./_lib/focus";
 import {
-  countActionableAgendaItems,
   resolveAgenda,
   type AgendaItem,
   type AgendaItemAction,
@@ -40,9 +37,6 @@ export function HomeClient({
   initialUser,
   initialDashboard,
   questionnairePercent,
-  questionnaireConfirmedPercent,
-  questionnaireUnconfirmedPercent,
-  questionnaireUnconfirmedCount,
   questionnaireSubmitted,
   questionnaireMissingOneLinerIntro,
   questionnaireEligibleToOptIn,
@@ -54,9 +48,6 @@ export function HomeClient({
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
   questionnairePercent: number;
-  questionnaireConfirmedPercent: number;
-  questionnaireUnconfirmedPercent: number;
-  questionnaireUnconfirmedCount: number;
   questionnaireSubmitted: boolean;
   questionnaireMissingOneLinerIntro: boolean;
   questionnaireEligibleToOptIn: boolean;
@@ -67,16 +58,8 @@ export function HomeClient({
   const router = useRouter();
   const lastVisibleRefreshAtRef = useRef(Date.now());
   useDashboardSessionSeed(initialUser);
-  const pageFootprintRef = usePageFootprint<HTMLDivElement>(
-    "dashboard_page_viewed",
-    {
-      route: "/dashboard",
-      surface: "dashboard_home",
-      onceKey: `dashboard_page_viewed:${initialUser.id}`,
-    },
-  );
   const userId = initialUser.id;
-  const [dashboard, setDashboard] = useState<DashboardPayload>(initialDashboard);
+  const [dashboard, setDashboard] = useState<DashboardPayload>(() => normalizeMatchResults(initialDashboard));
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +67,7 @@ export function HomeClient({
   const nowMs = useClientNow(initialNowMs);
 
   useEffect(() => {
-    setDashboard(applyCachedCouponAgendaReadState(initialDashboard, userId));
+    setDashboard(applyCachedCouponAgendaReadState(normalizeMatchResults(initialDashboard), userId));
     lastVisibleRefreshAtRef.current = Date.now();
   }, [initialDashboard, userId]);
 
@@ -149,9 +132,6 @@ export function HomeClient({
         counterpartDisplayName,
         questionnaire: {
           percent: questionnairePercent,
-          confirmedPercent: questionnaireConfirmedPercent,
-          unconfirmedPercent: questionnaireUnconfirmedPercent,
-          unconfirmedCount: questionnaireUnconfirmedCount,
           submitted: questionnaireSubmitted,
           missingOneLinerIntro: questionnaireMissingOneLinerIntro,
           eligibleToOptIn: questionnaireEligibleToOptIn,
@@ -164,9 +144,6 @@ export function HomeClient({
       contactPreferences,
       counterpartDisplayName,
       questionnairePercent,
-      questionnaireConfirmedPercent,
-      questionnaireUnconfirmedPercent,
-      questionnaireUnconfirmedCount,
       questionnaireSubmitted,
       questionnaireMissingOneLinerIntro,
       questionnaireEligibleToOptIn,
@@ -239,7 +216,7 @@ export function HomeClient({
           : current,
       );
       setSavedMessageOnly(
-        `本周意向已锁定为 ${WEEKLY_INTENT_LABELS[nextIntent].primary}（${WEEKLY_INTENT_LABELS[nextIntent].subtitle}）。`,
+        `报名成功。你的匹配意向：${WEEKLY_INTENT_LABELS[nextIntent].primary}。结果公布后，请进入「我的匹配」查看。`,
       );
       setSheetOpen(false);
     } catch (caughtError) {
@@ -280,7 +257,7 @@ export function HomeClient({
             }
           : current,
       );
-      setSavedMessageOnly("已退出本轮，意向已清空；随时可以重新加入。");
+      setSavedMessageOnly("已取消本轮报名。报名截止前，可以重新选择意向报名。");
     } catch (caughtError) {
       setErrorOnly(
         caughtError instanceof Error ? caughtError.message : "退出本轮失败。",
@@ -301,44 +278,14 @@ export function HomeClient({
     }
   }
 
-  const pendingCount = countActionableAgendaItems(agenda);
-
-  const cycleEyebrow = cycle
-    ? ["本轮", cycle.codename, describeDaysUntilLabel(cycle.revealAt, nowMs)]
-        .filter(Boolean)
-        .join(" · ")
-    : "本周";
-
   return (
     <div
-      ref={pageFootprintRef}
+
       className={`${styles.pageShell} ${styles.v2PageShell} ${styles.homeDashboard}`}
     >
-      <header className={styles.greeting}>
-        <div className={styles.greetingMain}>
-          <span className={styles.greetingEyebrow}>{cycleEyebrow}</span>
-          <h1>
-            你好，{initialUser?.displayName ?? "同学"}
-            <OliveSprigIllustration className={styles.oliveSprig} />
-          </h1>
-          <p className={styles.greetingSub}>
-            {pendingCount > 0
-              ? `这一周，下面 ${pendingCount} 件事最值得你花几分钟。`
-              : "新的一周，期待你的相遇。"}
-          </p>
-        </div>
-      </header>
-
-      {savedMessage ? <p className="ui-form-message ui-form-message--success">{savedMessage}</p> : null}
-      {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
-
-      <CountdownBanner countdown={agenda.countdown} />
-      <AgendaList
-        items={agenda.items}
-        pendingCount={pendingCount}
-        savingAction={saving}
-        onAction={handleAgendaAction}
-      />
+      {savedMessage ? <p role="status" className="ui-form-message ui-form-message--success">{savedMessage}</p> : null}
+      {error ? <p role="alert" className="ui-form-message ui-form-message--error">{error}</p> : null}
+      <HomeOverview counterpartName={counterpartDisplayName} name={initialUser.displayName ?? "同学"} agenda={agenda} hasCycle={Boolean(cycle)} optedIn={isOptedIn} canEdit={canEdit} eligible={questionnaireEligibleToOptIn} intent={intent} saving={saving} activitiesPaused={sheetOpen} onAction={handleAgendaAction} />
 
       <IntentSheet
         open={sheetOpen}

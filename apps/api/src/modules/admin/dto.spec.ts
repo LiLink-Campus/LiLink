@@ -1,11 +1,11 @@
 import { plainToInstance } from 'class-transformer';
 import { validate, validateSync } from 'class-validator';
 import {
+  AdminUpdateUserDto,
   BatchReviewReportsDto,
   CreateSchoolDto,
   ListSchoolsQueryDto,
   QuestionOptionDto,
-  UpdateSettingsDto,
   UpdateUserReferralLimitDto,
   UpsertQuestionDto,
 } from './dto';
@@ -17,10 +17,52 @@ import {
   ADMIN_SCHOOL_DOMAIN_MAX_ITEMS,
   ADMIN_SCHOOL_DOMAIN_MAX_LENGTH,
   ADMIN_SEARCH_MAX_LENGTH,
-  ADMIN_SETTINGS_VALUE_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 
 describe('admin DTOs', () => {
+  describe('AdminUpdateUserDto profile fields', () => {
+    const options = { whitelist: true, forbidNonWhitelisted: true };
+
+    it('accepts the editable profile fields and explicit clearing', async () => {
+      for (const value of ['Profile text', null]) {
+        const dto = plainToInstance(AdminUpdateUserDto, {
+          headline: value,
+          bio: value,
+          schoolYear: value,
+          programName: value,
+        });
+        expect(await validate(dto, options)).toHaveLength(0);
+      }
+    });
+
+    it.each([
+      ['headline', 160],
+      ['bio', 1000],
+      ['schoolYear', 80],
+      ['programName', 80],
+    ])('rejects invalid %s values', async (field, limit) => {
+      for (const value of [123, 'x'.repeat(Number(limit) + 1)]) {
+        const dto = plainToInstance(AdminUpdateUserDto, { [field]: value });
+        expect(await validate(dto, options)).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ property: field }),
+          ]),
+        );
+      }
+    });
+
+    it('continues rejecting fields outside the admin editing contract', async () => {
+      const dto = plainToInstance(AdminUpdateUserDto, {
+        passwordHash: 'unexpected',
+      });
+      expect(await validate(dto, options)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ property: 'passwordHash' }),
+        ]),
+      );
+    });
+  });
+
   it('rejects oversized list query controls', async () => {
     const dto = Object.assign(new ListSchoolsQueryDto(), {
       page: ADMIN_LIST_PAGE_MAX + 1,
@@ -37,7 +79,7 @@ describe('admin DTOs', () => {
     );
   });
 
-  it('rejects oversized admin mutation arrays and settings', async () => {
+  it('rejects oversized admin mutation arrays', async () => {
     const schoolDto = Object.assign(new CreateSchoolDto(), {
       name: 'Example School',
       slug: 'example-school',
@@ -70,9 +112,6 @@ describe('admin DTOs', () => {
       ),
       status: 'RESOLVED',
     });
-    const settingsDto = Object.assign(new UpdateSettingsDto(), {
-      max_registrations: '9'.repeat(ADMIN_SETTINGS_VALUE_MAX_LENGTH + 1),
-    });
 
     await expect(validate(schoolDto)).resolves.toEqual(
       expect.arrayContaining([
@@ -87,11 +126,6 @@ describe('admin DTOs', () => {
     await expect(validate(reportsDto)).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ property: 'reportIds' }),
-      ]),
-    );
-    await expect(validate(settingsDto)).resolves.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ property: 'max_registrations' }),
       ]),
     );
   });

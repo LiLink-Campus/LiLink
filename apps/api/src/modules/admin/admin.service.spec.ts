@@ -12,12 +12,37 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
 describe('AdminService', () => {
-  afterEach(() => {
-    clearStickyParticipationCache();
+  afterEach(() => {});
+
+  it('timestamps previews and records their operator in the central audit log', async () => {
+    const preview = {
+      cycleId: 'cycle-1',
+      candidates: [],
+      suggestedPairs: [],
+      unmatchedUserIds: ['user-1'],
+    };
+    const cycles = { previewCycle: jest.fn().mockResolvedValue(preview) };
+    const audit = { write: jest.fn().mockResolvedValue(undefined) };
+    const service = new AdminService(
+      {} as never,
+      cycles as never,
+      audit as never,
+      {} as never,
+    );
+    const before = Date.now();
+    const result = await service.previewCycle('cycle-1', 'admin-1');
+    expect(Date.parse(result.generatedAt)).toBeGreaterThanOrEqual(before);
+    expect(Date.parse(result.generatedAt)).toBeLessThanOrEqual(Date.now());
+    expect(audit.write).toHaveBeenCalledWith('admin-1', 'cycle.previewed', {
+      cycleId: 'cycle-1',
+      generatedAt: result.generatedAt,
+      suggestedPairs: 0,
+      unmatchedUsers: 1,
+    });
+    expect(result.unmatchedUserIds).toEqual(['user-1']);
   });
 
   it('forwards cycle id and admin actor id when manually running a cycle', async () => {
@@ -203,7 +228,7 @@ describe('AdminService', () => {
     });
   });
 
-  it('initializes sticky participation records when creating an open cycle', async () => {
+  it('requires a fresh opt-in instead of copying previous cycle participation', async () => {
     const createMany = jest.fn().mockResolvedValue({ count: 2 });
     const recentActiveAt = new Date();
     const cycleParticipation = {
@@ -280,53 +305,8 @@ describe('AdminService', () => {
       status: 'OPEN',
     });
 
-    const createManyCalls = createMany.mock.calls as Array<
-      [
-        {
-          data: Array<{
-            cycleId: string;
-            userId: string;
-            status: 'OPTED_IN' | 'OPTED_OUT';
-            intent: 'FRIEND' | 'DATE' | 'BOTH' | null;
-            optedInAt: Date | null;
-          }>;
-          skipDuplicates: boolean;
-        },
-      ]
-    >;
-    const createManyArgument = createManyCalls[0]?.[0];
-
-    if (!createManyArgument) {
-      throw new Error('Expected createMany to be called.');
-    }
-
-    expect(createManyArgument.skipDuplicates).toBe(true);
-    expect(createManyArgument.data).toEqual([
-      {
-        cycleId: 'cycle-2',
-        userId: 'user-1',
-        status: 'OPTED_IN',
-        intent: 'BOTH',
-        optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
-      },
-      {
-        cycleId: 'cycle-2',
-        userId: 'user-2',
-        status: 'OPTED_OUT',
-        intent: null,
-        optedInAt: null,
-      },
-    ]);
-    expect(createManyArgument.data[0]?.optedInAt).toBeInstanceOf(Date);
-    expect(adminAuditService.write).toHaveBeenCalledWith(
-      'admin-1',
-      'cycle.created',
-      {
-        cycleId: 'cycle-2',
-        status: 'OPEN',
-      },
-    );
-    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
+    expect(createMany).not.toHaveBeenCalled();
+    expect(cycleParticipation.findMany).not.toHaveBeenCalled();
   });
 
   it('rejects manually setting the internal PREPARING cycle status', async () => {
@@ -797,6 +777,7 @@ describe('AdminService', () => {
         intent: { not: null },
         user: {
           status: 'ACTIVE',
+          deactivatedAt: null,
         },
       },
     });
@@ -907,6 +888,7 @@ describe('AdminService', () => {
     expect(findManyArguments).toEqual({
       where: {
         AND: [
+          { deactivatedAt: null },
           {
             OR: [
               { questionnaireResponse: { is: null } },
@@ -951,6 +933,7 @@ describe('AdminService', () => {
     expect(count).toHaveBeenCalledWith({
       where: {
         AND: [
+          { deactivatedAt: null },
           {
             OR: [
               { questionnaireResponse: { is: null } },
@@ -1374,6 +1357,72 @@ describe('AdminService', () => {
       },
     );
   });
+
+  it.each(['profile', 'status'] as const)(
+    'does not overwrite deactivation committed after the admin %s preflight',
+    async (operation) => {
+      const row = {
+        id: 'user-1',
+        email: 'original@example.com',
+        status: 'ACTIVE',
+        deactivatedAt: null as Date | null,
+      };
+      const update = jest.fn(
+        ({
+          where,
+          data,
+        }: {
+          where: { id: string; deactivatedAt?: null };
+          data: Partial<typeof row>;
+        }) => {
+          row.deactivatedAt = new Date();
+          row.email = 'deactivated-user-1@accounts.invalid';
+          row.status = 'SUSPENDED';
+          if (where.deactivatedAt === null) {
+            return Promise.reject(
+              Object.assign(new Error('Record not found'), { code: 'P2025' }),
+            );
+          }
+          Object.assign(row, data);
+          return Promise.resolve({ ...row });
+        },
+      );
+      const user = {
+        findUnique: jest.fn(() => Promise.resolve({ ...row })),
+        update,
+      };
+      const prisma = {
+        user,
+        $transaction: (callback: (tx: { user: typeof user }) => unknown) =>
+          callback({ user }),
+      };
+      const audit = { write: jest.fn() };
+      const service = new AdminService(
+        prisma as never,
+        {} as never,
+        audit as never,
+        {} as never,
+      );
+
+      await expect(
+        operation === 'status'
+          ? service.updateUserStatus('user-1', { status: 'ACTIVE' }, 'admin-1')
+          : service.updateUser(
+              'user-1',
+              { email: 'original@example.com', status: 'ACTIVE' },
+              'admin-1',
+            ),
+      ).rejects.toMatchObject({
+        message: 'Deactivated accounts cannot be reactivated or edited.',
+      });
+      expect(row).toMatchObject({
+        email: 'deactivated-user-1@accounts.invalid',
+        status: 'SUSPENDED',
+        deactivatedAt: expect.any(Date) as Date,
+      });
+      expect(audit.write).not.toHaveBeenCalled();
+    },
+  );
 
   it('purges product analytics rows when enabling a test user flag', async () => {
     const tx = {

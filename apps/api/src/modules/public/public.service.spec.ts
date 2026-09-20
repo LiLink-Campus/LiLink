@@ -1,7 +1,7 @@
 import { PublicService } from './public.service';
 
 describe('PublicService', () => {
-  it('counts only revealed matches for the landing stats', async () => {
+  it('counts only revealed and introduced matches for the landing stats', async () => {
     const matchCount = jest.fn().mockResolvedValue(12);
     const prisma = {
       user: {
@@ -28,6 +28,13 @@ describe('PublicService', () => {
     expect(matchCount).toHaveBeenCalledWith({
       where: {
         revealedAt: { not: null },
+        introducedAt: { not: null },
+        participants: {
+          some: {},
+          every: {
+            user: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
+          },
+        },
       },
     });
   });
@@ -119,7 +126,7 @@ describe('PublicService', () => {
       const payload = await service.getEligibleSchools();
 
       expect(payload.totalSchoolCount).toBe(2);
-      expect(payload.totalDomainCount).toBe(3);
+      expect(payload.totalDomainCount).toBe(2);
       // id is asserted explicitly: the manual-school dropdown uses school.id as
       // the <option value>, so a regression dropping it would silently break
       // non-edu registration.
@@ -128,7 +135,7 @@ describe('PublicService', () => {
           id: 'fudan',
           name: '复旦大学',
           description: 'fudan',
-          domains: ['fudan.edu.cn', 'm.fudan.edu.cn'],
+          domains: ['fudan.edu.cn'],
         },
         {
           id: 'sjtu',

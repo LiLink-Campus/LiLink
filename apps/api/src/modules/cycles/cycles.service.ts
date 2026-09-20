@@ -1,3 +1,4 @@
+import { effectiveMatchingAnswers, hasActiveVip } from '@lilink/shared';
 import {
   BadRequestException,
   Injectable,
@@ -8,7 +9,9 @@ import blossom from 'edmonds-blossom-fixed';
 import { Prisma, QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
+import { MailService } from '../../common/mail/mail.service';
+import { queueMatchRevealEmails } from '../../common/mail/queue-match-reveal';
+import { cancelMatchEmails } from '../../common/mail/match-mail';
 import {
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
@@ -66,9 +69,8 @@ const NEW_OPT_IN_FIRST_CYCLE_BONUS = 6;
 
 /**
  * Only ACTIVE, non-test users with a stored weekly intent may appear in
- * matching / preview / reveal pools. Sticky carry-over preserves the latest
- * intent for OPTED_IN users and falls back to BOTH for pre-feature rows, so a
- * NULL intent here means the participation still lacks a usable cycle intent.
+ * matching / preview / reveal pools. Every cycle requires an explicit opt-in
+ * and a usable intent; previous participation is never carried forward.
  * `isTest: false` keeps demo/seed accounts out of the live pool so they can
  * never be paired with real users, even while ACTIVE and opted in.
  */
@@ -76,7 +78,7 @@ const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput 
   {
     status: 'OPTED_IN',
     intent: { not: null },
-    user: { status: 'ACTIVE', isTest: false },
+    user: { status: 'ACTIVE', isTest: false, deactivatedAt: null },
   };
 
 export const CYCLE_PROCESSING_INCLUDE = {
@@ -88,6 +90,7 @@ export const CYCLE_PROCESSING_INCLUDE = {
         select: {
           id: true,
           displayName: true,
+          vipActivations: { select: { expiresAt: true, revokedAt: true } },
           questionnaireResponse: {
             select: {
               versionId: true,
@@ -318,8 +321,9 @@ function normalizePreparedQuestionAnswer(
 
   if (
     question.selectionLimit != null &&
-    normalizedValues.length > question.selectionLimit
+    normalizedValues.length !== question.selectionLimit
   ) {
+    if (normalizedValues.length < question.selectionLimit) return null;
     return options.invalidAsNull
       ? null
       : normalizeQuestionAnswer(fallbackQuestion, rawAnswer);
@@ -338,6 +342,7 @@ export class CyclesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly dashboardSnapshotService: DashboardSnapshotService,
+    private readonly mailService: MailService,
   ) {}
 
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
@@ -596,24 +601,10 @@ export class CyclesService {
       }),
     ]);
 
-    let cycle = cycleCandidate;
+    const cycle = cycleCandidate;
 
     if (!cycle) {
       throw new NotFoundException('Cycle not found.');
-    }
-
-    const stickyParticipationInitialization =
-      await ensureStickyCycleParticipations(this.prisma, cycle);
-
-    if (
-      stickyParticipationInitialization.createdCount > 0 ||
-      stickyParticipationInitialization.autoOptedOutCount > 0
-    ) {
-      cycle = await this.loadCycleForProcessing(cycle.id);
-
-      if (!cycle) {
-        throw new NotFoundException('Cycle not found.');
-      }
     }
 
     if (cycle.status === 'REVEAL_READY') {
@@ -958,45 +949,58 @@ export class CyclesService {
     }
 
     const revealedAt = new Date();
-    const revealedMatchCount = await this.prisma.$transaction(async (tx) => {
-      const claimedCycle = await tx.matchCycle.updateMany({
-        where: {
-          id: cycle.id,
-          status: 'REVEAL_READY',
-        },
-        data: {
-          status: 'REVEALED',
-        },
-      });
-
-      if (claimedCycle.count === 0) {
-        return null;
-      }
-
-      const revealedMatches = await tx.match.updateMany({
-        where: {
-          cycleId: cycle.id,
-          revealedAt: null,
-        },
-        data: {
-          revealedAt,
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          adminActorId: options.adminActorId,
-          action: 'cycle.revealed',
-          metadata: {
-            cycleId: cycle.id,
-            createdMatches: revealedMatches.count,
-            forced: options.force ?? false,
+    let emailDedupeKeys: string[] = [];
+    const revealedMatchCount = await this.prisma.$transaction(
+      async (tx) => {
+        const claimedCycle = await tx.matchCycle.updateMany({
+          where: {
+            id: cycle.id,
+            status: 'REVEAL_READY',
           },
-        },
-      });
+          data: {
+            status: 'REVEALED',
+          },
+        });
 
-      return revealedMatches.count;
-    });
+        if (claimedCycle.count === 0) {
+          return null;
+        }
+
+        const revealedMatches = await tx.match.updateMany({
+          where: {
+            cycleId: cycle.id,
+            revealedAt: null,
+          },
+          data: {
+            revealedAt,
+          },
+        });
+
+        if (revealedMatches.count > 0) {
+          emailDedupeKeys = await queueMatchRevealEmails(
+            tx,
+            cycle.id,
+            revealedAt,
+            this.mailService,
+          );
+        }
+
+        await tx.auditLog.create({
+          data: {
+            adminActorId: options.adminActorId,
+            action: 'cycle.revealed',
+            metadata: {
+              cycleId: cycle.id,
+              createdMatches: revealedMatches.count,
+              forced: options.force ?? false,
+            },
+          },
+        });
+
+        return revealedMatches.count;
+      },
+      { timeout: 30_000 },
+    );
 
     if (revealedMatchCount == null) {
       return {
@@ -1006,6 +1010,17 @@ export class CyclesService {
         createdMatches: 0,
         message: 'Cycle is already being revealed.',
       };
+    }
+
+    if (emailDedupeKeys.length > 0) {
+      void this.mailService
+        .flushQueuedEmails({ dedupeKeys: emailDedupeKeys })
+        .catch((error: unknown) => {
+          this.logger.error(
+            'Reveal email delivery will retry from the outbox.',
+            error instanceof Error ? error.message : String(error),
+          );
+        });
     }
 
     // Rebuild dashboard snapshots outside the reveal transaction so the cycle
@@ -1047,6 +1062,9 @@ export class CyclesService {
                 select: {
                   id: true,
                   displayName: true,
+                  vipActivations: {
+                    select: { expiresAt: true, revokedAt: true },
+                  },
                   questionnaireResponse: {
                     select: {
                       versionId: true,
@@ -1263,7 +1281,7 @@ export class CyclesService {
    * Returns the subset of participantIds whose current participation is their
    * very first opt-in cycle — i.e. they have no earlier REVEALED opt-in. Uses
    * the same historical window as loadUnmatchedStreaks (not optedInAt, which
-   * sticky carry-over refreshes every cycle, so it cannot tell "first time").
+   * a per-cycle timestamp alone cannot identify the first opt-in).
    */
   private async loadFirstCycleParticipantIds(
     participantIds: string[],
@@ -1310,6 +1328,10 @@ export class CyclesService {
         id: string;
         displayName: string | null;
         school?: { id: string } | null;
+        vipActivations?: Array<{
+          expiresAt: Date | null;
+          revokedAt: Date | null;
+        }>;
         questionnaireResponse: {
           versionId?: string | null;
           answers: Prisma.JsonValue;
@@ -1342,7 +1364,9 @@ export class CyclesService {
           >),
           [HARD_MATCH_KEYS.school]: user.school?.id ?? '',
         };
-        const hardMatchAnswers = tryReadHardMatchAnswers(answers);
+        const hardMatchAnswers = tryReadHardMatchAnswers(
+          effectiveMatchingAnswers(answers, hasActiveVip(user.vipActivations)),
+        );
 
         if (!hardMatchAnswers) {
           return null;
@@ -2074,18 +2098,28 @@ export class CyclesService {
   }
 
   private async resetCycleForForcedRerun(cycleId: string) {
-    await this.prisma.$transaction([
-      this.prisma.match.deleteMany({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "MatchCycle" WHERE "id" = ${cycleId} FOR UPDATE`;
+      const matches = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "Match" WHERE "cycleId" = ${cycleId}
+        ORDER BY "id" FOR UPDATE
+      `;
+      await cancelMatchEmails(
+        tx,
+        matches.map(({ id }) => id),
+        'Match reset before delivery.',
+      );
+      await tx.match.deleteMany({
         where: { cycleId },
-      }),
-      this.prisma.userCycleDashboardSnapshot.deleteMany({
+      });
+      await tx.userCycleDashboardSnapshot.deleteMany({
         where: { cycleId },
-      }),
-      this.prisma.matchCycle.update({
+      });
+      await tx.matchCycle.update({
         where: { id: cycleId },
         data: { status: 'OPEN' },
-      }),
-    ]);
+      });
+    });
   }
 
   private async revertPreparationClaimIfEmpty(

@@ -1,5 +1,6 @@
 import {
   readQuestionnaireOneLiner,
+  effectivePreferenceForm,
 } from "@lilink/shared";
 import {
   getHardMatchFormSaveErrorMessage,
@@ -30,7 +31,7 @@ const HARD_MATCH_REQUIRED_FIELDS = [
   "birthMonth",
   "birthDay",
   "gender",
-  "nationality",
+  "weightKg",
   "looks",
   "heightCm",
   "partnerAgeMin",
@@ -40,7 +41,6 @@ const HARD_MATCH_REQUIRED_FIELDS = [
 ] as const;
 
 const HARD_MATCH_REQUIRED_LIST_FIELDS = [
-  "languages",
   "partnerGenders",
   "partnerLooks",
 ] as const;
@@ -54,7 +54,7 @@ function hardMatchCompletion(
     schools,
   );
 
-  const draftForm = saved?.draft?.hardMatchForm ?? hardMatchForm;
+  const draftForm = effectivePreferenceForm(saved?.draft?.hardMatchForm ?? hardMatchForm, saved?.vipFiltersActive ?? false);
   const totalChecks =
     HARD_MATCH_REQUIRED_FIELDS.length + HARD_MATCH_REQUIRED_LIST_FIELDS.length;
 
@@ -96,7 +96,7 @@ function softQuestionCompletion(
   questions: Question[],
   answers: Record<string, unknown>,
 ): number {
-  const requiredQuestions = questions.filter((q) => q.required !== false);
+  const requiredQuestions = questions;
   if (requiredQuestions.length === 0) {
     return 1;
   }

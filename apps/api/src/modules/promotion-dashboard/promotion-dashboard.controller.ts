@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../../common/auth/admin.guard';
 import {
+  AcquisitionQueryDto,
   PromotionLeaderboardQueryDto,
   PromotionQueryDto,
   PromotionRedemptionsQueryDto,
@@ -13,6 +14,11 @@ export class PromotionDashboardController {
   constructor(
     private readonly promotionDashboardService: PromotionDashboardService,
   ) {}
+
+  @Get('acquisition')
+  acquisition(@Query() query: AcquisitionQueryDto) {
+    return this.promotionDashboardService.getAcquisition(query);
+  }
 
   @Get('funnel')
   funnel(@Query() query: PromotionQueryDto) {

@@ -9,7 +9,6 @@ import {
   verifyTotpToken,
 } from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { ProductAnalyticsService } from '../product-analytics/product-analytics.service';
 import { RedeemTicketService } from './redeem-ticket.service';
 
 export interface RedeemCouponView {
@@ -49,7 +48,6 @@ export class RedemptionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ticketService: RedeemTicketService,
-    private readonly productAnalytics?: ProductAnalyticsService,
   ) {}
 
   /**
@@ -267,13 +265,6 @@ export class RedemptionService {
               gift: evaluation.gift,
             },
           },
-        });
-        await this.productAnalytics?.enqueueCouponRedeemedOutcome(tx, {
-          couponId: candidate.id,
-          couponTemplateId: candidate.template.id,
-          merchantId,
-          userId: candidate.userId,
-          occurredAt: now,
         });
 
         return {

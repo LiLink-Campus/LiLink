@@ -1,3 +1,4 @@
+import { isLifestyleQuestion } from "@lilink/shared";
 import { hardMatchAttentionFieldForKey } from "../../../lib/hard-match";
 import type { Question } from "./types";
 import {
@@ -16,6 +17,7 @@ export function profileAttentionTabForKey(
   key: string,
   questions: Question[],
 ): ProfileAttentionTab | null {
+  if (isLifestyleQuestion(key)) return "self";
   const hardMatchField = hardMatchAttentionFieldForKey(key);
   if (hardMatchField) {
     return hardMatchField.tab;

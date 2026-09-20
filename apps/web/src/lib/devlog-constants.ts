@@ -11,4 +11,3 @@ export const DEVLOG_UPDATES_FEED_LIMIT = 50;
 export const DEVLOG_UPDATES_PAGE_SIZE = 12;
 
 /** Homepage "recent updates" strip. */
-export const DEVLOG_UPDATES_HOMEPAGE_COUNT = 3;

@@ -29,6 +29,7 @@ export function findMatchingSchool(
   schools: readonly EligibleSchool[],
   rawEmail: string,
 ): { school: EligibleSchool; matchedDomain: string } | null {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail.trim())) return null;
   const emailDomain = extractEmailDomain(rawEmail);
   if (!emailDomain) {
     return null;
@@ -61,10 +62,13 @@ export function findMatchingSchool(
 // center). The web no longer hardcodes the partner list, so adding a school +
 // domains in the backend makes its email range count as a school email
 // automatically.
-export async function fetchEligibleSchools(): Promise<EligibleSchoolsPayload> {
+export async function fetchEligibleSchools(
+  options: { signal?: AbortSignal } = {},
+): Promise<EligibleSchoolsPayload> {
   const response = await fetch(`${getClientApiBaseUrl()}/public/schools`, {
     headers: { Accept: "application/json" },
     cache: "no-store",
+    signal: options.signal,
   });
 
   if (!response.ok) {

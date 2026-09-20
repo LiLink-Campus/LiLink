@@ -40,7 +40,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 type StoryIdSuffix =
   | "introduced-contact-completed"
-  | "introduced-with-meetup-scheduled"
   | "matched-not-introduced";
 
 const broadviewViewports = [
@@ -60,10 +59,6 @@ const broadviewScenarios = [
   {
     title: "Introduced / long contact",
     storyIdSuffix: "introduced-contact-completed",
-  },
-  {
-    title: "Introduced / meetup scheduled",
-    storyIdSuffix: "introduced-with-meetup-scheduled",
   },
   {
     title: "Matched / not introduced",

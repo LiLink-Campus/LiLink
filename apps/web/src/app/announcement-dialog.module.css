@@ -42,7 +42,7 @@
 
 .badge {
   background: var(--color-accent-soft);
-  color: var(--color-accent);
+  color: var(--color-brand);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -53,7 +53,7 @@
 
 .date {
   font-size: 0.8rem;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
 }
 
 .title {

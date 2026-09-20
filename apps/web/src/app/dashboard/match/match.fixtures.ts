@@ -3,9 +3,7 @@ import type {
   DashboardCurrentCycle,
   DashboardHistoryItem,
   DashboardMatch,
-  DashboardMeetupSummary,
   DashboardPayload,
-  DashboardTask,
 } from "../_lib/types";
 
 const storyUserId = "story-user-001";
@@ -16,7 +14,7 @@ export const matchStoryUser = {
   email: "linh@example.edu.cn",
   displayName: "林和",
   preferredLocale: "zh-CN",
-  meetupExpirationWeeks: 2,
+
 } satisfies AuthMePayload;
 
 const baseCurrentCycle = {
@@ -48,7 +46,6 @@ const storyCurrentParticipant = {
     value: "linh@example.edu.cn",
   },
   schoolName: "LiLink University",
-  contactRequestedAt: "2029-12-15T12:30:00.000Z",
   gender: "女生",
   partnerGenders: ["男生", "女生"],
   weeklyIntent: "BOTH",
@@ -74,7 +71,7 @@ function makeCounterpart(
     userId: storyCounterpartId,
     displayName: "陈一诺",
     introLine:
-      "周末喜欢看展、做饭，也想找人一起探索城市角落。这里放一段偏长的一句话介绍，用来观察移动端卡片是否能自然换行。",
+      "周末喜欢看展、做饭，也想找人一起探索城市角落。\n生活不只有课业，还有很多值得一起发现的有趣地方。\n如果你也喜欢这些，期待能认识你！",
     email: "yinuo@example.edu.cn",
     contact: {
       type: "WECHAT",
@@ -82,7 +79,6 @@ function makeCounterpart(
       value: "yinuo-story",
     },
     schoolName: "North Campus",
-    contactRequestedAt: "2029-12-15T12:45:00.000Z",
     gender: "男生",
     partnerGenders: ["女生"],
     weeklyIntent: "DATE",
@@ -97,16 +93,13 @@ function makeMatch(
     id: "match-story-001",
     score: 91.4,
     introducedAt: null,
-    currentUserRequestedAt: null,
     reportStatus: null,
     participants: [
       {
         ...storyCurrentParticipant,
-        contactRequestedAt: null,
       },
       makeCounterpart({
         contact: null,
-        contactRequestedAt: null,
         email: null,
         displayName: "陈一诺",
       }),
@@ -127,43 +120,15 @@ function makeDashboard(
     latestMatchVisibility: null,
     latestMatchLimitedReason: null,
     recentMatchHistory: waitingHistory,
-    tasks: [],
-    meetupSummary: null,
     couponAgenda: null,
     ...overrides,
   };
 }
 
-const completedMeetup = {
-  sessionId: "meetup-session-story-001",
-  matchId: "match-story-002",
-  status: "LOCKED",
-  progressStatus: "LOCKED",
-  href: "/dashboard/meetup/meetup-session-story-001",
-  confirmedStartsAt: "2029-12-21T06:00:00.000Z",
-  confirmedEndsAt: "2029-12-21T08:00:00.000Z",
-  confirmedPlaceName: "湖边咖啡",
-  canReviseAfterLock: true,
-  canCancel: true,
-  terminalText: null,
-  currentUserFeedback: null,
-  canSubmitFeedback: false,
-  feedbackEligibleAt: "2029-12-21T06:00:00.000Z",
-} satisfies DashboardMeetupSummary;
-
-const completedMeetupTask = {
-  id: "task-meetup-story-001",
-  type: "MEETUP",
-  priority: 10,
-  title: "查看第一次见面安排",
-  text: "时间和地点已经确认。",
-  href: completedMeetup.href,
-  userTurnStatus: "NONE",
-  progressStatus: "LOCKED",
-  matchId: completedMeetup.matchId,
-  sessionId: completedMeetup.sessionId,
-  updatedAt: "2029-12-16T09:00:00.000Z",
-} satisfies DashboardTask;
+const unintroducedStaleContactMatch = makeMatch({
+  id: "match-story-stale-contact",
+  participants: [storyCurrentParticipant, makeCounterpart()],
+});
 
 export const matchDashboardFixtures = {
   waitingNoResult: makeDashboard({
@@ -177,29 +142,45 @@ export const matchDashboardFixtures = {
     latestMatch: makeMatch({
       id: "match-story-001",
       introducedAt: null,
-      currentUserRequestedAt: null,
       participants: [
         {
           ...storyCurrentParticipant,
-          contactRequestedAt: null,
         },
         makeCounterpart({
           displayName: "陈一诺",
           email: null,
           contact: null,
-          contactRequestedAt: null,
         }),
       ],
     }),
     latestMatchVisibility: "VISIBLE",
   }),
 
+  unintroducedStaleContact: makeDashboard({
+    latestMatch: unintroducedStaleContactMatch,
+    latestMatchVisibility: "VISIBLE",
+    recentMatchHistory: [{
+      ...baseMatchedRound,
+      result: "MATCHED",
+      visibility: "VISIBLE",
+      limitedReason: null,
+      match: unintroducedStaleContactMatch,
+    }],
+  }),
+
+  unintroducedStaleEmail: makeDashboard({
+    latestMatch: makeMatch({
+      id: "match-story-stale-email",
+      participants: [storyCurrentParticipant, makeCounterpart({ contact: null })],
+    }),
+    latestMatchVisibility: "VISIBLE",
+  }),
+
   introducedContactCompleted: makeDashboard({
     latestMatch: makeMatch({
-      id: completedMeetup.matchId,
+      id: "match-story-002",
       score: 96.2,
       introducedAt: "2029-12-15T12:50:00.000Z",
-      currentUserRequestedAt: "2029-12-15T12:45:00.000Z",
       participants: [
         storyCurrentParticipant,
         makeCounterpart({
@@ -207,28 +188,30 @@ export const matchDashboardFixtures = {
           contact: {
             type: "WECHAT",
             label: "微信号",
-            value: "chen-yinuo-campus-exhibition-weekend-cooking-2029",
+            value: "chenyinuo_29",
           },
           schoolName: "North Campus International Residential College",
         }),
       ],
     }),
     latestMatchVisibility: "VISIBLE",
-    meetupSummary: null,
-    tasks: [],
   }),
 
-  introducedWithMeetupScheduled: makeDashboard({
+  introducedEmailFallback: makeDashboard({
     latestMatch: makeMatch({
-      id: completedMeetup.matchId,
-      score: 96.2,
+      id: "match-story-introduced-email",
       introducedAt: "2029-12-15T12:50:00.000Z",
-      currentUserRequestedAt: "2029-12-15T12:45:00.000Z",
-      participants: [storyCurrentParticipant, makeCounterpart()],
+      participants: [storyCurrentParticipant, makeCounterpart({ contact: null })],
     }),
     latestMatchVisibility: "VISIBLE",
-    meetupSummary: completedMeetup,
-    tasks: [completedMeetupTask],
+  }),
+
+  introducedContactUnavailable: makeDashboard({
+    latestMatch: makeMatch({
+      id: "match-story-introduced-unavailable",
+      introducedAt: "2029-12-15T12:50:00.000Z",
+    }),
+    latestMatchVisibility: "VISIBLE",
   }),
 
   lastRoundUnmatched: makeDashboard({
@@ -259,20 +242,17 @@ export const matchDashboardFixtures = {
     latestMatch: makeMatch({
       id: "match-story-limited",
       score: 84.8,
-      introducedAt: null,
-      currentUserRequestedAt: null,
+      introducedAt: "2030-04-09T13:00:00.000Z",
       reportStatus: "OPEN",
       participants: [
         {
           ...storyCurrentParticipant,
-          contactRequestedAt: null,
         },
         makeCounterpart({
           displayName: null,
           introLine: null,
           email: null,
           contact: null,
-          contactRequestedAt: null,
           schoolName: null,
           gender: null,
           partnerGenders: [],

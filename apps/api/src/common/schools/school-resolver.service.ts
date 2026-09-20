@@ -103,7 +103,7 @@ export class SchoolResolverService {
       },
     });
 
-    const match = [...domains]
+    const match = domains
       .sort((left, right) => right.domain.length - left.domain.length)
       .find(
         (item) =>

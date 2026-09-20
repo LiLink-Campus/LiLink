@@ -1,7 +1,3 @@
-import {
-  getHardMatchFormSaveErrorMessage,
-  type HardMatchFormState,
-} from "../../../lib/hard-match";
 import type { Question } from "./types";
 
 export function keepCurrentQuestionAnswers(
@@ -40,10 +36,6 @@ function softQuestionSingleValueIsValid(
 }
 
 export function softQuestionAnswerIsComplete(question: Question, raw: unknown) {
-  if (question.required === false) {
-    return true;
-  }
-
   const options = question.options ?? [];
 
   if (question.type === "MULTI_SELECT") {
@@ -52,7 +44,7 @@ export function softQuestionAnswerIsComplete(question: Question, raw: unknown) {
     }
 
     const limit = question.selectionLimit;
-    if (limit != null && raw.length > limit) {
+    if (limit != null && new Set(raw).size !== limit) {
       return false;
     }
 
@@ -72,35 +64,4 @@ export function softQuestionAnswerIsComplete(question: Question, raw: unknown) {
   }
 
   return false;
-}
-
-export function getQuestionnaireIncompleteMessage(
-  questions: Question[],
-  answers: Record<string, unknown>,
-  hardMatchForm: HardMatchFormState,
-  displayNameForNickname: string,
-) {
-  const trimmedNickname = displayNameForNickname.trim();
-  if (trimmedNickname.length < 2) {
-    return "昵称至少填写 2 个字。";
-  }
-
-  const hardMessage = getHardMatchFormSaveErrorMessage(hardMatchForm);
-  if (hardMessage) {
-    return hardMessage;
-  }
-
-  const incompleteSoft = questions.filter(
-    (question) => !softQuestionAnswerIsComplete(question, answers[question.key]),
-  );
-
-  if (incompleteSoft.length === 0) {
-    return null;
-  }
-
-  if (incompleteSoft.length === 1) {
-    return `价值观问卷「${incompleteSoft[0].prompt}」尚未填写。`;
-  }
-
-  return `价值观问卷还有 ${incompleteSoft.length} 道必答题未完成。`;
 }

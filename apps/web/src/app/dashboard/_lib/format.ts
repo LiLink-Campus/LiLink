@@ -35,11 +35,12 @@ export function canEditCurrentCycleParticipation(
 }
 
 export function limitedHistoryExplanation(
-  reason: "REPORTED" | "BLOCKED" | null,
+  reason: "REPORTED" | "BLOCKED" | "ACCOUNT_DEACTIVATED" | null,
 ): string {
   if (reason === "REPORTED") {
     return "该条记录因你曾举报相关匹配而隐藏了对方可识别信息。";
   }
+  if (reason === "ACCOUNT_DEACTIVATED") return "对方已注销账号，不再展示相关资料与联系方式。";
   if (reason === "BLOCKED") {
     return "该条记录因你与对方存在屏蔽关系，仅保留流程信息。";
   }

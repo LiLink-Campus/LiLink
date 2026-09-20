@@ -45,52 +45,6 @@ transition:
   gap: 1.2rem;
 }
 
-.app-q-group-header {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-}
-
-.app-q-group-icon {
-  width: 2.4rem;
-  height: 2.4rem;
-  border-radius: var(--radius-pill);
-  display: grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.95rem;
-  background: var(--color-brand-tint);
-  color: var(--color-brand);
-  flex-shrink: 0;
-}
-
-.app-q-group-icon-self {
-    background: var(--color-brand-tint);
-    color: var(--color-brand);
-}
-
-.app-q-group-icon-partner {
-    background: var(--color-accent-soft);
-    color: var(--color-accent);
-}
-
-.app-q-group-icon-values {
-    background: var(--color-gold-soft);
-    color: #6f5114;
-}
-
-.app-q-group-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.app-q-group-header p {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 0.88rem;
-}
-
 .question-list {
   display: flex;
   flex-direction: column;
@@ -172,23 +126,6 @@ transition:
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.65rem;
-}
-
-.birth-date-grid {
-  grid-template-columns: minmax(6.5rem, 1.35fr) minmax(4.75rem, 1fr) minmax(
-      4.75rem,
-      1fr
-    );
-}
-
-@media (max-width: 760px) {
-  .birth-date-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .birth-date-grid > label:first-child {
-    grid-column: 1 / -1;
-  }
 }
 
 .option-list {

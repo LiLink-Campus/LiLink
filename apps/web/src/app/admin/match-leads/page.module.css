@@ -1,0 +1,74 @@
+.panel {
+  padding: 22px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.summary h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.summary > span {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.separator {
+  margin: 0 12px;
+  color: var(--color-border-strong);
+}
+.phone {
+  font-weight: 500;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.badge {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: var(--color-gold-soft);
+  color: var(--color-warning);
+  white-space: nowrap;
+}
+.badge[data-contacted="true"] {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.empty {
+  text-align: center;
+  padding: 50px 16px;
+  color: var(--color-text-muted);
+}
+.empty svg {
+  display: block;
+  margin: 0 auto 16px;
+}
+.empty strong {
+  display: block;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+.empty p {
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+@media (max-width: 560px) {
+  .panel {
+    padding: 16px;
+  }
+  .summary > span {
+    font-size: 11px;
+  }
+  .separator {
+    margin: 0 6px;
+  }
+}

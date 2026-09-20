@@ -11,11 +11,8 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        resolve: {
-          dedupe: ["path-to-regexp"],
-        },
         optimizeDeps: {
-          include: ["path-to-regexp", "msw", "msw-storybook-addon"],
+          include: ["msw", "msw-storybook-addon"],
         },
         plugins: [
           storybookTest({
@@ -30,6 +27,7 @@ export default defineConfig({
         ],
         test: {
           name: "storybook",
+          testTimeout: 30_000,
           dir: dirname,
           browser: {
             enabled: true,

@@ -1,3 +1,4 @@
+import { LIFESTYLE_QUESTIONS, isLifestyleQuestion } from '@lilink/shared';
 import {
   BadRequestException,
   ConflictException,
@@ -10,7 +11,7 @@ import { Prisma, QuestionType, UserStatus } from '../../common/prisma/client';
 import * as argon2 from 'argon2';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { ensureStickyCycleParticipations } from '../../common/participation/sticky-cycle-participation';
+import { isRecordNotFoundError } from '../../common/prisma/errors';
 import { parseDateTimeAsChinaStandardOrInstant } from '../../common/time/china-standard-time';
 import { env } from '../../config/env';
 import { CyclesService } from '../cycles/cycles.service';
@@ -29,7 +30,6 @@ import {
   AdminUpdateUserDto,
   BatchReviewReportsDto,
   ListAuditLogsQueryDto,
-  ListCycleLogsQueryDto,
   ListCycleMatchesQueryDto,
   ListCycleParticipantsQueryDto,
   ListCyclesQueryDto,
@@ -42,7 +42,6 @@ import {
   ReviewReportDto,
   UpdateUserReferralLimitDto,
   UpdateUserStatusDto,
-  UpdateSettingsDto,
   UpsertCycleDto,
   UpsertQuestionDto,
 } from './dto';
@@ -160,6 +159,7 @@ const MATCHABLE_CYCLE_PARTICIPATION_WHERE = {
   intent: { not: null },
   user: {
     status: 'ACTIVE' as const,
+    deactivatedAt: null,
   },
 } satisfies Prisma.CycleParticipationWhereInput;
 
@@ -244,11 +244,12 @@ export class AdminService {
         where: { status: 'OPEN' },
       }),
       this.prisma.user.count({
-        where: { status: 'ACTIVE' },
+        where: { status: 'ACTIVE', deactivatedAt: null },
       }),
       this.prisma.questionnaireResponse.count({
         where: {
           submittedAt: { not: null },
+          user: { deactivatedAt: null },
         },
       }),
     ]);
@@ -422,6 +423,7 @@ export class AdminService {
   async getUsers(query: ListUsersQueryDto = {}) {
     if (!this.hasListQuery(query)) {
       return this.prisma.user.findMany({
+        where: { deactivatedAt: null },
         select: adminUserListSelect,
         orderBy: { createdAt: 'desc' },
         take: ADMIN_LIST_UNFILTERED_MAX,
@@ -430,7 +432,7 @@ export class AdminService {
 
     const pagination = normalizeAdminListPagination(query);
     const search = query.search?.trim();
-    const whereClauses: Prisma.UserWhereInput[] = [];
+    const whereClauses: Prisma.UserWhereInput[] = [{ deactivatedAt: null }];
 
     if (query.status) {
       whereClauses.push({ status: query.status });
@@ -704,8 +706,6 @@ export class AdminService {
         },
       });
 
-      await ensureStickyCycleParticipations(this.prisma, cycle);
-
       await this.adminAuditService.write(adminActorId, 'cycle.updated', {
         cycleId: cycle.id,
         status: cycle.status,
@@ -727,8 +727,6 @@ export class AdminService {
         notes: input.notes,
       },
     });
-
-    await ensureStickyCycleParticipations(this.prisma, cycle);
 
     await this.adminAuditService.write(adminActorId, 'cycle.created', {
       cycleId: cycle.id,
@@ -775,6 +773,7 @@ export class AdminService {
         where: {
           cycleId,
           user: {
+            deactivatedAt: null,
             questionnaireResponse: {
               is: {
                 submittedAt: {
@@ -929,17 +928,16 @@ export class AdminService {
     return buildPageResult(items, total, pagination);
   }
 
-  async getCycleLogs(cycleId: string, query: ListCycleLogsQueryDto = {}) {
-    await this.assertCycleExists(cycleId);
-
-    return this.adminAuditService.listAuditLogsByCondition(
-      Prisma.sql`"metadata"->>'cycleId' = ${cycleId}`,
-      query,
-    );
-  }
-
-  async previewCycle(cycleId: string) {
-    return this.cyclesService.previewCycle(cycleId);
+  async previewCycle(cycleId: string, adminActorId: string) {
+    const preview = await this.cyclesService.previewCycle(cycleId);
+    const generatedAt = new Date().toISOString();
+    await this.adminAuditService.write(adminActorId, 'cycle.previewed', {
+      cycleId,
+      generatedAt,
+      suggestedPairs: preview.suggestedPairs.length,
+      unmatchedUsers: preview.unmatchedUserIds.length,
+    });
+    return { ...preview, generatedAt };
   }
 
   async duplicateCycle(cycleId: string, adminActorId: string) {
@@ -1116,6 +1114,21 @@ export class AdminService {
       normalizedOptions.length,
       input.selectionLimit,
     );
+    const lifestyle = LIFESTYLE_QUESTIONS.find(
+      (question) => question.key === input.key,
+    );
+    if (
+      lifestyle &&
+      (input.type !== 'SINGLE_SELECT' ||
+        normalizedOptions.length !== lifestyle.options.length ||
+        !lifestyle.options.every((value) =>
+          normalizedOptions.some((option) => option.value === value),
+        ))
+    ) {
+      throw new BadRequestException(
+        '生活习惯题用于匹配筛选，必须保留单选题型及全部标准选项；可修改显示文案。',
+      );
+    }
     const nextQuestionData = {
       key: input.key,
       prompt: input.prompt,
@@ -1267,6 +1280,10 @@ export class AdminService {
 
     if (!version || !question) {
       throw new NotFoundException('Question not found.');
+    }
+
+    if (isLifestyleQuestion(question.key)) {
+      throw new BadRequestException('生活习惯题用于匹配筛选，不能删除。');
     }
 
     await this.createQuestionnaireRevision(
@@ -1602,13 +1619,27 @@ export class AdminService {
       throw new NotFoundException('User not found.');
     }
 
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        status: input.status,
-      },
-      omit: { passwordHash: true },
-    });
+    if (user.deactivatedAt)
+      throw new BadRequestException(
+        'Deactivated accounts cannot be reactivated or edited.',
+      );
+
+    const updatedUser = await this.prisma.user
+      .update({
+        where: { id: userId, deactivatedAt: null },
+        data: {
+          status: input.status,
+        },
+        omit: { passwordHash: true },
+      })
+      .catch((error: unknown) => {
+        if (isRecordNotFoundError(error)) {
+          throw new BadRequestException(
+            'Deactivated accounts cannot be reactivated or edited.',
+          );
+        }
+        throw error;
+      });
 
     await this.adminAuditService.write(adminActorId, 'user.status_updated', {
       userId,
@@ -1631,6 +1662,11 @@ export class AdminService {
       throw new NotFoundException('User not found.');
     }
 
+    if (user.deactivatedAt)
+      throw new BadRequestException(
+        'Deactivated accounts cannot be reactivated or edited.',
+      );
+
     const updateData: Record<string, unknown> = {};
     if (input.displayName !== undefined)
       updateData.displayName = input.displayName;
@@ -1651,16 +1687,47 @@ export class AdminService {
       updateData.email = normalizedEmail;
     }
 
-    if (Object.keys(updateData).length === 0) {
+    const profileData: Record<string, string | null> = {};
+    for (const field of [
+      'headline',
+      'bio',
+      'schoolYear',
+      'programName',
+    ] as const) {
+      if (input[field] !== undefined) profileData[field] = input[field];
+    }
+    const updatedFields = [
+      ...Object.keys(updateData),
+      ...Object.keys(profileData),
+    ];
+    if (updatedFields.length === 0) {
       throw new BadRequestException('No fields to update.');
     }
 
     const updatedUser = await this.prisma.$transaction(async (tx) => {
-      const nextUser = await tx.user.update({
-        where: { id: userId },
-        data: updateData,
-        omit: { passwordHash: true },
-      });
+      const nextUser = await tx.user
+        .update({
+          where: { id: userId, deactivatedAt: null },
+          data: {
+            ...updateData,
+            ...(Object.keys(profileData).length > 0
+              ? {
+                  profile: {
+                    upsert: { create: profileData, update: profileData },
+                  },
+                }
+              : {}),
+          },
+          omit: { passwordHash: true },
+        })
+        .catch((error: unknown) => {
+          if (isRecordNotFoundError(error)) {
+            throw new BadRequestException(
+              'Deactivated accounts cannot be reactivated or edited.',
+            );
+          }
+          throw error;
+        });
 
       if (input.schoolId === undefined) {
         return nextUser;
@@ -1702,13 +1769,14 @@ export class AdminService {
 
     await this.adminAuditService.write(adminActorId, 'user.updated', {
       userId,
-      fields: Object.keys(updateData),
+      fields: updatedFields,
     });
 
     if (
       input.displayName !== undefined ||
       input.email !== undefined ||
-      input.schoolId !== undefined
+      input.schoolId !== undefined ||
+      Object.keys(profileData).length > 0
     ) {
       await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
     }
@@ -2438,51 +2506,5 @@ export class AdminService {
       cycleName: cycle.codename,
       password: PASSWORD,
     };
-  }
-
-  async getSettings() {
-    const rows = await this.prisma.systemSetting.findMany();
-    const settings: Record<string, string> = {};
-    for (const row of rows) {
-      settings[row.key] = row.value;
-    }
-    return settings;
-  }
-
-  async updateSettings(input: UpdateSettingsDto, adminActorId: string) {
-    const allowedKeys = new Set(['max_registrations']);
-
-    const entries = Object.entries(input).filter(([key]) =>
-      allowedKeys.has(key),
-    );
-
-    if (entries.length === 0) {
-      throw new BadRequestException('No valid settings to update.');
-    }
-
-    for (const [key, value] of entries) {
-      const numericValue = Number(value);
-      if (!Number.isInteger(numericValue) || numericValue < 0) {
-        throw new BadRequestException(
-          `Setting "${key}" must be a non-negative integer.`,
-        );
-      }
-    }
-
-    await this.prisma.$transaction(
-      entries.map(([key, value]) =>
-        this.prisma.systemSetting.upsert({
-          where: { key },
-          create: { key, value: String(value) },
-          update: { value: String(value) },
-        }),
-      ),
-    );
-
-    await this.adminAuditService.write(adminActorId, 'settings.updated', {
-      changes: Object.fromEntries(entries),
-    });
-
-    return this.getSettings();
   }
 }

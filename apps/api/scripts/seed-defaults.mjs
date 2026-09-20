@@ -1,3 +1,4 @@
+import { LIFESTYLE_QUESTIONS } from "@lilink/shared";
 import { loadMonorepoEnv } from './load-env.mjs';
 import { loadPrismaClientModule } from './prisma-client.mjs';
 
@@ -68,6 +69,9 @@ function createOptions(labels) {
 }
 
 const QUESTIONNAIRE_DEFINITIONS = [
+  ...LIFESTYLE_QUESTIONS.map((question, index) => ({
+    ...question, type: "SINGLE_SELECT", order: 100 + index, weight: 0,
+  })),
   {
     key: 'relationship_intent',
     prompt: '你更想进入一段怎样的关系？',

@@ -54,41 +54,6 @@ export function CoffeeCupsIllustration({ className }: IllustrationProps) {
   );
 }
 
-export function ThreeChairsIllustration({ className }: IllustrationProps) {
-  return (
-    <svg
-      viewBox="0 0 140 80"
-      className={className}
-      aria-hidden="true"
-      role="img"
-    >
-      <g {...stroke} strokeWidth={1.4}>
-        {/* Left chair (sage) */}
-        <g>
-          <path d="M14 26c0-7 5-12 12-12s12 5 12 12" />
-          <path d="M14 26h24v18H14z" />
-          <path d="M16 44l-2 14" />
-          <path d="M36 44l2 14" />
-        </g>
-        {/* Center chair (cream) */}
-        <g transform="translate(46,4)">
-          <path d="M14 26c0-7 5-12 12-12s12 5 12 12" />
-          <path d="M14 26h24v18H14z" />
-          <path d="M16 44l-2 14" />
-          <path d="M36 44l2 14" />
-        </g>
-        {/* Right chair (coral) */}
-        <g transform="translate(92,0)">
-          <path d="M14 26c0-7 5-12 12-12s12 5 12 12" />
-          <path d="M14 26h24v18H14z" />
-          <path d="M16 44l-2 14" />
-          <path d="M36 44l2 14" />
-        </g>
-      </g>
-    </svg>
-  );
-}
-
 type CampusLineartProps = IllustrationProps & {
   /** Letterbox anchor; use `mid` in narrow centered heroes. */
   valign?: "mid" | "max";
@@ -189,29 +154,6 @@ export function GrassRowIllustration({ className }: IllustrationProps) {
   );
 }
 
-export function WheatSprigIllustration({ className }: IllustrationProps) {
-  return (
-    <svg
-      viewBox="0 0 36 48"
-      className={className}
-      aria-hidden="true"
-      role="img"
-    >
-      <g {...stroke} strokeWidth={1.4}>
-        <path d="M18 46V8" />
-        <path d="M18 12c-3-2-5-1-6 1c1 2 4 3 6 1" />
-        <path d="M18 12c3-2 5-1 6 1c-1 2-4 3-6 1" />
-        <path d="M18 18c-3-2-5-1-6 1c1 2 4 3 6 1" />
-        <path d="M18 18c3-2 5-1 6 1c-1 2-4 3-6 1" />
-        <path d="M18 24c-3-2-5-1-6 1c1 2 4 3 6 1" />
-        <path d="M18 24c3-2 5-1 6 1c-1 2-4 3-6 1" />
-        <path d="M18 30c-3-2-5-1-6 1c1 2 4 3 6 1" />
-        <path d="M18 30c3-2 5-1 6 1c-1 2-4 3-6 1" />
-      </g>
-    </svg>
-  );
-}
-
 /** Closed envelope for the public product-updates hero. */
 export function ProductUpdatesIllustration({ className }: IllustrationProps) {
   return (
@@ -255,58 +197,6 @@ export function ProductUpdatesIllustration({ className }: IllustrationProps) {
           {/* Bottom flap */}
           <path d="M 22 68 L 50 48 L 78 68" />
         </g>
-      </g>
-    </svg>
-  );
-}
-
-export function TeaTimeIllustration({ className }: IllustrationProps) {
-  return (
-    <svg
-      viewBox="0 0 100 80"
-      className={className}
-      aria-hidden="true"
-      role="img"
-      preserveAspectRatio="xMidYMid meet"
-    >
-      <g {...stroke} strokeWidth={1.3}>
-        {/* Tray */}
-        <ellipse cx="50" cy="68" rx="42" ry="6" />
-        {/* Teapot */}
-        <g transform="translate(8,28)">
-          <path d="M2 30c0-10 8-18 18-18s18 8 18 18" />
-          <path d="M2 30h36v8H2z" />
-          <path d="M0 30L-2 24" />
-          <path d="M38 22c4-2 6 0 8 4" />
-          <path d="M14 12V6" />
-          <path d="M26 12V6" />
-        </g>
-        {/* Cup */}
-        <g transform="translate(56,40)">
-          <path d="M2 6h24v14a6 6 0 0 1-6 6H8a6 6 0 0 1-6-6z" />
-          <path d="M26 12h4a4 4 0 0 1 0 8h-4" />
-          {/* Steam */}
-          <path d="M10 -2c2-4 -2-6 0-10" />
-          <path d="M18 -2c2-4 -2-6 0-10" />
-        </g>
-      </g>
-    </svg>
-  );
-}
-
-export function OliveSprigIllustration({ className }: IllustrationProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      aria-hidden="true"
-      role="img"
-    >
-      <g {...stroke} strokeWidth={1.4}>
-        <path d="M3 21c4-4 8-7 18-18" />
-        <path d="M9 14c-2-2-1-4 1-4c2 1 2 3 0 5" />
-        <path d="M14 9c-2-2-1-4 1-4c2 1 2 3 0 5" />
-        <path d="M18 5l1 -2" />
       </g>
     </svg>
   );

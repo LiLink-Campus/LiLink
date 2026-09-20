@@ -1,0 +1,2 @@
+.centeredRoot.centeredRoot { align-items: center; }
+.centeredPanel.centeredPanel { width: min(calc(100% - 2rem), 30rem); border-radius: var(--radius-xl); max-height: 85dvh; animation: none; }

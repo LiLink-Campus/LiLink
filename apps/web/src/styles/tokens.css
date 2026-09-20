@@ -1,8 +1,8 @@
 :root {
-  --color-canvas: #fdf8f0;
+  --color-canvas: #faf8f5;
   --color-surface: #ffffff;
-  --color-surface-muted: #f1e8d8;
-  --color-surface-tinted: #fcf6ec;
+  --color-surface-muted: #f2eee8;
+  --color-surface-tinted: #f7f6ef;
   --color-overlay: rgba(44, 24, 16, 0.42);
 
   --color-text: #1a1210;
@@ -16,6 +16,7 @@
   --color-focus: rgba(139, 58, 74, 0.55);
 
   --color-brand: #8b3a4a;
+  --color-logo: #74685c;
   --color-brand-hover: #a04858;
   --color-brand-light: #b75464;
   --color-brand-soft: #f5dde3;

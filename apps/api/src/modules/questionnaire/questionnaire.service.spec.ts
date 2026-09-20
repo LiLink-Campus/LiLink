@@ -32,6 +32,38 @@ describe('QuestionnaireService', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('requires answers even when an older question record was optional', () => {
+    expect(() =>
+      service.validateAnswers(
+        [
+          {
+            key: 'pace',
+            prompt: 'Pace',
+            type: QuestionType.SINGLE_SELECT,
+            required: false,
+            options: [{ value: 'slow', label: 'Slow' }],
+          },
+        ],
+        {
+          [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
+          [HARD_MATCH_KEYS.gender]: '男',
+          [HARD_MATCH_KEYS.partnerGenders]: [...HARD_MATCH_GENDERS],
+          [HARD_MATCH_KEYS.looks]: '5',
+          [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
+          [HARD_MATCH_KEYS.heightCm]: 175,
+          [HARD_MATCH_KEYS.weightKg]: 65,
+          [HARD_MATCH_KEYS.partnerAgeMin]: 18,
+          [HARD_MATCH_KEYS.partnerAgeMax]: 30,
+          [HARD_MATCH_KEYS.partnerHeightMin]: 120,
+          [HARD_MATCH_KEYS.partnerHeightMax]: 220,
+          [HARD_MATCH_KEYS.school]: 'school-bupt',
+          [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢散步。',
+        },
+        allowedSchoolIds,
+      ),
+    ).toThrow('Pace');
+  });
+
   it('normalizes valid answers', () => {
     expect(
       service.validateAnswers(
@@ -51,7 +83,7 @@ describe('QuestionnaireService', () => {
             prompt: 'Values',
             type: QuestionType.MULTI_SELECT,
             required: true,
-            selectionLimit: 3,
+            selectionLimit: 2,
             options: [
               { value: 'curiosity', label: 'Curiosity' },
               { value: 'stability', label: 'Stability' },
@@ -69,12 +101,12 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.partnerNationalities]: [],
           [HARD_MATCH_KEYS.languages]: ['中文'],
           [HARD_MATCH_KEYS.partnerLanguages]: [],
-          [HARD_MATCH_KEYS.looks]: '普通人',
+          [HARD_MATCH_KEYS.looks]: '5',
           [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
           [HARD_MATCH_KEYS.heightCm]: 175,
           [HARD_MATCH_KEYS.partnerHeightMin]: 120,
           [HARD_MATCH_KEYS.partnerHeightMax]: 220,
-          [HARD_MATCH_KEYS.weightKg]: null,
+          [HARD_MATCH_KEYS.weightKg]: 65,
           [HARD_MATCH_KEYS.partnerWeightMin]: null,
           [HARD_MATCH_KEYS.partnerWeightMax]: null,
           [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
@@ -96,12 +128,15 @@ describe('QuestionnaireService', () => {
       [HARD_MATCH_KEYS.partnerNationalities]: [],
       [HARD_MATCH_KEYS.languages]: ['中文'],
       [HARD_MATCH_KEYS.partnerLanguages]: [],
-      [HARD_MATCH_KEYS.looks]: '普通人',
-      [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美', '顶帅/美'],
+      [HARD_MATCH_KEYS.looks]: '5',
+      [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
+      [HARD_MATCH_KEYS.partnerSmokingStatus]: [],
+      [HARD_MATCH_KEYS.partnerDrinkingFrequency]: [],
+      [HARD_MATCH_KEYS.partnerExerciseFrequency]: [],
       [HARD_MATCH_KEYS.heightCm]: 175,
       [HARD_MATCH_KEYS.partnerHeightMin]: 120,
       [HARD_MATCH_KEYS.partnerHeightMax]: 220,
-      [HARD_MATCH_KEYS.weightKg]: null,
+      [HARD_MATCH_KEYS.weightKg]: 65,
       [HARD_MATCH_KEYS.partnerWeightMin]: null,
       [HARD_MATCH_KEYS.partnerWeightMax]: null,
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
@@ -407,9 +442,10 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.partnerAgeMax]: 30,
           [HARD_MATCH_KEYS.gender]: '男',
           [HARD_MATCH_KEYS.partnerGenders]: [...HARD_MATCH_GENDERS],
-          [HARD_MATCH_KEYS.looks]: '普通人',
+          [HARD_MATCH_KEYS.looks]: '5',
           [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
           [HARD_MATCH_KEYS.heightCm]: 175,
+          [HARD_MATCH_KEYS.weightKg]: 65,
           [HARD_MATCH_KEYS.partnerHeightMin]: 120,
           [HARD_MATCH_KEYS.partnerHeightMax]: 220,
           [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',
@@ -446,9 +482,10 @@ describe('QuestionnaireService', () => {
           [HARD_MATCH_KEYS.partnerAgeMax]: 30,
           [HARD_MATCH_KEYS.gender]: '男',
           [HARD_MATCH_KEYS.partnerGenders]: [...HARD_MATCH_GENDERS],
-          [HARD_MATCH_KEYS.looks]: '普通人',
+          [HARD_MATCH_KEYS.looks]: '5',
           [HARD_MATCH_KEYS.partnerLooks]: [...HARD_MATCH_LOOKS],
           [HARD_MATCH_KEYS.heightCm]: 175,
+          [HARD_MATCH_KEYS.weightKg]: 65,
           [HARD_MATCH_KEYS.partnerHeightMin]: 120,
           [HARD_MATCH_KEYS.partnerHeightMax]: 220,
           [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢读书跑步。',

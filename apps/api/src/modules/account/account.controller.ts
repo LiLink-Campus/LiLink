@@ -2,14 +2,21 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
   Put,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
+import { env } from '../../config/env';
+import { createSessionClearCookieOptions } from '../../common/auth/session-config';
+import { AccountDeletionService } from './account-deletion.service';
 import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
@@ -18,6 +25,7 @@ import { MatchEstimateService } from './match-estimate.service';
 import {
   AcknowledgeQuestionnaireItemsDto,
   DashboardResponseDto,
+  DeleteAccountDto,
   MatchEstimateRequestDto,
   MatchEstimateResponseDto,
   ReportMatchDto,
@@ -34,7 +42,23 @@ export class AccountController {
   constructor(
     private readonly accountService: AccountService,
     private readonly matchEstimateService: MatchEstimateService,
+    private readonly accountDeletionService: AccountDeletionService,
   ) {}
+
+  @Delete('account')
+  @Throttle({ default: { limit: 5, ttl: 900_000 } })
+  async deleteAccount(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: DeleteAccountDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.accountDeletionService.deleteAccount(
+      request.user!.sub,
+      body.password,
+    );
+    response.clearCookie(env.COOKIE_NAME, createSessionClearCookieOptions());
+    return result;
+  }
 
   @Get('dashboard')
   @ApiOperation({
@@ -149,14 +173,6 @@ export class AccountController {
     @Body() body: ToggleParticipationDto,
   ) {
     return this.accountService.setParticipation(request.user!.sub, body);
-  }
-
-  @Post('matches/:matchId/contact')
-  requestContact(
-    @Req() request: AuthenticatedRequest,
-    @Param('matchId') matchId: string,
-  ) {
-    return this.accountService.requestContact(request.user!.sub, matchId);
   }
 
   @Post('matches/:matchId/report')

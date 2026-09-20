@@ -47,6 +47,11 @@ export class CampaignAdminController {
     return this.campaignService.updateCampaign(id, body, request.admin!.id);
   }
 
+  @Get('campaigns/:id/results')
+  results(@Param('id') id: string) {
+    return this.campaignService.getResults(id);
+  }
+
   @Get('campaigns/:id/templates')
   listTemplates(@Param('id') id: string) {
     return this.campaignService.listTemplates(id);

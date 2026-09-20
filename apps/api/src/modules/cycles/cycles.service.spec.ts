@@ -3,7 +3,6 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotModule } from '../../common/dashboard/dashboard-snapshot.module';
 import { CyclesService, CYCLE_PROCESSING_INCLUDE } from './cycles.service';
-import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 import { CyclesModule } from './cycles.module';
 
 type EligibleParticipantStub = {
@@ -123,8 +122,8 @@ function createBroadParticipant(
       partnerAgeMax: 40,
       gender: '非二元',
       partnerGenders: ['男', '女', '非二元'],
-      looks: '普通人',
-      partnerLooks: ['普通人', '小帅/美', '顶帅/美'],
+      looks: '5',
+      partnerLooks: ['5', '7', '9'],
       heightCm: 170,
       partnerHeightMin: 120,
       partnerHeightMax: 220,
@@ -227,7 +226,11 @@ function createCyclesService(
   prisma: unknown,
   dashboardSnapshotService = createDashboardSnapshotServiceMock(),
 ) {
-  return new CyclesService(prisma as never, dashboardSnapshotService as never);
+  return new CyclesService(
+    prisma as never,
+    dashboardSnapshotService as never,
+    {} as never,
+  );
 }
 
 function bindRawScorePairForTest(service: CyclesService) {
@@ -256,9 +259,7 @@ function bindRawScorePairForTest(service: CyclesService) {
 const MOCK_RAW_SCORE_BOUNDS = { min: 70, max: 100 };
 
 describe('CyclesService', () => {
-  afterEach(() => {
-    clearStickyParticipationCache();
-  });
+  afterEach(() => {});
 
   it('declares dashboard snapshot sync as a module dependency', () => {
     const imports: unknown = Reflect.getMetadata(
@@ -433,277 +434,6 @@ describe('CyclesService', () => {
     expect(dashboardSnapshotService.syncCycleSnapshots).not.toHaveBeenCalled();
   });
 
-  it('backfills sticky participation records before running an existing open cycle', async () => {
-    const createMany = jest.fn().mockResolvedValue({ count: 2 });
-    const recentActiveAt = new Date();
-    const claimPreparation = jest.fn().mockResolvedValue({ count: 1 });
-    const claimReveal = jest.fn().mockResolvedValue({ count: 1 });
-    const matchCreate = jest.fn().mockResolvedValue({ id: 'match-1' });
-    const revealMatchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
-    const matchCycleUpdate = jest.fn().mockResolvedValue({ id: 'cycle-1' });
-    const cycleParticipation = {
-      findMany: jest
-        .fn()
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([
-          {
-            userId: 'user-1',
-            status: 'OPTED_IN',
-            intent: 'FRIEND',
-            updatedAt: new Date('2026-04-10T12:00:00.000Z'),
-            user: {
-              lastActiveAt: recentActiveAt,
-              questionnaireResponse: {
-                submittedAt: new Date('2026-03-15T00:00:00.000Z'),
-              },
-            },
-          },
-          {
-            userId: 'user-2',
-            status: 'OPTED_IN',
-            intent: 'DATE',
-            updatedAt: new Date('2026-04-11T12:00:00.000Z'),
-            user: {
-              lastActiveAt: recentActiveAt,
-              questionnaireResponse: {
-                submittedAt: new Date('2026-03-16T00:00:00.000Z'),
-              },
-            },
-          },
-        ]),
-      createMany,
-      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-    };
-    const prisma = {
-      matchCycle: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValueOnce({
-            id: 'cycle-1',
-            status: 'OPEN',
-            participationDeadline: new Date(Date.now() - 60_000),
-            revealAt: new Date(Date.now() - 60_000),
-            createdAt: new Date('2026-04-20T12:00:00.000Z'),
-            updatedAt: new Date(Date.now() - 60_000),
-            participations: [],
-          })
-          .mockResolvedValueOnce({
-            id: 'cycle-1',
-            status: 'OPEN',
-            participationDeadline: new Date(Date.now() - 60_000),
-            revealAt: new Date(Date.now() - 60_000),
-            createdAt: new Date('2026-04-20T12:00:00.000Z'),
-            updatedAt: new Date(Date.now() - 60_000),
-            participations: [],
-          })
-          .mockResolvedValueOnce({
-            id: 'cycle-1',
-            status: 'OPEN',
-            participationDeadline: new Date(Date.now() - 60_000),
-            revealAt: new Date(Date.now() - 60_000),
-            createdAt: new Date('2026-04-20T12:00:00.000Z'),
-            updatedAt: new Date(Date.now() - 60_000),
-            participations: [
-              {
-                user: {
-                  id: 'user-1',
-                  displayName: 'A',
-                  questionnaireResponse: { answers: {} },
-                },
-              },
-              {
-                user: {
-                  id: 'user-2',
-                  displayName: 'B',
-                  questionnaireResponse: { answers: {} },
-                },
-              },
-            ],
-          })
-          .mockResolvedValueOnce({
-            id: 'cycle-1',
-            status: 'REVEAL_READY',
-            revealAt: new Date(Date.now() - 60_000),
-          }),
-        updateMany: claimPreparation,
-        update: jest.fn().mockResolvedValue({ id: 'cycle-1', status: 'OPEN' }),
-      },
-      questionnaireVersion: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'questionnaire-1',
-          questions: [],
-        }),
-      },
-      match: {
-        count: jest.fn().mockResolvedValue(0),
-      },
-      cycleParticipation,
-      $transaction: jest.fn(
-        async (callback: (tx: unknown) => Promise<unknown>) =>
-          callback({
-            cycleParticipation,
-            match: {
-              create: matchCreate,
-              updateMany: revealMatchUpdateMany,
-            },
-            matchCycle: {
-              update: matchCycleUpdate,
-              updateMany: claimReveal,
-            },
-            auditLog: {
-              create: auditLogCreate,
-            },
-          }),
-      ),
-    };
-    const service = new CyclesService(
-      prisma as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-    const testHarness = service as unknown as Pick<
-      CyclesServiceTestHarness,
-      'toEligibleParticipants' | 'calculatePairs'
-    >;
-    jest.spyOn(testHarness, 'toEligibleParticipants').mockReturnValue([
-      {
-        id: 'user-1',
-        displayName: 'A',
-        hardMatchAnswers: {
-          birthDate: '2000-05-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '女',
-          partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 165,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢徒步。',
-          school: SCHOOL_BUPT,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-      {
-        id: 'user-2',
-        displayName: 'B',
-        hardMatchAnswers: {
-          birthDate: '1999-07-10',
-          partnerAgeMin: 18,
-          partnerAgeMax: 30,
-          gender: '男',
-          partnerGenders: ['女'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
-          heightCm: 178,
-          partnerHeightMin: 120,
-          partnerHeightMax: 220,
-          oneLinerIntro: '喜欢阅读。',
-          school: SCHOOL_CUC,
-          excludedPartnerSchools: [],
-        },
-        answers: {},
-        intent: 'BOTH',
-      },
-    ]);
-    jest.spyOn(testHarness, 'calculatePairs').mockResolvedValue({
-      candidates: [],
-      selectedPairs: [
-        {
-          left: { id: 'user-1' },
-          right: { id: 'user-2' },
-          score: 88,
-        },
-      ],
-    });
-
-    await expect(
-      service.runRevealCycle({ force: true, cycleId: 'cycle-1' }),
-    ).resolves.toMatchObject({
-      ok: true,
-      cycleId: 'cycle-1',
-    });
-
-    const createManyCalls = createMany.mock.calls as Array<
-      [
-        {
-          data: Array<{
-            cycleId: string;
-            userId: string;
-            status: 'OPTED_IN' | 'OPTED_OUT';
-            intent: 'FRIEND' | 'DATE' | 'BOTH' | null;
-            optedInAt: Date | null;
-          }>;
-          skipDuplicates: boolean;
-        },
-      ]
-    >;
-    const createManyArgument = createManyCalls[0]?.[0];
-
-    if (!createManyArgument) {
-      throw new Error('Expected createMany to be called.');
-    }
-
-    expect(createManyArgument.skipDuplicates).toBe(true);
-    // Sticky carry-over preserves the latest stored intent for OPTED_IN users.
-    expect(createManyArgument.data).toEqual([
-      {
-        cycleId: 'cycle-1',
-        userId: 'user-1',
-        status: 'OPTED_IN',
-        intent: 'FRIEND',
-        optedInAt: createManyArgument.data[0]?.optedInAt ?? null,
-      },
-      {
-        cycleId: 'cycle-1',
-        userId: 'user-2',
-        status: 'OPTED_IN',
-        intent: 'DATE',
-        optedInAt: createManyArgument.data[1]?.optedInAt ?? null,
-      },
-    ]);
-    expect(createManyArgument.data[0]?.optedInAt).toBeInstanceOf(Date);
-    expect(createManyArgument.data[1]?.optedInAt).toBeInstanceOf(Date);
-    expect(claimPreparation).toHaveBeenCalledWith({
-      where: {
-        id: 'cycle-1',
-        status: 'OPEN',
-      },
-      data: {
-        status: 'PREPARING',
-        updatedAt: expect.any(Date) as Date,
-      },
-    });
-    expect(matchCreate).toHaveBeenCalledTimes(1);
-    const auditLogCalls = auditLogCreate.mock.calls as Array<
-      [
-        {
-          data: {
-            action: string;
-          };
-        },
-      ]
-    >;
-    const preparedAuditCall = auditLogCalls.find(
-      ([call]) => call.data.action === 'cycle.prepared',
-    );
-    expect(preparedAuditCall).toBeDefined();
-    expect(auditLogCreate).toHaveBeenCalledWith({
-      data: {
-        adminActorId: undefined,
-        action: 'cycle.revealed',
-        metadata: {
-          cycleId: 'cycle-1',
-          createdMatches: 1,
-          forced: true,
-        },
-      },
-    });
-  });
-
   it('previews cycles without backfilling sticky participation rows', async () => {
     const matchCycleFindUnique = jest.fn().mockResolvedValue({
       id: 'cycle-1',
@@ -755,6 +485,9 @@ describe('CyclesService', () => {
         user: {
           id: 'user-1',
           displayName: 'A',
+          vipActivations: [
+            { expiresAt: new Date(Date.now() + 60_000), revokedAt: null },
+          ],
           school: { id: SCHOOL_BUPT },
           questionnaireResponse: {
             submittedAt: new Date('2026-04-18T12:00:00.000Z'),
@@ -764,8 +497,8 @@ describe('CyclesService', () => {
               hard_partner_age_max: 30,
               hard_gender: '女',
               hard_partner_genders: ['男'],
-              hard_looks: '普通人',
-              hard_partner_looks: ['普通人'],
+              hard_looks: '5',
+              hard_partner_looks: ['5'],
               hard_height_cm: 165,
               hard_partner_height_min: 120,
               hard_partner_height_max: 220,
@@ -789,8 +522,8 @@ describe('CyclesService', () => {
               hard_partner_age_max: 30,
               hard_gender: '男',
               hard_partner_genders: ['女'],
-              hard_looks: '普通人',
-              hard_partner_looks: ['普通人'],
+              hard_looks: '5',
+              hard_partner_looks: ['5'],
               hard_height_cm: 178,
               hard_partner_height_min: 120,
               hard_partner_height_max: 220,
@@ -840,8 +573,8 @@ describe('CyclesService', () => {
               hard_partner_age_max: 30,
               hard_gender: '女',
               hard_partner_genders: ['男'],
-              hard_looks: '普通人',
-              hard_partner_looks: ['普通人'],
+              hard_looks: '5',
+              hard_partner_looks: ['5'],
               hard_height_cm: 165,
               hard_partner_height_min: 120,
               hard_partner_height_max: 220,
@@ -870,8 +603,8 @@ describe('CyclesService', () => {
       hard_partner_age_max: 30,
       hard_gender: '女',
       hard_partner_genders: ['男'],
-      hard_looks: '普通人',
-      hard_partner_looks: ['普通人'],
+      hard_looks: '5',
+      hard_partner_looks: ['5'],
       hard_height_cm: 165,
       hard_partner_height_min: 120,
       hard_partner_height_max: 220,
@@ -1138,10 +871,10 @@ describe('CyclesService', () => {
 
     const left = createBroadParticipant('user-1', {});
     const right = createBroadParticipant('user-2', {});
-    left.hardMatchAnswers.looks = '普通人';
-    left.hardMatchAnswers.partnerLooks = ['普通人'];
-    right.hardMatchAnswers.looks = '顶帅/美';
-    right.hardMatchAnswers.partnerLooks = ['顶帅/美'];
+    left.hardMatchAnswers.looks = '5';
+    left.hardMatchAnswers.partnerLooks = ['5'];
+    right.hardMatchAnswers.looks = '9';
+    right.hardMatchAnswers.partnerLooks = ['9'];
 
     expect(
       scorePair(left, right, [], new Date('2026-04-10T00:00:00.000Z')),
@@ -1269,8 +1002,8 @@ describe('CyclesService', () => {
           partnerAgeMax: 30,
           gender: '女',
           partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: 165,
           partnerHeightMin: 120,
           partnerHeightMax: 220,
@@ -1290,8 +1023,8 @@ describe('CyclesService', () => {
           partnerAgeMax: 30,
           gender: '男',
           partnerGenders: ['女'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: 178,
           partnerHeightMin: 120,
           partnerHeightMax: 220,
@@ -1372,6 +1105,7 @@ describe('CyclesService', () => {
     const service = new CyclesService(
       prisma as never,
       createDashboardSnapshotServiceMock() as never,
+      {} as never,
     );
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
@@ -1459,6 +1193,7 @@ describe('CyclesService', () => {
     const service = new CyclesService(
       prisma as never,
       createDashboardSnapshotServiceMock() as never,
+      {} as never,
     );
     const testHarness = service as unknown as Pick<
       CyclesServiceTestHarness,
@@ -1550,6 +1285,7 @@ describe('CyclesService', () => {
     const service = new CyclesService(
       prisma as never,
       createDashboardSnapshotServiceMock() as never,
+      {} as never,
     );
 
     await expect(
@@ -1611,6 +1347,7 @@ describe('CyclesService', () => {
     const service = new CyclesService(
       prisma as never,
       createDashboardSnapshotServiceMock() as never,
+      {} as never,
     );
     const prepareCycleSpy = jest
       .spyOn(service as never, 'prepareCycle')
@@ -1745,6 +1482,11 @@ describe('CyclesService', () => {
 
         const callback = input as (tx: unknown) => Promise<unknown>;
         return callback({
+          $queryRaw: jest.fn().mockResolvedValue([{ id: 'old-match' }]),
+          outboundEmail: {
+            updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+          },
+          userCycleDashboardSnapshot: { deleteMany: snapshotDeleteMany },
           cycleParticipation,
           match: {
             deleteMany: matchDeleteMany,
@@ -1776,8 +1518,8 @@ describe('CyclesService', () => {
           partnerAgeMax: 30,
           gender: '女',
           partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: 170,
           partnerHeightMin: 120,
           partnerHeightMax: 220,
@@ -1797,8 +1539,8 @@ describe('CyclesService', () => {
           partnerAgeMax: 30,
           gender: '男',
           partnerGenders: ['女'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: 165,
           partnerHeightMin: 120,
           partnerHeightMax: 220,
@@ -2778,6 +2520,7 @@ describe('CyclesService', () => {
     expect(calls[0]?.[0].include.participations.where.user).toEqual({
       status: 'ACTIVE',
       isTest: false,
+      deactivatedAt: null,
     });
   });
 
@@ -2788,7 +2531,7 @@ describe('CyclesService', () => {
     expect(CYCLE_PROCESSING_INCLUDE.participations.where).toEqual({
       status: 'OPTED_IN',
       intent: { not: null },
-      user: { status: 'ACTIVE', isTest: false },
+      user: { status: 'ACTIVE', isTest: false, deactivatedAt: null },
     });
   });
 });
@@ -2893,4 +2636,68 @@ describe('CyclesService automation scheduling gate', () => {
 
     expect(service.isAutomationDue(NOW)).toBe(true);
   });
+});
+
+describe('VIP filtering at cycle processing time', () => {
+  const raw = {
+    hard_birth_date: '2000-01-01',
+    hard_partner_age_min: 18,
+    hard_partner_age_max: 40,
+    hard_gender: '女',
+    hard_partner_genders: ['男'],
+    hard_looks: '5',
+    hard_partner_looks: ['9'],
+    hard_height_cm: 165,
+    hard_weight_kg: 55,
+    hard_partner_height_min: 180,
+    hard_partner_height_max: 190,
+    hard_partner_weight_min: 60,
+    hard_partner_weight_max: 70,
+    hard_one_liner_intro: '喜欢散步。',
+    hard_excluded_partner_schools: [SCHOOL_CUC],
+    hard_excluded_partner_school_genders: [],
+  };
+  it.each(['free', 'expired', 'revoked', 'active'])(
+    '%s uses the correct effective preferences',
+    (state) => {
+      const service = createCyclesService({});
+      const grants =
+        state === 'free'
+          ? []
+          : [
+              {
+                expiresAt: new Date(
+                  Date.now() + (state === 'expired' ? -1000 : 60000),
+                ),
+                revokedAt: state === 'revoked' ? new Date() : null,
+              },
+            ];
+      const [participant] = (
+        service as unknown as CyclesServiceTestHarness
+      ).toEligibleParticipants([
+        {
+          intent: 'DATE',
+          user: {
+            id: 'fixture',
+            displayName: 'Fixture',
+            school: { id: SCHOOL_BUPT },
+            vipActivations: grants,
+            questionnaireResponse: { answers: raw, submittedAt: new Date() },
+          },
+        },
+      ]);
+      expect(participant).toBeDefined();
+      expect(participant.hardMatchAnswers.partnerHeightMin).toBe(
+        state === 'active' ? 180 : 120,
+      );
+      expect(participant.hardMatchAnswers.partnerLooks).toHaveLength(
+        state === 'active' ? 1 : 10,
+      );
+      expect(participant.hardMatchAnswers.excludedPartnerSchools).toEqual(
+        state === 'active' ? [SCHOOL_CUC] : [],
+      );
+      expect(participant.hardMatchAnswers.partnerGenders).toEqual(['男']);
+      expect(raw.hard_partner_height_min).toBe(180);
+    },
+  );
 });

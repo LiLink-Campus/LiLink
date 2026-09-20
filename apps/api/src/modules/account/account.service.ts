@@ -1,5 +1,12 @@
 import {
+  effectiveMatchingAnswers,
+  effectivePreferenceForm,
+  hasActiveVip,
+  VIP_FILTER_KEYS,
+} from '@lilink/shared';
+import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   Optional,
@@ -13,9 +20,7 @@ import {
 } from '../../common/prisma/client';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import {
-  CONTACT_CHANNEL_LABELS,
   EDITABLE_CONTACT_CHANNEL_TYPES,
-  contactChannelLabel,
   hardMatchAttentionFields,
   hardMatchAttentionKeys,
   hardMatchFieldHasValue,
@@ -28,18 +33,13 @@ import {
   normalizeLocale,
   type ContactChannelType,
   type EditableContactChannelType,
-  type MeetupProgressStatus,
-  type MeetupUserTurnStatus,
-  DEFAULT_MEETUP_EXPIRATION_WEEKS,
-  MEETUP_TODO_PRIORITY,
 } from '@lilink/shared';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { MailService } from '../../common/mail/mail.service';
+import { cancelMatchEmails } from '../../common/mail/match-mail';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { ActivationService } from '../activation/activation.service';
 import { getDashboardCouponAgenda } from '../coupon/coupon-read-state';
-import { ProductAnalyticsService } from '../product-analytics/product-analytics.service';
 import {
   HARD_MATCH_KEYS,
   buildHardMatchAnswerRecordFromFormInput,
@@ -60,14 +60,11 @@ import {
 import { CONTACT_METHOD_VALUE_MAX_LENGTH } from '../../common/validation/input-limits';
 import {
   AcknowledgeQuestionnaireItemsDto,
-  DashboardMeetupSummaryResponseDto,
   DashboardHistoryItemResponseDto,
   DashboardHistoryLimitedReason,
   DashboardHistoryResult,
   DashboardHistoryVisibility,
-  DashboardMatchResponseDto,
   DashboardResponseDto,
-  DashboardTaskResponseDto,
   ReportMatchDto,
   SaveQuestionnaireDto,
   ToggleParticipationDto,
@@ -81,62 +78,6 @@ const DASHBOARD_HISTORY_LIMIT = 3;
 const EDITABLE_CONTACT_CHANNEL_SET = new Set<ContactChannelType>(
   EDITABLE_CONTACT_CHANNEL_TYPES,
 );
-const MEETUP_TERMINAL_SUMMARY_TEXT =
-  '本次见面安排已结束，当前版本暂不支持重新发起。';
-
-const dashboardMeetupSessionSelect = {
-  id: true,
-  matchId: true,
-  status: true,
-  currentProposalId: true,
-  confirmedTimeOptionId: true,
-  confirmedLocationOptionId: true,
-  finalConfirmRequiredByUserId: true,
-  reopenedFromLockedStartsAt: true,
-  lockedAt: true,
-  canceledAt: true,
-  canceledByUserId: true,
-  effectiveExpirationWeeks: true,
-  expiresAt: true,
-  archiveEligibleAt: true,
-  lastActiveAt: true,
-  confirmedTimeOption: {
-    select: {
-      startsAt: true,
-      endsAt: true,
-    },
-  },
-  confirmedLocationOption: {
-    select: {
-      placeName: true,
-    },
-  },
-  feedback: {
-    select: {
-      personalFitScore: true,
-      interactionQualityScore: true,
-      safetyBoundaryLevel: true,
-      positiveTags: true,
-      issueTags: true,
-      note: true,
-      authorUserId: true,
-      updatedAt: true,
-    },
-  },
-  participants: {
-    select: {
-      userId: true,
-      turnState: true,
-      revisionUsedAt: true,
-      lastSeenAt: true,
-      user: {
-        select: {
-          displayName: true,
-        },
-      },
-    },
-  },
-} satisfies Prisma.MeetupSessionSelect;
 
 type DashboardCycleSummary = Prisma.MatchCycleGetPayload<{
   select: {
@@ -158,13 +99,6 @@ type DashboardSnapshotStore = {
   findMany: (
     args: Prisma.UserCycleDashboardSnapshotFindManyArgs,
   ) => Promise<DashboardSnapshotRecord[]>;
-};
-type DashboardMeetupSession = Prisma.MeetupSessionGetPayload<{
-  select: typeof dashboardMeetupSessionSelect;
-}>;
-type DashboardMeetupPayload = {
-  tasks: DashboardTaskResponseDto[];
-  meetupSummary: DashboardMeetupSummaryResponseDto | null;
 };
 type QuestionnaireDraftPayload = {
   softAnswers: Record<string, Prisma.InputJsonValue>;
@@ -204,21 +138,6 @@ type QuestionnaireAcknowledgementRow = {
 type ContactMethodSummary = {
   type: EditableContactChannelType;
   value: string;
-};
-
-type PublicContactSummary = {
-  type: ContactChannelType;
-  label: string;
-  value: string;
-};
-
-type ContactMethodUser = {
-  email: string;
-  preferredContactChannel?: ContactChannelType | PrismaContactChannelType;
-  contactMethods?: Array<{
-    type: ContactChannelType | PrismaContactChannelType;
-    value: string;
-  }>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -354,15 +273,12 @@ function hasQuestionnaireQuestionUpdate(
 export class AccountService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mailService: MailService,
     private readonly questionnaireService: QuestionnaireService,
     private readonly dashboardSnapshotService: DashboardSnapshotService,
     @Optional()
     private readonly matchEstimateService?: MatchEstimateService,
     @Optional()
     private readonly activationService?: ActivationService,
-    @Optional()
-    private readonly productAnalytics?: ProductAnalyticsService,
   ) {}
 
   async getUserSummary(userId: string) {
@@ -373,7 +289,6 @@ export class AccountService {
         email: true,
         displayName: true,
         preferredLocale: true,
-        meetupExpirationWeeks: true,
       },
     });
 
@@ -384,8 +299,6 @@ export class AccountService {
     return {
       ...user,
       preferredLocale: normalizeLocale(user.preferredLocale),
-      meetupExpirationWeeks:
-        user.meetupExpirationWeeks ?? DEFAULT_MEETUP_EXPIRATION_WEEKS,
     };
   }
 
@@ -398,15 +311,12 @@ export class AccountService {
         email: true,
         displayName: true,
         preferredLocale: true,
-        meetupExpirationWeeks: true,
       },
     });
 
     return {
       ...user,
       preferredLocale: normalizeLocale(user.preferredLocale),
-      meetupExpirationWeeks:
-        user.meetupExpirationWeeks ?? DEFAULT_MEETUP_EXPIRATION_WEEKS,
     };
   }
 
@@ -538,10 +448,6 @@ export class AccountService {
         : this.buildDefaultDashboardHistoryItem(revealedCycle);
     });
     const latestMatch = this.readLatestDashboardMatch(latestSnapshot);
-    this.attachCurrentUserFeedback(userId, [
-      latestMatch,
-      ...recentMatchHistory.map((item) => item.match),
-    ]);
 
     let lastRevealedRound: {
       cycleId: string;
@@ -557,7 +463,7 @@ export class AccountService {
         codename: latestSnapshot.cycleCodename,
         revealAt: latestSnapshot.cycleRevealAt.toISOString(),
         participationStatus: latestSnapshot.participationStatus,
-        matched: latestSnapshot.result === 'MATCHED',
+        matched: latestMatch != null,
       };
     } else if (lastRevealedParticipation) {
       lastRevealedRound = {
@@ -577,23 +483,7 @@ export class AccountService {
       latestMatch != null
         ? this.toDashboardHistoryLimitedReason(latestSnapshot?.limitedReason)
         : null;
-    const [meetupDashboard, couponAgenda] = await Promise.all([
-      this.buildDashboardMeetupPayload({
-        userId,
-        matchId: latestMatch?.id ?? null,
-      }),
-      getDashboardCouponAgenda(this.prisma, userId),
-    ]);
-    await this.attachHistoryMeetupSummaries(
-      userId,
-      recentMatchHistory,
-      latestMatch?.id ?? null,
-    );
-    this.attachLatestMeetupSummaryToHistory(
-      latestMatch?.id ?? null,
-      meetupDashboard.meetupSummary,
-      recentMatchHistory,
-    );
+    const couponAgenda = await getDashboardCouponAgenda(this.prisma, userId);
 
     return {
       profile,
@@ -614,8 +504,6 @@ export class AccountService {
       latestMatchLimitedReason,
       lastRevealedRound,
       recentMatchHistory,
-      tasks: meetupDashboard.tasks,
-      meetupSummary: meetupDashboard.meetupSummary,
       couponAgenda,
     };
   }
@@ -632,123 +520,32 @@ export class AccountService {
       visibility: DashboardHistoryVisibility.NOT_APPLICABLE,
       limitedReason: null,
       match: null,
-      meetupSummary: null,
     };
   }
 
   private buildDashboardHistoryItemFromSnapshot(
     snapshot: DashboardSnapshotRecord,
   ): DashboardHistoryItemResponseDto {
+    const match = this.readLatestDashboardMatch(snapshot);
     return {
       cycleId: snapshot.cycleId,
       codename: snapshot.cycleCodename,
       revealAt: snapshot.cycleRevealAt.toISOString(),
       participationStatus: snapshot.participationStatus,
-      result: this.toDashboardHistoryResult(snapshot.result),
-      visibility:
-        this.toDashboardHistoryVisibility(snapshot.visibility) ??
-        DashboardHistoryVisibility.NOT_APPLICABLE,
-      limitedReason: this.toDashboardHistoryLimitedReason(
-        snapshot.limitedReason,
-      ),
-      match: this.dashboardSnapshotService.readDashboardMatchPayload(
-        snapshot.matchPayload,
-      ),
-      meetupSummary: null,
+      result: match
+        ? DashboardHistoryResult.MATCHED
+        : snapshot.participationStatus === 'OPTED_IN'
+          ? DashboardHistoryResult.UNMATCHED
+          : DashboardHistoryResult.NOT_PARTICIPATED,
+      visibility: match
+        ? (this.toDashboardHistoryVisibility(snapshot.visibility) ??
+          DashboardHistoryVisibility.NOT_APPLICABLE)
+        : DashboardHistoryVisibility.NOT_APPLICABLE,
+      limitedReason: match
+        ? this.toDashboardHistoryLimitedReason(snapshot.limitedReason)
+        : null,
+      match,
     };
-  }
-
-  private async attachHistoryMeetupSummaries(
-    userId: string,
-    items: DashboardHistoryItemResponseDto[],
-    excludedMatchId: string | null,
-  ) {
-    const matchIds = [
-      ...new Set(
-        items
-          .map((item) => item.match?.id ?? null)
-          .filter(
-            (matchId): matchId is string =>
-              matchId != null && matchId !== excludedMatchId,
-          ),
-      ),
-    ];
-
-    if (matchIds.length === 0) {
-      return;
-    }
-
-    const matches = await this.prisma.match.findMany({
-      where: {
-        id: { in: matchIds },
-      },
-      select: {
-        id: true,
-        introducedAt: true,
-        participants: {
-          select: {
-            userId: true,
-          },
-        },
-        meetupSession: {
-          select: dashboardMeetupSessionSelect,
-        },
-      },
-    });
-    const matchById = new Map(matches.map((match) => [match.id, match]));
-    const now = new Date();
-
-    for (const item of items) {
-      item.meetupSummary = null;
-      if (!item.match) {
-        continue;
-      }
-
-      const match = matchById.get(item.match.id);
-      if (!match?.introducedAt || !match.meetupSession) {
-        continue;
-      }
-
-      const currentParticipant = match.participants.find(
-        (participant) => participant.userId === userId,
-      );
-      const counterpart = match.participants.find(
-        (participant) => participant.userId !== userId,
-      );
-
-      if (
-        !currentParticipant ||
-        !counterpart ||
-        match.participants.length !== 2
-      ) {
-        continue;
-      }
-
-      const session = await this.convergeDashboardMeetupSession(
-        match.meetupSession,
-      );
-      item.meetupSummary = this.buildDashboardMeetupSummary({
-        session,
-        currentUserId: userId,
-        now,
-      });
-    }
-  }
-
-  private attachLatestMeetupSummaryToHistory(
-    latestMatchId: string | null,
-    meetupSummary: DashboardMeetupSummaryResponseDto | null,
-    items: DashboardHistoryItemResponseDto[],
-  ) {
-    if (!latestMatchId || !meetupSummary) {
-      return;
-    }
-
-    for (const item of items) {
-      if (item.match?.id === latestMatchId) {
-        item.meetupSummary = meetupSummary;
-      }
-    }
   }
 
   private readLatestDashboardMatch(snapshot: DashboardSnapshotRecord | null) {
@@ -759,495 +556,6 @@ export class AccountService {
     return this.dashboardSnapshotService.readDashboardMatchPayload(
       snapshot.matchPayload,
     );
-  }
-
-  private async buildDashboardMeetupPayload(input: {
-    userId: string;
-    matchId: string | null;
-  }): Promise<DashboardMeetupPayload> {
-    if (!input.matchId) {
-      return { tasks: [], meetupSummary: null };
-    }
-
-    const match = await this.prisma.match.findUnique({
-      where: { id: input.matchId },
-      select: {
-        id: true,
-        introducedAt: true,
-        participants: {
-          select: {
-            userId: true,
-          },
-        },
-        meetupSession: {
-          select: dashboardMeetupSessionSelect,
-        },
-      },
-    });
-
-    if (!match?.introducedAt || match.participants.length !== 2) {
-      return { tasks: [], meetupSummary: null };
-    }
-
-    const currentParticipant = match.participants.find(
-      (participant) => participant.userId === input.userId,
-    );
-    const counterpart = match.participants.find(
-      (participant) => participant.userId !== input.userId,
-    );
-
-    if (!currentParticipant || !counterpart) {
-      return { tasks: [], meetupSummary: null };
-    }
-
-    if (!match.meetupSession) {
-      return {
-        tasks: [
-          {
-            id: `meetup-start:${match.id}`,
-            type: 'MEETUP',
-            priority: MEETUP_TODO_PRIORITY,
-            title: '安排第一次见面',
-            text: '可以开始安排第一次见面',
-            href: `/dashboard/meetup/start?matchId=${match.id}`,
-            userTurnStatus: 'NOT_STARTED',
-            progressStatus: 'NOT_STARTED',
-            matchId: match.id,
-            sessionId: null,
-            updatedAt: match.introducedAt.toISOString(),
-          },
-        ],
-        meetupSummary: null,
-      };
-    }
-
-    const session = await this.convergeDashboardMeetupSession(
-      match.meetupSession,
-    );
-    const meetupSummary = this.buildDashboardMeetupSummary({
-      session,
-      currentUserId: input.userId,
-      now: new Date(),
-    });
-
-    if (session.status === 'CANCELED') {
-      const canceledTask = this.buildCounterpartCanceledMeetupTask({
-        session,
-        currentUserId: input.userId,
-        matchId: match.id,
-      });
-
-      return {
-        tasks: canceledTask ? [canceledTask] : [],
-        meetupSummary,
-      };
-    }
-
-    if (session.status !== 'ACTIVE') {
-      return { tasks: [], meetupSummary };
-    }
-
-    const userTurnStatus = this.deriveMeetupUserTurnStatus(
-      session,
-      input.userId,
-    );
-
-    return {
-      tasks: [
-        {
-          id: `meetup:${session.id}`,
-          type: 'MEETUP',
-          priority: MEETUP_TODO_PRIORITY,
-          title: '安排第一次见面',
-          text: this.buildMeetupTaskText(userTurnStatus),
-          href: `/dashboard/meetup/${session.id}`,
-          userTurnStatus,
-          progressStatus: this.deriveMeetupProgressStatus(session),
-          matchId: match.id,
-          sessionId: session.id,
-          updatedAt: session.lastActiveAt.toISOString(),
-        },
-      ],
-      meetupSummary,
-    };
-  }
-
-  private async convergeDashboardMeetupSession(
-    session: DashboardMeetupSession,
-  ): Promise<DashboardMeetupSession> {
-    const now = new Date();
-
-    if (
-      session.status === 'ACTIVE' &&
-      session.expiresAt &&
-      session.expiresAt <= now
-    ) {
-      return this.prisma.$transaction(async (tx) => {
-        const transition = await tx.meetupSession.updateMany({
-          where: {
-            id: session.id,
-            status: 'ACTIVE',
-            currentProposalId: session.currentProposalId,
-            finalConfirmRequiredByUserId: session.finalConfirmRequiredByUserId,
-            expiresAt: {
-              lte: now,
-            },
-          },
-          data: {
-            status: 'EXPIRED',
-            expiredAt: now,
-            currentProposalId: null,
-            finalConfirmRequiredByUserId: null,
-            expiresAt: null,
-            archiveEligibleAt: null,
-            lastActiveAt: now,
-          },
-        });
-
-        if (transition.count === 0) {
-          return tx.meetupSession.findUniqueOrThrow({
-            where: { id: session.id },
-            select: dashboardMeetupSessionSelect,
-          });
-        }
-
-        if (session.currentProposalId) {
-          await tx.meetupProposal.updateMany({
-            where: {
-              id: session.currentProposalId,
-              sessionId: session.id,
-              status: 'PENDING',
-            },
-            data: {
-              status: 'SUPERSEDED',
-            },
-          });
-          await tx.meetupOption.updateMany({
-            where: {
-              proposalId: session.currentProposalId,
-              status: 'PENDING',
-            },
-            data: {
-              status: 'DISABLED',
-            },
-          });
-        }
-
-        await tx.meetupParticipant.updateMany({
-          where: { sessionId: session.id },
-          data: {
-            turnState: 'NONE',
-            responseRequiredAt: null,
-            responseRequiredMessageId: null,
-          },
-        });
-        await tx.auditLog.create({
-          data: {
-            actorId: null,
-            action: 'meetup.expired',
-            metadata: {
-              sessionId: session.id,
-              matchId: session.matchId,
-            },
-          },
-        });
-
-        return tx.meetupSession.findUniqueOrThrow({
-          where: { id: session.id },
-          select: dashboardMeetupSessionSelect,
-        });
-      });
-    }
-
-    if (
-      session.status === 'LOCKED' &&
-      session.archiveEligibleAt &&
-      session.archiveEligibleAt <= now
-    ) {
-      return this.prisma.$transaction(async (tx) => {
-        const transition = await tx.meetupSession.updateMany({
-          where: {
-            id: session.id,
-            status: 'LOCKED',
-            currentProposalId: session.currentProposalId,
-            finalConfirmRequiredByUserId: session.finalConfirmRequiredByUserId,
-            archiveEligibleAt: {
-              lte: now,
-            },
-          },
-          data: {
-            status: 'ARCHIVED',
-            archivedAt: now,
-            currentProposalId: null,
-            finalConfirmRequiredByUserId: null,
-            lastActiveAt: now,
-          },
-        });
-
-        if (transition.count === 0) {
-          return tx.meetupSession.findUniqueOrThrow({
-            where: { id: session.id },
-            select: dashboardMeetupSessionSelect,
-          });
-        }
-
-        await tx.meetupParticipant.updateMany({
-          where: { sessionId: session.id },
-          data: {
-            turnState: 'NONE',
-            responseRequiredAt: null,
-            responseRequiredMessageId: null,
-          },
-        });
-        await tx.auditLog.create({
-          data: {
-            actorId: null,
-            action: 'meetup.archived',
-            metadata: {
-              sessionId: session.id,
-              matchId: session.matchId,
-            },
-          },
-        });
-
-        return tx.meetupSession.findUniqueOrThrow({
-          where: { id: session.id },
-          select: dashboardMeetupSessionSelect,
-        });
-      });
-    }
-
-    return session;
-  }
-
-  private buildDashboardMeetupSummary(input: {
-    session: DashboardMeetupSession;
-    currentUserId: string;
-    now: Date;
-  }): DashboardMeetupSummaryResponseDto {
-    const currentParticipant =
-      input.session.participants.find(
-        (participant) => participant.userId === input.currentUserId,
-      ) ?? null;
-    const confirmedStartsAt =
-      input.session.confirmedTimeOption?.startsAt ?? null;
-    const confirmedEndsAt = input.session.confirmedTimeOption?.endsAt ?? null;
-    const lockedStartIsFuture =
-      confirmedStartsAt != null && confirmedStartsAt > input.now;
-    const reopenedStartIsFuture =
-      input.session.reopenedFromLockedStartsAt == null ||
-      input.session.reopenedFromLockedStartsAt > input.now;
-    const feedbackEligibleAt =
-      (input.session.status === 'LOCKED' ||
-        input.session.status === 'ARCHIVED') &&
-      input.session.lockedAt
-        ? confirmedStartsAt
-        : null;
-    const currentUserFeedback =
-      input.session.feedback.find(
-        (feedback) => feedback.authorUserId === input.currentUserId,
-      ) ?? null;
-    const canSubmitFeedback =
-      feedbackEligibleAt != null &&
-      feedbackEligibleAt <= input.now &&
-      input.session.participants.length === 2 &&
-      currentParticipant != null &&
-      input.session.participants.some(
-        (participant) => participant.userId !== input.currentUserId,
-      );
-
-    return {
-      sessionId: input.session.id,
-      matchId: input.session.matchId,
-      status: input.session.status,
-      progressStatus: this.deriveMeetupProgressStatus(input.session),
-      href: `/dashboard/meetup/${input.session.id}`,
-      confirmedStartsAt: this.toIsoString(confirmedStartsAt),
-      confirmedEndsAt: this.toIsoString(confirmedEndsAt),
-      confirmedPlaceName:
-        input.session.confirmedLocationOption?.placeName ?? null,
-      canReviseAfterLock:
-        input.session.status === 'LOCKED' &&
-        lockedStartIsFuture &&
-        currentParticipant?.revisionUsedAt == null,
-      canCancel:
-        input.session.status === 'ACTIVE'
-          ? reopenedStartIsFuture
-          : input.session.status === 'LOCKED' && lockedStartIsFuture,
-      terminalText: ['CANCELED', 'EXPIRED', 'ARCHIVED'].includes(
-        input.session.status,
-      )
-        ? MEETUP_TERMINAL_SUMMARY_TEXT
-        : null,
-      currentUserFeedback: currentUserFeedback
-        ? {
-            personalFitScore: currentUserFeedback.personalFitScore,
-            interactionQualityScore:
-              currentUserFeedback.interactionQualityScore,
-            safetyBoundaryLevel: currentUserFeedback.safetyBoundaryLevel,
-            positiveTags: [...currentUserFeedback.positiveTags],
-            issueTags: [...currentUserFeedback.issueTags],
-            note: currentUserFeedback.note,
-            submittedAt: currentUserFeedback.updatedAt.toISOString(),
-          }
-        : null,
-      canSubmitFeedback,
-      feedbackEligibleAt: this.toIsoString(feedbackEligibleAt),
-    };
-  }
-
-  private deriveMeetupUserTurnStatus(
-    session: DashboardMeetupSession | null,
-    currentUserId: string,
-  ): MeetupUserTurnStatus {
-    if (!session) {
-      return 'NOT_STARTED';
-    }
-    if (session.status !== 'ACTIVE') {
-      return 'NONE';
-    }
-
-    if (session.finalConfirmRequiredByUserId === currentUserId) {
-      return 'NEEDS_YOUR_RESPONSE';
-    }
-    if (session.finalConfirmRequiredByUserId) {
-      return 'WAITING_FOR_COUNTERPART';
-    }
-
-    const currentParticipant = session.participants.find(
-      (participant) => participant.userId === currentUserId,
-    );
-
-    if (currentParticipant?.turnState === 'REQUIRED') {
-      return 'NEEDS_YOUR_RESPONSE';
-    }
-
-    if (currentParticipant?.turnState === 'WAITING') {
-      return 'WAITING_FOR_COUNTERPART';
-    }
-
-    return 'NONE';
-  }
-
-  private deriveMeetupProgressStatus(
-    session: DashboardMeetupSession | null,
-  ): MeetupProgressStatus {
-    if (!session) {
-      return 'NOT_STARTED';
-    }
-    if (session.status === 'CANCELED') {
-      return 'CANCELED';
-    }
-    if (session.status === 'EXPIRED') {
-      return 'EXPIRED';
-    }
-    if (session.status === 'ARCHIVED') {
-      return 'ARCHIVED';
-    }
-    if (session.status === 'LOCKED') {
-      return 'LOCKED';
-    }
-    if (session.finalConfirmRequiredByUserId) {
-      return 'AWAITING_FINAL_CONFIRMATION';
-    }
-    if (session.confirmedLocationOptionId && !session.confirmedTimeOptionId) {
-      return 'LOCATION_CONFIRMED_TIME_PENDING';
-    }
-    if (session.confirmedTimeOptionId && !session.confirmedLocationOptionId) {
-      return 'TIME_CONFIRMED_LOCATION_PENDING';
-    }
-
-    return 'NEGOTIATING';
-  }
-
-  private buildMeetupTaskText(userTurnStatus: MeetupUserTurnStatus) {
-    switch (userTurnStatus) {
-      case 'NEEDS_YOUR_RESPONSE':
-        return '需要你回应';
-      case 'WAITING_FOR_COUNTERPART':
-        return '等待对方回应';
-      default:
-        return '继续安排第一次见面';
-    }
-  }
-
-  private buildCounterpartCanceledMeetupTask(input: {
-    session: DashboardMeetupSession;
-    currentUserId: string;
-    matchId: string;
-  }): DashboardTaskResponseDto | null {
-    const canceledAt = input.session.canceledAt ?? input.session.lastActiveAt;
-    const currentParticipant =
-      input.session.participants.find(
-        (participant) => participant.userId === input.currentUserId,
-      ) ?? null;
-    const canceledByCounterpart = input.session.participants.some(
-      (participant) =>
-        participant.userId === input.session.canceledByUserId &&
-        participant.userId !== input.currentUserId,
-    );
-
-    if (!canceledByCounterpart) {
-      return null;
-    }
-
-    if (
-      currentParticipant?.lastSeenAt &&
-      currentParticipant.lastSeenAt >= canceledAt
-    ) {
-      return null;
-    }
-
-    return {
-      id: `meetup-canceled:${input.session.id}`,
-      type: 'MEETUP',
-      priority: MEETUP_TODO_PRIORITY,
-      title: '第一次见面已取消',
-      text: '对方取消了该次见面',
-      href: `/dashboard/meetup/${input.session.id}`,
-      userTurnStatus: 'NONE',
-      progressStatus: 'CANCELED',
-      matchId: input.matchId,
-      sessionId: input.session.id,
-      updatedAt: canceledAt.toISOString(),
-    };
-  }
-
-  private readPartyGenderInfo(answers: unknown): {
-    gender: string | null;
-    partnerGenders: string[];
-  } {
-    if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
-      return { gender: null, partnerGenders: [] };
-    }
-    const record = answers as Record<string, unknown>;
-    const gender = record[HARD_MATCH_KEYS.gender];
-    const partnerGenders = record[HARD_MATCH_KEYS.partnerGenders];
-    return {
-      gender:
-        typeof gender === 'string' && gender.trim().length > 0
-          ? gender.trim()
-          : null,
-      partnerGenders: Array.isArray(partnerGenders)
-        ? partnerGenders.filter(
-            (entry): entry is string =>
-              typeof entry === 'string' && entry.trim().length > 0,
-          )
-        : [],
-    };
-  }
-
-  private toDashboardHistoryResult(
-    result: DashboardSnapshotRecord['result'],
-  ): DashboardHistoryResult {
-    switch (result) {
-      case 'MATCHED':
-        return DashboardHistoryResult.MATCHED;
-      case 'UNMATCHED':
-        return DashboardHistoryResult.UNMATCHED;
-      default:
-        return DashboardHistoryResult.NOT_PARTICIPATED;
-    }
   }
 
   private toDashboardHistoryVisibility(
@@ -1275,6 +583,8 @@ export class AccountService {
         return DashboardHistoryLimitedReason.REPORTED;
       case 'BLOCKED':
         return DashboardHistoryLimitedReason.BLOCKED;
+      case 'ACCOUNT_DEACTIVATED':
+        return DashboardHistoryLimitedReason.ACCOUNT_DEACTIVATED;
       default:
         return null;
     }
@@ -1407,6 +717,7 @@ export class AccountService {
   }
 
   private buildQuestionnaireAttention(args: {
+    vipActive?: boolean;
     currentVersionId: string;
     currentQuestions: QuestionnaireAttentionQuestion[];
     previousQuestions: QuestionnaireAttentionQuestion[];
@@ -1440,12 +751,16 @@ export class AccountService {
           previousQuestionsByKey.get(question.key),
           question,
         );
+      const answer = args.filteredAnswers[question.key];
       const missingRequired =
-        question.required &&
         !Object.prototype.hasOwnProperty.call(
           args.filteredAnswers,
           question.key,
-        );
+        ) ||
+        (question.type === 'MULTI_SELECT' &&
+          question.selectionLimit != null &&
+          Array.isArray(answer) &&
+          answer.length !== question.selectionLimit);
 
       if (!updated && !missingRequired) {
         continue;
@@ -1461,6 +776,7 @@ export class AccountService {
     }
 
     for (const field of hardMatchAttentionFields()) {
+      if (!args.vipActive && VIP_FILTER_KEYS.includes(field.key)) continue;
       const value = args.filteredAnswers[field.key];
       const present =
         Object.prototype.hasOwnProperty.call(args.filteredAnswers, field.key) &&
@@ -1575,22 +891,27 @@ export class AccountService {
   }
 
   async getContactPreferences(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        email: true,
-        preferredContactChannel: true,
-        contactMethods: {
+    const user = await this.prisma.$transaction(
+      (tx) =>
+        tx.user.findUnique({
+          where: { id: userId },
           select: {
-            type: true,
-            value: true,
+            email: true,
+            preferredContactChannel: true,
+            contactPreferencesRevision: true,
+            contactMethods: {
+              select: {
+                type: true,
+                value: true,
+              },
+              orderBy: {
+                type: 'asc',
+              },
+            },
           },
-          orderBy: {
-            type: 'asc',
-          },
-        },
-      },
-    });
+        }),
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
 
     if (!user) {
       throw new NotFoundException('User not found.');
@@ -1598,6 +919,7 @@ export class AccountService {
 
     return {
       email: user.email,
+      revision: user.contactPreferencesRevision,
       preferredContactChannel: user.preferredContactChannel,
       methods: user.contactMethods
         .filter((method): method is ContactMethodSummary =>
@@ -1626,10 +948,22 @@ export class AccountService {
     );
 
     const savedMethods = await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: { preferredContactChannel: input.preferredContactChannel },
+      const updated = await tx.user.updateMany({
+        where: {
+          id: userId,
+          contactPreferencesRevision: input.revision,
+          deactivatedAt: null,
+        },
+        data: {
+          preferredContactChannel: input.preferredContactChannel,
+          contactPreferencesRevision: { increment: 1 },
+        },
       });
+      if (updated.count !== 1) {
+        throw new ConflictException(
+          'Contact preferences have changed. Reload before saving again.',
+        );
+      }
 
       if (omittedMethodTypes.length > 0) {
         await tx.userContactMethod.deleteMany({
@@ -1677,6 +1011,7 @@ export class AccountService {
 
     return {
       email: user.email,
+      revision: input.revision + 1,
       preferredContactChannel: input.preferredContactChannel,
       methods: savedMethods
         .filter((method): method is ContactMethodSummary =>
@@ -1694,7 +1029,10 @@ export class AccountService {
       this.questionnaireService.getCurrentVersion(),
       this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
-        include: { school: { select: { id: true } } },
+        include: {
+          school: { select: { id: true } },
+          vipActivations: { select: { expiresAt: true, revokedAt: true } },
+        },
       }),
     ]);
 
@@ -1734,7 +1072,10 @@ export class AccountService {
       }
 
       const hardMatchAnswers = buildHardMatchAnswerRecordFromFormInput(
-        input.hardMatchForm,
+        effectivePreferenceForm(
+          input.hardMatchForm,
+          hasActiveVip(user.vipActivations),
+        ),
         user.school.id,
         allowedSchoolIds,
       );
@@ -1885,7 +1226,10 @@ export class AccountService {
       this.questionnaireService.getCurrentVersion().catch(() => null),
       this.prisma.user.findUnique({
         where: { id: userId },
-        select: { schoolId: true },
+        select: {
+          schoolId: true,
+          vipActivations: { select: { expiresAt: true, revokedAt: true } },
+        },
       }),
     ]);
 
@@ -1939,6 +1283,7 @@ export class AccountService {
     }
 
     return {
+      vipFiltersActive: hasActiveVip(user?.vipActivations),
       versionId: response.versionId,
       currentVersionId: currentQuestionnaire.id,
       answers: filteredAnswers,
@@ -1949,6 +1294,7 @@ export class AccountService {
         allowedSchoolIds,
       ),
       attention: this.buildQuestionnaireAttention({
+        vipActive: hasActiveVip(user?.vipActivations),
         currentVersionId: currentQuestionnaire.id,
         currentQuestions: currentQuestionnaire.questions,
         previousQuestions: response.version?.questions ?? [],
@@ -2169,255 +1515,6 @@ export class AccountService {
     return participation;
   }
 
-  async requestContact(userId: string, matchId: string) {
-    const participant = await this.prisma.matchParticipant.findFirst({
-      where: {
-        matchId,
-        userId,
-      },
-      include: {
-        match: {
-          include: {
-            participants: {
-              include: {
-                user: {
-                  include: {
-                    contactMethods: {
-                      select: {
-                        type: true,
-                        value: true,
-                      },
-                    },
-                    profile: true,
-                    school: true,
-                    questionnaireResponse: {
-                      select: { answers: true },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!participant) {
-      throw new NotFoundException('Match was not found for this user.');
-    }
-
-    if (participant.match.revealedAt == null) {
-      throw new BadRequestException('This match is not revealed yet.');
-    }
-
-    if (participant.match.introducedAt) {
-      throw new BadRequestException('This match has already been introduced.');
-    }
-
-    const counterpart = participant.match.participants.find(
-      (item) => item.userId !== userId,
-    );
-
-    if (!counterpart) {
-      throw new BadRequestException(
-        'Counterpart was not found for this match.',
-      );
-    }
-
-    const existingBlock = await this.prisma.block.findFirst({
-      where: {
-        OR: [
-          {
-            blockerId: userId,
-            blockedId: counterpart.userId,
-          },
-          {
-            blockerId: counterpart.userId,
-            blockedId: userId,
-          },
-        ],
-      },
-    });
-
-    if (existingBlock) {
-      throw new BadRequestException(
-        'This match is no longer available for introductions.',
-      );
-    }
-
-    const requester = participant.match.participants.find(
-      (item) => item.userId === userId,
-    );
-
-    if (!requester) {
-      throw new BadRequestException('Requester was not found for this match.');
-    }
-
-    const requesterContact = this.resolvePublicContact(requester.user);
-    const counterpartContact = this.resolvePublicContact(counterpart.user);
-
-    const claimedAt = new Date();
-    const introIntents = await this.prisma.cycleParticipation.findMany({
-      where: {
-        cycleId: participant.match.cycleId,
-        userId: { in: [requester.userId, counterpart.userId] },
-      },
-      select: { userId: true, intent: true },
-    });
-    const intentByUserId = new Map(
-      introIntents.map((row) => [row.userId, row.intent]),
-    );
-    const requesterGenderInfo = this.readPartyGenderInfo(
-      requester.user.questionnaireResponse?.answers,
-    );
-    const counterpartGenderInfo = this.readPartyGenderInfo(
-      counterpart.user.questionnaireResponse?.answers,
-    );
-
-    let queuedEmails: ReturnType<MailService['buildIntroductionEmails']> = [];
-
-    await this.prisma.$transaction(async (tx) => {
-      await this.lockMatchForContactDecision(tx, participant.match.id);
-
-      const transactionBlock = await tx.block.findFirst({
-        where: {
-          OR: [
-            {
-              blockerId: userId,
-              blockedId: counterpart.userId,
-            },
-            {
-              blockerId: counterpart.userId,
-              blockedId: userId,
-            },
-          ],
-        },
-      });
-
-      if (transactionBlock) {
-        throw new BadRequestException(
-          'This match is no longer available for introductions.',
-        );
-      }
-
-      queuedEmails = this.mailService.buildIntroductionEmails({
-        matchId: participant.match.id,
-        requester: {
-          email: requester.user.email,
-          displayName: requester.user.displayName,
-          schoolName: requester.user.school?.name ?? null,
-          introLine: this.displayIntroLine(
-            requester.user.questionnaireResponse?.answers,
-            requester.user.profile?.headline,
-          ),
-          publicContact: requesterContact,
-          gender: requesterGenderInfo.gender,
-          partnerGenders: requesterGenderInfo.partnerGenders,
-          weeklyIntent: intentByUserId.get(requester.userId) ?? null,
-        },
-        recipient: {
-          email: counterpart.user.email,
-          displayName: counterpart.user.displayName,
-          schoolName: counterpart.user.school?.name ?? null,
-          introLine: this.displayIntroLine(
-            counterpart.user.questionnaireResponse?.answers,
-            counterpart.user.profile?.headline,
-          ),
-          publicContact: counterpartContact,
-          gender: counterpartGenderInfo.gender,
-          partnerGenders: counterpartGenderInfo.partnerGenders,
-          weeklyIntent: intentByUserId.get(counterpart.userId) ?? null,
-        },
-      });
-
-      const claimedMatch = await tx.match.updateMany({
-        where: {
-          id: participant.match.id,
-          introducedAt: null,
-        },
-        data: {
-          introducedAt: claimedAt,
-        },
-      });
-
-      if (claimedMatch.count === 0) {
-        throw new BadRequestException(
-          'This match has already been introduced.',
-        );
-      }
-
-      await tx.matchParticipant.updateMany({
-        where: {
-          id: participant.id,
-          contactRequestedAt: null,
-        },
-        data: {
-          contactRequestedAt: claimedAt,
-          introducedContactType: requesterContact.type,
-          introducedContactValue: requesterContact.value,
-        },
-      });
-
-      for (const matchParticipant of participant.match.participants) {
-        if (matchParticipant.id === participant.id) {
-          continue;
-        }
-
-        const publicContact = this.resolvePublicContact(matchParticipant.user);
-        await tx.matchParticipant.updateMany({
-          where: {
-            id: matchParticipant.id,
-          },
-          data: {
-            introducedContactType: publicContact.type,
-            introducedContactValue: publicContact.value,
-          },
-        });
-      }
-
-      await tx.outboundEmail.createMany({
-        data: queuedEmails,
-      });
-
-      await this.dashboardSnapshotService.syncMatchSnapshots(
-        participant.match.id,
-        tx,
-      );
-      await this.productAnalytics?.enqueueMatchContactRequestedOutcome(tx, {
-        userId,
-        matchId: participant.match.id,
-        occurredAt: claimedAt,
-      });
-    });
-
-    void this.mailService.flushQueuedEmails({
-      dedupeKeys: queuedEmails.map((email) => email.dedupeKey),
-    });
-
-    await this.createAuditLog(userId, 'match.contact_requested', {
-      matchId: participant.match.id,
-      counterpartUserId: counterpart.userId,
-    });
-
-    return {
-      ok: true,
-    };
-  }
-
-  private attachCurrentUserFeedback(
-    userId: string,
-    matches: Array<DashboardMatchResponseDto | null>,
-  ) {
-    void userId;
-    const present = matches.filter(
-      (match): match is DashboardMatchResponseDto => match != null,
-    );
-
-    for (const match of present) {
-      match.currentUserFeedback = null;
-    }
-  }
-
   async reportMatch(userId: string, matchId: string, input: ReportMatchDto) {
     const participant = await this.prisma.matchParticipant.findFirst({
       where: {
@@ -2465,7 +1562,7 @@ export class AccountService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await this.lockMatchForContactDecision(tx, matchId);
+      await this.lockMatchForReport(tx, matchId);
 
       const transactionExistingReport = await tx.report.findFirst({
         where: {
@@ -2513,13 +1610,14 @@ export class AccountService {
           },
         },
       });
+      await cancelMatchEmails(tx, [matchId], 'Match reported before delivery.');
       await this.dashboardSnapshotService.syncMatchSnapshots(matchId, tx);
     });
 
     return { ok: true };
   }
 
-  private async lockMatchForContactDecision(
+  private async lockMatchForReport(
     tx: Prisma.TransactionClient,
     matchId: string,
   ) {
@@ -2529,47 +1627,6 @@ export class AccountService {
       WHERE "id" = ${matchId}
       FOR UPDATE
     `;
-  }
-
-  private displayIntroLine(
-    answers: Prisma.JsonValue | null | undefined,
-    profileHeadline: string | null | undefined,
-  ): string | null {
-    const fromQuestionnaire = readQuestionnaireOneLiner(answers);
-    if (fromQuestionnaire) {
-      return fromQuestionnaire;
-    }
-
-    const trimmedHeadline = profileHeadline?.trim();
-    return trimmedHeadline ? trimmedHeadline : null;
-  }
-
-  private resolvePublicContact(user: ContactMethodUser): PublicContactSummary {
-    const preferredContactChannel = user.preferredContactChannel ?? 'EMAIL';
-
-    if (preferredContactChannel === 'EMAIL') {
-      return {
-        type: 'EMAIL',
-        label: contactChannelLabel('EMAIL'),
-        value: user.email,
-      };
-    }
-
-    const method = (user.contactMethods ?? []).find(
-      (item) => item.type === preferredContactChannel,
-    );
-
-    if (!method?.value) {
-      throw new BadRequestException(
-        'Selected contact channel must have a value.',
-      );
-    }
-
-    return {
-      type: preferredContactChannel,
-      label: CONTACT_CHANNEL_LABELS[preferredContactChannel],
-      value: method.value,
-    };
   }
 
   private async createAuditLog(
@@ -2601,7 +1658,16 @@ export class AccountService {
   ) {
     const response = await this.prisma.questionnaireResponse.findUnique({
       where: { userId },
-      select: { answers: true, draftAnswers: true, submittedAt: true },
+      select: {
+        answers: true,
+        draftAnswers: true,
+        submittedAt: true,
+        user: {
+          select: {
+            vipActivations: { select: { expiresAt: true, revokedAt: true } },
+          },
+        },
+      },
     });
 
     if (!response || response.submittedAt == null) {
@@ -2610,10 +1676,16 @@ export class AccountService {
       );
     }
 
-    const hardMatchAnswers = tryReadHardMatchAnswers({
-      ...((response.answers ?? {}) as Record<string, unknown>),
-      [HARD_MATCH_KEYS.school]: schoolId ?? '',
-    });
+    const vipActive = hasActiveVip(response.user?.vipActivations);
+    const hardMatchAnswers = tryReadHardMatchAnswers(
+      effectiveMatchingAnswers(
+        {
+          ...((response.answers ?? {}) as Record<string, unknown>),
+          [HARD_MATCH_KEYS.school]: schoolId ?? '',
+        },
+        vipActive,
+      ),
+    );
 
     if (!hardMatchAnswers) {
       // `tryReadHardMatchAnswers` returns null whenever any required hard-match
@@ -2640,6 +1712,7 @@ export class AccountService {
       await this.assertDraftQuestionnaireIsComplete(
         response.draftAnswers,
         schoolId,
+        vipActive,
       );
     }
   }
@@ -2651,6 +1724,7 @@ export class AccountService {
   private async assertDraftQuestionnaireIsComplete(
     rawDraftAnswers: Prisma.JsonValue,
     schoolId: string | null,
+    vipActive = false,
   ) {
     const questionnaire = await this.questionnaireService.getCurrentVersion();
     const allowedSchoolIds = questionnaire.schools.map((school) => school.id);
@@ -2666,7 +1740,7 @@ export class AccountService {
 
     try {
       const draftHardMatchAnswers = buildHardMatchAnswerRecordFromFormInput(
-        draft.hardMatchForm,
+        effectivePreferenceForm(draft.hardMatchForm, vipActive),
         schoolId ?? '',
         allowedSchoolIds,
       );

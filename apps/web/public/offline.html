@@ -2,10 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>离线 · LiLink</title>
     <style>
       :root {
@@ -21,9 +18,14 @@
         place-items: center;
         padding: 24px;
         font-family:
-          system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC",
-          "Microsoft YaHei", sans-serif;
-        background: #f4f1ea;
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          "PingFang SC",
+          "Microsoft YaHei",
+          sans-serif;
+        background: #faf9f3;
         color: #5d2330;
       }
       .card {
@@ -31,18 +33,10 @@
         text-align: center;
       }
       .glyph {
-        width: 72px;
-        height: 72px;
+        width: 96px;
+        height: 96px;
+        display: block;
         margin: 0 auto 20px;
-        display: grid;
-        place-items: center;
-        border-radius: 20px;
-        color: #fff7ee;
-        font-weight: 700;
-        font-size: 28px;
-        letter-spacing: 0.02em;
-        background: linear-gradient(135deg, #c8756a 0%, #8b3a4a 100%);
-        box-shadow: 0 6px 18px rgba(139, 58, 74, 0.26);
       }
       h1 {
         font-size: 20px;
@@ -69,7 +63,7 @@
   </head>
   <body>
     <div class="card">
-      <div class="glyph">Li</div>
+      <img class="glyph" src="/icons/icon.svg" width="96" height="96" alt="LiLink 飞鸟衔信标志" />
       <h1>当前处于离线状态</h1>
       <p>无法连接到 LiLink。请检查你的网络后重试。</p>
       <button onclick="location.reload()">重试</button>

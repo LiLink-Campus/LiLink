@@ -9,7 +9,6 @@ describe('AccountController', () => {
       email: 'summary@example.com',
       displayName: 'Summary User',
       preferredLocale: 'zh-CN',
-      meetupExpirationWeeks: 2,
     };
     const accountService = {
       getDashboard: jest
@@ -19,7 +18,11 @@ describe('AccountController', () => {
         .fn<AccountService['getUserSummary']>()
         .mockResolvedValue(userSummary),
     } satisfies Pick<AccountService, 'getDashboard' | 'getUserSummary'>;
-    const accountController = new AccountController(accountService as never);
+    const accountController = new AccountController(
+      accountService as never,
+      {} as never,
+      {} as never,
+    );
 
     await expect(
       accountController.getDashboardBootstrap({
@@ -38,34 +41,15 @@ describe('AccountController', () => {
     expect(accountService.getUserSummary).toHaveBeenCalledWith('user-1');
   });
 
-  it('forwards the contact request to the account service for the signed-in user', async () => {
-    const accountService = {
-      requestContact: jest.fn().mockResolvedValue({ ok: true }),
-    };
-    const accountController = new AccountController(accountService as never);
-
-    await expect(
-      accountController.requestContact(
-        {
-          user: {
-            sub: 'user-1',
-          },
-        } as never,
-        'match-1',
-      ),
-    ).resolves.toEqual({ ok: true });
-
-    expect(accountService.requestContact).toHaveBeenCalledWith(
-      'user-1',
-      'match-1',
-    );
-  });
-
   it('forwards the report payload to the account service for the signed-in user', async () => {
     const accountService = {
       reportMatch: jest.fn().mockResolvedValue({ ok: true }),
     };
-    const accountController = new AccountController(accountService as never);
+    const accountController = new AccountController(
+      accountService as never,
+      {} as never,
+      {} as never,
+    );
 
     await expect(
       accountController.reportMatch(

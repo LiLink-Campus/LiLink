@@ -1,6 +1,7 @@
 import { CampaignService } from './campaign.service';
 
 type MockTx = {
+  $executeRaw: jest.Mock;
   campaign: {
     create: jest.Mock;
     findUnique: jest.Mock;
@@ -8,8 +9,10 @@ type MockTx = {
     updateMany: jest.Mock;
     findMany: jest.Mock;
     count: jest.Mock;
+    findFirst: jest.Mock;
   };
   couponTemplate: {
+    count: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
     findMany: jest.Mock;
@@ -21,6 +24,7 @@ type MockTx = {
 
 function makeTxPrisma() {
   const tx: MockTx = {
+    $executeRaw: jest.fn().mockResolvedValue(1),
     campaign: {
       create: jest.fn(),
       findUnique: jest.fn(),
@@ -28,12 +32,16 @@ function makeTxPrisma() {
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findMany: jest.fn(),
       count: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
     },
     couponTemplate: {
+      count: jest.fn().mockResolvedValue(1),
       create: jest.fn(),
       update: jest.fn(),
       findMany: jest.fn(),
-      findUnique: jest.fn(),
+      findUnique: jest
+        .fn()
+        .mockResolvedValue({ campaign: { status: 'DRAFT' } }),
     },
     merchant: { findUnique: jest.fn() },
     auditLog: { create: jest.fn().mockResolvedValue({}) },
@@ -165,13 +173,13 @@ describe('CampaignService', () => {
       ).rejects.toThrow('Campaign not found.');
     });
 
-    it('promoting to ACTIVE default demotes other active defaults in the same transaction', async () => {
+    it('publishes globally without a default-activity setting', async () => {
       const { prisma, tx } = makeTxPrisma();
       tx.campaign.findUnique.mockResolvedValue(
         campaignRow({ status: 'DRAFT', isDefault: false }),
       );
       tx.campaign.update.mockResolvedValue(
-        campaignRow({ status: 'ACTIVE', isDefault: true }),
+        campaignRow({ status: 'ACTIVE', isDefault: false }),
       );
       const service = new CampaignService(prisma as never);
 
@@ -181,20 +189,17 @@ describe('CampaignService', () => {
         'admin-1',
       );
 
-      expect(tx.campaign.updateMany).toHaveBeenCalledWith({
-        where: { status: 'ACTIVE', isDefault: true, id: { not: 'c1' } },
-        data: { isDefault: false },
-      });
+      expect(tx.campaign.updateMany).not.toHaveBeenCalled();
       expect(tx.campaign.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'c1' },
           data: expect.objectContaining({
             status: 'ACTIVE',
-            isDefault: true,
+            isDefault: false,
           }) as object,
         }),
       );
-      expect(result.isDefault).toBe(true);
+      expect(result.isDefault).toBe(false);
     });
 
     it('forces isDefault off when the status becomes ENDED', async () => {
@@ -224,7 +229,7 @@ describe('CampaignService', () => {
   describe('createTemplate', () => {
     it('rejects when the merchant is not found', async () => {
       const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1' });
+      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
       tx.merchant.findUnique.mockResolvedValue(null);
       const service = new CampaignService(prisma as never);
       await expect(
@@ -243,7 +248,7 @@ describe('CampaignService', () => {
 
     it('rejects an inactive merchant', async () => {
       const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1' });
+      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
       tx.merchant.findUnique.mockResolvedValue({ id: 'm1', isActive: false });
       const service = new CampaignService(prisma as never);
       await expect(
@@ -276,7 +281,7 @@ describe('CampaignService', () => {
 
     it('creates a template (validDays branch) with merchant snapshot + audit', async () => {
       const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1' });
+      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
       tx.merchant.findUnique.mockResolvedValue({ id: 'm1', isActive: true });
       tx.couponTemplate.create.mockResolvedValue(templateRow());
       const service = new CampaignService(prisma as never);
@@ -334,7 +339,7 @@ describe('CampaignService', () => {
 
     it('stores a validated tiered rule (Social 满减阶梯)', async () => {
       const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1' });
+      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
       tx.merchant.findUnique.mockResolvedValue({ id: 'm1', isActive: true });
       tx.couponTemplate.create.mockResolvedValue(templateRow());
       const service = new CampaignService(prisma as never);
@@ -508,7 +513,7 @@ describe('CampaignService', () => {
 
     it('lists templates of a campaign', async () => {
       const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1' });
+      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
       tx.couponTemplate.findMany.mockResolvedValue([templateRow()]);
       const service = new CampaignService(prisma as never);
 

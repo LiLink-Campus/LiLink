@@ -1,3 +1,5 @@
+import { normalizeSchoolEmailDomains } from '@lilink/shared';
+import { CommunityStatsService } from '../public/community-stats.service';
 import {
   BadRequestException,
   Injectable,
@@ -84,6 +86,7 @@ export class AdminSchoolService {
     @Optional() schoolResolverService?: SchoolResolverService,
     @Optional() publicService?: PublicService,
     @Optional() questionnaireService?: QuestionnaireService,
+    @Optional() private readonly communityStatsService?: CommunityStatsService,
   ) {
     this.dashboardSnapshotService =
       dashboardSnapshotService ?? defaultDashboardSnapshotPort;
@@ -99,6 +102,7 @@ export class AdminSchoolService {
   // (school-email detection), the public list + manual-school dropdown, and the
   // current-questionnaire snapshot (its payload embeds the full school list).
   private invalidateSchoolCaches() {
+    this.communityStatsService?.invalidateSchoolCache();
     this.schoolResolverService.invalidateResolutionCache();
     this.publicService.invalidateEligibleSchoolsCache();
     this.questionnaireService.invalidateCurrentQuestionnaireCache();
@@ -113,7 +117,7 @@ export class AdminSchoolService {
           },
           _count: {
             select: {
-              users: true,
+              users: { where: { deactivatedAt: null } },
             },
           },
         },
@@ -148,7 +152,7 @@ export class AdminSchoolService {
           },
           _count: {
             select: {
-              users: true,
+              users: { where: { deactivatedAt: null } },
             },
           },
         },
@@ -347,9 +351,7 @@ export class AdminSchoolService {
   }
 
   private normalizeDomains(rawDomains: string[]) {
-    const normalizedDomains = rawDomains
-      .map((domain) => domain.trim().toLowerCase())
-      .filter(Boolean);
+    const normalizedDomains = normalizeSchoolEmailDomains(rawDomains);
 
     if (normalizedDomains.length === 0) {
       throw new BadRequestException(

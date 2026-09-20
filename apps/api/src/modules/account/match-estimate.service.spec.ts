@@ -122,8 +122,8 @@ function buildValidAnswers(
     [HARD_MATCH_KEYS.partnerAgeMax]: 40,
     [HARD_MATCH_KEYS.gender]: gender,
     [HARD_MATCH_KEYS.partnerGenders]: ['男', '女', '非二元'],
-    [HARD_MATCH_KEYS.looks]: '普通人',
-    [HARD_MATCH_KEYS.partnerLooks]: ['普通人', '小帅/美', '顶帅/美'],
+    [HARD_MATCH_KEYS.looks]: '5',
+    [HARD_MATCH_KEYS.partnerLooks]: ['5', '7', '9'],
     [HARD_MATCH_KEYS.heightCm]: 170,
     [HARD_MATCH_KEYS.partnerHeightMin]: 150,
     [HARD_MATCH_KEYS.partnerHeightMax]: 200,
@@ -152,7 +152,16 @@ function participant(
 
 describe('MatchEstimateService', () => {
   function createService(prisma: MockPrisma) {
-    return new MatchEstimateService(prisma as unknown as PrismaService);
+    return new MatchEstimateService({
+      ...prisma,
+      vipActivation: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { expiresAt: new Date(Date.now() + 60_000), revokedAt: null },
+          ]),
+      },
+    } as unknown as PrismaService);
   }
 
   it('returns unavailable when there is no live cycle', async () => {
@@ -215,7 +224,7 @@ describe('MatchEstimateService', () => {
           cycleId: 'cycle-1',
           status: 'OPTED_IN',
           intent: { not: null },
-          user: { status: 'ACTIVE', isTest: false },
+          user: { status: 'ACTIVE', isTest: false, deactivatedAt: null },
         },
       }),
     );

@@ -18,7 +18,6 @@ import {
   BatchReviewReportsDto,
   CreateSchoolDto,
   ListAuditLogsQueryDto,
-  ListCycleLogsQueryDto,
   ListCycleMatchesQueryDto,
   ListCycleParticipantsQueryDto,
   ListCyclesQueryDto,
@@ -32,7 +31,6 @@ import {
   ToggleTestFlagDto,
   UpdateUserReferralLimitDto,
   UpdateUserStatusDto,
-  UpdateSettingsDto,
   UpdateSchoolDto,
   UpsertCycleDto,
   UpsertQuestionDto,
@@ -131,17 +129,12 @@ export class AdminController {
     return this.adminService.getCycleMatches(cycleId, query);
   }
 
-  @Get('cycles/:cycleId/logs')
-  getCycleLogs(
-    @Param('cycleId') cycleId: string,
-    @Query() query: ListCycleLogsQueryDto,
-  ) {
-    return this.adminService.getCycleLogs(cycleId, query);
-  }
-
   @Get('cycles/:cycleId/preview')
-  previewCycle(@Param('cycleId') cycleId: string) {
-    return this.adminService.previewCycle(cycleId);
+  previewCycle(
+    @Param('cycleId') cycleId: string,
+    @Req() request: AdminAuthenticatedRequest,
+  ) {
+    return this.adminService.previewCycle(cycleId, request.admin!.id);
   }
 
   @Post('cycles/:cycleId/duplicate')
@@ -291,18 +284,5 @@ export class AdminController {
     @Query() query: ListUserParticipationsQueryDto,
   ) {
     return this.adminService.getUserParticipations(userId, query);
-  }
-
-  @Get('settings')
-  getSettings() {
-    return this.adminService.getSettings();
-  }
-
-  @Patch('settings')
-  updateSettings(
-    @Req() request: AdminAuthenticatedRequest,
-    @Body() body: UpdateSettingsDto,
-  ) {
-    return this.adminService.updateSettings(body, request.admin!.id);
   }
 }

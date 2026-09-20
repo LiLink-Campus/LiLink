@@ -1,0 +1,51 @@
+.shell.shell { max-width: 540px; padding-top: 24px; padding-bottom: 24px; gap: 22px; }
+.progress { display: flex; align-items: center; width: 100%; max-width: 440px; list-style: none; margin: 0; padding: 0; }
+.progress li { display: flex; align-items: center; gap: 7px; color: #9a8c82; font-size: 12px; white-space: nowrap; }
+.progress li + li { flex: 1; }
+.progress li + li::before { content: ""; flex: 1; height: 1px; background: #e5dcd4; margin: 0 12px; min-width: 12px; }
+.dot { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #eee9e3; color: #8d8075; font-size: 12px; }
+.progress .active { color: var(--color-brand); }
+.active .dot { background: var(--color-brand); color: white; }
+.panel.panel { max-width: 440px; padding: 20px 24px; border: 0; background: transparent; border-radius: 26px; box-shadow: none; }
+.panel.panel h1 { font-size: 28px; margin: 0 0 8px; }
+.panel.panel > p:last-child { border: 0; padding: 0; margin-top: 22px; }
+.panel.panel input, .panel.panel select { border-radius: 14px; }
+.panel.panel :global(.ui-button) { border-radius: 999px; }
+.panel.panel form > p { margin: 0; }
+.codeRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.panel .codeRow :global(.ui-button) { min-height: 48px; margin: 0; padding-inline: 15px; font-size: 12px; }
+.delivery { margin: -10px 0 0; font-size: 12px; line-height: 1.7; color: var(--color-text-secondary); }
+.emailSummary { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--color-text-secondary); }
+.emailSummary span { overflow-wrap: anywhere; }
+.emailSummary button { border: 0; background: none; color: var(--color-brand); padding: 0; font: inherit; cursor: pointer; }
+@media (max-width: 480px) {
+  .shell.shell { padding: 24px 18px 40px; gap: 24px; }
+  .panel.panel { padding: 16px 14px; border-radius: 24px; }
+  .progress { max-width: 100%; }
+  .progress li { font-size: 11px; gap: 5px; }
+  .progress li + li::before { margin: 0 7px; min-width: 8px; }
+  .dot { width: 24px; height: 24px; }
+  .panel .codeRow :global(.ui-button) { padding-inline: 11px; }
+}
+
+.panel.panel form { margin-top: 22px; gap: 20px; }
+.panel.panel h1 { font-size: 27px; }
+.panel.panel input { background: #fff; }
+.panel.panel > p:first-child { margin-bottom: 16px; }
+
+
+.panel.panel .termsRow { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 12px; line-height: 1.6; }
+.panel.panel .termsRow input[type="checkbox"] { width: 16px; height: 16px; min-height: 16px; margin: 0; padding: 0; border-radius: 3px; flex: 0 0 16px; }
+.panel.panel .termsRow > span { white-space: nowrap; }
+@media(max-width: 360px) { .panel.panel .termsRow { font-size: 11px; gap: 6px; } }
+
+.panel.panel select.schoolSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23843b50' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 16px 16px;
+  text-overflow: ellipsis;
+}

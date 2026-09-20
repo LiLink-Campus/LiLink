@@ -66,6 +66,7 @@ enum DashboardSnapshotVisibility {
 enum DashboardSnapshotLimitedReason {
   REPORTED
   BLOCKED
+  ACCOUNT_DEACTIVATED
 }
 
 enum OutboundEmailStatus {
@@ -177,12 +178,15 @@ model SchoolDomain {
 model User {
   id                         String                       @id @default(cuid())
   email                      String                       @unique
+  deactivatedAt              DateTime?
+  deactivatedEmail           String?
   passwordHash               String
   status                     UserStatus                   @default(PENDING)
   schoolId                   String?
   school                     School?                      @relation(fields: [schoolId], references: [id])
   displayName                String?
   preferredContactChannel    ContactChannelType           @default(EMAIL)
+  contactPreferencesRevision Int                          @default(0)
   preferredLocale            String                       @default("zh-CN")
   meetupExpirationWeeks      Int                          @default(2)
   isTest                     Boolean                      @default(false)
@@ -226,13 +230,29 @@ model User {
   coupons                    Coupon[]
   couponReadStates           CouponReadState[]
   productEvents              ProductEvent[]
+  vipActivations             VipActivation[]
 
-  @@index([status, createdAt])
+  @@index([deactivatedAt, status, createdAt])
   @@index([schoolId])
   @@index([referredByUserId, createdAt])
   @@index([referralCampaignId, createdAt])
   @@index([firstOptedInAt])
   @@index([lastActiveAt])
+}
+
+model VipActivation {
+  id          String    @id @default(cuid())
+  codeHash    String    @unique
+  batch       String
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  activatedAt DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([batch])
 }
 
 model UserContactMethod {
@@ -954,4 +974,12 @@ model ProductEventOutbox {
   @@index([status, nextAttemptAt, createdAt])
   @@index([userId, status])
   @@index([createdAt])
+}
+
+model MatchLead {
+  id String @id @default(cuid())
+  phone String @unique
+  contacted Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

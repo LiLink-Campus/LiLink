@@ -17,23 +17,15 @@ export class ActivationService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Idempotently grant activation-reward coupons once a user is activated
-   * (QuestionnaireResponse.submittedAt + User.firstOptedInAt). The campaign is
-   * resolved only from the frozen attribution (User.referralCampaignId) and
-   * coupons are granted only when that campaign is ACTIVE — no fallback to the
-   * current default, so attribution never drifts.
-   *
-   * Never throws into the caller: failures are logged and retried by a later
-   * activation trigger or a manual backfill, so the main flow is not blocked.
-   */
+  /** Grant the current activity once per qualified user; retry on later visits. */
   async tryGrantCoupons(userId: string): Promise<void> {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: {
           firstOptedInAt: true,
-          referralCampaignId: true,
+          status: true,
+          deactivatedAt: true,
           questionnaireResponse: { select: { submittedAt: true } },
         },
       });
@@ -41,12 +33,13 @@ export class ActivationService {
         !user ||
         !user.firstOptedInAt ||
         !user.questionnaireResponse?.submittedAt ||
-        !user.referralCampaignId
+        user.status !== 'ACTIVE' ||
+        user.deactivatedAt
       ) {
         return;
       }
 
-      await this.grant(userId, user.referralCampaignId);
+      await this.grant(userId);
     } catch (error) {
       this.logger.warn(
         `tryGrantCoupons failed for ${userId}: ${
@@ -56,17 +49,32 @@ export class ActivationService {
     }
   }
 
-  private async grant(userId: string, campaignId: string): Promise<void> {
+  private async grant(userId: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      // Re-check the campaign is still ACTIVE inside the grant transaction so a
-      // status change between the attribution read and the grant cannot leak
-      // coupons. Read-committed sees the latest commit; the couponsGrantedAt
-      // gate and the (userId, templateId) unique index are further backstops.
-      const campaign = await tx.campaign.findUnique({
-        where: { id: campaignId },
-        select: { status: true },
+      // Serialize publication/end and grants, including concurrent page visits.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(70412026)`;
+      const now = new Date();
+      const activeCampaigns = await tx.campaign.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, startsAt: true, endsAt: true },
+        take: 2,
       });
-      if (!campaign || campaign.status !== 'ACTIVE') return;
+      // Older releases allowed multiple ACTIVE campaigns. Operators must
+      // explicitly end the extras before any one activity can grant rewards.
+      if (activeCampaigns.length > 1) {
+        this.logger.warn(
+          'Coupon grants paused: multiple ACTIVE campaigns require operator resolution.',
+        );
+        return;
+      }
+      const campaign = activeCampaigns[0];
+      if (!campaign) return;
+      if (
+        (campaign.startsAt && campaign.startsAt > now) ||
+        (campaign.endsAt && campaign.endsAt <= now)
+      )
+        return;
+      const campaignId = campaign.id;
 
       // Stable activation event; couponsGrantedAt is the idempotency gate.
       const activation = await tx.campaignActivation.upsert({
@@ -78,31 +86,34 @@ export class ActivationService {
       if (activation.couponsGrantedAt) return;
 
       const templates = await tx.couponTemplate.findMany({
-        where: { campaignId, isActive: true },
+        where: {
+          campaignId,
+          isActive: true,
+          merchant: { isActive: true },
+          OR: [{ validUntil: null }, { validUntil: { gt: now } }],
+        },
         select: { id: true, validDays: true, validUntil: true },
       });
 
-      const now = new Date();
+      if (templates.length === 0) return;
       const grantedCouponIds: string[] = [];
-      if (templates.length > 0) {
-        // Skip templates this user already holds (normal idempotent path); the
-        // (userId, templateId) unique index is the concurrency backstop.
-        const existing = await tx.coupon.findMany({
-          where: { userId, templateId: { in: templates.map((t) => t.id) } },
-          select: { templateId: true },
-        });
-        const alreadyGranted = new Set(existing.map((c) => c.templateId));
+      // Skip templates this user already holds (normal idempotent path); the
+      // (userId, templateId) unique index is the concurrency backstop.
+      const existing = await tx.coupon.findMany({
+        where: { userId, templateId: { in: templates.map((t) => t.id) } },
+        select: { templateId: true },
+      });
+      const alreadyGranted = new Set(existing.map((c) => c.templateId));
 
-        for (const template of templates) {
-          if (alreadyGranted.has(template.id)) continue;
-          const couponId = await this.createCouponWithUniqueCode(
-            tx,
-            userId,
-            template.id,
-            this.computeExpiry(template, now),
-          );
-          if (couponId) grantedCouponIds.push(couponId);
-        }
+      for (const template of templates) {
+        if (alreadyGranted.has(template.id)) continue;
+        const couponId = await this.createCouponWithUniqueCode(
+          tx,
+          userId,
+          template.id,
+          this.computeExpiry(template, now),
+        );
+        if (couponId) grantedCouponIds.push(couponId);
       }
 
       await tx.campaignActivation.update({

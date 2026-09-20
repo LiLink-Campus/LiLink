@@ -1,0 +1,3 @@
+{
+  "app/_components/ServiceWorkerRegistrar.tsx": "无 UI 的生产 Service Worker 注册器；在 Storybook 挂载会接管 MSW。离线页面由真实 /offline.html story 覆盖，注册流程需在正式应用集成验证。"
+}

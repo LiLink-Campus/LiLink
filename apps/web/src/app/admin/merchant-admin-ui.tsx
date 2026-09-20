@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { COUPON_GIFT_DESCRIPTION_MAX, COUPON_RULE_VERSION } from "@lilink/shared";
 import { cx } from "./admin-class-names";
 import commonStyles from "./admin-common.module.css";
@@ -15,14 +14,6 @@ export const CAMPAIGN_STATUS_LABELS: Record<string, string> = {
   ENDED: "已结束",
 };
 
-export const CAMPAIGN_STATUS_BADGE: Record<string, string> = {
-  DRAFT: "is-draft",
-  ACTIVE: "is-active",
-  ENDED: "is-ended",
-};
-
-export const CAMPAIGN_STATUS_OPTIONS = ["DRAFT", "ACTIVE", "ENDED"] as const;
-
 export const BENEFIT_TYPE_LABELS: Record<string, string> = {
   FULL_REDUCTION: "满减",
   DISCOUNT: "折扣",
@@ -34,40 +25,6 @@ export const MERCHANT_ROLE_LABELS: Record<string, string> = {
   OWNER: "店主",
   STAFF: "店员",
 };
-
-export function CopyTextButton({
-  text,
-  label = "复制",
-  copiedLabel = "已复制",
-  className = "ui-button ui-button--secondary ic-copy-btn",
-}: {
-  text: string;
-  label?: string;
-  copiedLabel?: string;
-  className?: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      className={cx(adminStyles, className, copied && "is-copied")}
-      onClick={() => void copy()}
-    >
-      {copied ? copiedLabel : label}
-    </button>
-  );
-}
 
 // ── Coupon tiered-rule editor (§A) ─────────────────────────────
 // One draft row holds inputs for every benefit kind; the editor shows the ones

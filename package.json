@@ -35,11 +35,11 @@
     "dev:api:raw": "npm run start:dev --workspace api",
     "dev:shared": "npm run dev --workspace @lilink/shared",
     "msw:init:web": "msw init apps/web/public --save",
-    "storybook:web": "npm run build:shared && npm run msw:init:web && npm run storybook --workspace web",
+    "storybook:web": "npm run build:shared && npm run msw:init:web && npm run storybook --workspace web --",
     "build-storybook:web": "npm run build:shared && npm run msw:init:web && npm run build-storybook --workspace web",
     "test:storybook:web": "npm run build:shared && npm run msw:init:web && vitest --config vitest.config.ts",
     "screenshots:storybook:web": "node scripts/capture-storybook-screenshots.mjs",
-    "visual:storybook:web": "npm run build-storybook:web && npm run test:storybook:web && npm run screenshots:storybook:web",
+    "visual:storybook:web": "npm run audit:storybook:web && npm run typecheck:storybook:web && npm run build-storybook:web && npm run test:storybook:web -- --run && npm run screenshots:storybook:web",
     "evidence:storybook:web": "node scripts/post-storybook-evidence.mjs",
     "build": "npm run build:shared && npm run typecheck:web && npm run build:web && npm run build:api",
     "build:shared": "npm run build --workspace @lilink/shared",
@@ -64,9 +64,7 @@
     "db:migrate": "npm run prisma:migrate --workspace api",
     "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace api",
     "db:seed": "npm run prisma:seed --workspace api",
-    "db:seed-meetup-demo": "npm run seed:meetup-demo --workspace api --",
     "db:seed-coupon-demo": "npm run seed:coupon-demo --workspace api --",
-    "db:ensure-participants": "npm run ensure-cycle-participants --workspace api",
     "db:seed-defaults": "npm run prisma:seed-defaults --workspace api",
     "db:seed:default": "npm run prisma:seed:default --workspace api",
     "infra:local:up": "docker compose -f docker-compose.local.yml up -d",
@@ -79,9 +77,19 @@
     "deploy:prod:build": "node scripts/compose-prod.mjs build api",
     "deploy:prod:up": "node scripts/compose-prod.mjs up -d --build api",
     "deploy:prod:up:no-build": "node scripts/compose-prod.mjs up -d --no-build api",
-    "deploy:prod:logs": "node scripts/compose-prod.mjs logs --tail 100 api"
+    "deploy:prod:logs": "node scripts/compose-prod.mjs logs --tail 100 api",
+    "typecheck:storybook:web": "npm run build:shared && tsc --project apps/web/tsconfig.storybook.json --noEmit",
+    "audit:storybook:web": "node scripts/audit-storybook-coverage.mjs",
+    "test:e2e:infra": "node --test scripts/e2e/environment.test.mjs",
+    "test:e2e:web": "node scripts/e2e/run.mjs --project=chromium --grep @smoke",
+    "test:e2e:web:full": "node scripts/e2e/run.mjs --grep-invert @visual",
+    "test:e2e:web:ui": "node scripts/e2e/run.mjs --ui",
+    "test:e2e:web:visual": "node scripts/e2e/run.mjs --grep @visual",
+    "test:e2e:web:report": "node scripts/e2e/report.mjs",
+    "test:e2e:web:linux": "node scripts/e2e/linux.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.60.0",
     "@storybook/addon-vitest": "^10.4.1",
     "@vitest/browser-playwright": "^4.1.7",
     "concurrently": "^9.2.1",
@@ -103,13 +111,16 @@
     "eslint-plugin-react-hooks": "7.0.1",
     "typescript-eslint": "8.58.1",
     "effect": "3.21.0",
-    "path-to-regexp": "8.4.1",
     "lodash": "4.18.1",
     "@angular-devkit/core": {
       "picomatch": "4.0.4"
     },
     "fdir": {
       "picomatch": "4.0.4"
+    },
+    "path-to-regexp@^8.0.0": "8.4.2",
+    "msw": {
+      "path-to-regexp": "6.3.0"
     }
   }
 }

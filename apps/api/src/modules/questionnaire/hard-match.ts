@@ -1,5 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  LIFESTYLE_QUESTIONS,
+  HARD_MATCH_LOOKS,
   HARD_MATCH_AGE_MAX,
   HARD_MATCH_AGE_MIN,
   HARD_MATCH_DEFAULT_LANGUAGE,
@@ -10,7 +12,6 @@ import {
   HARD_MATCH_HEIGHT_MAX_CM,
   HARD_MATCH_HEIGHT_MIN_CM,
   HARD_MATCH_KEYS,
-  HARD_MATCH_LOOKS,
   HARD_MATCH_NATIONALITIES,
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
   HARD_MATCH_WEIGHT_MAX_KG,
@@ -40,11 +41,10 @@ import { IncompleteQuestionnaireSubmissionException } from './incomplete-questio
 /**
  * @internal Exported for hard-match tests.
  */
-export { HARD_MATCH_GENDERS };
+export { HARD_MATCH_GENDERS, HARD_MATCH_LOOKS };
 
 export {
   HARD_MATCH_KEYS,
-  HARD_MATCH_LOOKS,
   areHardMatchAnswersCompatible,
   hardMatchQuestionKeys,
   readQuestionnaireOneLiner,
@@ -63,6 +63,9 @@ const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
   [HARD_MATCH_KEYS.languages]: '你的语言',
   [HARD_MATCH_KEYS.partnerLanguages]: '希望对方的语言',
   [HARD_MATCH_KEYS.looks]: '颜值自评',
+  [HARD_MATCH_KEYS.partnerSmokingStatus]: '希望对方吸烟情况',
+  [HARD_MATCH_KEYS.partnerDrinkingFrequency]: '希望对方饮酒频率',
+  [HARD_MATCH_KEYS.partnerExerciseFrequency]: '希望对方锻炼频率',
   [HARD_MATCH_KEYS.partnerLooks]: '希望对方的颜值',
   [HARD_MATCH_KEYS.heightCm]: '身高（厘米）',
   [HARD_MATCH_KEYS.partnerHeightMin]: '希望对方身高下限（厘米）',
@@ -87,6 +90,9 @@ export type HardMatchAnswerRecord = {
   [HARD_MATCH_KEYS.languages]: HardMatchLanguage[];
   [HARD_MATCH_KEYS.partnerLanguages]: HardMatchLanguage[];
   [HARD_MATCH_KEYS.looks]: HardMatchLooks;
+  [HARD_MATCH_KEYS.partnerSmokingStatus]: string[];
+  [HARD_MATCH_KEYS.partnerDrinkingFrequency]: string[];
+  [HARD_MATCH_KEYS.partnerExerciseFrequency]: string[];
   [HARD_MATCH_KEYS.partnerLooks]: HardMatchLooks[];
   [HARD_MATCH_KEYS.heightCm]: number;
   [HARD_MATCH_KEYS.partnerHeightMin]: number;
@@ -113,6 +119,9 @@ export type HardMatchDraftForm = {
   languages: string[];
   partnerLanguages: string[];
   looks: string;
+  partnerSmokingStatus?: string[];
+  partnerDrinkingFrequency?: string[];
+  partnerExerciseFrequency?: string[];
   partnerLooks: string[];
   heightCm: string;
   partnerHeightMin: string;
@@ -142,6 +151,9 @@ export function createEmptyHardMatchDraftForm(): HardMatchDraftForm {
     languages: [HARD_MATCH_DEFAULT_LANGUAGE],
     partnerLanguages: [],
     looks: '',
+    partnerSmokingStatus: [],
+    partnerDrinkingFrequency: [],
+    partnerExerciseFrequency: [],
     partnerLooks: [],
     heightCm: '',
     partnerHeightMin: String(HARD_MATCH_HEIGHT_MIN_CM),
@@ -294,7 +306,22 @@ export function sanitizeHardMatchDraftForm(
       HARD_MATCH_LANGUAGES,
     ),
     looks: readAllowedString(form.looks, HARD_MATCH_LOOKS),
-    partnerLooks: readStringArray(form.partnerLooks, HARD_MATCH_LOOKS),
+    partnerSmokingStatus: readStringArray(
+      form.partnerSmokingStatus,
+      LIFESTYLE_QUESTIONS[1].options,
+    ),
+    partnerDrinkingFrequency: readStringArray(
+      form.partnerDrinkingFrequency,
+      LIFESTYLE_QUESTIONS[2].options,
+    ),
+    partnerExerciseFrequency: readStringArray(
+      form.partnerExerciseFrequency,
+      LIFESTYLE_QUESTIONS[0].options,
+    ),
+    partnerLooks:
+      form.partnerLooks == null
+        ? [...HARD_MATCH_LOOKS]
+        : readStringArray(form.partnerLooks, HARD_MATCH_LOOKS),
     heightCm: readAllowedNumberString(
       form.heightCm,
       HARD_MATCH_HEIGHT_MIN_CM,
@@ -431,7 +458,15 @@ export function buildHardMatchAnswerRecordFromFormInput(
       [HARD_MATCH_KEYS.languages]: form.languages,
       [HARD_MATCH_KEYS.partnerLanguages]: form.partnerLanguages,
       [HARD_MATCH_KEYS.looks]: form.looks,
-      [HARD_MATCH_KEYS.partnerLooks]: form.partnerLooks,
+      [HARD_MATCH_KEYS.partnerSmokingStatus]: form.partnerSmokingStatus ?? [],
+      [HARD_MATCH_KEYS.partnerDrinkingFrequency]:
+        form.partnerDrinkingFrequency ?? [],
+      [HARD_MATCH_KEYS.partnerExerciseFrequency]:
+        form.partnerExerciseFrequency ?? [],
+      [HARD_MATCH_KEYS.partnerLooks]:
+        Array.isArray(form.partnerLooks) && form.partnerLooks.length
+          ? form.partnerLooks
+          : [...HARD_MATCH_LOOKS],
       [HARD_MATCH_KEYS.heightCm]: readRequiredIntegerInput(
         form.heightCm,
         HARD_MATCH_KEYS.heightCm,
@@ -753,6 +788,7 @@ function normalizeHardMatchValues(
     rawAnswers[HARD_MATCH_KEYS.weightKg],
     HARD_MATCH_KEYS.weightKg,
   );
+  if (weightKg == null) throw requiredFieldError(HARD_MATCH_KEYS.weightKg);
   const partnerWeightMin = normalizeOptionalWeight(
     rawAnswers[HARD_MATCH_KEYS.partnerWeightMin],
     HARD_MATCH_KEYS.partnerWeightMin,
@@ -828,6 +864,21 @@ function normalizeHardMatchValues(
       HARD_MATCH_KEYS.looks,
       HARD_MATCH_LOOKS,
     ),
+    partnerSmokingStatus: normalizeOptionalMultiChoice(
+      rawAnswers[HARD_MATCH_KEYS.partnerSmokingStatus],
+      HARD_MATCH_KEYS.partnerSmokingStatus,
+      LIFESTYLE_QUESTIONS[1].options,
+    ),
+    partnerDrinkingFrequency: normalizeOptionalMultiChoice(
+      rawAnswers[HARD_MATCH_KEYS.partnerDrinkingFrequency],
+      HARD_MATCH_KEYS.partnerDrinkingFrequency,
+      LIFESTYLE_QUESTIONS[2].options,
+    ),
+    partnerExerciseFrequency: normalizeOptionalMultiChoice(
+      rawAnswers[HARD_MATCH_KEYS.partnerExerciseFrequency],
+      HARD_MATCH_KEYS.partnerExerciseFrequency,
+      LIFESTYLE_QUESTIONS[0].options,
+    ),
     partnerLooks: normalizeMultiChoice(
       rawAnswers[HARD_MATCH_KEYS.partnerLooks],
       HARD_MATCH_KEYS.partnerLooks,
@@ -841,7 +892,7 @@ function normalizeHardMatchValues(
     partnerWeightMax,
     oneLinerIntro: normalizeOneLinerIntroValue(
       rawAnswers[HARD_MATCH_KEYS.oneLinerIntro],
-      { allowEmpty: true },
+      { allowEmpty: false },
     ),
     school: normalizeSingleChoice(
       rawAnswers[HARD_MATCH_KEYS.school],
@@ -875,6 +926,12 @@ export function normalizeHardMatchAnswers(
     [HARD_MATCH_KEYS.languages]: normalizedValues.languages,
     [HARD_MATCH_KEYS.partnerLanguages]: normalizedValues.partnerLanguages,
     [HARD_MATCH_KEYS.looks]: normalizedValues.looks,
+    [HARD_MATCH_KEYS.partnerSmokingStatus]:
+      normalizedValues.partnerSmokingStatus ?? [],
+    [HARD_MATCH_KEYS.partnerDrinkingFrequency]:
+      normalizedValues.partnerDrinkingFrequency ?? [],
+    [HARD_MATCH_KEYS.partnerExerciseFrequency]:
+      normalizedValues.partnerExerciseFrequency ?? [],
     [HARD_MATCH_KEYS.partnerLooks]: normalizedValues.partnerLooks,
     [HARD_MATCH_KEYS.heightCm]: normalizedValues.heightCm,
     [HARD_MATCH_KEYS.partnerHeightMin]: normalizedValues.partnerHeightMin,

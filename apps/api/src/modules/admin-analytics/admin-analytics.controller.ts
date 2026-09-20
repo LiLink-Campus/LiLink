@@ -2,9 +2,8 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../../common/auth/admin.guard';
 import { AdminAnalyticsService } from './admin-analytics.service';
 import {
-  AnalyticsBaseQueryDto,
+  SchoolsGenderQueryDto,
   MatchLeaderboardQueryDto,
-  ProductAnalyticsQueryDto,
   WeeklyOptinQueryDto,
 } from './dto/analytics-query.dto';
 
@@ -14,13 +13,8 @@ export class AdminAnalyticsController {
   constructor(private readonly service: AdminAnalyticsService) {}
 
   @Get('schools-gender')
-  schoolsGender(@Query() query: AnalyticsBaseQueryDto) {
+  schoolsGender(@Query() query: SchoolsGenderQueryDto) {
     return this.service.schoolsGender(query);
-  }
-
-  @Get('product-funnels')
-  productFunnels(@Query() query: ProductAnalyticsQueryDto) {
-    return this.service.productFunnels(query);
   }
 
   @Get('weekly-optin')

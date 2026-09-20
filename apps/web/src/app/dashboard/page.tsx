@@ -16,9 +16,6 @@ export default async function DashboardHubPage() {
     await loadDashboardHome();
   const {
     percent: questionnairePercent,
-    confirmedPercent: questionnaireConfirmedPercent,
-    unconfirmedPercent: questionnaireUnconfirmedPercent,
-    unconfirmedCount: questionnaireUnconfirmedCount,
     submitted: questionnaireSubmitted,
     missingOneLinerIntro: questionnaireMissingOneLinerIntro,
     eligibleToOptIn: questionnaireEligibleToOptIn,
@@ -36,9 +33,6 @@ export default async function DashboardHubPage() {
       initialUser={user}
       initialDashboard={dashboard}
       questionnairePercent={questionnairePercent}
-      questionnaireConfirmedPercent={questionnaireConfirmedPercent}
-      questionnaireUnconfirmedPercent={questionnaireUnconfirmedPercent}
-      questionnaireUnconfirmedCount={questionnaireUnconfirmedCount}
       questionnaireSubmitted={questionnaireSubmitted}
       questionnaireMissingOneLinerIntro={questionnaireMissingOneLinerIntro}
       questionnaireEligibleToOptIn={questionnaireEligibleToOptIn}

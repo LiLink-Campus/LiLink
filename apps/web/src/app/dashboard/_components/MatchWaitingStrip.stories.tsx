@@ -110,3 +110,22 @@ export const MutedNoActions: Story = {
     actionsMode: "none",
   },
 };
+
+export const WaitingLetter: Story = {
+  args: {
+    title: "等待本轮揭晓",
+    subtitle: "你已报名本轮匹配。结果公布后可在这里查看；匹配成功时，双方会收到邮件。",
+    actionsMode: "primary",
+  },
+};
+
+export const UnmatchedLetter: Story = {
+  args: {
+    title: "本轮未匹配到对象",
+    subtitle: "本轮暂未找到合适的同学。你可以检查匹配资料，下一轮开放后回到首页重新报名。",
+    eyebrow: "未匹配",
+    variant: "muted",
+    showReveal: false,
+    actionsMode: "primary",
+  },
+};

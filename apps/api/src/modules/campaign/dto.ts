@@ -36,10 +36,11 @@ export class CreateCampaignDto {
   @MaxLength(CAMPAIGN_NAME_MAX_LENGTH)
   name!: string;
 
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(CAMPAIGN_SLUG_MAX_LENGTH)
-  slug!: string;
+  slug?: string;
 
   @IsOptional()
   @IsISO8601()

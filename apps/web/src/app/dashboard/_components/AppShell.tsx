@@ -30,8 +30,8 @@ type NavItem = {
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: "/dashboard", label: "首页", Icon: HomeIcon },
   { href: "/dashboard/match", label: "我的匹配", Icon: HeartIcon },
-  { href: "/dashboard/profile", label: "匹配资料", Icon: ProfileIcon },
-  { href: "/dashboard/me", label: "我的", Icon: UserCircleIcon },
+  { href: "/dashboard/profile", label: "我的资料", Icon: ProfileIcon },
+  { href: "/dashboard/me", label: "用户中心", Icon: UserCircleIcon },
 ];
 
 function avatarInitial(user: AuthMePayload | null | undefined) {
@@ -42,44 +42,29 @@ function avatarInitial(user: AuthMePayload | null | undefined) {
 }
 
 function isActiveTab(currentPath: string, href: string) {
+  if (href === "/dashboard/me" && ["/dashboard/vip", "/dashboard/referrals", "/dashboard/coupons"].includes(currentPath)) return true;
   if (href === "/dashboard") {
     return currentPath === "/dashboard";
   }
   return currentPath === href || currentPath.startsWith(`${href}/`);
 }
 
-/**
- * Routes where the chrome collapses into a single-minded "focused" mode:
- * the bottom tabbar disappears and the header becomes a back-button +
- * title bar. Used by the meetup negotiation flow which needs a fixed
- * bottom action bar to drive primary actions.
- */
+// Auxiliary pages use a back button instead of the main navigation.
 function isFocusedPath(currentPath: string): boolean {
   return (
-    currentPath.startsWith("/dashboard/meetup") ||
-    currentPath.startsWith("/dashboard/me/card") ||
     currentPath === "/dashboard/referrals" ||
     currentPath === "/dashboard/coupons"
   );
 }
 
 function focusedTitleFor(currentPath: string): string {
-  if (currentPath.startsWith("/dashboard/meetup/start")) {
-    return "安排第一次见面";
-  }
-  if (currentPath.startsWith("/dashboard/meetup/")) {
-    return "第一次见面";
-  }
-  if (currentPath.startsWith("/dashboard/me/card")) {
-    return "编辑引荐名片";
-  }
   if (currentPath === "/dashboard/referrals") {
     return "我的邀请";
   }
   if (currentPath === "/dashboard/coupons") {
     return "我的优惠券";
   }
-  return "见面安排";
+  return "用户中心";
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -135,7 +120,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       return;
     }
     if (
-      pathname.startsWith("/dashboard/me/card") ||
       pathname === "/dashboard/referrals" ||
       pathname === "/dashboard/coupons"
     ) {
@@ -147,36 +131,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className={focused ? `${styles.shell} ${styles.focused}` : styles.shell}>
-      <aside className={styles.sidebar} aria-label="侧边导航">
-        <div className={styles.sidebarBrand}>
-          <BrandMark href="/dashboard" />
-        </div>
-        <nav>
-          <ul className={styles.sidebarNav}>
-            {NAV_ITEMS.map(({ href, label, Icon }) => {
-              const active = isActiveTab(pathname, href);
-              return (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className={active ? styles.active : undefined}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    <Icon />
-                    <span>{label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-        <div className={styles.sidebarFoot}>
-          LiLink · Weekly Reveal
-          <br />
-          校园里的，认真相遇
-        </div>
-      </aside>
-
       <div className={styles.content}>
         {focused ? (
           <header className={styles.focusedHeader}>
@@ -191,9 +145,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <h1 className={styles.focusedTitle}>{focusedTitleFor(pathname)}</h1>
             <span className={styles.focusedHeaderSpacer} aria-hidden="true" />
           </header>
-        ) : (
-          <header className={styles.header}>
+        ) : null}
+          <header className={`${styles.header} ${focused ? styles.desktopOnly : ""}`}>
             <BrandMark href="/dashboard" variant="compact" showTagline={false} />
+            <nav className={styles.headerNav} aria-label="主导航">
+              {NAV_ITEMS.map(({ href, label }) => <Link key={href} href={href} onClick={closeMenu} aria-current={isActiveTab(pathname, href) ? "page" : undefined}>{label}</Link>)}
+            </nav>
             <div className={styles.headerActions}>
               <button
                 ref={triggerRef}
@@ -212,19 +169,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   className={styles.avatarMenu}
                   role="menu"
                 >
-                  <div className={styles.avatarMenuInfo}>
-                    <strong>{user?.displayName ?? "未命名同学"}</strong>
-                    <span>{user?.email ?? "未登录"}</span>
-                  </div>
-                  <Link href="/" role="menuitem" onClick={closeMenu}>
-                    返回首页
-                  </Link>
-                  <Link href="/about" role="menuitem" onClick={closeMenu}>
-                    关于平台
-                  </Link>
-                  <Link href="/faq" role="menuitem" onClick={closeMenu}>
-                    常见问题
-                  </Link>
+                  <Link href="/" role="menuitem" onClick={closeMenu}>返回首页</Link>
                   <button
                     type="button"
                     className={styles.danger}
@@ -238,7 +183,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               ) : null}
             </div>
           </header>
-        )}
 
         <main className={styles.main}>{children}</main>
 
@@ -260,6 +204,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </nav>
         )}
+
       </div>
     </div>
   );

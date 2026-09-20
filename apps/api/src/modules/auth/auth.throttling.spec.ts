@@ -193,7 +193,8 @@ async function createTestApp() {
     }),
   );
 
-  await app.init();
+  // Bind once to IPv4 so Supertest cannot hit another service on that port.
+  await app.listen(0, '127.0.0.1');
 
   return {
     app,

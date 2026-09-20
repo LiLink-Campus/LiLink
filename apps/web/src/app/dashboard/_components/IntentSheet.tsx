@@ -2,6 +2,7 @@
 
 import { dcx } from "../_lib/dashboard-class-names";
 import { useEffect } from "react";
+import styles from "./IntentSheet.module.css";
 import {
   WEEKLY_INTENTS,
   WEEKLY_INTENT_LABELS,
@@ -18,7 +19,7 @@ type IntentSheetProps = {
 };
 
 /**
- * Bottom sheet shown when the user toggles "this week's participation"
+ * Centered dialog shown when the user toggles "this week's participation"
  * on. Surfaces Friend / Date / Both as three large tap targets so the
  * intent choice happens in the same flow as opting in.
  */
@@ -54,7 +55,7 @@ export function IntentSheet({
   }
 
   return (
-    <div className={dcx("intent-sheet-root")} role="presentation">
+    <div className={`${dcx("intent-sheet-root")} ${styles.centeredRoot}`} role="presentation">
       <button
         type="button"
         className={dcx("intent-sheet-backdrop")}
@@ -63,16 +64,15 @@ export function IntentSheet({
         onClick={onClose}
       />
       <div
-        className={dcx("intent-sheet")}
+        className={`${dcx("intent-sheet")} ${styles.centeredPanel}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="intent-sheet-title"
       >
-        <div className={dcx("intent-sheet-handle")} aria-hidden="true" />
         <p className={dcx("eyebrow")}>本周匹配意向</p>
         <h2 id="intent-sheet-title">选一个本周想找的方向</h2>
         <p className={dcx("app-muted")}>
-          BOTH 与所有意向相容；FRIEND 与 DATE 互斥。可在截止前再改一次。
+          选择你这周的交友意向，保存后即报名。报名截止前可以修改。
         </p>
         <ul className={dcx("intent-sheet-options")}>
           {WEEKLY_INTENTS.map((intent) => {

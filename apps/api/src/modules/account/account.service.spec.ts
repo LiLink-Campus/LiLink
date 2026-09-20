@@ -33,7 +33,6 @@ function buildConfirmedHardMatchSignatures(
   return map;
 }
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
-import { clearStickyParticipationCache } from '../../common/participation/sticky-cycle-participation';
 
 // Build a real QuestionnaireService whose validateAnswers / sanitizeStoredAnswers
 // are pure helpers, then stub getCurrentVersion to inject the schema we want.
@@ -96,8 +95,6 @@ function buildHistoryMatchParticipant({
   reason = 'reason',
   conversationTopics = ['topic 1', 'topic 2', 'topic 3'],
   introducedAt = null,
-  currentUserRequestedAt = null,
-  counterpartRequestedAt = null,
   reportStatus = null,
 }: {
   cycleId: string;
@@ -108,14 +105,11 @@ function buildHistoryMatchParticipant({
   reason?: string | null;
   conversationTopics?: string[] | null;
   introducedAt?: Date | null;
-  currentUserRequestedAt?: Date | null;
-  counterpartRequestedAt?: Date | null;
   reportStatus?: 'OPEN' | 'RESOLVED' | 'DISMISSED' | null;
 }) {
   return {
     id: `participant-${cycleId}`,
     cycleId,
-    contactRequestedAt: currentUserRequestedAt,
     match: {
       cycle: {
         id: cycleId,
@@ -133,7 +127,6 @@ function buildHistoryMatchParticipant({
       participants: [
         {
           userId: 'user-1',
-          contactRequestedAt: currentUserRequestedAt,
           user: {
             email: 'user-1@example.com',
             displayName: 'User 1',
@@ -144,7 +137,6 @@ function buildHistoryMatchParticipant({
         },
         {
           userId: counterpartUserId,
-          contactRequestedAt: counterpartRequestedAt,
           user: {
             email: `${counterpartUserId}@example.com`,
             displayName: 'User 2',
@@ -173,8 +165,6 @@ function buildSnapshotMatchPayload(
       ? []
       : (matchParticipant.match.conversationTopics ?? []),
     introducedAt: matchParticipant.match.introducedAt?.toISOString() ?? null,
-    currentUserRequestedAt:
-      matchParticipant.contactRequestedAt?.toISOString() ?? null,
     reportStatus: options.reportStatus ?? null,
     participants: hideSensitiveFields
       ? []
@@ -186,8 +176,6 @@ function buildSnapshotMatchPayload(
             ? participant.user.email
             : null,
           schoolName: participant.user.school?.name ?? null,
-          contactRequestedAt:
-            participant.contactRequestedAt?.toISOString() ?? null,
         })),
   };
 }
@@ -255,15 +243,6 @@ function buildDashboardSnapshotRecord({
   };
 }
 
-type IntroductionEmailPayload = {
-  requester: {
-    publicContact: { type: string; label: string; value: string };
-  };
-  recipient: {
-    publicContact: { type: string; label: string; value: string };
-  };
-};
-
 function createDashboardPrismaMock({
   revealedCycles,
   recentParticipations = [],
@@ -272,7 +251,6 @@ function createDashboardPrismaMock({
   currentCycle = null,
   currentParticipation = null,
   lastRevealedParticipation = null,
-  dashboardMeetupMatch = null,
   availableCouponCount = 0,
   couponReadAt = null,
 }: {
@@ -310,12 +288,7 @@ function createDashboardPrismaMock({
       revealAt: Date;
     };
   } | null;
-  dashboardMeetupMatch?: {
-    id: string;
-    introducedAt: Date | null;
-    participants: Array<{ userId: string }>;
-    meetupSession: Record<string, unknown> | null;
-  } | null;
+
   availableCouponCount?: number;
   couponReadAt?: Date | null;
 }) {
@@ -376,24 +349,6 @@ function createDashboardPrismaMock({
       findFirst: jest.fn().mockResolvedValue(currentCycle),
       findMany: jest.fn().mockResolvedValue(revealedCycles),
     },
-    match: {
-      findUnique: jest.fn().mockResolvedValue(dashboardMeetupMatch),
-      findMany: jest
-        .fn()
-        .mockImplementation((args?: { where?: { id?: { in?: string[] } } }) => {
-          const matchIds = args?.where?.id?.in ?? [];
-          if (
-            dashboardMeetupMatch &&
-            matchIds.includes(dashboardMeetupMatch.id)
-          ) {
-            return [dashboardMeetupMatch];
-          }
-          return [];
-        }),
-    },
-    matchFeedback: {
-      findMany: jest.fn().mockResolvedValue([]),
-    },
     cycleParticipation: {
       findFirst: jest.fn().mockResolvedValue(lastRevealedParticipation),
       findUnique: jest.fn().mockResolvedValue(currentParticipation),
@@ -444,12 +399,12 @@ function buildSubmittedQuestionnaireResponse(
       [HARD_MATCH_KEYS.partnerNationalities]: [],
       [HARD_MATCH_KEYS.languages]: ['中文'],
       [HARD_MATCH_KEYS.partnerLanguages]: [],
-      [HARD_MATCH_KEYS.looks]: '普通人',
-      [HARD_MATCH_KEYS.partnerLooks]: ['普通人'],
+      [HARD_MATCH_KEYS.looks]: '5',
+      [HARD_MATCH_KEYS.partnerLooks]: ['5'],
       [HARD_MATCH_KEYS.heightCm]: 175,
       [HARD_MATCH_KEYS.partnerHeightMin]: 150,
       [HARD_MATCH_KEYS.partnerHeightMax]: 195,
-      [HARD_MATCH_KEYS.weightKg]: null,
+      [HARD_MATCH_KEYS.weightKg]: 65,
       [HARD_MATCH_KEYS.partnerWeightMin]: null,
       [HARD_MATCH_KEYS.partnerWeightMax]: null,
       [HARD_MATCH_KEYS.oneLinerIntro]: '喜欢徒步。',
@@ -481,9 +436,10 @@ function buildSubmittedHardMatchDraftForm(
     partnerNationalities: ['中国'],
     languages: ['中文'],
     partnerLanguages: ['中文'],
-    looks: '普通人',
-    partnerLooks: ['普通人'],
+    looks: '5',
+    partnerLooks: ['5'],
     heightCm: '175',
+    weightKg: '65',
     partnerHeightMin: '150',
     partnerHeightMax: '195',
     oneLinerIntro: '喜欢徒步。',
@@ -506,52 +462,9 @@ function createDashboardSnapshotServiceMock() {
   };
 }
 
-function buildDashboardMeetupSession(
-  overrides: Record<string, unknown> = {},
-): Record<string, unknown> {
-  return {
-    id: 'session-1',
-    matchId: 'match-1',
-    status: 'ACTIVE',
-    currentProposalId: 'proposal-1',
-    confirmedTimeOptionId: null,
-    confirmedLocationOptionId: null,
-    finalConfirmRequiredByUserId: null,
-    reopenedFromLockedStartsAt: null,
-    lockedAt: null,
-    canceledAt: null,
-    canceledByUserId: null,
-    effectiveExpirationWeeks: 1,
-    expiresAt: new Date('2020-01-01T00:00:00.000Z'),
-    archiveEligibleAt: null,
-    lastActiveAt: new Date('2026-05-14T10:00:00.000Z'),
-    confirmedTimeOption: null,
-    confirmedLocationOption: null,
-    feedback: [],
-    participants: [
-      {
-        userId: 'user-1',
-        turnState: 'REQUIRED',
-        revisionUsedAt: null,
-        lastSeenAt: null,
-        user: { displayName: 'User 1' },
-      },
-      {
-        userId: 'user-2',
-        turnState: 'WAITING',
-        revisionUsedAt: null,
-        lastSeenAt: null,
-        user: { displayName: 'User 2' },
-      },
-    ],
-    ...overrides,
-  };
-}
-
 describe('AccountService', () => {
   afterEach(() => {
     jest.useRealTimers();
-    clearStickyParticipationCache();
   });
 
   it('rejects participation changes after the deadline', async () => {
@@ -566,7 +479,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -595,7 +507,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -627,7 +538,6 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -658,7 +568,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -699,7 +608,6 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -708,7 +616,16 @@ describe('AccountService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(findUniqueResponse).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
-      select: { answers: true, draftAnswers: true, submittedAt: true },
+      select: {
+        answers: true,
+        draftAnswers: true,
+        submittedAt: true,
+        user: {
+          select: {
+            vipActivations: { select: { expiresAt: true, revokedAt: true } },
+          },
+        },
+      },
     });
     expect(upsert).not.toHaveBeenCalled();
   });
@@ -741,7 +658,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -782,7 +698,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -842,7 +757,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       questionnaireService,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -904,7 +818,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       questionnaireService,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -972,7 +885,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       questionnaireService,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -1017,7 +929,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -1082,7 +993,6 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -1116,7 +1026,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -1156,7 +1065,6 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -1191,7 +1099,6 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -1212,7 +1119,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -1267,7 +1173,6 @@ describe('AccountService', () => {
           }),
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-current',
@@ -1359,7 +1264,6 @@ describe('AccountService', () => {
           }),
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-current',
@@ -1416,7 +1320,7 @@ describe('AccountService', () => {
     });
   });
 
-  it('marks newly introduced hard-match fields as pending attention', async () => {
+  it('does not request attention for retired nationality or language fields', async () => {
     const legacyAnswers = { ...buildSubmittedQuestionnaireResponse().answers };
     delete legacyAnswers[HARD_MATCH_KEYS.partnerLanguages];
 
@@ -1456,7 +1360,6 @@ describe('AccountService', () => {
           }),
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-current',
@@ -1484,18 +1387,10 @@ describe('AccountService', () => {
 
     await expect(service.getQuestionnaire('user-1')).resolves.toMatchObject({
       attention: {
-        pendingUpdatedKeys: [HARD_MATCH_KEYS.partnerLanguages],
+        pendingUpdatedKeys: [],
         missingRequiredKeys: [],
-        pendingKeys: [HARD_MATCH_KEYS.partnerLanguages],
-        items: [
-          {
-            key: HARD_MATCH_KEYS.partnerLanguages,
-            prompt: '希望对方的语言',
-            updated: true,
-            missingRequired: false,
-            acknowledged: false,
-          },
-        ],
+        pendingKeys: [],
+        items: [],
       },
     });
   });
@@ -1504,13 +1399,19 @@ describe('AccountService', () => {
     const service = new AccountService(
       {
         user: {
-          findUnique: jest.fn().mockResolvedValue({ schoolId: 'school-bupt' }),
+          findUnique: jest.fn().mockResolvedValue({
+            schoolId: 'school-bupt',
+            vipActivations: [
+              { expiresAt: new Date(Date.now() + 60000), revokedAt: null },
+            ],
+          }),
         },
         questionnaireResponse: {
           findUnique: jest.fn().mockResolvedValue({
             versionId: 'version-current',
             answers: {
               ...buildSubmittedQuestionnaireResponse().answers,
+              [HARD_MATCH_KEYS.weightKg]: null,
               current_question: 'kept',
             },
             acknowledgedQuestionnaireVersionId: 'version-current',
@@ -1542,7 +1443,6 @@ describe('AccountService', () => {
           }),
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-current',
@@ -1621,7 +1521,6 @@ describe('AccountService', () => {
           }),
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-current',
@@ -1665,7 +1564,7 @@ describe('AccountService', () => {
         acknowledgedQuestionnaireKeys: [
           'existing_question',
           'new_question',
-          HARD_MATCH_KEYS.partnerLanguages,
+          HARD_MATCH_KEYS.partnerLooks,
         ],
       },
     ]);
@@ -1677,7 +1576,6 @@ describe('AccountService', () => {
           findUnique,
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-current',
@@ -1692,7 +1590,7 @@ describe('AccountService', () => {
         versionId: 'version-current',
         keys: [
           'new_question',
-          HARD_MATCH_KEYS.partnerLanguages,
+          HARD_MATCH_KEYS.partnerLooks,
           'new_question',
           ' ',
         ],
@@ -1702,7 +1600,7 @@ describe('AccountService', () => {
       acknowledgedKeys: [
         'existing_question',
         'new_question',
-        HARD_MATCH_KEYS.partnerLanguages,
+        HARD_MATCH_KEYS.partnerLooks,
       ],
     });
 
@@ -1730,7 +1628,6 @@ describe('AccountService', () => {
           findUnique: profileFindUnique,
         },
       } as never,
-      {} as never,
       {} as never,
       dashboardSnapshotService as never,
     );
@@ -1786,7 +1683,6 @@ describe('AccountService', () => {
           upsert,
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-1',
@@ -1824,9 +1720,10 @@ describe('AccountService', () => {
           partnerAgeMax: '30',
           gender: '女',
           partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: '165',
+          weightKg: '65',
           partnerHeightMin: '160',
           partnerHeightMax: '190',
           oneLinerIntro: '喜欢散步。',
@@ -1852,7 +1749,7 @@ describe('AccountService', () => {
         current_question: 'kept',
         [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
         [HARD_MATCH_KEYS.school]: 'school-bupt',
-        [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
+        [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
       }),
       ['school-bupt', 'school-cuc'],
     );
@@ -1934,7 +1831,6 @@ describe('AccountService', () => {
           upsert,
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-1',
@@ -1972,9 +1868,10 @@ describe('AccountService', () => {
           partnerAgeMax: '30',
           gender: '女',
           partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: '165',
+          weightKg: '65',
           partnerHeightMin: '160',
           partnerHeightMax: '190',
           oneLinerIntro: '喜欢散步。',
@@ -2026,7 +1923,6 @@ describe('AccountService', () => {
           upsert,
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-1',
@@ -2064,9 +1960,10 @@ describe('AccountService', () => {
           partnerAgeMax: '30',
           gender: '女',
           partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: '',
+          weightKg: '65',
           partnerHeightMin: '160',
           partnerHeightMax: '190',
           oneLinerIntro: '喜欢散步。',
@@ -2100,6 +1997,7 @@ describe('AccountService', () => {
       birthMonth: '',
       birthDay: '',
       heightCm: '',
+      weightKg: '65',
       oneLinerIntro: '喜欢散步。',
     });
 
@@ -2157,7 +2055,6 @@ describe('AccountService', () => {
           upsert,
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-1',
@@ -2195,9 +2092,10 @@ describe('AccountService', () => {
           partnerAgeMax: '30',
           gender: '女',
           partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: '',
+          weightKg: '65',
           partnerHeightMin: '160',
           partnerHeightMax: '190',
           oneLinerIntro: '喜欢散步。',
@@ -2255,7 +2153,6 @@ describe('AccountService', () => {
           upsert,
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-1',
@@ -2293,9 +2190,10 @@ describe('AccountService', () => {
           partnerAgeMax: '30',
           gender: '女',
           partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: '',
+          weightKg: '65',
           partnerHeightMin: '160',
           partnerHeightMax: '190',
           oneLinerIntro: '喜欢散步。',
@@ -2337,7 +2235,6 @@ describe('AccountService', () => {
           upsert,
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-1',
@@ -2375,9 +2272,10 @@ describe('AccountService', () => {
           partnerAgeMax: '30',
           gender: '未知性别',
           partnerGenders: ['男'],
-          looks: '普通人',
-          partnerLooks: ['普通人'],
+          looks: '5',
+          partnerLooks: ['5'],
           heightCm: '165',
+          weightKg: '65',
           partnerHeightMin: '160',
           partnerHeightMax: '190',
           oneLinerIntro: '喜欢散步。',
@@ -2406,7 +2304,6 @@ describe('AccountService', () => {
           upsert,
         },
       } as never,
-      {} as never,
       {
         getCurrentVersion: jest.fn().mockResolvedValue({
           id: 'version-1',
@@ -2452,7 +2349,6 @@ describe('AccountService', () => {
             cycleId: 'cycle-3',
             matchId: 'match-3',
             introducedAt: new Date('2026-04-03T13:00:00.000Z'),
-            currentUserRequestedAt: new Date('2026-04-03T13:05:00.000Z'),
           }),
         ],
         lastRevealedParticipation: {
@@ -2461,7 +2357,6 @@ describe('AccountService', () => {
           cycle: revealedCycles[0],
         },
       }) as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -2549,7 +2444,6 @@ describe('AccountService', () => {
         },
       }) as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -2591,7 +2485,6 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -2628,7 +2521,6 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -2653,536 +2545,6 @@ describe('AccountService', () => {
     });
   });
 
-  it('includes meetup feedback eligibility and current user feedback on dashboard summaries', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-05-14T10:00:00.000Z'));
-
-    const revealedCycles = [
-      buildRevealedCycle('cycle-2', '第二轮', '2026-05-08T12:00:00.000Z'),
-      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
-    ];
-    const session = buildDashboardMeetupSession({
-      matchId: 'match-2',
-      status: 'LOCKED',
-      currentProposalId: null,
-      finalConfirmRequiredByUserId: null,
-      expiresAt: null,
-      lockedAt: new Date('2026-05-14T08:30:00.000Z'),
-      archiveEligibleAt: new Date('2026-05-15T10:00:00.000Z'),
-      confirmedTimeOptionId: 'time-1',
-      confirmedLocationOptionId: 'location-1',
-      confirmedTimeOption: {
-        startsAt: new Date('2026-05-14T09:00:00.000Z'),
-        endsAt: new Date('2026-05-14T10:00:00.000Z'),
-      },
-      confirmedLocationOption: {
-        placeName: 'Cafe',
-      },
-      feedback: [
-        {
-          authorUserId: 'user-1',
-          personalFitScore: 4,
-          interactionQualityScore: 5,
-          safetyBoundaryLevel: 'NO_CONCERN',
-          positiveTags: ['EASY_TO_TALK'],
-          issueTags: [],
-          note: '聊得来。',
-          updatedAt: new Date('2026-05-14T10:05:00.000Z'),
-        },
-      ],
-    });
-    const prisma = createDashboardPrismaMock({
-      revealedCycles,
-      recentParticipations: [
-        { cycleId: 'cycle-2', status: 'OPTED_IN' },
-        { cycleId: 'cycle-1', status: 'OPTED_IN' },
-      ],
-      recentMatches: [
-        buildHistoryMatchParticipant({
-          cycleId: 'cycle-2',
-          matchId: 'match-2',
-          introducedAt: new Date('2026-05-08T13:00:00.000Z'),
-        }),
-        buildHistoryMatchParticipant({
-          cycleId: 'cycle-1',
-          matchId: 'match-old',
-          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
-        }),
-      ],
-      lastRevealedParticipation: {
-        cycleId: 'cycle-2',
-        status: 'OPTED_IN',
-        cycle: revealedCycles[0],
-      },
-      dashboardMeetupMatch: {
-        id: 'match-2',
-        introducedAt: new Date('2026-05-08T13:00:00.000Z'),
-        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
-        meetupSession: session,
-      },
-    });
-    const service = new AccountService(
-      prisma as never,
-      {} as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    const dashboard = await service.getDashboard('user-1');
-
-    expect(dashboard.meetupSummary).toMatchObject({
-      sessionId: 'session-1',
-      canSubmitFeedback: true,
-      feedbackEligibleAt: '2026-05-14T09:00:00.000Z',
-      currentUserFeedback: {
-        personalFitScore: 4,
-        interactionQualityScore: 5,
-        safetyBoundaryLevel: 'NO_CONCERN',
-        positiveTags: ['EASY_TO_TALK'],
-        issueTags: [],
-        note: '聊得来。',
-        submittedAt: '2026-05-14T10:05:00.000Z',
-      },
-    });
-    expect(dashboard.recentMatchHistory[0].meetupSummary).toMatchObject({
-      sessionId: 'session-1',
-      canSubmitFeedback: true,
-      currentUserFeedback: {
-        personalFitScore: 4,
-      },
-    });
-  });
-
-  it('expires dashboard meetup sessions with CAS and writes audit', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-05-14T10:00:00.000Z'));
-
-    const revealedCycles = [
-      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
-    ];
-    const expiredSession = buildDashboardMeetupSession({
-      status: 'EXPIRED',
-      currentProposalId: null,
-      finalConfirmRequiredByUserId: null,
-      expiresAt: null,
-      participants: [
-        {
-          userId: 'user-1',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 1' },
-        },
-        {
-          userId: 'user-2',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 2' },
-        },
-      ],
-    });
-    const session = buildDashboardMeetupSession({
-      currentProposalId: 'proposal-1',
-      expiresAt: new Date('2026-05-14T09:59:00.000Z'),
-    });
-    const prisma = createDashboardPrismaMock({
-      revealedCycles,
-      recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
-      recentMatches: [
-        buildHistoryMatchParticipant({
-          cycleId: 'cycle-1',
-          matchId: 'match-1',
-          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
-        }),
-      ],
-      lastRevealedParticipation: {
-        cycleId: 'cycle-1',
-        status: 'OPTED_IN',
-        cycle: revealedCycles[0],
-      },
-      dashboardMeetupMatch: {
-        id: 'match-1',
-        introducedAt: new Date('2026-05-01T13:00:00.000Z'),
-        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
-        meetupSession: session,
-      },
-    });
-    const tx = {
-      meetupSession: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findUniqueOrThrow: jest.fn().mockResolvedValue(expiredSession),
-      },
-      meetupProposal: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-      },
-      meetupOption: {
-        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
-      },
-      meetupParticipant: {
-        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
-      },
-      auditLog: {
-        create: jest.fn().mockResolvedValue(undefined),
-      },
-    };
-    (prisma as { $transaction?: jest.Mock }).$transaction = jest.fn(
-      (callback: (transaction: typeof tx) => unknown) => callback(tx),
-    );
-    const service = new AccountService(
-      prisma as never,
-      {} as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    const dashboard = await service.getDashboard('user-1');
-
-    expect(dashboard.meetupSummary).toMatchObject({
-      sessionId: 'session-1',
-      status: 'EXPIRED',
-      terminalText: expect.any(String) as string,
-    });
-    expect(dashboard.tasks).toEqual([]);
-    expect(tx.meetupSession.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'session-1',
-        status: 'ACTIVE',
-        currentProposalId: 'proposal-1',
-        finalConfirmRequiredByUserId: null,
-        expiresAt: {
-          lte: new Date('2026-05-14T10:00:00.000Z'),
-        },
-      },
-      data: expect.objectContaining({
-        status: 'EXPIRED',
-        currentProposalId: null,
-        finalConfirmRequiredByUserId: null,
-      }) as object,
-    });
-    expect(tx.auditLog.create).toHaveBeenCalledWith({
-      data: {
-        actorId: null,
-        action: 'meetup.expired',
-        metadata: {
-          sessionId: 'session-1',
-          matchId: 'match-1',
-        },
-      },
-    });
-  });
-
-  it('archives dashboard meetup sessions with CAS and writes audit', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-05-14T10:00:00.000Z'));
-
-    const revealedCycles = [
-      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
-    ];
-    const archivedSession = buildDashboardMeetupSession({
-      status: 'ARCHIVED',
-      currentProposalId: null,
-      finalConfirmRequiredByUserId: null,
-      expiresAt: null,
-      archiveEligibleAt: new Date('2026-05-14T09:59:00.000Z'),
-      participants: [
-        {
-          userId: 'user-1',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 1' },
-        },
-        {
-          userId: 'user-2',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 2' },
-        },
-      ],
-    });
-    const session = buildDashboardMeetupSession({
-      status: 'LOCKED',
-      currentProposalId: null,
-      finalConfirmRequiredByUserId: null,
-      expiresAt: null,
-      archiveEligibleAt: new Date('2026-05-14T09:59:00.000Z'),
-      confirmedTimeOptionId: 'time-1',
-      confirmedLocationOptionId: 'location-1',
-      confirmedTimeOption: {
-        startsAt: new Date('2026-05-14T08:00:00.000Z'),
-        endsAt: new Date('2026-05-14T09:00:00.000Z'),
-      },
-      confirmedLocationOption: {
-        placeName: 'Cafe',
-      },
-    });
-    const prisma = createDashboardPrismaMock({
-      revealedCycles,
-      recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
-      recentMatches: [
-        buildHistoryMatchParticipant({
-          cycleId: 'cycle-1',
-          matchId: 'match-1',
-          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
-        }),
-      ],
-      lastRevealedParticipation: {
-        cycleId: 'cycle-1',
-        status: 'OPTED_IN',
-        cycle: revealedCycles[0],
-      },
-      dashboardMeetupMatch: {
-        id: 'match-1',
-        introducedAt: new Date('2026-05-01T13:00:00.000Z'),
-        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
-        meetupSession: session,
-      },
-    });
-    const tx = {
-      meetupSession: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findUniqueOrThrow: jest.fn().mockResolvedValue(archivedSession),
-      },
-      meetupParticipant: {
-        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
-      },
-      auditLog: {
-        create: jest.fn().mockResolvedValue(undefined),
-      },
-    };
-    (prisma as { $transaction?: jest.Mock }).$transaction = jest.fn(
-      (callback: (transaction: typeof tx) => unknown) => callback(tx),
-    );
-    const service = new AccountService(
-      prisma as never,
-      {} as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    const dashboard = await service.getDashboard('user-1');
-
-    expect(dashboard.meetupSummary).toMatchObject({
-      sessionId: 'session-1',
-      status: 'ARCHIVED',
-      terminalText: expect.any(String) as string,
-    });
-    expect(tx.meetupSession.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'session-1',
-        status: 'LOCKED',
-        currentProposalId: null,
-        finalConfirmRequiredByUserId: null,
-        archiveEligibleAt: {
-          lte: new Date('2026-05-14T10:00:00.000Z'),
-        },
-      },
-      data: expect.objectContaining({
-        status: 'ARCHIVED',
-        currentProposalId: null,
-        finalConfirmRequiredByUserId: null,
-      }) as object,
-    });
-    expect(tx.auditLog.create).toHaveBeenCalledWith({
-      data: {
-        actorId: null,
-        action: 'meetup.archived',
-        metadata: {
-          sessionId: 'session-1',
-          matchId: 'match-1',
-        },
-      },
-    });
-  });
-
-  it('does not write dashboard lifecycle side effects when CAS loses to a terminal state', async () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-05-14T10:00:00.000Z'));
-
-    const revealedCycles = [
-      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
-    ];
-    const canceledSession = buildDashboardMeetupSession({
-      status: 'CANCELED',
-      currentProposalId: null,
-      finalConfirmRequiredByUserId: null,
-      canceledAt: new Date('2026-05-14T09:59:30.000Z'),
-      canceledByUserId: 'user-2',
-      expiresAt: null,
-      participants: [
-        {
-          userId: 'user-1',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 1' },
-        },
-        {
-          userId: 'user-2',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 2' },
-        },
-      ],
-    });
-    const session = buildDashboardMeetupSession({
-      currentProposalId: 'proposal-1',
-      expiresAt: new Date('2026-05-14T09:59:00.000Z'),
-    });
-    const prisma = createDashboardPrismaMock({
-      revealedCycles,
-      recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
-      recentMatches: [
-        buildHistoryMatchParticipant({
-          cycleId: 'cycle-1',
-          matchId: 'match-1',
-          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
-        }),
-      ],
-      lastRevealedParticipation: {
-        cycleId: 'cycle-1',
-        status: 'OPTED_IN',
-        cycle: revealedCycles[0],
-      },
-      dashboardMeetupMatch: {
-        id: 'match-1',
-        introducedAt: new Date('2026-05-01T13:00:00.000Z'),
-        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
-        meetupSession: session,
-      },
-    });
-    const tx = {
-      meetupSession: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-        findUniqueOrThrow: jest.fn().mockResolvedValue(canceledSession),
-      },
-      meetupProposal: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-      },
-      meetupOption: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-      },
-      meetupParticipant: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-      },
-      auditLog: {
-        create: jest.fn().mockResolvedValue(undefined),
-      },
-    };
-    (prisma as { $transaction?: jest.Mock }).$transaction = jest.fn(
-      (callback: (transaction: typeof tx) => unknown) => callback(tx),
-    );
-    const service = new AccountService(
-      prisma as never,
-      {} as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    const dashboard = await service.getDashboard('user-1');
-
-    expect(dashboard.meetupSummary).toMatchObject({
-      sessionId: 'session-1',
-      status: 'CANCELED',
-      terminalText: expect.any(String) as string,
-    });
-    expect(tx.meetupProposal.updateMany).not.toHaveBeenCalled();
-    expect(tx.meetupOption.updateMany).not.toHaveBeenCalled();
-    expect(tx.meetupParticipant.updateMany).not.toHaveBeenCalled();
-    expect(tx.auditLog.create).not.toHaveBeenCalled();
-  });
-
-  it('surfaces a dashboard todo when the counterpart cancels a confirmed meetup', async () => {
-    const revealedCycles = [
-      buildRevealedCycle('cycle-1', '第一轮', '2026-05-01T12:00:00.000Z'),
-    ];
-    const canceledAt = new Date('2026-05-14T09:59:30.000Z');
-    const canceledSession = buildDashboardMeetupSession({
-      status: 'CANCELED',
-      currentProposalId: null,
-      confirmedTimeOptionId: 'time-1',
-      confirmedLocationOptionId: 'location-1',
-      finalConfirmRequiredByUserId: null,
-      lockedAt: new Date('2026-05-13T10:00:00.000Z'),
-      canceledAt,
-      canceledByUserId: 'user-2',
-      expiresAt: null,
-      lastActiveAt: canceledAt,
-      confirmedTimeOption: {
-        startsAt: new Date('2026-05-15T08:00:00.000Z'),
-        endsAt: new Date('2026-05-15T09:00:00.000Z'),
-      },
-      confirmedLocationOption: {
-        placeName: 'Cafe',
-      },
-      participants: [
-        {
-          userId: 'user-1',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: new Date('2026-05-14T09:00:00.000Z'),
-          user: { displayName: 'User 1' },
-        },
-        {
-          userId: 'user-2',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 2' },
-        },
-      ],
-    });
-    const prisma = createDashboardPrismaMock({
-      revealedCycles,
-      recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
-      recentMatches: [
-        buildHistoryMatchParticipant({
-          cycleId: 'cycle-1',
-          matchId: 'match-1',
-          introducedAt: new Date('2026-05-01T13:00:00.000Z'),
-        }),
-      ],
-      lastRevealedParticipation: {
-        cycleId: 'cycle-1',
-        status: 'OPTED_IN',
-        cycle: revealedCycles[0],
-      },
-      dashboardMeetupMatch: {
-        id: 'match-1',
-        introducedAt: new Date('2026-05-01T13:00:00.000Z'),
-        participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
-        meetupSession: canceledSession,
-      },
-    });
-    const service = new AccountService(
-      prisma as never,
-      {} as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    const dashboard = await service.getDashboard('user-1');
-
-    expect(dashboard.tasks).toEqual([
-      {
-        id: 'meetup-canceled:session-1',
-        type: 'MEETUP',
-        priority: 11,
-        title: '第一次见面已取消',
-        text: '对方取消了该次见面',
-        href: '/dashboard/meetup/session-1',
-        userTurnStatus: 'NONE',
-        progressStatus: 'CANCELED',
-        matchId: 'match-1',
-        sessionId: 'session-1',
-        updatedAt: '2026-05-14T09:59:30.000Z',
-      },
-    ]);
-  });
-
   it('limits reported history matches and keeps the match id for reuse', async () => {
     const revealedCycles = [
       buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
@@ -3201,7 +2563,6 @@ describe('AccountService', () => {
             cycleId: 'cycle-1',
             matchId: 'match-1',
             reportStatus: 'OPEN',
-            currentUserRequestedAt: new Date('2026-04-01T12:30:00.000Z'),
           }),
         ],
         lastRevealedParticipation: {
@@ -3210,7 +2571,6 @@ describe('AccountService', () => {
           cycle: revealedCycles[0],
         },
       }) as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -3275,7 +2635,6 @@ describe('AccountService', () => {
         },
       }) as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -3302,235 +2661,6 @@ describe('AccountService', () => {
         participants: [],
       },
     });
-  });
-
-  it('converges expired dashboard meetup sessions with a guarded transition and audit log', async () => {
-    const revealedCycles = [
-      buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
-    ];
-    const expiredSession = buildDashboardMeetupSession();
-    const loadedExpiredSession = buildDashboardMeetupSession({
-      status: 'EXPIRED',
-      currentProposalId: null,
-      finalConfirmRequiredByUserId: null,
-      expiresAt: null,
-      participants: [
-        {
-          userId: 'user-1',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 1' },
-        },
-        {
-          userId: 'user-2',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 2' },
-        },
-      ],
-    });
-    const meetupSessionUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const meetupProposalUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const meetupOptionUpdateMany = jest.fn().mockResolvedValue({ count: 2 });
-    const meetupParticipantUpdateMany = jest
-      .fn()
-      .mockResolvedValue({ count: 2 });
-    const auditLogCreate = jest.fn().mockResolvedValue(undefined);
-    const tx = {
-      meetupSession: {
-        updateMany: meetupSessionUpdateMany,
-        findUniqueOrThrow: jest.fn().mockResolvedValue(loadedExpiredSession),
-      },
-      meetupProposal: {
-        updateMany: meetupProposalUpdateMany,
-      },
-      meetupOption: {
-        updateMany: meetupOptionUpdateMany,
-      },
-      meetupParticipant: {
-        updateMany: meetupParticipantUpdateMany,
-      },
-      auditLog: {
-        create: auditLogCreate,
-      },
-    };
-    const prisma = {
-      ...createDashboardPrismaMock({
-        revealedCycles,
-        recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
-        recentMatches: [
-          buildHistoryMatchParticipant({
-            cycleId: 'cycle-1',
-            matchId: 'match-1',
-            introducedAt: new Date('2026-04-01T13:00:00.000Z'),
-          }),
-        ],
-        lastRevealedParticipation: {
-          cycleId: 'cycle-1',
-          status: 'OPTED_IN',
-          cycle: revealedCycles[0],
-        },
-        dashboardMeetupMatch: {
-          id: 'match-1',
-          introducedAt: new Date('2026-04-01T13:00:00.000Z'),
-          participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
-          meetupSession: expiredSession,
-        },
-      }),
-      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
-        callback(tx),
-      ),
-    };
-    const service = new AccountService(
-      prisma as never,
-      {} as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    const dashboard = await service.getDashboard('user-1');
-
-    expect(dashboard.meetupSummary?.status).toBe('EXPIRED');
-    expect(meetupSessionUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'session-1',
-        status: 'ACTIVE',
-        currentProposalId: 'proposal-1',
-        finalConfirmRequiredByUserId: null,
-        expiresAt: {
-          lte: expect.any(Date) as Date,
-        },
-      },
-      data: expect.objectContaining({
-        status: 'EXPIRED',
-        currentProposalId: null,
-        finalConfirmRequiredByUserId: null,
-      }) as object,
-    });
-    expect(meetupProposalUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'proposal-1',
-        sessionId: 'session-1',
-        status: 'PENDING',
-      },
-      data: {
-        status: 'SUPERSEDED',
-      },
-    });
-    expect(meetupParticipantUpdateMany).toHaveBeenCalledWith({
-      where: { sessionId: 'session-1' },
-      data: {
-        turnState: 'NONE',
-        responseRequiredAt: null,
-        responseRequiredMessageId: null,
-      },
-    });
-    expect(auditLogCreate).toHaveBeenCalledWith({
-      data: {
-        actorId: null,
-        action: 'meetup.expired',
-        metadata: {
-          sessionId: 'session-1',
-          matchId: 'match-1',
-        },
-      },
-    });
-  });
-
-  it('does not clear dashboard meetup turns or audit when expiry transition loses the race', async () => {
-    const revealedCycles = [
-      buildRevealedCycle('cycle-1', '第一轮', '2026-04-01T12:00:00.000Z'),
-    ];
-    const expiredSession = buildDashboardMeetupSession();
-    const canceledSession = buildDashboardMeetupSession({
-      status: 'CANCELED',
-      currentProposalId: null,
-      finalConfirmRequiredByUserId: null,
-      expiresAt: null,
-      canceledAt: new Date('2026-05-14T10:00:00.000Z'),
-      canceledByUserId: 'user-2',
-      participants: [
-        {
-          userId: 'user-1',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 1' },
-        },
-        {
-          userId: 'user-2',
-          turnState: 'NONE',
-          revisionUsedAt: null,
-          lastSeenAt: null,
-          user: { displayName: 'User 2' },
-        },
-      ],
-    });
-    const meetupSessionUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
-    const meetupProposalUpdateMany = jest.fn();
-    const meetupParticipantUpdateMany = jest.fn();
-    const auditLogCreate = jest.fn();
-    const tx = {
-      meetupSession: {
-        updateMany: meetupSessionUpdateMany,
-        findUniqueOrThrow: jest.fn().mockResolvedValue(canceledSession),
-      },
-      meetupProposal: {
-        updateMany: meetupProposalUpdateMany,
-      },
-      meetupOption: {
-        updateMany: jest.fn(),
-      },
-      meetupParticipant: {
-        updateMany: meetupParticipantUpdateMany,
-      },
-      auditLog: {
-        create: auditLogCreate,
-      },
-    };
-    const prisma = {
-      ...createDashboardPrismaMock({
-        revealedCycles,
-        recentParticipations: [{ cycleId: 'cycle-1', status: 'OPTED_IN' }],
-        recentMatches: [
-          buildHistoryMatchParticipant({
-            cycleId: 'cycle-1',
-            matchId: 'match-1',
-            introducedAt: new Date('2026-04-01T13:00:00.000Z'),
-          }),
-        ],
-        lastRevealedParticipation: {
-          cycleId: 'cycle-1',
-          status: 'OPTED_IN',
-          cycle: revealedCycles[0],
-        },
-        dashboardMeetupMatch: {
-          id: 'match-1',
-          introducedAt: new Date('2026-04-01T13:00:00.000Z'),
-          participants: [{ userId: 'user-1' }, { userId: 'user-2' }],
-          meetupSession: expiredSession,
-        },
-      }),
-      $transaction: jest.fn((callback: (client: typeof tx) => unknown) =>
-        callback(tx),
-      ),
-    };
-    const service = new AccountService(
-      prisma as never,
-      {} as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    const dashboard = await service.getDashboard('user-1');
-
-    expect(dashboard.meetupSummary?.status).toBe('CANCELED');
-    expect(meetupSessionUpdateMany).toHaveBeenCalledTimes(1);
-    expect(meetupProposalUpdateMany).not.toHaveBeenCalled();
-    expect(meetupParticipantUpdateMany).not.toHaveBeenCalled();
-    expect(auditLogCreate).not.toHaveBeenCalled();
   });
 
   it('treats a missing current-cycle participation as opted out on dashboard load', async () => {
@@ -3573,7 +2703,6 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
       {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
@@ -3631,7 +2760,6 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -3645,7 +2773,7 @@ describe('AccountService', () => {
   });
 
   it('saves contact preferences with normalized international phone numbers', async () => {
-    const userUpdate = jest.fn().mockResolvedValue(undefined);
+    const userUpdate = jest.fn().mockResolvedValue({ count: 1 });
     const deleteMany = jest.fn().mockResolvedValue({ count: 1 });
     const upsert = jest.fn().mockResolvedValue(undefined);
     const findMany = jest.fn().mockResolvedValue([
@@ -3669,7 +2797,7 @@ describe('AccountService', () => {
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         callback({
           user: {
-            update: userUpdate,
+            updateMany: userUpdate,
           },
           userContactMethod: {
             deleteMany,
@@ -3682,12 +2810,12 @@ describe('AccountService', () => {
     const service = new AccountService(
       prisma as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
       service.updateContactPreferences('user-1', {
+        revision: 0,
         preferredContactChannel: 'PHONE',
         methods: [
           { type: 'PHONE', value: '+86 138 0013 8000' },
@@ -3695,6 +2823,7 @@ describe('AccountService', () => {
         ],
       }),
     ).resolves.toEqual({
+      revision: 1,
       email: 'user-1@example.com',
       preferredContactChannel: 'PHONE',
       methods: [
@@ -3703,8 +2832,15 @@ describe('AccountService', () => {
       ],
     });
     expect(userUpdate).toHaveBeenCalledWith({
-      where: { id: 'user-1' },
-      data: { preferredContactChannel: 'PHONE' },
+      where: {
+        id: 'user-1',
+        contactPreferencesRevision: 0,
+        deactivatedAt: null,
+      },
+      data: {
+        preferredContactChannel: 'PHONE',
+        contactPreferencesRevision: { increment: 1 },
+      },
     });
     expect(deleteMany).toHaveBeenCalledWith({
       where: {
@@ -3738,277 +2874,18 @@ describe('AccountService', () => {
     const service = new AccountService(
       {} as never,
       {} as never,
-      {} as never,
       createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
       service.updateContactPreferences('user-1', {
+        revision: 0,
         preferredContactChannel: 'QQ',
         methods: [{ type: 'WECHAT', value: 'wx_user' }],
       }),
     ).rejects.toMatchObject({
       message: 'Selected contact channel must have a value.',
     });
-  });
-
-  it('uses each participant selected contact channel when requesting contact', async () => {
-    const matchId = 'cm00000000000000000000004';
-    const createMany = jest.fn().mockResolvedValue({ count: 2 });
-    const queuedEmails = [
-      {
-        dedupeKey: `match-introduction:${matchId}:requester`,
-        recipientEmail: 'user-1@example.com',
-        subject: 'subject-1',
-        html: '<p>requester</p>',
-      },
-      {
-        dedupeKey: `match-introduction:${matchId}:recipient`,
-        recipientEmail: 'user-2@example.com',
-        subject: 'subject-2',
-        html: '<p>recipient</p>',
-      },
-    ];
-    const buildIntroductionEmails: jest.MockedFunction<
-      (payload: IntroductionEmailPayload) => typeof queuedEmails
-    > = jest.fn().mockReturnValue(queuedEmails);
-    const mailService = {
-      buildIntroductionEmails,
-      flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
-    };
-    const productAnalytics = {
-      enqueueMatchContactRequestedOutcome: jest
-        .fn()
-        .mockResolvedValue(`match_contact_requested:${matchId}`),
-    };
-    const participantUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const transactionClient = {
-      $queryRaw: jest.fn().mockResolvedValue([{ id: matchId }]),
-      block: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      match: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-      },
-      matchParticipant: {
-        updateMany: participantUpdateMany,
-      },
-      outboundEmail: {
-        createMany,
-      },
-    };
-    const prisma = {
-      matchParticipant: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'participant-1',
-          userId: 'user-1',
-          match: {
-            id: matchId,
-            revealedAt: new Date('2026-05-08T12:00:00.000Z'),
-            introducedAt: null,
-            reasons: ['reason'],
-            reason: 'reason paragraph',
-            conversationTopics: ['topic 1'],
-            participants: [
-              {
-                id: 'participant-1',
-                userId: 'user-1',
-                user: {
-                  email: 'user-1@example.com',
-                  displayName: 'User 1',
-                  preferredContactChannel: 'WECHAT',
-                  contactMethods: [{ type: 'WECHAT', value: 'wx_user_1' }],
-                  profile: { headline: 'hello' },
-                  school: { name: 'School A' },
-                  questionnaireResponse: null,
-                },
-              },
-              {
-                id: 'participant-2',
-                userId: 'user-2',
-                user: {
-                  email: 'user-2@example.com',
-                  displayName: 'User 2',
-                  preferredContactChannel: 'PHONE',
-                  contactMethods: [{ type: 'PHONE', value: '+14155552671' }],
-                  profile: { headline: 'world' },
-                  school: { name: 'School B' },
-                  questionnaireResponse: null,
-                },
-              },
-            ],
-          },
-        }),
-      },
-      block: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      cycleParticipation: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      auditLog: {
-        create: jest.fn().mockResolvedValue(undefined),
-      },
-      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-        callback(transactionClient),
-      ),
-    };
-    const service = new AccountService(
-      prisma as never,
-      mailService as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-      undefined,
-      undefined,
-      productAnalytics as never,
-    );
-
-    await expect(service.requestContact('user-1', matchId)).resolves.toEqual({
-      ok: true,
-    });
-    expect(mailService.buildIntroductionEmails).toHaveBeenCalledTimes(1);
-    const introductionEmailPayload =
-      mailService.buildIntroductionEmails.mock.calls[0][0];
-    expect(introductionEmailPayload.requester.publicContact).toEqual({
-      type: 'WECHAT',
-      label: '微信号',
-      value: 'wx_user_1',
-    });
-    expect(introductionEmailPayload.recipient.publicContact).toEqual({
-      type: 'PHONE',
-      label: '手机号',
-      value: '+14155552671',
-    });
-    expect(participantUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'participant-1',
-        contactRequestedAt: null,
-      },
-      data: {
-        contactRequestedAt: expect.any(Date) as Date,
-        introducedContactType: 'WECHAT',
-        introducedContactValue: 'wx_user_1',
-      },
-    });
-    expect(participantUpdateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'participant-2',
-      },
-      data: {
-        introducedContactType: 'PHONE',
-        introducedContactValue: '+14155552671',
-      },
-    });
-    expect(
-      productAnalytics.enqueueMatchContactRequestedOutcome,
-    ).toHaveBeenCalledWith(transactionClient, {
-      userId: 'user-1',
-      matchId,
-      occurredAt: expect.any(Date) as Date,
-    });
-  });
-
-  it('does not introduce a match when a block appears inside the contact request transaction', async () => {
-    const matchUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const participantUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const createMany = jest.fn().mockResolvedValue({ count: 2 });
-    const mailService = {
-      buildIntroductionEmails: jest.fn().mockReturnValue([
-        {
-          dedupeKey: 'match-introduction:match-1:requester',
-          recipientEmail: 'user-1@example.com',
-          subject: 'subject-1',
-          html: '<p>requester</p>',
-        },
-      ]),
-      flushQueuedEmails: jest.fn().mockResolvedValue(undefined),
-    };
-    const prisma = {
-      matchParticipant: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'participant-1',
-          userId: 'user-1',
-          match: {
-            id: 'match-1',
-            revealedAt: new Date('2026-05-08T12:00:00.000Z'),
-            introducedAt: null,
-            reasons: ['reason'],
-            reason: 'reason paragraph',
-            conversationTopics: ['topic 1'],
-            participants: [
-              {
-                id: 'participant-1',
-                userId: 'user-1',
-                user: {
-                  email: 'user-1@example.com',
-                  displayName: 'User 1',
-                  profile: { headline: 'hello' },
-                  school: { name: 'School A' },
-                  questionnaireResponse: null,
-                },
-              },
-              {
-                id: 'participant-2',
-                userId: 'user-2',
-                user: {
-                  email: 'user-2@example.com',
-                  displayName: 'User 2',
-                  profile: { headline: 'world' },
-                  school: { name: 'School B' },
-                  questionnaireResponse: null,
-                },
-              },
-            ],
-          },
-        }),
-      },
-      block: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      cycleParticipation: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      auditLog: {
-        create: jest.fn().mockResolvedValue(undefined),
-      },
-      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
-        callback({
-          $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
-          block: {
-            findFirst: jest.fn().mockResolvedValue({
-              blockerId: 'user-2',
-              blockedId: 'user-1',
-            }),
-          },
-          match: {
-            updateMany: matchUpdateMany,
-          },
-          matchParticipant: {
-            updateMany: participantUpdateMany,
-          },
-          outboundEmail: {
-            createMany,
-          },
-        }),
-      ),
-    };
-    const service = new AccountService(
-      prisma as never,
-      mailService as never,
-      {} as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    await expect(
-      service.requestContact('user-1', 'match-1'),
-    ).rejects.toMatchObject({
-      message: 'This match is no longer available for introductions.',
-    });
-    expect(matchUpdateMany).not.toHaveBeenCalled();
-    expect(participantUpdateMany).not.toHaveBeenCalled();
-    expect(createMany).not.toHaveBeenCalled();
-    expect(mailService.buildIntroductionEmails).not.toHaveBeenCalled();
-    expect(mailService.flushQueuedEmails).not.toHaveBeenCalled();
   });
 
   it('creates only a one-way block when a match is reported', async () => {
@@ -4076,6 +2953,9 @@ describe('AccountService', () => {
           async (callback: (tx: unknown) => Promise<unknown>) =>
             callback({
               $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
+              outboundEmail: {
+                updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+              },
               report: {
                 findFirst: jest.fn().mockResolvedValue(null),
                 create: reportCreate,
@@ -4092,10 +2972,6 @@ describe('AccountService', () => {
     const dashboardSnapshotService = createDashboardSnapshotServiceMock();
     const service = new AccountService(
       prisma as never,
-      {
-        buildIntroductionEmails: jest.fn(),
-        flushQueuedEmails: jest.fn(),
-      } as never,
       {} as never,
       dashboardSnapshotService as never,
     );
@@ -4185,6 +3061,9 @@ describe('AccountService', () => {
           async (callback: (tx: unknown) => Promise<unknown>) =>
             callback({
               $queryRaw: jest.fn().mockResolvedValue([{ id: 'match-1' }]),
+              outboundEmail: {
+                updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+              },
               report: {
                 findFirst: transactionReportFindFirst,
                 create: reportCreate,
@@ -4201,10 +3080,6 @@ describe('AccountService', () => {
     const dashboardSnapshotService = createDashboardSnapshotServiceMock();
     const service = new AccountService(
       prisma as never,
-      {
-        buildIntroductionEmails: jest.fn(),
-        flushQueuedEmails: jest.fn(),
-      } as never,
       {} as never,
       dashboardSnapshotService as never,
     );

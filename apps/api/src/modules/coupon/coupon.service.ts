@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { ActivationService } from '../activation/activation.service';
+import { Injectable, Optional } from '@nestjs/common';
 import {
   CouponRule,
   effectiveCouponStatus,
@@ -12,7 +13,10 @@ import {
 
 @Injectable()
 export class CouponService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly activation?: ActivationService,
+  ) {}
 
   /**
    * The signed-in user's coupons with the redemption code visible (coupons are
@@ -22,6 +26,7 @@ export class CouponService {
    * redemption, not represented here.
    */
   async getMyCoupons(userId: string) {
+    await this.activation?.tryGrantCoupons(userId);
     const coupons = await this.prisma.coupon.findMany({
       where: { userId },
       orderBy: { issuedAt: 'desc' },

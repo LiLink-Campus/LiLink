@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { Fragment, useSyncExternalStore } from "react";
 
 type HeroRevealCountdownProps = {
   /** ISO timestamp for the next reveal; null means not configured */
@@ -52,11 +52,7 @@ export function HeroRevealCountdown({
   offline,
   serverFallbackLabel,
 }: HeroRevealCountdownProps) {
-  const nowMs = useSyncExternalStore(
-    subscribeToClock,
-    getClientNowMs,
-    getServerNowMs,
-  );
+  const nowMs = useSyncExternalStore(subscribeToClock, getClientNowMs, getServerNowMs);
 
   if (offline) {
     return (
@@ -68,20 +64,15 @@ export function HeroRevealCountdown({
 
   if (!revealAt) {
     return (
-      <div className="hero-reveal-countdown hero-reveal-countdown--static">
-        轮次时间待配置
-      </div>
+      <div className="hero-reveal-countdown hero-reveal-countdown--static">轮次时间待配置</div>
     );
   }
 
   const target = new Date(revealAt).getTime();
   const targetValid = !Number.isNaN(target);
-  const remaining =
-    nowMs != null && targetValid ? target - nowMs : null;
+  const remaining = nowMs != null && targetValid ? target - nowMs : null;
   const parts =
-    remaining != null && !Number.isNaN(remaining)
-      ? formatRemainingParts(remaining)
-      : null;
+    remaining != null && !Number.isNaN(remaining) ? formatRemainingParts(remaining) : null;
 
   if (!targetValid || nowMs == null) {
     return (
@@ -92,27 +83,34 @@ export function HeroRevealCountdown({
   }
 
   if (parts == null) {
-    return (
-      <div className="hero-reveal-countdown hero-reveal-countdown--static">
-        本期已揭晓
-      </div>
-    );
+    return <div className="hero-reveal-countdown hero-reveal-countdown--static">本期已揭晓</div>;
   }
 
   return (
     <div
       className="hero-reveal-countdown"
-      aria-live="polite"
+      role="timer"
+      aria-live="off"
       aria-label="距离下次揭晓的剩余时间"
     >
-      <span className="countdown-num">{parts.days}</span>
-      <span className="countdown-unit">天</span>
-      <span className="countdown-num">{pad2(parts.hours)}</span>
-      <span className="countdown-unit">时</span>
-      <span className="countdown-num">{pad2(parts.minutes)}</span>
-      <span className="countdown-unit">分</span>
-      <span className="countdown-num">{pad2(parts.seconds)}</span>
-      <span className="countdown-unit">秒</span>
+      {[
+        { value: parts.days, unit: "天" },
+        { value: parts.hours, unit: "时" },
+        { value: parts.minutes, unit: "分" },
+        { value: parts.seconds, unit: "秒" },
+      ].map(({ value, unit }, index) => (
+        <Fragment key={unit}>
+          {index > 0 ? (
+            <span className="countdown-separator" aria-hidden="true">
+              :
+            </span>
+          ) : null}
+          <span className="countdown-part">
+            <span className="countdown-num">{pad2(value)}</span>
+            <span className="countdown-unit">{unit}</span>
+          </span>
+        </Fragment>
+      ))}
     </div>
   );
 }

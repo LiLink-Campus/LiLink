@@ -79,6 +79,65 @@ describe('SchoolResolverService', () => {
     });
   });
 
+  it.each(['muc.cn', 'mail.muc.cn', 'stu.blcu.cn'])(
+    'resolves explicit cn domains: %s',
+    async (domain) => {
+      const configured = domain.includes('blcu') ? 'stu.blcu.cn' : 'muc.cn';
+      const service = new SchoolResolverService({
+        schoolDomain: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              domain: configured,
+              schoolId: 'school-1',
+              school: {
+                name: 'School',
+                slug: 'school',
+                description: null,
+                registrationEligible: true,
+              },
+            },
+          ]),
+        },
+      } as never);
+      await expect(
+        service.resolveByEmail(`student@${domain}`),
+      ).resolves.toMatchObject({
+        schoolId: 'school-1',
+        registrationEligible: true,
+      });
+      await expect(
+        service.resolveByEmail('student@evilmuc.cn'),
+      ).resolves.toBeNull();
+    },
+  );
+
+  it('uses only explicitly configured domains', async () => {
+    const service = new SchoolResolverService({
+      schoolDomain: {
+        findMany: jest.fn().mockResolvedValue([
+          { domain: 'muc.edu.cn', schoolId: 'alias', school: {} },
+          { domain: 'muc.cn', schoolId: 'explicit', school: {} },
+        ]),
+      },
+    } as never);
+    await expect(
+      service.resolveByEmail('student@muc.cn'),
+    ).resolves.toMatchObject({ schoolId: 'explicit' });
+  });
+
+  it('does not infer an unconfigured cn suffix from edu.cn', async () => {
+    const service = new SchoolResolverService({
+      schoolDomain: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            { domain: 'muc.edu.cn', schoolId: 'school-1', school: {} },
+          ]),
+      },
+    } as never);
+    await expect(service.resolveByEmail('student@muc.cn')).resolves.toBeNull();
+  });
+
   it('never trusts a bare top-level domain even if one is stored', async () => {
     const findMany = jest.fn<
       Promise<unknown>,

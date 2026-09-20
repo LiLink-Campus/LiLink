@@ -1,3 +1,4 @@
+import { LIFESTYLE_QUESTIONS } from "@lilink/shared";
 import {
   AGE_OPTIONS,
   BIRTH_YEAR_OPTIONS,
@@ -68,6 +69,9 @@ export type HardMatchFormState = {
   languages: string[];
   partnerLanguages: string[];
   looks: string;
+  partnerSmokingStatus?: string[];
+  partnerDrinkingFrequency?: string[];
+  partnerExerciseFrequency?: string[];
   partnerLooks: string[];
   heightCm: string;
   partnerHeightMin: string;
@@ -94,7 +98,10 @@ function createEmptyHardMatchForm(): HardMatchFormState {
     languages: [HARD_MATCH_DEFAULT_LANGUAGE],
     partnerLanguages: [],
     looks: "",
-    partnerLooks: [],
+    partnerSmokingStatus: [],
+    partnerDrinkingFrequency: [],
+    partnerExerciseFrequency: [],
+    partnerLooks: [...HARD_MATCH_LOOKS],
     heightCm: "",
     partnerHeightMin: String(HARD_MATCH_HEIGHT_MIN_CM),
     partnerHeightMax: String(HARD_MATCH_FORM_HEIGHT_MAX_CM),
@@ -203,10 +210,12 @@ export function hardMatchFormFromAnswers(
         savedAnswers?.[HARD_MATCH_KEYS.looks],
         HARD_MATCH_LOOKS,
       ) ?? "",
-    partnerLooks: readStringArray(
-      savedAnswers?.[HARD_MATCH_KEYS.partnerLooks],
-      HARD_MATCH_LOOKS,
-    ),
+    partnerSmokingStatus: readStringArray(savedAnswers?.[HARD_MATCH_KEYS.partnerSmokingStatus], LIFESTYLE_QUESTIONS[1].options),
+    partnerDrinkingFrequency: readStringArray(savedAnswers?.[HARD_MATCH_KEYS.partnerDrinkingFrequency], LIFESTYLE_QUESTIONS[2].options),
+    partnerExerciseFrequency: readStringArray(savedAnswers?.[HARD_MATCH_KEYS.partnerExerciseFrequency], LIFESTYLE_QUESTIONS[0].options),
+    partnerLooks: savedAnswers?.[HARD_MATCH_KEYS.partnerLooks] == null
+      ? [...HARD_MATCH_LOOKS]
+      : readStringArray(savedAnswers[HARD_MATCH_KEYS.partnerLooks], HARD_MATCH_LOOKS),
     heightCm: readHeightValue(savedAnswers?.[HARD_MATCH_KEYS.heightCm]),
     partnerHeightMin: readHeightValue(
       savedAnswers?.[HARD_MATCH_KEYS.partnerHeightMin],
@@ -278,7 +287,6 @@ function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     !formState.birthYear ||
     !formState.birthMonth ||
     !formState.birthDay ||
-    !formState.nationality ||
     !formState.gender ||
     !formState.looks ||
     !formState.heightCm
@@ -288,13 +296,13 @@ function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
 
   if (
     formState.partnerGenders.length === 0 ||
-    formState.partnerLooks.length === 0 ||
-    formState.languages.length === 0
+    formState.partnerLooks.length === 0
   ) {
     throw new Error("多选题至少要选一项。");
   }
 
   const oneLinerIntro = normalizeOneLinerIntro(formState.oneLinerIntro);
+  if (!oneLinerIntro) throw new Error("请填写一句话介绍。");
   if (oneLinerIntro.length > HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH) {
     throw new Error(
       `一句话介绍请不要超过 ${HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH} 字。`,
@@ -321,6 +329,7 @@ function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
   const partnerWeightMax = optionalNumberFromText(formState.partnerWeightMax);
 
   if (
+    weightKg == null ||
     Number.isNaN(weightKg) ||
     weightValueIsOutOfRange(weightKg)
   ) {
@@ -361,6 +370,9 @@ function buildHardMatchAnswerRecord(formState: HardMatchFormState) {
     [HARD_MATCH_KEYS.languages]: formState.languages,
     [HARD_MATCH_KEYS.partnerLanguages]: formState.partnerLanguages,
     [HARD_MATCH_KEYS.looks]: formState.looks,
+    [HARD_MATCH_KEYS.partnerSmokingStatus]: formState.partnerSmokingStatus ?? [],
+    [HARD_MATCH_KEYS.partnerDrinkingFrequency]: formState.partnerDrinkingFrequency ?? [],
+    [HARD_MATCH_KEYS.partnerExerciseFrequency]: formState.partnerExerciseFrequency ?? [],
     [HARD_MATCH_KEYS.partnerLooks]: formState.partnerLooks,
     [HARD_MATCH_KEYS.heightCm]: heightCm,
     [HARD_MATCH_KEYS.partnerHeightMin]: partnerHeightMin,

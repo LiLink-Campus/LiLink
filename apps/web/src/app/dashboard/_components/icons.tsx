@@ -70,15 +70,6 @@ export function LogoutIcon({ className }: IconProps) {
   );
 }
 
-export function ArrowRightIcon({ className }: IconProps) {
-  return (
-    <svg {...baseProps} className={className} aria-hidden="true">
-      <path d="M5 12h14" />
-      <path d="M13 5l7 7-7 7" />
-    </svg>
-  );
-}
-
 export function ArrowLeftIcon({ className }: IconProps) {
   return (
     <svg {...baseProps} className={className} aria-hidden="true">
@@ -93,14 +84,6 @@ export function CheckCircleIcon({ className }: IconProps) {
     <svg {...baseProps} className={className} aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <path d="M8 12.5l3 3 5-6" />
-    </svg>
-  );
-}
-
-export function CircleIcon({ className }: IconProps) {
-  return (
-    <svg {...baseProps} className={className} aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
     </svg>
   );
 }
@@ -123,24 +106,6 @@ export function PeopleIcon({ className }: IconProps) {
       <path d="M3 19a6 6 0 0 1 12 0" />
       <circle cx="17" cy="9" r="2.5" />
       <path d="M15 19a4 4 0 0 1 6.5-3.5" />
-    </svg>
-  );
-}
-
-export function MapPinIcon({ className }: IconProps) {
-  return (
-    <svg {...baseProps} className={className} aria-hidden="true">
-      <path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13z" />
-      <circle cx="12" cy="9" r="2.5" />
-    </svg>
-  );
-}
-
-export function ClockIcon({ className }: IconProps) {
-  return (
-    <svg {...baseProps} className={className} aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
     </svg>
   );
 }

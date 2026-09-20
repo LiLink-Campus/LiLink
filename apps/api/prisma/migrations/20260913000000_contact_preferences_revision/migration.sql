@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "contactPreferencesRevision" INTEGER NOT NULL DEFAULT 0;

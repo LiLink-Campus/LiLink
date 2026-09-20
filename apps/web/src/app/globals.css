@@ -152,34 +152,63 @@ p:last-child {
 /* ── Hero countdown ───────────────────────────────────────── */
 
 .hero-reveal-countdown {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.3rem;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  color: var(--color-text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(0.4rem, 1.5vw, 1rem);
+  min-height: 88px;
+  font-family: var(--font-body);
+  color: var(--color-brand);
 }
-
 .hero-reveal-countdown--static {
   font-family: var(--font-body);
-  font-size: 0.95rem;
+  font-size: 1.35rem;
   color: var(--color-text-secondary);
 }
-
+.countdown-part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: clamp(48px, 10vw, 68px);
+}
 .countdown-num {
-  background: var(--color-brand-tint);
-  color: var(--color-brand-ink);
-  padding: 0.15rem 0.45rem;
-  border-radius: 0.45rem;
-  font-weight: 600;
-  font-size: 1rem;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(2.5rem, 6vw, 3.5rem);
+  font-weight: 700;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
+  color: var(--color-brand);
+  letter-spacing: -0.025em;
 }
-
 .countdown-unit {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  margin-top: 0.65rem;
   color: var(--color-text-secondary);
-  font-size: 0.82rem;
-  margin-right: 0.15rem;
+}
+.countdown-separator {
+  align-self: center;
+  margin-bottom: 1.6rem;
+  font-size: 1.6rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--color-text-muted);
+}
+@media (max-width: 380px) {
+  .hero-reveal-countdown {
+    gap: 0.4rem;
+  }
+  .countdown-num {
+  font-family: "Playfair Display", Georgia, serif;
+    font-size: 2.3rem;
+  }
+  .countdown-part {
+    min-width: 46px;
+  }
+  .countdown-separator {
+    font-size: 1.25rem;
+  }
 }
 
 /* ── Forms ────────────────────────────────────────────────── */
@@ -258,4 +287,13 @@ p:last-child {
 
 .text-balance {
   text-wrap: balance;
+}
+
+/* Artistic numerals for the landing page. */
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/playfair-display-latin.woff2") format("woff2");
 }

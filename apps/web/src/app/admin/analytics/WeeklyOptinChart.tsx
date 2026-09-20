@@ -35,21 +35,16 @@ export default function WeeklyOptinChart({
       cycle.femaleShare == null ? null : Math.round(cycle.femaleShare * 1000) / 10,
   }));
   const hasData = rows.length > 0;
-  const totalOptins = rows.reduce(
-    (total, row) => total + row.male + row.female,
-    0,
-  );
+  const totalOptins = rows.reduce((total, row) => total + row.male + row.female, 0);
 
   return (
     <section className={cx(adminStyles, "analytics-panel")}>
       <div className={cx(adminStyles, "analytics-panel-head")}>
-        <h2>每周报名趋势</h2>
-        <p>按匹配轮次查看男女报名人数与女生占比。</p>
+        <h3>最近轮次报名趋势</h3>
+        <p>最近 8 个非草稿轮次；女生占比以男女报名人数为基数。</p>
       </div>
       {loading && !hasData ? (
-        <div className={cx(adminStyles, "analytics-placeholder")}>
-          正在加载每周报名…
-        </div>
+        <div className={cx(adminStyles, "analytics-placeholder")}>正在加载每周报名…</div>
       ) : hasData ? (
         <>
           <div className={cx(adminStyles, "analytics-summary-row")}>
@@ -58,10 +53,7 @@ export default function WeeklyOptinChart({
           </div>
           <div className={cx(adminStyles, "analytics-chart")}>
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={rows}
-                margin={{ top: 8, right: 10, bottom: 28, left: 0 }}
-              >
+              <ComposedChart data={rows} margin={{ top: 8, right: 10, bottom: 28, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="label"
@@ -94,22 +86,24 @@ export default function WeeklyOptinChart({
                   yAxisId="left"
                   dataKey="male"
                   name="男报名"
-                  fill="var(--color-brand)"
-                  radius={[5, 5, 0, 0]}
+                  fill="var(--admin-chart-male)"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={32}
                 />
                 <Bar
                   yAxisId="left"
                   dataKey="female"
                   name="女报名"
-                  fill="var(--color-accent)"
-                  radius={[5, 5, 0, 0]}
+                  fill="var(--admin-chart-female)"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={32}
                 />
                 <Line
                   yAxisId="right"
                   type="monotone"
                   dataKey="femaleSharePercent"
                   name="女生占比"
-                  stroke="var(--color-coral)"
+                  stroke="var(--admin-chart-ratio)"
                   strokeWidth={2}
                   dot={{ r: 3 }}
                   connectNulls
@@ -120,9 +114,7 @@ export default function WeeklyOptinChart({
           </div>
         </>
       ) : (
-        <div className={cx(adminStyles, "analytics-placeholder")}>
-          暂无每周报名趋势数据。
-        </div>
+        <div className={cx(adminStyles, "analytics-placeholder")}>暂无每周报名趋势数据。</div>
       )}
     </section>
   );

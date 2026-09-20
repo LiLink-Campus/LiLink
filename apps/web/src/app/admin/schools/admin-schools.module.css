@@ -149,3 +149,19 @@
     padding: 0 0.5rem;
   }
 }
+
+@media (max-width: 640px) {
+  .sch-card-main {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 8px 10px;
+  }
+  .sch-card-title strong {
+    white-space: normal;
+    line-height: 1.6;
+  }
+  .sch-card-actions,
+  .sch-card-collapse {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}

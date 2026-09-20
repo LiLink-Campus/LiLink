@@ -1,0 +1,74 @@
+.dialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(800px, 90vw);
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  margin: 0;
+  padding: 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: -12px 0 50px rgb(30 20 30 / 10%);
+}
+.dialog::backdrop {
+  background: rgb(28 24 30 / 24%);
+}
+.content {
+  min-height: 100%;
+}
+.header {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+.header > span {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.header button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.header button:hover {
+  background: var(--color-accent-soft);
+}
+.body {
+  padding: 24px;
+}
+@media (max-width: 560px) {
+  .dialog {
+    width: 100%;
+  }
+  .header {
+    padding: 12px 16px;
+  }
+  .body {
+    padding: 20px 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .body table {
+    min-width: 0;
+  }
+  .body td {
+    padding: 12px;
+    overflow-wrap: anywhere;
+  }
+}

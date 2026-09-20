@@ -10,7 +10,10 @@ describe('PublicController', () => {
         .mockResolvedValue(landing),
       getEligibleSchools: jest.fn(),
     } satisfies Pick<PublicService, 'getLandingPayload' | 'getEligibleSchools'>;
-    const controller = new PublicController(publicService as never);
+    const controller = new PublicController(
+      publicService as never,
+      {} as never,
+    );
 
     await expect(controller.getLanding()).resolves.toBe(landing);
     expect(publicService.getLandingPayload).toHaveBeenCalledWith();
@@ -24,7 +27,10 @@ describe('PublicController', () => {
         .fn<PublicService['getEligibleSchools']>()
         .mockResolvedValue(schools),
     } satisfies Pick<PublicService, 'getLandingPayload' | 'getEligibleSchools'>;
-    const controller = new PublicController(publicService as never);
+    const controller = new PublicController(
+      publicService as never,
+      {} as never,
+    );
 
     await expect(controller.getSchools()).resolves.toBe(schools);
     expect(publicService.getEligibleSchools).toHaveBeenCalledWith();

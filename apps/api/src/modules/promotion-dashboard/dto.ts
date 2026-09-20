@@ -70,3 +70,11 @@ export class PromotionRedemptionsQueryDto extends PromotionQueryDto {
   @Max(ADMIN_LIST_PAGE_SIZE_MAX)
   pageSize?: number;
 }
+
+export class AcquisitionQueryDto {
+  @IsISO8601()
+  from!: string;
+
+  @IsISO8601()
+  to!: string;
+}

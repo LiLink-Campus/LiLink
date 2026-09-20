@@ -1,10 +1,9 @@
 /**
- * Dev-only: seed historical match cycles + a meetup session for full UI testing.
+ * Dev-only: seed historical match cycles for history UI testing.
  *
  * Creates:
  *   - 2 past REVEALED cycles  (history-2026-3, history-2026-4)
  *   - Alice↔Bob matched in both; Carol unmatched in history-2026-3
- *   - history-2026-4: Alice started a MeetupSession; Bob's turn to respond
  *
  * Run from apps/api/:
  *   node scripts/seed-history.mjs
@@ -39,12 +38,6 @@ function weeksAgo(n) {
 function daysAgo(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d;
-}
-
-function daysFromNow(n) {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
   return d;
 }
 
@@ -102,11 +95,10 @@ if (!match1) {
 const matchPayload1 = {
   id: match1.id, score: 87.4,
   introducedAt: new Date(c1RevealAt.getTime() + 2 * 60 * 60 * 1000).toISOString(),
-  currentUserRequestedAt: daysAgo(52).toISOString(),
   reportStatus: null,
   participants: [
-    { userId: alice.id, displayName: '演示-Alice', introLine: '人文方向，期待真诚相处。', email: null, contact: null, schoolName: '北京邮电大学', contactRequestedAt: daysAgo(52).toISOString() },
-    { userId: bob.id,   displayName: '演示-Bob',   introLine: '理工背景，喜欢夜跑和科幻。', email: null, contact: null, schoolName: '中国传媒大学', contactRequestedAt: daysAgo(51).toISOString() },
+    { userId: alice.id, displayName: '演示-Alice', introLine: '人文方向，期待真诚相处。', email: null, contact: null, schoolName: '北京邮电大学' },
+    { userId: bob.id,   displayName: '演示-Bob',   introLine: '理工背景，喜欢夜跑和科幻。', email: null, contact: null, schoolName: '中国传媒大学' },
   ],
 };
 
@@ -128,7 +120,7 @@ for (const [userId, result] of [[alice.id, 'MATCHED'], [bob.id, 'MATCHED'], [car
 console.log('  Snapshots done for cycle1');
 
 // ══════════════════════════════════════════════════════════════════════════
-// CYCLE 2: history-2026-4  — recent cycle, match + ACTIVE meetup session
+// CYCLE 2: history-2026-4  — recent matched cycle
 // ══════════════════════════════════════════════════════════════════════════
 console.log('\n--- Creating history-2026-4 ---');
 
@@ -143,7 +135,7 @@ const cycle2 = await prisma.matchCycle.upsert({
     participationDeadline: weeksAgo(3),
     revealAt: c2RevealAt,
     status: 'REVEALED',
-    notes: 'Seeded historical cycle (recent, with meetup)',
+    notes: 'Seeded historical cycle (recent)',
   },
 });
 console.log('  Cycle2:', cycle2.id);
@@ -178,73 +170,14 @@ if (!match2) {
   console.log('  Match2 exists:', match2.id);
 }
 
-const mpAlice2 = await prisma.matchParticipant.findUniqueOrThrow({ where: { matchId_userId: { matchId: match2.id, userId: alice.id } } });
-const mpBob2   = await prisma.matchParticipant.findUniqueOrThrow({ where: { matchId_userId: { matchId: match2.id, userId: bob.id } } });
-
-// ── MeetupSession ─────────────────────────────────────────────────────────
-let session = await prisma.meetupSession.findUnique({ where: { matchId: match2.id } });
-if (!session) {
-  session = await prisma.meetupSession.create({
-    data: {
-      matchId: match2.id,
-      status: 'ACTIVE',
-      startedByUserId: alice.id,
-      lastActiveAt: daysAgo(17),
-      expiresAt: daysFromNow(7),
-      effectiveExpirationWeeks: 1,
-    },
-  });
-
-  await prisma.meetupParticipant.createMany({
-    data: [
-      { sessionId: session.id, userId: alice.id, matchParticipantId: mpAlice2.id, turnState: 'WAITING', lastSeenAt: daysAgo(17) },
-      { sessionId: session.id, userId: bob.id,   matchParticipantId: mpBob2.id,   turnState: 'REQUIRED', responseRequiredAt: daysAgo(17), lastSeenAt: daysAgo(19) },
-    ],
-    skipDuplicates: true,
-  });
-
-  const propMessage = await prisma.meetupMessage.create({
-    data: { sessionId: session.id, actorUserId: alice.id, type: 'PROPOSE', createdAt: daysAgo(17) },
-  });
-
-  const proposal = await prisma.meetupProposal.create({
-    data: { sessionId: session.id, messageId: propMessage.id, actorUserId: alice.id, scope: 'BOTH', status: 'PENDING', createdAt: daysAgo(17) },
-  });
-
-  // Two time slots + one location
-  const t1 = daysFromNow(3); t1.setHours(14, 0, 0, 0);
-  const t1e = new Date(t1);  t1e.setHours(16, 0, 0, 0);
-  const t2 = daysFromNow(5); t2.setHours(11, 0, 0, 0);
-  const t2e = new Date(t2);  t2e.setHours(13, 0, 0, 0);
-
-  await prisma.meetupOption.createMany({
-    data: [
-      { proposalId: proposal.id, sessionId: session.id, kind: 'TIME', status: 'PENDING', startsAt: t1, endsAt: t1e, toleranceMinutes: 15 },
-      { proposalId: proposal.id, sessionId: session.id, kind: 'TIME', status: 'PENDING', startsAt: t2, endsAt: t2e, toleranceMinutes: 15 },
-      { proposalId: proposal.id, sessionId: session.id, kind: 'LOCATION', status: 'PENDING', placeName: '五道口附近咖啡馆', latitude: 39.9927, longitude: 116.3563 },
-    ],
-    skipDuplicates: true,
-  });
-
-  await prisma.meetupSession.update({ where: { id: session.id }, data: { currentProposalId: proposal.id } });
-  await prisma.meetupParticipant.update({
-    where: { sessionId_userId: { sessionId: session.id, userId: bob.id } },
-    data: { responseRequiredMessageId: propMessage.id },
-  });
-  console.log('  MeetupSession created:', session.id, '| Proposal:', proposal.id);
-} else {
-  console.log('  MeetupSession exists:', session.id);
-}
-
 // Snapshots for cycle2
 const matchPayload2 = {
   id: match2.id, score: 91.2,
   introducedAt: new Date(c2RevealAt.getTime() + 1.5 * 60 * 60 * 1000).toISOString(),
-  currentUserRequestedAt: daysAgo(20).toISOString(),
   reportStatus: null,
   participants: [
-    { userId: alice.id, displayName: '演示-Alice', introLine: '人文方向，期待真诚相处。', email: null, contact: { type: 'WECHAT', label: '微信', value: 'alice_demo' }, schoolName: '北京邮电大学', contactRequestedAt: daysAgo(20).toISOString() },
-    { userId: bob.id,   displayName: '演示-Bob',   introLine: '理工背景，喜欢夜跑和科幻。', email: null, contact: { type: 'WECHAT', label: '微信', value: 'bob_demo' }, schoolName: '中国传媒大学', contactRequestedAt: daysAgo(19).toISOString() },
+    { userId: alice.id, displayName: '演示-Alice', introLine: '人文方向，期待真诚相处。', email: null, contact: { type: 'WECHAT', label: '微信', value: 'alice_demo' }, schoolName: '北京邮电大学' },
+    { userId: bob.id,   displayName: '演示-Bob',   introLine: '理工背景，喜欢夜跑和科幻。', email: null, contact: { type: 'WECHAT', label: '微信', value: 'bob_demo' }, schoolName: '中国传媒大学' },
   ],
 };
 
@@ -264,8 +197,8 @@ for (const [userId] of [[alice.id], [bob.id]]) {
 console.log('  Snapshots done for cycle2');
 
 console.log('\n✅  历史数据注入完成！');
-console.log('   · history-2026-3  ← 8 周前揭晓，Alice↔Bob 匹配（分 87.4），Carol 未匹配，无破冰');
-console.log('   · history-2026-4  ← 3 周前揭晓，Alice↔Bob 匹配（分 91.2），Alice 已发起破冰，Bob 待响应');
+console.log('   · history-2026-3  ← 8 周前揭晓，Alice↔Bob 匹配（分 87.4），Carol 未匹配');
+console.log('   · history-2026-4  ← 3 周前揭晓，Alice↔Bob 匹配（分 91.2），已展示双方联系方式');
 
 console.log('Use your configured SEED_TEST_PASSWORD for local demo accounts.');
 

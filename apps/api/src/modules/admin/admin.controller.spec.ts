@@ -16,7 +16,6 @@ function createAdminServiceMock() {
     getCycleDetail: jest.fn().mockResolvedValue({ id: 'c1' }),
     getCycleParticipants: jest.fn().mockResolvedValue([]),
     getCycleMatches: jest.fn().mockResolvedValue([]),
-    getCycleLogs: jest.fn().mockResolvedValue([]),
     previewCycle: jest.fn().mockResolvedValue({ pairs: [] }),
     duplicateCycle: jest.fn().mockResolvedValue({ id: 'c2' }),
     runCycle: jest.fn().mockResolvedValue({ ok: true }),
@@ -38,8 +37,6 @@ function createAdminServiceMock() {
     getUserById: jest.fn().mockResolvedValue({ id: 'u1' }),
     getUserQuestionnaire: jest.fn().mockResolvedValue(null),
     getUserParticipations: jest.fn().mockResolvedValue({ items: [], total: 0 }),
-    getSettings: jest.fn().mockResolvedValue({}),
-    updateSettings: jest.fn().mockResolvedValue({}),
   };
 }
 
@@ -80,12 +77,11 @@ describe('AdminController', () => {
       matchQuery,
     );
 
-    const logQuery = {} as never;
-    await controller.getCycleLogs('cycle-1', logQuery);
-    expect(adminService.getCycleLogs).toHaveBeenCalledWith('cycle-1', logQuery);
-
-    await controller.previewCycle('cycle-1');
-    expect(adminService.previewCycle).toHaveBeenCalledWith('cycle-1');
+    await controller.previewCycle('cycle-1', adminRequest);
+    expect(adminService.previewCycle).toHaveBeenCalledWith(
+      'cycle-1',
+      'admin-actor-1',
+    );
 
     await controller.getQuestions();
     expect(adminService.getQuestions).toHaveBeenCalledWith();
@@ -113,9 +109,6 @@ describe('AdminController', () => {
       'user-1',
       upQuery,
     );
-
-    await controller.getSettings();
-    expect(adminService.getSettings).toHaveBeenCalledWith();
   });
 
   it('forwards mutating admin routes and passes the authenticated admin actor id', async () => {
@@ -245,13 +238,6 @@ describe('AdminController', () => {
 
     await controller.deleteTestUsers(adminRequest);
     expect(adminService.deleteAllTestUsers).toHaveBeenCalledWith(
-      'admin-actor-1',
-    );
-
-    const settingsPatch = { key: 'value' };
-    await controller.updateSettings(adminRequest, settingsPatch);
-    expect(adminService.updateSettings).toHaveBeenCalledWith(
-      settingsPatch,
       'admin-actor-1',
     );
   });

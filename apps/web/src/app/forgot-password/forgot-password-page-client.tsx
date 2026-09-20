@@ -7,8 +7,10 @@ import { ActionGroup } from "@/components/semantic";
 import { fetchApi } from "../../lib/api";
 import {
   GrassRowIllustration,
-  OliveSprigIllustration,
 } from "../dashboard/_components/illustrations";
+import loginStyles from "../login/login.module.css";
+import flowStyles from "../register/register-flow.module.css";
+import styles from "./forgot-password.module.css";
 import authStyles from "../auth.module.css";
 import layoutStyles from "../public-layout.module.css";
 
@@ -22,9 +24,11 @@ type CodeResponse = {
   devCode?: string;
 };
 
-export default function ForgotPasswordPageClient() {
+export default function ForgotPasswordPageClient({ initialEmail = "" }: { initialEmail?: string }) {
+  const signedIn = Boolean(initialEmail);
   const [step, setStep] = useState<1 | 2>(1);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
+  const [codeSent, setCodeSent] = useState(false);
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -38,8 +42,8 @@ export default function ForgotPasswordPageClient() {
     setCanRevealDevCode(localhostHosts.has(window.location.hostname));
   }, []);
 
-  async function requestCode(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function requestCode() {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError("请填写有效的注册邮箱。"); return; }
     setPending(true);
     setError(null);
 
@@ -53,7 +57,7 @@ export default function ForgotPasswordPageClient() {
       );
 
       setDevCode(result.devCode);
-      setStep(2);
+      setCodeSent(true);
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -63,6 +67,13 @@ export default function ForgotPasswordPageClient() {
     } finally {
       setPending(false);
     }
+  }
+
+  function continueToPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if ((!codeSent || !/^\d{6}$/.test(code))) { setError("请先获取并填写 6 位验证码。"); return; }
+    setError(null);
+    setStep(2);
   }
 
   async function resetPassword(event: FormEvent<HTMLFormElement>) {
@@ -82,7 +93,7 @@ export default function ForgotPasswordPageClient() {
         body: JSON.stringify({ email, code, newPassword }),
       });
 
-      window.location.href = "/dashboard";
+      window.location.href = signedIn ? "/dashboard/me" : "/dashboard";
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -96,64 +107,48 @@ export default function ForgotPasswordPageClient() {
 
   return (
     <main
-      className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell}`}
+      className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell} ${step === 2 ? flowStyles.shell : ""}`}
     >
-      <Card className={`${authStyles.panel} animate-in`} layout="plain">
-        <div className={authStyles.panelMark} aria-hidden="true">
-          <OliveSprigIllustration />
-        </div>
-        <p className="eyebrow">Reset password · Step {step} / 2</p>
+      {step === 2 ? <ol className={flowStyles.progress} aria-label="重置密码进度">
+        <li><span className={flowStyles.dot}>1</span>邮箱验证</li>
+        <li className={flowStyles.active} aria-current="step"><span className={flowStyles.dot}>2</span>设置新密码</li>
+      </ol> : null}
+      <Card className={`${authStyles.panel} ${step === 1 ? loginStyles.card : flowStyles.panel} ${styles.panel} animate-in`} layout="plain">
         <h1>重置密码</h1>
         {step === 1 ? (
-          <p>输入你的学校邮箱，我们会发送验证码来验证你的身份。</p>
+          <p className={styles.subtitle}>{signedIn ? "已填入你的注册邮箱，获取验证码后继续设置新密码。" : "输入注册邮箱和验证码，继续设置新密码。"}</p>
         ) : (
-          <p>请输入验证码并设置新密码。</p>
+          <p className={`${styles.subtitle} ${styles.stepTwoSubtitle}`}>设置新密码，提交时将核验邮箱验证码。</p>
         )}
 
         {step === 1 ? (
-          <form className={authStyles.stack} onSubmit={requestCode}>
-            <Field label="学校邮箱">
+          <form className={authStyles.stack} onSubmit={continueToPassword}>
+            <Field label="注册邮箱">
               <Input
                 required
                 type="email"
+                disabled={signedIn || pending}
                 autoComplete="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) => { setEmail(event.target.value); setCodeSent(false); setCode(""); setDevCode(undefined); setError(null); }}
                 placeholder="your.name@school.edu"
               />
             </Field>
+            <div className={flowStyles.codeRow}>
+              <Field label="验证码"><Input required value={code} maxLength={VERIFICATION_CODE_LENGTH} autoComplete="one-time-code" inputMode="numeric" onChange={(event) => setCode(event.target.value)} placeholder="6 位验证码" /></Field>
+              <Button type="button" variant="secondary" disabled={pending} onClick={() => void requestCode()}>{pending ? "发送中…" : codeSent ? "重新发送" : "发送验证码"}</Button>
+            </div>
+            {codeSent ? <p className={styles.delivery} role="status">验证码已发送，请检查收件箱或垃圾邮件。</p> : null}
+            {canRevealDevCode && devCode ? <p className={authStyles.devNote}>开发环境验证码：{devCode}</p> : null}
             {error ? <FormMessage>{error}</FormMessage> : null}
-            <Button
-              block
-              disabled={pending}
-              type="submit"
-            >
-              {pending ? "发送中…" : "发送验证码"}
-            </Button>
+            <Button block disabled={pending} type="submit">下一步</Button>
           </form>
         ) : (
           <form className={authStyles.stack} onSubmit={resetPassword}>
-            <div className={authStyles.devInline}>
+            <div className={flowStyles.emailSummary}>
               <span>已发送到</span>
               <strong>{email}</strong>
             </div>
-            <p className={authStyles.hint}>
-              几分钟内仍未收到？请检查邮箱的「垃圾邮件」或「拦截邮件」文件夹，部分学校邮箱会自动拦截首次发件人。
-            </p>
-            {canRevealDevCode && devCode ? (
-              <p className={authStyles.devNote}>开发环境验证码：{devCode}</p>
-            ) : null}
-            <Field label="验证码">
-              <Input
-                required
-                value={code}
-                maxLength={VERIFICATION_CODE_LENGTH}
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                onChange={(event) => setCode(event.target.value)}
-                placeholder="6 位验证码"
-              />
-            </Field>
             <Field label="新密码">
               <Input
                 required
@@ -184,9 +179,9 @@ export default function ForgotPasswordPageClient() {
                 variant="secondary"
                 disabled={pending}
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={() => { setStep(1); setError(null); }}
               >
-                重新输入邮箱
+                {signedIn ? "修改验证码" : "修改邮箱或验证码"}
               </Button>
               <Button
                 disabled={
@@ -203,7 +198,7 @@ export default function ForgotPasswordPageClient() {
         )}
 
         <p className={authStyles.hint}>
-          想起密码了？<Link href="/login">返回登录</Link>
+          {signedIn ? <Link href="/dashboard/me">← 返回用户中心</Link> : <>想起密码了？<Link href="/login">返回登录</Link></>}
         </p>
       </Card>
       <div className={authStyles.grassLine} aria-hidden="true">

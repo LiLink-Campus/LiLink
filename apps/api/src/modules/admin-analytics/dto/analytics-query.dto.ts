@@ -1,5 +1,14 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Max,
+  Min,
+} from 'class-validator';
 
 const toBool = ({ value }: { value: unknown }) => {
   if (value === true || value === 'true') return true;
@@ -16,15 +25,18 @@ const LEADERBOARD_SORT_KEYS = [
 ] as const;
 export type LeaderboardSortKey = (typeof LEADERBOARD_SORT_KEYS)[number];
 
-const PRODUCT_ANALYTICS_RANGES = ['7d', '30d', '60d'] as const;
-export type ProductAnalyticsRangeKey =
-  (typeof PRODUCT_ANALYTICS_RANGES)[number];
-
 export class AnalyticsBaseQueryDto {
   @IsOptional()
   @Transform(toBool)
   @IsBoolean()
   includeTest?: boolean;
+}
+
+export class SchoolsGenderQueryDto extends AnalyticsBaseQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  cycleId?: string;
 }
 
 export class WeeklyOptinQueryDto extends AnalyticsBaseQueryDto {
@@ -34,12 +46,6 @@ export class WeeklyOptinQueryDto extends AnalyticsBaseQueryDto {
   @Min(1)
   @Max(52)
   limit?: number;
-}
-
-export class ProductAnalyticsQueryDto extends AnalyticsBaseQueryDto {
-  @IsOptional()
-  @IsIn(PRODUCT_ANALYTICS_RANGES)
-  range?: ProductAnalyticsRangeKey;
 }
 
 export class MatchLeaderboardQueryDto extends AnalyticsBaseQueryDto {

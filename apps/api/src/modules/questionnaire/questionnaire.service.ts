@@ -150,6 +150,7 @@ export class QuestionnaireService {
       ...questionnaire,
       questions: questionnaire.questions.map((question) => ({
         ...question,
+        required: true,
         options: normalizeQuestionOptions(question.options),
       })),
       schools,
@@ -196,25 +197,23 @@ export class QuestionnaireService {
       const rawAnswer = rawAnswers[question.key];
 
       if (rawAnswer == null) {
-        if (question.required) {
-          throw new IncompleteQuestionnaireSubmissionException(
-            `Question "${question.prompt}" is required.`,
-          );
-        }
-
-        continue;
+        throw new IncompleteQuestionnaireSubmissionException(
+          `Question "${question.prompt}" is required.`,
+        );
       }
 
       const normalizedAnswer = normalizeQuestionAnswer(question, rawAnswer);
 
-      if (normalizedAnswer == null) {
-        if (question.required) {
-          throw new IncompleteQuestionnaireSubmissionException(
-            `Question "${question.prompt}" is required.`,
-          );
-        }
-
-        continue;
+      if (
+        normalizedAnswer == null ||
+        (question.type === 'MULTI_SELECT' &&
+          question.selectionLimit != null &&
+          Array.isArray(normalizedAnswer) &&
+          normalizedAnswer.length !== question.selectionLimit)
+      ) {
+        throw new IncompleteQuestionnaireSubmissionException(
+          `Question "${question.prompt}" is required.`,
+        );
       }
 
       normalizedAnswers[question.key] = normalizedAnswer;

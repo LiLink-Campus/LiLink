@@ -1,3 +1,4 @@
+import { effectiveMatchingAnswers, hasActiveVip } from '@lilink/shared';
 import { Injectable } from '@nestjs/common';
 import {
   estimateMatchBand,
@@ -23,7 +24,7 @@ const ACTIVE_OPTED_IN_PARTICIPATION_FILTER: Prisma.CycleParticipationWhereInput 
   {
     status: 'OPTED_IN',
     intent: { not: null },
-    user: { status: 'ACTIVE', isTest: false },
+    user: { status: 'ACTIVE', isTest: false, deactivatedAt: null },
   };
 
 /**
@@ -72,10 +73,18 @@ export class MatchEstimateService {
     userId: string,
     input: MatchEstimateInput,
   ): Promise<MatchEstimateResult> {
-    const exclusions = normalizeExcludedPartnerPreferences({
-      excludedPartnerSchools: input.excludedPartnerSchools,
-      excludedPartnerSchoolGenders: input.excludedPartnerSchoolGenders,
+    const grants = await this.prisma.vipActivation.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      select: { expiresAt: true, revokedAt: true },
     });
+    const exclusions = normalizeExcludedPartnerPreferences(
+      hasActiveVip(grants)
+        ? {
+            excludedPartnerSchools: input.excludedPartnerSchools,
+            excludedPartnerSchoolGenders: input.excludedPartnerSchoolGenders,
+          }
+        : { excludedPartnerSchools: [], excludedPartnerSchoolGenders: [] },
+    );
 
     const cycle = await this.prisma.matchCycle.findFirst({
       where: { status: CURRENT_CYCLE_STATUSES },
@@ -146,6 +155,7 @@ export class MatchEstimateService {
         user: {
           select: {
             id: true,
+            vipActivations: { select: { expiresAt: true, revokedAt: true } },
             school: { select: { id: true } },
             questionnaireResponse: {
               select: { answers: true, submittedAt: true },
@@ -164,10 +174,15 @@ export class MatchEstimateService {
       }
 
       const schoolId = user.school?.id ?? '';
-      const hardMatchAnswers = tryReadHardMatchAnswers({
-        ...((questionnaire.answers ?? {}) as Record<string, unknown>),
-        [HARD_MATCH_KEYS.school]: schoolId,
-      });
+      const hardMatchAnswers = tryReadHardMatchAnswers(
+        effectiveMatchingAnswers(
+          {
+            ...((questionnaire.answers ?? {}) as Record<string, unknown>),
+            [HARD_MATCH_KEYS.school]: schoolId,
+          },
+          hasActiveVip(user.vipActivations),
+        ),
+      );
       if (!hardMatchAnswers) {
         continue;
       }

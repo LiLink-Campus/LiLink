@@ -1,14 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AccountController } from './account.controller';
 import { AccountService } from './account.service';
+import { AccountDeletionService } from './account-deletion.service';
+import { PublicModule } from '../public/public.module';
 import { MatchEstimateService } from './match-estimate.service';
 import { QuestionnaireModule } from '../questionnaire/questionnaire.module';
 import { ActivationModule } from '../activation/activation.module';
-import { ProductAnalyticsModule } from '../product-analytics/product-analytics.module';
 
 @Module({
-  imports: [QuestionnaireModule, ActivationModule, ProductAnalyticsModule],
+  imports: [QuestionnaireModule, ActivationModule, PublicModule],
   controllers: [AccountController],
-  providers: [AccountService, MatchEstimateService],
+  providers: [AccountService, MatchEstimateService, AccountDeletionService],
 })
 export class AccountModule {}

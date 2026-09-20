@@ -1,3 +1,5 @@
+import { MatchLeadsModule } from './modules/match-leads/match-leads.module';
+import { VipModule } from './modules/vip/vip.module';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
@@ -17,7 +19,6 @@ import { AccountModule } from './modules/account/account.module';
 import { CyclesModule } from './modules/cycles/cycles.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AdminSessionModule } from './modules/admin-session/admin-session.module';
-import { MeetupModule } from './modules/meetup/meetup.module';
 import { ReferralModule } from './modules/referral/referral.module';
 import { MerchantModule } from './modules/merchant/merchant.module';
 import { CampaignModule } from './modules/campaign/campaign.module';
@@ -26,7 +27,7 @@ import { MerchantSessionModule } from './modules/merchant-session/merchant-sessi
 import { RedemptionModule } from './modules/redemption/redemption.module';
 import { PromotionDashboardModule } from './modules/promotion-dashboard/promotion-dashboard.module';
 import { AdminAnalyticsModule } from './modules/admin-analytics/admin-analytics.module';
-import { ProductAnalyticsModule } from './modules/product-analytics/product-analytics.module';
+import { RetiredProductEventsModule } from './modules/retired-product-events/retired-product-events.module';
 import { monorepoEnvFilePaths } from './config/monorepo-env-paths';
 import {
   authEmailThrottler,
@@ -39,6 +40,8 @@ import {
     { provide: APP_GUARD, useClass: CustomThrottlerGuard },
   ],
   imports: [
+    VipModule,
+    MatchLeadsModule,
     SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
@@ -70,7 +73,6 @@ import {
     QuestionnaireModule,
     AuthModule,
     AccountModule,
-    MeetupModule,
     CyclesModule,
     AdminModule,
     AdminSessionModule,
@@ -82,7 +84,7 @@ import {
     RedemptionModule,
     PromotionDashboardModule,
     AdminAnalyticsModule,
-    ProductAnalyticsModule,
+    RetiredProductEventsModule,
   ],
 })
 export class AppModule {}

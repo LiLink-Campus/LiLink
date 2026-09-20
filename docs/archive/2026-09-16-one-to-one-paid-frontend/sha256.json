@@ -1,0 +1,11 @@
+{
+  "assets/one-to-one-minimal.webp": "4bf770d6544b0eb3f88e361c4bf15f3f4803b3db918013b3368999c260066e37",
+  "dependencies/faq.module.css": "c3f138e1ed850a64c059575aaef7fe41bbb615f752ed44b13e64238da7a058a8",
+  "dependencies/phone-country-picker.module.css": "89abe702300d310e0b5d5e90ab349a235abe3140c1027ddbd44e78fbc4d9d4e6",
+  "dependencies/phone-country-picker.tsx": "fb3ca989b283ad7314c4bcfadf0f05f6ab4dcb0e8312c53f87729ec84a940f1c",
+  "one-to-one/page.module.css": "db55c32c1ee61af09a8589b1bebdbd5cedda90c8bd57ec476b4d3d12dd93c610",
+  "one-to-one/page.stories.tsx": "0d203401248e48fda402870033f9eb96930d82c8023ffeebdf9ce19768dbabb7",
+  "one-to-one/page.tsx": "784d39a5b66d24ff9629d6011038b53f121871f3c7a2cd3742ac8853817dabdc",
+  "one-to-one/registration.module.css": "156be0128eb53c1dab91c9d720d98da4e39139ce7e07abfb0bbfdfb3486f3ac0",
+  "one-to-one/registration.tsx": "719ef62dd2147f104231c30fdf4cd150c35fa8e0f4a9aaf54351196e8cb948f9"
+}

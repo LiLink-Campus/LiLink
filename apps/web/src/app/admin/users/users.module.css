@@ -1,0 +1,277 @@
+.listPanel {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 22px;
+  min-width: 0;
+}
+.filters {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(110px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+  align-items: end;
+}
+.filters label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.filters label > span {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.search > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.search svg {
+  position: absolute;
+  margin-left: 11px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+.search input {
+  width: 100%;
+  padding-left: 34px !important;
+}
+.search button {
+  flex-shrink: 0;
+}
+.listHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 16px;
+  gap: 12px;
+}
+.statusTabs {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.statusTabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  padding: 12px 2px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.statusTabs button[aria-pressed="true"] {
+  color: var(--color-brand);
+  border-bottom-color: var(--color-brand);
+  font-weight: 600;
+}
+.total {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.tableWrap {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+.tableWrap table {
+  min-width: 680px;
+}
+.tableWrap td {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.userCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 210px;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-accent-soft);
+  color: var(--color-brand);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.userCell > span:last-child {
+  display: grid;
+  gap: 3px;
+}
+.userCell strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+.userCell small {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+.userCell .testTag {
+  color: var(--color-text-muted);
+  margin-left: 8px;
+  background: var(--color-canvas);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 400;
+}
+.status {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 2px 7px;
+  background: var(--color-surface-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.status[data-status="ACTIVE"] {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.status[data-status="SUSPENDED"] {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+.status[data-status="PENDING"] {
+  background: var(--color-gold-soft);
+  color: var(--color-warning);
+}
+.accountControl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  padding: 16px 0;
+  border-block: 1px solid var(--color-border);
+}
+.accountControl > div {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.accountStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.accountControl p {
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.accountAction {
+  flex-shrink: 0;
+}
+.accountAction[data-action="SUSPENDED"] {
+  color: var(--color-danger);
+}
+.detailButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-brand);
+  padding: 6px 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  white-space: nowrap;
+}
+@media (max-width: 1100px) {
+  .filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .search {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 560px) {
+  .listPanel {
+    padding: 16px;
+  }
+  .filters {
+    gap: 12px 8px;
+  }
+  .filters select {
+    padding-inline: 6px;
+    font-size: 12px;
+  }
+  .statusTabs {
+    gap: 13px;
+  }
+  .statusTabs button {
+    font-size: 11px;
+  }
+  .total {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  .tableWrap table,
+  .tableWrap tbody {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+  .tableWrap thead {
+    display: none;
+  }
+  .tableWrap tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .tableWrap td {
+    padding: 0;
+    border: 0;
+    font-size: 12px;
+  }
+  .tableWrap td:first-child {
+    grid-column: 1 / -1;
+    padding-bottom: 8px;
+  }
+  .tableWrap td:nth-child(3) {
+    text-align: right;
+  }
+  .tableWrap td:nth-child(4)::before {
+    content: "问卷：";
+    color: var(--color-text-muted);
+  }
+  .tableWrap td:last-child {
+    justify-self: end;
+  }
+  .tableWrap td[colspan] {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+  .detailButton {
+    padding: 0;
+  }
+  .userCell {
+    min-width: 0;
+  }
+  .userCell small {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 560px) {
+  .tableWrap table td {
+    padding: 0;
+    border: 0;
+  }
+  .tableWrap table td:first-child {
+    padding-bottom: 8px;
+  }
+}

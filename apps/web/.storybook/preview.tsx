@@ -5,17 +5,24 @@ import { initialize, mswLoader } from "msw-storybook-addon";
 import { AuthSessionProvider } from "../src/app/auth-session";
 import { ToastProvider } from "../src/app/dashboard/_components/ToastProvider";
 import { mswHandlers } from "./msw-handlers";
+import { siteHandlers } from "../src/stories/site-support";
 
-initialize({ onUnhandledRequest: "error" });
+initialize({
+  quiet: true,
+  onUnhandledRequest(request, print) {
+    const url = new URL(request.url);
+    // Keep API mocking strict while allowing the application's own assets.
+    const localAsset =
+      url.pathname.startsWith("/@id/virtual:next") ||
+      (url.pathname.startsWith("/src/") && url.pathname.endsWith(".css")) ||
+      /^\/(images|icons|fonts)\//.test(url.pathname);
+    if (request.method === "GET" && url.origin === window.location.origin && localAsset) return;
+    print.error();
+  },
+});
 
-function isFixedNowParameter(
-  value: unknown,
-): value is string | number | Date {
-  return (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    value instanceof Date
-  );
+function isFixedNowParameter(value: unknown): value is string | number | Date {
+  return typeof value === "string" || typeof value === "number" || value instanceof Date;
 }
 
 const preview: Preview = {
@@ -35,7 +42,7 @@ const preview: Preview = {
       appDirectory: true,
     },
     msw: {
-      handlers: mswHandlers,
+      handlers: { ...mswHandlers, site: siteHandlers },
     },
     viewport: {
       options: {
@@ -52,6 +59,10 @@ const preview: Preview = {
             width: "390px",
             height: "844px",
           },
+        },
+        mobile407: {
+          name: "Mobile 407",
+          styles: { width: "407px", height: "908px" },
         },
         mobile430: {
           name: "Mobile 430",
@@ -80,14 +91,21 @@ const preview: Preview = {
       test: "todo",
     },
   },
+  afterEach({ id }) {
+    document.documentElement.dataset.storybookReady = id;
+  },
   beforeEach({ parameters }) {
+    delete document.documentElement.dataset.storybookReady;
+    if (parameters.fullSite) {
+      localStorage.clear();
+      sessionStorage.clear();
+      document.cookie = "lilink_ref=; path=/; max-age=0; samesite=lax";
+    }
     const fixedNow = parameters.fixedNow;
     if (fixedNow === undefined) return undefined;
 
     if (!isFixedNowParameter(fixedNow)) {
-      throw new Error(
-        "Storybook fixedNow parameter must be a date string, timestamp, or Date.",
-      );
+      throw new Error("Storybook fixedNow parameter must be a date string, timestamp, or Date.");
     }
 
     MockDate.set(fixedNow);

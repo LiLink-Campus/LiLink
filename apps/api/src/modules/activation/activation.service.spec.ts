@@ -1,7 +1,8 @@
 import { ActivationService } from './activation.service';
 
 type MockTx = {
-  campaign: { findUnique: jest.Mock };
+  $executeRaw: jest.Mock;
+  campaign: { findMany: jest.Mock };
   campaignActivation: { upsert: jest.Mock; update: jest.Mock };
   couponTemplate: { findMany: jest.Mock };
   coupon: { findMany: jest.Mock; create: jest.Mock };
@@ -10,7 +11,12 @@ type MockTx = {
 
 function makeTxPrisma() {
   const tx: MockTx = {
-    campaign: { findUnique: jest.fn().mockResolvedValue({ status: 'ACTIVE' }) },
+    $executeRaw: jest.fn().mockResolvedValue(1),
+    campaign: {
+      findMany: jest
+        .fn()
+        .mockResolvedValue([{ id: 'camp1', startsAt: null, endsAt: null }]),
+    },
     campaignActivation: {
       upsert: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
@@ -28,6 +34,8 @@ function makeTxPrisma() {
 }
 
 const activatedUser = {
+  status: 'ACTIVE',
+  deactivatedAt: null,
   firstOptedInAt: new Date('2026-05-01T00:00:00.000Z'),
   referralCampaignId: 'camp1',
   questionnaireResponse: { submittedAt: new Date('2026-05-01T00:00:00.000Z') },
@@ -63,28 +71,53 @@ describe('ActivationService.tryGrantCoupons', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('does nothing when there is no campaign attribution', async () => {
-    const { prisma } = makeTxPrisma();
+  it('does not grant when no global activity is ACTIVE', async () => {
+    const { prisma, tx } = makeTxPrisma();
     prisma.user.findUnique.mockResolvedValue({
       ...activatedUser,
       referralCampaignId: null,
     });
-    const service = new ActivationService(prisma as never);
-    await service.tryGrantCoupons('u1');
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    tx.campaign.findMany.mockResolvedValue([]);
+    await new ActivationService(prisma as never).tryGrantCoupons('u1');
+    expect(tx.coupon.create).not.toHaveBeenCalled();
   });
 
-  it('does not grant when the frozen campaign is not ACTIVE (re-checked in tx)', async () => {
+  it('pauses grants for multiple ACTIVE campaigns without choosing a default', async () => {
     const { prisma, tx } = makeTxPrisma();
     prisma.user.findUnique.mockResolvedValue(activatedUser);
-    tx.campaign.findUnique.mockResolvedValue({ status: 'ENDED' });
-    const service = new ActivationService(prisma as never);
-
-    await service.tryGrantCoupons('u1');
-
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    tx.campaign.findMany.mockResolvedValue([
+      { id: 'older', startsAt: null, endsAt: null },
+      { id: 'newer-default', startsAt: null, endsAt: null },
+    ]);
+    await new ActivationService(prisma as never).tryGrantCoupons('u1');
     expect(tx.campaignActivation.upsert).not.toHaveBeenCalled();
     expect(tx.coupon.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { startsAt: new Date('2099-01-01'), endsAt: null },
+    { startsAt: null, endsAt: new Date('2000-01-01') },
+  ])('preserves the unique activity time window: %j', async (window) => {
+    const { prisma, tx } = makeTxPrisma();
+    prisma.user.findUnique.mockResolvedValue(activatedUser);
+    tx.campaign.findMany.mockResolvedValue([{ id: 'camp1', ...window }]);
+    await new ActivationService(prisma as never).tryGrantCoupons('u1');
+    expect(tx.campaignActivation.upsert).not.toHaveBeenCalled();
+    expect(tx.coupon.create).not.toHaveBeenCalled();
+  });
+
+  it('does not mark an empty reward as granted', async () => {
+    const { prisma, tx } = makeTxPrisma();
+    prisma.user.findUnique.mockResolvedValue({
+      ...activatedUser,
+      referralCampaignId: null,
+    });
+    tx.campaignActivation.upsert.mockResolvedValue({
+      id: 'act1',
+      couponsGrantedAt: null,
+    });
+    await new ActivationService(prisma as never).tryGrantCoupons('u1');
+    expect(tx.campaignActivation.update).not.toHaveBeenCalled();
   });
 
   it('grants one coupon per active template, marks granted, and audits', async () => {

@@ -1,0 +1,68 @@
+.page { width: 100%; max-width: 760px; margin: 0 auto; padding: 12px 0 24px; display: grid; gap: 28px; word-break: normal; }
+.page h1, .page h2, .page p { margin: 0; }
+.page p { line-height: 1.7; }
+.back { color: var(--color-text-muted); text-decoration: none; font-size: 14px; justify-self: start; }
+.intro { display: grid; gap: 10px; }
+.eyebrow { color: var(--color-brand); font-family: var(--font-display); font-size: 20px; letter-spacing: .06em; }
+.intro h1 { font-family: var(--font-display); color: #742c41; font-size: clamp(29px, 5vw, 42px); line-height: 1.3; font-weight: 600; }
+.intro p { color: var(--color-text-muted); font-size: 15px; }
+.membership { position: relative; overflow: hidden; padding: 26px; border-radius: 20px; background: linear-gradient(115deg, #742c41, #98445d); color: #fff8f5; border: 1px solid #a55d70; box-shadow: 0 10px 24px #742c4112; }
+.membership > :not(.decoration) { position: relative; }
+.decoration { position: absolute; right: -12px; bottom: -35px; width: 230px; height: 210px; opacity: .22; pointer-events: none; }
+.cardHeading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.cardHeading h2 { font-family: var(--font-display); font-size: clamp(23px, 4vw, 30px); color: inherit; font-weight: 500; }
+.badge { background: #ffffff26; border-radius: 999px; padding: 5px 10px; font-size: 12px; white-space: nowrap; }
+.membership .price { font-family: var(--font-display); font-size: clamp(44px, 8vw, 60px); line-height: 1.3; margin: 14px 0 4px; }
+.price > span { font-size: .55em; margin-right: 4px; }
+.price small { font-size: 18px; margin-left: 10px; }
+.membership .expiry { margin-top: 12px; font-size: 13px; color: #f2dce3; }
+.manage { display: inline-flex; min-height: 44px; align-items: center; margin-top: 18px; padding: 8px 20px; border-radius: 999px; background: #fff8f5; color: #742c41; text-decoration: none; }
+.comparison { display: grid; gap: 14px; }
+.comparison h2, .card h2 { font-family: var(--font-display); font-size: clamp(21px, 3.8vw, 28px); color: #742c41; font-weight: 500; line-height: 1.5; }
+.tableWrap { border: 1px solid var(--color-border); border-radius: 18px; overflow: hidden; background: var(--color-surface); }
+.tableWrap table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; }
+.tableWrap th, .tableWrap td { padding: 13px 8px; text-align: center; border-bottom: 1px solid var(--color-border); font-weight: 400; }
+.tableWrap th:first-child { width: 45%; text-align: left; padding-left: 18px; }
+.tableWrap thead th { font-weight: 600; }
+.tableWrap tr:last-child th, .tableWrap tr:last-child td { border-bottom: 0; }
+.tableWrap td { font-size: 21px; color: var(--color-text-muted); }
+.tableWrap th:last-child, .tableWrap td:last-child { background: #fbf0f3; color: #913b54; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.card { display: grid; gap: 16px; padding: 24px; border: 1px solid var(--color-border); border-radius: 20px; background: var(--color-surface); }
+.card .subtitle { font-size: 14px; color: var(--color-text-muted); margin-top: 4px; }
+.field { display: grid; gap: 8px; }
+.field label { font-size: 14px; font-weight: 600; }
+.field input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; padding: 12px; border: 1px solid #d8cec7; border-radius: 12px; font: inherit; font-size: 16px; color: var(--color-text); background: var(--color-surface); }
+.primary { border: 0; border-radius: 12px; padding: 13px 18px; background: #913b54; color: white; font: inherit; font-weight: 600; min-height: 48px; cursor: pointer; }
+.page button:disabled { opacity: .55; cursor: default; }
+.page input:focus-visible, .page button:focus-visible, .page a:focus-visible { outline: 2px solid #913b54; outline-offset: 3px; }
+.note { color: var(--color-text-muted); font-size: 13px; }
+.error, .success { padding: 16px; border-radius: 12px; font-size: 14px; }
+.error { color: #a32a25; background: #fff4f2; border: 1px solid #d8b5b3; }
+.success { color: #356349; background: #f0f7f1; border: 1px solid #c8ddcc; }
+.footer { display: grid; gap: 14px; text-align: center; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; }
+.actions button, .actions a { display: flex; align-items: center; justify-content: center; gap: 10px; border: 0; background: transparent; color: #913b54; font: inherit; min-height: 44px; text-decoration: none; cursor: pointer; }
+.actionIcon { width: 22px; height: 22px; flex-shrink: 0; }
+.actions > :last-child { border-left: 1px solid var(--color-border); }
+.afterSales { font-size: 13px; color: var(--color-text-muted); text-align: left; line-height: 1.9; padding: 0 12px; }
+@media (max-width: 380px) { .membership, .card { padding: 20px; } .tableWrap th:first-child { padding-left: 12px; } .tableWrap th, .tableWrap td { padding-inline: 5px; } .tableWrap table { font-size: 13px; } }
+
+.contactDialog { margin: auto; width: min(380px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow: auto; padding: 24px; border: 1px solid var(--color-border); border-radius: 20px; background: var(--color-surface, #fff); color: var(--color-text); text-align: center; }
+.contactDialog::backdrop { background: #38292480; }
+.contactDialog h2 { margin: 0 0 20px; color: #913b54; font-size: 24px; }
+.contactMethod { padding: 16px 0; }
+.contactMethod h3 { font-size: 16px; margin: 0 0 8px; }
+.contactMethod a { color: #913b54; }
+.contactMethod p { margin: 8px 0; }
+.contactQr { display: block; width: 160px; height: 160px; margin: 14px auto; }
+.contactDialog form button { width: 100%; }
+
+.purchase { display: grid; gap: 10px; margin-top: -8px; text-align: center; }
+.purchaseButton { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 48px; border-radius: 12px; background: #e7c68e; color: #4b321e; text-decoration: none; font-weight: 600; padding: 14px 16px; box-shadow: 0 6px 16px #8a64301a; }
+.purchase p { font-size: 13px; color: var(--color-text-muted); margin: 0; }
+.activationLink { color: #913b54; font-size: 13px; text-underline-offset: 4px; }
+.card { scroll-margin-top: 100px; }
+
+.purchaseButton:hover { background: #dfb978; }
+.purchaseButton:active { background: #d5ac68; }

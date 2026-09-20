@@ -2,6 +2,7 @@
 
 import { dcx } from "../../_lib/dashboard-class-names";
 import Link from "next/link";
+import styles from "./match-history.module.css";
 import type { AuthMePayload } from "../../../../lib/api";
 import { useDashboardSessionSeed } from "../../_components/DashboardSessionSeed";
 import { MatchHistoryList } from "../../_components/MatchHistoryList";
@@ -23,7 +24,6 @@ export function MatchHistoryClient({
     error,
     savedMessage,
     saving,
-    requestContact,
     submitReport,
     reportOpen,
     reportTargetMatchId,
@@ -36,43 +36,32 @@ export function MatchHistoryClient({
     reportFormIsOpenForMatch,
   } = useMatchActions({
     initialDashboard,
-    currentUserId: initialUser?.id ?? null,
   });
 
-  const recentMatchHistory = dashboard?.recentMatchHistory ?? [];
+  const recentMatchHistory = (dashboard?.recentMatchHistory ?? []).slice(0, 3);
 
   return (
     <div className={dcx("app-page-shell app-page-shell-narrow")}>
-      <header className={dcx("app-page-header")}>
-        <Link href="/dashboard/match" className={dcx("app-page-back")}>
-          ← 返回本轮匹配
-        </Link>
-        <p className={dcx("eyebrow")}>Weekly Match</p>
-        <h1>过往匹配记录</h1>
-        <p>
-          仅当该轮为「已匹配且完整可见」时，可在卡片内继续发起联络或举报。
-        </p>
-        {savedMessage ? <p className={dcx("ui-form-message ui-form-message--success")}>{savedMessage}</p> : null}
-        {error ? <p className={dcx("ui-form-message ui-form-message--error")}>{error}</p> : null}
+      <header className={styles.header}>
+        <Link href="/dashboard/match" className={styles.back}>← 返回本轮匹配</Link>
+        <div className={styles.titleRow}><h1>过往匹配记录</h1>{recentMatchHistory.length > 0 && <span>最近 {recentMatchHistory.length} 轮</span>}</div>
+        <p>查看最近三轮的参与情况与匹配结果。</p>
       </header>
-
-      <section className={dcx("ui-card ui-card--padded")} aria-label="过往匹配">
-        <div className={dcx("ui-card-header")}>
-          <h2 className={dcx("ui-card-title")}>过往匹配</h2>
-          {recentMatchHistory.length > 0 ? (
-            <span className={dcx("semantic-status semantic-status--neutral")}>
-              最近 {recentMatchHistory.length} 轮
-            </span>
-          ) : null}
-        </div>
-        <MatchHistoryList
+      {savedMessage ? <p role="status" className={dcx("ui-form-message ui-form-message--success")}>{savedMessage}</p> : null}
+      {error ? <p role="alert" className={dcx("ui-form-message ui-form-message--error")}>{error}</p> : null}
+      <section aria-label="过往匹配">
+        {recentMatchHistory.length === 0 ? <div className={styles.empty}>
+          <span className={styles.emptyMark} aria-hidden="true">♡</span>
+          <h2>还没有过往匹配记录</h2>
+          <p>这里会展示最近三轮的参与情况与匹配结果。</p>
+          <Link href="/dashboard/match" className={styles.primary}>返回本轮匹配</Link>
+        </div> : <MatchHistoryList
           history={recentMatchHistory}
           currentUserId={initialUser.id}
           saving={saving}
           reportFormIsOpenForMatch={reportFormIsOpenForMatch}
-          onRequestContact={(id) => void requestContact(id)}
           onToggleReport={(id) => toggleReportForm(id)}
-        />
+        />}
       </section>
 
       <ReportForm

@@ -1,3 +1,4 @@
+import { Prisma } from '../prisma/client';
 import { DashboardSnapshotService } from './dashboard-snapshot.service';
 
 type DashboardSnapshotUpsertArg = {
@@ -14,8 +15,86 @@ type DashboardSnapshotUpsertArg = {
 };
 
 describe('DashboardSnapshotService', () => {
+  it('returns only the current dashboard contract from historical snapshot JSON', () => {
+    const service = new DashboardSnapshotService({} as never);
+    const requestedAt = '2026-04-01T12:30:00.000Z';
+    const stored = {
+      id: 'historical-match',
+      score: 88,
+      introducedAt: requestedAt,
+      currentUserRequestedAt: requestedAt,
+      reportStatus: null,
+      participants: [
+        {
+          userId: 'historical-user',
+          displayName: 'Historical user',
+          introLine: null,
+          email: null,
+          contact: {
+            type: 'WECHAT',
+            label: '微信',
+            value: 'historical_wechat',
+          },
+          schoolName: null,
+          contactRequestedAt: requestedAt,
+        },
+      ],
+    };
+
+    const result = service.readDashboardMatchPayload(stored);
+
+    expect(result).toEqual({
+      id: stored.id,
+      score: stored.score,
+      introducedAt: requestedAt,
+      reportStatus: null,
+
+      participants: [
+        {
+          userId: 'historical-user',
+          displayName: 'Historical user',
+          introLine: null,
+          email: null,
+          contact: stored.participants[0].contact,
+          schoolName: null,
+          gender: null,
+          partnerGenders: [],
+          weeklyIntent: null,
+        },
+      ],
+    });
+    expect(stored.currentUserRequestedAt).toBe(requestedAt);
+    expect(stored.participants[0].contactRequestedAt).toBe(requestedAt);
+  });
+
+  it.each([null, undefined])(
+    'hides cached pairs without an introduction timestamp (%s)',
+    (introducedAt) => {
+      const service = new DashboardSnapshotService({} as never);
+      const stored = {
+        id: 'skipped-match',
+        score: 88,
+        ...(introducedAt === null ? { introducedAt } : {}),
+        participants: [
+          {
+            userId: 'suspended-user',
+            email: 'private@example.test',
+            contact: { type: 'WECHAT', label: '微信', value: 'private_wechat' },
+          },
+        ],
+      };
+
+      const result = service.readDashboardMatchPayload(stored);
+
+      expect(result).toBeNull();
+      expect(JSON.stringify(result)).not.toContain('private');
+      expect(stored.participants[0].contact.value).toBe('private_wechat');
+    },
+  );
+
   it('wraps whole-cycle snapshot rebuilds in a transaction when no store is provided', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       matchCycle: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'cycle-1',
@@ -71,6 +150,7 @@ describe('DashboardSnapshotService', () => {
 
   it('reuses the provided store instead of opening a nested transaction', async () => {
     const store = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       matchCycle: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'cycle-1',
@@ -113,6 +193,7 @@ describe('DashboardSnapshotService', () => {
 
   it('clears cycle snapshots when the cycle is no longer revealed', async () => {
     const store = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       matchCycle: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'cycle-1',
@@ -149,6 +230,7 @@ describe('DashboardSnapshotService', () => {
 
   it('fills only the missing user-cycle snapshot during dashboard coverage checks', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       matchCycle: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'cycle-1',
@@ -213,6 +295,7 @@ describe('DashboardSnapshotService', () => {
       releaseCycleTransaction = resolve;
     });
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       matchCycle: {
         findUnique: jest
           .fn()
@@ -287,6 +370,7 @@ describe('DashboardSnapshotService', () => {
 
   it('removes unrevealed match snapshots instead of upserting them', async () => {
     const store = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       match: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'match-1',
@@ -303,7 +387,6 @@ describe('DashboardSnapshotService', () => {
           participants: [
             {
               userId: 'user-1',
-              contactRequestedAt: null,
               user: {
                 email: 'user-1@example.com',
                 displayName: 'User 1',
@@ -314,7 +397,6 @@ describe('DashboardSnapshotService', () => {
             },
             {
               userId: 'user-2',
-              contactRequestedAt: null,
               user: {
                 email: 'user-2@example.com',
                 displayName: 'User 2',
@@ -353,100 +435,122 @@ describe('DashboardSnapshotService', () => {
     expect(store.userCycleDashboardSnapshot.upsert).not.toHaveBeenCalled();
   });
 
-  it('stores the introduced contact snapshot instead of the registration email', async () => {
-    const upsert: jest.MockedFunction<
-      (args: DashboardSnapshotUpsertArg) => Promise<void>
-    > = jest.fn().mockResolvedValue(undefined);
-    const store = {
-      match: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'match-1',
-          cycleId: 'cycle-1',
-          score: 88,
-          reasons: ['reason'],
-          reason: 'reason',
-          conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
-          introducedAt: new Date('2026-04-02T00:00:00.000Z'),
-          revealedAt: new Date('2026-04-01T00:00:00.000Z'),
-          cycle: {
-            id: 'cycle-1',
-            codename: 'Cycle 1',
-            revealAt: new Date('2026-04-01T00:00:00.000Z'),
-          },
-          reports: [],
-          participants: [
-            {
-              userId: 'user-1',
-              contactRequestedAt: new Date('2026-04-02T00:00:00.000Z'),
-              introducedContactType: 'WECHAT',
-              introducedContactValue: 'wx_user_1',
-              user: {
-                email: 'user-1@example.com',
-                displayName: 'User 1',
-                profile: { headline: 'hello' },
-                school: { name: 'School A' },
-                questionnaireResponse: null,
-              },
+  it.each([null, new Date('2026-04-02T00:00:00.000Z')])(
+    'discloses frozen contacts only after introduction (%s)',
+    async (introducedAt) => {
+      const upsert: jest.MockedFunction<
+        (args: DashboardSnapshotUpsertArg) => Promise<void>
+      > = jest.fn().mockResolvedValue(undefined);
+      const store = {
+        $queryRaw: jest.fn().mockResolvedValue([]),
+        match: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'match-1',
+            cycleId: 'cycle-1',
+            score: 88,
+            reasons: ['reason'],
+            reason: 'reason',
+            conversationTopics: ['topic 1', 'topic 2', 'topic 3'],
+            introducedAt,
+            revealedAt: new Date('2026-04-01T00:00:00.000Z'),
+            cycle: {
+              id: 'cycle-1',
+              codename: 'Cycle 1',
+              revealAt: new Date('2026-04-01T00:00:00.000Z'),
             },
-            {
-              userId: 'user-2',
-              contactRequestedAt: null,
-              introducedContactType: 'PHONE',
-              introducedContactValue: '+14155552671',
-              user: {
-                email: 'user-2@example.com',
-                displayName: 'User 2',
-                profile: { headline: 'world' },
-                school: { name: 'School B' },
-                questionnaireResponse: null,
+            reports: [],
+            participants: [
+              {
+                userId: 'user-1',
+                introducedContactType: 'WECHAT',
+                introducedContactValue: 'wx_user_1',
+                user: {
+                  email: 'user-1@example.com',
+                  preferredContactChannel: 'WECHAT',
+                  contactMethods: [{ type: 'WECHAT', value: 'changed_wechat' }],
+                  displayName: 'User 1',
+                  profile: { headline: 'hello' },
+                  school: { name: 'School A' },
+                  questionnaireResponse: null,
+                },
               },
-            },
-          ],
-        }),
-      },
-      cycleParticipation: {
-        findMany: jest.fn().mockResolvedValue([
-          { userId: 'user-1', status: 'OPTED_IN' },
-          { userId: 'user-2', status: 'OPTED_IN' },
-        ]),
-      },
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      userCycleDashboardSnapshot: {
-        deleteMany: jest.fn(),
-        upsert,
-      },
-    };
-    const service = new DashboardSnapshotService({} as never);
-
-    await service.syncMatchSnapshots('match-1', store as never);
-
-    const upsertArg = upsert.mock.calls
-      .map(([arg]) => arg)
-      .find(
-        (arg) =>
-          arg.where.userId_cycleId.userId === 'user-1' &&
-          arg.where.userId_cycleId.cycleId === 'cycle-1',
-      );
-    expect(upsertArg).toBeDefined();
-    if (!upsertArg) {
-      throw new Error('Expected a dashboard snapshot upsert for user-1');
-    }
-    expect(upsertArg.where.userId_cycleId).toEqual({
-      userId: 'user-1',
-      cycleId: 'cycle-1',
-    });
-    expect(upsertArg.create.matchPayload.participants).toContainEqual(
-      expect.objectContaining({
-        userId: 'user-2',
-        email: null,
-        contact: {
-          type: 'PHONE',
-          label: '手机号',
-          value: '+14155552671',
+              {
+                userId: 'user-2',
+                introducedContactType: 'PHONE',
+                introducedContactValue: '+14155552671',
+                user: {
+                  email: 'user-2@example.com',
+                  preferredContactChannel: 'PHONE',
+                  contactMethods: [{ type: 'PHONE', value: '+8613800000000' }],
+                  displayName: 'User 2',
+                  profile: { headline: 'world' },
+                  school: { name: 'School B' },
+                  questionnaireResponse: null,
+                },
+              },
+            ],
+          }),
         },
-      }),
-    );
-  });
+        cycleParticipation: {
+          findMany: jest.fn().mockResolvedValue([
+            { userId: 'user-1', status: 'OPTED_IN' },
+            { userId: 'user-2', status: 'OPTED_IN' },
+          ]),
+        },
+        block: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        userCycleDashboardSnapshot: {
+          deleteMany: jest.fn(),
+          upsert,
+        },
+      };
+      const service = new DashboardSnapshotService({} as never);
+
+      await service.syncMatchSnapshots('match-1', store as never);
+
+      const upsertArg = upsert.mock.calls
+        .map(([arg]) => arg)
+        .find(
+          (arg) =>
+            arg.where.userId_cycleId.userId === 'user-1' &&
+            arg.where.userId_cycleId.cycleId === 'cycle-1',
+        );
+      expect(upsertArg).toBeDefined();
+      if (!upsertArg) {
+        throw new Error('Expected a dashboard snapshot upsert for user-1');
+      }
+      expect(upsertArg.where.userId_cycleId).toEqual({
+        userId: 'user-1',
+        cycleId: 'cycle-1',
+      });
+      if (!introducedAt) {
+        expect(upsertArg.create).toMatchObject({
+          result: 'UNMATCHED',
+          visibility: 'NOT_APPLICABLE',
+          limitedReason: null,
+          matchId: null,
+          matchPayload: Prisma.DbNull,
+        });
+        expect(upsert).toHaveBeenCalledTimes(2);
+        return;
+      }
+      expect(upsertArg.create.matchPayload.participants).toContainEqual(
+        expect.objectContaining({
+          userId: 'user-2',
+          email: null,
+          contact: introducedAt
+            ? {
+                type: 'PHONE',
+                label: '手机号',
+                value: '+14155552671',
+              }
+            : null,
+        }),
+      );
+      expect(JSON.stringify(upsertArg.create.matchPayload)).not.toContain(
+        '+8613800000000',
+      );
+    },
+  );
 });

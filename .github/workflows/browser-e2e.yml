@@ -1,0 +1,60 @@
+name: Browser E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '30 19 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-e2e-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Check harness safety and test types
+        run: |
+          npm run test:e2e:infra
+          npx tsc -p e2e/tsconfig.json
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: PR core regression
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        run: node scripts/e2e/run.mjs --project=chromium --project=mobile-webkit --grep @smoke
+      - name: Full regression
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: npm run test:e2e:web:full
+      - name: Visual regression
+        run: npm run test:e2e:web:linux -- --grep @visual
+      - name: Preserve evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-e2e-${{ github.sha }}
+          path: |
+            artifacts/e2e/**/report/**
+            artifacts/e2e/**/results/**
+            artifacts/e2e/**/results.json
+            artifacts/e2e/**/*.log
+            artifacts/e2e/**/run.json
+            artifacts/e2e-linux-results/**/report/**
+            artifacts/e2e-linux-results/**/results/**
+            artifacts/e2e-linux-results/**/results.json
+            artifacts/e2e-linux-results/**/*.log
+            artifacts/e2e-linux-results/**/run.json
+          retention-days: 7
+          if-no-files-found: warn

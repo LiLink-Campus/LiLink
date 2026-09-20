@@ -5,12 +5,9 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
 import { fetchApi } from "../../lib/api";
-import {
-  GrassRowIllustration,
-  OliveSprigIllustration,
-} from "../dashboard/_components/illustrations";
 import authStyles from "../auth.module.css";
 import layoutStyles from "../public-layout.module.css";
+import styles from "./login.module.css";
 
 const PASSWORD_MAX_LENGTH = 128;
 
@@ -64,13 +61,8 @@ export default function LoginPageClient() {
     <main
       className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell}`}
     >
-      <Card className={`${authStyles.panel} animate-in`} layout="plain">
-        <div className={authStyles.panelMark} aria-hidden="true">
-          <OliveSprigIllustration />
-        </div>
-        <p className="eyebrow">Login</p>
-        <h1>回到本周轮次</h1>
-        <p>输入已注册的邮箱，我们来验证你的身份。</p>
+      <Card className={`${authStyles.panel} ${styles.card} animate-in`} layout="plain">
+        <h1>欢迎回来</h1>
         <form className={authStyles.stack} onSubmit={handleSubmit}>
           <Field label="邮箱">
             <Input
@@ -82,6 +74,8 @@ export default function LoginPageClient() {
               placeholder="name@example.com"
             />
           </Field>
+          <div className={styles.passwordField}>
+            <Link className={styles.forgot} href="/forgot-password">忘记密码？</Link>
           <Field label="密码">
             <Input
               required
@@ -90,9 +84,10 @@ export default function LoginPageClient() {
               value={password}
               maxLength={PASSWORD_MAX_LENGTH}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="至少 8 位，含字母和数字"
+              placeholder="输入你的密码"
             />
           </Field>
+          </div>
           {error ? <FormMessage>{error}</FormMessage> : null}
           <Button
             block
@@ -103,15 +98,9 @@ export default function LoginPageClient() {
           </Button>
         </form>
         <p className={authStyles.hint}>
-          <Link href="/forgot-password">忘记密码？</Link>
-        </p>
-        <p className={authStyles.hint}>
           还没有账号？<Link href={registerHref}>立即注册</Link>
         </p>
       </Card>
-      <div className={authStyles.grassLine} aria-hidden="true">
-        <GrassRowIllustration />
-      </div>
     </main>
   );
 }

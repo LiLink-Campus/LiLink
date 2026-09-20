@@ -76,8 +76,9 @@ export async function loadDashboardProfile() {
   await ensureDashboardSession();
 
   try {
-    const [bootstrap, questionnaire, savedQuestionnaire] = await Promise.all([
+    const [bootstrap, contactPreferences, questionnaire, savedQuestionnaire] = await Promise.all([
       fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
+      fetchUserApiServer<ContactPreferencesPayload>("/me/contact-preferences"),
       fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
       fetchUserApiServer<SavedQuestionnairePayload>(
         "/me/questionnaire",
@@ -88,32 +89,7 @@ export async function loadDashboardProfile() {
       dashboard: bootstrap.dashboard,
       questionnaire,
       savedQuestionnaire,
-    };
-  } catch {
-    redirect("/login");
-  }
-}
-
-/**
- * Loader for the "Me" settings page: identity, dashboard summary, saved
- * questionnaire answers (card copy), and contact preferences (referral UX).
- */
-export async function loadDashboardMe() {
-  await ensureDashboardSession();
-
-  try {
-    const [bootstrap, savedQuestionnaire, contactPreferences, questionnaire] = await Promise.all([
-      fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
-      fetchUserApiServer<SavedQuestionnairePayload>("/me/questionnaire").catch(() => null),
-      fetchUserApiServer<ContactPreferencesPayload>("/me/contact-preferences"),
-      fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
-    ]);
-    return {
-      user: bootstrap.user,
-      dashboard: bootstrap.dashboard,
-      savedQuestionnaire,
       contactPreferences,
-      questionnaire,
     };
   } catch {
     redirect("/login");

@@ -122,7 +122,7 @@ export function MatchStateHero({
           {children}
         </div>
         {actions && actions.length > 0 ? (
-          <div className={styles.actions}>
+          <div className={cx(styles.actions, styles.matchedActions)}>
             {actions.map((action, index) => renderAction(action, index))}
           </div>
         ) : null}

@@ -1,0 +1,25 @@
+import { test, expect, visit } from '../support/fixtures';
+
+for (const route of ['/login', '/register', '/forgot-password']) {
+  test(`public page layout and baseline ${route} @visual`, async ({ page }) => {
+    await visit(page, route);
+    await page.evaluate(() => document.fonts.ready);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect(page.getByRole('main')).toHaveScreenshot(`${route.slice(1)}.png`, { animations: 'disabled' });
+  });
+}
+
+test('VIP support dialog fits viewport @visual', async ({ page, signedIn }) => {
+  void signedIn;
+  await visit(page, '/dashboard/vip');
+  await page.getByRole('button', { name: '联系客服', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveScreenshot('vip-support.png', { animations: 'disabled' });
+  const bounds = await dialog.boundingBox();
+  const viewport = page.viewportSize()!;
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);
+  await dialog.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+});

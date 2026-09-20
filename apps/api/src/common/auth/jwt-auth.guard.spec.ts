@@ -154,6 +154,7 @@ describe('JwtAuthGuard', () => {
       where: {
         id: 'user-1',
         status: 'ACTIVE',
+        deactivatedAt: null,
         OR: [
           { lastActiveAt: null },
           { lastActiveAt: { lt: new Date('2026-05-31T11:00:00.000Z') } },

@@ -1,0 +1,32 @@
+.entry { display: flex; align-items: center; gap: 16px; width: 100%; padding: 12px 16px; border: 1px solid #e8e0da; border-radius: 16px; background: #fff; color: #322b29; text-align: left; cursor: pointer; }
+.entry svg { width: 30px; height: 30px; flex-shrink: 0; color: #92344f; }
+.entry > span:nth-child(2) { flex: 1; }
+.entry strong { display: block; font-size: 16px; font-weight: 600; }
+.entry small { display: block; margin-top: 5px; color: #827870; font-size: 13px; }
+.card { position: relative; margin-top: 20px; padding: 22px; border: 1px solid #eadfd6; border-radius: 16px; background: #faf8f5; }
+.cardContent { display: flex; gap: 16px; padding-right: 18px; align-items: flex-start; }
+.appIcon { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px; background: #92344f; color: #fff; font: 32px Georgia, serif; }
+.card h3 { margin: 0; font-size: 16px; color: #322b29; }
+.card p, .sheet p { margin: 8px 0 0; font-size: 14px; line-height: 1.7; color: #827870; }
+.actions { display: flex; gap: 16px; align-items: center; margin-top: 20px; }
+.primary { min-height: 46px; padding: 12px 22px; border: 0; border-radius: 12px; background: #92344f; color: white; font: inherit; cursor: pointer; }
+.actions .primary { flex: 1; }
+.later { min-height: 44px; border: 0; background: transparent; color: #6d4652; font: inherit; cursor: pointer; }
+.close { position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; border: 0; background: transparent; color: #827870; font-size: 26px; cursor: pointer; }
+.dialog { width: min(480px, calc(100% - 32px)); max-height: 90dvh; margin: auto; padding: 0; border: 0; border-radius: 24px; color: #322b29; background: white; }
+.dialog::backdrop { background: rgb(30 24 26 / 38%); }
+.sheet { position: relative; padding: 40px 24px 24px; }
+.sheet h2 { margin: 0; font-size: 24px; }
+.sheet ol { display: grid; gap: 24px; list-style: none; padding: 0; margin: 28px 0; }
+.sheet li { display: flex; gap: 16px; align-items: center; font-size: 15px; line-height: 1.6; }
+.sheet li span { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #fae9ee; color: #92344f; }
+.sheet > .primary { width: 100%; margin-top: 24px; }
+.example { display: flex; justify-content: space-between; padding: 18px; background: #fff8fa; border: 1px solid #e9b3c3; border-radius: 12px; }
+.handle { display: none; }
+@media (max-width: 600px) {
+  .dialog { width: 100%; max-width: none; margin: auto 0 0; border-radius: 24px 24px 0 0; }
+  .sheet { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  .handle { display: block; position: absolute; top: 10px; left: calc(50% - 20px); width: 40px; height: 4px; border-radius: 4px; background: #d1cbc7; }
+}
+
+.stepIcon { width: 28px; height: 28px; flex-shrink: 0; color: #322b29; }

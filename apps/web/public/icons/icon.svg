@@ -1,16 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000" role="img" aria-label="LiLink">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#c8756a" />
-      <stop offset="1" stop-color="#8b3a4a" />
-    </linearGradient>
-  </defs>
-  <rect width="1000" height="1000" rx="230" ry="230" fill="url(#bg)" />
-
-    <g fill="#fff7ee">
-      <rect x="240" y="280" width="86" height="440" rx="43" />
-      <rect x="240" y="634" width="232" height="86" rx="43" />
-      <rect x="540" y="430" width="86" height="290" rx="43" />
-      <circle cx="583" cy="336" r="52" />
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none" role="img" aria-labelledby="logo-title logo-description">
+  <title id="logo-title">LiLink</title>
+  <desc id="logo-description">灰棕色线稿飞鸟衔着爱心信封，延续 LiLink 原标志。</desc>
+  <g id="lilink-dove" stroke="#74685c" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M40 28C60 59 96 73 126 90C148 103 157 120 151 140C166 133 173 115 184 106C194 98 211 101 216 113L228 121L211 123C199 128 199 146 194 166C187 193 166 205 137 207C106 209 80 222 62 239C71 222 88 211 107 204C79 212 46 217 24 211C57 213 101 195 124 175C106 171 94 160 89 149C72 142 61 130 59 115C48 103 42 85 44 68C37 55 36 41 40 28Z" stroke-width="4"/>
+    <path d="M44 68C60 91 83 104 104 108M59 115C72 126 88 132 107 135M89 149C97 153 106 156 114 157" stroke-width="3"/>
+    <path d="M63 218C80 208 97 205 117 202" stroke-width="3"/>
+    <path d="M211 115L228 121L211 123" stroke-width="3"/>
+    <circle cx="202" cy="112" r="3.2" fill="#74685c" stroke="none"/>
+    <g transform="rotate(7 216 150)">
+      <path d="M188 126H247V172H188Z" fill="#faf9f3" stroke-width="3.7"/>
+      <path d="M189 128L213 147Q217 151 221 147L246 128" stroke-width="3"/>
+      <path d="M217 143C208 133 197 144 217 158C237 144 226 133 217 143Z" fill="#74685c" stroke="none"/>
     </g>
+  </g>
 </svg>

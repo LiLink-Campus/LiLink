@@ -1,11 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import {
-  renderBenefitText,
-  type CouponBenefitType,
-  type CouponRule,
-} from "@lilink/shared";
+import { renderBenefitText, type CouponBenefitType, type CouponRule } from "@lilink/shared";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
@@ -15,22 +11,18 @@ import {
   AdminRefreshButton,
   BENEFIT_TYPE_LABELS,
   buildCouponRule,
-  CAMPAIGN_STATUS_BADGE,
   CAMPAIGN_STATUS_LABELS,
-  CAMPAIGN_STATUS_OPTIONS,
-  CopyTextButton,
   CouponTierEditor,
   emptyTierDraft,
   type CouponTierDraft,
 } from "../merchant-admin-ui";
 import { useAdminCollection } from "../use-admin-collection";
-import type {
-  AdminCampaign,
-  AdminCouponTemplate,
-  AdminMerchant,
-  PaginatedResult,
-} from "../types";
+import type { AdminCampaign, AdminCouponTemplate, AdminMerchant, PaginatedResult } from "../types";
 import merchantStyles from "../merchant-admin.module.css";
+
+import type { PromotionRedemptionRow } from "../types";
+import styles from "../growth.module.css";
+import { AdminDetailDialog } from "../admin-detail-dialog";
 
 const adminStyles = [commonStyles, cardStyles, merchantStyles];
 
@@ -52,281 +44,211 @@ const BENEFIT_OPTIONS = [
 
 export default function AdminCampaignsPage() {
   const [page, setPage] = useState(1);
+  const [revision, setRevision] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
   const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
-  const [pending, setPending] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const { data, loading, error: loadError, refresh } =
-    useAdminCollection<AdminCampaign>("/admin/campaigns", {
-      page,
-      pageSize: 20,
-      status: statusFilter || undefined,
-    });
-
+  const [tab, setTab] = useState<"coupons" | "results">("coupons");
+  const [active, setActive] = useState<AdminCampaign | null>(null);
+  const [activeCount, setActiveCount] = useState(0);
+  const {
+    data,
+    loading,
+    error: loadError,
+    refresh,
+  } = useAdminCollection<AdminCampaign>("/admin/campaigns", {
+    page,
+    pageSize: 20,
+    status: statusFilter || undefined,
+  });
   const campaigns = useMemo(() => data?.items ?? [], [data]);
-
-  const pageTotals = useMemo(() => {
-    return campaigns.reduce(
-      (acc, campaign) => {
-        acc.templates += campaign.templateCount;
-        acc.activations += campaign.activationCount;
-        if (campaign.status === "ACTIVE") acc.active += 1;
-        if (campaign.isDefault) acc.defaultCount += 1;
-        return acc;
-      },
-      { templates: 0, activations: 0, active: 0, defaultCount: 0 },
-    );
-  }, [campaigns]);
-
+  const selected =
+    campaigns.find((c) => c.id === selectedId) ??
+    campaigns.find((c) => c.status === "ACTIVE") ??
+    campaigns[0];
+  const loadActive = useCallback(async () => {
+    try {
+      const result = await fetchApi<PaginatedResult<AdminCampaign>>(
+        "/admin/campaigns?status=ACTIVE&pageSize=1"
+      );
+      setActiveCount(result.total);
+      setActive(result.total === 1 ? (result.items[0] ?? null) : null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "当前活动加载失败");
+    }
+  }, []);
+  useEffect(() => {
+    void loadActive();
+  }, [loadActive]);
+  async function reload() {
+    setRevision((value) => value + 1);
+    await Promise.all([refresh(), loadActive()]);
+  }
   async function createCampaign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!name.trim() || !slug.trim()) return;
-    setPending("create");
+    setPending(true);
     setError(null);
     try {
-      await fetchApi("/admin/campaigns", {
+      const created = await fetchApi<AdminCampaign>("/admin/campaigns", {
         method: "POST",
-        body: JSON.stringify({
-          name: name.trim(),
-          slug: slug.trim(),
-          description: description.trim() || undefined,
-        }),
+        body: JSON.stringify({ name: name.trim(), description: description.trim() }),
       });
       setName("");
-      setSlug("");
       setDescription("");
+      setCreating(false);
+      setStatusFilter("");
       setPage(1);
-      await refresh();
+      setSelectedId(created.id);
+      setTab("coupons");
+      await reload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "创建失败。");
+      setError(caught instanceof Error ? caught.message : "创建失败");
     } finally {
-      setPending(null);
+      setPending(false);
     }
   }
-
-  async function applyStatus(
-    campaign: AdminCampaign,
-    status: string,
-    isDefault: boolean,
-  ) {
-    setPending(`status-${campaign.id}`);
+  async function changeStatus(campaign: AdminCampaign, status: "ACTIVE" | "ENDED") {
+    if (
+      status === "ENDED" &&
+      !window.confirm(`结束「${campaign.name}」？停止发放新券，已发优惠券仍按各自有效期使用。`)
+    )
+      return;
+    setPending(true);
     setError(null);
     try {
       await fetchApi(`/admin/campaigns/${campaign.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status, isDefault }),
+        body: JSON.stringify({ status }),
       });
-      await refresh();
+      await reload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "操作失败。");
+      setError(caught instanceof Error ? caught.message : "操作失败");
     } finally {
-      setPending(null);
+      setPending(false);
     }
   }
-
-  if (loading) {
-    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载活动…</div>;
-  }
-
   return (
-    <div className={cx(adminStyles, "qb-container")}>
-      <div className={cx(adminStyles, "qb-header")}>
+    <div className={styles.page}>
+      <header className={styles.header}>
         <div>
-          <h1>活动与券包</h1>
-          <p className={cx(adminStyles, "qb-header-desc")}>
-            标准顺序：建活动 + 券包 → 置 ACTIVE 且设为默认 → 再推广拉新。归属在注册时冻结，活动须在拉新前上线。
-          </p>
+          <h1>商户活动</h1>
+          <p className={styles.muted}>准备优惠券 → 发布活动 → 查看发放与核销</p>
         </div>
-        <AdminRefreshButton onClick={() => void refresh()} />
-      </div>
-
-      <div className={cx(adminStyles, "qb-metrics")}>
-        <div className={cx(adminStyles, "qb-metric")}>
-          <div className={cx(adminStyles, "qb-metric-value")}>{data?.total ?? 0}</div>
-          <div className={cx(adminStyles, "qb-metric-label")}>活动总数</div>
-        </div>
-        <div className={cx(adminStyles, "qb-metric")}>
-          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.active}</div>
-          <div className={cx(adminStyles, "qb-metric-label")}>本页进行中</div>
-        </div>
-        <div className={cx(adminStyles, "qb-metric")}>
-          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.templates}</div>
-          <div className={cx(adminStyles, "qb-metric-label")}>本页券模板</div>
-        </div>
-        <div className={cx(adminStyles, "qb-metric")}>
-          <div className={cx(adminStyles, "qb-metric-value")}>{pageTotals.activations}</div>
-          <div className={cx(adminStyles, "qb-metric-label")}>本页激活数</div>
-        </div>
-      </div>
-
-      <section className={cx(adminStyles, "ic-create-panel admin-highlight-card")}>
-        <div>
-          <h2>新建活动</h2>
-          <p className={cx(adminStyles, "qb-header-desc admin-header-desc-spaced")}>
-            slug 用于注册链接 <code className={cx(adminStyles, "mp-slug")}>?c=</code>{" "}
-            参数，仅小写字母、数字与连字符。
-          </p>
-        </div>
-        <form className={cx(adminStyles, "mp-create-form")} onSubmit={createCampaign}>
-          <input
-            value={name}
-            maxLength={80}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="活动名称"
-            aria-label="活动名称"
-          />
-          <input
-            value={slug}
-            maxLength={64}
-            onChange={(event) => setSlug(event.target.value)}
-            placeholder="slug，如 spring-2026"
-            aria-label="活动 slug"
-          />
-          <input
-            value={description}
-            maxLength={500}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="说明（可选）"
-            aria-label="活动说明"
-          />
+        <div className={styles.toolbar}>
           <button
             className="ui-button ui-button--primary"
-            type="submit"
-            disabled={pending === "create" || !name.trim() || !slug.trim()}
+            onClick={() => {
+              setError(null);
+              setCreating(true);
+            }}
           >
-            {pending === "create" ? "创建中…" : "新建活动"}
+            新建活动
           </button>
-        </form>
-      </section>
-
-      {(loadError || error) && (
-        <p className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-block")}>
-          {loadError ?? error}
+          <AdminRefreshButton onClick={() => void reload()} disabled={loading} />
+        </div>
+      </header>
+      {!creating && (error || loadError) && (
+        <p role="alert" className="ui-form-message ui-form-message--error">
+          {error || loadError}
         </p>
       )}
-
-      <section className={cx(adminStyles, "ic-list-panel mp-list-panel")}>
-        <div className={cx(adminStyles, "mp-list-toolbar")}>
-          <div className={cx(adminStyles, "ic-status-tabs")} role="tablist" aria-label="活动状态筛选">
-            {STATUS_TABS.map((tab) => (
+      <section className={styles.panel}>
+        <div className={styles.header}>
+          <div>
+            <span className={styles.badge}>当前活动</span>
+            <h2 style={{ marginTop: 12 }}>
+              {activeCount > 1 ? "需要确认当前活动" : (active?.name ?? "暂无进行中的活动")}
+            </h2>
+          </div>
+          {active && (
+            <button
+              className="ui-button ui-button--secondary"
+              disabled={pending}
+              onClick={() => void changeStatus(active, "ENDED")}
+            >
+              结束活动
+            </button>
+          )}
+        </div>
+        {activeCount > 1 && (
+          <div role="alert">
+            <p className="ui-form-message ui-form-message--error">
+              检测到 {activeCount}{" "}
+              个进行中的历史活动，新增发券已暂停。请在下方结束多余活动，仅保留一场后恢复发券；已有优惠券和核销记录保留。
+            </p>
+            <button
+              className="ui-button ui-button--secondary"
+              onClick={() => {
+                setStatusFilter("ACTIVE");
+                setPage(1);
+                setSelectedId(null);
+              }}
+            >
+              查看待确认的活动
+            </button>
+          </div>
+        )}
+        <p className={styles.muted}>
+          同一时间全站只进行一场活动，新老用户均可参加。提交问卷并首次报名匹配后，可在优惠券页领取，每人每场一次。
+        </p>
+        <p className={styles.muted}>邀请推广长期独立运行；没有活动时也能正常邀请和统计。</p>
+      </section>
+      <section className={styles.panel}>
+        <h2>活动列表</h2>
+        <div className={styles.filters}>
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t.value}
+              aria-pressed={statusFilter === t.value}
+              onClick={() => {
+                setStatusFilter(t.value);
+                setPage(1);
+                setSelectedId(null);
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {loading ? (
+          <p className={styles.empty}>加载活动…</p>
+        ) : campaigns.length === 0 ? (
+          <p className={styles.empty}>
+            {statusFilter
+              ? "这个状态下暂无活动。"
+              : "还没有商户活动。先新建活动，再添加合作商家的优惠券。"}
+          </p>
+        ) : (
+          <div className={styles.list}>
+            {campaigns.map((c) => (
               <button
-                key={tab.value || "all"}
-                type="button"
-                role="tab"
-                aria-selected={statusFilter === tab.value}
-                className={cx(
-                  adminStyles,
-                  "ic-status-tab",
-                  statusFilter === tab.value && "is-active",
-                )}
+                className={styles.item}
+                key={c.id}
+                aria-pressed={selected?.id === c.id}
                 onClick={() => {
-                  setStatusFilter(tab.value);
-                  setPage(1);
+                  setSelectedId(c.id);
+                  setTab("coupons");
                 }}
               >
-                {tab.label}
+                <div>
+                  <strong>{c.name}</strong>
+                  <p className={styles.muted}>
+                    {c.templateCount} 种优惠券{c.description ? ` · ${c.description}` : ""}
+                  </p>
+                </div>
+                <span className={styles.badge}>{CAMPAIGN_STATUS_LABELS[c.status]}</span>
               </button>
             ))}
           </div>
-        </div>
-
-        <div className={cx(adminStyles, "ic-list-meta")}>
-          <p className={cx(adminStyles, "qb-header-desc admin-text-reset")}>
-            共 {data?.total ?? 0} 个活动
-            {pageTotals.defaultCount > 0
-              ? ` · 本页默认活动 ${pageTotals.defaultCount} 个`
-              : ""}
-          </p>
-        </div>
-
-        <div className={cx(adminStyles, "qb-list admin-list-top")}>
-          {campaigns.length === 0 && (
-            <div className={cx(adminStyles, "admin-empty-state ic-list-empty")}>
-              {statusFilter
-                ? "当前筛选下没有活动，试试切换状态或新建一个。"
-                : "还没有活动，在上方新建第一个。"}
-            </div>
-          )}
-          {campaigns.map((campaign) => {
-            const expanded = selectedId === campaign.id;
-            return (
-              <div
-                key={campaign.id}
-                className={cx(
-                  adminStyles,
-                  "qb-card",
-                  expanded && "mp-card-expanded",
-                )}
-              >
-                <div className={cx(adminStyles, "qb-card-header")}>
-                  <div className={cx(adminStyles, "qb-card-title")}>
-                    <strong>{campaign.name}</strong>
-                    <div className={cx(adminStyles, "mp-slug-row")}>
-                      <code className={cx(adminStyles, "mp-slug")}>{campaign.slug}</code>
-                      <CopyTextButton
-                        text={campaign.slug}
-                        label="复制 slug"
-                        copiedLabel="已复制"
-                      />
-                      {campaign.isDefault && (
-                        <span className={cx(adminStyles, "qb-badge is-active")}>默认</span>
-                      )}
-                    </div>
-                    <div className={cx(adminStyles, "mp-inline-stats")}>
-                      <span className={cx(adminStyles, "mp-inline-stat")}>
-                        券包 <strong>{campaign.templateCount}</strong>
-                      </span>
-                      <span className={cx(adminStyles, "mp-inline-stat")}>
-                        激活 <strong>{campaign.activationCount}</strong>
-                      </span>
-                    </div>
-                  </div>
-                  <span
-                    className={cx(
-                      adminStyles,
-                      "qb-badge",
-                      CAMPAIGN_STATUS_BADGE[campaign.status] ?? "",
-                    )}
-                  >
-                    {CAMPAIGN_STATUS_LABELS[campaign.status] ?? campaign.status}
-                  </span>
-                  <div className={cx(adminStyles, "mp-card-actions")}>
-                    <button
-                      type="button"
-                      className="ui-button ui-button--secondary"
-                      onClick={() =>
-                        setSelectedId((current) =>
-                          current === campaign.id ? null : campaign.id,
-                        )
-                      }
-                    >
-                      {expanded ? "收起券包" : "管理券包"}
-                    </button>
-                  </div>
-                </div>
-
-                <CampaignStatusControls
-                  campaign={campaign}
-                  pending={pending === `status-${campaign.id}`}
-                  onApply={(status, isDefault) =>
-                    void applyStatus(campaign, status, isDefault)
-                  }
-                />
-
-                {expanded && <CampaignTemplatesPanel campaignId={campaign.id} />}
-              </div>
-            );
-          })}
-        </div>
-
+        )}
         {data && data.totalPages > 1 && (
           <AdminPagination
-            className={cx(adminStyles, "admin-pagination ic-list-pagination")}
-            page={data.page}
+            className={cx(adminStyles, "admin-pagination")}
+            page={page}
             totalPages={data.totalPages}
             total={data.total}
             unit="个活动"
@@ -334,66 +256,310 @@ export default function AdminCampaignsPage() {
           />
         )}
       </section>
+      {selected && (
+        <section className={styles.panel}>
+          <div className={styles.header}>
+            <div>
+              <h2>{selected.name}</h2>
+              <p className={styles.muted}>
+                {selected.status === "DRAFT"
+                  ? "添加优惠券后发布，全站符合条件的用户即可领取。"
+                  : selected.status === "ACTIVE"
+                    ? activeCount > 1
+                      ? "新增发券已暂停。请结束多余活动，仅保留需要继续进行的一场。"
+                      : "活动进行中，每位用户只领取一次。"
+                    : "活动已结束，保留优惠券与核销记录。"}
+              </p>
+            </div>
+            {selected.status === "DRAFT" && (
+              <button
+                className="ui-button ui-button--primary"
+                disabled={pending || activeCount > 0}
+                onClick={() => void changeStatus(selected, "ACTIVE")}
+              >
+                {activeCount > 0 ? "请先结束当前活动" : "发布活动"}
+              </button>
+            )}
+            {selected.status === "ACTIVE" && activeCount > 1 && (
+              <button
+                className="ui-button ui-button--secondary"
+                disabled={pending}
+                onClick={() => void changeStatus(selected, "ENDED")}
+              >
+                结束此活动
+              </button>
+            )}
+          </div>
+          <div className={styles.filters}>
+            <button aria-pressed={tab === "coupons"} onClick={() => setTab("coupons")}>
+              优惠券配置
+            </button>
+            <button aria-pressed={tab === "results"} onClick={() => setTab("results")}>
+              发放与核销
+            </button>
+          </div>
+          {tab === "coupons" ? (
+            <CampaignTemplatesPanel
+              key={`${selected.id}-${revision}`}
+              campaignId={selected.id}
+              editable={selected.status === "DRAFT"}
+              onChanged={() => void refresh()}
+            />
+          ) : (
+            <CampaignResults key={`${selected.id}-${revision}`} campaignId={selected.id} />
+          )}
+        </section>
+      )}
+      <AdminDetailDialog
+        open={creating}
+        onClose={() => {
+          if (!pending) setCreating(false);
+        }}
+        title="新建活动"
+        headerLabel="商户活动"
+      >
+        <form className={styles.form} onSubmit={createCampaign}>
+          <h2>新建活动</h2>
+          <p className={styles.muted}>先保存草稿，再配置优惠券。发布后向所有符合条件的用户开放。</p>
+          <label>
+            活动名称
+            <input
+              required
+              maxLength={80}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如：秋日校园福利"
+            />
+          </label>
+          <label>
+            活动说明（可选）
+            <textarea
+              maxLength={1000}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+            />
+          </label>
+          {error && (
+            <p role="alert" className="ui-form-message ui-form-message--error">
+              {error}
+            </p>
+          )}
+          <button className="ui-button ui-button--primary" disabled={pending || !name.trim()}>
+            {pending ? "保存中…" : "保存草稿并配置优惠券"}
+          </button>
+        </form>
+      </AdminDetailDialog>
     </div>
   );
 }
 
-function CampaignStatusControls({
-  campaign,
-  pending,
-  onApply,
-}: {
-  campaign: AdminCampaign;
-  pending: boolean;
-  onApply: (status: string, isDefault: boolean) => void;
-}) {
-  const [status, setStatus] = useState(campaign.status);
-  const [isDefault, setIsDefault] = useState(campaign.isDefault);
-
+type Results = {
+  recipients: number;
+  issued: number;
+  redeemed: number;
+  expired: number;
+  templates: { title: string; merchant: string; issued: number; redeemed: number }[];
+};
+function CampaignResults({ campaignId }: { campaignId: string }) {
+  const [data, setData] = useState<Results | null>(null);
+  const [error, setError] = useState("");
   useEffect(() => {
-    setStatus(campaign.status);
-    setIsDefault(campaign.isDefault);
-  }, [campaign.status, campaign.isDefault]);
-
-  const dirty =
-    status !== campaign.status || isDefault !== campaign.isDefault;
-
+    let alive = true;
+    fetchApi<Results>(`/admin/campaigns/${campaignId}/results`)
+      .then((r) => {
+        if (alive) setData(r);
+      })
+      .catch((e) => {
+        if (alive) setError(e.message);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [campaignId]);
+  if (error) return <p role="alert">{error}</p>;
+  if (!data) return <p className={styles.empty}>加载发放结果…</p>;
   return (
-    <div className={cx(adminStyles, "mp-status-row")}>
-      <select
-        value={status}
-        aria-label="活动状态"
-        onChange={(event) =>
-          setStatus(event.target.value as AdminCampaign["status"])
-        }
-      >
-        {CAMPAIGN_STATUS_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {CAMPAIGN_STATUS_LABELS[option] ?? option}
-          </option>
+    <div className={styles.page}>
+      <p className={styles.muted}>
+        本活动累计数据，排除测试账号。保留历史发放与核销记录，与邀请来源无关。
+      </p>
+      <div className={styles.metrics}>
+        {[
+          ["领券人数", data.recipients],
+          ["已发券数", data.issued],
+          ["已核销券数", data.redeemed],
+          ["已过期未用", data.expired],
+        ].map(([label, value]) => (
+          <div className={styles.metric} key={label}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
         ))}
-      </select>
-      <label>
-        <input
-          type="checkbox"
-          checked={isDefault}
-          onChange={(event) => setIsDefault(event.target.checked)}
-        />
-        设为默认活动
-      </label>
-      <button
-        type="button"
-        className="ui-button ui-button--secondary"
-        disabled={pending || !dirty}
-        onClick={() => onApply(status, isDefault)}
-      >
-        {pending ? "保存中…" : "保存状态"}
-      </button>
+      </div>
+      {data.templates.length ? (
+        <div className={styles.scroll}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>优惠券 / 商家</th>
+                <th>已发放</th>
+                <th>已核销</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.templates.map((t, i) => (
+                <tr key={i}>
+                  <td>
+                    {t.title}
+                    <p className={styles.muted}>{t.merchant}</p>
+                  </td>
+                  <td>{t.issued}</td>
+                  <td>{t.redeemed}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className={styles.empty}>
+          还没有发放记录。活动发布后，符合条件的用户领取时会在这里累计。
+        </p>
+      )}
+      <CampaignRedemptions campaignId={campaignId} />
     </div>
   );
 }
 
-function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
+function CampaignRedemptions({ campaignId }: { campaignId: string }) {
+  const day = (offset: number) =>
+    new Date(Date.now() + 8 * 3600000 + offset * 86400000).toISOString().slice(0, 10);
+  const [from, setFrom] = useState(() => day(-29));
+  const [to, setTo] = useState(() => day(0));
+  const [range, setRange] = useState(() => ({ from: day(-29), to: day(0) }));
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<PaginatedResult<PromotionRedemptionRow> | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    setData(null);
+    setError("");
+    const params = new URLSearchParams({
+      campaignId,
+      page: String(page),
+      pageSize: "20",
+      from: new Date(`${range.from}T00:00:00+08:00`).toISOString(),
+      to: new Date(new Date(`${range.to}T00:00:00+08:00`).getTime() + 86400000).toISOString(),
+    });
+    fetchApi<PaginatedResult<PromotionRedemptionRow>>(`/admin/promotion/redemptions?${params}`)
+      .then((r) => {
+        if (alive) setData(r);
+      })
+      .catch((e) => {
+        if (alive) setError(e.message);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [campaignId, page, range]);
+  return (
+    <section>
+      <h3>核销对账</h3>
+      <p className={styles.muted}>
+        按商家与北京时间日期汇总。名义面值不代表实际结算金额；每次最多查询 370 天。
+      </p>
+      <form
+        className={styles.toolbar}
+        style={{ marginTop: 16 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (from && to && from <= to) {
+            setPage(1);
+            setRange({ from, to });
+          }
+        }}
+      >
+        <label>
+          开始日期{" "}
+          <input
+            aria-label="对账开始日期"
+            type="date"
+            required
+            max={to}
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+        </label>
+        <label>
+          结束日期{" "}
+          <input
+            aria-label="对账结束日期"
+            type="date"
+            required
+            min={from}
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </label>
+        <button className="ui-button ui-button--secondary" disabled={!from || !to || from > to}>
+          查询对账
+        </button>
+      </form>
+      {error ? (
+        <p role="alert">{error}</p>
+      ) : !data ? (
+        <p className={styles.empty}>加载对账记录…</p>
+      ) : !data.items.length ? (
+        <p className={styles.empty}>这段时间没有核销记录。</p>
+      ) : (
+        <>
+          <div className={styles.scroll}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>日期</th>
+                  <th>商家</th>
+                  <th>核销数</th>
+                  <th>名义面值</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((r) => (
+                  <tr key={`${r.merchantId}-${r.day}`}>
+                    <td>{r.day}</td>
+                    <td>{r.merchantName}</td>
+                    <td>{r.count}</td>
+                    <td>¥{(r.faceValueTotal / 100).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {data.totalPages > 1 && (
+            <AdminPagination
+              className={cx(adminStyles, "admin-pagination")}
+              page={page}
+              totalPages={data.totalPages}
+              total={data.total}
+              unit="条记录"
+              onPageChange={setPage}
+            />
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function CampaignTemplatesPanel({
+  campaignId,
+  editable,
+  onChanged,
+}: {
+  campaignId: string;
+  editable: boolean;
+  onChanged: () => void;
+}) {
   const [templates, setTemplates] = useState<AdminCouponTemplate[] | null>(null);
   const [merchants, setMerchants] = useState<AdminMerchant[]>([]);
   const [merchantId, setMerchantId] = useState("");
@@ -408,7 +574,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
   const loadTemplates = useCallback(async () => {
     try {
       const result = await fetchApi<{ items: AdminCouponTemplate[] }>(
-        `/admin/campaigns/${campaignId}/templates`,
+        `/admin/campaigns/${campaignId}/templates`
       );
       setTemplates(result.items);
     } catch (caught) {
@@ -418,9 +584,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
 
   useEffect(() => {
     void loadTemplates();
-    void fetchApi<PaginatedResult<AdminMerchant>>(
-      "/admin/merchants?pageSize=50&status=active",
-    )
+    void fetchApi<PaginatedResult<AdminMerchant>>("/admin/merchants?pageSize=50&status=active")
       .then((result) => setMerchants(result.items))
       .catch(() => undefined);
   }, [loadTemplates]);
@@ -456,6 +620,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
       setValidDays("");
       setTiers([emptyTierDraft()]);
       await loadTemplates();
+      onChanged();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "创建券模板失败。");
     } finally {
@@ -472,6 +637,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
         body: JSON.stringify({ isActive: !template.isActive }),
       });
       await loadTemplates();
+      onChanged();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "操作失败。");
     } finally {
@@ -483,11 +649,14 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
     <div className={cx(adminStyles, "qb-subpanel")}>
       {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
 
-      <h4>券包（券模板）</h4>
+      <h4>活动优惠券</h4>
+      {!editable && <p className={styles.muted}>发布后固定优惠券配置；新福利请放入下一场活动。</p>}
       {templates === null ? (
         <p className={cx(adminStyles, "qb-header-desc")}>加载中…</p>
       ) : templates.length === 0 ? (
-        <p className={cx(adminStyles, "qb-header-desc")}>暂无券模板，在下方为合作商家添加第一张券。</p>
+        <p className={cx(adminStyles, "qb-header-desc")}>
+          还没有优惠券，先在下方选择合作商家并添加优惠。
+        </p>
       ) : (
         <div className={cx(adminStyles, "mp-subpanel-list")}>
           {templates.map((template) => (
@@ -496,8 +665,8 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
                 <span className={cx(adminStyles, "mp-subpanel-row-title")}>{template.title}</span>
                 <span className={cx(adminStyles, "mp-subpanel-row-meta")}>
                   {template.merchant?.name ?? template.merchantId} ·{" "}
-                  {BENEFIT_TYPE_LABELS[template.benefitType] ?? template.benefitType} ·
-                  面值 {(template.faceValue / 100).toFixed(2)} 元
+                  {BENEFIT_TYPE_LABELS[template.benefitType] ?? template.benefitType} · 面值{" "}
+                  {(template.faceValue / 100).toFixed(2)} 元
                   {template.validDays ? ` · ${template.validDays} 天有效` : ""}
                 </span>
                 {template.benefitType !== "CUSTOM" && (
@@ -516,7 +685,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
                   className={cx(
                     adminStyles,
                     "qb-badge",
-                    template.isActive ? "is-active" : "is-off",
+                    template.isActive ? "is-active" : "is-off"
                   )}
                 >
                   {template.isActive ? "启用" : "停用"}
@@ -524,7 +693,7 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
                 <button
                   type="button"
                   className="ui-button ui-button--secondary"
-                  disabled={pending === `tpl-${template.id}`}
+                  disabled={!editable || pending === `tpl-${template.id}`}
                   onClick={() => void toggleTemplate(template)}
                 >
                   {template.isActive ? "停用" : "启用"}
@@ -535,70 +704,75 @@ function CampaignTemplatesPanel({ campaignId }: { campaignId: string }) {
         </div>
       )}
 
-      <h4 className={cx(adminStyles, "campaign-subheading")}>新增券模板</h4>
-      <form className={cx(adminStyles, "mp-form-grid")} onSubmit={createTemplate}>
-        <select
-          value={merchantId}
-          aria-label="合作商家"
-          onChange={(event) => setMerchantId(event.target.value)}
-        >
-          <option value="">选择商家…</option>
-          {merchants.map((merchant) => (
-            <option key={merchant.id} value={merchant.id}>
-              {merchant.name}
-            </option>
-          ))}
-        </select>
-        <input
-          value={title}
-          maxLength={80}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="券标题，如 满50减10"
-          aria-label="券标题"
-        />
-        <select
-          value={benefitType}
-          aria-label="优惠类型"
-          onChange={(event) => setBenefitType(event.target.value)}
-        >
-          {BENEFIT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          min={0}
-          step="0.01"
-          value={faceValue}
-          onChange={(event) => setFaceValue(event.target.value)}
-          placeholder="名义面值（元）"
-          aria-label="名义面值"
-        />
-        <input
-          type="number"
-          min={1}
-          value={validDays}
-          onChange={(event) => setValidDays(event.target.value)}
-          placeholder="有效天数（可选）"
-          aria-label="有效天数"
-        />
-        <div className={cx(adminStyles, "mp-form-full")}>
-          <CouponTierEditor
-            benefitType={benefitType}
-            tiers={tiers}
-            onChange={setTiers}
-          />
-        </div>
-        <button
-          className="ui-button ui-button--primary"
-          type="submit"
-          disabled={pending === "create" || !merchantId || !title.trim() || !faceValue}
-        >
-          {pending === "create" ? "创建中…" : "新增券模板"}
-        </button>
-      </form>
+      {editable && (
+        <>
+          <h4 className={cx(adminStyles, "campaign-subheading")}>添加优惠券</h4>
+          {merchants.length === 0 && (
+            <p className={styles.muted}>
+              请先到 <a href="/admin/merchants">合作商家</a> 添加并启用商家。
+            </p>
+          )}
+          <form className={cx(adminStyles, "mp-form-grid")} onSubmit={createTemplate}>
+            <select
+              value={merchantId}
+              aria-label="合作商家"
+              onChange={(event) => setMerchantId(event.target.value)}
+            >
+              <option value="">选择商家…</option>
+              {merchants.map((merchant) => (
+                <option key={merchant.id} value={merchant.id}>
+                  {merchant.name}
+                </option>
+              ))}
+            </select>
+            <input
+              value={title}
+              maxLength={80}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="券标题，如 满50减10"
+              aria-label="券标题"
+            />
+            <select
+              value={benefitType}
+              aria-label="优惠类型"
+              onChange={(event) => setBenefitType(event.target.value)}
+            >
+              {BENEFIT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={faceValue}
+              onChange={(event) => setFaceValue(event.target.value)}
+              placeholder="名义面值（元）"
+              aria-label="名义面值"
+            />
+            <input
+              type="number"
+              min={1}
+              value={validDays}
+              onChange={(event) => setValidDays(event.target.value)}
+              placeholder="有效天数（可选）"
+              aria-label="有效天数"
+            />
+            <div className={cx(adminStyles, "mp-form-full")}>
+              <CouponTierEditor benefitType={benefitType} tiers={tiers} onChange={setTiers} />
+            </div>
+            <button
+              className="ui-button ui-button--primary"
+              type="submit"
+              disabled={pending === "create" || !merchantId || !title.trim() || !faceValue}
+            >
+              {pending === "create" ? "创建中…" : "添加优惠券"}
+            </button>
+          </form>
+        </>
+      )}
     </div>
   );
 }

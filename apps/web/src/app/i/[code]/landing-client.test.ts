@@ -1,20 +1,12 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { ReferralLandingView } from "./landing-view";
 
-const landingClientSource = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), "landing-client.tsx"),
-  "utf8",
-);
-
-describe("ReferralLandingClient invalid invite fallback", () => {
+describe("ReferralLandingView invalid invite fallback", () => {
   it("routes invalid invitation links to the registration chooser", () => {
-    const invalidStateBlock = landingClientSource.match(
-      /valid === false \? \([\s\S]*?\) : valid === true \?/,
-    )?.[0];
-
-    expect(invalidStateBlock).toContain('href="/register"');
-    expect(invalidStateBlock).not.toContain('href="/register/personal"');
+    const html = renderToStaticMarkup(createElement(ReferralLandingView, { valid: false }));
+    expect(html).toContain('href="/register"');
+    expect(html).not.toContain('href="/register/personal"');
   });
 });

@@ -3,15 +3,14 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Card } from "@/components/ui";
-import {
-  GrassRowIllustration,
-  OliveSprigIllustration,
-} from "../dashboard/_components/illustrations";
 import authStyles from "../auth.module.css";
 import layoutStyles from "../public-layout.module.css";
+import styles from "./register-flow.module.css";
 
 type RegisterShellProps = {
   eyebrow: string;
+  className?: string;
+  step?: 1 | 2;
   title: string;
   description: ReactNode;
   loginHref: string;
@@ -22,37 +21,41 @@ type RegisterShellProps = {
 
 export function RegisterShell({
   eyebrow,
+  className = "",
+  step,
   title,
   description,
   loginHref,
   backHref,
-  backLabel = "返回选择注册方式",
+  backLabel = "注册方式",
   children,
 }: RegisterShellProps) {
   return (
     <main
-      className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell}`}
+      className={`${layoutStyles.pageShell} ${layoutStyles.proseShell} ${authStyles.shell} ${styles.shell}`}
     >
-      <Card className={`${authStyles.panel} animate-in`} layout="plain">
-        <div className={authStyles.panelMark} aria-hidden="true">
-          <OliveSprigIllustration />
-        </div>
+      <ol className={styles.progress} aria-label="注册步骤">
+        {["注册方式", "邮箱验证", "设置账号"].map((label, index) => {
+          const current = step ?? 0;
+          return <li key={label} className={index <= current ? styles.active : undefined} aria-current={index === current ? "step" : undefined}>
+            <span className={styles.dot}>{index < current ? "✓" : index + 1}</span><span>{label}</span>
+          </li>;
+        })}
+      </ol>
+      <Card className={`${authStyles.panel} ${styles.panel} ${className} animate-in`} layout="plain">
         {backHref ? (
           <p className={authStyles.backLink}>
-            <Link href={backHref}>{backLabel}</Link>
+            <Link href={backHref}>← {backLabel}</Link>
           </p>
         ) : null}
-        <p className="eyebrow">{eyebrow}</p>
+        {!step && eyebrow ? <p className={authStyles.eyebrow}>{eyebrow}</p> : null}
         <h1>{title}</h1>
-        <p>{description}</p>
+        {description ? <p>{description}</p> : null}
         {children}
         <p className={authStyles.hint}>
           已有账号？<Link href={loginHref}>立即登录</Link>
         </p>
       </Card>
-      <div className={authStyles.grassLine} aria-hidden="true">
-        <GrassRowIllustration />
-      </div>
     </main>
   );
 }

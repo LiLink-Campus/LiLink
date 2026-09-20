@@ -98,9 +98,10 @@ describe("resolveAgenda participation item", () => {
       latestMatchVisibility: null,
       latestMatchLimitedReason: null,
       recentMatchHistory: [],
-      tasks: [],
+
     };
     const contactPreferences: ContactPreferencesPayload = {
+      revision: 0,
       email: "student@example.com",
       preferredContactChannel: "EMAIL",
       methods: [],
@@ -112,9 +113,9 @@ describe("resolveAgenda participation item", () => {
       counterpartDisplayName: null,
       questionnaire: {
         percent: 100,
-        confirmedPercent: 100,
-        unconfirmedPercent: 0,
-        unconfirmedCount: 0,
+
+
+
         submitted: true,
         missingOneLinerIntro: false,
         eligibleToOptIn: true,

@@ -1,5 +1,6 @@
+import { LIFESTYLE_QUESTIONS } from "./lifestyle";
 export const HARD_MATCH_GENDERS = ["男", "女", "非二元"] as const;
-export const HARD_MATCH_LOOKS = ["普通人", "小帅/美", "顶帅/美"] as const;
+export const HARD_MATCH_LOOKS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] as const;
 export const HARD_MATCH_NATIONALITIES = [
   "中国",
   "美国",
@@ -127,6 +128,9 @@ export const HARD_MATCH_KEYS = {
   languages: "hard_languages",
   partnerLanguages: "hard_partner_languages",
   looks: "hard_looks",
+  partnerSmokingStatus: "hard_partner_smoking_status",
+  partnerDrinkingFrequency: "hard_partner_drinking_frequency",
+  partnerExerciseFrequency: "hard_partner_exercise_frequency",
   partnerLooks: "hard_partner_looks",
   heightCm: "hard_height_cm",
   partnerHeightMin: "hard_partner_height_min",
@@ -175,18 +179,6 @@ const HARD_MATCH_ATTENTION_FIELDS = [
     required: true,
   },
   {
-    key: HARD_MATCH_KEYS.nationality,
-    label: "国籍",
-    tab: "self",
-    required: false,
-  },
-  {
-    key: HARD_MATCH_KEYS.languages,
-    label: "语言",
-    tab: "self",
-    required: false,
-  },
-  {
     key: HARD_MATCH_KEYS.looks,
     label: "颜值自评",
     tab: "self",
@@ -202,7 +194,7 @@ const HARD_MATCH_ATTENTION_FIELDS = [
     key: HARD_MATCH_KEYS.weightKg,
     label: "体重",
     tab: "self",
-    required: false,
+    required: true,
   },
   {
     key: HARD_MATCH_KEYS.partnerAgeMin,
@@ -221,18 +213,6 @@ const HARD_MATCH_ATTENTION_FIELDS = [
     label: "希望对方的性别",
     tab: "partner",
     required: true,
-  },
-  {
-    key: HARD_MATCH_KEYS.partnerNationalities,
-    label: "希望对方的国籍",
-    tab: "partner",
-    required: false,
-  },
-  {
-    key: HARD_MATCH_KEYS.partnerLanguages,
-    label: "希望对方的语言",
-    tab: "partner",
-    required: false,
   },
   {
     key: HARD_MATCH_KEYS.partnerLooks,
@@ -363,6 +343,12 @@ export type HardMatchAnswers = {
   languages: HardMatchLanguage[];
   partnerLanguages: HardMatchLanguage[];
   looks: HardMatchLooks;
+  partnerSmokingStatus?: string[];
+  smoking_status?: string;
+  partnerDrinkingFrequency?: string[];
+  drinking_frequency?: string;
+  partnerExerciseFrequency?: string[];
+  exercise_frequency?: string;
   partnerLooks: HardMatchLooks[];
   heightCm: number;
   partnerHeightMin: number;
@@ -853,6 +839,12 @@ export function parseHardMatchAnswers(
     languages,
     partnerLanguages,
     looks,
+    partnerSmokingStatus: readStringArray(rawAnswers[HARD_MATCH_KEYS.partnerSmokingStatus], LIFESTYLE_QUESTIONS[1].options),
+    smoking_status: readSingleChoice(rawAnswers["smoking_status"], LIFESTYLE_QUESTIONS[1].options) ?? undefined,
+    partnerDrinkingFrequency: readStringArray(rawAnswers[HARD_MATCH_KEYS.partnerDrinkingFrequency], LIFESTYLE_QUESTIONS[2].options),
+    drinking_frequency: readSingleChoice(rawAnswers["drinking_frequency"], LIFESTYLE_QUESTIONS[2].options) ?? undefined,
+    partnerExerciseFrequency: readStringArray(rawAnswers[HARD_MATCH_KEYS.partnerExerciseFrequency], LIFESTYLE_QUESTIONS[0].options),
+    exercise_frequency: readSingleChoice(rawAnswers["exercise_frequency"], LIFESTYLE_QUESTIONS[0].options) ?? undefined,
     partnerLooks,
     heightCm,
     partnerHeightMin,
@@ -886,31 +878,6 @@ function multiPreferenceMatches<T extends string>(
   return (
     allOptionsSelected(selectedValues, universe) ||
     selectedValues.includes(candidateValue)
-  );
-}
-
-function optionalMultiPreferenceMatches<T extends string>(
-  selectedValues: readonly T[] | null | undefined,
-  candidateValue: T,
-  universe: readonly T[],
-) {
-  return (
-    !selectedValues ||
-    selectedValues.length === 0 ||
-    multiPreferenceMatches(selectedValues, candidateValue, universe)
-  );
-}
-
-function optionalLanguagePreferenceMatches(
-  selectedValues: readonly HardMatchLanguage[] | null | undefined,
-  candidateValues: readonly HardMatchLanguage[],
-) {
-  return (
-    !selectedValues ||
-    selectedValues.length === 0 ||
-    candidateValues.some((candidateValue) =>
-      selectedValues.includes(candidateValue),
-    )
   );
 }
 
@@ -969,17 +936,9 @@ export function areHardMatchAnswersCompatible(
   left: HardMatchAnswers,
   right: HardMatchAnswers,
 ) {
-  const leftNationality = left.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
-  const rightNationality = right.nationality ?? HARD_MATCH_DEFAULT_NATIONALITY;
-  const defaultLanguages: readonly HardMatchLanguage[] = [
-    HARD_MATCH_DEFAULT_LANGUAGE,
-  ];
-  const leftLanguages: readonly HardMatchLanguage[] = left.languages?.length
-    ? left.languages
-    : defaultLanguages;
-  const rightLanguages: readonly HardMatchLanguage[] = right.languages?.length
-    ? right.languages
-    : defaultLanguages;
+  if ((left.partnerSmokingStatus?.length && (!right.smoking_status || !left.partnerSmokingStatus.includes(right.smoking_status))) || (right.partnerSmokingStatus?.length && (!left.smoking_status || !right.partnerSmokingStatus.includes(left.smoking_status)))) return false;
+  if ((left.partnerDrinkingFrequency?.length && (!right.drinking_frequency || !left.partnerDrinkingFrequency.includes(right.drinking_frequency))) || (right.partnerDrinkingFrequency?.length && (!left.drinking_frequency || !right.partnerDrinkingFrequency.includes(left.drinking_frequency)))) return false;
+  if ((left.partnerExerciseFrequency?.length && (!right.exercise_frequency || !left.partnerExerciseFrequency.includes(right.exercise_frequency))) || (right.partnerExerciseFrequency?.length && (!left.exercise_frequency || !right.partnerExerciseFrequency.includes(left.exercise_frequency)))) return false;
 
   // Age is intentionally a soft preference: a non-trivial number of users
   // mis-read partnerAgeMin/Max as a relative offset (e.g. "4-5 years
@@ -999,28 +958,6 @@ export function areHardMatchAnswersCompatible(
       left.gender,
       HARD_MATCH_GENDERS,
     )
-  ) {
-    return false;
-  }
-
-  if (
-    !optionalMultiPreferenceMatches(
-      left.partnerNationalities,
-      rightNationality,
-      HARD_MATCH_NATIONALITIES,
-    ) ||
-    !optionalMultiPreferenceMatches(
-      right.partnerNationalities,
-      leftNationality,
-      HARD_MATCH_NATIONALITIES,
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    !optionalLanguagePreferenceMatches(left.partnerLanguages, rightLanguages) ||
-    !optionalLanguagePreferenceMatches(right.partnerLanguages, leftLanguages)
   ) {
     return false;
   }

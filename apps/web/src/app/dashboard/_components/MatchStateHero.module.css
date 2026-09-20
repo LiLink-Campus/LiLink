@@ -429,3 +429,7 @@
     min-width: 0;
   }
 }
+
+.matchedActions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.matchedActions > :only-child { grid-column: 1 / -1; }
+.matchedActions > button { min-width: 0; padding-inline: 10px; }

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
@@ -72,7 +73,7 @@ export class CampaignService {
   async createCampaign(input: CreateCampaignDto, adminActorId: string) {
     const name = input.name.trim();
     if (!name) throw new BadRequestException('Campaign name is required.');
-    const slug = this.normalizeSlug(input.slug);
+    const slug = this.normalizeSlug(input.slug ?? `activity-${randomUUID()}`);
     const { startsAt, endsAt } = this.resolveWindow(
       input.startsAt,
       input.endsAt,
@@ -101,12 +102,7 @@ export class CampaignService {
     }
   }
 
-  /**
-   * Patch a campaign (status / isDefault / time window / description). slug and
-   * name are immutable after creation. Promoting a campaign to ACTIVE+default
-   * demotes any other current ACTIVE default in the same transaction so the
-   * partial-unique index (isDefault && status=ACTIVE) never collides.
-   */
+  /** Publish at most one global activity; keep ended activity history. */
   async updateCampaign(
     id: string,
     input: UpdateCampaignDto,
@@ -147,21 +143,46 @@ export class CampaignService {
     if (input.endsAt !== undefined) data.endsAt = new Date(input.endsAt);
 
     const effStatus = (input.status ?? current.status) as CampaignStatus;
-    let effIsDefault = input.isDefault ?? current.isDefault;
-    // An ENDED campaign can never be the default fallback; force it off so the
-    // partial-unique slot frees up and the state stays clean.
-    if (effStatus === 'ENDED') effIsDefault = false;
-
+    data.isDefault = false;
     if (input.status !== undefined) data.status = effStatus;
-    if (effIsDefault !== current.isDefault) data.isDefault = effIsDefault;
 
     try {
       return await this.prisma.$transaction(async (tx) => {
-        if (effStatus === 'ACTIVE' && effIsDefault) {
-          await tx.campaign.updateMany({
-            where: { status: 'ACTIVE', isDefault: true, id: { not: id } },
-            data: { isDefault: false },
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(70412026)`;
+        const latest = await tx.campaign.findUnique({ where: { id } });
+        if (!latest) throw new NotFoundException('Campaign not found.');
+        if (
+          latest.status === 'ENDED' &&
+          input.status &&
+          input.status !== 'ENDED'
+        ) {
+          throw new BadRequestException(
+            '已结束的活动不能重新发布，请新建活动。',
+          );
+        }
+        if (input.status === 'DRAFT' && latest.status === 'ACTIVE') {
+          throw new BadRequestException('进行中的活动只能结束，不能退回草稿。');
+        }
+        if (effStatus === 'ACTIVE') {
+          const other = await tx.campaign.findFirst({
+            where: { status: 'ACTIVE', id: { not: id } },
           });
+          if (other)
+            throw new BadRequestException(
+              '已有进行中的活动，请先结束当前活动。',
+            );
+          const usable = await tx.couponTemplate.count({
+            where: {
+              campaignId: id,
+              isActive: true,
+              merchant: { isActive: true },
+              OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }],
+            },
+          });
+          if (!usable)
+            throw new BadRequestException(
+              '请先添加至少一张有效优惠券，并确认合作商家已启用。',
+            );
         }
         const updated = await tx.campaign.update({ where: { id }, data });
         await tx.auditLog.create({
@@ -184,6 +205,61 @@ export class CampaignService {
       }
       throw error;
     }
+  }
+
+  async getResults(campaignId: string) {
+    if (
+      !(await this.prisma.campaign.findUnique({
+        where: { id: campaignId },
+        select: { id: true },
+      }))
+    )
+      throw new NotFoundException('Campaign not found.');
+    const coupons = await this.prisma.coupon.findMany({
+      where: {
+        template: { campaignId },
+        user: { isTest: false },
+      },
+      select: {
+        userId: true,
+        status: true,
+        expiresAt: true,
+        redemption: { select: { redeemedAt: true } },
+        template: {
+          select: {
+            title: true,
+            id: true,
+            merchant: { select: { name: true } },
+          },
+        },
+      },
+    });
+    const templates = new Map<
+      string,
+      { title: string; merchant: string; issued: number; redeemed: number }
+    >();
+    for (const coupon of coupons) {
+      const row = templates.get(coupon.template.id) ?? {
+        title: coupon.template.title,
+        merchant: coupon.template.merchant.name,
+        issued: 0,
+        redeemed: 0,
+      };
+      row.issued += 1;
+      if (coupon.redemption) row.redeemed += 1;
+      templates.set(coupon.template.id, row);
+    }
+    return {
+      recipients: new Set(coupons.map((c) => c.userId)).size,
+      issued: coupons.length,
+      redeemed: coupons.filter((c) => c.redemption).length,
+      expired: coupons.filter(
+        (c) =>
+          !c.redemption &&
+          (c.status === 'EXPIRED' || (c.expiresAt && c.expiresAt < new Date())),
+      ).length,
+      templates: [...templates.values()],
+    };
   }
 
   async listCampaigns(query: ListCampaignsQueryDto) {
@@ -266,11 +342,14 @@ export class CampaignService {
     const rule = this.parseRule(input.rule, benefitType);
 
     return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(70412026)`;
       const campaign = await tx.campaign.findUnique({
         where: { id: campaignId },
-        select: { id: true },
+        select: { id: true, status: true },
       });
       if (!campaign) throw new NotFoundException('Campaign not found.');
+      if (campaign.status !== 'DRAFT')
+        throw new BadRequestException('只能修改草稿活动的优惠券。');
       const merchant = await tx.merchant.findUnique({
         where: { id: input.merchantId },
         select: { id: true, isActive: true },
@@ -371,6 +450,15 @@ export class CampaignService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(70412026)`;
+        const template = await tx.couponTemplate.findUnique({
+          where: { id },
+          select: { campaign: { select: { status: true } } },
+        });
+        if (!template)
+          throw new NotFoundException('Coupon template not found.');
+        if (template.campaign.status !== 'DRAFT')
+          throw new BadRequestException('只能修改草稿活动的优惠券。');
         const updated = await tx.couponTemplate.update({
           where: { id },
           data,

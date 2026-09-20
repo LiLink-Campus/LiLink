@@ -11,3 +11,4 @@ These rules extend the root `AGENTS.md` for the NestJS API and Prisma schema.
 
 - For API source or DTO changes, run `npm run typecheck:api` and relevant API Jest suites.
 - For migrations or database behavior changes, also run relevant e2e tests with PostgreSQL and migrations available. If blocked, report the attempted command and missing prerequisite.
+- `npm run test:e2e --workspace api` applies migrations before running tests. Verify it targets a disposable local/test database before execution; do not assume the current database is safe to migrate or reset.

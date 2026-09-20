@@ -1,68 +1,84 @@
 import { ButtonLink } from "@/components/ui";
+import Image from "next/image";
 import type { Metadata } from "next";
-import { getEligibleSchools } from "../../lib/public-server-api";
-import { PublicNarrowPageHero } from "../_components/PublicNarrowPageHero";
-import {
-  CampusLineart,
-  GrassRowIllustration,
-} from "../dashboard/_components/illustrations";
-import { EligibleSchoolsPanel } from "../eligible-schools-panel";
-import layoutStyles from "../public-layout.module.css";
+import { SchoolDomainDirectory } from "./school-domain-directory";
+import { partnerGroups } from "./partners";
 import styles from "./schools.module.css";
 
 export const metadata: Metadata = {
   title: "支持的学校 | LiLink",
-  description:
-    "LiLink 当前接受注册的学校邮箱后缀列表，实时同步自合作高校白名单配置。",
+  description: "认识黎安园区中外合作高校，查看对应的学校邮箱后缀。",
 };
 
-export const revalidate = 30;
-
-export default async function SchoolsPage() {
-  const initialPayload = await getEligibleSchools().catch(() => null);
-
+export default function SchoolsPage() {
   return (
-    <main>
-      <PublicNarrowPageHero
-        eyebrow="Eligible schools"
-        title="当前支持的学校"
-        description="LiLink 仅接受合作高校的学校邮箱注册。下方列表实时同步自后台配置，如果你的学校尚未上线，欢迎在页脚联系我们补录。"
-        illustrationSize="landscape"
-        illustration={<CampusLineart valign="mid" />}
-      />
-
-      <section className={`${layoutStyles.pageShell} ${layoutStyles.proseShell}`}>
-        <EligibleSchoolsPanel
-          variant="full"
-          collapsible={false}
-          showSearch
-          initialPayload={initialPayload ?? undefined}
-          hasInitialError={initialPayload == null}
-        />
-
-        <div className={styles.cta}>
-          <div>
-            <p className="eyebrow">Ready?</p>
-            <h2>用学校邮箱开始你的第一次匹配</h2>
-            <p>
-              输入你的学校邮箱，我们会在后台帮你识别学校；通过验证码后即可加入下一个轮次。
-            </p>
-          </div>
-          <div className={styles.ctaActions}>
-            <ButtonLink href="/register">
-              立即注册
-            </ButtonLink>
-            <ButtonLink variant="secondary" href="/faq">
-              查看常见问题
-            </ButtonLink>
-          </div>
+    <main className={styles.page}>
+      <header className={styles.intro}>
+        <p className={styles.eyebrow}>相聚黎安 · 连接世界</p>
+        <h1>
+          来自不同的大学，
+          <br />
+          在同一片校园相遇。
+        </h1>
+        <p className={styles.description}>在园区的日常里，认识不同学校的同学。</p>
+      </header>
+      <section aria-labelledby="partner-title">
+        <div className={styles.sectionHeading}>
+          <h2 id="partner-title">园区中外合作高校</h2>
+          <span>11 所中方高校 · 17 所境外伙伴</span>
+        </div>
+        <div className={styles.cooperationList}>
+          {partnerGroups.map((group) => (
+            <section
+              key={group.id}
+              className={styles.cooperationRow}
+              aria-labelledby={`school-${group.id}`}
+            >
+              <div className={styles.chineseSchool}>
+                <Image
+                  src={`/images/schools/${group.logo}`}
+                  width={80}
+                  height={80}
+                  alt={`${group.name}校徽`}
+                />
+                <div>
+                  <h3 id={`school-${group.id}`}>{group.name}</h3>
+                  <p>{group.campus}</p>
+                </div>
+              </div>
+              <div className={styles.connection} aria-hidden="true">
+                ×
+              </div>
+              <ul className={styles.foreignSchools}>
+                {group.partners.map((school) => (
+                  <li key={school.id}>
+                    <div
+                      className={`${styles.foreignMark} ${["qmul", "glasgow", "reading", "aberdeen", "bcu"].includes(school.id) ? styles.reversedMark : ""}`}
+                    >
+                      <Image
+                        src={`/images/schools/${school.logo}`}
+                        width={160}
+                        height={68}
+                        unoptimized
+                        alt={`${school.name}标识`}
+                      />
+                    </div>
+                    <h4>{school.name}</h4>
+                    <p>{school.region}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
       </section>
-
-      <section className={layoutStyles.grassLine} aria-hidden="true">
-        <GrassRowIllustration />
-        <span>好的关系，源于尊重与真诚</span>
-        <GrassRowIllustration />
+      <SchoolDomainDirectory />
+      <section className={styles.cta}>
+        <div>
+          <h2>下一次相遇，从你开始。</h2>
+          <p>用学校邮箱注册，开启你的 LiLink 校园故事。</p>
+        </div>
+        <ButtonLink href="/register">立即加入 →</ButtonLink>
       </section>
     </main>
   );

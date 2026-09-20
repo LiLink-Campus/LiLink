@@ -1,6 +1,9 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { formatChinaStandardDateTime } from "@/lib/china-standard-time";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
@@ -10,30 +13,45 @@ import type { AuditLogEntry } from "../types";
 
 const adminStyles = [commonStyles];
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
+const ACTION_LABELS: Record<string, string> = {
+  "cycle.created": "新建轮次",
+  "cycle.updated": "修改轮次",
+  "cycle.duplicated": "复制轮次",
+  "cycle.previewed": "生成预演",
+  "cycle.prepared": "生成正式匹配",
+  "cycle.revealed": "揭晓轮次",
+};
 
 export default function AdminAuditPage() {
+  return (
+    <Suspense fallback={<p>正在加载审计日志…</p>}>
+      <AdminAuditContent />
+    </Suspense>
+  );
+}
+
+function AdminAuditContent() {
+  const searchParams = useSearchParams();
+  const cycleId = searchParams.get("cycleId") || undefined;
+  const cycleName = searchParams.get("cycleName") || cycleId;
   const [page, setPage] = useState(1);
   const [actionFilter, setActionFilter] = useState("");
+  useEffect(() => {
+    setPage(1);
+    setActionFilter("");
+  }, [cycleId]);
   const { draftSearch, submittedSearch, setDraftSearch, submitSearch } = useAdminSearch();
-  const { data, loading, error, refresh } = useAdminCollection<AuditLogEntry>(
-    "/admin/audit-logs",
-    {
-      page,
-      pageSize: 20,
-      search: submittedSearch.trim(),
-      action: actionFilter || undefined,
-    },
-  );
+  const { data, loading, error, refresh } = useAdminCollection<AuditLogEntry>("/admin/audit-logs", {
+    page,
+    pageSize: 20,
+    search: submittedSearch.trim(),
+    action: actionFilter || undefined,
+    cycleId,
+  });
 
   const availableActions = useMemo(
     () => [...new Set((data?.items ?? []).map((log) => log.action))],
-    [data],
+    [data]
   );
   const logs = data?.items ?? [];
 
@@ -52,20 +70,35 @@ export default function AdminAuditPage() {
       <div className={cx(adminStyles, "admin-page-header admin-page-header-large")}>
         <div>
           <h1 className={cx(adminStyles, "admin-page-title-large")}>审计日志</h1>
-          <p className={cx(adminStyles, "admin-page-description-large")}>把轮次执行、学校维护、问卷改动和风险处理动作留痕，便于追责和回溯。</p>
+          <p className={cx(adminStyles, "admin-page-description-large")}>
+            查看管理操作记录，追溯轮次预演、正式执行、账号与配置变更。
+          </p>
         </div>
-        <button className={cx(adminStyles, "ui-button ui-button--secondary admin-large-refresh-control")} onClick={() => void refresh()} type="button">
+        <button
+          className={cx(adminStyles, "ui-button ui-button--secondary admin-large-refresh-control")}
+          onClick={() => void refresh()}
+          type="button"
+        >
           刷新
         </button>
       </div>
 
       {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
 
+      {cycleId && (
+        <div className={cx(adminStyles, "admin-section-header")}>
+          <p>
+            当前轮次：<strong>{cycleName}</strong>
+          </p>
+          <Link href="/admin/audit">查看全部审计</Link>
+        </div>
+      )}
       <form className={cx(adminStyles, "admin-search-bar")} onSubmit={handleSearchSubmit}>
         <input
           value={draftSearch}
           onChange={(event) => setDraftSearch(event.target.value)}
-          placeholder="搜索 action、操作者邮箱或 metadata"
+          aria-label="搜索审计记录"
+          placeholder="搜索动作、操作者邮箱或记录内容"
         />
       </form>
       <div className={cx(adminStyles, "admin-tabs")}>
@@ -89,7 +122,7 @@ export default function AdminAuditPage() {
               setPage(1);
             }}
           >
-            {action}
+            {ACTION_LABELS[action] ?? action}
           </button>
         ))}
       </div>
@@ -108,14 +141,22 @@ export default function AdminAuditPage() {
           <tbody>
             {logs.map((log) => (
               <tr key={log.id}>
-                <td>{formatDateTime(log.createdAt)}</td>
                 <td>
-                  <strong>{log.action}</strong>
+                  {formatChinaStandardDateTime(log.createdAt, {
+                    dateStyle: "short",
+                    timeStyle: "medium",
+                  })}
+                </td>
+                <td>
+                  <strong>{ACTION_LABELS[log.action] ?? log.action}</strong>
                 </td>
                 <td>{log.actor?.displayName ?? log.actor?.email ?? "系统"}</td>
                 <td>{log.actor?.school?.name ?? "—"}</td>
                 <td className={cx(adminStyles, "admin-metadata-cell")}>
-                  <code>{JSON.stringify(log.metadata ?? {}, null, 2)}</code>
+                  <details>
+                    <summary>查看记录</summary>
+                    <code>{JSON.stringify(log.metadata ?? {}, null, 2)}</code>
+                  </details>
                 </td>
               </tr>
             ))}

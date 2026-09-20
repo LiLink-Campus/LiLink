@@ -5,6 +5,7 @@ import { resolveApiOriginForPreconnect } from "../lib/public-server-api";
 import { AuthSessionProvider } from "./auth-session";
 import { AnnouncementDialog } from "./announcement-dialog";
 import { PublicChrome } from "./public-chrome";
+import { PwaInstallProvider } from "./_components/PwaInstall";
 import { ServiceWorkerRegistrar } from "./_components/ServiceWorkerRegistrar";
 import "./globals.css";
 
@@ -23,16 +24,13 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-capable": "yes",
   },
   icons: {
-    icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+    apple: "/icons/apple-touch-icon.png?v=dove-20260920",
+    icon: [{ url: "/icons/icon.svg?v=dove-20260920", sizes: "any", type: "image/svg+xml" }],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f4f1ea",
+  themeColor: "#faf9f3",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -46,29 +44,20 @@ export default async function RootLayout({
   const apiPreconnectOrigin = await resolveApiOriginForPreconnect();
 
   return (
-    <html
-      lang="zh-CN"
-      data-scroll-behavior="smooth"
-    >
+    <html lang="zh-CN" data-scroll-behavior="smooth">
       <head>
         {apiPreconnectOrigin ? (
-          <link
-            rel="preconnect"
-            href={apiPreconnectOrigin}
-            crossOrigin="anonymous"
-          />
+          <link rel="preconnect" href={apiPreconnectOrigin} crossOrigin="anonymous" />
         ) : null}
       </head>
       <body>
         <AuthSessionProvider>
-          <PublicChrome>{children}</PublicChrome>
+          <PwaInstallProvider><PublicChrome>{children}</PublicChrome></PwaInstallProvider>
         </AuthSessionProvider>
         <AnnouncementDialog />
         <ServiceWorkerRegistrar />
         <Analytics />
-              {process.env.VERCEL_ENV === "production" && (
-                  <SpeedInsights sampleRate={0.1} />
-              )}
+        {process.env.VERCEL_ENV === "production" && <SpeedInsights sampleRate={0.1} />}
       </body>
     </html>
   );

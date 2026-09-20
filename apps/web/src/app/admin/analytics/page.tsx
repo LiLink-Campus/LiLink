@@ -1,5 +1,5 @@
-import AdminAnalyticsDashboard from "./AdminAnalyticsDashboard";
+import { redirect } from "next/navigation";
 
 export default function AdminAnalyticsPage() {
-  return <AdminAnalyticsDashboard />;
+  redirect("/admin/cycles");
 }

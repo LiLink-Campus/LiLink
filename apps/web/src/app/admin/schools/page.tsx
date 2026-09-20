@@ -1,17 +1,12 @@
 "use client";
 
-import {
-  FormEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
 import cardStyles from "../admin-card.module.css";
+import { AdminIcon } from "../admin-icon";
 import schoolStyles from "./admin-schools.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
@@ -45,13 +40,8 @@ export default function AdminSchoolsPage() {
   const [mergeSource, setMergeSource] = useState<AdminSchool | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  const {
-    draftSearch,
-    submittedSearch,
-    setDraftSearch,
-    submitSearch,
-    clearSearch,
-  } = useAdminSearch();
+  const { draftSearch, submittedSearch, setDraftSearch, submitSearch, clearSearch } =
+    useAdminSearch();
   const {
     data,
     loading,
@@ -122,9 +112,7 @@ export default function AdminSchoolsPage() {
       setEditingId(null);
       await refresh();
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : "保存失败。",
-      );
+      setError(caughtError instanceof Error ? caughtError.message : "保存失败。");
     } finally {
       setPending(null);
     }
@@ -134,7 +122,7 @@ export default function AdminSchoolsPage() {
     if (!mergeSource || mergeSource.id === target.id) return;
     if (
       !confirm(
-        `确定将「${mergeSource.name}」的所有用户和域名合并到「${target.name}」？\n合并后「${mergeSource.name}」将被删除，此操作不可撤回。`,
+        `确定将「${mergeSource.name}」的所有用户和域名合并到「${target.name}」？\n合并后「${mergeSource.name}」将被删除，此操作不可撤回。`
       )
     )
       return;
@@ -142,16 +130,13 @@ export default function AdminSchoolsPage() {
     setPending("merge");
     setError(null);
     try {
-      await fetchApi(
-        `/admin/schools/${mergeSource.id}/merge-into/${target.id}`,
-        { method: "POST" },
-      );
+      await fetchApi(`/admin/schools/${mergeSource.id}/merge-into/${target.id}`, {
+        method: "POST",
+      });
       setMergeSource(null);
       await refresh();
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : "合并失败。",
-      );
+      setError(caughtError instanceof Error ? caughtError.message : "合并失败。");
     } finally {
       setPending(null);
     }
@@ -167,9 +152,7 @@ export default function AdminSchoolsPage() {
       if (editingId === school.id) setEditingId(null);
       await refresh();
     } catch (caughtError) {
-      setError(
-        caughtError instanceof Error ? caughtError.message : "删除失败。",
-      );
+      setError(caughtError instanceof Error ? caughtError.message : "删除失败。");
     } finally {
       setPending(null);
     }
@@ -191,9 +174,7 @@ export default function AdminSchoolsPage() {
               ref={editingId === "new" ? nameInputRef : undefined}
               required
               value={form.name}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, name: e.target.value }))
-              }
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="例如 上海交通大学"
             />
           </label>
@@ -203,9 +184,7 @@ export default function AdminSchoolsPage() {
               required={editingId === "new"}
               value={form.slug}
               disabled={editingId !== "new"}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, slug: e.target.value }))
-              }
+              onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
               placeholder="例如 sjtu"
             />
           </label>
@@ -216,9 +195,7 @@ export default function AdminSchoolsPage() {
           <textarea
             rows={2}
             value={form.description}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, description: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             placeholder="可选的学校简介"
           />
         </label>
@@ -228,9 +205,7 @@ export default function AdminSchoolsPage() {
           <input
             required={editingId === "new"}
             value={form.domains}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, domains: e.target.value }))
-            }
+            onChange={(e) => setForm((f) => ({ ...f, domains: e.target.value }))}
             placeholder="school.edu, students.school.edu"
           />
         </label>
@@ -251,7 +226,8 @@ export default function AdminSchoolsPage() {
           </span>
           <p className={cx(adminStyles, "qb-hint")}>
             关闭后该校将同时：① 从公开学校列表中隐藏；② 从注册页「手动选择学校」下拉中移除；③
-            其邮箱不再被视为学校邮箱，需改走「普通邮箱 + 有效邀请码」注册流程。三项联动，请谨慎切换。
+            其邮箱不再被视为学校邮箱，需改走「普通邮箱 +
+            有效邀请码」注册流程。三项联动，请谨慎切换。
           </p>
         </label>
 
@@ -261,17 +237,9 @@ export default function AdminSchoolsPage() {
             type="submit"
             disabled={pending === "save"}
           >
-            {pending === "save"
-              ? "保存中…"
-              : editingId === "new"
-                ? "创建学校"
-                : "保存修改"}
+            {pending === "save" ? "保存中…" : editingId === "new" ? "创建学校" : "保存修改"}
           </button>
-          <button
-            className="ui-button ui-button--secondary"
-            type="button"
-            onClick={cancelEditing}
-          >
+          <button className="ui-button ui-button--secondary" type="button" onClick={cancelEditing}>
             取消
           </button>
         </div>
@@ -289,7 +257,7 @@ export default function AdminSchoolsPage() {
         <div>
           <h1>学校中心</h1>
           <p className={cx(adminStyles, "qb-header-desc")}>
-            点击学校卡片展开编辑，管理学校档案与邮箱域名映射。
+            管理学校档案、注册邮箱域名与用户归属。
           </p>
         </div>
         <div className="auth-actions">
@@ -312,7 +280,10 @@ export default function AdminSchoolsPage() {
       </div>
 
       {/* Search */}
-      <form className={cx(adminStyles, "ic-search-bar sch-search-bar")} onSubmit={handleSearchSubmit}>
+      <form
+        className={cx(adminStyles, "ic-search-bar sch-search-bar")}
+        onSubmit={handleSearchSubmit}
+      >
         <input
           value={draftSearch}
           onChange={(event) => setDraftSearch(event.target.value)}
@@ -332,13 +303,18 @@ export default function AdminSchoolsPage() {
             ×
           </button>
         )}
-        <button className={cx(adminStyles, "ui-button ui-button--primary ic-search-submit")} type="submit">
+        <button
+          className={cx(adminStyles, "ui-button ui-button--primary ic-search-submit")}
+          type="submit"
+        >
           搜索
         </button>
       </form>
 
       {mergeSource && (
-        <div className={cx(adminStyles, "admin-merge-banner ui-form-message ui-form-message--success")}>
+        <div
+          className={cx(adminStyles, "admin-merge-banner ui-form-message ui-form-message--success")}
+        >
           <span>
             已选择「{mergeSource.name}」为合并来源，点击目标学校卡片上的「合并到此」完成合并。
           </span>
@@ -353,12 +329,16 @@ export default function AdminSchoolsPage() {
       )}
 
       {loadError && (
-        <p className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-bottom")}>
+        <p
+          className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-bottom")}
+        >
           {loadError}
         </p>
       )}
       {error && (
-        <p className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-bottom")}>
+        <p
+          className={cx(adminStyles, "ui-form-message ui-form-message--error admin-message-bottom")}
+        >
           {error}
         </p>
       )}
@@ -379,16 +359,12 @@ export default function AdminSchoolsPage() {
           return (
             <div
               key={school.id}
-              className={cx(
-                adminStyles,
-                "qb-card sch-school-card",
-                isEditing && "qb-card-editing",
-              )}
+              className={cx(adminStyles, "qb-card sch-school-card", isEditing && "qb-card-editing")}
             >
               <div className={cx(adminStyles, "qb-card-header sch-card-header")}>
                 <div className={cx(adminStyles, "sch-card-main")}>
                   <span className={cx(adminStyles, "qb-order-num sch-card-count")}>
-                    {school._count.users}
+                    <AdminIcon name="schools" width="18" height="18" />
                   </span>
 
                   <div
@@ -402,7 +378,13 @@ export default function AdminSchoolsPage() {
                     {!isEditing && school.domains.length > 0 && (
                       <div className={cx(adminStyles, "sch-card-domains")}>
                         {school.domains.map((d) => (
-                          <span key={d.id} className={cx(adminStyles, "ui-badge ui-badge--neutral sch-domain-chip")}>
+                          <span
+                            key={d.id}
+                            className={cx(
+                              adminStyles,
+                              "ui-badge ui-badge--neutral sch-domain-chip"
+                            )}
+                          >
                             @{d.domain}
                           </span>
                         ))}
@@ -418,7 +400,10 @@ export default function AdminSchoolsPage() {
                       {mergeSource && mergeSource.id !== school.id ? (
                         <button
                           type="button"
-                          className={cx(adminStyles, "ui-button ui-button--secondary sch-card-action-btn")}
+                          className={cx(
+                            adminStyles,
+                            "ui-button ui-button--secondary sch-card-action-btn"
+                          )}
                           title={`合并「${mergeSource.name}」到此学校`}
                           disabled={pending === "merge"}
                           onClick={() => void mergeInto(school)}
@@ -432,9 +417,7 @@ export default function AdminSchoolsPage() {
                           title="选为合并来源"
                           aria-pressed={mergeSource?.id === school.id}
                           onClick={() =>
-                            setMergeSource(
-                              mergeSource?.id === school.id ? null : school,
-                            )
+                            setMergeSource(mergeSource?.id === school.id ? null : school)
                           }
                         >
                           ⇄
@@ -499,11 +482,7 @@ export default function AdminSchoolsPage() {
 
         {/* Add button */}
         {editingId !== "new" && (
-          <button
-            type="button"
-            className={cx(adminStyles, "qb-add-btn")}
-            onClick={startCreating}
-          >
+          <button type="button" className={cx(adminStyles, "qb-add-btn")} onClick={startCreating}>
             <span>+</span>
             添加学校
           </button>

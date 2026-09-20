@@ -3,6 +3,11 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { OutboundEmailMessageCategory } from '../prisma/client';
 import nodemailer from 'nodemailer';
 import { env, isLocalDevRuntime } from '../../config/env';
+import {
+  cancelMatchEmails,
+  canSendMatchEmail,
+  matchIdFromEmailKey,
+} from './match-mail';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   WEEKLY_INTENT_LABELS,
@@ -46,15 +51,6 @@ type VerificationCodeEmailInput = {
   dedupeKey: string;
   recipientEmail: string;
   code: string;
-};
-
-type MeetupReminderEmailInput = {
-  sessionId: string;
-  recipientEmail: string;
-  recipientDisplayName: string | null;
-  otherPartyDisplayName: string | null;
-  actionSentence: string;
-  directUrl: string;
 };
 
 type OutboundEmailRecord = {
@@ -264,65 +260,18 @@ export class MailService {
     };
   }
 
-  buildIntroductionEmails(input: IntroductionEmailInput) {
-    const requesterName = input.requester.displayName ?? 'LiLink 用户';
-    const recipientName = input.recipient.displayName ?? 'LiLink 用户';
-
-    return [
-      this.buildIntroductionEmail({
-        dedupeKey: `match-introduction:${input.matchId}:requester`,
-        recipientEmail: input.requester.email,
-        otherParty: input.recipient,
-        otherPartyDisplayName: recipientName,
-        leadingSentence: `你已成功请求联系 ${recipientName}。`,
-      }),
-      this.buildIntroductionEmail({
-        dedupeKey: `match-introduction:${input.matchId}:recipient`,
-        recipientEmail: input.recipient.email,
-        otherParty: input.requester,
-        otherPartyDisplayName: requesterName,
-        leadingSentence: `${requesterName} 请求与你建立联系。`,
-      }),
-    ];
-  }
-
-  buildMeetupReminderEmail(input: MeetupReminderEmailInput) {
-    const recipientName = input.recipientDisplayName ?? 'LiLink 用户';
-    const subject = 'LiLink 破冰会话待处理';
-    const text = [
-      `${recipientName}，`,
-      '',
-      input.actionSentence,
-      '请打开 LiLink 查看并处理这个破冰会话：',
-      input.directUrl,
-      '',
-      '每个破冰会话最多发送一次提醒邮件。此邮件由 LiLink 系统自动发送，请勿直接回复。',
-      '',
-      '— LiLink 团队',
-      'https://lilink.top',
-    ].join('\n');
-    const html = renderHtmlDocument({
-      title: subject,
-      body: [
-        '<p class="brand">LiLink</p>',
-        `<h1>${escapeHtml(subject)}</h1>`,
-        `<p>${escapeHtml(recipientName)}，</p>`,
-        `<p>${escapeHtml(input.actionSentence)}</p>`,
-        `<p><a href="${escapeHtml(input.directUrl)}">打开 LiLink 处理破冰会话</a></p>`,
-        '<p class="footer">每个破冰会话最多发送一次提醒邮件。此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
-        '<hr>',
-        '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
-      ].join(''),
+  buildMatchRevealEmails(input: IntroductionEmailInput) {
+    return [input.requester, input.recipient].map((party, index) => {
+      const otherParty = index === 0 ? input.recipient : input.requester;
+      const name = otherParty.displayName ?? 'LiLink 用户';
+      return this.buildIntroductionEmail({
+        dedupeKey: `match-reveal:${input.matchId}:${index}`,
+        recipientEmail: party.email,
+        otherParty,
+        otherPartyDisplayName: name,
+        leadingSentence: `本轮匹配结果已公布，你与 ${name} 匹配成功。可以直接通过以下方式联系对方，也可以登录 LiLink 查看这封来信。`,
+      });
     });
-
-    return {
-      dedupeKey: `meetup-reminder:${input.sessionId}`,
-      recipientEmail: input.recipientEmail,
-      subject,
-      html,
-      text,
-      messageCategory: OutboundEmailMessageCategory.TRANSACTIONAL,
-    };
   }
 
   private buildIntroductionEmail(input: {
@@ -545,21 +494,62 @@ export class MailService {
   private async processOutboundEmail(
     email: OutboundEmailRecord,
   ): Promise<'processed' | 'claimed-by-another-worker' | 'not-eligible'> {
+    // Keep waiting mail revocable until a send slot is available. No database
+    // transaction or connection is held while waiting for the slot or SMTP.
+    return this.sendGate.run(() => this.processOutboundEmailWithSlot(email));
+  }
+
+  private async processOutboundEmailWithSlot(
+    email: OutboundEmailRecord,
+  ): Promise<'processed' | 'claimed-by-another-worker' | 'not-eligible'> {
+    // Retired reminders can still exist in old queues or stale worker snapshots.
+    if (email.dedupeKey.startsWith('meetup-reminder:')) {
+      await this.prisma.outboundEmail.updateMany({
+        where: {
+          id: email.id,
+          status: { in: ['PENDING', 'FAILED', 'PROCESSING'] },
+        },
+        data: {
+          status: 'EXHAUSTED',
+          nextAttemptAt: null,
+          errorMessage: 'Meetup workflow retired before delivery.',
+        },
+      });
+      return 'not-eligible';
+    }
+
     const claimedAt = new Date();
     const claimWhere = this.buildClaimWhere(email, claimedAt);
     if (!claimWhere) {
       return 'not-eligible';
     }
 
-    const claimResult = await this.prisma.outboundEmail.updateMany({
+    const claimArgs = {
       where: claimWhere,
       data: {
-        status: 'PROCESSING',
+        status: 'PROCESSING' as const,
         attempts: { increment: 1 },
         lastAttemptAt: claimedAt,
         errorMessage: null,
       },
-    });
+    };
+    const matchId = matchIdFromEmailKey(email.dedupeKey);
+    const claimResult = matchId
+      ? await this.prisma.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT "id" FROM "Match" WHERE "id" = ${matchId} FOR UPDATE`;
+          if (!(await canSendMatchEmail(tx, matchId, email.recipientEmail))) {
+            await cancelMatchEmails(
+              tx,
+              [matchId],
+              'Match unavailable before delivery.',
+            );
+            return null;
+          }
+          return tx.outboundEmail.updateMany(claimArgs);
+        })
+      : await this.prisma.outboundEmail.updateMany(claimArgs);
+
+    if (!claimResult) return 'not-eligible';
 
     if (claimResult.count === 0) {
       return 'claimed-by-another-worker';
@@ -585,21 +575,21 @@ export class MailService {
           `Bulk email ${email.dedupeKey} has no MAIL_LIST_UNSUBSCRIBE_URL; add one for better list compliance.`,
         );
       }
+      // Claiming is the dispatch boundary; SMTP cannot be recalled. Later
+      // cancellation still prevents retries and stale completion writes.
       const sentAt = new Date();
       const from = resolveSmtpFromForCategory(email.messageCategory);
-      await this.sendGate.run(async () => {
-        await this.transporter.sendMail({
-          from,
-          to: email.recipientEmail,
-          subject: email.subject,
-          html: email.html,
-          text: email.text ?? undefined,
-          headers: buildSendHeaders(email.messageCategory),
-        });
+      await this.transporter.sendMail({
+        from,
+        to: email.recipientEmail,
+        subject: email.subject,
+        html: email.html,
+        text: email.text ?? undefined,
+        headers: buildSendHeaders(email.messageCategory),
       });
 
-      await this.prisma.outboundEmail.update({
-        where: { id: email.id },
+      const completed = await this.prisma.outboundEmail.updateMany({
+        where: { id: email.id, status: 'PROCESSING', lastAttemptAt: claimedAt },
         data: {
           status: 'SENT',
           sentAt,
@@ -607,6 +597,8 @@ export class MailService {
           errorMessage: null,
         },
       });
+
+      if (completed.count === 0) return 'processed';
 
       await this.syncVerificationCodeStatus(email.dedupeKey, {
         deliveryStatus: 'SENT',
@@ -623,14 +615,17 @@ export class MailService {
           ? error.message
           : 'Unknown email delivery error.';
 
-      await this.prisma.outboundEmail.update({
-        where: { id: email.id },
+      const completed = await this.prisma.outboundEmail.updateMany({
+        where: { id: email.id, status: 'PROCESSING', lastAttemptAt: claimedAt },
         data: {
           status: exhausted ? 'EXHAUSTED' : 'FAILED',
           nextAttemptAt,
           errorMessage,
         },
       });
+
+      // A cancellation or a newer lease owns the row now; never revive it.
+      if (completed.count === 0) return 'processed';
 
       // Keep the backstop window open through the scheduled retry so the cron
       // picks it up even if the process is otherwise idle.

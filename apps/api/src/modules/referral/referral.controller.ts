@@ -32,7 +32,6 @@ export class ReferralController {
     await this.referralService.recordShareEvent(
       request.user!.sub,
       dto.channel as ReferralChannel,
-      dto.campaignSlug,
     );
     return { ok: true };
   }

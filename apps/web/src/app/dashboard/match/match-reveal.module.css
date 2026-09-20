@@ -1,0 +1,37 @@
+.scene { min-height: min(640px, 72dvh); display: flex; align-items: center; flex-direction: column; padding: 36px 12px 24px; overflow: hidden; }
+.copy { text-align: center; }
+.copy p { margin: 0 0 12px; font-size: .8rem; letter-spacing: .12em; color: var(--color-brand); }
+.copy h2 { margin: 0 0 12px; font: 500 clamp(1.5rem, 4vw, 2rem)/1.4 var(--font-display); }
+.copy span { font-size: .9rem; color: var(--color-text-secondary); }
+.stage { margin-top: 18px; position: relative; width: min(100%, 500px); height: 330px; perspective: 900px; }
+.courier { position: absolute; width: 150px; height: 150px; top: 45px; left: calc(50% - 155px); z-index: 6; pointer-events: none; opacity: 0; }
+.scene[data-phase="delivery"] .courier { animation: fly 2.2s cubic-bezier(.3,.1,.25,1) both; }
+.courier img { animation: soar .4s ease-in-out infinite alternate; }
+@keyframes soar { to { transform: translateY(-7px) rotate(3deg); } }
+.envelope { position: absolute; width: 240px; height: 158px; top: 140px; left: calc(50% - 120px); background: #ead9cc; border: 0; border-radius: 9px; padding: 0; cursor: pointer; box-shadow: 0 15px 30px #74685c20; }
+.scene[data-phase="delivery"] .envelope { animation: deliver 2.2s ease both; }
+.envelope:disabled { cursor: default; }
+.envelope:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 6px; }
+.pocket { position: absolute; inset: 0; background: #f2e5d9; clip-path: polygon(0 0, 50% 48%, 100% 0, 100% 100%, 0 100%); border-radius: 8px; z-index: 3; }
+.pocket::after { content: ""; position: absolute; inset: 0; background: #ebd8c8; clip-path: polygon(0 100%, 50% 43%, 100% 100%); }
+.flap { position: absolute; inset: 0 0 50%; background: #e5cdbc; clip-path: polygon(0 0,100% 0,50% 100%); transform-origin: top center; z-index: 4; backface-visibility: visible; }
+.seal { position: absolute; top: 58px; left: 101px; width: 38px; height: 38px; border-radius: 50%; background: var(--color-brand); color: #fff8ed; font: 22px/38px var(--font-display); z-index: 5; }
+.paper { position: absolute; left: 12px; right: 12px; top: 10px; height: 135px; background: #fffdf8; color: var(--color-brand); padding: 18px 12px; z-index: 2; transform-origin: center bottom; }
+.paperTop { display: block; font: 600 17px var(--font-display); }
+.paperMessage { display: block; margin-top: 12px; font: 15px/1.8 var(--font-display); }
+.paperFold { position: absolute; inset: 50% 0 0; background: #faf5ea; transform-origin: top center; opacity: .9; }
+.scene[data-phase="opening"] .flap { animation: flap .8s cubic-bezier(.4,0,.2,1) forwards; }
+.scene[data-phase="opening"] .seal { animation: vanish .25s forwards; }
+.scene[data-phase="opening"] .paper { animation: extract 1.2s .5s ease forwards; }
+.scene[data-phase="opening"] .paperFold { animation: unfold .65s .95s ease forwards; }
+.result { display: grid; gap: 24px; animation: reveal .5s ease both; }
+.result:focus { outline: none; }
+@keyframes fly { 0% { opacity: 0; transform: translate(-270px,-80px) rotate(-12deg); } 15% { opacity: 1; } 55%,70% { opacity: 1; transform: translate(0,0) rotate(0); } 100% { opacity: 0; transform: translate(330px,-180px) rotate(-15deg); } }
+@keyframes deliver { 0%,45% { opacity: 0; transform: translate(-15px,-55px) scale(.25); } 55% { opacity: 1; transform: translate(0,-30px) scale(.4); } 85%,100% { opacity: 1; transform: translate(0,0) scale(1); } }
+@keyframes flap { 60%,100% { transform: rotateX(-180deg); z-index: 1; } }
+@keyframes vanish { to { opacity: 0; transform: scale(.65); } }
+@keyframes extract { 55% { transform: translateY(-115px); z-index: 5; } 100% { transform: translateY(-145px) scale(1.12); z-index: 5; } }
+@keyframes unfold { to { transform: rotateX(-180deg); opacity: 0; } }
+@keyframes reveal { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .scene *, .result { animation: none !important; transition: none !important; } .courier { display: none; } }
+@media(max-width: 400px) { .stage { height: 300px; } .envelope { top: 120px; } .scene { padding-top: 24px; } }

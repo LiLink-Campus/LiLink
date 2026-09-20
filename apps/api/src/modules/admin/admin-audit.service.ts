@@ -44,7 +44,12 @@ export class AdminAuditService {
     }
 
     if (!search) {
-      const where = query.action ? { action: query.action } : undefined;
+      const where: Prisma.AuditLogWhereInput = {
+        ...(query.action ? { action: query.action } : {}),
+        ...(query.cycleId
+          ? { metadata: { path: ['cycleId'], equals: query.cycleId } }
+          : {}),
+      };
       const [items, total] = await Promise.all([
         this.prisma.auditLog.findMany({
           where,
@@ -75,6 +80,10 @@ export class AdminAuditService {
       ? Prisma.sql`AND a."action" = ${query.action}`
       : Prisma.empty;
 
+    const cycleFilter = query.cycleId
+      ? Prisma.sql`AND a."metadata"->>'cycleId' = ${query.cycleId}`
+      : Prisma.empty;
+
     const [idRows, totalRows] = await Promise.all([
       this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
         SELECT a."id"
@@ -83,6 +92,7 @@ export class AdminAuditService {
         LEFT JOIN "AdminOperator" ao ON ao."id" = a."adminActorId"
         WHERE 1 = 1
           ${actionFilter}
+          ${cycleFilter}
           AND (
             a."action" ILIKE ${pattern}
             OR COALESCE(u."email", '') ILIKE ${pattern}
@@ -100,6 +110,7 @@ export class AdminAuditService {
         LEFT JOIN "AdminOperator" ao ON ao."id" = a."adminActorId"
         WHERE 1 = 1
           ${actionFilter}
+          ${cycleFilter}
           AND (
             a."action" ILIKE ${pattern}
             OR COALESCE(u."email", '') ILIKE ${pattern}
@@ -125,33 +136,6 @@ export class AdminAuditService {
     `);
 
     return this.loadAuditLogsByIds(rows.map((row) => row.id));
-  }
-
-  async listAuditLogsByCondition(
-    condition: Prisma.Sql,
-    query: { page?: number; pageSize?: number } = {},
-  ) {
-    const pagination = normalizeAdminListPagination(query, 20);
-    const [idRows, totalRows] = await Promise.all([
-      this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT "id"
-        FROM "AuditLog"
-        WHERE (${condition})
-        ORDER BY "createdAt" DESC
-        OFFSET ${pagination.skip}
-        LIMIT ${pagination.pageSize}
-      `),
-      this.prisma.$queryRaw<Array<{ total: bigint | number }>>(Prisma.sql`
-        SELECT COUNT(*)::bigint AS total
-        FROM "AuditLog"
-        WHERE (${condition})
-      `),
-    ]);
-
-    const items = await this.loadAuditLogsByIds(idRows.map((row) => row.id));
-    const total = Number(totalRows[0]?.total ?? 0);
-
-    return buildPageResult(items, total, pagination);
   }
 
   async write(
@@ -228,7 +212,11 @@ export class AdminAuditService {
 
   private hasListQuery(query: ListAuditLogsQueryDto) {
     return Boolean(
-      query.page || query.pageSize || query.search || query.action,
+      query.page ||
+      query.pageSize ||
+      query.search ||
+      query.action ||
+      query.cycleId,
     );
   }
 }

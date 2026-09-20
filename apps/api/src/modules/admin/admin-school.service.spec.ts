@@ -42,7 +42,7 @@ describe('AdminSchoolService', () => {
         slug: 'example-school',
         description: 'Example',
         domains: {
-          create: [{ domain: 'example.edu' }, { domain: 'sub.example.edu' }],
+          create: [{ domain: 'example.edu' }],
         },
       },
       include: {
@@ -234,7 +234,7 @@ describe('AdminSchoolService', () => {
         name: 'Example School',
         description: 'Updated',
         domains: {
-          create: [{ domain: 'example.edu' }, { domain: 'sub.example.edu' }],
+          create: [{ domain: 'example.edu' }],
         },
       },
       include: { domains: true },

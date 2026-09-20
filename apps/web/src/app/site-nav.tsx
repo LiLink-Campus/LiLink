@@ -1,29 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { ButtonLink } from "@/components/ui";
 import { useAuthSession } from "./auth-session";
-import { fetchApi } from "../lib/api";
 import styles from "./site-nav.module.css";
-import { UpdatesNewBadge } from "./updates-new-badge";
 
 const PUBLIC_NAV_ITEMS = [
-  { href: "/about", label: "关于" },
-  { href: "/faq", label: "FAQ" },
+  { href: "/about", label: "关于我们" },
   { href: "/schools", label: "支持的学校" },
-  { href: "/updates", label: "更新" },
 ];
 
 export function SiteNav() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, setUser } = useAuthSession();
+  const { user } = useAuthSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const onAdminPath = pathname.startsWith("/admin");
   const onDashboardPath = pathname.startsWith("/dashboard");
   const authenticatedUser = onAdminPath ? null : user;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
 
   if (onAdminPath || onDashboardPath) {
     return null;
@@ -33,20 +37,13 @@ export function SiteNav() {
     setMenuOpen(false);
   }
 
-  async function handleLogout() {
-    await fetchApi("/auth/logout", { method: "POST" });
-    setUser(null);
-    setMenuOpen(false);
-    router.push("/");
-    router.refresh();
-  }
-
   return (
     <div className={menuOpen ? `${styles.shell} ${styles.open}` : styles.shell}>
       <button
         type="button"
         className={styles.toggle}
         aria-expanded={menuOpen}
+        aria-controls="public-site-nav"
         aria-label={menuOpen ? "关闭导航菜单" : "打开导航菜单"}
         onClick={() => setMenuOpen((current) => !current)}
       >
@@ -54,40 +51,25 @@ export function SiteNav() {
         <span />
         <span />
       </button>
-      <nav className={styles.nav} aria-label="主导航">
+      <nav id="public-site-nav" className={styles.nav} aria-label="主导航">
         {PUBLIC_NAV_ITEMS.map((item) => (
-          <Link key={item.href} href={item.href} onClick={closeMenu}>
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={closeMenu}
+            aria-current={pathname === item.href ? "page" : undefined}
+          >
             {item.label}
-            {item.href === "/updates" ? <UpdatesNewBadge /> : null}
           </Link>
         ))}
         <div className={styles.authCluster}>
-          {authenticatedUser ? (
-            <>
-              <Link href="/dashboard" onClick={closeMenu}>
-                我的匹配
-              </Link>
-              <button
-                type="button"
-                className={styles.action}
-                onClick={() => void handleLogout()}
-              >
-                退出
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login" onClick={closeMenu}>
-                登录
-              </Link>
-              <ButtonLink
-                href="/register"
-                onClick={closeMenu}
-              >
-                立即加入
-              </ButtonLink>
-            </>
-          )}
+          <ButtonLink
+            href={authenticatedUser ? "/dashboard" : "/login"}
+            variant="secondary"
+            onClick={closeMenu}
+          >
+            {authenticatedUser ? "我的匹配" : "登录"}
+          </ButtonLink>
         </div>
       </nav>
     </div>

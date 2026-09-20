@@ -1,5 +1,13 @@
 "use client";
+import Link from "next/link";
+import { QuestionField, QuestionHeading, ScaleChoice, ChoiceOption, QuestionChoices } from "./question-components";
+import type { VipStatus } from "../vip/vip-client";
+import { LIFESTYLE_QUESTIONS, calculateAgeOnDate, isLifestyleQuestion, VIP_FILTER_KEYS } from "@lilink/shared";
+import { BirthDatePicker } from "../_components/BirthDatePicker";
 
+import { profileSavePresentation } from "./save-status";
+import styles from "./profile-redesign.module.css";
+import { ContactEditor, type ContactSaveStatus } from "./contact-editor";
 import { dcx } from "../_lib/dashboard-class-names";
 import {
   createAutosaveLifecycleGate,
@@ -9,9 +17,10 @@ import {
   type MatchEstimateBand,
 } from "@lilink/shared";
 import {
-  type PointerEvent as ReactPointerEvent,
-  type TouchEvent as ReactTouchEvent,
+  Fragment,
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useEffectEvent,
   useMemo,
   useRef,
@@ -26,15 +35,13 @@ import {
   type MatchEstimate,
 } from "../../../lib/api";
 import {
+  HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
   AGE_OPTIONS,
   BIRTH_YEAR_OPTIONS,
   HARD_MATCH_KEYS,
   HARD_MATCH_GENDERS,
-  HARD_MATCH_LANGUAGES,
   HARD_MATCH_LOOKS,
-  HARD_MATCH_NATIONALITIES,
   HEIGHT_OPTIONS,
-  MONTH_OPTIONS,
   WEIGHT_OPTIONS,
   buildDayOptions,
   hardMatchAttentionFields,
@@ -57,11 +64,11 @@ import {
   profileAttentionTabForKey,
 } from "../_lib/profile-attention";
 import {
-  getQuestionnaireIncompleteMessage,
   keepCurrentQuestionAnswers,
   softQuestionAnswerIsComplete,
 } from "../_lib/questionnaire";
 import type {
+  ContactPreferencesPayload,
   DashboardPayload,
   QuestionnaireAttentionItem,
   Question,
@@ -81,36 +88,35 @@ function numericOptions(
   });
 }
 
-const BIRTH_YEAR_VALUE_OPTIONS = numericOptions(
-  BIRTH_YEAR_OPTIONS,
-  (year) => `${year} 年`,
-);
-const MONTH_VALUE_OPTIONS = numericOptions(
-  MONTH_OPTIONS,
-  (month) => `${month} 月`,
-);
 const AGE_VALUE_OPTIONS = numericOptions(AGE_OPTIONS);
 const HEIGHT_VALUE_OPTIONS = numericOptions(HEIGHT_OPTIONS);
 const WEIGHT_VALUE_OPTIONS = [
-  { value: "", label: "不填写" },
   ...numericOptions(WEIGHT_OPTIONS, (weight) => `${weight} kg`),
 ];
 const PARTNER_WEIGHT_VALUE_OPTIONS = [
   { value: "", label: "不限" },
   ...numericOptions(WEIGHT_OPTIONS, (weight) => `${weight} kg`),
 ];
-const NATIONALITY_VALUE_OPTIONS = HARD_MATCH_NATIONALITIES.map((value) => ({
-  value,
-  label: value,
-}));
-const MULTI_CHOICE_PREVIEW_LIMIT = 4;
+
+const LOOKS_DESCRIPTIONS: Record<number, string> = {
+  1: "1–3分：五官存在明显硬伤，如面部不流畅、不对称等。这个分数段更多被认为是对自己不够上心，不注重打扮。",
+  2: "1–3分：五官存在明显硬伤，如面部不流畅、不对称等。这个分数段更多被认为是对自己不够上心，不注重打扮。",
+  3: "1–3分：五官存在明显硬伤，如面部不流畅、不对称等。这个分数段更多被认为是对自己不够上心，不注重打扮。",
+  4: "4分：普通路人水平，五官没有明显缺陷，但缺乏亮点，容易给人‘好人卡’的感觉。",
+  5: "5分：路人缘不错的类型，第一眼看上去很舒服，说不上惊艳，但绝对不讨厌。",
+  6: "6分：班花级别，身高、五官或身材中至少有一项比较突出，在校园中不缺男生表白。",
+  7: "7分：校花或校园女神级别，在普通人中非常亮眼，风格、审美和穿搭基本没有毛病。",
+  8: "8分：模特水准，辨识度很高，能够通过颜值变现，在社交媒体上拥有较高人气。",
+  9: "9分：颜值天花板，通常是娱乐圈或时尚圈的明星，如杨幂、迪丽热巴等，其精致度和氛围感是普通人无法企及的。",
+  10: "10分：无人可及",
+};
 
 type ProfileTab = "self" | "partner" | "values";
 
 const PROFILE_TABS: ReadonlyArray<{ id: ProfileTab; label: string }> = [
   { id: "self", label: "关于你" },
-  { id: "partner", label: "希望 TA" },
-  { id: "values", label: "价值观问卷" },
+  { id: "partner", label: "希望遇见谁" },
+  { id: "values", label: "价值观" },
 ];
 
 const HARD_MATCH_FIELD_KEY_GROUPS = {
@@ -181,24 +187,11 @@ type QuestionnaireAutosaveState =
   | "submitted"
   | "error";
 
-type MultiChoiceSummaryPickerProps = {
-  id: string;
-  name: string;
-  title: string;
-  values: string[];
-  options: readonly string[];
-  onChange: (next: string[]) => void;
-  emptyLabel?: string;
-  searchPlaceholder?: string;
-  allowEmpty?: boolean;
-};
-
 const QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS = [1500, 3000, 5000, 10000];
 const QUESTIONNAIRE_AUTOSAVE_MAX_RETRY_ATTEMPTS =
   QUESTIONNAIRE_AUTOSAVE_RETRY_DELAYS_MS.length;
 const QUESTIONNAIRE_AUTOSAVE_TIMEOUT_MS = 15000;
 const QUESTIONNAIRE_ATTENTION_VIEW_MS = 200;
-const MULTI_CHOICE_REOPEN_GUARD_MS = 350;
 
 function initialProfileTab(
   questions: Question[],
@@ -225,14 +218,7 @@ function questionnaireAttentionText(item: QuestionnaireAttentionItem) {
 }
 
 function renderQuestionBlockHeading(title: string) {
-  return (
-    <>
-      <legend className={dcx("question-block-legend")}>{title}</legend>
-      <div className={dcx("question-block-title")} aria-hidden="true">
-        <span>{title}</span>
-      </div>
-    </>
-  );
+  return <QuestionHeading>{title}</QuestionHeading>;
 }
 
 function buildQuestionnaireSavePayload(
@@ -254,35 +240,6 @@ function questionnaireAutosaveRetryDelayMs(attemptNumber: number) {
   ];
 }
 
-function questionnaireAutosaveStatusText(
-  saveState: QuestionnaireAutosaveState,
-  hasSavedQuestionnaire: boolean,
-  hasDraftQuestionnaire: boolean,
-) {
-  if (saveState === "pending") {
-    return "检测到修改，系统即将自动保存。";
-  }
-
-  if (saveState === "saving") {
-    return "正在自动保存…";
-  }
-
-  if (saveState === "error") {
-    return "自动保存暂时失败，请查看下方提示。";
-  }
-
-  if (saveState === "draft-saved" || hasDraftQuestionnaire) {
-    return hasSavedQuestionnaire
-      ? "未完成修改已自动保存为草稿；当前匹配仍按上次正式保存的完整问卷计算。"
-      : "草稿已自动保存；补全全部必答项后，系统会自动转为正式问卷。";
-  }
-
-  if (saveState === "submitted") {
-    return "问卷已自动保存。";
-  }
-
-  return "系统会自动保存你的修改。";
-}
 
 function questionnaireAutosaveShouldRetry(error: unknown) {
   if (!isApiRequestError(error)) {
@@ -357,7 +314,7 @@ function hardMatchFieldIsComplete(
     case HARD_MATCH_KEYS.heightCm:
       return numericFormValueIsComplete(hardMatchForm.heightCm);
     case HARD_MATCH_KEYS.weightKg:
-      return true;
+      return numericFormValueIsComplete(hardMatchForm.weightKg);
     case HARD_MATCH_KEYS.oneLinerIntro:
       return true;
     case HARD_MATCH_KEYS.partnerAgeMin:
@@ -389,243 +346,17 @@ function hardMatchFieldIsComplete(
   }
 }
 
-function MultiChoiceSummaryPicker({
-  id,
-  name,
-  title,
-  values,
-  options,
-  onChange,
-  emptyLabel = "未选择",
-  searchPlaceholder = "搜索",
-  allowEmpty = false,
-}: MultiChoiceSummaryPickerProps) {
-  const dialogRef = useRef<HTMLDialogElement | null>(null);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const reopenGuardUntilRef = useRef(0);
-  const ignoreTriggerClickUntilRef = useRef(0);
-  const [search, setSearch] = useState("");
-  const hasSelectedValues = values.length > 0;
-  const previewValues = values.slice(0, MULTI_CHOICE_PREVIEW_LIMIT);
-  const hiddenSelectedCount = Math.max(
-    0,
-    values.length - MULTI_CHOICE_PREVIEW_LIMIT,
-  );
-  const filteredOptions = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    if (!query) return options;
-    return options.filter((option) =>
-      option.toLocaleLowerCase().includes(query),
-    );
-  }, [options, search]);
-
-  function openDialog() {
-    if (window.performance.now() < reopenGuardUntilRef.current) {
-      return;
-    }
-
-    const dialog = dialogRef.current;
-    if (!dialog || dialog.open) return;
-    dialog.showModal();
-    window.requestAnimationFrame(() => searchInputRef.current?.focus());
-  }
-
-  function handleTriggerClick() {
-    if (window.performance.now() < ignoreTriggerClickUntilRef.current) {
-      return;
-    }
-
-    openDialog();
-  }
-
-  function handleTriggerPointerDown(
-    event: ReactPointerEvent<HTMLButtonElement>,
-  ) {
-    if (event.pointerType === "mouse") {
-      return;
-    }
-
-    if (window.performance.now() < ignoreTriggerClickUntilRef.current) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    ignoreTriggerClickUntilRef.current =
-      window.performance.now() + MULTI_CHOICE_REOPEN_GUARD_MS;
-    openDialog();
-  }
-
-  function handleTriggerTouchStart(event: ReactTouchEvent<HTMLButtonElement>) {
-    if (window.performance.now() < ignoreTriggerClickUntilRef.current) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    ignoreTriggerClickUntilRef.current =
-      window.performance.now() + MULTI_CHOICE_REOPEN_GUARD_MS;
-    openDialog();
-  }
-
-  function closeDialog() {
-    reopenGuardUntilRef.current =
-      window.performance.now() + MULTI_CHOICE_REOPEN_GUARD_MS;
-    dialogRef.current?.close();
-  }
-
-  function clearSelection() {
-    if (!allowEmpty) return;
-    onChange([]);
-  }
-
-  function toggleOption(option: string) {
-    if (values.includes(option)) {
-      const next = values.filter((value) => value !== option);
-      if (!allowEmpty && next.length === 0) return;
-      onChange(next);
-      return;
-    }
-
-    const nextValues = new Set([...values, option]);
-    onChange(options.filter((value) => nextValues.has(value)));
-  }
-
-  return (
-    <div className={dcx("multi-choice-picker")}>
-      <div className={dcx("multi-choice-summary")}>
-        <div className={dcx("multi-choice-copy")}>
-          <span className={dcx("multi-choice-count")}>
-            {hasSelectedValues ? `已选 ${values.length} 项` : emptyLabel}
-          </span>
-          <div className={dcx("multi-choice-preview")}>
-            {hasSelectedValues ? (
-              <>
-                {previewValues.map((value) => (
-                  <span key={value} className={dcx("multi-choice-preview-chip")}>
-                    {value}
-                  </span>
-                ))}
-                {hiddenSelectedCount > 0 ? (
-                  <span className={dcx("multi-choice-more")}>
-                    +{hiddenSelectedCount}
-                  </span>
-                ) : null}
-              </>
-            ) : (
-              <span className={dcx("multi-choice-empty")}>{emptyLabel}</span>
-            )}
-          </div>
-        </div>
-        <button
-          type="button"
-          className={dcx("multi-choice-trigger")}
-          aria-haspopup="dialog"
-          onClick={handleTriggerClick}
-          onPointerDown={handleTriggerPointerDown}
-          onTouchStart={handleTriggerTouchStart}
-        >
-          选择
-        </button>
-      </div>
-
-      <dialog
-        ref={dialogRef}
-        className={dcx("multi-choice-dialog")}
-        aria-labelledby={`${id}-dialog-title`}
-        onClose={() => setSearch("")}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) {
-            closeDialog();
-          }
-        }}
-      >
-        <div className={dcx("multi-choice-dialog-inner")}>
-          <div className={dcx("multi-choice-dialog-head")}>
-            <h4 id={`${id}-dialog-title`}>{title}</h4>
-            <button
-              type="button"
-              className={dcx("multi-choice-dialog-close")}
-              aria-label="关闭"
-              onClick={closeDialog}
-            >
-              ×
-            </button>
-          </div>
-
-          <input
-            ref={searchInputRef}
-            type="search"
-            className={dcx("multi-choice-search")}
-            value={search}
-            placeholder={searchPlaceholder}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-
-          {allowEmpty ? (
-            <button
-              type="button"
-              className={
-                hasSelectedValues
-                  ? dcx("multi-choice-clear")
-                  : dcx("multi-choice-clear is-active")
-              }
-              onClick={clearSelection}
-            >
-              {emptyLabel}
-            </button>
-          ) : null}
-
-          <div className={dcx("multi-choice-dialog-options")}>
-            {filteredOptions.map((option, index) => {
-              const active = values.includes(option);
-              return (
-                <label
-                  key={option}
-                  className={
-                    active
-                      ? dcx("multi-choice-dialog-option is-active")
-                      : dcx("multi-choice-dialog-option")
-                  }
-                >
-                  <input
-                    id={`${id}-${index}`}
-                    name={name}
-                    type="checkbox"
-                    checked={active}
-                    onChange={() => toggleOption(option)}
-                  />
-                  <span>{option}</span>
-                </label>
-              );
-            })}
-          </div>
-
-          <div className={dcx("multi-choice-dialog-footer")}>
-            <span>
-              {hasSelectedValues ? `已选 ${values.length} 项` : emptyLabel}
-            </span>
-            <button
-              type="button"
-              className={dcx("multi-choice-done")}
-              onClick={closeDialog}
-            >
-              完成
-            </button>
-          </div>
-        </div>
-      </dialog>
-    </div>
-  );
-}
-
 export function ProfileClient({
   initialUser,
   initialDashboard,
   initialQuestions,
   initialSchools,
   initialSavedQuestionnaire,
+  initialContactPreferences,
+  initialVip = null,
 }: {
+  initialVip?: VipStatus | null;
+  initialContactPreferences: ContactPreferencesPayload;
   initialUser: AuthMePayload;
   initialDashboard: DashboardPayload;
   initialQuestions: Question[];
@@ -634,16 +365,40 @@ export function ProfileClient({
 }) {
   useDashboardSessionSeed(initialUser);
   const router = useRouter();
+  const [vip, setVip] = useState(initialVip);
+  const vipActive = Boolean(vip?.active);
+  const vipDialogRef = useRef<HTMLDialogElement>(null);
+  function updatePremiumForm(update: Parameters<typeof setHardMatchForm>[0]) {
+    if (!vipActive) { vipDialogRef.current?.showModal(); return; }
+    setHardMatchForm(update);
+  }
+  useEffect(() => {
+    let disposed = false;
+    const refresh = () => { void fetchApi<VipStatus>("/me/vip").then(next => {
+      if (!disposed) setVip(next);
+    }).catch(() => { if (!disposed) setVip(null); }); };
+    const expire = vip?.expiresAt ? window.setTimeout(() => {
+      if (Date.parse(vip.expiresAt!) <= Date.now()) setVip(current => current ? { ...current, active: false } : null);
+      refresh();
+    }, Math.min(2_147_483_647, Math.max(0, Date.parse(vip.expiresAt) - Date.now()))) : undefined;
+    window.addEventListener("focus", refresh);
+    const interval = window.setInterval(refresh, 30_000);
+    return () => { disposed = true; window.removeEventListener("focus", refresh); window.clearInterval(interval); window.clearTimeout(expire); };
+  }, [vip?.expiresAt]);
 
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;
   const initialSubmittedAnswers = initialSavedQuestionnaire?.answers;
-  const initialHardMatchForm =
+  const loadedHardMatchForm =
     initialDraft?.hardMatchForm ??
     hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools);
+  const initialHardMatchForm = { ...loadedHardMatchForm, partnerLooks: loadedHardMatchForm.partnerLooks.length ? loadedHardMatchForm.partnerLooks : [...HARD_MATCH_LOOKS] };
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(
     initialDashboard,
   );
   const [questions] = useState<Question[]>(initialQuestions);
+  const lifestyleQuestions = questions.filter(question => isLifestyleQuestion(question.key));
+  const valuesQuestions = questions.filter(question => !isLifestyleQuestion(question.key));
+  const [schoolSearch, setSchoolSearch] = useState("");
   const [schoolOptions] = useState<HardMatchSchoolOption[]>(initialSchools);
   const [answers, setAnswers] = useState<Record<string, unknown>>(
     initialDraft?.softAnswers ??
@@ -655,7 +410,7 @@ export function ProfileClient({
     null,
   );
   const [matchEstimatePending, setMatchEstimatePending] = useState(false);
-  const displayName = initialDraft?.displayName ?? initialUser.displayName ?? "";
+  const [displayName, setDisplayName] = useState(initialDraft?.displayName ?? initialUser.displayName ?? "");
   const [questionnaireSaveError, setQuestionnaireSaveError] = useState<
     string | null
   >(null);
@@ -676,6 +431,14 @@ export function ProfileClient({
     string[]
   >([]);
   const questionBlockRefs = useRef(new Map<string, HTMLFieldSetElement>());
+  const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const questionAnimations = useRef<Animation[]>([]);
+  const cancelQuestionTransition = useCallback(() => {
+    if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+    autoAdvanceTimer.current = null;
+    questionAnimations.current.forEach(animation => animation.cancel());
+    questionAnimations.current = [];
+  }, []);
   const questionnaireAutosaveReady = useRef(false);
   const questionnaireSaveAbortRef = useRef<AbortController | null>(null);
   const questionnaireSaveInFlightRef = useRef(false);
@@ -715,6 +478,7 @@ export function ProfileClient({
   // Only availability and the band return from the server; raw pool counts stay
   // server-side.
   useEffect(() => {
+    if (!vipActive) { setMatchEstimate(null); setMatchEstimatePending(false); return; }
     let active = true;
     const handle = window.setTimeout(() => {
       if (active) setMatchEstimatePending(true);
@@ -740,6 +504,7 @@ export function ProfileClient({
   }, [
     hardMatchForm.excludedPartnerSchools,
     hardMatchForm.excludedPartnerSchoolGenders,
+    vipActive,
   ]);
 
   const questionnaireSavePayload = useMemo(
@@ -813,6 +578,7 @@ export function ProfileClient({
     const attentionByKey = new Map<string, QuestionnaireAttentionItem>();
 
     for (const item of questionnaireAttention?.items ?? []) {
+      if (!vipActive && VIP_FILTER_KEYS.includes(item.key)) continue;
       attentionByKey.set(item.key, {
         ...item,
         // Hard-match acknowledgement is decided by the backend signature; only
@@ -824,6 +590,7 @@ export function ProfileClient({
     }
 
     for (const field of hardMatchAttentionFields()) {
+      if (!vipActive && VIP_FILTER_KEYS.includes(field.key)) continue;
       const current = attentionByKey.get(field.key);
       const missingRequired =
         field.required && !hardMatchFieldIsComplete(field.key, hardMatchForm);
@@ -858,14 +625,15 @@ export function ProfileClient({
 
     for (const question of questions) {
       const missingRequired =
-        question.required !== false &&
         !softQuestionAnswerIsComplete(question, answers[question.key]);
 
+      const current = attentionByKey.get(question.key);
       if (!missingRequired) {
+        if (current?.updated) attentionByKey.set(question.key, { ...current, missingRequired: false });
+        else attentionByKey.delete(question.key);
         continue;
       }
 
-      const current = attentionByKey.get(question.key);
       attentionByKey.set(question.key, {
         key: question.key,
         prompt: question.prompt,
@@ -879,6 +647,7 @@ export function ProfileClient({
 
     return attentionByKey;
   }, [
+    vipActive,
     acknowledgedHardMatchKeys,
     acknowledgedQuestionnaireKeys,
     answers,
@@ -987,46 +756,55 @@ export function ProfileClient({
   );
 
   useEffect(() => {
-    const attentionHash = window.location.hash;
-    const key = profileAttentionKeyFromHash(attentionHash);
-    if (!key) {
-      return;
-    }
-
-    if (key === HARD_MATCH_KEYS.oneLinerIntro) {
-      router.replace("/dashboard/me/card");
-      return;
-    }
-
-    const targetTab = profileAttentionTabForKey(key, questions);
-    if (!targetTab) {
-      return;
-    }
-
-    if (activeTab !== targetTab) {
-      setActiveTab(targetTab);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      const target =
-        questionBlockRefs.current.get(key) ??
-        document.getElementById(profileAttentionElementId(key));
-      target?.scrollIntoView({ block: "center" });
-
-      if (target && window.location.hash === attentionHash) {
-        window.history.replaceState(
-          window.history.state,
-          "",
-          `${window.location.pathname}${window.location.search}`,
-        );
+    let timeoutId: number | undefined;
+    function locateAttentionHash() {
+      window.clearTimeout(timeoutId);
+      const attentionHash = window.location.hash;
+      const key = profileAttentionKeyFromHash(attentionHash);
+      if (!key) {
+        return;
       }
-    }, 0);
 
+      const targetTab = key === HARD_MATCH_KEYS.oneLinerIntro ? "self" : profileAttentionTabForKey(key, questions);
+      if (!targetTab) {
+        return;
+      }
+
+      cancelQuestionTransition();
+      if (activeTab !== targetTab) {
+        setActiveTab(targetTab);
+        return;
+      }
+
+      timeoutId = window.setTimeout(() => {
+        const target =
+          questionBlockRefs.current.get(key) ??
+          document.getElementById(profileAttentionElementId(key));
+        const item = target?.closest<HTMLElement>('[data-reader-item]');
+        const readerModule = item?.closest('[data-reader-module]');
+        if (item && readerModule) {
+          cancelQuestionTransition();
+          setQuestionIndex(Array.from(readerModule.querySelectorAll('[data-reader-item]')).indexOf(item));
+        }
+        target?.scrollIntoView({ block: "center" });
+
+        if (target && window.location.hash === attentionHash) {
+          window.history.replaceState(
+            window.history.state,
+            "",
+            `${window.location.pathname}${window.location.search}`,
+          );
+        }
+      }, 0);
+    }
+
+    locateAttentionHash();
+    window.addEventListener("hashchange", locateAttentionHash);
     return () => {
       window.clearTimeout(timeoutId);
+      window.removeEventListener("hashchange", locateAttentionHash);
     };
-  }, [activeTab, questions, router]);
+  }, [activeTab, questions, router, cancelQuestionTransition]);
 
   useEffect(() => {
     if (
@@ -1140,6 +918,10 @@ export function ProfileClient({
               }
             : current,
         );
+        const savedWeightKeys = HARD_MATCH_WEIGHT_KEYS.filter(key =>
+          hardMatchFieldIsComplete(key, payload.hardMatchForm),
+        );
+        if (savedWeightKeys.length) void acknowledgeQuestionnaireKeys(savedWeightKeys);
         if (result.saveState === "SUBMITTED") {
           setAcknowledgedQuestionnaireKeys(
             questions.map((question) => question.key),
@@ -1355,88 +1137,147 @@ export function ProfileClient({
     questionnaireSnapshot,
   ]);
 
-  const questionnaireIncompleteMessage = useMemo(
-    () =>
-      getQuestionnaireIncompleteMessage(
-        questions,
-        answers,
-        hardMatchForm,
-        displayName,
-      ),
-    [questions, answers, hardMatchForm, displayName],
-  );
-
+  const [contactSaveStatus, setContactSaveStatus] = useState<ContactSaveStatus>("saved");
   const hasSavedQuestionnaire = Boolean(dashboard?.questionnaireSubmittedAt);
-  const questionnaireStatus = questionnaireAutosaveStatusText(
-    questionnaireSaveState,
+  const incompleteTargets: { key: string; tab: ProfileTab }[] = [];
+  if (displayName.trim().length < 2) incompleteTargets.push({ key: "nickname", tab: "self" });
+  if (!hardMatchForm.oneLinerIntro.trim()) incompleteTargets.push({ key: HARD_MATCH_KEYS.oneLinerIntro, tab: "self" });
+  const incompleteGroups = new Set<string>();
+  for (const field of hardMatchAttentionFields()) {
+    if (!vipActive && VIP_FILTER_KEYS.includes(field.key)) continue;
+    if (!field.required || hardMatchFieldIsComplete(field.key, hardMatchForm)) continue;
+    const group = Object.entries(HARD_MATCH_FIELD_KEY_GROUPS).find(([, keys]) => (keys as readonly string[]).includes(field.key))?.[0] ?? field.key;
+    if (incompleteGroups.has(group)) continue;
+    incompleteGroups.add(group);
+    incompleteTargets.push({ key: field.key, tab: field.tab });
+  }
+  for (const question of questions) {
+    if (!softQuestionAnswerIsComplete(question, answers[question.key])) incompleteTargets.push({ key: question.key, tab: isLifestyleQuestion(question.key) ? "self" : "values" });
+  }
+  const questionnairePresentation = profileSavePresentation(
+    questionnaireSaveError ? "error" : questionnaireSaveState,
     hasSavedQuestionnaire,
     hasQuestionnaireDraft,
+    questionnaireSnapshot !== lastSavedQuestionnaireSnapshotRef.current,
+    incompleteTargets.length > 0,
   );
-  const profileStatus: { label: string; tone: "on" | "warn" } =
-    !hasSavedQuestionnaire
-      ? hasQuestionnaireDraft
-        ? { label: "草稿中", tone: "warn" }
-        : { label: "未保存", tone: "warn" }
-      : hasQuestionnaireDraft
-        ? { label: "已保存 · 草稿待补全", tone: "warn" }
-        : { label: "已保存 · 完整", tone: "on" };
+  const savePresentation = contactSaveStatus === "saved" ? questionnairePresentation : {
+    label: contactSaveStatus === "error" ? "联系方式保存失败" : contactSaveStatus === "invalid" ? "联系方式待补全" : "联系方式正在自动保存",
+    detail: contactSaveStatus === "invalid" ? "请在关于你中填写选中的联系方式。" : contactSaveStatus === "error" ? "请在联系方式处重试保存。" : "请等待联系方式保存完成。",
+    tone: contactSaveStatus === "error" ? "error" : "pending",
+  };
+  const [pendingIncompleteKey, setPendingIncompleteKey] = useState<{ key: string } | null>(null);
+  function locateIncomplete() {
+    const target = incompleteTargets[0];
+    if (!target) return;
+    const index = readerItems.filter(item => item.tab === target.tab).findIndex(item => item.node.id === profileAttentionElementId(target.key) || item.node.querySelector(`[id="${profileAttentionElementId(target.key)}"]`));
+    openQuestion(target.tab, Math.max(0, index));
+    setPendingIncompleteKey({ key: target.key });
+  }
+  useEffect(() => {
+    if (!pendingIncompleteKey) return;
+    const target = questionBlockRefs.current.get(pendingIncompleteKey.key) ?? document.getElementById(profileAttentionElementId(pendingIncompleteKey.key));
+    if (target) {
+      target.scrollIntoView({ block: "center", behavior: "instant" });
+      target.classList.add(styles.incompleteFocus);
+      target.querySelector<HTMLElement>("input, textarea, select, button")?.focus({ preventScroll: true });
+    }
+    const timer = window.setTimeout(() => target?.classList.remove(styles.incompleteFocus), 2500);
+    return () => { window.clearTimeout(timer); target?.classList.remove(styles.incompleteFocus); };
+  }, [pendingIncompleteKey, activeTab]);
+  const [completedSnapshot, setCompletedSnapshot] = useState<string | null>(null);
+  const readerRef = useRef<HTMLDivElement>(null);
+  const directoryRef = useRef<HTMLDialogElement>(null);
+  const [readerItems, setReaderItems] = useState<{ node: HTMLElement; tab: ProfileTab; title: string }[]>([]);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const moduleNavRef = useRef<HTMLElement>(null);
+  const moduleItems = useMemo(() => readerItems.filter(item => item.tab === activeTab), [readerItems, activeTab]);
+  const currentIndex = Math.min(questionIndex, Math.max(0, moduleItems.length - 1));
+  const previousReaderModule = PROFILE_TABS[PROFILE_TABS.findIndex(tab => tab.id === activeTab) - 1];
+  const nextReaderModule = PROFILE_TABS[PROFILE_TABS.findIndex(tab => tab.id === activeTab) + 1];
+  const lastReaderQuestion = currentIndex >= moduleItems.length - 1;
+  function finishReader() {
+    if (incompleteTargets.length) locateIncomplete();
+    else setCompletedSnapshot(questionnaireSnapshot);
+  }
+  function changeModule(id: ProfileTab) {
+    cancelQuestionTransition();
+    setQuestionIndex(0);
+    setActiveTab(id);
+  }
+  useLayoutEffect(() => {
+    cancelQuestionTransition();
+    const root = readerRef.current;
+    if (!root) return;
+    const items = Array.from(root.querySelectorAll<HTMLElement>('[data-reader-item]')).map(node => ({
+      node,
+      tab: node.closest<HTMLElement>('[data-reader-module]')!.dataset.readerModule as ProfileTab,
+      title: node.getAttribute('data-reader-title') || node.getAttribute('aria-label') || node.querySelector('legend, h2')?.textContent?.trim() || '资料',
+    }));
+    setReaderItems(items);
+  }, [vipActive, questions, cancelQuestionTransition]);
+  useLayoutEffect(() => {
+    for (const item of readerItems) item.node.dataset.readerHidden = String(item !== moduleItems[currentIndex]);
+  }, [readerItems, moduleItems, currentIndex]);
+  useEffect(() => cancelQuestionTransition, [cancelQuestionTransition]);
+  function openQuestion(tab: ProfileTab, index: number, animate = false) {
+    cancelQuestionTransition();
+    const leaving = moduleItems[currentIndex]?.node;
+    const arriving = readerItems.filter(item => item.tab === tab)[index]?.node;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (leaving && arriving && leaving !== arriving && animate && !reduced) {
+      const departure = leaving.animate([{ transform: "translateX(0)", opacity: 1 }, { transform: "translateX(-40px)", opacity: 0 }], { duration: 160, easing: "ease-in", fill: "forwards" });
+      questionAnimations.current = [departure];
+      autoAdvanceTimer.current = setTimeout(() => {
+        autoAdvanceTimer.current = null;
+        departure.cancel();
+        setActiveTab(tab);
+        setQuestionIndex(index);
+        questionAnimations.current = [arriving.animate([{ transform: "translateX(48px)", opacity: 0 }, { transform: "translateX(0)", opacity: 1 }], { duration: 280, easing: "cubic-bezier(.22,1,.36,1)" })];
+        if (readerRef.current) readerRef.current.scrollTop = 0;
+      }, 160);
+    } else {
+      setActiveTab(tab);
+      setQuestionIndex(index);
+    }
+    directoryRef.current?.close();
+    if (!animate && readerRef.current) readerRef.current.scrollTop = 0;
+  }
+  function itemIncomplete(item: (typeof readerItems)[number]) {
+    return incompleteTargets.some(target => item.node.id === profileAttentionElementId(target.key) ||
+      Array.from(item.node.querySelectorAll('[id]')).some(node => node.id === profileAttentionElementId(target.key)));
+  }
+
 
   return (
-    <div className={dcx("app-page-shell v2-page-shell")}>
-      <header className={dcx("v2-page-header")}>
-        <span className={dcx("v2-page-header-eyebrow")}>Matching Profile</span>
-        <h1>匹配资料</h1>
-        <p>
-          {hasSavedQuestionnaire
-            ? hasQuestionnaireDraft
-              ? "你有一份未完成草稿；当前匹配仍按最近一次正式保存的完整问卷计算。补全后系统会自动切换到最新版本。"
-              : "匹配以你最近一次正式保存的内容计算；你在这里的修改会自动保存并用于后续轮次。"
-            : "在这里填写匹配资料。系统会自动保存草稿；补全全部必答项后，会自动转为正式资料。"}
-        </p>
-        <div className={dcx("v2-page-header-row")}>
-          <span
-            className={
-              profileStatus.tone === "on"
-                ? "semantic-status semantic-status--neutral is-on"
-                : "semantic-status semantic-status--neutral is-warn"
-            }
-          >
-            {profileStatus.label}
-          </span>
-          <span className={dcx("semantic-status semantic-status--neutral")}>{questionnaireStatus}</span>
-        </div>
-        {questionnaireSaveError ? (
-          <p className={dcx("ui-form-message ui-form-message--error")}>{questionnaireSaveError}</p>
-        ) : null}
+    <div data-desktop-viewport className={`${dcx("app-page-shell v2-page-shell")} ${styles.page}`}>
+      <header className={styles.pageHeading}>
+        <span className={styles.eyebrow}>让我们更了解你</span>
+        <h1>我的资料</h1>
+        <p>从日常习惯到心动偏好，慢慢写下真实的你。</p>
       </header>
-
-      <section className={dcx("ui-card ui-card--padded")}>
-        <div className={dcx("app-q-toolbar")}>
-          <p className={dcx("app-muted")}>
-            系统会在你停止输入片刻后自动保存当前编辑内容。
-          </p>
-          {questionnaireSaveError ? (
-            <button
-              className={dcx("ui-button ui-button--secondary")}
-              type="button"
-              onClick={() =>
-                setQuestionnaireManualRetryTick((current) => current + 1)
-              }
-            >
-              立即重试
-            </button>
-          ) : null}
-        </div>
-        {questionnaireIncompleteMessage ? (
-          <p className={dcx("ui-form-message ui-form-message--error")} role="alert">
-            {questionnaireIncompleteMessage}
-          </p>
-        ) : null}
-
-        <nav aria-label="问卷分组" className={dcx("app-section-tabs")}>
+      <aside className={styles.saveNotice} data-tone={savePresentation.tone} aria-label="问卷保存状态" role="status" aria-live="polite" aria-atomic="true">
+        <strong>{savePresentation.label}</strong>
+        <span>{savePresentation.detail}</span>
+        {questionnaireSaveError ? <button type="button" onClick={() => setQuestionnaireManualRetryTick((tick) => tick + 1)}>重试保存</button> : null}
+      </aside>
+      <section className={`${dcx("ui-card ui-card--padded")} ${styles.workspace}`}>
+        <aside className={styles.desktopDirectory} aria-label="桌面题目目录">
+          <h2>题目目录</h2>
+          <p>按模块查看，点击题号跳转</p>
+          <div className={styles.directoryLegend}><span>● 已答</span><span>○ 未答</span><span>◎ 当前</span></div>
+          {PROFILE_TABS.map(tab => {
+            const items = readerItems.filter(item => item.tab === tab.id);
+            return <section key={tab.id}>
+              <h3>{tab.label}<small>{items.filter(item => !itemIncomplete(item)).length} / {items.length}</small></h3>
+              <div className={styles.numberGrid}>{items.map((item, index) => <button type="button" key={index} aria-label={`${tab.label}第 ${index + 1} 题：${item.title}`} aria-current={activeTab === tab.id && currentIndex === index ? "step" : undefined} data-complete={!itemIncomplete(item)} onClick={() => openQuestion(tab.id, index)}>{String(index + 1).padStart(2, "0")}</button>)}</div>
+            </section>;
+          })}
+        </aside>
+        <nav ref={moduleNavRef} aria-label="问卷分组" className={dcx("app-section-tabs")}>
           {PROFILE_TABS.map((tab) => (
+            <Fragment key={tab.id}>
             <button
-              key={tab.id}
               type="button"
               className={
                 tab.id === activeTab
@@ -1444,25 +1285,46 @@ export function ProfileClient({
                   : dcx("app-section-tab")
               }
               aria-pressed={tab.id === activeTab}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => changeModule(tab.id)}
             >
               {tab.label}
             </button>
+
+            </Fragment>
           ))}
         </nav>
 
+
+        <div ref={readerRef} className={styles.reader} onChange={event => {
+          const target = event.target;
+          if (!(target instanceof HTMLInputElement) || !target.closest("[data-choice-layout]")) return;
+          cancelQuestionTransition();
+          if (target.type === "checkbox") {
+            const question = valuesQuestions.find(item => item.key === target.name);
+            const selectedCount = target.closest("fieldset")?.querySelectorAll('input[type="checkbox"]:checked').length;
+            if (!question?.selectionLimit || selectedCount !== question.selectionLimit) return;
+          } else if (target.type !== "radio") return;
+          autoAdvanceTimer.current = setTimeout(() => {
+            if (!lastReaderQuestion) openQuestion(activeTab, currentIndex + 1, true);
+            else if (nextReaderModule) openQuestion(nextReaderModule.id, 0, true);
+          }, 300);
+        }}>
+          <div className={styles.readerToolbar}><span><span className={styles.desktopOnly}>{PROFILE_TABS.find(tab => tab.id === activeTab)?.label} · </span>{currentIndex + 1} / {moduleItems.length}</span><progress className={styles.desktopProgress} aria-label="当前模块进度" max={Math.max(1, moduleItems.length)} value={currentIndex + 1} /><button type="button" onClick={() => directoryRef.current?.showModal()} aria-label="题目目录"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5h12M9 12h12M9 19h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><circle cx="3" cy="5" r="1.5" fill="currentColor"/><circle cx="3" cy="12" r="1.5" fill="currentColor"/><circle cx="3" cy="19" r="1.5" fill="currentColor"/></svg><span>题目目录</span></button></div>
         {/* ── 关于你 ── */}
-        {activeTab === "self" && (
-          <div className={dcx("app-q-group")}>
-            <div className={dcx("app-q-group-header")}>
-              <span className={dcx("app-q-group-icon app-q-group-icon-self")}>我</span>
-              <div>
-                <h3>关于你</h3>
-                <p>你的基本客观信息</p>
+        {(
+          <div data-reader-module="self" hidden={activeTab !== "self"} className={`${dcx("app-q-group")} ${styles.selfFlat}`}>
+            <section className={styles.identity} aria-label="自我介绍">
+              <div className={styles.sectionHeading}><h2>自我介绍</h2><p>对匹配对象展示</p></div>
+              <div className={styles.introductionCard}>
+              <label data-reader-item data-reader-title="昵称" id={profileAttentionElementId("nickname")}>昵称<span className={styles.nameInput}><input value={displayName} maxLength={30} onChange={(event) => setDisplayName(event.target.value)} placeholder="希望 TA 怎样称呼你" /></span></label>
+              <label data-reader-item data-reader-title="一句话介绍" className={styles.introQuestion} id={profileAttentionElementId(HARD_MATCH_KEYS.oneLinerIntro)}>一句话介绍<span className={styles.introHint}>让对方从一句话开始了解你</span><span className={styles.introEditor}><textarea rows={5} maxLength={HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH} value={hardMatchForm.oneLinerIntro} onChange={(event) => setHardMatchForm((form) => ({ ...form, oneLinerIntro: event.target.value }))} placeholder="比如：喜欢散步和独立电影，期待遇见能一起分享日常的人。" /><span className={styles.charCount}>{hardMatchForm.oneLinerIntro.length} / {HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH}</span></span></label>
               </div>
-            </div>
+            <div data-reader-item aria-label="联系方式"><ContactEditor key={initialUser.id} userId={initialUser.id} onStatus={setContactSaveStatus} onNavigateBlocked={() => openQuestion("self", 2)} initial={initialContactPreferences} email={initialUser.email} /></div>
+            </section>
+            <section className={styles.basicSection} aria-label="出生日期、性别与颜值自评">
+
             <div className={dcx("question-list")}>
-              <fieldset
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.birthDate)}
                 ref={(node) =>
                   setAttentionBlockRef(
@@ -1476,59 +1338,23 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("出生日期")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.birthDate)}
-                <div className={dcx("form-grid birth-date-grid")}>
-                  <label>
-                    <span>年份</span>
-                    <ValuePicker
-                      id={buildDashboardFieldId("birth-year")}
-                      name="birthYear"
-                      value={hardMatchForm.birthYear}
-                      options={BIRTH_YEAR_VALUE_OPTIONS}
-                      placeholder="请选择"
-                      sheetTitle="选择出生年份"
-                      rootClassName="picker-root--birth-date"
-                      onChange={(next) =>
-                        setHardMatchForm((f) => ({ ...f, birthYear: next }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    <span>月份</span>
-                    <ValuePicker
-                      id={buildDashboardFieldId("birth-month")}
-                      name="birthMonth"
-                      value={hardMatchForm.birthMonth}
-                      options={MONTH_VALUE_OPTIONS}
-                      placeholder="请选择"
-                      sheetTitle="选择出生月份"
-                      rootClassName="picker-root--birth-date"
-                      onChange={(next) =>
-                        setHardMatchForm((f) => ({ ...f, birthMonth: next }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    <span>日期</span>
-                    <ValuePicker
-                      id={buildDashboardFieldId("birth-day")}
-                      name="birthDay"
-                      value={hardMatchForm.birthDay}
-                      options={numericOptions(
-                        birthDayOptions,
-                        (d) => `${d} 日`,
-                      )}
-                      placeholder="请选择"
-                      sheetTitle="选择出生日期"
-                      rootClassName="picker-root--birth-date"
-                      onChange={(next) =>
-                        setHardMatchForm((f) => ({ ...f, birthDay: next }))
-                      }
-                    />
-                  </label>
+                <div className={styles.birthControls}>
+                  <select aria-label="出生年份" value={hardMatchForm.birthYear} onChange={event => setHardMatchForm(form => ({ ...form, birthYear: event.target.value, birthDay: "" }))}><option value="">年</option>{BIRTH_YEAR_OPTIONS.map(year => <option key={year} value={year}>{year} 年</option>)}</select>
+                  <select aria-label="出生月份" value={hardMatchForm.birthMonth} onChange={event => setHardMatchForm(form => ({ ...form, birthMonth: event.target.value, birthDay: "" }))}><option value="">月</option>{Array.from({length:12}, (_,i) => i+1).map(month => <option key={month} value={month}>{month} 月</option>)}</select>
+                  <select aria-label="出生日期中的日" value={hardMatchForm.birthDay} disabled={!hardMatchForm.birthYear || !hardMatchForm.birthMonth} onChange={event => setHardMatchForm(form => ({ ...form, birthDay: event.target.value }))}><option value="">日</option>{Array.from({length: new Date(Number(hardMatchForm.birthYear) || 2000, Number(hardMatchForm.birthMonth) || 1, 0).getDate()}, (_,i) => i+1).map(day => <option key={day} value={day}>{day} 日</option>)}</select>
+                <BirthDatePicker
+                  minYear={Math.min(...BIRTH_YEAR_OPTIONS)} maxYear={Math.max(...BIRTH_YEAR_OPTIONS)}
+                  value={hardMatchForm.birthYear && hardMatchForm.birthMonth && hardMatchForm.birthDay ? `${hardMatchForm.birthYear}-${hardMatchForm.birthMonth.padStart(2, "0")}-${hardMatchForm.birthDay.padStart(2, "0")}` : ""}
+                  onChange={value => {
+                    const [birthYear, birthMonth, birthDay] = value.split("-");
+                    setHardMatchForm(form => ({ ...form, birthYear, birthMonth: String(Number(birthMonth)), birthDay: String(Number(birthDay)) }));
+                  }}
+                />
                 </div>
-              </fieldset>
+                {hardMatchForm.birthYear && hardMatchForm.birthMonth && hardMatchForm.birthDay && <p className={styles.rangeSummary}>你现在 <strong>{calculateAgeOnDate(`${hardMatchForm.birthYear}-${hardMatchForm.birthMonth.padStart(2,"0")}-${hardMatchForm.birthDay.padStart(2,"0")}`, new Date())}</strong> 岁</p>}
+              </QuestionField>
 
-              <fieldset
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.gender)}
                 ref={(node) =>
                   setAttentionBlockRef(HARD_MATCH_FIELD_KEY_GROUPS.gender, node)
@@ -1539,9 +1365,9 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("性别")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.gender)}
-                <div className={dcx("option-list")}>
+                <QuestionChoices layout="list">
                   {HARD_MATCH_GENDERS.map((g, i) => (
-                    <label key={g}>
+                    <ChoiceOption key={g}>
                       <input
                         checked={hardMatchForm.gender === g}
                         id={buildDashboardFieldId("gender", i)}
@@ -1552,67 +1378,14 @@ export function ProfileClient({
                         }
                       />
                       <span>{g}</span>
-                    </label>
+                    </ChoiceOption>
                   ))}
-                </div>
-              </fieldset>
+                </QuestionChoices>
+              </QuestionField>
 
-              <fieldset
-                id={profileAttentionElementId(HARD_MATCH_KEYS.nationality)}
-                ref={(node) =>
-                  setAttentionBlockRef(
-                    HARD_MATCH_FIELD_KEY_GROUPS.nationality,
-                    node,
-                  )
-                }
-                className={attentionBlockClassName(
-                  HARD_MATCH_FIELD_KEY_GROUPS.nationality,
-                )}
-              >
-                {renderQuestionBlockHeading("国籍")}
-                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.nationality)}
-                <ValuePicker
-                  id={buildDashboardFieldId("nationality")}
-                  name="nationality"
-                  value={hardMatchForm.nationality}
-                  options={NATIONALITY_VALUE_OPTIONS}
-                  placeholder="请选择国籍"
-                  sheetTitle="选择你的国籍"
-                  onChange={(next) =>
-                    setHardMatchForm((f) => ({ ...f, nationality: next }))
-                  }
-                />
-              </fieldset>
 
-              <fieldset
-                id={profileAttentionElementId(HARD_MATCH_KEYS.languages)}
-                ref={(node) =>
-                  setAttentionBlockRef(
-                    HARD_MATCH_FIELD_KEY_GROUPS.languages,
-                    node,
-                  )
-                }
-                className={attentionBlockClassName(
-                  HARD_MATCH_FIELD_KEY_GROUPS.languages,
-                )}
-              >
-                {renderQuestionBlockHeading("语言（可多选）")}
-                {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.languages)}
-                <MultiChoiceSummaryPicker
-                  id={buildDashboardFieldId("languages")}
-                  name="languages"
-                  title="选择语言"
-                  values={hardMatchForm.languages}
-                  options={HARD_MATCH_LANGUAGES}
-                  emptyLabel="请选择至少一种"
-                  searchPlaceholder="搜索语言"
-                  onChange={(next) =>
-                    setHardMatchForm((f) => ({ ...f, languages: next }))
-                  }
-                />
-              </fieldset>
 
-              <fieldset
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.looks)}
                 ref={(node) =>
                   setAttentionBlockRef(HARD_MATCH_FIELD_KEY_GROUPS.looks, node)
@@ -1623,25 +1396,13 @@ export function ProfileClient({
               >
                 {renderQuestionBlockHeading("颜值自评")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.looks)}
-                <div className={dcx("option-list")}>
-                  {HARD_MATCH_LOOKS.map((l, i) => (
-                    <label key={l}>
-                      <input
-                        checked={hardMatchForm.looks === l}
-                        id={buildDashboardFieldId("looks", i)}
-                        type="radio"
-                        name="looks"
-                        onChange={() =>
-                          setHardMatchForm((f) => ({ ...f, looks: l }))
-                        }
-                      />
-                      <span>{l}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
+                <ScaleChoice unit="分" label="颜值自评" name="looks" value={hardMatchForm.looks} options={HARD_MATCH_LOOKS.map(value => ({ value, label: value }))} onChange={looks => setHardMatchForm(form => ({ ...form, looks }))} />
+                <p className={styles.ratingDescription}>{LOOKS_DESCRIPTIONS[Number(hardMatchForm.looks)] || "选择一个分数，查看对应说明。"}</p>
+              </QuestionField>
 
-              <fieldset
+            </div></section>
+            <section className={styles.basicSection} aria-label="身高与体重"><div className={dcx("question-list")}>
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.heightCm)}
                 ref={(node) =>
                   setAttentionBlockRef(
@@ -1653,7 +1414,7 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.heightCm,
                 )}
               >
-                {renderQuestionBlockHeading("身高（厘米）")}
+                {renderQuestionBlockHeading("身高")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.heightCm)}
                 <ValuePicker
                   id={buildDashboardFieldId("height-cm")}
@@ -1667,9 +1428,9 @@ export function ProfileClient({
                     setHardMatchForm((f) => ({ ...f, heightCm: next }))
                   }
                 />
-              </fieldset>
+              </QuestionField>
 
-              <fieldset
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.weightKg)}
                 ref={(node) =>
                   setAttentionBlockRef(
@@ -1681,39 +1442,45 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.weightKg,
                 )}
               >
-                {renderQuestionBlockHeading("体重（公斤）")}
+                {renderQuestionBlockHeading("体重")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.weightKg)}
                 <ValuePicker
                   id={buildDashboardFieldId("weight-kg")}
                   name="weightKg"
                   value={hardMatchForm.weightKg}
                   options={WEIGHT_VALUE_OPTIONS}
-                  placeholder="不填写"
+                  placeholder="请选择体重"
                   sheetTitle="选择你的体重"
                   onChange={(next) =>
                     setHardMatchForm((f) => ({ ...f, weightKg: next }))
                   }
                 />
-              </fieldset>
+              </QuestionField>
 
             </div>
+            </section>
+            <section className={styles.lifestyleSection} aria-label="锻炼、吸烟与饮酒">
+              <div className={dcx("question-list")}>
+                {lifestyleQuestions.map(question => <QuestionField data-reader-item key={question.key}
+                  id={profileAttentionElementId(question.key)}
+                  ref={node => setAttentionBlockRef([question.key], node)}
+                  className={attentionBlockClassName([question.key])}>
+                  {renderQuestionBlockHeading(question.key === "exercise_frequency" ? "锻炼情况" : question.prompt)}
+                  {renderAttentionNote([question.key])}
+                  <ScaleChoice readout="label" label={question.key === "exercise_frequency" ? "锻炼情况" : question.prompt} name={question.key} value={answers[question.key]} options={question.options ?? []} onChange={value => setAnswers(current => ({ ...current, [question.key]: value }))} />
+
+                </QuestionField>)}
+              </div>
+            </section>
           </div>
         )}
 
         {/* ── 对方条件 ── */}
-        {activeTab === "partner" && (
-          <div className={dcx("app-q-group")}>
-            <div className={dcx("app-q-group-header")}>
-              <span className={dcx("app-q-group-icon app-q-group-icon-partner")}>
-                TA
-              </span>
-              <div>
-                <h3>对方条件</h3>
-                <p>你希望匹配对象满足的条件</p>
-              </div>
-            </div>
+        {(
+          <div data-reader-module="partner" hidden={activeTab !== "partner"} className={dcx("app-q-group")}>
             <div className={dcx("question-list")}>
-              <fieldset
+              <section className={styles.partnerBasics} aria-label="希望对方年龄与性别">
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.partnerAgeMin)}
                 ref={(node) =>
                   setAttentionBlockRef(
@@ -1725,13 +1492,9 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerAge,
                 )}
               >
-                {renderQuestionBlockHeading("对方年龄理想区间")}
+                {renderQuestionBlockHeading("希望对方年龄")}
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerAge)}
-                <p className={dcx("app-muted")}>
-                  填对方的<strong>实际年龄</strong>数字（例如 18 到 25），
-                  不是与你的年龄差。
-                </p>
-                <div className={dcx("form-grid")}>
+                <div className={styles.ageInputs}>
                   <label>
                     <span>年龄下限</span>
                     <ValuePicker
@@ -1763,9 +1526,10 @@ export function ProfileClient({
                     />
                   </label>
                 </div>
-              </fieldset>
+                <p className={styles.rangeSummary}>{hardMatchForm.partnerAgeMin} — {hardMatchForm.partnerAgeMax} 岁</p>
+              </QuestionField>
 
-              <fieldset
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.partnerGenders)}
                 ref={(node) =>
                   setAttentionBlockRef(
@@ -1781,11 +1545,11 @@ export function ProfileClient({
                 {renderAttentionNote(
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerGenders,
                 )}
-                <div className={dcx("chip-grid")}>
+                <QuestionChoices layout="list">
                   {HARD_MATCH_GENDERS.map((g, i) => {
                     const active = hardMatchForm.partnerGenders.includes(g);
                     return (
-                      <label
+                      <ChoiceOption
                         key={g}
                         className={dcx(active ? "chip active" : "chip")}
                       >
@@ -1799,83 +1563,53 @@ export function ProfileClient({
                           }
                         />
                         <span>{g}</span>
-                      </label>
+                      </ChoiceOption>
                     );
                   })}
-                </div>
-              </fieldset>
+                </QuestionChoices>
+              </QuestionField>
 
-              <fieldset
-                id={profileAttentionElementId(
-                  HARD_MATCH_KEYS.partnerNationalities,
-                )}
-                ref={(node) =>
-                  setAttentionBlockRef(
-                    HARD_MATCH_FIELD_KEY_GROUPS.partnerNationalities,
-                    node,
-                  )
-                }
-                className={attentionBlockClassName(
-                  HARD_MATCH_FIELD_KEY_GROUPS.partnerNationalities,
-                )}
-              >
-                {renderQuestionBlockHeading("希望对方的国籍")}
-                {renderAttentionNote(
-                  HARD_MATCH_FIELD_KEY_GROUPS.partnerNationalities,
-                )}
-                <MultiChoiceSummaryPicker
-                  id={buildDashboardFieldId("partner-nationalities")}
-                  name="partnerNationalities"
-                  title="选择希望对方的国籍"
-                  values={hardMatchForm.partnerNationalities}
-                  options={HARD_MATCH_NATIONALITIES}
-                  emptyLabel="不限"
-                  searchPlaceholder="搜索国籍"
-                  allowEmpty
-                  onChange={(next) =>
-                    setHardMatchForm((f) => ({
-                      ...f,
-                      partnerNationalities: next,
-                    }))
-                  }
-                />
-              </fieldset>
 
-              <fieldset
-                id={profileAttentionElementId(HARD_MATCH_KEYS.partnerLanguages)}
-                ref={(node) =>
-                  setAttentionBlockRef(
-                    HARD_MATCH_FIELD_KEY_GROUPS.partnerLanguages,
-                    node,
-                  )
-                }
-                className={attentionBlockClassName(
-                  HARD_MATCH_FIELD_KEY_GROUPS.partnerLanguages,
-                )}
-              >
-                {renderQuestionBlockHeading("希望对方的语言")}
-                {renderAttentionNote(
-                  HARD_MATCH_FIELD_KEY_GROUPS.partnerLanguages,
-                )}
-                <MultiChoiceSummaryPicker
-                  id={buildDashboardFieldId("partner-languages")}
-                  name="partnerLanguages"
-                  title="选择希望对方的语言"
-                  values={hardMatchForm.partnerLanguages}
-                  options={HARD_MATCH_LANGUAGES}
-                  emptyLabel="不限"
-                  searchPlaceholder="搜索语言"
-                  allowEmpty
-                  onChange={(next) =>
-                    setHardMatchForm((f) => ({
-                      ...f,
-                      partnerLanguages: next,
-                    }))
-                  }
-                />
-              </fieldset>
 
-              <fieldset
+              </section>
+
+              <QuestionField data-reader-item className={styles.partnerLifestyle} id={profileAttentionElementId(HARD_MATCH_KEYS.partnerSmokingStatus)}>
+                {renderQuestionBlockHeading("希望对方吸烟情况")}
+
+                <p>可多选，选择你能接受的情况</p>
+                <QuestionChoices layout="list">
+                  <ChoiceOption><input type="checkbox" checked={!(hardMatchForm.partnerSmokingStatus?.length)} onChange={() => setHardMatchForm(form => ({ ...form, partnerSmokingStatus: [] }))} /><span>不限</span></ChoiceOption>
+                  {LIFESTYLE_QUESTIONS[1].options.map(option => <ChoiceOption key={option}>
+                    <input type="checkbox" checked={hardMatchForm.partnerSmokingStatus?.includes(option) ?? false} onChange={() => setHardMatchForm(form => ({ ...form, partnerSmokingStatus: toggleMultiSelectValue(form.partnerSmokingStatus ?? [], option) }))} /><span>{option}</span>
+                  </ChoiceOption>)}
+                </QuestionChoices>
+              </QuestionField>
+
+              <QuestionField data-reader-item className={styles.partnerLifestyle} id={profileAttentionElementId(HARD_MATCH_KEYS.partnerDrinkingFrequency)}>
+                {renderQuestionBlockHeading("希望对方饮酒频率")}
+
+                <p>可多选，选择你能接受的情况</p>
+                <QuestionChoices layout="list">
+                  <ChoiceOption><input type="checkbox" checked={!(hardMatchForm.partnerDrinkingFrequency?.length)} onChange={() => setHardMatchForm(form => ({ ...form, partnerDrinkingFrequency: [] }))} /><span>不限</span></ChoiceOption>
+                  {LIFESTYLE_QUESTIONS[2].options.map(option => <ChoiceOption key={option}>
+                    <input type="checkbox" checked={hardMatchForm.partnerDrinkingFrequency?.includes(option) ?? false} onChange={() => setHardMatchForm(form => ({ ...form, partnerDrinkingFrequency: toggleMultiSelectValue(form.partnerDrinkingFrequency ?? [], option) }))} /><span>{option}</span>
+                  </ChoiceOption>)}
+                </QuestionChoices>
+              </QuestionField>
+
+              <QuestionField data-reader-item className={styles.partnerLifestyle} id={profileAttentionElementId(HARD_MATCH_KEYS.partnerExerciseFrequency)}>
+                {renderQuestionBlockHeading("希望对方锻炼频率")}
+                <p className={styles.premiumHint}>高级筛选 · {vipActive ? "VIP 已启用" : "需要 VIP，开通后可设置"}</p>
+                <p>可多选，选择你能接受的情况</p>
+                <QuestionChoices layout="list">
+                  <ChoiceOption><input type="checkbox" checked={!(hardMatchForm.partnerExerciseFrequency?.length)} onChange={() => updatePremiumForm(form => ({ ...form, partnerExerciseFrequency: [] }))} /><span>不限</span></ChoiceOption>
+                  {LIFESTYLE_QUESTIONS[0].options.map(option => <ChoiceOption key={option}>
+                    <input type="checkbox" checked={hardMatchForm.partnerExerciseFrequency?.includes(option) ?? false} onChange={() => updatePremiumForm(form => ({ ...form, partnerExerciseFrequency: toggleMultiSelectValue(form.partnerExerciseFrequency ?? [], option) }))} /><span>{option}</span>
+                  </ChoiceOption>)}
+                </QuestionChoices>
+              </QuestionField>
+              <div className={styles.premiumFields}>
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.partnerLooks)}
                 ref={(node) =>
                   setAttentionBlockRef(
@@ -1887,33 +1621,15 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerLooks,
                 )}
               >
-                {renderQuestionBlockHeading("希望对方的颜值（可多选）")}
+                {renderQuestionBlockHeading("希望对方的颜值至少几分？")}
+                <p className={styles.premiumHint}>高级筛选 · {vipActive ? "VIP 已启用" : "需要 VIP，开通后可设置"}</p>
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerLooks)}
-                <div className={dcx("chip-grid")}>
-                  {HARD_MATCH_LOOKS.map((l, i) => {
-                    const active = hardMatchForm.partnerLooks.includes(l);
-                    return (
-                      <label
-                        key={l}
-                        className={dcx(active ? "chip active" : "chip")}
-                      >
-                        <input
-                          checked={active}
-                          id={buildDashboardFieldId("partner-looks", i)}
-                          name="partnerLooks"
-                          type="checkbox"
-                          onChange={() =>
-                            toggleHardSelection("partnerLooks", l)
-                          }
-                        />
-                        <span>{l}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
+                <ScaleChoice unit="分及以上" name="partnerLooksMinimum" label="对方颜值最低分" value={hardMatchForm.partnerLooks.some(value => Number.isFinite(Number(value))) ? String(Math.min(...hardMatchForm.partnerLooks.map(Number).filter(Number.isFinite))) : "1"} options={HARD_MATCH_LOOKS.map(value => ({ value, label: `${value}分及以上` }))} onChange={value => updatePremiumForm(form => ({ ...form, partnerLooks: HARD_MATCH_LOOKS.filter(score => Number(score) >= Number(value)) }))} />
+                <p className={styles.ratingDescription}>{hardMatchForm.partnerLooks.length ? `${Math.min(...hardMatchForm.partnerLooks.map(Number).filter(Number.isFinite), 10)} 分及以上` : "1 分及以上"}</p>
 
-              <fieldset
+              </QuestionField>
+
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.partnerHeightMin)}
                 ref={(node) =>
                   setAttentionBlockRef(
@@ -1925,11 +1641,12 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerHeight,
                 )}
               >
-                {renderQuestionBlockHeading("希望对方的身高范围（厘米）")}
+                {renderQuestionBlockHeading("希望对方的身高范围")}
+                <p className={styles.premiumHint}>高级筛选 · {vipActive ? "VIP 已启用" : "需要 VIP，开通后可设置"}</p>
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerHeight)}
                 <div className={dcx("form-grid")}>
                   <label>
-                    <span>身高下限</span>
+                    <span>最低</span>
                     <ValuePicker
                       id={buildDashboardFieldId("partner-height-min")}
                       name="partnerHeightMin"
@@ -1939,7 +1656,7 @@ export function ProfileClient({
                       placeholder="请选择"
                       sheetTitle="希望对方身高下限"
                       onChange={(next) =>
-                        setHardMatchForm((f) => ({
+                        updatePremiumForm((f) => ({
                           ...f,
                           partnerHeightMin: next,
                         }))
@@ -1947,7 +1664,7 @@ export function ProfileClient({
                     />
                   </label>
                   <label>
-                    <span>身高上限</span>
+                    <span>最高</span>
                     <ValuePicker
                       id={buildDashboardFieldId("partner-height-max")}
                       name="partnerHeightMax"
@@ -1957,7 +1674,7 @@ export function ProfileClient({
                       placeholder="请选择"
                       sheetTitle="希望对方身高上限"
                       onChange={(next) =>
-                        setHardMatchForm((f) => ({
+                        updatePremiumForm((f) => ({
                           ...f,
                           partnerHeightMax: next,
                         }))
@@ -1965,9 +1682,9 @@ export function ProfileClient({
                     />
                   </label>
                 </div>
-              </fieldset>
+              </QuestionField>
 
-              <fieldset
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(HARD_MATCH_KEYS.partnerWeightMin)}
                 ref={(node) =>
                   setAttentionBlockRef(
@@ -1979,11 +1696,12 @@ export function ProfileClient({
                   HARD_MATCH_FIELD_KEY_GROUPS.partnerWeight,
                 )}
               >
-                {renderQuestionBlockHeading("希望对方的体重范围（公斤）")}
+                {renderQuestionBlockHeading("希望对方的体重范围")}
+                <p className={styles.premiumHint}>高级筛选 · {vipActive ? "VIP 已启用" : "需要 VIP，开通后可设置"}</p>
                 {renderAttentionNote(HARD_MATCH_FIELD_KEY_GROUPS.partnerWeight)}
                 <div className={dcx("form-grid")}>
                   <label>
-                    <span>体重下限</span>
+                    <span>最低</span>
                     <ValuePicker
                       id={buildDashboardFieldId("partner-weight-min")}
                       name="partnerWeightMin"
@@ -1992,7 +1710,7 @@ export function ProfileClient({
                       placeholder="不限"
                       sheetTitle="希望对方体重下限"
                       onChange={(next) =>
-                        setHardMatchForm((f) => ({
+                        updatePremiumForm((f) => ({
                           ...f,
                           partnerWeightMin: next,
                         }))
@@ -2000,7 +1718,7 @@ export function ProfileClient({
                     />
                   </label>
                   <label>
-                    <span>体重上限</span>
+                    <span>最高</span>
                     <ValuePicker
                       id={buildDashboardFieldId("partner-weight-max")}
                       name="partnerWeightMax"
@@ -2009,7 +1727,7 @@ export function ProfileClient({
                       placeholder="不限"
                       sheetTitle="希望对方体重上限"
                       onChange={(next) =>
-                        setHardMatchForm((f) => ({
+                        updatePremiumForm((f) => ({
                           ...f,
                           partnerWeightMax: next,
                         }))
@@ -2017,9 +1735,9 @@ export function ProfileClient({
                     />
                   </label>
                 </div>
-              </fieldset>
+              </QuestionField>
 
-              <fieldset
+              <QuestionField data-reader-item
                 id={profileAttentionElementId(
                   HARD_MATCH_KEYS.excludedPartnerSchools,
                 )}
@@ -2034,11 +1752,12 @@ export function ProfileClient({
                 )}
               >
                 {renderQuestionBlockHeading("按学校排除（可选）")}
+                <p className={styles.premiumHint}>高级筛选 · {vipActive ? "VIP 已启用" : "需要 VIP，开通后可设置"}</p>
                 {renderAttentionNote(
                   HARD_MATCH_FIELD_KEY_GROUPS.excludedPartnerSchools,
                 )}
                 <p className={dcx("app-muted")}>
-                  在每所学校上，勾选你不希望匹配的性别。三项全选即整校排除。
+                  可排除不希望匹配的学校或性别。
                 </p>
                 {matchEstimate ? (
                   <p
@@ -2059,8 +1778,9 @@ export function ProfileClient({
                     ) : null}
                   </p>
                 ) : null}
-                <div className={dcx("school-exclusion-list")}>
-                  {schoolOptions.map((school, i) => {
+                <input className={styles.schoolSearch} aria-label="搜索学校" placeholder="搜索学校名称" value={schoolSearch} onChange={event => setSchoolSearch(event.target.value)} />
+                <div className={styles.schoolList}>
+                  {schoolOptions.filter(school => school.name.includes(schoolSearch.trim())).map((school, i) => {
                     const activeGenders = activeExcludedGendersFor(
                       hardMatchForm,
                       school.id,
@@ -2069,16 +1789,9 @@ export function ProfileClient({
                       activeGenders.length === HARD_MATCH_GENDERS.length;
                     const isPartiallyExcluded =
                       !isFullyExcluded && activeGenders.length > 0;
-                    const rowClass = dcx(
-                      isFullyExcluded
-                        ? "school-exclusion-row is-fully-excluded"
-                        : isPartiallyExcluded
-                          ? "school-exclusion-row is-partially-excluded"
-                          : "school-exclusion-row",
-                    );
                     return (
-                      <section key={school.id} className={rowClass}>
-                        <div className={dcx("school-exclusion-name")}>
+                      <details key={school.id} className={styles.schoolRow}>
+                        <summary className={styles.schoolSummary}>
                           <span
                             className={dcx("school-exclusion-name-text")}
                             title={school.name}
@@ -2093,8 +1806,9 @@ export function ProfileClient({
                             <span className={dcx("school-exclusion-status")}>
                               已排除：{activeGenders.join("、")}
                             </span>
-                          ) : null}
-                        </div>
+                          ) : <span className={styles.schoolStatus}>不排除</span>}
+                          <svg className={styles.schoolChevron} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </summary>
                         <div
                           className={dcx("school-exclusion-genders")}
                           role="group"
@@ -2103,7 +1817,7 @@ export function ProfileClient({
                           {HARD_MATCH_GENDERS.map((gender, genderIndex) => {
                             const active = activeGenders.includes(gender);
                             return (
-                              <label
+                              <ChoiceOption
                                 key={gender}
                                 className={
                                   active
@@ -2121,52 +1835,38 @@ export function ProfileClient({
                                   name={`excludedPartnerSchoolGender-${school.id}`}
                                   type="checkbox"
                                   onChange={() =>
-                                    toggleExcludedPartnerSchoolGender(
-                                      school.id,
-                                      gender,
-                                    )
+                                    vipActive ? toggleExcludedPartnerSchoolGender(school.id, gender) : vipDialogRef.current?.showModal()
                                   }
                                 />
                                 <span>{gender}</span>
-                              </label>
+                              </ChoiceOption>
                             );
                           })}
                         </div>
-                      </section>
+                      </details>
                     );
                   })}
+                  {!schoolOptions.some(school => school.name.includes(schoolSearch.trim())) && <p>没有找到匹配的学校</p>}
                 </div>
-              </fieldset>
+              </QuestionField>
+              </div>
             </div>
           </div>
         )}
 
         {/* ── 价值观问卷 ── */}
-        {activeTab === "values" && questions.length > 0 && (
-          <div className={dcx("app-q-group")}>
-            <div className={dcx("app-q-group-header")}>
-              <span className={dcx("app-q-group-icon app-q-group-icon-values")}>
-                Q
-              </span>
-              <div>
-                <h3>价值观问卷</h3>
-                <p>共 {questions.length} 题，作为匹配算法的核心输入</p>
-              </div>
-            </div>
+        {valuesQuestions.length > 0 && (
+          <div data-reader-module="values" hidden={activeTab !== "values"} className={dcx("app-q-group")}>
+            <p className={styles.moduleDescription}>共 {valuesQuestions.length} 题，帮助算法了解你的价值观与相处偏好。</p>
             <div className={dcx("question-list")}>
-              {questions.map((question, questionIndex) => {
+              {valuesQuestions.map((question, questionIndex) => {
                 const value = answers[question.key];
                 const attentionItem = questionAttentionByKey.get(question.key);
                 const showQuestionAttention =
                   attentionItem != null &&
                   (attentionItem.missingRequired ||
                     (attentionItem.updated && !attentionItem.acknowledged));
-                const questionTitle = (
-                  <div aria-hidden="true" className={dcx("question-block-title")}>
-                    <span className={dcx("app-q-num")}>{questionIndex + 1}</span>
-                    <span>{question.prompt}</span>
-                  </div>
-                );
+                const questionTitle = <QuestionHeading>{question.prompt}</QuestionHeading>;
 
                 if (question.type === "MULTI_SELECT") {
                   const selected = Array.isArray(value) ? value : [];
@@ -2174,7 +1874,7 @@ export function ProfileClient({
                   const reachedSelectionLimit =
                     selectionLimit != null && selected.length >= selectionLimit;
                   return (
-                    <fieldset
+                    <QuestionField data-reader-item
                       key={question.id}
                       ref={(node) =>
                         setAttentionBlockRef([question.key], node)
@@ -2182,9 +1882,6 @@ export function ProfileClient({
                       id={profileAttentionElementId(question.key)}
                       className={attentionBlockClassName([question.key])}
                     >
-                      <legend className={dcx("question-block-legend")}>
-                        {question.prompt}
-                      </legend>
                       {questionTitle}
                       {showQuestionAttention && attentionItem ? (
                         <p className={dcx("question-attention-note")}>
@@ -2193,14 +1890,14 @@ export function ProfileClient({
                       ) : null}
                       {selectionLimit != null ? (
                         <p className={dcx("app-muted")}>
-                          本题最多选择 {selectionLimit} 项。
+                          本题必须选择 {selectionLimit} 项。
                         </p>
                       ) : null}
-                      <div className={dcx("chip-grid")}>
+                      <QuestionChoices layout={questionIndex < 14 || question.options?.some(option => option.label.length > 12) ? "list" : "tiles"}>
                         {question.options?.map((option, optionIndex) => {
                           const active = selected.includes(option.value);
                           return (
-                            <label
+                            <ChoiceOption
                               key={option.value}
                               className={dcx(active ? "chip active" : "chip")}
                             >
@@ -2245,33 +1942,30 @@ export function ProfileClient({
                                 }
                               />
                               <span>{option.label}</span>
-                            </label>
+                            </ChoiceOption>
                           );
                         })}
-                      </div>
-                    </fieldset>
+                      </QuestionChoices>
+                    </QuestionField>
                   );
                 }
 
                 return (
-                  <fieldset
+                  <QuestionField data-reader-item
                     key={question.id}
                     ref={(node) => setAttentionBlockRef([question.key], node)}
                     id={profileAttentionElementId(question.key)}
                     className={attentionBlockClassName([question.key])}
                   >
-                    <legend className={dcx("question-block-legend")}>
-                      {question.prompt}
-                    </legend>
                     {questionTitle}
                     {showQuestionAttention && attentionItem ? (
                       <p className={dcx("question-attention-note")}>
                         {questionnaireAttentionText(attentionItem)}
                       </p>
                     ) : null}
-                    <div className={dcx("option-list")}>
+                    <QuestionChoices layout={questionIndex < 14 || question.options?.some(option => option.label.length > 12) ? "list" : "tiles"}>
                       {question.options?.map((option, optionIndex) => (
-                        <label key={option.value}>
+                        <ChoiceOption key={option.value}>
                           <input
                             checked={value === option.value}
                             id={buildDashboardFieldId(
@@ -2289,15 +1983,43 @@ export function ProfileClient({
                             }
                           />
                           <span>{option.label}</span>
-                        </label>
+                        </ChoiceOption>
                       ))}
-                    </div>
-                  </fieldset>
+                    </QuestionChoices>
+                  </QuestionField>
                 );
               })}
             </div>
           </div>
         )}
+        </div>
+        <footer className={styles.moduleFooter}>
+          <div className={styles.readerProgress}><span>{incompleteTargets.length ? `还有 ${incompleteTargets.length} 题待完善` : '必答项已完成'}</span><button type="button" onClick={() => incompleteTargets.length ? locateIncomplete() : setCompletedSnapshot(questionnaireSnapshot)}>{incompleteTargets.length ? '去补全 →' : '完成问卷'}</button></div>
+          <div className={styles.moduleActions}>
+            <button className={styles.previousModule} type="button" disabled={currentIndex === 0 && !previousReaderModule} onClick={() => currentIndex > 0 ? openQuestion(activeTab, currentIndex - 1) : previousReaderModule && openQuestion(previousReaderModule.id, Math.max(0, readerItems.filter(item => item.tab === previousReaderModule.id).length - 1))}>{currentIndex === 0 && previousReaderModule ? "← 上一模块" : "← 上一题"}</button>
+            <button className={styles.desktopComplete} type="button" onClick={() => incompleteTargets.length ? locateIncomplete() : setCompletedSnapshot(questionnaireSnapshot)}>{incompleteTargets.length ? "去补全" : "完成问卷"}</button>
+            <button className={styles.nextModule} type="button" disabled={lastReaderQuestion && !nextReaderModule && !incompleteTargets.length && savePresentation.tone !== "saved"} onClick={() => !lastReaderQuestion ? openQuestion(activeTab, currentIndex + 1) : nextReaderModule ? openQuestion(nextReaderModule.id, 0) : finishReader()}>{!lastReaderQuestion ? "下一题 →" : nextReaderModule ? "下一模块 →" : incompleteTargets.length ? `补全 ${incompleteTargets.length} 题 →` : "完成"}</button>
+          </div>
+          {completedSnapshot === questionnaireSnapshot && savePresentation.tone === "saved" ? <p className={styles.completionSuccess} role="status">保存成功，问卷已填写完成。</p> : null}
+        </footer>
+        <dialog ref={vipDialogRef} className={styles.vipDialog} aria-labelledby="vip-unlock-title" onClick={event => { if (event.target === event.currentTarget) vipDialogRef.current?.close(); }}>
+          <span className={styles.vipEyebrow}>LiLink VIP</span>
+          <h2 id="vip-unlock-title">开通 VIP，设置高级筛选</h2>
+          <p>学校、身高、体重和颜值偏好是 VIP 专享功能。开通后，你的筛选条件才会用于匹配。</p>
+          <Link href="/dashboard/vip" className={styles.vipDialogCta}>查看权益与开通</Link>
+          <button type="button" onClick={() => vipDialogRef.current?.close()}>暂不开通，继续填写</button>
+        </dialog>
+        <dialog ref={directoryRef} className={styles.directory} aria-labelledby="question-directory-title" onClick={event => { if (event.target === event.currentTarget) directoryRef.current?.close(); }}>
+          <div className={styles.directoryHeader}><h2 id="question-directory-title">题目目录</h2><button type="button" aria-label="关闭题目目录" onClick={() => directoryRef.current?.close()}>×</button></div>
+          <p>按模块查看，点击题号跳转</p>
+          <div className={styles.directoryLegend}><span>● 已答</span><span>○ 未答</span><span>◎ 当前</span></div>
+          <div className={styles.directoryBody}>
+          {PROFILE_TABS.map(tab => {
+            const items = readerItems.filter(item => item.tab === tab.id);
+            return <section key={tab.id}><h3>{tab.label}<small>{items.filter(item => !itemIncomplete(item)).length} / {items.length}</small></h3><div className={styles.numberGrid}>{items.map((item, index) => <button type="button" key={index} aria-label={`${tab.label}第 ${index + 1} 题：${item.title}`} aria-current={activeTab === tab.id && currentIndex === index ? 'step' : undefined} data-complete={!itemIncomplete(item)} onClick={() => openQuestion(tab.id, index)}>{String(index + 1).padStart(2, '0')}</button>)}</div></section>;
+          })}
+          </div>
+        </dialog>
       </section>
     </div>
   );

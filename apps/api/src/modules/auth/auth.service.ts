@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  InternalServerErrorException,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,7 +10,6 @@ import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'crypto';
 import { Prisma, PrismaClient } from '../../common/prisma/client';
 import {
   DEFAULT_LOCALE,
-  DEFAULT_MEETUP_EXPIRATION_WEEKS,
   normalizeLocale,
   type SupportedLocale,
 } from '@lilink/shared';
@@ -40,10 +38,6 @@ const USABLE_VERIFICATION_CODE_DELIVERY_STATUSES = [
   'PROCESSING',
   'SENT',
 ] as const;
-const REGISTRATION_CAPACITY_LOCK_KEY = 120_404_260;
-const MAX_REGISTRATIONS_SETTING_KEY = 'max_registrations';
-const REGISTRATION_CAPACITY_LIMIT_PATTERN = /^\d+$/;
-const UNLIMITED_REGISTRATION_CAPACITY_LIMIT = 0;
 const NON_SCHOOL_REQUEST_CODE_REFERRAL_ERROR =
   '非学校邮箱必须提供有效邀请码方可获取验证码';
 
@@ -90,7 +84,6 @@ export class AuthService {
     const normalizedEmail = input.email.trim().toLowerCase();
     const school = await this.resolveSchoolByEmail(normalizedEmail);
     const isNonEduEmail = !school;
-    await this.assertRegistrationCapacityPreflight(this.prisma);
     await this.assertVerificationCodeIsValid(
       this.prisma,
       normalizedEmail,
@@ -100,7 +93,6 @@ export class AuthService {
     const passwordHash = await argon2.hash(input.password);
 
     const user = await this.prisma.$transaction(async (tx) => {
-      await this.assertRegistrationCapacity(tx);
       const schoolId = school
         ? school.schoolId
         : await this.resolveManualSchoolId(tx, input.manualSchoolId);
@@ -190,7 +182,6 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
-      user.meetupExpirationWeeks,
       localeCookie,
     );
   }
@@ -202,7 +193,7 @@ export class AuthService {
       where: { email: normalizedEmail },
     });
 
-    if (!user) {
+    if (!user || user.deactivatedAt) {
       return {
         email: normalizedEmail,
         expiresAt: new Date(Date.now() + VERIFICATION_CODE_TTL_MS),
@@ -227,7 +218,7 @@ export class AuthService {
       throw new BadRequestException('No valid verification code was found.');
     }
 
-    this.assertUserActive(existingUser.status);
+    this.assertUserActive(existingUser.status, existingUser.deactivatedAt);
 
     const newPasswordHash = await argon2.hash(input.newPassword);
 
@@ -240,7 +231,10 @@ export class AuthService {
         throw new BadRequestException('No valid verification code was found.');
       }
 
-      this.assertUserActive(transactionalUser.status);
+      this.assertUserActive(
+        transactionalUser.status,
+        transactionalUser.deactivatedAt,
+      );
 
       await this.consumeVerificationCode(
         tx,
@@ -266,7 +260,6 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
-      user.meetupExpirationWeeks,
       localeCookie,
     );
   }
@@ -282,7 +275,7 @@ export class AuthService {
       throw new UnauthorizedException('Email or password is incorrect.');
     }
 
-    this.assertUserActive(user.status);
+    this.assertUserActive(user.status, user.deactivatedAt);
 
     const isValidPassword = await argon2.verify(
       user.passwordHash,
@@ -305,7 +298,6 @@ export class AuthService {
       user.email,
       user.displayName,
       user.preferredLocale,
-      user.meetupExpirationWeeks,
       localeCookie,
     );
   }
@@ -313,7 +305,7 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      omit: { passwordHash: true },
+      omit: { passwordHash: true, meetupExpirationWeeks: true },
       include: {
         school: true,
         profile: true,
@@ -325,14 +317,16 @@ export class AuthService {
       throw new UnauthorizedException('User account no longer exists.');
     }
 
-    if (user.status === 'SUSPENDED') {
+    if (user.deactivatedAt || user.status === 'SUSPENDED') {
       throw new UnauthorizedException('Account has been suspended.');
     }
 
     return user;
   }
 
-  private assertUserActive(status: string) {
+  private assertUserActive(status: string, deactivatedAt?: Date | null) {
+    if (deactivatedAt)
+      throw new UnauthorizedException('Account has been deactivated.');
     if (status === 'ACTIVE') return;
 
     if (status === 'SUSPENDED') {
@@ -643,7 +637,6 @@ export class AuthService {
     email: string,
     displayName: string | null,
     preferredLocale: unknown = DEFAULT_LOCALE,
-    meetupExpirationWeeks: unknown = DEFAULT_MEETUP_EXPIRATION_WEEKS,
     localeCookie?: SupportedLocale | null,
   ) {
     const token = this.jwtService.sign({
@@ -659,87 +652,7 @@ export class AuthService {
         email,
         displayName,
         preferredLocale: localeCookie ?? normalizeLocale(preferredLocale),
-        meetupExpirationWeeks: this.normalizeMeetupExpirationWeeks(
-          meetupExpirationWeeks,
-        ),
       },
     };
-  }
-
-  private normalizeMeetupExpirationWeeks(value: unknown) {
-    return typeof value === 'number' &&
-      Number.isInteger(value) &&
-      value >= 1 &&
-      value <= 4
-      ? value
-      : DEFAULT_MEETUP_EXPIRATION_WEEKS;
-  }
-
-  private async assertRegistrationCapacity(tx: TransactionClient) {
-    const limit = await this.getRegistrationCapacityLimit(tx);
-    if (limit <= 0) return;
-
-    // The advisory lock is executed only for its side effect, so discard the
-    // result set instead of binding this path to raw-query result shape.
-    await tx.$executeRaw(
-      Prisma.sql`SELECT pg_advisory_xact_lock(${REGISTRATION_CAPACITY_LOCK_KEY})`,
-    );
-
-    const currentCount = await tx.user.count();
-    this.assertRegistrationCapacityHasSpace(currentCount, limit);
-  }
-
-  private async assertRegistrationCapacityPreflight(
-    store: Pick<TransactionClient, 'systemSetting' | 'user'>,
-  ) {
-    const limit = await this.getRegistrationCapacityLimit(store);
-    if (limit <= 0) return;
-
-    const currentCount = await store.user.count();
-    this.assertRegistrationCapacityHasSpace(currentCount, limit);
-  }
-
-  private async getRegistrationCapacityLimit(
-    store: Pick<TransactionClient, 'systemSetting'>,
-  ) {
-    const setting = await store.systemSetting.findUnique({
-      where: { key: MAX_REGISTRATIONS_SETTING_KEY },
-    });
-
-    return this.parseRegistrationCapacityLimit(setting?.value);
-  }
-
-  private parseRegistrationCapacityLimit(settingValue?: string | null) {
-    const rawLimit =
-      settingValue ?? String(UNLIMITED_REGISTRATION_CAPACITY_LIMIT);
-
-    if (!REGISTRATION_CAPACITY_LIMIT_PATTERN.test(rawLimit)) {
-      throw this.createInvalidRegistrationCapacityConfigError();
-    }
-
-    const limit = Number(rawLimit);
-
-    if (!Number.isSafeInteger(limit) || limit < 0) {
-      throw this.createInvalidRegistrationCapacityConfigError();
-    }
-
-    return limit;
-  }
-
-  private createInvalidRegistrationCapacityConfigError() {
-    return new InternalServerErrorException(
-      `${MAX_REGISTRATIONS_SETTING_KEY} must be a non-negative safe integer.`,
-    );
-  }
-
-  private assertRegistrationCapacityHasSpace(
-    currentCount: number,
-    limit: number,
-  ) {
-    if (currentCount < limit) return;
-
-    throw new BadRequestException(
-      `本轮内测名额仅限 ${limit} 人，目前已满。请等待下一轮开放。`,
-    );
   }
 }

@@ -14,8 +14,7 @@ export class CreateReferralEventDto {
   @IsIn([...REFERRAL_CHANNELS])
   channel!: string;
 
-  // Current campaign slug from the share link (?c=); only ACTIVE is honored,
-  // otherwise the event is attributed to the active default campaign.
+  // Accepted for backward compatibility; campaign attribution is no longer used.
   @IsOptional()
   @IsString()
   @MaxLength(REFERRAL_CAMPAIGN_SLUG_MAX_LENGTH)
@@ -32,8 +31,7 @@ export class CreateReferralClickDto {
   @IsIn([...REFERRAL_CHANNELS])
   channel?: string;
 
-  // Current campaign slug from the landing link (?c=); only ACTIVE is honored,
-  // otherwise the click is attributed to the active default campaign.
+  // Accepted for backward compatibility; campaign attribution is no longer used.
   @IsOptional()
   @IsString()
   @MaxLength(REFERRAL_CAMPAIGN_SLUG_MAX_LENGTH)

@@ -5,20 +5,19 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { createHash } from "node:crypto";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const storybookDir = path.resolve(
   repoRoot,
-  process.env.STORYBOOK_STATIC_DIR || "apps/web/storybook-static",
+  process.env.STORYBOOK_STATIC_DIR || "apps/web/storybook-static"
 );
 const outputDir = path.resolve(
   repoRoot,
-  process.env.STORYBOOK_SCREENSHOT_OUT || "artifacts/storybook-screenshots",
+  process.env.STORYBOOK_SCREENSHOT_OUT || "artifacts/storybook-screenshots"
 );
-const includeTags = (
-  process.env.STORYBOOK_SCREENSHOT_TAGS || "smoke"
-)
+const includeTags = (process.env.STORYBOOK_SCREENSHOT_TAGS || "smoke")
   .split(",")
   .map((tag) => tag.trim())
   .filter(Boolean);
@@ -30,6 +29,7 @@ const includeStories = (process.env.STORYBOOK_SCREENSHOT_STORIES || "")
   .map((value) => value.trim().toLowerCase())
   .filter(Boolean);
 const allowEmptyScreenshots = process.env.STORYBOOK_ALLOW_EMPTY_SCREENSHOTS === "1";
+const appendScreenshots = process.env.STORYBOOK_SCREENSHOT_APPEND === "1";
 const filterDescription =
   includeStories.length > 0
     ? `stories: ${includeStories.join(", ")}`
@@ -74,7 +74,7 @@ async function readStorybookIndex() {
   const indexPath = path.join(storybookDir, "index.json");
   if (!(await pathExists(indexPath))) {
     throw new Error(
-      `Storybook index not found at ${indexPath}. Run npm run build-storybook:web first.`,
+      `Storybook index not found at ${indexPath}. Run npm run build-storybook:web first.`
     );
   }
 
@@ -161,25 +161,35 @@ async function captureStory(page, baseUrl, story, viewport) {
     width: viewport.width,
     height: viewport.height,
   });
-  await page.goto(
-    `${baseUrl}/iframe.html?id=${encodeURIComponent(story.id)}&viewMode=story`,
-    { waitUntil: "networkidle", timeout: 45_000 },
-  );
+  await page.goto(`${baseUrl}/iframe.html?id=${encodeURIComponent(story.id)}&viewMode=story`, {
+    waitUntil: "networkidle",
+    timeout: 45_000,
+  });
   await page.waitForSelector("#storybook-root, #root", {
     state: "attached",
     timeout: 15_000,
   });
-  await page.waitForFunction(() => document.body.childElementCount > 0, {
-    timeout: 15_000,
-  });
+  await page.waitForFunction(
+    (id) => document.documentElement.dataset.storybookReady === id,
+    story.id,
+    { timeout: 35_000 }
+  );
   await page.evaluate(async () => {
     await document.fonts.ready;
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   });
   await page.waitForTimeout(400);
 
-  const fileName = `${sanitizeFilePart(story.id)}--${viewport.name}.png`;
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth
+  );
+  if (overflow > 1) throw new Error(`Page overflows viewport by ${overflow}px`);
+  const suffix = createHash("sha256").update(story.id).digest("hex").slice(0, 8);
+  const fileName = `${sanitizeFilePart(story.id)}-${suffix}--${viewport.name}.png`;
   const absolutePath = path.join(outputDir, fileName);
-  await page.screenshot({ path: absolutePath, fullPage: true });
+  const modalOpen =
+    (await page.locator('dialog[open], [role="dialog"][aria-modal="true"]').count()) > 0;
+  await page.screenshot({ path: absolutePath, fullPage: !modalOpen });
 
   return {
     storyId: story.id,
@@ -206,16 +216,14 @@ async function writeSummary(screenshots, failures) {
 
   for (const screenshot of screenshots) {
     lines.push(
-      `| ${screenshot.title} / ${screenshot.name} | ${screenshot.viewport.name} (${screenshot.viewport.width}x${screenshot.viewport.height}) | ${screenshot.file} |`,
+      `| ${screenshot.title} / ${screenshot.name} | ${screenshot.viewport.name} (${screenshot.viewport.width}x${screenshot.viewport.height}) | ${screenshot.file} |`
     );
   }
 
   if (failures.length > 0) {
     lines.push("", "## Failed captures", "");
     for (const failure of failures) {
-      lines.push(
-        `- ${failure.storyId} (${failure.viewport.name}): ${failure.error}`,
-      );
+      lines.push(`- ${failure.storyId} (${failure.viewport.name}): ${failure.error}`);
     }
   }
 
@@ -225,7 +233,7 @@ async function writeSummary(screenshots, failures) {
 async function main() {
   const stories = await readStorybookIndex();
 
-  await rm(outputDir, { recursive: true, force: true });
+  if (!appendScreenshots) await rm(outputDir, { recursive: true, force: true });
   await mkdir(outputDir, { recursive: true });
 
   if (stories.length === 0) {
@@ -240,7 +248,7 @@ async function main() {
     };
     await writeFile(
       path.join(outputDir, "manifest.json"),
-      `${JSON.stringify(manifest, null, 2)}\n`,
+      `${JSON.stringify(manifest, null, 2)}\n`
     );
     await writeSummary([], []);
     if (allowEmptyScreenshots) {
@@ -248,14 +256,18 @@ async function main() {
       return;
     }
     throw new Error(
-      `${emptyCaptureMessage} Add a smoke-tagged story, adjust STORYBOOK_SCREENSHOT_STORIES, or set STORYBOOK_ALLOW_EMPTY_SCREENSHOTS=1.`,
+      `${emptyCaptureMessage} Add a smoke-tagged story, adjust STORYBOOK_SCREENSHOT_STORIES, or set STORYBOOK_ALLOW_EMPTY_SCREENSHOTS=1.`
     );
   }
 
+  const previous = appendScreenshots
+    ? JSON.parse(await readFile(path.join(outputDir, "manifest.json"), "utf8"))
+    : { screenshots: [], failures: [] };
+  const selectedIds = new Set(stories.map((story) => story.id));
+  const screenshots = previous.screenshots.filter((entry) => !selectedIds.has(entry.storyId));
+  const failures = previous.failures.filter((entry) => !selectedIds.has(entry.storyId));
   const { server, baseUrl } = await startStaticServer();
   const browser = await chromium.launch({ headless: true });
-  const screenshots = [];
-  const failures = [];
 
   try {
     const page = await browser.newPage();
@@ -281,20 +293,18 @@ async function main() {
     storybookDir: path.relative(repoRoot, storybookDir),
     includeTags,
     includeStories,
+    appendScreenshots,
     screenshots,
     failures,
   };
-  await writeFile(
-    path.join(outputDir, "manifest.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-  );
+  await writeFile(path.join(outputDir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   await writeSummary(screenshots, failures);
 
   console.log(
-    `Captured ${screenshots.length} Storybook screenshots for ${stories.length} stories into ${path.relative(
+    `Captured ${screenshots.filter((entry) => selectedIds.has(entry.storyId)).length} screenshots for ${stories.length} stories; manifest contains ${screenshots.length} screenshots in ${path.relative(
       repoRoot,
-      outputDir,
-    )}.`,
+      outputDir
+    )}.`
   );
 
   if (failures.length > 0) {

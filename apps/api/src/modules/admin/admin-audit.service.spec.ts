@@ -127,6 +127,50 @@ describe('AdminAuditService', () => {
     expect(count).toHaveBeenCalledWith({ where: { action: 'cycle.run' } });
   });
 
+  it('filters the central audit list by cycle without requiring search text', async () => {
+    const prisma = {
+      auditLog: {
+        findMany: jest.fn().mockResolvedValue([]),
+        count: jest.fn().mockResolvedValue(0),
+      },
+    };
+    const service = new AdminAuditService(prisma as never);
+    await service.listAuditLogs({
+      cycleId: 'cycle-1',
+      action: 'cycle.previewed',
+    });
+    const where = {
+      action: 'cycle.previewed',
+      metadata: { path: ['cycleId'], equals: 'cycle-1' },
+    };
+    expect(prisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where }),
+    );
+    expect(prisma.auditLog.count).toHaveBeenCalledWith({ where });
+  });
+
+  it('keeps cycle and action restrictions in both search and total queries', async () => {
+    const prisma = {
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ total: 0n }]),
+      auditLog: { findMany: jest.fn() },
+    };
+    const service = new AdminAuditService(prisma as never);
+    await service.listAuditLogs({
+      cycleId: 'cycle-1',
+      action: 'cycle.previewed',
+      search: 'needle',
+    });
+    for (const [sql] of prisma.$queryRaw.mock.calls as Array<[Prisma.Sql]>) {
+      expect(sql.sql).toContain(`"metadata"->>'cycleId'`);
+      expect(sql.values).toEqual(
+        expect.arrayContaining(['cycle-1', 'cycle.previewed', '%needle%']),
+      );
+    }
+  });
+
   it('runs ILIKE search SQL and hydrates rows by id order', async () => {
     const queryRaw = jest
       .fn()
@@ -199,55 +243,6 @@ describe('AdminAuditService', () => {
     expect(findMany).not.toHaveBeenCalled();
     expect(page.items).toEqual([]);
     expect(page.total).toBe(0);
-  });
-
-  it('lists audit logs by SQL condition with pagination metadata', async () => {
-    const queryRaw = jest
-      .fn()
-      .mockResolvedValueOnce([{ id: 'a1' }])
-      .mockResolvedValueOnce([{ total: 40n }]);
-    const findMany = jest.fn().mockResolvedValue([
-      {
-        id: 'a1',
-        action: 'x',
-        createdAt: new Date(),
-        metadata: {},
-        actor: null,
-        adminActor: {
-          email: 'ops@example.com',
-          displayName: 'Ops',
-        },
-      },
-    ]);
-    const prisma = {
-      $queryRaw: queryRaw,
-      auditLog: { findMany },
-    };
-    const service = new AdminAuditService(prisma as never);
-
-    const page = await service.listAuditLogsByCondition(
-      Prisma.sql`a."action" = ${'x'}`,
-      { page: 2, pageSize: 20 },
-    );
-
-    expect(page.total).toBe(40);
-    expect(page.page).toBe(2);
-    expect(page.pageSize).toBe(20);
-    expect(page.items).toHaveLength(1);
-    const items = page.items as Array<{
-      actor: {
-        kind: string;
-        email: string;
-        displayName: string;
-        school: null;
-      };
-    }>;
-    expect(items[0]?.actor).toEqual({
-      kind: 'admin',
-      email: 'ops@example.com',
-      displayName: 'Ops',
-      school: null,
-    });
   });
 
   it('loads recent audit logs by SQL condition', async () => {

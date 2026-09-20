@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { dcx } from "../_lib/dashboard-class-names";
-import { ClockIcon } from "./icons";
 import { RevealCountdown } from "./RevealCountdown";
 import styles from "./MatchWaitingStrip.module.css";
 
@@ -10,9 +8,7 @@ export type MatchWaitingAction = {
   variant?: "primary" | "secondary";
 };
 
-/**
- * Compact waiting-state strip for the match page with neutral surface styling.
- */
+/** Letter-style card for match states without a counterpart. */
 export function MatchWaitingStrip({
   title,
   subtitle,
@@ -30,47 +26,37 @@ export function MatchWaitingStrip({
   variant?: "waiting" | "muted";
   actions: MatchWaitingAction[];
 }) {
-  const toneClass = variant === "muted" ? styles.muted : styles.waiting;
-
   return (
-    <section
-      className={`${styles.strip} ${toneClass}`}
-      aria-label={title}
-    >
-      <div className={styles.topRow}>
-        <span className={styles.icon} aria-hidden="true">
-          <ClockIcon />
-        </span>
+    <section className={styles.strip} data-state={variant} aria-label={title}>
+      <div className={styles.content}>
         {eyebrow ? <p className={styles.eyebrow}>{eyebrow}</p> : null}
-      </div>
-
-      <div className={styles.body}>
-        <p className={styles.title}>{title}</p>
+        <h2 className={styles.title}>{title}</h2>
         <p className={styles.sub}>{subtitle}</p>
+        {revealAt || revealLabel ? (
+          <div className={styles.revealRow}>
+            {revealAt ? (
+              <>
+                <span className={styles.countdownLabel}>距离结果公布</span>
+                <RevealCountdown
+                  targetIso={revealAt}
+                  prefix="距"
+                  expiredLabel="即将揭晓"
+                  includeSeconds
+                  className={styles.revealCountdown}
+                />
+              </>
+            ) : null}
+            {revealLabel ? <p className={styles.revealWhen}>{revealLabel} · 北京时间</p> : null}
+          </div>
+        ) : null}
       </div>
-
-      {revealLabel ? (
-        <p className={styles.revealRow}>
-          <span className={styles.revealWhen}>揭晓 · {revealLabel}</span>
-          {revealAt ? (
-            <span className={styles.revealCountdown}>
-              <RevealCountdown targetIso={revealAt} prefix="距揭晓" expiredLabel="即将揭晓" />
-            </span>
-          ) : null}
-        </p>
-      ) : null}
-
       {actions.length > 0 ? (
         <div className={styles.actions}>
           {actions.map((action, index) => (
             <Link
               key={`${action.label}-${index}`}
               href={action.href}
-              className={dcx(
-                action.variant === "primary"
-                  ? "ui-button ui-button--primary"
-                  : "ui-button ui-button--secondary",
-              )}
+              className={action.variant === "primary" ? styles.primary : styles.secondary}
             >
               {action.label}
             </Link>

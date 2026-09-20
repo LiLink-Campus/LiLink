@@ -1,3 +1,4 @@
+import { normalizeSchoolEmailDomains } from '@lilink/shared';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -61,12 +62,19 @@ function isTrustedSchoolEmailDomain(domain: string) {
 export class PublicService {
   private cachedLandingPayload: CachedLandingPayload | null = null;
   private landingPayloadInFlight: Promise<LandingPayload> | null = null;
+  private landingCacheEpoch = 0;
   private cachedEligibleSchools: CachedEligibleSchoolsPayload | null = null;
   private eligibleSchoolsInFlight: Promise<EligibleSchoolsPayload> | null =
     null;
   private eligibleSchoolsCacheEpoch = 0;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  invalidateLandingCache() {
+    this.landingCacheEpoch += 1;
+    this.cachedLandingPayload = null;
+    this.landingPayloadInFlight = null;
+  }
 
   async getLandingPayload() {
     const cachedPayload = this.readCachedLandingPayload();
@@ -78,9 +86,13 @@ export class PublicService {
       return this.landingPayloadInFlight;
     }
 
-    this.landingPayloadInFlight = this.loadLandingPayload().finally(() => {
-      this.landingPayloadInFlight = null;
-    });
+    const pending = this.loadLandingPayload(this.landingCacheEpoch).finally(
+      () => {
+        if (this.landingPayloadInFlight === pending)
+          this.landingPayloadInFlight = null;
+      },
+    );
+    this.landingPayloadInFlight = pending;
 
     return this.landingPayloadInFlight;
   }
@@ -138,16 +150,28 @@ export class PublicService {
     return this.cachedEligibleSchools.value;
   }
 
-  private async loadLandingPayload() {
+  private async loadLandingPayload(cacheEpoch: number) {
     const [userCount, completedProfiles, matchCount, currentCycle] =
       await Promise.all([
-        this.prisma.user.count({ where: { status: 'ACTIVE' } }),
+        this.prisma.user.count({
+          where: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
+        }),
         this.prisma.questionnaireResponse.count({
-          where: { submittedAt: { not: null } },
+          where: {
+            submittedAt: { not: null },
+            user: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
+          },
         }),
         this.prisma.match.count({
           where: {
             revealedAt: { not: null },
+            introducedAt: { not: null },
+            participants: {
+              some: {},
+              every: {
+                user: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
+              },
+            },
           },
         }),
         this.prisma.matchCycle.findFirst({
@@ -173,10 +197,11 @@ export class PublicService {
         : null,
     } satisfies LandingPayload;
 
-    this.cachedLandingPayload = {
-      expiresAt: Date.now() + LANDING_PAYLOAD_CACHE_TTL_MS,
-      value: landingPayload,
-    };
+    if (cacheEpoch === this.landingCacheEpoch)
+      this.cachedLandingPayload = {
+        expiresAt: Date.now() + LANDING_PAYLOAD_CACHE_TTL_MS,
+        value: landingPayload,
+      };
 
     return landingPayload;
   }
@@ -185,7 +210,7 @@ export class PublicService {
     const schools = await this.prisma.school.findMany({
       // Only schools flagged eligible in the admin school center are offered for
       // self-registration; this is the single source of truth shared by the
-      // public schools page and the registration manual-school dropdown.
+      // registration recognition and manual-school dropdown.
       where: {
         registrationEligible: true,
         domains: { some: {} },
@@ -207,9 +232,11 @@ export class PublicService {
         id: school.id,
         name: school.name,
         description: school.description,
-        domains: school.domains
-          .map((entry) => entry.domain)
-          .filter(isTrustedSchoolEmailDomain),
+        domains: normalizeSchoolEmailDomains(
+          school.domains
+            .map((entry) => entry.domain)
+            .filter(isTrustedSchoolEmailDomain),
+        ),
       }))
       .filter((school) => school.domains.length > 0);
 

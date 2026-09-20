@@ -37,8 +37,10 @@ import {
   ADMIN_SCHOOL_NAME_MAX_LENGTH,
   ADMIN_SCHOOL_SLUG_MAX_LENGTH,
   ADMIN_SEARCH_MAX_LENGTH,
-  ADMIN_SETTINGS_VALUE_MAX_LENGTH,
   EMAIL_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  PROFILE_HEADLINE_MAX_LENGTH,
+  PROFILE_SHORT_TEXT_MAX_LENGTH,
 } from '../../common/validation/input-limits';
 
 function strictIntegerInput(value: unknown) {
@@ -91,8 +93,6 @@ export class ListCycleParticipantsQueryDto extends ListQueryDto {
 
 export class ListCycleMatchesQueryDto extends ListQueryDto {}
 
-export class ListCycleLogsQueryDto extends ListQueryDto {}
-
 export class ListUsersQueryDto extends ListQueryDto {
   @IsOptional()
   @IsIn(['PENDING', 'ACTIVE', 'SUSPENDED'])
@@ -120,6 +120,11 @@ export class ListReportsQueryDto extends ListQueryDto {
 }
 
 export class ListAuditLogsQueryDto extends ListQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(ADMIN_ID_MAX_LENGTH)
+  cycleId?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(ADMIN_SEARCH_MAX_LENGTH)
@@ -259,7 +264,7 @@ export class UpsertQuestionDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   weight?: number;
 }
 
@@ -315,6 +320,26 @@ export class UpdateUserStatusDto {
 export class AdminUpdateUserDto {
   @IsOptional()
   @IsString()
+  @MaxLength(PROFILE_HEADLINE_MAX_LENGTH)
+  headline?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(PROFILE_BIO_MAX_LENGTH)
+  bio?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(PROFILE_SHORT_TEXT_MAX_LENGTH)
+  schoolYear?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(PROFILE_SHORT_TEXT_MAX_LENGTH)
+  programName?: string | null;
+
+  @IsOptional()
+  @IsString()
   @Length(2, 30)
   displayName?: string;
 
@@ -344,11 +369,4 @@ export class UpdateUserReferralLimitDto {
 export class ToggleTestFlagDto {
   @IsBoolean()
   isTest!: boolean;
-}
-
-export class UpdateSettingsDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(ADMIN_SETTINGS_VALUE_MAX_LENGTH)
-  max_registrations?: string;
 }

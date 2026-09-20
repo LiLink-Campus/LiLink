@@ -10,12 +10,15 @@
   gap: 0.25rem;
 }
 
-.nav a,
-.action {
+.nav a {
   padding: 0.45rem 0.85rem;
   border-radius: var(--radius-pill);
   font-size: 0.92rem;
   font-weight: 500;
+  font-family: var(--font-body);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   color: var(--color-text-secondary);
   background: transparent;
   border: none;
@@ -25,14 +28,23 @@
 }
 
 .nav :global(.ui-button) {
-  min-height: auto;
+  min-height: 44px;
   line-height: inherit;
+  padding-inline: 1.4rem;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  box-shadow: none;
+  border-color: transparent;
 }
 
-.nav a:hover,
-.action:hover {
-  color: var(--color-brand-ink);
-  background: var(--color-brand-tint);
+.nav a[aria-current="page"] {
+  color: #2d2a26;
+  background: transparent;
+}
+
+.nav a:hover {
+  color: #2d2a26;
+  background: #f2eee8;
 }
 
 .authCluster {
@@ -79,7 +91,7 @@
 
 @media (max-width: 760px) {
   .shell {
-    position: relative;
+    position: static;
   }
 
   .toggle {
@@ -87,8 +99,8 @@
   }
 
   .nav {
-    position: fixed;
-    inset: var(--appbar-height) 0 auto 0;
+    position: absolute;
+    inset: 100% 0 auto 0;
     padding: 1rem 1.25rem 1.5rem;
     flex-direction: column;
     align-items: stretch;
@@ -112,8 +124,7 @@
     visibility: visible;
   }
 
-  .nav a,
-  .action {
+  .nav a {
     padding: 0.85rem 0.9rem;
     border-radius: var(--radius-md);
     font-size: 1rem;
@@ -136,4 +147,31 @@
   border-radius: 50%;
   background: var(--color-danger);
   vertical-align: super;
+}
+
+@media (max-width: 760px) {
+  .nav {
+    background: #fff;
+    border-bottom-color: rgb(0 0 0 / 8%);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
+  }
+  .nav a {
+    color: #6b6560;
+  }
+  .nav a[aria-current="page"] {
+    color: #2d2a26;
+    background: transparent;
+  }
+  .nav a:hover,
+  .nav a:active {
+    color: #2d2a26;
+    background: #f2eee8;
+  }
+  .nav :global(.ui-button) {
+    color: #2d2a26;
+    background: #faf3eb;
+  }
+  .authCluster {
+    border-top-color: rgb(0 0 0 / 8%);
+  }
 }

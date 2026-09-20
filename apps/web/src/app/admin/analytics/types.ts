@@ -13,7 +13,7 @@ type SchoolGenderRow = GenderBuckets & {
 
 export type SchoolsGenderResponse = {
   schools: SchoolGenderRow[];
-  totals: GenderBuckets & { total: number };
+  totals: GenderBuckets & { total: number; submitted: number };
   includeTest: boolean;
 };
 
@@ -43,13 +43,6 @@ export type LeaderboardRow = {
   currentUnmatchedStreak: number;
 };
 
-export type LeaderboardSortKey =
-  | "unmatchedStreak"
-  | "matchStreak"
-  | "matchRate"
-  | "matchedRounds"
-  | "optInRounds";
-
 export type SortOrder = "asc" | "desc";
 
 export type MatchLeaderboardResponse = {
@@ -59,46 +52,4 @@ export type MatchLeaderboardResponse = {
   order: SortOrder;
   limit: number;
   includeTest: boolean;
-};
-
-type ProductAnalyticsRangeKey = "7d" | "30d" | "60d";
-
-type ProductAnalyticsKpis = {
-  activeUsers: number;
-  totalEvents: number;
-  todayEvents: number;
-  couponRedeemRate: number | null;
-  meetupCompletionRate: number | null;
-  optinRate: null;
-};
-
-type ProductAnalyticsFunnelStep = {
-  key: string;
-  label: string;
-  eventName: string;
-  value: number;
-  kind: "footprint" | "intent" | "outcome";
-};
-
-type ProductAnalyticsFunnel = {
-  key: string;
-  title: string;
-  description: string;
-  steps: ProductAnalyticsFunnelStep[];
-};
-
-export type ProductAnalyticsMissing = {
-  key: string;
-  label: string;
-  reason: string;
-};
-
-export type ProductAnalyticsResponse = {
-  range: ProductAnalyticsRangeKey;
-  since: string;
-  until: string;
-  includeTest: boolean;
-  kpis: ProductAnalyticsKpis;
-  funnels: ProductAnalyticsFunnel[];
-  missing: ProductAnalyticsMissing[];
 };

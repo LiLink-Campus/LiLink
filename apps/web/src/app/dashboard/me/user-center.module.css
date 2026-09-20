@@ -1,0 +1,62 @@
+.page { width: 100%; max-width: 760px; margin: 0 auto; display: grid; gap: 28px; padding: 12px 0 20px; word-break: normal; }
+.page h1, .page h2, .page p { margin: 0; }
+.page h1 { font-family: var(--font-display); font-size: clamp(30px, 5vw, 42px); font-weight: 600; }
+.identity { display: flex; gap: 20px; align-items: center; min-width: 0; }
+.identity > div { min-width: 0; }
+.avatar { width: 72px; height: 72px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: #dc796c; color: white; font-family: var(--font-display); font-size: 32px; }
+.identity h2 { font-family: var(--font-display); font-size: 24px; overflow-wrap: anywhere; }
+.identity p { color: var(--color-text-muted); font-size: 15px; margin-top: 5px; overflow-wrap: anywhere; }
+.vip { position: relative; overflow: hidden; border: 1px solid #a55d70; border-radius: 20px; padding: 26px; color: #fff8f5; background: linear-gradient(120deg, #742c41, #963f58); box-shadow: 0 12px 28px #742c4112; }
+.vip > :not(.decoration) { position: relative; }
+.vipHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.vipHeading h2 { color: inherit; font-family: var(--font-display); font-size: clamp(23px, 4vw, 30px); font-weight: 500; }
+.vipHeading > span { border-radius: 999px; background: #ffffff24; padding: 5px 10px; white-space: nowrap; font-size: 12px; }
+.vip .tagline { margin-top: 16px; font-size: 18px; }
+.vip .filters { margin-top: 10px; color: #f1d9e1; font-size: 15px; }
+.vip .expiry { margin-top: 10px; font-size: 13px; color: #f1d9e1; }
+.vipLink { display: inline-flex; align-items: center; gap: 18px; margin-top: 22px; padding: 11px 22px; min-height: 44px; border-radius: 999px; color: #742c41; background: #fff7f5; text-decoration: none; font-weight: 600; }
+.decoration { position: absolute; width: 190px; height: 190px; right: -22px; bottom: -40px; opacity: .1; transform: rotate(-15deg); pointer-events: none; }
+.page .sectionTitle { font-family: var(--font-display); font-size: 25px; font-weight: 500; margin-bottom: 16px; }
+.benefits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.benefits a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 18px; color: var(--color-text); text-decoration: none; }
+.benefits svg { width: 30px; height: 30px; flex-shrink: 0; color: var(--color-brand); }
+.benefits strong { font-size: 16px; font-weight: 500; }
+.benefits span { display: block; color: var(--color-text-muted); font-size: 13px; margin-top: 6px; }
+.security { padding: 0 18px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 18px; }
+.security > a, .security > button { width: 100%; display: flex; align-items: center; gap: 16px; min-height: 72px; background: transparent; border: 0; color: var(--color-text); font: inherit; text-decoration: none; text-align: left; padding: 16px 0; cursor: pointer; }
+.security > button { border-top: 1px solid var(--color-border); color: var(--color-text-muted); }
+.security svg, .delete > span:first-child { width: 24px; height: 24px; flex-shrink: 0; }
+.security > a > span:last-child, .delete > span:last-child { margin-left: auto; font-size: 25px; color: var(--color-text-muted); }
+.page a:focus-visible, .page button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 4px; }
+@media (max-width: 380px) { .vip { padding: 20px; } .benefits a { gap: 8px; padding: 12px 10px; } .benefits svg { width: 23px; height: 23px; } .benefits strong { font-size: 14px; } .benefits span { font-size: 12px; } }
+
+/* Compact membership entry. */
+.vip { padding: 18px 20px; border-radius: 16px; box-shadow: none; }
+.vipHeading h2 { font-size: 21px; }
+.vip .filters { margin-top: 8px; font-size: 13px; }
+.vipLink { margin-top: 12px; min-height: 36px; padding: 6px 14px; gap: 12px; font-size: 13px; }
+.decoration { width: 120px; height: 120px; bottom: -35px; }
+
+.entryGroup { display: grid; gap: 12px; }
+
+.desktopOnly { display: none; }
+@media (min-width: 880px) {
+  .page { max-width: none; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); grid-template-areas: "heading heading" "identity vip" "security benefits"; gap: 24px; align-items: start; }
+  .heading { grid-area: heading; }
+  .heading h1 { font-size: 40px; }
+  .page .heading p { margin-top: 8px; color: var(--color-text-muted); font-size: 15px; }
+  .desktopOnly { display: block; }
+  .identity { grid-area: identity; min-height: 180px; padding: 28px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }
+  .identity a { margin-top: 16px; color: var(--color-brand); font-size: 14px; text-decoration: none; }
+  .vip { grid-area: vip; min-height: 180px; padding: 28px; background: #803f53; }
+  .vipHeading { justify-content: flex-start; }
+  .vipHeading h2 { font-size: 27px; }
+  .vipLink { margin-top: 20px; }
+  .decoration { width: 140px; height: 140px; right: 24px; bottom: 10px; opacity: .16; }
+  .benefitsSection { grid-area: benefits; }
+  .benefits a { min-height: 90px; padding: 20px; border-radius: 14px; }
+  .securitySection { grid-area: security; padding: 24px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }
+  .page .securitySection .sectionTitle { font-size: 23px; margin-bottom: 4px; }
+  .security { border: 0; border-radius: 0; padding: 0; }
+  .security > a, .security > button { min-height: 62px; }
+}

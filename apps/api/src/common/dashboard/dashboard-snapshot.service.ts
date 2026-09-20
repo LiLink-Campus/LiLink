@@ -54,12 +54,12 @@ const dashboardSnapshotMatchSelect = {
   participants: {
     select: {
       userId: true,
-      contactRequestedAt: true,
       introducedContactType: true,
       introducedContactValue: true,
       user: {
         select: {
           email: true,
+          deactivatedAt: true,
           displayName: true,
           profile: {
             select: {
@@ -90,6 +90,7 @@ type SnapshotStoreClient = Pick<
   | 'matchCycle'
   | 'matchParticipant'
   | 'userCycleDashboardSnapshot'
+  | '$queryRaw'
 >;
 
 type SnapshotCycle = Prisma.MatchCycleGetPayload<{
@@ -318,9 +319,9 @@ export class DashboardSnapshotService {
       return;
     }
 
-    const pendingSync = this.syncMatchSnapshotsDirect(matchId, this.prisma)
-      .catch((error) => {
-        throw error;
+    const pendingSync = this.prisma
+      .$transaction(async (tx) => {
+        await this.syncMatchSnapshotsDirect(matchId, tx);
       })
       .finally(() => {
         this.inFlightMatchSyncs.delete(matchId);
@@ -374,6 +375,13 @@ export class DashboardSnapshotService {
         intent: true,
       },
     });
+
+    // Serialize sensitive reads and writes with account deletion and reports.
+    await store.$queryRaw`
+      SELECT "id" FROM "Match"
+      WHERE "cycleId" = ${cycleId}
+      ORDER BY "id" FOR UPDATE
+    `;
 
     await store.userCycleDashboardSnapshot.deleteMany({
       where: { cycleId },
@@ -462,6 +470,12 @@ export class DashboardSnapshotService {
       return;
     }
 
+    await store.$queryRaw`
+      SELECT m."id" FROM "Match" m
+      JOIN "MatchParticipant" p ON p."matchId" = m."id"
+      WHERE m."cycleId" = ${input.cycleId} AND p."userId" = ${input.userId}
+      ORDER BY m."id" FOR UPDATE OF m
+    `;
     const match = await store.match.findFirst({
       where: {
         cycleId: input.cycleId,
@@ -534,6 +548,9 @@ export class DashboardSnapshotService {
     matchId: string,
     store: SnapshotStoreClient,
   ) {
+    await store.$queryRaw`
+      SELECT "id" FROM "Match" WHERE "id" = ${matchId} FOR UPDATE
+    `;
     const match = await store.match.findUnique({
       where: { id: matchId },
       select: dashboardSnapshotMatchSelect,
@@ -675,7 +692,7 @@ export class DashboardSnapshotService {
     blockedPairKeys: Set<string>;
     intentByUserId: Map<string, WeeklyIntent | null>;
   }): SnapshotPayload {
-    if (!input.match) {
+    if (!input.match?.introducedAt) {
       return {
         userId: input.userId,
         cycleId: input.cycle.id,
@@ -701,21 +718,23 @@ export class DashboardSnapshotService {
       input.match.reports,
       input.userId,
     );
-    const limitedReason = reportStatus
-      ? 'REPORTED'
-      : counterpart &&
-          input.blockedPairKeys.has(
-            createPairKey(input.userId, counterpart.userId),
-          )
-        ? 'BLOCKED'
-        : null;
+    const limitedReason =
+      !counterpart || counterpart.user.deactivatedAt
+        ? 'ACCOUNT_DEACTIVATED'
+        : reportStatus
+          ? 'REPORTED'
+          : counterpart &&
+              input.blockedPairKeys.has(
+                createPairKey(input.userId, counterpart.userId),
+              )
+            ? 'BLOCKED'
+            : null;
     const visibility =
       limitedReason == null
         ? DashboardHistoryVisibility.VISIBLE
         : DashboardHistoryVisibility.LIMITED;
     const matchPayload = this.buildMatchPayload({
       match: input.match,
-      currentUserId: input.userId,
       hideSensitiveFields: visibility === DashboardHistoryVisibility.LIMITED,
       reportStatus,
       intentByUserId: input.intentByUserId,
@@ -737,25 +756,16 @@ export class DashboardSnapshotService {
 
   private buildMatchPayload(input: {
     match: SnapshotMatch;
-    currentUserId: string;
     hideSensitiveFields: boolean;
     reportStatus: ReportStatus | null;
     intentByUserId: Map<string, WeeklyIntent | null>;
   }): DashboardMatchResponseDto {
-    const currentUserParticipant =
-      input.match.participants.find(
-        (participant) => participant.userId === input.currentUserId,
-      ) ?? null;
-
     return {
       id: input.match.id,
       score: input.match.score,
       introducedAt: this.toIsoString(input.match.introducedAt),
-      currentUserRequestedAt: this.toIsoString(
-        currentUserParticipant?.contactRequestedAt,
-      ),
       reportStatus: input.reportStatus,
-      currentUserFeedback: null,
+
       participants: input.hideSensitiveFields
         ? []
         : input.match.participants.map((participant) => {
@@ -777,9 +787,6 @@ export class DashboardSnapshotService {
               email: contact?.type === 'EMAIL' ? contact.value : null,
               contact,
               schoolName: participant.user.school?.name ?? null,
-              contactRequestedAt: this.toIsoString(
-                participant.contactRequestedAt,
-              ),
               gender: this.readHardGender(
                 participant.user.questionnaireResponse?.answers,
               ),
@@ -862,12 +869,23 @@ export class DashboardSnapshotService {
     }
 
     const payload = rawPayload as unknown as DashboardMatchResponseDto;
+    // Legacy snapshots must not expose a pair that never completed introduction.
+    if (!payload.introducedAt) return null;
     return {
-      ...payload,
-      currentUserFeedback: payload.currentUserFeedback ?? null,
+      id: payload.id,
+      score: payload.score,
+      introducedAt: payload.introducedAt,
+      reportStatus: payload.reportStatus ?? null,
+
       participants: Array.isArray(payload.participants)
         ? payload.participants.map((participant) => ({
-            ...participant,
+            userId: participant.userId,
+            displayName: participant.displayName,
+            introLine: participant.introLine,
+            // Cached payloads may predate the introduction eligibility gate.
+            email: payload.introducedAt ? participant.email : null,
+            contact: payload.introducedAt ? participant.contact : null,
+            schoolName: participant.schoolName,
             gender: participant.gender ?? null,
             partnerGenders: Array.isArray(participant.partnerGenders)
               ? participant.partnerGenders

@@ -1,5 +1,6 @@
 "use client";
 
+import { isLifestyleQuestion, LIFESTYLE_QUESTIONS } from "@lilink/shared";
 import {
   FormEvent,
   useDeferredValue,
@@ -25,6 +26,7 @@ type QuestionnairePayload = {
 };
 
 type QuestionOptionFormState = {
+  value?: string;
   label: string;
 };
 
@@ -80,7 +82,7 @@ function formFromQuestion(question: AdminQuestion): QuestionFormState {
     selectionLimit:
       question.selectionLimit == null ? "" : String(question.selectionLimit),
     options: Array.isArray(question.options)
-      ? question.options.map((o) => ({ label: o.label }))
+      ? question.options.map((o) => ({ value: o.value, label: o.label }))
       : [createEmptyOption(), createEmptyOption()],
     order: question.order,
     weight: question.weight,
@@ -211,7 +213,7 @@ export default function AdminQuestionnairePage({
     const cleanOptions = form.options
       .map((o) => {
         const label = o.label.trim();
-        return { value: label, label };
+        return { value: isLifestyleQuestion(form.key) ? (o.value ?? label) : label, label };
       })
       .filter((o) => o.label);
 
@@ -231,7 +233,7 @@ export default function AdminQuestionnairePage({
       selectionLimit != null &&
       selectionLimit > cleanOptions.length
     ) {
-      setError("多选题的最多可选数不能大于选项总数。");
+      setError("多选题的必选项数不能大于选项总数。");
       setPending(null);
       return;
     }
@@ -369,7 +371,7 @@ export default function AdminQuestionnairePage({
   function updateOptionLabel(index: number, newLabel: string) {
     setForm((f) => {
       const next = [...f.options];
-      next[index] = { label: newLabel };
+      next[index] = { ...next[index], label: newLabel };
       return { ...f, options: next };
     });
   }
@@ -411,15 +413,21 @@ export default function AdminQuestionnairePage({
               required
               value={form.key}
               disabled={Boolean(form.questionId)}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, key: e.target.value }))
-              }
+              onChange={(e) => {
+                const key = e.target.value;
+                const lifestyle = LIFESTYLE_QUESTIONS.find((question) => question.key === key);
+                setForm((f) => ({ ...f, key, ...(lifestyle ? {
+                  type: "SINGLE_SELECT" as const, selectionLimit: "", weight: 0,
+                  options: lifestyle.options.map((value) => ({ value, label: value })),
+                } : {}) }));
+              }}
               placeholder="例如 relationship_style"
             />
           </label>
           <label className={cx(adminStyles, "qb-field")}>
             <span>题型</span>
             <select
+              disabled={isLifestyleQuestion(form.key)}
               value={form.type}
               onChange={(e) =>
                 setForm((f) => ({
@@ -453,6 +461,7 @@ export default function AdminQuestionnairePage({
         {/* ── Options ─── */}
         <div className={cx(adminStyles, "qb-options-section")}>
           <span className={cx(adminStyles, "qb-section-label")}>选项</span>
+          {isLifestyleQuestion(form.key) && <p>此题用于匹配筛选。可调整显示文案，题型和选项数量保持不变。</p>}
           <div className={cx(adminStyles, "qb-options-list")}>
             {form.options.map((option, i) => (
               <div
@@ -483,7 +492,7 @@ export default function AdminQuestionnairePage({
                   >
                     ↓
                   </button>
-                  {form.options.length > 2 && (
+                  {form.options.length > 2 && !isLifestyleQuestion(form.key) && (
                     <button
                       type="button"
                       className={cx(adminStyles, "qb-option-remove")}
@@ -501,6 +510,7 @@ export default function AdminQuestionnairePage({
             type="button"
             className={cx(adminStyles, "qb-add-option-btn")}
             onClick={addOption}
+            disabled={isLifestyleQuestion(form.key)}
           >
             + 添加选项
           </button>
@@ -539,7 +549,7 @@ export default function AdminQuestionnairePage({
                 <span>权重</span>
                 <input
                   type="number"
-                  min={1}
+                  min={0}
                   value={form.weight}
                   onChange={(e) =>
                     setForm((f) => ({
@@ -551,7 +561,7 @@ export default function AdminQuestionnairePage({
               </label>
               {form.type === "MULTI_SELECT" ? (
                 <label className={cx(adminStyles, "qb-field")}>
-                  <span>最多可选</span>
+                  <span>必须选择的项数</span>
                   <input
                     type="number"
                     min={1}
@@ -563,7 +573,7 @@ export default function AdminQuestionnairePage({
                         selectionLimit: e.target.value,
                       }))
                     }
-                    placeholder="留空表示不限制"
+                    placeholder="留空表示至少选择 1 项"
                   />
                 </label>
               ) : null}
@@ -710,7 +720,7 @@ export default function AdminQuestionnairePage({
               onDragOver={(e) => handleDragOver(e, question.id)}
               onDrop={handleDrop}
             >
-              <div className={cx(adminStyles, "qb-card-header")}>
+              <div className={cx(adminStyles, "qb-card-header qb-question-header")}>
                 {/* Drag handle — hidden when editing or filtering */}
                 {!isEditing && !isFiltered ? (
                   <span
@@ -736,7 +746,7 @@ export default function AdminQuestionnairePage({
                     {question.weight !== 1 && ` · 权重 ${question.weight}`}
                     {question.type === "MULTI_SELECT" &&
                       question.selectionLimit != null &&
-                      ` · 最多 ${question.selectionLimit} 项`}
+                      ` · 必须选择 ${question.selectionLimit} 项`}
                     {Array.isArray(question.options) &&
                       ` · ${question.options.length} 选项`}
                   </span>
@@ -772,7 +782,7 @@ export default function AdminQuestionnairePage({
                       type="button"
                       title="删除"
                       onClick={() => void deleteQuestion(question.id)}
-                      disabled={pending === `delete-${question.id}`}
+                      disabled={isLifestyleQuestion(question.key) || pending === `delete-${question.id}`}
                     >
                       ✕
                     </button>
@@ -798,7 +808,7 @@ export default function AdminQuestionnairePage({
         {/* New question card */}
         {editingId === "new" && (
           <div className={cx(adminStyles, "qb-card qb-card-editing")}>
-            <div className={cx(adminStyles, "qb-card-header")}>
+            <div className={cx(adminStyles, "qb-card-header qb-question-header")}>
               <span className={cx(adminStyles, "qb-order-num")}>+</span>
               <div className={cx(adminStyles, "qb-card-title")}>
                 <strong>新增题目</strong>

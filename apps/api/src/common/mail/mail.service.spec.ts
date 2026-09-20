@@ -62,7 +62,6 @@ function createMailService(
       findMany?: jest.Mock;
       findUnique?: jest.Mock;
       updateMany?: jest.Mock;
-      update?: jest.Mock;
     };
   } = {},
 ) {
@@ -75,7 +74,6 @@ function createMailService(
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue(null),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-      update: jest.fn().mockResolvedValue(undefined),
       ...overrides.outboundEmail,
     },
   } as never);
@@ -94,11 +92,11 @@ describe('MailService', () => {
     env.SMTP_SEND_CONCURRENCY = originalSendConcurrency;
   });
 
-  it('builds a pair of deduplicated introduction emails', () => {
+  it('builds a pair of deduplicated automatic reveal emails', () => {
     const service = createMailService();
 
     expect(
-      service.buildIntroductionEmails({
+      service.buildMatchRevealEmails({
         matchId: 'match-1',
         requester: {
           email: 'user-1@example.com',
@@ -117,46 +115,20 @@ describe('MailService', () => {
       }),
     ).toEqual([
       expect.objectContaining({
-        dedupeKey: 'match-introduction:match-1:requester',
+        dedupeKey: 'match-reveal:match-1:0',
         recipientEmail: 'user-1@example.com',
       }),
       expect.objectContaining({
-        dedupeKey: 'match-introduction:match-1:recipient',
+        dedupeKey: 'match-reveal:match-1:1',
         recipientEmail: 'user-2@example.com',
       }),
     ]);
   });
 
-  it('builds a deduplicated meetup reminder email', () => {
-    const service = createMailService();
-
-    const built = service.buildMeetupReminderEmail({
-      sessionId: 'session-1',
-      recipientEmail: 'recipient@example.com',
-      recipientDisplayName: 'User <B>',
-      otherPartyDisplayName: 'User <A>',
-      actionSentence: 'User <A> 已经发出见面提议，正在等你确认。',
-      directUrl: 'https://lilink.test/dashboard/meetup/session-1?from=<mail>',
-    });
-
-    expect(built).toMatchObject({
-      dedupeKey: 'meetup-reminder:session-1',
-      recipientEmail: 'recipient@example.com',
-      subject: 'LiLink 破冰会话待处理',
-      messageCategory: 'TRANSACTIONAL',
-    });
-    expect(built.html).toContain('User &lt;A&gt;');
-    expect(built.html).toContain(
-      'https://lilink.test/dashboard/meetup/session-1?from=&lt;mail&gt;',
-    );
-    expect(built.html).not.toContain('User <A>');
-    expect(built.text).toContain('User <A>');
-  });
-
   it('escapes user-controlled fields in introduction email HTML', () => {
     const service = createMailService();
 
-    const [requesterEmail, recipientEmail] = service.buildIntroductionEmails({
+    const [requesterEmail, recipientEmail] = service.buildMatchRevealEmails({
       matchId: 'match-1',
       requester: {
         email: 'requester@example.com',
@@ -203,7 +175,7 @@ describe('MailService', () => {
   it('renders the other party selected public contact in introduction email', () => {
     const service = createMailService();
 
-    const [requesterEmail, recipientEmail] = service.buildIntroductionEmails({
+    const [requesterEmail, recipientEmail] = service.buildMatchRevealEmails({
       matchId: 'match-1',
       requester: {
         email: 'requester@example.com',
@@ -274,20 +246,56 @@ describe('MailService', () => {
     expect(built.text).toContain('LiLink 团队');
   });
 
+  it.each(['PENDING', 'FAILED', 'PROCESSING'] as const)(
+    'cancels a retired meetup reminder in %s without contacting SMTP',
+    async (status) => {
+      const email = buildOutboundEmail({
+        dedupeKey: 'meetup-reminder:retired-session',
+        status,
+        nextAttemptAt: new Date(0),
+        lastAttemptAt: new Date(0),
+      });
+      const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const service = createMailService({
+        outboundEmail: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValueOnce(email)
+            .mockResolvedValue({ ...email, status: 'EXHAUSTED' }),
+          updateMany,
+        },
+      });
+
+      await expect(
+        service.deliverQueuedEmailNow(email.dedupeKey),
+      ).resolves.toMatchObject({ status: 'EXHAUSTED' });
+      expect(sendMail).not.toHaveBeenCalled();
+      expect(updateMany).toHaveBeenCalledWith({
+        where: {
+          id: email.id,
+          status: { in: ['PENDING', 'FAILED', 'PROCESSING'] },
+        },
+        data: {
+          status: 'EXHAUSTED',
+          nextAttemptAt: null,
+          errorMessage: 'Meetup workflow retired before delivery.',
+        },
+      });
+    },
+  );
+
   it('includes anti-spam transactional headers when sending', async () => {
     const findMany = jest.fn().mockResolvedValue([
       buildOutboundEmail({
         text: 'Plain text body',
       }),
     ]);
-    const update = jest.fn().mockResolvedValue(undefined);
     const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
     const service = createMailService({
       emailCode: { updateMany: emailCodeUpdateMany },
       outboundEmail: {
         findMany,
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        update,
       },
     });
 
@@ -334,13 +342,12 @@ describe('MailService', () => {
   it('flushes pending emails and marks them as sent', async () => {
     const findMany = jest.fn().mockResolvedValue([
       buildOutboundEmail({
-        dedupeKey: 'match-introduction:match-1:requester',
+        dedupeKey: 'generic-notification:1',
         recipientEmail: 'user-1@example.com',
         maxAttempts: 5,
       }),
     ]);
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const update = jest.fn().mockResolvedValue(undefined);
     const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
     const service = createMailService({
       emailCode: {
@@ -349,7 +356,6 @@ describe('MailService', () => {
       outboundEmail: {
         findMany,
         updateMany,
-        update,
       },
     });
 
@@ -364,23 +370,25 @@ describe('MailService', () => {
         html: '<p>Hello</p>',
       }),
     );
-    const [[sentUpdate]] = update.mock.calls as [
-      [
-        {
-          where: { id: string };
-          data: { status: string };
-        },
-      ],
-    ];
-    expect(sentUpdate.where.id).toBe('email-1');
-    expect(sentUpdate.data.status).toBe('SENT');
+    expect(updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: 'email-1',
+        status: 'PROCESSING',
+        lastAttemptAt: expect.any(Date) as Date,
+      },
+      data: {
+        status: 'SENT',
+        sentAt: expect.any(Date) as Date,
+        nextAttemptAt: null,
+        errorMessage: null,
+      },
+    });
     expect(emailCodeUpdateMany).not.toHaveBeenCalled();
   });
 
   it('marks a verification code as sent after queued delivery succeeds', async () => {
     const findMany = jest.fn().mockResolvedValue([buildOutboundEmail()]);
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const update = jest.fn().mockResolvedValue(undefined);
     const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const service = createMailService({
       emailCode: {
@@ -389,7 +397,6 @@ describe('MailService', () => {
       outboundEmail: {
         findMany,
         updateMany,
-        update,
       },
     });
 
@@ -417,7 +424,6 @@ describe('MailService', () => {
   it('delivers a targeted verification email even while the queue worker is busy', async () => {
     const findUnique = jest.fn().mockResolvedValue(buildOutboundEmail());
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const update = jest.fn().mockResolvedValue(undefined);
     const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const service = createMailService({
       emailCode: {
@@ -426,7 +432,6 @@ describe('MailService', () => {
       outboundEmail: {
         findUnique,
         updateMany,
-        update,
       },
     });
 
@@ -520,7 +525,6 @@ describe('MailService', () => {
         },
       );
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-    const update = jest.fn().mockResolvedValue(undefined);
     const emailCodeUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const service = createMailService({
       emailCode: {
@@ -529,7 +533,6 @@ describe('MailService', () => {
       outboundEmail: {
         findUnique,
         updateMany,
-        update,
       },
     });
 
@@ -544,6 +547,7 @@ describe('MailService', () => {
 
     expect(sendMail).toHaveBeenCalledTimes(1);
     expect(maxInFlight).toBe(1);
+    expect(updateMany).toHaveBeenCalledTimes(1);
 
     releasedMessages.shift()?.();
     await new Promise((resolve) => setImmediate(resolve));
@@ -562,6 +566,40 @@ describe('MailService', () => {
       status: 'SENT',
     });
   });
+
+  it.each(['success', 'failure'] as const)(
+    'does not revive a revoked claim after SMTP %s',
+    async (outcome) => {
+      const updateMany = jest
+        .fn()
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+      const emailCodeUpdateMany = jest.fn();
+      const service = createMailService({
+        outboundEmail: {
+          findMany: jest.fn().mockResolvedValue([buildOutboundEmail()]),
+          updateMany,
+        },
+        emailCode: { updateMany: emailCodeUpdateMany },
+      });
+      if (outcome === 'success') sendMail.mockResolvedValueOnce(undefined);
+      else sendMail.mockRejectedValueOnce(new Error('SMTP failure'));
+
+      await service.flushQueuedEmails();
+
+      expect(updateMany).toHaveBeenCalledTimes(2);
+      expect(updateMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'email-1',
+            status: 'PROCESSING',
+            lastAttemptAt: expect.any(Date) as Date,
+          },
+        }),
+      );
+      expect(emailCodeUpdateMany).not.toHaveBeenCalled();
+    },
+  );
 
   describe('flush backstop window', () => {
     it('sweeps on the first tick after boot to rescue orphaned rows', async () => {
@@ -617,16 +655,18 @@ describe('MailService', () => {
         const findMany = jest.fn().mockResolvedValue([stuck]);
         // The claim succeeds (row -> PROCESSING) but both the SENT and the
         // FAILED writes throw, leaving the row stuck PROCESSING.
-        const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-        const update = jest.fn().mockRejectedValue(new Error('db blip'));
+        const updateMany = jest
+          .fn()
+          .mockRejectedValue(new Error('db blip'))
+          .mockResolvedValueOnce({ count: 1 });
         const service = createMailService({
-          outboundEmail: { findMany, updateMany, update },
+          outboundEmail: { findMany, updateMany },
         });
 
         // First sweep claims the row, then both follow-up writes fail. The
         // claim itself must extend the window past the stale-processing reclaim.
         await service.handleEmailQueue().catch(() => undefined);
-        expect(updateMany).toHaveBeenCalledTimes(1);
+        expect(updateMany).toHaveBeenCalledTimes(3);
 
         findMany.mockClear();
 

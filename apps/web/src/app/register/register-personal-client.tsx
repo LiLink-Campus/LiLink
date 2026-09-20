@@ -1,8 +1,7 @@
 "use client";
 
 import { sanitizeSameOriginRelativePath } from "@lilink/shared";
-import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ActionGroup } from "@/components/semantic";
 import {
   Button,
@@ -12,11 +11,8 @@ import {
   Select,
 } from "@/components/ui";
 import { fetchApi, isApiRequestError } from "../../lib/api";
-import {
-  fetchEligibleSchools,
-  type EligibleSchoolsPayload,
-} from "../../lib/eligible-schools";
 import authStyles from "../auth.module.css";
+import flowStyles from "./register-flow.module.css";
 import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -25,8 +21,10 @@ import {
   VERIFICATION_CODE_LENGTH,
   type CodeResponse,
 } from "./constants";
+import { RegistrationLegalLinks } from "./registration-legal-links";
 import { RegisterShell } from "./register-shell";
 import { SchoolListRetry } from "./school-list-retry";
+import { useRegistrationSchools } from "./use-registration-schools";
 import { useReferralAttribution } from "./use-referral-attribution";
 import { loginHrefFromSearch, registerPathFromSearch } from "./utils";
 
@@ -34,14 +32,17 @@ export default function RegisterPersonalClient() {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [manualSchoolId, setManualSchoolId] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [schoolsPayload, setSchoolsPayload] =
-    useState<EligibleSchoolsPayload | null>(null);
-  const [schoolsPending, setSchoolsPending] = useState(false);
-  const [schoolsError, setSchoolsError] = useState<string | null>(null);
+  const {
+    payload: schoolsPayload,
+    pending: schoolsPending,
+    error: schoolsError,
+    reload: loadEligibleSchools,
+  } = useRegistrationSchools();
   const [devCode, setDevCode] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -49,7 +50,6 @@ export default function RegisterPersonalClient() {
   const [canRevealDevCode, setCanRevealDevCode] = useState(false);
   const [loginHref, setLoginHref] = useState("/login");
   const [chooserHref, setChooserHref] = useState("/register");
-  const [schoolHref, setSchoolHref] = useState("/register/school");
   const {
     referralCode,
     setReferralCode,
@@ -70,29 +70,7 @@ export default function RegisterPersonalClient() {
     const search = window.location.search;
     setLoginHref(loginHrefFromSearch(search));
     setChooserHref(registerPathFromSearch(search, "/register"));
-    setSchoolHref(registerPathFromSearch(search, "/register/school"));
   }, []);
-
-  const loadEligibleSchools = useCallback(async () => {
-    setSchoolsPending(true);
-    setSchoolsError(null);
-    try {
-      const payload = await fetchEligibleSchools();
-      setSchoolsPayload(payload);
-    } catch (caughtError) {
-      setSchoolsError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "学校列表加载失败，请稍后重试。",
-      );
-    } finally {
-      setSchoolsPending(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadEligibleSchools();
-  }, [loadEligibleSchools]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -103,11 +81,14 @@ export default function RegisterPersonalClient() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  async function requestCode(event: FormEvent<HTMLFormElement>) {
+  async function requestCode(event: { preventDefault: () => void }) {
     event.preventDefault();
     setError(null);
 
     if (resendCooldown > 0) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("请先填写有效邮箱。"); return;
+    }
 
     const trimmedReferralCode = referralCode.trim();
     if (!trimmedReferralCode) {
@@ -128,7 +109,7 @@ export default function RegisterPersonalClient() {
 
       setDevCode(result.devCode);
       setResendCooldown(RESEND_COOLDOWN_SECONDS);
-      setStep(2);
+      setCodeSent(true);
     } catch (caughtError) {
       if (isApiRequestError(caughtError) && caughtError.status === 429) {
         setResendCooldown(RESEND_COOLDOWN_SECONDS);
@@ -150,9 +131,18 @@ export default function RegisterPersonalClient() {
   function useDifferentReferralCode() {
     clearReferralAttribution();
     setCode("");
+    setCodeSent(false);
     setDevCode(undefined);
     setResendCooldown(0);
     setError(null);
+  }
+
+  function continueRegistration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if ((!codeSent || !/^\d{6}$/.test(code))) {
+      setError("请获取并填写 6 位邮箱验证码。"); return;
+    }
+    setError(null); setStep(2); void loadEligibleSchools(); window.scrollTo({ top: 0 });
   }
 
   async function register(event: FormEvent<HTMLFormElement>) {
@@ -182,7 +172,10 @@ export default function RegisterPersonalClient() {
       return;
     }
 
-    if (!trimmedManualSchoolId) {
+    if (
+      schoolsPending || schoolsError ||
+      !eligibleSchools.some((school) => school.id === trimmedManualSchoolId)
+    ) {
       setError("请选择你的学校。");
       return;
     }
@@ -212,6 +205,7 @@ export default function RegisterPersonalClient() {
         "/dashboard";
       window.location.href = redirectPath;
     } catch (caughtError) {
+      if (caughtError instanceof Error && caughtError.message.includes("验证码")) setStep(1);
       setError(
         caughtError instanceof Error
           ? caughtError.message
@@ -224,24 +218,25 @@ export default function RegisterPersonalClient() {
 
   return (
     <RegisterShell
-      eyebrow={`Register · 普通邮箱 · Step ${step} / 2`}
+      eyebrow="普通邮箱注册"
+      step={step}
       title={step === 1 ? "验证普通邮箱" : "完善你的账号"}
       description={
         step === 1
-          ? "向已注册同学索取 10 位邀请码，填写后即可获取邮箱验证码。"
+          ? null
           : "选择学校并设置密码，昵称可在登录后填写。"
       }
       loginHref={loginHref}
       backHref={step === 1 ? chooserHref : undefined}
     >
       {step === 1 ? (
-        <form className={authStyles.stack} onSubmit={requestCode}>
+        <form className={authStyles.stack} onSubmit={continueRegistration}>
           <Field
             label="邀请码"
             hint={
               attributionLocked
                 ? "已通过邀请链接带入。若该邀请码不可用，可以更换。"
-                : "向已经在 LiLink 注册的教育邮箱用户索取。"
+                : undefined
             }
           >
             <Input
@@ -250,7 +245,7 @@ export default function RegisterPersonalClient() {
               value={referralCode}
               maxLength={REGISTER_REFERRAL_CODE_MAX_LENGTH}
               onChange={(event) => setReferralCode(event.target.value)}
-              placeholder={attributionLocked ? undefined : "请输入 10 位邀请码"}
+              placeholder={attributionLocked ? undefined : "同学分享的 10 位邀请码"}
             />
           </Field>
           {attributionLocked ? (
@@ -266,50 +261,23 @@ export default function RegisterPersonalClient() {
           ) : null}
           <Field
             label="普通邮箱"
-            hint="QQ、163、Gmail 等均可。若你有学校邮箱，请改用学校邮箱注册。"
           >
             <Input
               required
               type="email"
+              disabled={pending}
               autoComplete="email"
               value={email}
               onChange={(event) => {
                 setEmail(event.target.value);
-                setResendCooldown(0);
+                setCode("");
+                setCodeSent(false);
               }}
               placeholder="your.name@gmail.com"
             />
           </Field>
           {error ? <FormMessage>{error}</FormMessage> : null}
-          <Button
-            block
-            disabled={pending || resendCooldown > 0}
-            type="submit"
-          >
-            {pending
-              ? "发送中…"
-              : resendCooldown > 0
-                ? `重新发送（${resendCooldown}s）`
-                : "发送验证码"}
-          </Button>
-          <p className={authStyles.hint}>
-            其实有学校邮箱？
-            {" "}
-            <Link href={schoolHref}>改用学校邮箱注册</Link>
-          </p>
-        </form>
-      ) : (
-        <form className={authStyles.stack} onSubmit={register}>
-          <div className={authStyles.devInline}>
-            <span>已发送到</span>
-            <strong>{email}</strong>
-          </div>
-          <p className={authStyles.hint}>
-            几分钟内仍未收到？请检查「垃圾邮件」文件夹。
-          </p>
-          {canRevealDevCode && devCode ? (
-            <p className={authStyles.devNote}>开发环境验证码：{devCode}</p>
-          ) : null}
+          <div className={flowStyles.codeRow}>
           <Field label="验证码">
             <Input
               required
@@ -321,25 +289,33 @@ export default function RegisterPersonalClient() {
               placeholder="6 位验证码"
             />
           </Field>
-          <Field
-            label="邀请码"
-            hint="已在第一步校验，不可修改。如需更换请返回上一步。"
+          <Button
+            variant="secondary"
+            disabled={pending || resendCooldown > 0}
+            type="button"
+            onClick={(event) => void requestCode(event)}
           >
-            <Input
-              required
-              readOnly
-              value={referralCode}
-              maxLength={REGISTER_REFERRAL_CODE_MAX_LENGTH}
-              aria-readonly="true"
-            />
-          </Field>
+            {pending
+              ? "发送中…"
+              : resendCooldown > 0
+                ? `${resendCooldown}s 后重发`
+                : "发送验证码"}
+          </Button>
+          </div>
+          {codeSent ? <p className={flowStyles.delivery} role="status">验证码已发送，请检查收件箱或垃圾邮件。</p> : null}
+          {canRevealDevCode && devCode ? <p className={authStyles.devNote}>开发环境验证码：{devCode}</p> : null}
+          <Button block type="submit" disabled={pending}>下一步</Button>
+        </form>
+      ) : (
+        <form className={authStyles.stack} onSubmit={register}>
           <Field
             label="学校"
             hint="请选择你当前就读或所属的学校。学校选定后无法自行更改，请务必准确选择。"
           >
             <Select
+              className={flowStyles.schoolSelect}
               required
-              value={manualSchoolId}
+              value={eligibleSchools.some((school) => school.id === manualSchoolId) ? manualSchoolId : ""}
               disabled={schoolsPending || eligibleSchools.length === 0}
               onChange={(event) => setManualSchoolId(event.target.value)}
             >
@@ -384,15 +360,14 @@ export default function RegisterPersonalClient() {
               placeholder="再次输入密码"
             />
           </Field>
-          <label className={authStyles.termsCheckboxLabel}>
+          <label className={`${authStyles.termsCheckboxLabel} ${flowStyles.termsRow}`}>
             <input
               checked={acceptedTerms}
               type="checkbox"
               onChange={(event) => setAcceptedTerms(event.target.checked)}
             />
             <span>
-              我已阅读并同意 <Link href="/terms">用户协议</Link> 和{" "}
-              <Link href="/privacy">隐私政策</Link>。
+              我已阅读并同意 <RegistrationLegalLinks />。
             </span>
           </label>
           {error ? <FormMessage>{error}</FormMessage> : null}

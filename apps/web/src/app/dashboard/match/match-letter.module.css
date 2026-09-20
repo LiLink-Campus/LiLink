@@ -1,0 +1,59 @@
+.header { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 8px 0 22px; }
+.header h1 { margin: 0; font: 600 30px/1.4 var(--font-display); }
+.header a { display: inline-flex; align-items: center; justify-content: center; min-width: 154px; min-height: 40px; padding: 8px 24px; border: 1px solid #a7657b; border-radius: 999px; background: #fffaf7; color: #89354f; font-size: 14px; white-space: nowrap; text-decoration: none; }
+.letterHeading { margin-bottom: 22px; text-align: center; }
+.letterRule { display: flex; align-items: center; gap: 12px; margin: 0 0 7px; }
+.letterRule::before, .letterRule::after { content: ''; flex: 1; height: 1px; background: #d6b6be; }
+.envelope { color: #89354f; font-family: serif; font-size: 28px; line-height: 1; }
+.letterHeading p { margin: 0; color: #978b80; font: 14px/1.7 "Kaiti SC", "STKaiti", serif; letter-spacing: 2px; }
+.letter { padding: 28px 24px 0; overflow: hidden; border: 1px solid #e6ded7; border-radius: 24px; box-shadow: 0 3px 14px rgb(70 45 35 / 3%); background: #fdfbf9; }
+.nameRow { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; min-height: 102px; margin-bottom: 15px; }
+.nameRow h2 { position: relative; min-width: 0; margin: 0; color: #89354f; font: 400 68px/1.25 var(--font-match-name), "Kaiti SC", cursive; font-synthesis: none; overflow-wrap: anywhere; }
+.nameRow h2::after { content: ''; position: absolute; width: 76px; height: 1px; background: #dab8c2; bottom: -3px; left: 80%; transform: rotate(-13deg); }
+.englishNote { flex-shrink: 0; padding-top: 7px; transform: rotate(-13deg); font: italic 23px/1.05 "Snell Roundhand", "Brush Script MT", cursive; color: #c1b9b1; text-align: right; }
+.introduction { padding: 12px 0 28px; font-size: 16px; line-height: 1.9; color: #534940; }
+.introduction p { margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+.facts { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px 24px; border-top: 1px solid #e4dad1; padding: 24px 0; }
+.facts::after { content: ''; position: absolute; left: 49%; top: 23px; bottom: 23px; width: 1px; background: #e4dad1; }
+.facts > div { display: flex; align-items: center; gap: 13px; min-width: 0; font-size: 14px; line-height: 1.6; color: #554c46; }
+.facts > div > span { min-width: 0; overflow-wrap: anywhere; }
+.facts svg { width: 25px; height: 25px; flex-shrink: 0; color: #89354f; }
+.contact { --decoration-space: 38px; position: relative; margin: 0 -25px -1px; padding: 16px 22px 10px; border: 1px solid #e3cdd4; border-radius: 20px 20px 24px 24px; background: #f6edef; }
+.contactSprig { position: absolute; right: 0; bottom: 24px; width: 61px; height: 126px; background: url('/images/letter-sprig.svg') center / contain no-repeat; opacity: .65; pointer-events: none; }
+.contact h3 { position: relative; margin: 0 0 10px; color: #89354f; font: 600 20px/1.5 var(--font-display); }
+.contactContent { position: relative; width: calc(100% - var(--decoration-space)); }
+.contactRow { display: grid; grid-template-columns: 24px max-content minmax(0, 1fr); align-items: start; gap: 10px; margin: 0 0 12px; }
+.contactRow svg, .wechatIcon { width: 24px; height: 24px; color: #89354f; }
+.wechatIcon { display: block; background: #89354f; mask: url('/icons/contact/wechat-filled.svg') center / contain no-repeat; }
+.contactLabel { color: #79695e; font-size: 14px; line-height: 24px; white-space: nowrap; }
+.contactValue { min-width: 0; color: #43352e; font-size: 14px; line-height: 24px; overflow-wrap: anywhere; user-select: text; }
+.primary { display: block; width: 100%; min-height: 44px; padding: 10px 14px; border: 0; border-radius: 16px; background: #89354f; color: white; font: inherit; font-size: 14px; line-height: 24px; cursor: pointer; }
+.primary:disabled { opacity: .6; cursor: wait; }
+.contact .copyStatus { min-height: 18px; margin: 4px 0 0; color: #79695e; font-size: 12px; line-height: 18px; text-align: center; }
+.reportArea { display: flex; justify-content: space-between; align-items: center; gap: 15px; padding: 20px 2px; color: #8b7b70; font-size: 12px; }
+.reportArea button { border: 0; border-bottom: 1px solid #cbbfb4; padding: 4px 0; background: none; color: #79695e; font: inherit; cursor: pointer; }
+.header a:focus-visible, .primary:focus-visible, .reportArea button:focus-visible { outline: 2px solid #89354f; outline-offset: 3px; }
+@media (max-width: 600px) {
+  .header h1 { font-size: 27px; }
+  .header a { min-width: 142px; padding-inline: 20px; font-size: 13px; }
+  .letter { padding: 24px 20px 0; }
+  .nameRow { min-height: 87px; }
+  .nameRow h2 { font-size: 60px; }
+  .englishNote { font-size: 20px; }
+  .introduction { font-size: 15px; }
+  .facts { gap: 18px 20px; }
+  .facts > div { gap: 10px; font-size: 13px; }
+  .facts svg { width: 22px; height: 22px; }
+  .contact { --decoration-space: 32px; margin: 0 -21px -1px; padding: 15px 20px 9px; }
+  .contactSprig { width: 52px; height: 118px; }
+  .contact h3 { font-size: 19px; }
+  .letterHeading p { font-size: 12px; letter-spacing: 1px; }
+}
+@media (max-width: 380px) {
+  .header a { min-width: 132px; padding-inline: 14px; }
+  .contact { --decoration-space: 20px; padding-inline: 16px; }
+  .contactSprig { width: 40px; opacity: .5; }
+  .contactRow { gap: 7px; grid-template-columns: 22px max-content minmax(0, 1fr); }
+  .contactRow svg, .wechatIcon { width: 22px; }
+  .contactLabel, .contactValue { font-size: 13px; }
+}

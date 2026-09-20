@@ -1,5 +1,4 @@
 import type { ReferralMedium, ReferralScene } from "@lilink/shared";
-import type { WeeklyIntent } from "../../lib/weekly-intent";
 
 export type AdminSchool = {
   id: string;
@@ -87,29 +86,6 @@ export type PromotionFunnel = {
   byGender: { gender: string; steps: PromotionFunnelStep[] }[];
   conversions: { from: string; to: string; rate: number }[];
   channelBreakdown?: PromotionChannelBreakdownRow[];
-};
-
-export type PromotionLeaderboardRow = {
-  sourceType: "PERSONAL" | "DEFAULT";
-  refLabel: string;
-  invited: number;
-  registered: number;
-  activated: number;
-  granted: number;
-  redeemed: number;
-  byGender: {
-    male: number;
-    female: number;
-    nonBinary: number;
-    unknown: number;
-  };
-};
-
-export type PromotionCouponsRow = {
-  merchantId: string;
-  merchantName: string;
-  granted: number;
-  redeemed: number;
 };
 
 export type PromotionRedemptionRow = {
@@ -239,15 +215,6 @@ export type PaginatedResult<T> = {
   totalPages: number;
 };
 
-export type CycleParticipantDetail = {
-  id: string;
-  status: "OPTED_IN" | "OPTED_OUT";
-  intent: WeeklyIntent | null;
-  optedInAt: string | null;
-  updatedAt: string;
-  user: AdminUser;
-};
-
 type CycleMatchFeedback = {
   id: string;
   authorUserId: string;
@@ -307,6 +274,7 @@ export type AdminCycleDetail = {
 
 export type AdminCyclePreview = {
   cycleId: string;
+  generatedAt: string;
   message?: string;
   totalCandidateCount?: number;
   candidates: Array<{

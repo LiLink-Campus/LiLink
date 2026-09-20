@@ -35,7 +35,6 @@ export const ADMIN_QUESTION_OPTIONS_MAX_ITEMS = 50;
 export const ADMIN_QUESTION_REORDER_MAX_ITEMS = 100;
 export const ADMIN_REPORT_BATCH_MAX_ITEMS = 100;
 export const ADMIN_REPORT_REVIEW_NOTES_MAX_LENGTH = 2_000;
-export const ADMIN_SETTINGS_VALUE_MAX_LENGTH = 12;
 
 // Referral code typed into the registration form: generous upper bound
 // (personal codes are 10 chars; the slack tolerates trimming/casing on manual
