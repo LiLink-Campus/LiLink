@@ -236,7 +236,11 @@ export class DashboardSnapshotService {
 
     await Promise.all(
       cycleIdsToSync.map((cycleId) =>
-        this.syncUserCycleSnapshot({ userId: input.userId, cycleId }),
+        this.syncUserCycleSnapshot({
+          userId: input.userId,
+          cycleId,
+          onlyIfMissing: true,
+        }),
       ),
     );
     return cycleIdsToSync.length > 0;
@@ -272,7 +276,7 @@ export class DashboardSnapshotService {
   }
 
   async syncUserCycleSnapshot(
-    input: { userId: string; cycleId: string },
+    input: { userId: string; cycleId: string; onlyIfMissing?: boolean },
     store?: SnapshotStoreClient,
   ) {
     if (store) {
@@ -287,10 +291,27 @@ export class DashboardSnapshotService {
       return;
     }
 
-    const pendingSync = this.enqueueUserCycleSnapshotSync(input.cycleId, () =>
-      this.prisma.$transaction(async (tx) => {
-        await this.syncUserCycleSnapshotDirect(input, tx);
-      }),
+    const pendingSync = this.enqueueUserCycleSnapshotSync(
+      input.cycleId,
+      async () => {
+        // A preceding full rebuild may already have filled this missing row.
+        if (input.onlyIfMissing) {
+          const existing =
+            await this.prisma.userCycleDashboardSnapshot.findUnique({
+              where: {
+                userId_cycleId: {
+                  userId: input.userId,
+                  cycleId: input.cycleId,
+                },
+              },
+              select: { userId: true },
+            });
+          if (existing) return;
+        }
+        await this.prisma.$transaction(async (tx) => {
+          await this.syncUserCycleSnapshotDirect(input, tx);
+        });
+      },
     ).finally(() => {
       this.inFlightUserCycleSyncs.delete(syncKey);
     });

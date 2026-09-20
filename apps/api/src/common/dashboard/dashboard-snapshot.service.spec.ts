@@ -290,6 +290,7 @@ describe('DashboardSnapshotService', () => {
       },
       userCycleDashboardSnapshot: {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
       },
     };
     const service = new DashboardSnapshotService(prisma as never);
@@ -312,6 +313,69 @@ describe('DashboardSnapshotService', () => {
       }),
     );
   });
+
+  it.each([false, true])(
+    'rechecks queued coverage after a full rebuild (rebuild failed: %s)',
+    async (rebuildFails) => {
+      let release!: () => void;
+      const barrier = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let rebuilt = false;
+      const prisma = {
+        $transaction: jest.fn(
+          async (callback: (store: unknown) => Promise<void>) => callback({}),
+        ),
+        cycleParticipation: {
+          findMany: jest.fn().mockResolvedValue([{ cycleId: 'cycle-1' }]),
+        },
+        userCycleDashboardSnapshot: {
+          findUnique: jest
+            .fn()
+            .mockImplementation(() =>
+              Promise.resolve(rebuilt ? { userId: 'present' } : null),
+            ),
+        },
+      };
+      const service = new DashboardSnapshotService(prisma as never);
+      const methods = service as unknown as {
+        syncCycleSnapshotsDirect(): Promise<void>;
+        syncUserCycleSnapshotDirect(): Promise<void>;
+      };
+      jest
+        .spyOn(methods, 'syncCycleSnapshotsDirect')
+        .mockImplementation(async () => {
+          await barrier;
+          if (rebuildFails) throw new Error('Simulated rebuild failure');
+          rebuilt = true;
+        });
+      const userSync = jest
+        .spyOn(methods, 'syncUserCycleSnapshotDirect')
+        .mockResolvedValue();
+      const rebuild = service
+        .syncCycleSnapshots('cycle-1')
+        .catch((error: unknown) => error);
+      const coverage = Array.from({ length: 100 }, (_, index) =>
+        service.ensureUserSnapshotCoverage({
+          userId: `user-${index}`,
+          recentRevealedCycleIds: ['cycle-1'],
+          existingSnapshotCycleIds: [],
+        }),
+      );
+      await Promise.resolve();
+      expect(
+        prisma.userCycleDashboardSnapshot.findUnique,
+      ).not.toHaveBeenCalled();
+      release();
+      await rebuild;
+      expect(await Promise.all(coverage)).toEqual(Array(100).fill(true));
+      expect(
+        prisma.userCycleDashboardSnapshot.findUnique,
+      ).toHaveBeenCalledTimes(100);
+      expect(userSync).toHaveBeenCalledTimes(rebuildFails ? 100 : 0);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(rebuildFails ? 101 : 1);
+    },
+  );
 
   it('serializes user-cycle snapshot fills behind whole-cycle rebuilds for the same cycle', async () => {
     let releaseCycleTransaction!: () => void;

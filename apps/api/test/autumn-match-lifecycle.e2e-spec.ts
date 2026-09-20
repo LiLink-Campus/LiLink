@@ -262,6 +262,79 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     );
   });
 
+  it('uses the committed full rebuild for waiting dashboard readers without duplicate writes', async () => {
+    const { left, right, cycle, match } = await seedPair();
+    await prisma.matchCycle.update({
+      where: { id: cycle.id },
+      data: { status: 'REVEALED' },
+    });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { revealedAt: new Date(), introducedAt: new Date() },
+    });
+    const rowsWritten = barrier();
+    const allowCommit = barrier();
+    const readersQueued = barrier();
+    let readers = 0;
+    let lazyWrites = 0;
+    const client = prisma.$extends({
+      query: {
+        userCycleDashboardSnapshot: {
+          async createMany({ args, query }) {
+            const result = await query(args);
+            rowsWritten.resolve();
+            await allowCommit.promise;
+            return result;
+          },
+          async upsert({ args, query }) {
+            lazyWrites++;
+            return query(args);
+          },
+        },
+        cycleParticipation: {
+          async findMany({ args, query }) {
+            const result = await query(args);
+            if (typeof args.where?.userId === 'string' && ++readers === 2)
+              readersQueued.resolve();
+            return result;
+          },
+        },
+      },
+    });
+    const service = new DashboardSnapshotService(
+      client as unknown as PrismaService,
+    );
+    const rebuild = service.syncCycleSnapshots(cycle.id);
+    const coverage: Promise<boolean>[] = [];
+    try {
+      await rowsWritten.promise;
+      for (const user of [left, right])
+        coverage.push(
+          service.ensureUserSnapshotCoverage({
+            userId: user.id,
+            recentRevealedCycleIds: [cycle.id],
+            existingSnapshotCycleIds: [],
+          }),
+        );
+      await readersQueued.promise;
+      expect(
+        await prisma.userCycleDashboardSnapshot.count({
+          where: { cycleId: cycle.id },
+        }),
+      ).toBe(0);
+    } finally {
+      allowCommit.resolve();
+      await Promise.all([rebuild, ...coverage]);
+    }
+    expect(await Promise.all(coverage)).toEqual([true, true]);
+    expect(lazyWrites).toBe(0);
+    expect(
+      await prisma.userCycleDashboardSnapshot.count({
+        where: { cycleId: cycle.id },
+      }),
+    ).toBe(2);
+  });
+
   it.each(['lazy', 'match', 'cycle'] as const)(
     'serializes %s snapshot rebuilds with deactivation without restoring private contacts',
     async (mode) => {

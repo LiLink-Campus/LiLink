@@ -69,7 +69,7 @@ if (action === 'start') {
 } else if (action === 'matching') {
   assert.ok(containers().includes('release-api'));
   assert.equal(capture('docker', ['inspect', '--format', '{{.Config.Image}}', 'release-api']), image);
-  await run('docker', ['run', '--rm', ...mounted, '-e', `SENTRY_RELEASE=${sha}`, image, 'node', 'scripts/production-entrypoint.mjs', 'node', '/release/matching-rehearsal.mjs']);
+  await run('docker', ['run', '--rm', ...mounted, '-v', `${outputDir}:/release-output:ro`, '-e', `SENTRY_RELEASE=${sha}`, image, 'node', 'scripts/production-entrypoint.mjs', 'node', '/release/matching-rehearsal.mjs']);
 } else if (action === 'evidence') {
   assert.ok(containers().includes('release-api'));
   const runningImage = capture('docker', ['inspect', '--format', '{{.Config.Image}}', 'release-api']);
