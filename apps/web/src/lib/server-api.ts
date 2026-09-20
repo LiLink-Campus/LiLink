@@ -65,6 +65,10 @@ async function fetchApiServer<T>(
   const cookieHeader = await buildForwardedCookieHeader(
     [...(options.cookieNames ?? []), "lilink_release_access"],
   );
+  const started = performance.now();
+  const traceId = process.env.SERVER_API_TIMING_LOG_ENABLED === "true"
+    ? crypto.randomUUID()
+    : undefined;
   const response = await fetch(`${await getServerApiBaseUrl()}${path}`, {
     ...options,
     headers: {
@@ -72,16 +76,29 @@ async function fetchApiServer<T>(
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(cookieHeader ? { Cookie: cookieHeader } : {}),
       ...(options.headers ?? {}),
+      ...(traceId ? { "x-lilink-trace-id": traceId } : {}),
     },
     cache: options.cache ?? "no-store",
   });
+  const headersReceived = performance.now();
+  const body = await response.text();
+  if (traceId) {
+    console.info(JSON.stringify({
+      event: "server_api_timing",
+      traceId,
+      startedAt: new Date(performance.timeOrigin + started).toISOString(),
+      path: path.split("?")[0],
+      status: response.status,
+      headersMs: Math.round(headersReceived - started),
+      bodyMs: Math.round(performance.now() - headersReceived),
+      totalMs: Math.round(performance.now() - started),
+    }));
+  }
 
   if (!response.ok) {
-    const body = await response.text();
     throw new ServerApiError(parseFailedResponseBody(body, response.status), response.status);
   }
 
-  const body = await response.text();
   // Nest returns an empty successful body for a missing optional questionnaire.
   return (body.trim() ? JSON.parse(body) : null) as T;
 }

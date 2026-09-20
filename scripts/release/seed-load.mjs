@@ -9,13 +9,22 @@ const { validateQuestionnaireAnswers } = require('./dist/src/modules/questionnai
 const argon2 = require('argon2');
 resolveDatabaseTarget(process.env.DATABASE_URL);
 const db = createPrismaClient();
+const schoolIds = Array.from({ length: 8 }, (_, i) => `release_school_${i}`);
+async function ensureSchoolDomains() {
+  const count = await db.school.count({ where: { id: { in: schoolIds } } });
+  if (count !== schoolIds.length) throw new Error('Synthetic school fixtures are incomplete.');
+  await db.schoolDomain.createMany({
+    data: schoolIds.map((schoolId, i) => ({ id: `release_domain_${i}`, schoolId, domain: `school${i}.release.example.test` })),
+    skipDuplicates: true,
+  });
+}
 try {
   const existing = await db.user.count();
-  if (existing === 2000 && await db.user.count({ where: { id: { startsWith: 'release_user_' }, email: { endsWith: '@release.example.test' } } }) === 2000) { console.log('Reusing verified synthetic release dataset.'); await db.$disconnect(); process.exit(0); }
+  if (existing === 2000 && await db.user.count({ where: { id: { startsWith: 'release_user_' }, email: { endsWith: '@release.example.test' } } }) === 2000) { await ensureSchoolDomains(); console.log('Reusing verified synthetic release dataset.'); await db.$disconnect(); process.exit(0); }
   if (existing || await db.questionnaireVersion.count()) throw new Error('Synthetic load database must be empty; no automatic deletion.');
   const { questions } = JSON.parse(await readFile('prisma/fixtures/autumn-20260920-questionnaire.json', 'utf8'));
-  const schoolIds = Array.from({ length: 8 }, (_, i) => `release_school_${i}`);
   await db.school.createMany({ data: schoolIds.map((id, i) => ({ id, slug: id, name: `测试大学 ${i}` })) });
+  await ensureSchoolDomains();
   const version = await db.questionnaireVersion.create({ data: { id: 'release_autumn_20260920', title: '秋季合成压测', isCurrent: true, questions: { create: questions } } });
   const soft = Object.fromEntries(questions.map(q => [q.key, q.type === 'MULTI_SELECT' ? q.options.slice(0, q.selectionLimit ?? 1).map(o => o.value) : q.options[0].value]));
   const passwordHash = await argon2.hash('SyntheticRelease2026!');

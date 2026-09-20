@@ -32,9 +32,11 @@ const server = http.createServer((request, response) => {
   if (request.url === '/__stop' && request.method === 'POST') { void writeFile('artifacts/release-stop', 'done'); response.end('stopping'); return; }
   const started = performance.now();
   const startedAt = new Date().toISOString();
+  const suppliedTrace = request.headers['x-lilink-trace-id'];
+  const traceId = typeof suppliedTrace === 'string' && /^[a-f0-9-]{36}$/.test(suppliedTrace) ? suppliedTrace : undefined;
   const upstream = http.request({ hostname: '127.0.0.1', port: upstreamPort, method: request.method, path: request.url, headers: request.headers }, res => {
     response.writeHead(res.statusCode, res.headers); res.pipe(response);
-    res.on('end', () => console.log(JSON.stringify({ startedAt, path: request.url.split('?')[0], method: request.method, status: res.statusCode, ms: Math.round(performance.now() - started) })));
+    res.on('end', () => console.log(JSON.stringify({ startedAt, traceId, path: request.url.split('?')[0], method: request.method, status: res.statusCode, ms: Math.round(performance.now() - started) })));
   });
   upstream.on('error', () => { response.writeHead(502); response.end('Upstream unavailable'); });
   request.pipe(upstream);
