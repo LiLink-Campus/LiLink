@@ -9,8 +9,8 @@ const target = JSON.parse(open(__ENV.TARGET_FILE));
 const secret = open(__ENV.ACCESS_FILE).trim();
 const fixture = JSON.parse(open(__ENV.QUESTION_FIXTURE));
 if (target.baseUrl !== 'https://release-api-20260920.lilink.top' || target.branchId !== 'br-muddy-poetry-azax6deb' || target.projectId !== 'patient-meadow-65557384' || !__ENV.RELEASE_SHA) throw new Error('Verified isolated target and exact release SHA are required.');
-const rate = Number(__ENV.RATE || 33);
-const seconds = Number(__ENV.SECONDS || 120);
+const rate = Number(__ENV.LOAD_RATE || 33);
+const seconds = Number(__ENV.LOAD_DURATION_SECONDS || 120);
 const mixed = __ENV.MODE === 'mixed';
 const failures = new Rate('business_failures');
 const successfulUsers = new Counter('first_pass_successful_users');
@@ -42,6 +42,7 @@ export function setup() {
   return { answers: Object.fromEntries(fixture.questions.map(q => [q.key, q.type === 'MULTI_SELECT' ? q.options.slice(0, q.selectionLimit || 1).map(o => o.value) : q.options[0].value])) };
 }
 export default function(data) {
+  limited.add(0);
   const iteration = exec.scenario.iterationInTest;
   const n = iteration % 2000;
   const userId = `release_user_${String(n).padStart(4, '0')}`;
@@ -64,7 +65,7 @@ export default function(data) {
     request('GET', '/me/questionnaire', null, body => body.versionId === 'release_autumn_20260920' && body.submittedAt && body.answers.hard_one_liner_intro === form.oneLinerIntro);
   } else if (mixed && iteration % 10 === 7) {
     request('PUT', '/me/participation', { optIn: true, intent: 'BOTH' }, body => body.status === 'OPTED_IN' || body.participation?.status === 'OPTED_IN');
-    request('GET', '/me/bootstrap', null, body => body.user.id === userId && body.dashboard.participation?.status === 'OPTED_IN');
+    request('GET', '/me/bootstrap', null, body => body.user.id === userId && body.dashboard.currentCycle?.participationStatus === 'OPTED_IN');
   } else {
     const routes = [
       ['/me/bootstrap', body => body.user.id === userId && body.dashboard != null],

@@ -1160,7 +1160,10 @@ export class AccountService {
       await this.prisma.$transaction(submittedOperations);
 
       this.matchEstimateService?.invalidatePrecomputedCycle();
-      await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+      // Questionnaire fields are frozen on each match; only an account-name change affects old cards.
+      if (displayNameUpdate !== undefined) {
+        await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+      }
 
       // Submitting the questionnaire is one of the two activation signals; try
       // to grant activation-reward coupons (a no-op until the user has also

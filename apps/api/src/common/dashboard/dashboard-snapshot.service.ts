@@ -164,6 +164,10 @@ export class DashboardSnapshotService {
   private readonly inFlightCycleRebuilds = new Map<string, Promise<void>>();
   private readonly inFlightMatchSyncs = new Map<string, Promise<void>>();
   private readonly inFlightUserCycleSyncs = new Map<string, Promise<void>>();
+  private readonly inFlightCycleUserSyncs = new Map<
+    string,
+    Set<Promise<void>>
+  >();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -228,12 +232,11 @@ export class DashboardSnapshotService {
       new Set(participations.map((participation) => participation.cycleId)),
     );
 
-    for (const cycleId of cycleIdsToSync) {
-      await this.syncUserCycleSnapshot({
-        userId: input.userId,
-        cycleId,
-      });
-    }
+    await Promise.all(
+      cycleIdsToSync.map((cycleId) =>
+        this.syncUserCycleSnapshot({ userId: input.userId, cycleId }),
+      ),
+    );
   }
 
   async syncCycleSnapshots(cycleId: string, store?: SnapshotStoreClient) {
@@ -278,7 +281,7 @@ export class DashboardSnapshotService {
       return;
     }
 
-    const pendingSync = this.enqueueCycleSnapshotSync(input.cycleId, () =>
+    const pendingSync = this.enqueueUserCycleSnapshotSync(input.cycleId, () =>
       this.prisma.$transaction(async (tx) => {
         await this.syncUserCycleSnapshotDirect(input, tx);
       }),
@@ -295,8 +298,13 @@ export class DashboardSnapshotService {
     operation: () => Promise<void>,
   ) {
     const previousSync = this.inFlightCycleSyncs.get(cycleId);
-    const pendingSync = (previousSync ?? Promise.resolve())
-      .catch(() => undefined)
+    const precedingUsers = [
+      ...(this.inFlightCycleUserSyncs.get(cycleId) ?? []),
+    ];
+    const pendingSync = Promise.allSettled([
+      ...(previousSync ? [previousSync] : []),
+      ...precedingUsers,
+    ])
       .then(operation)
       .finally(() => {
         if (this.inFlightCycleSyncs.get(cycleId) === pendingSync) {
@@ -306,6 +314,29 @@ export class DashboardSnapshotService {
     this.inFlightCycleSyncs.set(cycleId, pendingSync);
 
     await pendingSync;
+  }
+
+  private async enqueueUserCycleSnapshotSync(
+    cycleId: string,
+    operation: () => Promise<void>,
+  ) {
+    const precedingRebuild = this.inFlightCycleSyncs.get(cycleId);
+    const users =
+      this.inFlightCycleUserSyncs.get(cycleId) ?? new Set<Promise<void>>();
+    this.inFlightCycleUserSyncs.set(cycleId, users);
+    const pending = (precedingRebuild ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(operation)
+      .finally(() => {
+        users.delete(pending);
+        if (
+          users.size === 0 &&
+          this.inFlightCycleUserSyncs.get(cycleId) === users
+        )
+          this.inFlightCycleUserSyncs.delete(cycleId);
+      });
+    users.add(pending);
+    await pending;
   }
 
   async syncMatchSnapshots(matchId: string, store?: SnapshotStoreClient) {

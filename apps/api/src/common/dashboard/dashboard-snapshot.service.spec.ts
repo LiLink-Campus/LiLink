@@ -368,6 +368,72 @@ describe('DashboardSnapshotService', () => {
     expect(transactionEvents).toEqual(['start', 'finish', 'start', 'finish']);
   });
 
+  it('allows independent users to fill in parallel while keeping a full rebuild exclusive', async () => {
+    const deferred = () => {
+      let resolve!: () => void;
+      const promise = new Promise<void>((done) => {
+        resolve = done;
+      });
+      return { promise, resolve };
+    };
+    const first = deferred();
+    const second = deferred();
+    const rebuild = deferred();
+    const usersStarted = deferred();
+    const rebuildStarted = deferred();
+    const events: string[] = [];
+    const prisma = {
+      $transaction: jest.fn(
+        async (callback: (store: unknown) => Promise<void>) => callback({}),
+      ),
+    };
+    const service = new DashboardSnapshotService(prisma as never);
+    const methods = service as unknown as {
+      syncUserCycleSnapshotDirect(input: { userId: string }): Promise<void>;
+      syncCycleSnapshotsDirect(): Promise<void>;
+    };
+    jest
+      .spyOn(methods, 'syncUserCycleSnapshotDirect')
+      .mockImplementation(async ({ userId }) => {
+        events.push(userId);
+        if (events.includes('first') && events.includes('second'))
+          usersStarted.resolve();
+        if (userId === 'first') await first.promise;
+        if (userId === 'second') await second.promise;
+      });
+    jest
+      .spyOn(methods, 'syncCycleSnapshotsDirect')
+      .mockImplementation(async () => {
+        events.push('rebuild');
+        rebuildStarted.resolve();
+        await rebuild.promise;
+      });
+    const a = service.syncUserCycleSnapshot({
+      userId: 'first',
+      cycleId: 'cycle',
+    });
+    const b = service.syncUserCycleSnapshot({
+      userId: 'second',
+      cycleId: 'cycle',
+    });
+    await usersStarted.promise;
+    const all = service.syncCycleSnapshots('cycle');
+    const after = service.syncUserCycleSnapshot({
+      userId: 'after',
+      cycleId: 'cycle',
+    });
+    first.resolve();
+    await a;
+    expect(events).toEqual(['first', 'second']);
+    second.resolve();
+    await b;
+    await rebuildStarted.promise;
+    expect(events).toEqual(['first', 'second', 'rebuild']);
+    rebuild.resolve();
+    await Promise.all([all, after]);
+    expect(events).toEqual(['first', 'second', 'rebuild', 'after']);
+  });
+
   it('removes unrevealed match snapshots instead of upserting them', async () => {
     const store = {
       $queryRaw: jest.fn().mockResolvedValue([]),

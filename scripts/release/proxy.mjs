@@ -1,12 +1,21 @@
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 const secret = (await readFile(process.env.RELEASE_ACCESS_FILE, 'utf8')).trim();
 const identity = { release: process.env.GITHUB_SHA, branchId: 'br-muddy-poetry-azax6deb', projectId: 'patient-meadow-65557384', host: 'ep-crimson-thunder-aztzdzla.c-3.ap-southeast-1.aws.neon.tech', users: 2000, synthetic: true };
+const command = promisify(execFile);
 const server = http.createServer((request, response) => {
   const supplied = request.headers['x-release-access'] ?? request.headers.cookie?.match(/(?:^|;\s*)lilink_release_access=([^;]+)/)?.[1] ?? '';
   if (typeof supplied !== 'string' || supplied.length !== secret.length || !timingSafeEqual(Buffer.from(supplied), Buffer.from(secret))) { response.writeHead(403); response.end('Isolated rehearsal'); return; }
   if (request.url === '/__release') { response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify(identity)); return; }
+  if (request.url === '/__evidence') {
+    void Promise.all([command('docker', ['logs', '--tail', '150', 'release-api']), command('docker', ['stats', '--no-stream', '--format', '{{json .}}', 'release-api'])]).then(([logs, stats]) => {
+      response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify({ identity, logs: logs.stdout + logs.stderr, resources: stats.stdout }));
+    }).catch(() => { response.writeHead(500); response.end('Evidence unavailable'); });
+    return;
+  }
   if (request.url === '/__stop' && request.method === 'POST') { void writeFile('artifacts/release-stop', 'done'); response.end('stopping'); return; }
   const started = performance.now();
   const upstream = http.request({ hostname: '127.0.0.1', port: 4000, method: request.method, path: request.url, headers: request.headers }, res => {

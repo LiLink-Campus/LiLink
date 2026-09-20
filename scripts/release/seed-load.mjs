@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 const require = createRequire(path.join(process.cwd(), 'package.json'));
 const { createPrismaClient } = require('./dist/src/common/prisma/client.js');
@@ -10,7 +10,9 @@ const url = new URL(process.env.DATABASE_URL);
 if (url.hostname !== 'ep-crimson-thunder-aztzdzla.c-3.ap-southeast-1.aws.neon.tech' || url.pathname !== '/neondb' || url.username !== 'release_load') throw new Error('Refusing seed outside the dedicated synthetic release project.');
 const db = createPrismaClient();
 try {
-  if (await db.user.count() || await db.questionnaireVersion.count()) throw new Error('Synthetic load database must be empty; no automatic deletion.');
+  const existing = await db.user.count();
+  if (existing === 2000 && await db.user.count({ where: { id: { startsWith: 'release_user_' }, email: { endsWith: '@release.example.test' } } }) === 2000) { console.log('Reusing verified synthetic release dataset.'); await db.$disconnect(); process.exit(0); }
+  if (existing || await db.questionnaireVersion.count()) throw new Error('Synthetic load database must be empty; no automatic deletion.');
   const { questions } = JSON.parse(await readFile('prisma/fixtures/autumn-20260920-questionnaire.json', 'utf8'));
   const schoolIds = Array.from({ length: 8 }, (_, i) => `release_school_${i}`);
   await db.school.createMany({ data: schoolIds.map((id, i) => ({ id, slug: id, name: `测试大学 ${i}` })) });
@@ -36,6 +38,5 @@ try {
     await db.matchParticipant.createMany({ data: matches.flatMap((match, i) => [0, 1].map(position => ({ cycleId: cycle.id, matchId: match.id, userId: users[i * 2 + position].id, position, introducedContactType: 'EMAIL', introducedContactValue: users[i * 2 + position].email, profileSnapshot: { source: 'synthetic-history', versionId: version.id, introLine: '合成历史介绍', gender: forms[i * 2 + position].gender, partnerGenders: ['男', '女'] } }))) });
   }
   await db.matchCycle.create({ data: { id: 'release_current', codename: '本轮演练', status: 'OPEN', participationDeadline: new Date(Date.now() + 8 * 3600000), revealAt: new Date(Date.now() + 9 * 3600000) } });
-  await writeFile('/release-output/fixture.json', JSON.stringify({ versionId: version.id, userCount: users.length, schoolIds, soft, forms }), { mode: 0o600 });
   console.log('Synthetic release data ready: 2000 users, 24 questions, 3 history cycles, 1500 historical pairs.');
 } finally { await db.$disconnect(); }
