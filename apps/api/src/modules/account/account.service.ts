@@ -15,7 +15,6 @@ import {
   type ContactChannelType as PrismaContactChannelType,
   type QuestionType,
   type UserCycleDashboardSnapshot,
-  type WeeklyIntent as PrismaWeeklyIntent,
 } from '../../common/prisma/client';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import {
@@ -72,6 +71,7 @@ import {
   UpdateProfileDto,
 } from './dto';
 import { MatchEstimateService } from './match-estimate.service';
+import { readDashboardCycles } from './dashboard-cycles';
 
 const DASHBOARD_HISTORY_LIMIT = 3;
 const EDITABLE_CONTACT_CHANNEL_SET = new Set<ContactChannelType>(
@@ -87,10 +87,6 @@ type DashboardCycleSummary = Prisma.MatchCycleGetPayload<{
 }>;
 
 type DashboardSnapshotRecord = UserCycleDashboardSnapshot;
-type CurrentParticipationSummary = {
-  status: 'OPTED_IN' | 'OPTED_OUT';
-  intent: PrismaWeeklyIntent | null;
-};
 type DashboardSnapshotStore = {
   findMany: (
     args: Prisma.UserCycleDashboardSnapshotFindManyArgs,
@@ -322,57 +318,31 @@ export class AccountService {
         userCycleDashboardSnapshot?: DashboardSnapshotStore;
       }
     ).userCycleDashboardSnapshot;
-    const [
-      profile,
-      questionnaire,
-      cycle,
-      revealedCycles,
-      lastRevealedParticipation,
-      couponAgenda,
-    ] = await Promise.all([
-      this.prisma.userProfile.findUnique({
-        where: { userId },
-      }),
-      this.prisma.questionnaireResponse.findFirst({
-        where: { userId, version: { isCurrent: true } },
-        select: { submittedAt: true },
-      }),
-      this.prisma.matchCycle.findFirst({
-        where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
-        orderBy: { revealAt: 'asc' },
-      }),
-      this.prisma.matchCycle.findMany({
-        where: { status: 'REVEALED' },
-        orderBy: { revealAt: 'desc' },
-        take: DASHBOARD_HISTORY_LIMIT,
-        select: {
-          id: true,
-          codename: true,
-          revealAt: true,
-        },
-      }),
-      this.prisma.cycleParticipation.findFirst({
-        where: {
-          userId,
-          cycle: { status: 'REVEALED' },
-        },
-        orderBy: {
-          cycle: { revealAt: 'desc' },
-        },
-        select: {
-          cycleId: true,
-          status: true,
-          cycle: {
-            select: {
-              id: true,
-              codename: true,
-              revealAt: true,
-            },
-          },
-        },
-      }),
-      getDashboardCouponAgenda(this.prisma, userId),
-    ]);
+    const [profile, questionnaire, cycleRows, couponAgenda] = await Promise.all(
+      [
+        this.prisma.userProfile.findUnique({
+          where: { userId },
+        }),
+        this.prisma.questionnaireResponse.findFirst({
+          where: { userId, version: { isCurrent: true } },
+          select: { submittedAt: true },
+        }),
+        readDashboardCycles(this.prisma, userId, DASHBOARD_HISTORY_LIMIT),
+        getDashboardCouponAgenda(this.prisma, userId),
+      ],
+    );
+    const cycle = cycleRows.find((row) => row.kind === 'CURRENT') ?? null;
+    const revealedCycles = cycleRows.filter((row) => row.kind === 'RECENT');
+    const lastParticipationRow = cycleRows.find(
+      (row) => row.kind === 'LAST_PARTICIPATION',
+    );
+    const lastRevealedParticipation = lastParticipationRow
+      ? {
+          cycleId: lastParticipationRow.id,
+          status: lastParticipationRow.participationStatus!,
+          cycle: lastParticipationRow,
+        }
+      : null;
 
     const revealedCycleIds = revealedCycles.map((item) => item.id);
     const latestSnapshotCandidateCycleIds = Array.from(
@@ -395,26 +365,7 @@ export class AccountService {
             },
             orderBy: { cycleRevealAt: 'desc' },
           });
-    const [currentParticipation, existingSnapshots]: [
-      CurrentParticipationSummary | null,
-      DashboardSnapshotRecord[],
-    ] = await Promise.all([
-      cycle
-        ? this.prisma.cycleParticipation.findUnique({
-            where: {
-              cycleId_userId: {
-                cycleId: cycle.id,
-                userId,
-              },
-            },
-            select: {
-              status: true,
-              intent: true,
-            },
-          })
-        : Promise.resolve(null),
-      readSnapshots(),
-    ]);
+    const existingSnapshots = await readSnapshots();
     let recentSnapshots = existingSnapshots;
     if (existingSnapshots.length < latestSnapshotCandidateCycleIds.length) {
       const repaired =
@@ -485,8 +436,8 @@ export class AccountService {
             revealAt: cycle.revealAt.toISOString(),
             participationDeadline: cycle.participationDeadline.toISOString(),
             status: cycle.status,
-            participationStatus: currentParticipation?.status ?? 'OPTED_OUT',
-            intent: currentParticipation?.intent ?? null,
+            participationStatus: cycle.participationStatus ?? 'OPTED_OUT',
+            intent: cycle.intent,
           }
         : null,
       latestMatch,

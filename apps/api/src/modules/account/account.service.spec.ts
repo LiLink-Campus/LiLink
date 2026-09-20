@@ -339,6 +339,38 @@ function createDashboardPrismaMock({
   );
 
   return {
+    $queryRaw: jest.fn().mockResolvedValue([
+      ...revealedCycles.map((cycle) => ({
+        ...cycle,
+        kind: 'RECENT',
+        status: 'REVEALED',
+        participationDeadline: cycle.revealAt,
+        participationStatus: null,
+        intent: null,
+      })),
+      ...(currentCycle
+        ? [
+            {
+              ...currentCycle,
+              kind: 'CURRENT',
+              participationStatus: currentParticipation?.status ?? null,
+              intent: currentParticipation?.intent ?? null,
+            },
+          ]
+        : []),
+      ...(lastRevealedParticipation
+        ? [
+            {
+              ...lastRevealedParticipation.cycle,
+              kind: 'LAST_PARTICIPATION',
+              status: 'REVEALED',
+              participationDeadline: lastRevealedParticipation.cycle.revealAt,
+              participationStatus: lastRevealedParticipation.status,
+              intent: null,
+            },
+          ]
+        : []),
+    ]),
     userProfile: {
       findUnique: jest.fn().mockResolvedValue(null),
     },
@@ -2705,43 +2737,17 @@ describe('AccountService', () => {
   });
 
   it('treats a missing current-cycle participation as opted out on dashboard load', async () => {
-    const cycleParticipation = {
-      findFirst: jest.fn().mockResolvedValue(null),
-      findMany: jest.fn().mockResolvedValue([]),
-      findUnique: jest.fn().mockResolvedValue(null),
-    };
-    const prisma = {
-      userProfile: {
-        findUnique: jest.fn().mockResolvedValue(null),
+    const prisma = createDashboardPrismaMock({
+      revealedCycles: [],
+      currentCycle: {
+        id: 'cycle-2',
+        codename: 'Round 2',
+        revealAt: new Date('2026-05-01T12:00:00.000Z'),
+        participationDeadline: new Date('2026-04-30T12:00:00.000Z'),
+        status: 'OPEN',
       },
-      questionnaireResponse: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      matchCycle: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'cycle-2',
-          codename: 'Round 2',
-          revealAt: new Date('2026-05-01T12:00:00.000Z'),
-          participationDeadline: new Date('2026-04-30T12:00:00.000Z'),
-          createdAt: new Date('2026-04-20T12:00:00.000Z'),
-          status: 'OPEN',
-        }),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      matchParticipant: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      cycleParticipation,
-      coupon: {
-        count: jest.fn().mockResolvedValue(0),
-      },
-      couponReadState: {
-        findUnique: jest.fn().mockResolvedValue(null),
-      },
-    };
+      currentParticipation: null,
+    });
     const service = new AccountService(
       prisma as never,
       {} as never,
@@ -2758,46 +2764,17 @@ describe('AccountService', () => {
   });
 
   it('exposes the saved weekly intent on the dashboard payload', async () => {
-    const cycleParticipation = {
-      findFirst: jest.fn().mockResolvedValue(null),
-      findMany: jest.fn().mockResolvedValue([]),
-      findUnique: jest.fn().mockResolvedValue({
-        status: 'OPTED_IN',
-        intent: 'BOTH',
-      }),
-    };
-    const prisma = {
-      userProfile: {
-        findUnique: jest.fn().mockResolvedValue(null),
+    const prisma = createDashboardPrismaMock({
+      revealedCycles: [],
+      currentCycle: {
+        id: 'cycle-3',
+        codename: 'Round 3',
+        revealAt: new Date('2026-05-08T12:00:00.000Z'),
+        participationDeadline: new Date('2026-05-07T12:00:00.000Z'),
+        status: 'OPEN',
       },
-      questionnaireResponse: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      matchCycle: {
-        findFirst: jest.fn().mockResolvedValue({
-          id: 'cycle-3',
-          codename: 'Round 3',
-          revealAt: new Date('2026-05-08T12:00:00.000Z'),
-          participationDeadline: new Date('2026-05-07T12:00:00.000Z'),
-          createdAt: new Date('2026-04-25T12:00:00.000Z'),
-          status: 'OPEN',
-        }),
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      matchParticipant: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      block: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
-      cycleParticipation,
-      coupon: {
-        count: jest.fn().mockResolvedValue(0),
-      },
-      couponReadState: {
-        findUnique: jest.fn().mockResolvedValue(null),
-      },
-    };
+      currentParticipation: { status: 'OPTED_IN', intent: 'BOTH' },
+    });
     const service = new AccountService(
       prisma as never,
       {} as never,
