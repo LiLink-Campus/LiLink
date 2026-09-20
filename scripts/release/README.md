@@ -1,0 +1,24 @@
+# Isolated release checks
+
+These scripts reject the production database and API. Local credentials and target manifests belong under the ignored `artifacts/questionnaire-release-20260920/` directory. Validate Neon project, branch and compute metadata before writing a target manifest. Never commit connection strings, keys, backups or runtime logs.
+
+`database.mjs` provides the guarded audit, encrypted backup, migration and restore rehearsal. `seed-load.mjs` requires the dedicated synthetic Neon project and creates 2,000 synthetic users. `matching-rehearsal.mjs` exercises the running API at 500, 1,000 and 2,000 participants and verifies matching, introduction and snapshot counts. Its output must be captured with Bash `set -euo pipefail` when piped through `tee`.
+
+`load.js` requires **absolute** `TARGET_FILE`, `ACCESS_FILE`, `QUESTION_FIXTURE` and `SUMMARY_FILE` paths, plus the API's exact `RELEASE_SHA`. It verifies the remote identity before generating traffic. Use the official k6 binary. Keep normal production throttle settings.
+
+| Mode | Arrival unit | Work per iteration |
+| --- | --- | --- |
+| `read` (default) | API requests | One of the four homepage APIs, equal weighting |
+| `home` | Users entering the homepage | Four concurrent APIs for the same user; all four must succeed |
+| `match` | Users entering the match page directly | Bootstrap API with the expected user and dashboard |
+| `mixed` | Business operations | 70% reads, 20% questionnaire submit + readback, 10% opt-in + readback; 1.3 API requests per iteration on average |
+
+Use `MODE=home LOAD_RATE=500 RATE_TIME_UNIT=1m LOAD_DURATION_SECONDS=120` to model 500 homepage entrants per minute (about 33.3 API requests/s), and repeat with 1,000 entrants/minute. Direct match entry has a different request count. These are API flow measurements; they do not replace browser rendering or Vercel SSR tests.
+
+For protocol capacity, use `MODE=read RATE_TIME_UNIT=1s LOAD_RATE=33` (then 67 and 100). The script permits at most 200 planned API requests/s and 1,800 seconds per run. `MODE=mixed LOAD_RATE=100` means about 130 API requests/s; use the reported `expectedRequests` rather than calling it 100 requests/s.
+
+Every result reports planned iterations/API requests, attempted and successful API requests, completed business iterations, and distinct successful fixture users on their first pass. `home` and `match` also enforce complete API flow latency. Raw `read` users are users with one successful fixture request, not completed browser visits. Unexpected 429 responses and dropped iterations fail the run. The first pass user count is a conservative lower bound after the 2,000 fixtures are reused.
+
+Reconcile request counts and route ratios with `requests.jsonl` from the isolated proxy. Compare them only over the same test time interval, excluding identity checks and other rehearsal steps. Vercel SSR requests require API-side logs because the browser Network panel does not contain those calls.
+
+`benchmark-worker.mjs` runs only the CPU solver and checks pair uniqueness. Its runtime and memory numbers are not end-to-end capacity evidence. Record image SHA, platform, CPU/memory limits, Neon settings, cold/warm state, database wait/lock metrics and outbox completion separately before approving a production release.
