@@ -29,7 +29,7 @@ jobs:
       - name: Start isolated API and seed synthetic data
         run: |
           docker network create release-test
-          docker run -d --name release-mail --network release-test ghcr.io/axllent/mailpit:v1.20
+          docker run -d --name release-mail --network release-test ghcr.io/axllent/mailpit:v1.20 --max 20000
           docker run --rm --network release-test -v "$PWD/artifacts/release-secret/api_env:/run/secrets/api_env:ro" "lilink-api:$GITHUB_SHA" node scripts/production-entrypoint.mjs npx prisma migrate deploy
           docker run --rm --user 0 --network release-test -v "$PWD/artifacts/release-secret/api_env:/run/secrets/api_env:ro" -v "$PWD/scripts/release:/release:ro" -v "$PWD/artifacts/release-output:/release-output" "lilink-api:$GITHUB_SHA" node scripts/production-entrypoint.mjs node /release/seed-load.mjs
           docker run -d --name release-api --network release-test --cpus=2 --memory=3584m --memory-swap=5632m -p 127.0.0.1:4000:4000 -e NODE_OPTIONS='--enable-source-maps --require /release/observe.cjs' -v "$PWD/scripts/release:/release:ro" -v "$PWD/artifacts/release-secret/api_env:/run/secrets/api_env:ro" "lilink-api:$GITHUB_SHA"

@@ -32,7 +32,7 @@ try {
   assert.equal(await db.user.count(), 2000);
   assert.equal(await db.user.count({ where: { id: { startsWith: 'release_user_' }, email: { endsWith: '@release.example.test' } } }), 2000);
   // Retain prior pairs while stopping abandoned cycles from being scheduled.
-  await db.matchCycle.updateMany({ where: { id: { startsWith: 'release_worker_' } }, data: { status: 'DRAFT' } });
+  await db.matchCycle.updateMany({ where: { id: { startsWith: 'release_worker_' }, status: { not: 'REVEALED' } }, data: { status: 'DRAFT' } });
   await db.outboundEmail.updateMany({ where: { recipientEmail: { endsWith: '@release.example.test' }, dedupeKey: { startsWith: 'match-reveal:' }, status: { in: ['PENDING', 'PROCESSING', 'FAILED'] } }, data: { status: 'EXHAUSTED', errorMessage: 'Previous synthetic rehearsal retained; delivery retired.' } });
   for (let attempt = 0; ; attempt++) {
     try { assert.equal((await fetch(`${base}/health`)).status, 200); break; }

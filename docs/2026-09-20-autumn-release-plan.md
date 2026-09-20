@@ -137,6 +137,15 @@ docker compose -p lilink -f docker-compose.prod.yml run --rm --no-deps api \
 docker compose -p lilink -f docker-compose.prod.yml run --rm --no-deps api \
   node scripts/production-entrypoint.mjs npx prisma migrate status
 
+# The mounted secret must enable maintenance and disable jobs and mail.
+: "${LILINK_CANDIDATE_SHA:?Set the verified full candidate SHA}"
+: "${LILINK_DATABASE_HOST:?Set the verified database host}"
+: "${LILINK_DATABASE_NAME:?Set the verified database name}"
+docker compose -p lilink -f docker-compose.prod.yml run --rm --no-deps api \
+  node scripts/production-entrypoint.mjs node scripts/prewarm-dashboard-snapshots.mjs \
+  --expected-release "$LILINK_CANDIDATE_SHA" \
+  --expected-host "$LILINK_DATABASE_HOST" --expected-database "$LILINK_DATABASE_NAME" --apply
+
 # Continue only after migration and aggregate checks have passed.
 docker compose -p lilink -f docker-compose.prod.yml up -d --no-build api
 ```
@@ -145,7 +154,7 @@ docker compose -p lilink -f docker-compose.prod.yml up -d --no-build api
 
 随后依次完成：
 
-1. 从内网验证 API health、数据库版本、关键只读接口和授权测试账号流程。核对旧快照重建速度；缓存预热/同步使用经验证的受限运维路径，当前仓库没有现成的全量预热 CLI，不臆造命令。
+1. 从内网验证 API health、数据库版本、关键只读接口和授权测试账号流程。迁移后、启动 API 前使用上面的预热 CLI 补齐已揭晓轮次快照；核验覆盖完整、保留无参与记录的历史快照、匹配/授权/邮件摘要不变。CLI 默认只读，`--apply` 必须匹配镜像 SHA、数据库主机/名称并确认维护、后台和邮件开关。预热失败则保持停写，不把首批用户请求当成全量重建工具。
 2. Vercel 将已验证的 production staged deployment 分配给正式域名。可用 `vercel deploy --prod --skip-domain` 准备，再 `vercel promote <staged-production-url>` 切换；项目关联及部署身份恢复后执行。不要把携带隔离 API 地址的 Preview 直接作为正式产物。
 3. 在维护放行范围内验证 `lilink.top` / `www.lilink.top`：旧会话登录、新问卷空白与重新填写/刷新保持、每轮报名、VIP 规则、未重填时最近三轮仍可读及联系方式权限、注销后旧令牌失效；合成测试留在隔离环境，生产验收账号须明确指定。
 4. 先开放少量受控访问，核对错误率、延迟、数据库连接、邮件积压和浏览器端 CORS/Cookie，再全面开放。实际发送邮件到外部收件人须有明确验收范围。
