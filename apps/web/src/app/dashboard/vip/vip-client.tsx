@@ -24,11 +24,17 @@ function formatDate(value: string) {
 
 export function VipClient({ initialStatus }: { initialStatus: VipStatus | null }) {
   const contactDialog = useRef<HTMLDialogElement>(null);
+  const contactCloseButton = useRef<HTMLButtonElement>(null);
   const [status, setStatus] = useState(initialStatus);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  function openContactDialog() {
+    contactDialog.current?.showModal();
+    contactCloseButton.current?.focus({ preventScroll: true });
+  }
 
   async function refresh() {
     setBusy(true);
@@ -98,7 +104,7 @@ export function VipClient({ initialStatus }: { initialStatus: VipStatus | null }
     {!status && <p role="status" className={styles.note}>暂时无法读取会员状态，请刷新后再激活。</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <footer className={styles.footer}>
-      <div className={styles.actions}><button type="button" onClick={() => void refresh()} disabled={busy}><svg className={styles.actionIcon} aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 4v5h-5M4 20v-5h5" /><path d="M4.6 9a8 8 0 0 1 13.2-4L20 9M4 15l2.2 4A8 8 0 0 0 19.4 15" /></svg>{busy ? "正在处理…" : "刷新会员状态"}</button><button type="button" onClick={() => contactDialog.current?.showModal()}><svg className={styles.actionIcon} aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 13v-2a8 8 0 0 1 16 0v2M20 17v1a3 3 0 0 1-3 3h-3" /><rect x="2" y="11" width="4" height="7" rx="2" /><rect x="18" y="11" width="4" height="7" rx="2" /><path d="M12 21h2" /></svg>联系客服</button></div>
+      <div className={styles.actions}><button type="button" onClick={() => void refresh()} disabled={busy}><svg className={styles.actionIcon} aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 4v5h-5M4 20v-5h5" /><path d="M4.6 9a8 8 0 0 1 13.2-4L20 9M4 15l2.2 4A8 8 0 0 0 19.4 15" /></svg>{busy ? "正在处理…" : "刷新会员状态"}</button><button type="button" onClick={openContactDialog}><svg className={styles.actionIcon} aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 13v-2a8 8 0 0 1 16 0v2M20 17v1a3 3 0 0 1-3 3h-3" /><rect x="2" y="11" width="4" height="7" rx="2" /><rect x="18" y="11" width="4" height="7" rx="2" /><path d="M12 21h2" /></svg>联系客服</button></div>
       <p className={styles.afterSales}>会员到期后，高级筛选将停止生效。重复购卡并激活后，有效期顺延。卡密通过云猫发放，遇到支付相关问题，请保留云猫订单号并联系 LiLink 官方客服；付款后不允许退款。</p>
     </footer>
     <dialog ref={contactDialog} className={styles.contactDialog} aria-labelledby="vip-contact-title" onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); contactDialog.current?.close(); } }} onClick={event => {
@@ -110,7 +116,7 @@ export function VipClient({ initialStatus }: { initialStatus: VipStatus | null }
       <h2 id="vip-contact-title">联系客服</h2>
       <section className={styles.contactMethod}><h3>联系邮箱</h3><a href="mailto:support@lilink.top">support@lilink.top</a></section>
       <section className={styles.contactMethod}><h3>运营微信</h3><p>LiLink5201314</p><SocialQr channel={socialChannels[0]} className={styles.contactQr} /><p className={styles.note}>扫描二维码，添加运营微信</p></section>
-      <form method="dialog"><button className={styles.primary} autoFocus>关闭</button></form>
+      <form method="dialog"><button ref={contactCloseButton} className={styles.primary} autoFocus>关闭</button></form>
     </dialog>
   </section>;
 }

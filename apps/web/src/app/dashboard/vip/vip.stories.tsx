@@ -69,12 +69,14 @@ export const ContactSupport: Story = {
     await userEvent.click(trigger);
     const dialog = c.getByRole('dialog', { name: '联系客服' });
     await expect(dialog).toBeVisible();
+    await expect(within(dialog).getByRole('button', { name: '关闭' })).toHaveFocus();
     await expect(within(dialog).getByRole('link', { name: 'support@lilink.top' })).toHaveAttribute('href', 'mailto:support@lilink.top');
     await expect(within(dialog).getByText('LiLink5201314')).toBeVisible();
     await userEvent.click(within(dialog).getByRole('button', { name: '关闭' }));
     await expect(dialog).not.toBeVisible();
     await expect(trigger).toHaveFocus();
     await userEvent.click(trigger);
+    await expect(within(dialog).getByRole('button', { name: '关闭' })).toHaveFocus();
     await userEvent.keyboard('{Escape}');
     await expect(dialog).not.toBeVisible();
     await userEvent.click(trigger);

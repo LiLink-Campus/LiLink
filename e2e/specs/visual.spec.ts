@@ -17,6 +17,7 @@ test('VIP support dialog fits viewport @visual', async ({ page, signedIn, isMobi
   await page.getByRole('button', { name: '联系客服', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '关闭', exact: true })).toBeFocused();
   if (!isMobile) await page.mouse.move(0, 0);
   await expect(dialog).toHaveScreenshot('vip-support.png', { animations: 'disabled' });
   const bounds = await dialog.boundingBox();
