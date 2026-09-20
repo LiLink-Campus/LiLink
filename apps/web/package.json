@@ -19,7 +19,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "libphonenumber-js": "^1.13.1",
-    "next": "^16.2.6",
+    "next": "^16.3.5",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -36,12 +36,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
-    "sharp": "^0.34.5",
+    "eslint-config-next": "16.3.5",
+    "sharp": "^0.35.4",
     "storybook": "^10.4.1",
     "tailwindcss": "^4.3.0",
     "typescript": "6.0.3",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.11"
   },
   "msw": {
     "workerDirectory": [

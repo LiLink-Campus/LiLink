@@ -91,14 +91,14 @@
   "devDependencies": {
     "@playwright/test": "1.60.0",
     "@storybook/addon-vitest": "^10.4.1",
-    "@vitest/browser-playwright": "^4.1.7",
+    "@vitest/browser-playwright": "^4.1.11",
     "concurrently": "^9.2.1",
     "lint-staged": "^16.4.0",
     "mockdate": "^3.0.5",
     "msw": "^2.14.6",
     "msw-storybook-addon": "^2.0.7",
     "playwright": "^1.60.0",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.11"
   },
   "msw": {
     "workerDirectory": [
@@ -106,8 +106,8 @@
     ]
   },
   "overrides": {
-    "@hono/node-server": "1.19.13",
-    "postcss": "8.5.14",
+    "@hono/node-server": "1.19.17",
+    "postcss": "8.5.28",
     "eslint-plugin-react-hooks": "7.0.1",
     "typescript-eslint": "8.58.1",
     "effect": "3.21.0",
@@ -121,6 +121,13 @@
     "path-to-regexp@^8.0.0": "8.4.2",
     "msw": {
       "path-to-regexp": "6.3.0"
+    },
+    "@nestjs/platform-express": {
+      "multer": "2.4.0"
+    },
+    "js-yaml@^4.0.0": "4.3.2",
+    "prisma": {
+      "mysql2": "3.24.4"
     }
   }
 }

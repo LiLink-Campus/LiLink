@@ -10,6 +10,8 @@ const stage = path.join(root, 'artifacts/e2e-linux', id);
 const output = path.join(root, 'artifacts/e2e-linux-results');
 const baseline = path.join(root, 'e2e/baselines');
 const name = `lilink-e2e-linux-${id}`;
+let runnerStarted = false;
+let stageCleanup;
 function run(args) {
   return new Promise((resolve, reject) => {
     const child = spawn('docker', args, { stdio: 'inherit' });
@@ -17,9 +19,20 @@ function run(args) {
     child.on('exit', code => code === 0 ? resolve() : reject(new Error(`Docker exited ${code}`)));
   });
 }
+function cleanupStage() {
+  stageCleanup ??= (async () => {
+    // Bind-mounted files created by container root need host ownership on Linux.
+    if (runnerStarted && process.platform === 'linux') {
+      await run(['run', '--rm', '-v', `${stage}:/work`, '--entrypoint', 'chown',
+        'lilink-e2e-runner:1.60.0', '-R', `${process.getuid()}:${process.getgid()}`, '/work']);
+    }
+    await rm(stage, { recursive: true, force: true });
+  })();
+  return stageCleanup;
+}
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
   void run(['stop', '--time', '15', name]).catch(() => {}).finally(async () => {
-    await rm(stage, { recursive: true, force: true });
+    await cleanupStage();
     process.exit(130);
   });
 });
@@ -38,9 +51,10 @@ try {
   }
   await run(['build', '-t', 'lilink-e2e-runner:1.60.0', '-f', path.join(root, 'scripts/e2e/Dockerfile'), path.join(root, 'scripts/e2e')]);
   const socket = '/var/run/docker.sock';
+  runnerStarted = true;
   await run(['run', '--rm', '--name', name, '--network', 'host', '--ipc', 'host',
     '-v', `${socket}:/var/run/docker.sock`, '-v', `${stage}:/work`, '-v', '/work/node_modules',
     '-v', `${output}:/work/artifacts/e2e`, '-v', `${baseline}:/work/e2e/baselines`,
     'lilink-e2e-runner:1.60.0', 'npm ci --no-audit --no-fund && exec node scripts/e2e/run.mjs "$@"', 'e2e', ...process.argv.slice(2)]);
 } catch (error) { console.error(error.message); process.exitCode = 1; }
-finally { await rm(stage, { recursive: true, force: true }); }
+finally { await cleanupStage(); }

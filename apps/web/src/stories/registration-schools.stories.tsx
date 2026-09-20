@@ -186,7 +186,7 @@ export const NewRequestWins: Story = {
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(requestCount).toBe(1));
     const dialog = await openDialog(canvasElement);
-    await expect(await dialog.findByText("新桥大学")).toBeVisible();
+    await waitFor(() => expect(dialog.getByText("新桥大学")).toBeVisible());
     await new Promise((resolve) => setTimeout(resolve, 450));
     await expect(dialog.getByText("新桥大学")).toBeVisible();
     await expect(dialog.queryByText(schools.schools[0].name)).not.toBeInTheDocument();
