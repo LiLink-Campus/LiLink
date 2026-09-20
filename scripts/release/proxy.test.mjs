@@ -36,3 +36,48 @@ test('invalid multibyte credentials return 403 without crashing the rehearsal pr
     await rm(dir, { recursive: true });
   }
 });
+
+test('only the isolated web origin can preflight; actual requests remain authenticated', { timeout: 10_000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'lilink-release-cors-'));
+  const key = 'isolated-proxy-test-key-0123456789';
+  const access = path.join(dir, 'key');
+  await writeFile(access, key, { mode: 0o600 });
+  let forwarded = 0;
+  const upstream = http.createServer((request, response) => {
+    forwarded++;
+    response.writeHead(request.method === 'OPTIONS' ? 204 : 200, {
+      'access-control-allow-origin': 'https://release-20260920.lilink.top',
+      'access-control-allow-credentials': 'true',
+    });
+    response.end();
+  });
+  upstream.listen(0, '127.0.0.1');
+  await once(upstream, 'listening');
+  const child = fork(new URL('./proxy.mjs', import.meta.url), [], {
+    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+    env: { ...process.env, RELEASE_ACCESS_FILE: access, RELEASE_PROXY_PORT: '0', RELEASE_API_PORT: String(upstream.address().port), GITHUB_SHA: 'proxy-test' },
+  });
+  try {
+    const [{ port }] = await once(child, 'message');
+    const call = (method, path, headers) => fetch(`http://127.0.0.1:${port}${path}`, { method, headers });
+    const preflight = { origin: 'https://release-20260920.lilink.top', 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' };
+    const allowed = await call('OPTIONS', '/v1/auth/login', preflight);
+    assert.equal(allowed.status, 204);
+    assert.equal(allowed.headers.get('access-control-allow-origin'), preflight.origin);
+    assert.equal((await call('OPTIONS', '/v1/auth/login', { ...preflight, origin: 'https://untrusted.example' })).status, 403);
+    assert.equal((await call('OPTIONS', '/__evidence', preflight)).status, 403);
+    assert.equal((await call('POST', '/v1/auth/login', { origin: preflight.origin })).status, 403);
+    assert.equal(forwarded, 1);
+    assert.equal((await call('POST', '/v1/auth/login', { origin: preflight.origin, cookie: `lilink_release_access=${key}` })).status, 200);
+    assert.equal(forwarded, 2);
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, 'exit');
+      child.kill('SIGTERM');
+      await exited;
+    }
+    upstream.closeAllConnections();
+    await new Promise(resolve => upstream.close(resolve));
+    await rm(dir, { recursive: true });
+  }
+});

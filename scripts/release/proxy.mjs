@@ -13,8 +13,10 @@ if (!Number.isInteger(upstreamPort) || upstreamPort < 1024 || upstreamPort > 655
 const proxyPort = Number(process.env.RELEASE_PROXY_PORT ?? 4080);
 if (!Number.isInteger(proxyPort) || (proxyPort !== 0 && proxyPort < 1024) || proxyPort > 65535) throw new Error('Invalid loopback proxy port.');
 const server = http.createServer((request, response) => {
+  const preflight = request.method === 'OPTIONS' && request.url.startsWith('/v1/') && request.headers.origin === 'https://release-20260920.lilink.top' && ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(request.headers['access-control-request-method']);
   const supplied = request.headers['x-release-access'] ?? request.headers.cookie?.match(/(?:^|;\s*)lilink_release_access=([^;]+)/)?.[1] ?? '';
-  if (typeof supplied !== 'string' || Buffer.byteLength(supplied) !== Buffer.byteLength(secret) || !timingSafeEqual(Buffer.from(supplied), Buffer.from(secret))) { response.writeHead(403); response.end('Isolated rehearsal'); return; }
+  // Browsers omit cookies on CORS preflight; the actual request still needs access.
+  if (!preflight && (typeof supplied !== 'string' || Buffer.byteLength(supplied) !== Buffer.byteLength(secret) || !timingSafeEqual(Buffer.from(supplied), Buffer.from(secret)))) { response.writeHead(403); response.end('Isolated rehearsal'); return; }
   if (request.url === '/__release') { response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify(identity)); return; }
   if (request.url === '/__evidence') {
     void Promise.all([command('docker', ['logs', '--tail', '150', 'release-api']), command('docker', ['stats', '--no-stream', '--format', '{{json .}}', 'release-api'])]).then(([logs, stats]) => {
