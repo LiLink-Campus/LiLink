@@ -58,7 +58,11 @@ if (action === 'start') {
   await run('docker', ['run', '--rm', ...mounted, '-e', `SENTRY_RELEASE=${sha}`, image, 'node', 'scripts/production-entrypoint.mjs', 'node', '/release/matching-rehearsal.mjs']);
 } else if (action === 'evidence') {
   assert.ok(containers().includes('release-api'));
-  const evidence = { release: sha, state: JSON.parse(capture('docker', ['inspect', '--format', '{{json .State}}', 'release-api'])), resources: JSON.parse(capture('docker', ['stats', '--no-stream', '--format', '{{json .}}', 'release-api'])) };
+  const runningImage = capture('docker', ['inspect', '--format', '{{.Config.Image}}', 'release-api']);
+  const runningRelease = capture('docker', ['image', 'inspect', '--format', '{{index .Config.Labels "org.opencontainers.image.revision"}}', runningImage]);
+  assert.match(runningRelease, /^[a-f0-9]{40}$/);
+  assert.equal(runningImage, `lilink-release-local:${runningRelease}`);
+  const evidence = { release: runningRelease, sourceHead: sha, image: runningImage, state: JSON.parse(capture('docker', ['inspect', '--format', '{{json .State}}', 'release-api'])), resources: JSON.parse(capture('docker', ['stats', '--no-stream', '--format', '{{json .}}', 'release-api'])) };
   await writeFile(`${outputDir}/container-state.json`, JSON.stringify(evidence, null, 2));
   const logs = spawnSync('docker', ['logs', 'release-api'], { encoding: 'utf8' });
   assert.equal(logs.status, 0, 'Could not collect API stdout and stderr.');

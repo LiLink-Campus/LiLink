@@ -1,6 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import type { PoolConfig } from 'pg';
 import { PrismaClient } from '../../generated/prisma/client';
+import { CheckoutRetryPool } from './checkout-retry-pool';
 
 const DATABASE_URL_ENV = 'DATABASE_URL';
 const DATABASE_CONNECTION_LIMIT_ENV = 'DATABASE_CONNECTION_LIMIT';
@@ -74,9 +75,21 @@ export function createPostgresPoolConfig(): PoolConfig {
   };
 }
 
+class CheckoutRetryAdapter extends PrismaPg {
+  constructor(private readonly poolConfig: PoolConfig) {
+    super(poolConfig);
+  }
+
+  override connect(): ReturnType<PrismaPg['connect']> {
+    return new PrismaPg(new CheckoutRetryPool(this.poolConfig), {
+      disposeExternalPool: true,
+    }).connect();
+  }
+}
+
 export function createPrismaClientOptions() {
   return {
-    adapter: new PrismaPg(createPostgresPoolConfig()),
+    adapter: new CheckoutRetryAdapter(createPostgresPoolConfig()),
   };
 }
 
