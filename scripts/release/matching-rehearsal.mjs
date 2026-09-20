@@ -25,7 +25,7 @@ try {
   for (const count of [500, 1000, 2000]) {
     const cycleId = `release_worker_${process.env.SENTRY_RELEASE}_${count}`;
     assert.equal(await db.matchCycle.count({ where: { id: cycleId } }), 0, 'Use a fresh candidate SHA for a new rehearsal.');
-    await db.matchCycle.create({ data: { id: cycleId, codename: `合成撮合 ${count}`, status: 'OPEN', participationDeadline: new Date(Date.now() - 60_000), revealAt: new Date(Date.now() + 3600_000) } });
+    await db.matchCycle.create({ data: { id: cycleId, codename: `合成撮合 ${count} ${process.env.SENTRY_RELEASE.slice(0, 12)}`, status: 'OPEN', participationDeadline: new Date(Date.now() - 60_000), revealAt: new Date(Date.now() + 3600_000) } });
     await db.cycleParticipation.createMany({ data: Array.from({ length: count }, (_, i) => ({ cycleId, userId: `release_user_${String(i).padStart(4, '0')}`, status: 'OPTED_IN', intent: 'BOTH', optedInAt: new Date() })) });
     let pending = true;
     const latencies = [];
