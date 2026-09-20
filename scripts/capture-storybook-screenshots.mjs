@@ -162,7 +162,8 @@ async function captureStory(page, baseUrl, story, viewport) {
     height: viewport.height,
   });
   await page.goto(`${baseUrl}/iframe.html?id=${encodeURIComponent(story.id)}&viewMode=story`, {
-    waitUntil: "networkidle",
+    // Loading-state stories intentionally keep network requests pending.
+    waitUntil: "domcontentloaded",
     timeout: 45_000,
   });
   await page.waitForSelector("#storybook-root, #root", {
