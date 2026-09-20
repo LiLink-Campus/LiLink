@@ -37,7 +37,9 @@ jobs:
           docker run --rm --user 0 --network release-test -v "$PWD/artifacts/release-secret/api_env:/run/secrets/api_env:ro" -v "$PWD/scripts/release:/release:ro" -v "$PWD/artifacts/release-output:/release-output" "lilink-api:$GITHUB_SHA" node scripts/production-entrypoint.mjs node /release/seed-load.mjs
           docker run -d --name release-api --network release-test --cpus=2 --memory=3584m --memory-swap=5632m -p 127.0.0.1:4000:4000 -e NODE_OPTIONS='--enable-source-maps --require /release/observe.cjs' -v "$PWD/scripts/release:/release:ro" -v "$PWD/artifacts/release-secret/api_env:/run/secrets/api_env:ro" "lilink-api:$GITHUB_SHA"
       - name: Verify actual matching and reveal at 500, 1000 and 2000 users
+        shell: bash
         run: |
+          set -euo pipefail
           docker run --rm --network release-test -e SENTRY_RELEASE="$GITHUB_SHA" -v "$PWD/scripts/release:/release:ro" -v "$PWD/artifacts/release-secret/api_env:/run/secrets/api_env:ro" "lilink-api:$GITHUB_SHA" node scripts/production-entrypoint.mjs node /release/matching-rehearsal.mjs | tee artifacts/release-output/matching.jsonl
       - name: Expose only the authenticated rehearsal proxy
         run: |

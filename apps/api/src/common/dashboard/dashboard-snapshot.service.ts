@@ -252,9 +252,12 @@ export class DashboardSnapshotService {
     }
 
     const pendingSync = this.enqueueCycleSnapshotSync(cycleId, () =>
-      this.prisma.$transaction(async (tx) => {
-        await this.syncCycleSnapshotsDirect(cycleId, tx);
-      }),
+      this.prisma.$transaction(
+        async (tx) => {
+          await this.syncCycleSnapshotsDirect(cycleId, tx);
+        },
+        { timeout: 30_000 },
+      ),
     ).finally(() => {
       if (this.inFlightCycleRebuilds.get(cycleId) === pendingSync) {
         this.inFlightCycleRebuilds.delete(cycleId);

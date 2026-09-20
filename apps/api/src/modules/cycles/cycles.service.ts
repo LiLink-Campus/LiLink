@@ -813,17 +813,6 @@ export class CyclesService {
       };
     }
 
-    if (emailDedupeKeys.length > 0) {
-      void this.mailService
-        .flushQueuedEmails({ dedupeKeys: emailDedupeKeys })
-        .catch((error: unknown) => {
-          this.logger.error(
-            'Reveal email delivery will retry from the outbox.',
-            error instanceof Error ? error.message : String(error),
-          );
-        });
-    }
-
     // Rebuild dashboard snapshots outside the reveal transaction so the cycle
     // status / match updates commit (and release their row locks) quickly
     // instead of being held for the whole per-participation rebuild. A failure
@@ -836,6 +825,17 @@ export class CyclesService {
         `Cycle ${cycle.id} revealed but dashboard snapshot rebuild failed; relying on lazy coverage.`,
         error instanceof Error ? error.stack : String(error),
       );
+    }
+
+    if (emailDedupeKeys.length > 0) {
+      void this.mailService
+        .flushQueuedEmails({ dedupeKeys: emailDedupeKeys })
+        .catch((error: unknown) => {
+          this.logger.error(
+            'Reveal email delivery will retry from the outbox.',
+            error instanceof Error ? error.message : String(error),
+          );
+        });
     }
 
     return {

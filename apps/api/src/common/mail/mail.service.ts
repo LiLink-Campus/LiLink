@@ -537,18 +537,21 @@ export class MailService {
     };
     const matchId = matchIdFromEmailKey(email.dedupeKey);
     const claimResult = matchId
-      ? await this.prisma.$transaction(async (tx) => {
-          await tx.$queryRaw`SELECT "id" FROM "Match" WHERE "id" = ${matchId} FOR UPDATE`;
-          if (!(await canSendMatchEmail(tx, matchId, email.recipientEmail))) {
-            await cancelMatchEmails(
-              tx,
-              [matchId],
-              'Match unavailable before delivery.',
-            );
-            return null;
-          }
-          return tx.outboundEmail.updateMany(claimArgs);
-        })
+      ? await this.prisma.$transaction(
+          async (tx) => {
+            await tx.$queryRaw`SELECT "id" FROM "Match" WHERE "id" = ${matchId} FOR UPDATE`;
+            if (!(await canSendMatchEmail(tx, matchId, email.recipientEmail))) {
+              await cancelMatchEmails(
+                tx,
+                [matchId],
+                'Match unavailable before delivery.',
+              );
+              return null;
+            }
+            return tx.outboundEmail.updateMany(claimArgs);
+          },
+          { timeout: 30_000 },
+        )
       : await this.prisma.outboundEmail.updateMany(claimArgs);
 
     if (!claimResult) return 'not-eligible';

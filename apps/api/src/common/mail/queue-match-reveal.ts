@@ -103,27 +103,37 @@ export async function queueMatchRevealEmails(
       });
       continue;
     }
-    const parties = match.participants.map(({ user, userId, id }) => {
-      const contact = contactByUserId.get(userId);
-      if (!contact)
-        throw new Error('Match participant contact is unavailable.');
-      const preferred = contact.preferredContactChannel;
-      const type: ContactChannelType =
-        preferred !== 'EMAIL' && contact.value?.trim() ? preferred : 'EMAIL';
-      const value = type === 'EMAIL' ? contact.email : contact.value!;
-      contactRows.push(Prisma.sql`(${id}, ${type}, ${value})`);
-      return {
-        email: contact.email,
-        displayName: user.displayName,
-        schoolName: user.school?.name ?? null,
-        introLine:
-          readQuestionnaireOneLiner(user.questionnaireResponse?.answers) ??
-          user.profile?.headline ??
-          null,
-        publicContact: { type, label: contactChannelLabel(type), value },
-        weeklyIntent: intents.get(userId) ?? null,
-      };
-    });
+    const parties = match.participants.map(
+      ({ user, userId, id, profileSnapshot }) => {
+        const contact = contactByUserId.get(userId);
+        if (!contact)
+          throw new Error('Match participant contact is unavailable.');
+        const preferred = contact.preferredContactChannel;
+        const type: ContactChannelType =
+          preferred !== 'EMAIL' && contact.value?.trim() ? preferred : 'EMAIL';
+        const value = type === 'EMAIL' ? contact.email : contact.value!;
+        contactRows.push(Prisma.sql`(${id}, ${type}, ${value})`);
+        return {
+          email: contact.email,
+          displayName: user.displayName,
+          schoolName: user.school?.name ?? null,
+          introLine:
+            profileSnapshot &&
+            typeof profileSnapshot === 'object' &&
+            !Array.isArray(profileSnapshot)
+              ? typeof profileSnapshot.introLine === 'string'
+                ? profileSnapshot.introLine
+                : null
+              : (readQuestionnaireOneLiner(
+                  user.questionnaireResponse?.answers,
+                ) ??
+                user.profile?.headline ??
+                null),
+          publicContact: { type, label: contactChannelLabel(type), value },
+          weeklyIntent: intents.get(userId) ?? null,
+        };
+      },
+    );
     matchIds.push(match.id);
     emails.push(
       ...mailService.buildMatchRevealEmails({

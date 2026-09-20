@@ -7,6 +7,8 @@ import {
   type Prisma,
 } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
+import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snapshot.service';
+import { MailService } from '../src/common/mail/mail.service';
 import { CyclesService } from '../src/modules/cycles/cycles.service';
 import { buildHardMatchAnswerRecordFromFormInput } from '../src/modules/questionnaire/hard-match';
 import { validateQuestionnaireAnswers } from '../src/modules/questionnaire/questionnaire.service';
@@ -134,12 +136,21 @@ describe('Atomic matching batch (PostgreSQL)', () => {
         optedInAt: new Date(),
       })),
     });
-    cycles = new CyclesService(db as PrismaService, {} as never, {} as never);
+    const mail = new MailService(db as PrismaService);
+    jest.spyOn(mail, 'flushQueuedEmails').mockResolvedValue(undefined);
+    cycles = new CyclesService(
+      db as PrismaService,
+      new DashboardSnapshotService(db as PrismaService),
+      mail,
+    );
   }, 30_000);
 
   afterAll(async () => {
     if (!db) return;
     jest.restoreAllMocks();
+    await db.outboundEmail.deleteMany({
+      where: { recipientEmail: { startsWith: tag } },
+    });
     await db.auditLog.deleteMany({
       where: { metadata: { path: ['cycleId'], equals: tag } },
     });
@@ -204,5 +215,30 @@ describe('Atomic matching batch (PostgreSQL)', () => {
       'Reveal time has not been reached yet.',
     );
     expect(await db.match.count({ where: { cycleId: tag } })).toBe(250);
+    await db.questionnaireResponse.update({
+      where: { userId: `${tag}-0` },
+      data: { answers: { hard_one_liner_intro: 'Changed after preparation' } },
+    });
+    await db.matchCycle.update({
+      where: { id: tag },
+      data: { revealAt: new Date(Date.now() - 1000) },
+    });
+    await expect(
+      cycles.runRevealCycle({ cycleId: tag }),
+    ).resolves.toMatchObject({ state: 'REVEALED', createdMatches: 250 });
+    expect(
+      await db.userCycleDashboardSnapshot.count({ where: { cycleId: tag } }),
+    ).toBe(500);
+    const emails = await db.outboundEmail.findMany({
+      where: { recipientEmail: { startsWith: tag } },
+      select: { text: true },
+    });
+    expect(emails).toHaveLength(500);
+    expect(
+      emails.every((email) => email.text?.includes('Synthetic batch profile')),
+    ).toBe(true);
+    expect(
+      emails.some((email) => email.text?.includes('Changed after preparation')),
+    ).toBe(false);
   }, 60_000);
 });
