@@ -15,6 +15,7 @@ const mode = __ENV.MODE || 'read';
 if (!['read', 'mixed', 'home', 'match'].includes(mode)) throw new Error('Unknown load mode.');
 const mixed = mode === 'mixed';
 const timeUnit = __ENV.RATE_TIME_UNIT || '1s';
+const measuredReadRoutes = mode === 'match' ? ['/me/bootstrap'] : ['/me/bootstrap', '/me/questionnaire', '/me/contact-preferences', '/questionnaire/current'];
 if (!['1s', '1m'].includes(timeUnit)) throw new Error('RATE_TIME_UNIT must be 1s or 1m.');
 const expectedIterations = Math.floor(rate * seconds / (timeUnit === '1m' ? 60 : 1));
 const expectedRequests = mode === 'home' ? expectedIterations * 4 : mixed
@@ -35,6 +36,7 @@ export const options = {
   thresholds: {
     dropped_iterations: ['count==0'], business_failures: ['rate<0.005'], unexpected_429: ['count==0'],
     business_read_ms: ['p(95)<=800', 'p(99)<=2000'],
+    ...Object.fromEntries(measuredReadRoutes.map(route => [`business_read_ms{route:${route}}`, ['p(95)<=800', 'p(99)<=2000']])),
     ...(mixed ? { business_write_ms: ['p(95)<=1500'] } : {}),
     ...(['home', 'match'].includes(mode) ? { complete_api_flow_ms: ['p(95)<=3000'] } : {}),
     attempted_api_requests: [`count>=${Math.ceil(expectedRequests * 0.995)}`],
@@ -65,20 +67,20 @@ export default function(data) {
   const form = { birthYear: '2000', birthMonth: '1', birthDay: '1', gender: n % 2 ? '男' : '女', partnerGenders: ['男','女'], partnerAgeMin: '18', partnerAgeMax: '40', nationality: '中国', languages: ['中文'], partnerNationalities: [], partnerLanguages: [], looks: '5', partnerLooks: ['1','2','3','4','5','6','7','8','9','10'], heightCm: '165', weightKg: '55', partnerHeightMin: '120', partnerHeightMax: '230', partnerWeightMin: '30', partnerWeightMax: '300', oneLinerIntro: `合成用户 ${n} 喜欢读书和散步。`, excludedPartnerSchools: [], excludedPartnerSchoolGenders: [] };
   let ok = true;
   const started = Date.now();
-  function record(method, res, assertion) {
+  function record(method, res, assertion, route) {
     attemptedRequests.add(1);
     if (res.status === 429) limited.add(1);
     let valid = false;
     try { valid = res.status >= 200 && res.status < 300 && assertion(res.json()); } catch {}
     check(res, { 'expected business result': () => valid });
     if (valid) successfulRequests.add(1);
-    (method === 'GET' ? reads : writes).add(res.timings.duration);
+    (method === 'GET' ? reads : writes).add(res.timings.duration, { route });
     ok = ok && valid;
     return res;
   }
   function params(path, method) { return { headers, timeout: '10s', tags: { route: path, operation: method } }; }
   function request(method, path, payload, assertion) {
-    return record(method, http.request(method, `${target.baseUrl}/v1${path}`, payload ? JSON.stringify(payload) : null, params(path, method)), assertion);
+    return record(method, http.request(method, `${target.baseUrl}/v1${path}`, payload ? JSON.stringify(payload) : null, params(path, method)), assertion, path);
   }
   const routes = [
     ['/me/bootstrap', body => body.user.id === userId && body.dashboard != null],
@@ -88,7 +90,7 @@ export default function(data) {
   ];
   if (mode === 'home') {
     const responses = http.batch(routes.map(([route]) => ['GET', `${target.baseUrl}/v1${route}`, null, params(route, 'GET')]));
-    responses.forEach((response, index) => record('GET', response, routes[index][1]));
+    responses.forEach((response, index) => record('GET', response, routes[index][1], routes[index][0]));
   } else if (mode === 'match') {
     request('GET', routes[0][0], null, routes[0][1]);
   } else if (mixed && iteration % 10 >= 8) {

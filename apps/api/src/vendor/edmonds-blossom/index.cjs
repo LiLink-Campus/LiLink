@@ -22,7 +22,7 @@ Edmonds.prototype.maxWeightMatching = function () {
     this.label = filledArray(2 * this.nVertex, 0);
     this.bestEdge = filledArray(2 * this.nVertex, -1);
     this.blossomBestEdges = initArrArr(2 * this.nVertex);
-    this.allowEdge = filledArray(this.nEdge, false);
+    this.allowEdge.fill(0);
     this.queue = [];
     for (var v = 0; v < this.nVertex; v++) {
       if (this.mate[v] === -1 && this.label[this.inBlossom[v]] === 0) {
@@ -312,23 +312,21 @@ Edmonds.prototype.addBlossom = function (base, k) {
     bv = path[ii];
     if (this.blossomBestEdges[bv].length === 0) {
       var nbLists = [];
+      var endpointLists = true;
       leaves = this.blossomLeaves(bv);
       for (var x = 0; x < leaves.length; x++) {
         v = leaves[x];
-        nbLists[x] = [];
-        for (var y = 0; y < this.neighbend[v].length; y++) {
-          var p = this.neighbend[v][y];
-          nbLists[x].push(~~(p / 2));
-        }
+        nbLists[x] = this.neighbend[v];
       }
     } else {
+      endpointLists = false;
       nbLists = [this.blossomBestEdges[bv]];
     }
     //console.log('DEBUG: nbLists ' + nbLists.toString());
     for (x = 0; x < nbLists.length; x++) {
       var nbList = nbLists[x];
-      for (y = 0; y < nbList.length; y++) {
-        k = nbList[y];
+      for (var y = 0; y < nbList.length; y++) {
+        k = endpointLists ? ~~(nbList[y] / 2) : nbList[y];
         var i = this.edges[k][0];
         var j = this.edges[k][1];
         wt = this.edges[k][2];
@@ -541,7 +539,7 @@ Edmonds.prototype.init = function () {
   this.blossomBestEdges = initArrArr(2 * this.nVertex); //remove?
   this.unusedBlossomsInit();
   this.dualVarInit();
-  this.allowEdge = filledArray(this.nEdge, false); //remove?
+  this.allowEdge = new Uint8Array(this.nEdge);
   this.queue = []; //remove?
 };
 Edmonds.prototype.blossomBaseInit = function () {

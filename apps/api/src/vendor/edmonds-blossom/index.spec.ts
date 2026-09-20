@@ -9,7 +9,8 @@ it('preserves upstream mate arrays across sparse, dense and weighted graphs', ()
   };
   expect(blossom([])).toEqual(upstream([]));
   for (let fixture = 0; fixture < 200; fixture++) {
-    const count = 3 + (fixture % 22);
+    const count =
+      fixture >= 197 ? [33, 64, 129][fixture - 197] : 3 + (fixture % 22);
     const edges: Array<[number, number, number]> = [];
     const density = [0.15, 0.5, 1][fixture % 3];
     for (let left = 0; left < count; left++) {

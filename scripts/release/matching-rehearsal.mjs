@@ -8,6 +8,8 @@ const require = createRequire(path.join(process.cwd(), 'package.json'));
 const { createPrismaClient } = require('./dist/src/common/prisma/client.js');
 const db = createPrismaClient();
 const base = 'http://release-api:4000/v1';
+assert.match(process.env.SENTRY_RELEASE ?? '', /^[a-f0-9]{40}$/, 'An exact candidate SHA is required.');
+const timingFailures = [];
 async function tick() {
   const response = await fetch(`${base}/internal/cycles/tick`, { method: 'POST', headers: { 'x-cron-secret': process.env.CRON_SECRET }, signal: AbortSignal.timeout(240_000) });
   assert.equal(response.status, 201);
@@ -16,7 +18,7 @@ async function tick() {
 try {
   assert.equal(await db.user.count(), 2000);
   assert.equal(await db.user.count({ where: { id: { startsWith: 'release_user_' }, email: { endsWith: '@release.example.test' } } }), 2000);
-  // Retain prior evidence while excluding old rehearsal cycles from new runs.
+  // Retain prior pairs while stopping abandoned cycles from being scheduled.
   await db.matchCycle.updateMany({ where: { id: { startsWith: 'release_worker_' } }, data: { status: 'DRAFT' } });
   await db.outboundEmail.updateMany({ where: { recipientEmail: { endsWith: '@release.example.test' }, dedupeKey: { startsWith: 'match-reveal:' }, status: { in: ['PENDING', 'PROCESSING', 'FAILED'] } }, data: { status: 'EXHAUSTED', errorMessage: 'Previous synthetic rehearsal retained; delivery retired.' } });
   for (let attempt = 0; ; attempt++) {
@@ -50,6 +52,7 @@ try {
     if (healthError) throw healthError;
     assert.ok(prepared.preparedCycleIds.includes(cycleId), 'HTTP success did not prepare the expected cycle.');
     const prepareMs = Math.round(performance.now() - start);
+    if (prepareMs > 60_000) timingFailures.push(`${count} participants prepared in ${prepareMs} ms (limit 60000).`);
     const matches = await db.match.findMany({ where: { cycleId }, include: { participants: { select: { userId: true, profileSnapshot: true } } } });
     assert.equal(matches.length, count / 2);
     assert.ok(matches.every(m => m.participants.length === 2));
@@ -65,4 +68,5 @@ try {
     assert.equal(await db.match.count({ where: { cycleId, introducedAt: { not: null } } }), count / 2);
     console.log(JSON.stringify({ stage: 'revealed', participants: count, matches: count / 2, snapshots: count, revealMs: Math.round(performance.now() - revealStart) }));
   }
+  assert.deepEqual(timingFailures, [], 'Matching preparation exceeded the release time budget.');
 } finally { await db.$disconnect(); }

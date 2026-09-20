@@ -22,6 +22,7 @@ const mounted = ['--network', 'release-test', '-v', `${secretDir}/api_env:/run/s
 const containers = () => capture('docker', ['ps', '-a', '--filter', `label=${label}`, '--format', '{{.Names}}']).split('\n').filter(Boolean);
 if (action === 'start') {
   execFileSync('git', ['diff', '--exit-code', 'HEAD', '--', 'apps/api', 'packages/shared', 'scripts/release', '.dockerignore', 'package.json', 'package-lock.json']);
+  assert.equal(capture('git', ['ls-files', '--others', '--exclude-standard', '--', 'apps/api', 'packages/shared', 'scripts/release']), '', 'Commit release source files before building.');
   assert.deepEqual(containers(), [], 'Stop the existing task-owned rehearsal first.');
   const target = JSON.parse(await readFile(`${artifacts}/load-target.json`, 'utf8'));
   assert.equal(target.projectId, 'patient-meadow-65557384');
