@@ -1,0 +1,73 @@
+import { spawn, execFileSync } from 'node:child_process';
+import { readFile, writeFile, mkdir, chmod, open } from 'node:fs/promises';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+
+const root = process.cwd();
+const artifacts = path.join(root, 'artifacts/questionnaire-release-20260920');
+const secretDir = path.join(root, 'artifacts/release-secret');
+const outputDir = path.join(root, 'artifacts/release-output');
+const label = 'lilink.release=questionnaire-reset-20260920';
+const action = process.argv[2];
+assert.ok(['start', 'matching', 'evidence', 'stop'].includes(action), 'Use start, matching, evidence or stop.');
+const sha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const image = `lilink-release-local:${sha}`;
+const capture = (command, args) => execFileSync(command, args, { encoding: 'utf8' }).trim();
+const run = (command, args, options = {}) => new Promise((resolve, reject) => {
+  const child = spawn(command, args, { stdio: 'inherit', ...options });
+  child.once('error', reject);
+  child.once('exit', code => code === 0 ? resolve() : reject(new Error(`${command} exited ${code}`)));
+});
+const mounted = ['--network', 'release-test', '-v', `${secretDir}/api_env:/run/secrets/api_env:ro`, '-v', `${root}/scripts/release:/release:ro`];
+const containers = () => capture('docker', ['ps', '-a', '--filter', `label=${label}`, '--format', '{{.Names}}']).split('\n').filter(Boolean);
+if (action === 'start') {
+  execFileSync('git', ['diff', '--exit-code', 'HEAD', '--', 'apps/api', 'packages/shared', 'scripts/release', '.dockerignore', 'package.json', 'package-lock.json']);
+  assert.deepEqual(containers(), [], 'Stop the existing task-owned rehearsal first.');
+  const target = JSON.parse(await readFile(`${artifacts}/load-target.json`, 'utf8'));
+  assert.equal(target.projectId, 'patient-meadow-65557384');
+  assert.equal(target.branchId, 'br-muddy-poetry-azax6deb');
+  const database = (await readFile(`${artifacts}/load-url`, 'utf8')).trim();
+  const url = new URL(database);
+  assert.equal(url.hostname, 'ep-crimson-thunder-aztzdzla.c-3.ap-southeast-1.aws.neon.tech');
+  assert.equal(url.username, 'release_load');
+  assert.equal(url.pathname, '/neondb');
+  console.log(JSON.stringify({ target: { projectId: target.projectId, branchId: target.branchId, host: url.hostname }, release: sha, cpus: 2, memoryMiB: 3584, architecture: capture('docker', ['info', '--format', '{{.Architecture}}']) }));
+  for (const dir of [secretDir, outputDir]) { await mkdir(dir, { recursive: true, mode: 0o700 }); await chmod(dir, 0o700); }
+  await run(process.execPath, ['scripts/release/runner-env.mjs'], { env: { ...process.env, RELEASE_DB: database, RELEASE_KEY: (await readFile(`${artifacts}/load-access-key`, 'utf8')).trim(), TUNNEL_TOKEN: (await readFile(`${artifacts}/tunnel-token`, 'utf8')).trim() } });
+  await writeFile(`${artifacts}/local-load-target.json`, JSON.stringify({ ...target, baseUrl: 'http://127.0.0.1:4080' }, null, 2));
+  await run('docker', ['build', '-f', 'apps/api/Dockerfile.prod', '--build-arg', `SENTRY_RELEASE=${sha}`, '--label', `org.opencontainers.image.revision=${sha}`, '-t', image, '.']);
+  await run('docker', ['network', 'create', '--label', label, 'release-test']);
+  await run('docker', ['run', '-d', '--name', 'release-mail', '--label', label, '--network', 'release-test', '-p', '127.0.0.1:18026:8025', 'ghcr.io/axllent/mailpit:v1.20']);
+  await run('docker', ['run', '--rm', ...mounted, image, 'node', 'scripts/production-entrypoint.mjs', 'npx', 'prisma', 'migrate', 'deploy']);
+  await run('docker', ['run', '--rm', '--user', '0', ...mounted, '-v', `${outputDir}:/release-output`, image, 'node', 'scripts/production-entrypoint.mjs', 'node', '/release/seed-load.mjs']);
+  await run('docker', ['run', '-d', '--name', 'release-api', '--label', label, ...mounted, '--cpus=2', '--memory=3584m', '--memory-swap=5632m', '-p', '127.0.0.1:4120:4000', '-e', 'NODE_OPTIONS=--enable-source-maps --require /release/observe.cjs', image]);
+  const proxyLog = await open(`${outputDir}/requests.jsonl`, 'a');
+  const proxy = spawn(process.execPath, ['scripts/release/proxy.mjs'], { detached: true, stdio: ['ignore', proxyLog.fd, proxyLog.fd], env: { ...process.env, GITHUB_SHA: sha, RELEASE_ACCESS_FILE: `${secretDir}/access-key`, RELEASE_API_PORT: '4120' } });
+  await writeFile(`${outputDir}/proxy.pid`, String(proxy.pid));
+  proxy.unref();
+  await proxyLog.close();
+  for (let attempt = 0; ; attempt++) {
+    try { assert.equal((await fetch('http://127.0.0.1:4120/v1/health', { signal: AbortSignal.timeout(2000) })).status, 200); break; }
+    catch (error) { if (attempt >= 30) throw error; await new Promise(resolve => setTimeout(resolve, 1000)); }
+  }
+  console.log('Isolated API ready on loopback 4120; authenticated load proxy on 4080.');
+} else if (action === 'matching') {
+  assert.ok(containers().includes('release-api'));
+  assert.equal(capture('docker', ['inspect', '--format', '{{.Config.Image}}', 'release-api']), image);
+  await run('docker', ['run', '--rm', ...mounted, '-e', `SENTRY_RELEASE=${sha}`, image, 'node', 'scripts/production-entrypoint.mjs', 'node', '/release/matching-rehearsal.mjs']);
+} else if (action === 'evidence') {
+  assert.ok(containers().includes('release-api'));
+  const evidence = { release: sha, state: JSON.parse(capture('docker', ['inspect', '--format', '{{json .State}}', 'release-api'])), resources: JSON.parse(capture('docker', ['stats', '--no-stream', '--format', '{{json .}}', 'release-api'])) };
+  await writeFile(`${outputDir}/container-state.json`, JSON.stringify(evidence, null, 2));
+  await writeFile(`${outputDir}/api.log`, capture('docker', ['logs', 'release-api']));
+  console.log(JSON.stringify(evidence));
+} else {
+  try {
+    const pid = Number(await readFile(`${outputDir}/proxy.pid`, 'utf8'));
+    const command = capture('ps', ['-p', String(pid), '-o', 'command=']);
+    if (command.includes('scripts/release/proxy.mjs')) process.kill(pid, 'SIGTERM');
+  } catch { /* Already stopped. */ }
+  for (const name of containers()) { assert.ok(['release-api', 'release-mail'].includes(name)); await run('docker', ['rm', '-f', name]); }
+  const networks = capture('docker', ['network', 'ls', '--filter', `label=${label}`, '--format', '{{.Name}}']).split('\n').filter(Boolean);
+  for (const name of networks) { assert.equal(name, 'release-test'); await run('docker', ['network', 'rm', name]); }
+}

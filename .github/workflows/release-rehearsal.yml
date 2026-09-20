@@ -1,8 +1,5 @@
 name: Isolated release rehearsal
 on:
-  push:
-    branches: [codex/questionnaire-reset-release]
-    paths: [apps/api/**, packages/shared/**, scripts/release/**, .github/workflows/release-rehearsal.yml]
   workflow_dispatch:
 permissions:
   contents: read

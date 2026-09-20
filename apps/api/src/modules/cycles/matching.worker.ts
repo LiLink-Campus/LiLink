@@ -3,5 +3,7 @@ import { MatchingEngine, type MatchingInput } from './matching.engine';
 
 if (!parentPort) throw new Error('Matching must run in a worker.');
 parentPort.postMessage(
-  new MatchingEngine().calculate(workerData as MatchingInput),
+  new MatchingEngine((stage) => {
+    console.log(JSON.stringify({ kind: 'matching-performance', ...stage }));
+  }).calculate(workerData as MatchingInput),
 );

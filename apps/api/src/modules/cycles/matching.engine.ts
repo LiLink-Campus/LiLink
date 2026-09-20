@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import blossom from 'edmonds-blossom-fixed';
+import blossom from '../../vendor/edmonds-blossom/index.cjs';
 import { Prisma, QuestionType } from '../../common/prisma/client';
 import {
   HARD_MATCH_LOOKS,
@@ -245,7 +245,28 @@ export type MatchingResult = {
 };
 
 export class MatchingEngine {
+  private questionSetCache?: WeakMap<
+    PreparedQuestion[],
+    WeakMap<PreparedQuestion[], PairQuestionSet>
+  >;
+  private answerCache?: WeakMap<
+    EligibleParticipant,
+    Map<PreparedQuestion, ReturnType<typeof normalizePreparedQuestionAnswer>>
+  >;
+
+  constructor(
+    private readonly reportStage?: (stage: {
+      phase: string;
+      participants: number;
+      candidates: number;
+      elapsedMs: number;
+    }) => void,
+  ) {}
+
   calculate(input: MatchingInput): MatchingResult {
+    this.questionSetCache = new WeakMap();
+    this.answerCache = new WeakMap();
+    const started = performance.now();
     const {
       participants,
       revealAt,
@@ -306,10 +327,27 @@ export class MatchingEngine {
     const candidates = [...candidateByPairKey.values()].sort((first, second) =>
       this.compareCandidatePairs(first, second),
     );
+    // Release the temporary string index before the solver allocates its graph.
+    candidateByPairKey.clear();
+    const solverStarted = performance.now();
+    this.reportStage?.({
+      phase: 'candidates',
+      participants: participants.length,
+      candidates: candidates.length,
+      elapsedMs: Math.round(solverStarted - started),
+    });
     const selectedPairs = this.selectRetentionPriorityPairs(
       participants,
       candidates,
     );
+    this.reportStage?.({
+      phase: 'solver',
+      participants: participants.length,
+      candidates: candidates.length,
+      elapsedMs: Math.round(performance.now() - solverStarted),
+    });
+    this.questionSetCache = undefined;
+    this.answerCache = undefined;
 
     return {
       candidateCount: candidates.length,
@@ -516,6 +554,10 @@ export class MatchingEngine {
       fallbackQuestions,
       questionnairesByVersionId,
     );
+    const cached = this.questionSetCache
+      ?.get(leftQuestions)
+      ?.get(rightQuestions);
+    if (cached) return cached;
     const rightQuestionsByKey = new Map(
       rightQuestions.map((question) => [question.key, question]),
     );
@@ -539,11 +581,44 @@ export class MatchingEngine {
       })
       .filter((question): question is ComparableQuestion => question !== null);
 
-    return {
+    const result = {
       leftQuestions,
       rightQuestions,
       comparableQuestions,
     };
+    if (this.questionSetCache) {
+      let rightSets = this.questionSetCache.get(leftQuestions);
+      if (!rightSets) {
+        rightSets = new WeakMap();
+        this.questionSetCache.set(leftQuestions, rightSets);
+      }
+      rightSets.set(rightQuestions, result);
+    }
+    return result;
+  }
+
+  private readParticipantAnswer(
+    participant: EligibleParticipant,
+    question: PreparedQuestion,
+  ) {
+    const answers = this.answerCache?.get(participant);
+    if (answers?.has(question)) return answers.get(question)!;
+    const answer = normalizePreparedQuestionAnswer(
+      question,
+      participant.answers[question.key],
+      { invalidAsNull: true },
+    );
+    if (this.answerCache) {
+      const target =
+        answers ??
+        new Map<
+          PreparedQuestion,
+          ReturnType<typeof normalizePreparedQuestionAnswer>
+        >();
+      target.set(question, answer);
+      this.answerCache.set(participant, target);
+    }
+    return answer;
   }
 
   private calculateLooksPreferenceSimilarity(
@@ -657,10 +732,9 @@ export class MatchingEngine {
     scoreBounds?: MatchScoreBounds,
     pairQuestionSet?: PairQuestionSet,
   ) {
-    const fallbackQuestions = prepareQuestions(questions);
     const resolvedQuestionSet =
       pairQuestionSet ??
-      this.buildPairQuestionSet(left, right, fallbackQuestions);
+      this.buildPairQuestionSet(left, right, prepareQuestions(questions));
     const resolvedScoreBounds =
       scoreBounds ??
       this.calculateMatchScoreBounds(resolvedQuestionSet.comparableQuestions);
@@ -696,15 +770,13 @@ export class MatchingEngine {
       ) * AGE_PREFERENCE_SOFT_BONUS;
 
     for (const question of resolvedQuestionSet.comparableQuestions) {
-      const leftAnswer = normalizePreparedQuestionAnswer(
+      const leftAnswer = this.readParticipantAnswer(
+        left,
         question.leftQuestion,
-        left.answers[question.key],
-        { invalidAsNull: true },
       );
-      const rightAnswer = normalizePreparedQuestionAnswer(
+      const rightAnswer = this.readParticipantAnswer(
+        right,
         question.rightQuestion,
-        right.answers[question.key],
-        { invalidAsNull: true },
       );
       const weight = question.weight;
 
@@ -770,7 +842,6 @@ export class MatchingEngine {
     const participantIndexById = new Map(
       participants.map((participant, index) => [participant.id, index]),
     );
-    const candidateByVertexPair = new Map<string, CandidatePair>();
     const edges: [number, number, number][] = [];
 
     for (const candidate of candidates) {
@@ -782,22 +853,20 @@ export class MatchingEngine {
         leftIndex < rightIndex
           ? [leftIndex, rightIndex]
           : [rightIndex, leftIndex];
-      const vertexPairKey = `${firstIndex}::${secondIndex}`;
-
-      candidateByVertexPair.set(vertexPairKey, candidate);
       edges.push([firstIndex, secondIndex, candidate.matchingWeight]);
     }
 
     const matchedVertices = blossom(edges);
-    return matchedVertices
-      .map((rightIndex, leftIndex) => {
-        if (rightIndex <= leftIndex) {
-          return null;
-        }
-
-        return candidateByVertexPair.get(`${leftIndex}::${rightIndex}`) ?? null;
+    return candidates
+      .filter((candidate) => {
+        const leftIndex = participantIndexById.get(candidate.left.id);
+        const rightIndex = participantIndexById.get(candidate.right.id);
+        return (
+          leftIndex != null &&
+          rightIndex != null &&
+          matchedVertices[leftIndex] === rightIndex
+        );
       })
-      .filter((candidate): candidate is CandidatePair => candidate !== null)
       .sort((first, second) => this.compareCandidatePairs(first, second));
   }
 

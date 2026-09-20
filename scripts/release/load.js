@@ -8,7 +8,7 @@ import { Counter, Rate, Trend } from 'k6/metrics';
 const target = JSON.parse(open(__ENV.TARGET_FILE));
 const secret = open(__ENV.ACCESS_FILE).trim();
 const fixture = JSON.parse(open(__ENV.QUESTION_FIXTURE));
-if (target.baseUrl !== 'https://release-api-20260920.lilink.top' || target.branchId !== 'br-muddy-poetry-azax6deb' || target.projectId !== 'patient-meadow-65557384' || !__ENV.RELEASE_SHA) throw new Error('Verified isolated target and exact release SHA are required.');
+if (!['https://release-api-20260920.lilink.top', 'http://127.0.0.1:4080'].includes(target.baseUrl) || target.branchId !== 'br-muddy-poetry-azax6deb' || target.projectId !== 'patient-meadow-65557384' || !__ENV.RELEASE_SHA) throw new Error('Verified isolated target and exact release SHA are required.');
 const rate = Number(__ENV.LOAD_RATE || 33);
 const seconds = Number(__ENV.LOAD_DURATION_SECONDS || 120);
 const mode = __ENV.MODE || 'read';

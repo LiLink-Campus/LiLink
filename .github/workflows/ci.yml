@@ -75,9 +75,18 @@ jobs:
       MERCHANT_JWT_SECRET: merchant1234567890abcdef
       ADMIN_COOKIE_NAME: lilink_admin_token
       SMTP_FROM: "LiLink <hello@lilink.zone>"
+      SMTP_HOST: "127.0.0.1"
+      SMTP_PORT: "11025"
+      SMTP_SECURE: "false"
+      E2E_MAIL_URL: "http://127.0.0.1:18025"
       CRON_SECRET: abcdef1234567890
       REDEEM_TICKET_SECRET: test-redeem-ticket-secret-0123456789
     services:
+      mailpit:
+        image: ghcr.io/axllent/mailpit:v1.20
+        ports:
+          - 11025:1025
+          - 18025:8025
       postgres:
         image: postgres:17-alpine
         env:

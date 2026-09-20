@@ -2,6 +2,10 @@
 
 These scripts reject the production database and API. Local credentials and target manifests belong under the ignored `artifacts/questionnaire-release-20260920/` directory. Validate Neon project, branch and compute metadata before writing a target manifest. Never commit connection strings, keys, backups or runtime logs.
 
+`node scripts/release/local-rehearsal.mjs start` builds the committed API using the production Dockerfile, starts task-labelled containers with 2 CPUs / 3.5 GiB memory and Mailpit, and exposes the authenticated proxy on `http://127.0.0.1:4080`. It requires the verified synthetic target and existing restricted credential files. Run `matching`, `evidence`, then `stop` as separate subcommands. Stop removes only containers and the network carrying this task's label; it retains logs and database evidence. On Apple Silicon this is Linux arm64, so record the architecture and do not equate its throughput with production amd64. The GitHub rehearsal is now manual to avoid starting an unused remote API on every push.
+
+Before a matching replay, previous `release_worker_*` cycles are retained as DRAFT and pending synthetic match mail is retired. This keeps abandoned cycles from being scheduled again and excludes earlier rehearsal rounds from matching history. The three original synthetic history cycles remain unchanged.
+
 `database.mjs` provides the guarded audit, encrypted backup, migration and restore rehearsal. `seed-load.mjs` requires the dedicated synthetic Neon project and creates 2,000 synthetic users. `matching-rehearsal.mjs` exercises the running API at 500, 1,000 and 2,000 participants and verifies matching, introduction and snapshot counts. Its output must be captured with Bash `set -euo pipefail` when piped through `tee`.
 
 `load.js` requires **absolute** `TARGET_FILE`, `ACCESS_FILE`, `QUESTION_FIXTURE` and `SUMMARY_FILE` paths, plus the API's exact `RELEASE_SHA`. It verifies the remote identity before generating traffic. Use the official k6 binary. Keep normal production throttle settings.

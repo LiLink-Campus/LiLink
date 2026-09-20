@@ -6,6 +6,10 @@
     "deleteOutDir": true,
     "assets": [
       {
+        "include": "vendor/edmonds-blossom/{index.cjs,LICENSE,README.md}",
+        "outDir": "dist/src"
+      },
+      {
         "include": "scripts/**/*.ts",
         "outDir": "dist"
       }
