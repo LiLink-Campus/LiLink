@@ -228,6 +228,31 @@ describe('DashboardSnapshotService', () => {
     expect(store.userCycleDashboardSnapshot.create).not.toHaveBeenCalled();
   });
 
+  it('skips snapshot rereads when known missing cycles were never joined', async () => {
+    const prisma = {
+      userCycleDashboardSnapshot: { findMany: jest.fn() },
+      cycleParticipation: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new DashboardSnapshotService(prisma as never);
+    await expect(
+      service.ensureUserSnapshotCoverage({
+        userId: 'user-1',
+        recentRevealedCycleIds: ['cycle-1', 'cycle-2'],
+        existingSnapshotCycleIds: ['cycle-1'],
+      }),
+    ).resolves.toBe(false);
+    expect(prisma.userCycleDashboardSnapshot.findMany).not.toHaveBeenCalled();
+    expect(prisma.cycleParticipation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: 'user-1',
+          cycleId: { in: ['cycle-2'] },
+          cycle: { status: 'REVEALED' },
+        },
+      }),
+    );
+  });
+
   it('fills only the missing user-cycle snapshot during dashboard coverage checks', async () => {
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([]),

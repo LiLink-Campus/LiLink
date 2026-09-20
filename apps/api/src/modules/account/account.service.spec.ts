@@ -2547,6 +2547,7 @@ describe('AccountService', () => {
     expect(snapshots.ensureUserSnapshotCoverage).not.toHaveBeenCalled();
 
     prisma.userCycleDashboardSnapshot.findMany.mockResolvedValueOnce([]);
+    snapshots.ensureUserSnapshotCoverage.mockResolvedValueOnce(true);
     const repaired = await service.getDashboard('user-1');
     expect(snapshots.ensureUserSnapshotCoverage).toHaveBeenCalledTimes(1);
     expect(repaired.latestMatch).toEqual(warm.latestMatch);

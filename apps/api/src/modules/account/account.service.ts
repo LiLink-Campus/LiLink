@@ -417,12 +417,17 @@ export class AccountService {
     ]);
     let recentSnapshots = existingSnapshots;
     if (existingSnapshots.length < latestSnapshotCandidateCycleIds.length) {
-      await this.dashboardSnapshotService.ensureUserSnapshotCoverage({
-        userId,
-        latestParticipationCycleId: lastRevealedParticipation?.cycleId ?? null,
-        recentRevealedCycleIds: revealedCycleIds,
-      });
-      recentSnapshots = await readSnapshots();
+      const repaired =
+        await this.dashboardSnapshotService.ensureUserSnapshotCoverage({
+          userId,
+          latestParticipationCycleId:
+            lastRevealedParticipation?.cycleId ?? null,
+          recentRevealedCycleIds: revealedCycleIds,
+          existingSnapshotCycleIds: existingSnapshots.map(
+            (snapshot) => snapshot.cycleId,
+          ),
+        });
+      if (repaired) recentSnapshots = await readSnapshots();
     }
     const latestSnapshot = recentSnapshots[0] ?? null;
     const recentSnapshotByCycleId = new Map(

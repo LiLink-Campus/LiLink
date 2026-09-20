@@ -175,6 +175,7 @@ export class DashboardSnapshotService {
     userId: string;
     latestParticipationCycleId?: string | null;
     recentRevealedCycleIds?: string[];
+    existingSnapshotCycleIds?: string[];
   }) {
     const candidateCycleIds = Array.from(
       new Set(
@@ -188,30 +189,31 @@ export class DashboardSnapshotService {
     );
 
     if (candidateCycleIds.length === 0) {
-      return;
+      return false;
     }
 
-    const existingSnapshots =
-      await this.prisma.userCycleDashboardSnapshot.findMany({
-        where: {
-          userId: input.userId,
-          cycleId: {
-            in: candidateCycleIds,
-          },
-        },
-        select: {
-          cycleId: true,
-        },
-      });
     const existingSnapshotCycleIds = new Set(
-      existingSnapshots.map((snapshot) => snapshot.cycleId),
+      input.existingSnapshotCycleIds ??
+        (
+          await this.prisma.userCycleDashboardSnapshot.findMany({
+            where: {
+              userId: input.userId,
+              cycleId: {
+                in: candidateCycleIds,
+              },
+            },
+            select: {
+              cycleId: true,
+            },
+          })
+        ).map((snapshot) => snapshot.cycleId),
     );
     const missingCycleIds = candidateCycleIds.filter(
       (cycleId) => !existingSnapshotCycleIds.has(cycleId),
     );
 
     if (missingCycleIds.length === 0) {
-      return;
+      return false;
     }
 
     const participations = await this.prisma.cycleParticipation.findMany({
@@ -237,6 +239,7 @@ export class DashboardSnapshotService {
         this.syncUserCycleSnapshot({ userId: input.userId, cycleId }),
       ),
     );
+    return cycleIdsToSync.length > 0;
   }
 
   async syncCycleSnapshots(cycleId: string, store?: SnapshotStoreClient) {
