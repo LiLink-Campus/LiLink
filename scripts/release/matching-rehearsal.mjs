@@ -9,6 +9,7 @@ const { createPrismaClient } = require('./dist/src/common/prisma/client.js');
 const db = createPrismaClient();
 const base = 'http://release-api:4000/v1';
 assert.match(process.env.SENTRY_RELEASE ?? '', /^[a-f0-9]{40}$/, 'An exact candidate SHA is required.');
+assert.equal(process.env.BACKGROUND_JOBS_ENABLED, 'false', 'Pause automatic scheduling for the deterministic manual matching rehearsal.');
 const timingFailures = [];
 async function tick() {
   const response = await fetch(`${base}/internal/cycles/tick`, { method: 'POST', headers: { 'x-cron-secret': process.env.CRON_SECRET }, signal: AbortSignal.timeout(240_000) });

@@ -1,5 +1,5 @@
 import { resolveLoadTarget, resolveDatabaseTarget } from './targets.mjs';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { readFile, writeFile, mkdir, chmod, open } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -60,7 +60,9 @@ if (action === 'start') {
   assert.ok(containers().includes('release-api'));
   const evidence = { release: sha, state: JSON.parse(capture('docker', ['inspect', '--format', '{{json .State}}', 'release-api'])), resources: JSON.parse(capture('docker', ['stats', '--no-stream', '--format', '{{json .}}', 'release-api'])) };
   await writeFile(`${outputDir}/container-state.json`, JSON.stringify(evidence, null, 2));
-  await writeFile(`${outputDir}/api.log`, capture('docker', ['logs', 'release-api']));
+  const logs = spawnSync('docker', ['logs', 'release-api'], { encoding: 'utf8' });
+  assert.equal(logs.status, 0, 'Could not collect API stdout and stderr.');
+  await writeFile(`${outputDir}/api.log`, (logs.stdout ?? '') + (logs.stderr ?? ''));
   console.log(JSON.stringify(evidence));
 } else {
   try {

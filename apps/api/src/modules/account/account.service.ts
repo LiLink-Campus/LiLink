@@ -893,27 +893,27 @@ export class AccountService {
   }
 
   async getContactPreferences(userId: string) {
-    const user = await this.prisma.$transaction(
-      (tx) =>
-        tx.user.findUnique({
-          where: { id: userId },
-          select: {
-            email: true,
-            preferredContactChannel: true,
-            contactPreferencesRevision: true,
-            contactMethods: {
-              select: {
-                type: true,
-                value: true,
-              },
-              orderBy: {
-                type: 'asc',
-              },
-            },
-          },
-        }),
-      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-    );
+    // One statement keeps the revision and methods in the same MVCC snapshot.
+    const [user] = await this.prisma.$queryRaw<
+      Array<{
+        email: string;
+        preferredContactChannel: PrismaContactChannelType;
+        contactPreferencesRevision: number;
+        contactMethods: Array<{
+          type: PrismaContactChannelType;
+          value: string;
+        }>;
+      }>
+    >`
+      SELECT u."email", u."preferredContactChannel", u."contactPreferencesRevision",
+        COALESCE((
+          SELECT jsonb_agg(
+            jsonb_build_object('type', c."type", 'value', c."value")
+            ORDER BY c."type"
+          ) FROM "UserContactMethod" c WHERE c."userId" = u."id"
+        ), '[]'::jsonb) AS "contactMethods"
+      FROM "User" u WHERE u."id" = ${userId}
+    `;
 
     if (!user) {
       throw new NotFoundException('User not found.');
