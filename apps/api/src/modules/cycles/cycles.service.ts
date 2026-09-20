@@ -751,6 +751,7 @@ export class CyclesService {
 
     const revealedAt = new Date();
     let emailDedupeKeys: string[] = [];
+    const transactionStarted = performance.now();
     const revealedMatchCount = await this.prisma.$transaction(
       async (tx) => {
         const claimedCycle = await tx.matchCycle.updateMany({
@@ -802,6 +803,7 @@ export class CyclesService {
       },
       { timeout: 30_000 },
     );
+    const transactionMs = Math.round(performance.now() - transactionStarted);
 
     if (revealedMatchCount == null) {
       return {
@@ -818,14 +820,26 @@ export class CyclesService {
     // instead of being held for the whole per-participation rebuild. A failure
     // here is recoverable: dashboard reads repair coverage lazily via
     // ensureUserSnapshotCoverage, and admins can re-trigger a cycle sync.
+    const snapshotsStarted = performance.now();
+    let snapshotsCompleted = false;
     try {
       await this.dashboardSnapshotService.syncCycleSnapshots(cycle.id);
+      snapshotsCompleted = true;
     } catch (error) {
       this.logger.error(
         `Cycle ${cycle.id} revealed but dashboard snapshot rebuild failed; relying on lazy coverage.`,
         error instanceof Error ? error.stack : String(error),
       );
     }
+    this.logger.log({
+      kind: 'cycle-reveal-performance',
+      cycleId: cycle.id,
+      transactionMs,
+      snapshotsMs: Math.round(performance.now() - snapshotsStarted),
+      snapshotsCompleted,
+      matches: revealedMatchCount,
+      queuedEmails: emailDedupeKeys.length,
+    });
 
     if (emailDedupeKeys.length > 0) {
       void this.mailService

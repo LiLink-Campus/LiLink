@@ -6,6 +6,8 @@ These scripts reject the production database and API. Local credentials and targ
 
 Before a matching replay, previous `release_worker_*` cycles are retained as DRAFT and pending synthetic match mail is retired. This prevents abandoned cycles from being scheduled and excludes them from the first-cycle/streak window; their existing pair exclusions are retained. The three original synthetic history cycles remain unchanged. Each result reports its actual candidate count. Preparation over 60 seconds fails the workflow after all business assertions have been checked.
 
+Each matching stage waits for every outbox row to become SENT and reconciles the new Mailpit receipts against all expected recipients before advancing. A repeated tick must not reveal the cycle again. The API logs reveal transaction and snapshot durations separately. The preload observer reports connection-pool occupancy, checkout wait and query round-trip durations without logging SQL text, parameters or credentials.
+
 `database.mjs` provides the guarded audit, encrypted backup, migration and restore rehearsal. `seed-load.mjs` requires the dedicated synthetic Neon project and creates 2,000 synthetic users. `matching-rehearsal.mjs` exercises the running API at 500, 1,000 and 2,000 participants and verifies matching, introduction and snapshot counts. Its output must be captured with Bash `set -euo pipefail` when piped through `tee`.
 
 `load.js` requires **absolute** `TARGET_FILE`, `ACCESS_FILE`, `QUESTION_FIXTURE` and `SUMMARY_FILE` paths, plus the API's exact `RELEASE_SHA`. It verifies the remote identity before generating traffic. Use the official k6 binary. Keep normal production throttle settings.

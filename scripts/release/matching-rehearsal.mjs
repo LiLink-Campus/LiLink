@@ -11,6 +11,18 @@ const base = 'http://release-api:4000/v1';
 assert.match(process.env.SENTRY_RELEASE ?? '', /^[a-f0-9]{40}$/, 'An exact candidate SHA is required.');
 assert.equal(process.env.BACKGROUND_JOBS_ENABLED, 'false', 'Pause automatic scheduling for the deterministic manual matching rehearsal.');
 const timingFailures = [];
+async function receivedMessages() {
+  const messages = [];
+  for (let start = 0; ; ) {
+    const response = await fetch(`http://release-mail:8025/api/v1/messages?start=${start}&limit=500`, { signal: AbortSignal.timeout(5000) });
+    assert.equal(response.status, 200);
+    const page = await response.json();
+    messages.push(...page.messages);
+    start += page.messages.length;
+    if (start >= page.total) return messages;
+    assert.ok(page.messages.length > 0, 'Mailpit pagination stopped before the final receipt.');
+  }
+}
 async function tick() {
   const response = await fetch(`${base}/internal/cycles/tick`, { method: 'POST', headers: { 'x-cron-secret': process.env.CRON_SECRET }, signal: AbortSignal.timeout(240_000) });
   assert.equal(response.status, 201);
@@ -61,6 +73,7 @@ try {
     assert.equal(new Set(participants.map(p => p.userId)).size, count);
     assert.ok(participants.every(p => p.profileSnapshot?.source === 'matching-preparation'));
     console.log(JSON.stringify({ stage: 'prepared', participants: count, matches: matches.length, prepareMs, healthRequests: latencies.length, healthMaxMs: Math.round(Math.max(...latencies)) }));
+    const previousReceipts = new Set((await receivedMessages()).map(message => message.ID));
     await db.matchCycle.update({ where: { id: cycleId }, data: { revealAt: new Date(Date.now() - 1000) } });
     const revealStart = performance.now();
     const revealed = await tick();
@@ -68,6 +81,19 @@ try {
     assert.equal(await db.userCycleDashboardSnapshot.count({ where: { cycleId } }), count, 'Reveal did not finish all dashboard snapshots.');
     assert.equal(await db.match.count({ where: { cycleId, introducedAt: { not: null } } }), count / 2);
     console.log(JSON.stringify({ stage: 'revealed', participants: count, matches: count / 2, snapshots: count, revealMs: Math.round(performance.now() - revealStart) }));
+    const dedupeKeys = matches.flatMap(match => [0, 1].map(index => `match-reveal:${match.id}:${index}`));
+    assert.equal(await db.outboundEmail.count({ where: { dedupeKey: { in: dedupeKeys } } }), count);
+    while (await db.outboundEmail.count({ where: { dedupeKey: { in: dedupeKeys }, status: 'SENT' } }) !== count) {
+      assert.ok(performance.now() - revealStart < 600_000, 'Match email queue did not drain within ten minutes.');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    const replay = await tick();
+    assert.ok(!replay.revealedCycleIds.includes(cycleId), 'Repeated scheduling revealed a completed cycle.');
+    const receipts = (await receivedMessages()).filter(message => !previousReceipts.has(message.ID));
+    assert.equal(receipts.length, count, 'The mailbox did not receive exactly one email per participant.');
+    assert.ok(receipts.every(message => message.To.length === 1));
+    assert.deepEqual(receipts.map(message => message.To[0].Address).sort(), Array.from({ length: count }, (_, i) => `user${i}@release.example.test`).sort());
+    console.log(JSON.stringify({ stage: 'mail-delivered', participants: count, sent: count, received: receipts.length, revealToQueueDrainedMs: Math.round(performance.now() - revealStart), repeatedReveal: false }));
   }
   assert.deepEqual(timingFailures, [], 'Matching preparation exceeded the release time budget.');
 } finally { await db.$disconnect(); }
