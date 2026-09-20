@@ -1,3 +1,4 @@
+import { MatchingEngine } from './matching.engine';
 import { BadRequestException } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { QuestionType } from '../../common/prisma/client';
@@ -102,10 +103,21 @@ type CyclesServiceTestHarness = {
     currentCycleId?: string,
     questionnairesByVersionId?: Map<string, unknown[]>,
   ) => Promise<{
+    candidateCount?: number;
     candidates: CandidatePairStub[];
     selectedPairs: CandidatePairStub[];
   }>;
 };
+
+jest.mock('./matching.executor', () => ({
+  runMatching: (input: unknown) => {
+    const { MatchingEngine } =
+      jest.requireActual<typeof import('./matching.engine')>(
+        './matching.engine',
+      );
+    return Promise.resolve(new MatchingEngine().calculate(input as never));
+  },
+}));
 
 const SCHOOL_BUPT = 'school-bupt';
 const SCHOOL_CUC = 'school-cuc';
@@ -242,13 +254,14 @@ function createCyclesService(
   );
 }
 
-function bindRawScorePairForTest(service: CyclesService) {
-  const harness = service as unknown as Pick<
+function bindRawScorePairForTest() {
+  const engine = new MatchingEngine();
+  const harness = engine as unknown as Pick<
     CyclesServiceTestHarness,
     'calculatePairRawScore' | 'normalizeMatchScore'
   >;
-  const calculatePairRawScore = harness.calculatePairRawScore.bind(service);
-  const normalizeMatchScore = harness.normalizeMatchScore.bind(service);
+  const calculatePairRawScore = harness.calculatePairRawScore.bind(engine);
+  const normalizeMatchScore = harness.normalizeMatchScore.bind(engine);
 
   return (
     ...args: Parameters<CyclesServiceTestHarness['calculatePairRawScore']>
@@ -268,7 +281,9 @@ function bindRawScorePairForTest(service: CyclesService) {
 const MOCK_RAW_SCORE_BOUNDS = { min: 70, max: 100 };
 
 describe('CyclesService', () => {
-  afterEach(() => {});
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   it('declares dashboard snapshot sync as a module dependency', () => {
     const imports: unknown = Reflect.getMetadata(
@@ -688,8 +703,7 @@ describe('CyclesService', () => {
   });
 
   it('blocks pairing when weekly intents are incompatible (FRIEND vs DATE)', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const friendOnly = createBroadParticipant('user-friend', {}, 'FRIEND');
     const dateOnly = createBroadParticipant('user-date', {}, 'DATE');
@@ -720,8 +734,7 @@ describe('CyclesService', () => {
     // offset and entered partnerAgeMin/Max=4..5 meaning "对方比我小 4-5
     // 岁". With age as a hard filter the pair was dropped; soft scoring
     // keeps it in the candidate set instead.
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const left = createBroadParticipant('age-soft-left', {});
     const rightWithMisreadWindow = createBroadParticipant('age-soft-right', {});
@@ -742,8 +755,7 @@ describe('CyclesService', () => {
   });
 
   it('scores pairs whose ages fall inside the partner window higher than pairs that fall fully outside', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
     const revealAt = new Date('2026-04-10T00:00:00.000Z');
 
     const inside = createBroadParticipant('age-inside', {});
@@ -772,8 +784,7 @@ describe('CyclesService', () => {
     //   2 years outside                   -> 0.50
     //   ... (decay 0.25 per year, floors at 0)
     // Average × AGE_PREFERENCE_SOFT_BONUS (=6) is added to rawScore.
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
     const revealAt = new Date('2026-04-10T00:00:00.000Z');
 
     const me = createBroadParticipant('age-decay-me', {});
@@ -826,8 +837,7 @@ describe('CyclesService', () => {
   });
 
   it('normalizes multi-select scoring so broad selections are not rewarded', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const focusedMatch = scorePair(
       createBroadParticipant('user-1', {
@@ -861,8 +871,7 @@ describe('CyclesService', () => {
   });
 
   it('gives adjacent scale answers partial credit', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const adjacentMatch = scorePair(
       createBroadParticipant('user-1', {
@@ -896,8 +905,7 @@ describe('CyclesService', () => {
   });
 
   it('keeps looks preferences out of hard filtering', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const left = createBroadParticipant('user-1', {});
     const right = createBroadParticipant('user-2', {});
@@ -1003,8 +1011,11 @@ describe('CyclesService', () => {
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
             cycleParticipation,
+            matchParticipant: {
+              createMany: jest.fn().mockResolvedValue({ count: 2 }),
+            },
             match: {
-              create: matchCreate,
+              createMany: matchCreate,
               updateMany: matchUpdateMany,
             },
             matchCycle: {
@@ -1218,8 +1229,11 @@ describe('CyclesService', () => {
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
             cycleParticipation,
+            matchParticipant: {
+              createMany: jest.fn().mockResolvedValue({ count: 2 }),
+            },
             match: {
-              create: matchCreate,
+              createMany: matchCreate,
             },
             matchCycle: {
               updateMany: activePreparationClaim,
@@ -1525,7 +1539,7 @@ describe('CyclesService', () => {
       },
       match: {
         deleteMany: matchDeleteMany,
-        create: matchCreate,
+        createMany: matchCreate,
       },
       userCycleDashboardSnapshot: {
         deleteMany: snapshotDeleteMany,
@@ -1548,7 +1562,7 @@ describe('CyclesService', () => {
           cycleParticipation,
           match: {
             deleteMany: matchDeleteMany,
-            create: matchCreate,
+            createMany: matchCreate,
             updateMany: revealMatchUpdateMany,
           },
           matchCycle: {
@@ -1727,7 +1741,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -1792,7 +1806,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -1865,7 +1879,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -1946,7 +1960,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2027,7 +2041,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2079,7 +2093,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2137,7 +2151,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2187,7 +2201,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2325,7 +2339,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2404,7 +2418,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2472,7 +2486,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;

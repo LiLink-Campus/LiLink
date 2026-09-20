@@ -732,17 +732,34 @@ export const ProfileInterruptHash: Story = {
   },
 };
 
+let activateVipDuringReaderRefresh = false;
 export const ProfileInterruptReaderRefresh: Story = {
   ...transitionStory,
-  parameters: ProfilePremiumActive.parameters,
+  beforeEach: () => {
+    activateVipDuringReaderRefresh = false;
+    return setReaderReducedMotion(false);
+  },
+  parameters: { ...route("/dashboard/profile"), msw: { handlers: { site: [
+    http.get(`${api}/me/vip`, () => HttpResponse.json(activateVipDuringReaderRefresh ? profileVip : { active: false, expiresAt: null })),
+    http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
+    ...siteHandlers,
+  ] } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     const question = await startQuestionDeparture(canvasElement);
     const departure = question.getAnimations()[0];
+    activateVipDuringReaderRefresh = true;
     fireEvent.focus(window);
     await waitFor(() => expect(c.getAllByText("高级筛选 · VIP 已启用").length).toBeGreaterThan(0));
     await expect(departure.playState).toBe("idle");
     await new Promise(resolve => window.setTimeout(resolve, 200));
+    // The refresh may finish after the 160 ms advance on a busy runner.
+    const nextQuestion = canvasElement.querySelector<HTMLElement>(`#profile-attention-${questions[1].key}`)!;
+    await expect(question.dataset.readerHidden === "false" || nextQuestion.dataset.readerHidden === "false").toBe(true);
+    await expect(question.getAnimations()).toHaveLength(0);
+    if (question.dataset.readerHidden === "true") {
+      await userEvent.click(c.getByRole("button", { name: "← 上一题" }));
+    }
     await expect(question).toBeVisible();
     await expect(getComputedStyle(question).opacity).toBe("1");
     await expect(question.getAnimations()).toHaveLength(0);

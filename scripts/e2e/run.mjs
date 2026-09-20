@@ -109,7 +109,7 @@ try {
   await command('npm', ['run', 'db:migrate:deploy'], { label: 'migrate' });
   await command('npm', ['run', 'build:api'], { label: 'build' });
   if (apiOnly) {
-    await command('npm', ['run', 'test:e2e', '--workspace', 'api', '--', '--runInBand'], { label: 'tests' });
+    await command('npm', ['run', 'test:e2e', '--workspace', 'api', '--', '--runInBand', ...process.argv.slice(2).filter(arg => arg !== '--api')], { label: 'tests' });
   } else {
   await command('node', ['apps/api/scripts/seed-defaults.mjs'], { label: 'seed' });
   await command('node', ['e2e/support/seed.mjs'], { label: 'seed' });
