@@ -1,6 +1,7 @@
+import { resolveDatabaseTarget } from './targets.mjs';
 import { writeFile, chmod } from 'node:fs/promises';
 const url = new URL(process.env.RELEASE_DB);
-if (url.hostname !== 'ep-crimson-thunder-aztzdzla.c-3.ap-southeast-1.aws.neon.tech' || url.pathname !== '/neondb' || url.username !== 'release_load') throw new Error('Wrong release database target.');
+resolveDatabaseTarget(process.env.RELEASE_DB);
 const key = process.env.RELEASE_KEY;
 if (!key || key.length < 32 || !process.env.TUNNEL_TOKEN) throw new Error('Isolated rehearsal credentials missing.');
 const lines = { DATABASE_URL: url.href, APP_ENV: 'production', NODE_ENV: 'production', JWT_SECRET: key, ADMIN_JWT_SECRET: `${key}-admin`, MERCHANT_JWT_SECRET: `${key}-merchant`, CRON_SECRET: `${key}-cron`, REDEEM_TICKET_SECRET: `${key}-redeem`, COOKIE_NAME: 'lilink_rehearsal_token', COOKIE_DOMAIN: '.lilink.top', CLIENT_ORIGIN: 'https://release-20260920.lilink.top', SMTP_HOST: 'release-mail', SMTP_PORT: '1025', SMTP_FROM: 'LiLink Test <test@example.test>', BACKGROUND_JOBS_ENABLED: 'false', MAIL_DELIVERY_ENABLED: 'true', SENTRY_DSN: '' };

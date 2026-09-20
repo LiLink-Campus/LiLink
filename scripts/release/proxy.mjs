@@ -1,10 +1,12 @@
+import { loadTargets, resolveLoadTarget } from './targets.mjs';
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 const secret = (await readFile(process.env.RELEASE_ACCESS_FILE, 'utf8')).trim();
-const identity = { release: process.env.GITHUB_SHA, branchId: 'br-muddy-poetry-azax6deb', projectId: 'patient-meadow-65557384', host: 'ep-crimson-thunder-aztzdzla.c-3.ap-southeast-1.aws.neon.tech', users: 2000, synthetic: true };
+const target = process.env.RELEASE_TARGET_FILE ? resolveLoadTarget(JSON.parse(await readFile(process.env.RELEASE_TARGET_FILE, 'utf8'))) : loadTargets[0];
+const identity = { release: process.env.GITHUB_SHA, ...target, host: target.directHost, users: 2000, synthetic: true };
 const command = promisify(execFile);
 const upstreamPort = Number(process.env.RELEASE_API_PORT ?? 4000);
 if (!Number.isInteger(upstreamPort) || upstreamPort < 1024 || upstreamPort > 65535) throw new Error('Invalid loopback rehearsal port.');

@@ -1,3 +1,4 @@
+import { resolveLoadTarget, resolveDatabaseTarget } from './targets.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { readFile, writeFile, mkdir, chmod, open } from 'node:fs/promises';
 import path from 'node:path';
@@ -24,15 +25,14 @@ if (action === 'start') {
   execFileSync('git', ['diff', '--exit-code', 'HEAD', '--', 'apps/api', 'packages/shared', 'scripts/release', '.dockerignore', 'package.json', 'package-lock.json']);
   assert.equal(capture('git', ['ls-files', '--others', '--exclude-standard', '--', 'apps/api', 'packages/shared', 'scripts/release']), '', 'Commit release source files before building.');
   assert.deepEqual(containers(), [], 'Stop the existing task-owned rehearsal first.');
-  const target = JSON.parse(await readFile(`${artifacts}/load-target.json`, 'utf8'));
-  assert.equal(target.projectId, 'patient-meadow-65557384');
-  assert.equal(target.branchId, 'br-muddy-poetry-azax6deb');
-  const database = (await readFile(`${artifacts}/load-url`, 'utf8')).trim();
+  const targetFile = process.env.RELEASE_TARGET_FILE ?? `${artifacts}/load-target.json`;
+  const connectionFile = process.env.RELEASE_DATABASE_FILE ?? `${artifacts}/load-url`;
+  const target = JSON.parse(await readFile(targetFile, 'utf8'));
+  const verified = resolveLoadTarget(target);
+  const database = (await readFile(connectionFile, 'utf8')).trim();
+  assert.deepEqual(resolveDatabaseTarget(database), verified);
   const url = new URL(database);
-  assert.equal(url.hostname, 'ep-crimson-thunder-aztzdzla.c-3.ap-southeast-1.aws.neon.tech');
-  assert.equal(url.username, 'release_load');
-  assert.equal(url.pathname, '/neondb');
-  console.log(JSON.stringify({ target: { projectId: target.projectId, branchId: target.branchId, host: url.hostname }, release: sha, cpus: 2, memoryMiB: 3584, architecture: capture('docker', ['info', '--format', '{{.Architecture}}']) }));
+  console.log(JSON.stringify({ target: { projectId: target.projectId, branchId: target.branchId, host: url.hostname, database: verified.database, role: verified.role }, release: sha, cpus: 2, memoryMiB: 3584, architecture: capture('docker', ['info', '--format', '{{.Architecture}}']) }));
   for (const dir of [secretDir, outputDir]) { await mkdir(dir, { recursive: true, mode: 0o700 }); await chmod(dir, 0o700); }
   await run(process.execPath, ['scripts/release/runner-env.mjs'], { env: { ...process.env, RELEASE_DB: database, RELEASE_KEY: (await readFile(`${artifacts}/load-access-key`, 'utf8')).trim(), TUNNEL_TOKEN: (await readFile(`${artifacts}/tunnel-token`, 'utf8')).trim() } });
   await writeFile(`${artifacts}/local-load-target.json`, JSON.stringify({ ...target, baseUrl: 'http://127.0.0.1:4080' }, null, 2));
@@ -43,7 +43,7 @@ if (action === 'start') {
   await run('docker', ['run', '--rm', '--user', '0', ...mounted, '-v', `${outputDir}:/release-output`, image, 'node', 'scripts/production-entrypoint.mjs', 'node', '/release/seed-load.mjs']);
   await run('docker', ['run', '-d', '--name', 'release-api', '--label', label, ...mounted, '--cpus=2', '--memory=3584m', '--memory-swap=5632m', '-p', '127.0.0.1:4120:4000', '-e', 'NODE_OPTIONS=--enable-source-maps --require /release/observe.cjs', image]);
   const proxyLog = await open(`${outputDir}/requests.jsonl`, 'a');
-  const proxy = spawn(process.execPath, ['scripts/release/proxy.mjs'], { detached: true, stdio: ['ignore', proxyLog.fd, proxyLog.fd], env: { ...process.env, GITHUB_SHA: sha, RELEASE_ACCESS_FILE: `${secretDir}/access-key`, RELEASE_API_PORT: '4120' } });
+  const proxy = spawn(process.execPath, ['scripts/release/proxy.mjs'], { detached: true, stdio: ['ignore', proxyLog.fd, proxyLog.fd], env: { ...process.env, GITHUB_SHA: sha, RELEASE_ACCESS_FILE: `${secretDir}/access-key`, RELEASE_API_PORT: '4120', RELEASE_TARGET_FILE: `${artifacts}/local-load-target.json` } });
   await writeFile(`${outputDir}/proxy.pid`, String(proxy.pid));
   proxy.unref();
   await proxyLog.close();

@@ -1,9 +1,9 @@
+import { resolveDatabaseTarget } from './targets.mjs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
-const target = new URL(process.env.DATABASE_URL);
-if (target.hostname !== 'ep-crimson-thunder-aztzdzla.c-3.ap-southeast-1.aws.neon.tech' || target.pathname !== '/neondb' || target.username !== 'release_load') throw new Error('Refusing matching rehearsal outside the dedicated synthetic project.');
+resolveDatabaseTarget(process.env.DATABASE_URL);
 const require = createRequire(path.join(process.cwd(), 'package.json'));
 const { createPrismaClient } = require('./dist/src/common/prisma/client.js');
 const db = createPrismaClient();

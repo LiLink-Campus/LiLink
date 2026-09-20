@@ -40,7 +40,7 @@ jobs:
         run: npm run test:shared
 
       - name: Test isolated release proxy
-        run: node --test scripts/release/proxy.test.mjs
+        run: node --test scripts/release/proxy.test.mjs scripts/release/targets.test.mjs
 
       - name: Install Chromium for CSS regression tests
         run: npx playwright install --with-deps chromium

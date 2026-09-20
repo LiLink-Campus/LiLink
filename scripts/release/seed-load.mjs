@@ -1,3 +1,4 @@
+import { resolveDatabaseTarget } from './targets.mjs';
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -6,8 +7,7 @@ const { createPrismaClient } = require('./dist/src/common/prisma/client.js');
 const { buildHardMatchAnswerRecordFromFormInput } = require('./dist/src/modules/questionnaire/hard-match.js');
 const { validateQuestionnaireAnswers } = require('./dist/src/modules/questionnaire/questionnaire.service.js');
 const argon2 = require('argon2');
-const url = new URL(process.env.DATABASE_URL);
-if (url.hostname !== 'ep-crimson-thunder-aztzdzla.c-3.ap-southeast-1.aws.neon.tech' || url.pathname !== '/neondb' || url.username !== 'release_load') throw new Error('Refusing seed outside the dedicated synthetic release project.');
+resolveDatabaseTarget(process.env.DATABASE_URL);
 const db = createPrismaClient();
 try {
   const existing = await db.user.count();

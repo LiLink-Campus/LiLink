@@ -1,3 +1,4 @@
+import { resolveLoadTarget } from './targets.mjs';
 import http from 'k6/http';
 import crypto from 'k6/crypto';
 import encoding from 'k6/encoding';
@@ -8,7 +9,8 @@ import { Counter, Rate, Trend } from 'k6/metrics';
 const target = JSON.parse(open(__ENV.TARGET_FILE));
 const secret = open(__ENV.ACCESS_FILE).trim();
 const fixture = JSON.parse(open(__ENV.QUESTION_FIXTURE));
-if (!['https://release-api-20260920.lilink.top', 'http://127.0.0.1:4080'].includes(target.baseUrl) || target.branchId !== 'br-muddy-poetry-azax6deb' || target.projectId !== 'patient-meadow-65557384' || !__ENV.RELEASE_SHA) throw new Error('Verified isolated target and exact release SHA are required.');
+if (!['https://release-api-20260920.lilink.top', 'http://127.0.0.1:4080'].includes(target.baseUrl) || !__ENV.RELEASE_SHA) throw new Error('Verified isolated target and exact release SHA are required.');
+const verifiedTarget = resolveLoadTarget(target);
 const rate = Number(__ENV.LOAD_RATE || 33);
 const seconds = Number(__ENV.LOAD_DURATION_SECONDS || 120);
 const mode = __ENV.MODE || 'read';
@@ -55,7 +57,7 @@ export function setup() {
   const response = http.get(`${target.baseUrl}/__release`, { headers: { 'x-release-access': secret } });
   if (response.status !== 200) fail('Release identity endpoint unavailable.');
   const identity = response.json();
-  if (identity.branchId !== target.branchId || identity.projectId !== target.projectId || identity.release !== __ENV.RELEASE_SHA || identity.synthetic !== true || identity.users !== 2000) fail('Release identity mismatch.');
+  if (identity.branchId !== target.branchId || identity.projectId !== target.projectId || identity.release !== __ENV.RELEASE_SHA || identity.database !== verifiedTarget.database || identity.host !== verifiedTarget.directHost || identity.synthetic !== true || identity.users !== 2000) fail('Release identity mismatch.');
   return { answers: Object.fromEntries(fixture.questions.map(q => [q.key, q.type === 'MULTI_SELECT' ? q.options.slice(0, q.selectionLimit || 1).map(o => o.value) : q.options[0].value])) };
 }
 export default function(data) {
