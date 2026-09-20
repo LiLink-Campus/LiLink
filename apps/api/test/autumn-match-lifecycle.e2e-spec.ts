@@ -185,6 +185,83 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     `${env.COOKIE_NAME}=${jwt.sign({ sub: id, email })}`;
   const server = () => app.getHttpServer() as Parameters<typeof request>[0];
 
+  it('updates only historical display names and preserves redacted cards', async () => {
+    const { left, cycle, match } = await seedPair();
+    await prisma.matchCycle.update({
+      where: { id: cycle.id },
+      data: { status: 'REVEALED' },
+    });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { revealedAt: new Date(), introducedAt: new Date() },
+    });
+    await snapshots.syncMatchSnapshots(match.id);
+    const readCards = () =>
+      prisma.userCycleDashboardSnapshot.findMany({
+        where: { matchId: match.id },
+        orderBy: { userId: 'asc' },
+      });
+    const before = await readCards();
+    expect(before).toHaveLength(2);
+    for (const displayName of ['新昵称', null]) {
+      await prisma.user.update({
+        where: { id: left.id },
+        data: { displayName },
+      });
+      await snapshots.syncUserDisplayNameSnapshots(left.id);
+      const after = await readCards();
+      expect(after.map(({ matchPayload }) => matchPayload)).toEqual(
+        before.map(({ matchPayload }) => {
+          const payload = matchPayload as unknown as {
+            participants: Array<{ userId: string; displayName: string | null }>;
+          };
+          return {
+            ...payload,
+            participants: payload.participants.map((participant) =>
+              participant.userId === left.id
+                ? { ...participant, displayName }
+                : participant,
+            ),
+          };
+        }),
+      );
+      expect(
+        after.map(({ userId, cycleId, visibility, limitedReason }) => ({
+          userId,
+          cycleId,
+          visibility,
+          limitedReason,
+        })),
+      ).toEqual(
+        before.map(({ userId, cycleId, visibility, limitedReason }) => ({
+          userId,
+          cycleId,
+          visibility,
+          limitedReason,
+        })),
+      );
+    }
+    await deletion.deleteAccount(left.id, password);
+    const redacted = await readCards();
+    expect(redacted.some((card) => card.visibility === 'LIMITED')).toBe(true);
+    await snapshots.syncUserDisplayNameSnapshots(left.id);
+    expect(
+      (await readCards()).map(
+        ({ matchPayload, visibility, limitedReason }) => ({
+          matchPayload,
+          visibility,
+          limitedReason,
+        }),
+      ),
+    ).toEqual(
+      redacted.map(({ matchPayload, visibility, limitedReason }) => ({
+        matchPayload,
+        visibility,
+        limitedReason,
+      })),
+    );
+  });
+
   it.each(['lazy', 'match', 'cycle'] as const)(
     'serializes %s snapshot rebuilds with deactivation without restoring private contacts',
     async (mode) => {

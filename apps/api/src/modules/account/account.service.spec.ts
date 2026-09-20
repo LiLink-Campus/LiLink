@@ -343,7 +343,7 @@ function createDashboardPrismaMock({
       findUnique: jest.fn().mockResolvedValue(null),
     },
     questionnaireResponse: {
-      findUnique: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(null),
     },
     matchCycle: {
       findFirst: jest.fn().mockResolvedValue(currentCycle),
@@ -461,6 +461,7 @@ function createDashboardSnapshotServiceMock() {
       ),
     syncMatchSnapshots: jest.fn().mockResolvedValue(undefined),
     syncUserMatchSnapshots: jest.fn().mockResolvedValue(undefined),
+    syncUserDisplayNameSnapshots: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -2482,7 +2483,7 @@ describe('AccountService', () => {
     ]);
   });
 
-  it('queries latest and recent dashboard snapshots only from revealed candidate cycles', async () => {
+  it('uses the same revealed snapshot set for latest and recent dashboard history', async () => {
     const revealedCycles = [
       buildRevealedCycle('cycle-4', '第四轮', '2026-04-04T12:00:00.000Z'),
       buildRevealedCycle('cycle-3', '第三轮', '2026-04-03T12:00:00.000Z'),
@@ -2508,27 +2509,48 @@ describe('AccountService', () => {
 
     await service.getDashboard('user-1');
 
-    expect(prisma.userCycleDashboardSnapshot.findFirst).toHaveBeenCalledTimes(
-      1,
-    );
-    const [latestSnapshotQuery] = prisma.userCycleDashboardSnapshot.findFirst
-      .mock.calls[0] as [Record<string, unknown>];
-    expect(prisma.userCycleDashboardSnapshot.findMany).toHaveBeenCalledTimes(1);
-    const [recentSnapshotsQuery] = prisma.userCycleDashboardSnapshot.findMany
-      .mock.calls[0] as [Record<string, unknown>];
+    expect(prisma.userCycleDashboardSnapshot.findFirst).not.toHaveBeenCalled();
+    const [snapshotQuery] = prisma.userCycleDashboardSnapshot.findMany.mock
+      .calls[0] as [Record<string, unknown>];
+    expect(snapshotQuery.where).toEqual({
+      userId: 'user-1',
+      cycleId: { in: ['cycle-4', 'cycle-3', 'cycle-2', 'cycle-1'] },
+    });
+  });
 
-    expect(latestSnapshotQuery.where).toEqual({
-      userId: 'user-1',
-      cycleId: {
-        in: ['cycle-4', 'cycle-3', 'cycle-2', 'cycle-1'],
-      },
+  it('reuses complete snapshots and reads repaired history before returning', async () => {
+    const cycle = buildRevealedCycle(
+      'cycle-1',
+      '第一轮',
+      '2026-04-01T12:00:00.000Z',
+    );
+    const prisma = createDashboardPrismaMock({
+      revealedCycles: [cycle],
+      recentParticipations: [{ cycleId: cycle.id, status: 'OPTED_IN' }],
+      recentMatches: [
+        buildHistoryMatchParticipant({
+          cycleId: cycle.id,
+          matchId: 'match-1',
+          introducedAt: cycle.revealAt,
+        }),
+      ],
     });
-    expect(recentSnapshotsQuery.where).toEqual({
-      userId: 'user-1',
-      cycleId: {
-        in: ['cycle-4', 'cycle-3', 'cycle-2'],
-      },
-    });
+    const snapshots = createDashboardSnapshotServiceMock();
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      snapshots as never,
+    );
+    const warm = await service.getDashboard('user-1');
+    expect(warm.latestMatch).toMatchObject({ id: 'match-1' });
+    expect(prisma.userCycleDashboardSnapshot.findMany).toHaveBeenCalledTimes(1);
+    expect(snapshots.ensureUserSnapshotCoverage).not.toHaveBeenCalled();
+
+    prisma.userCycleDashboardSnapshot.findMany.mockResolvedValueOnce([]);
+    const repaired = await service.getDashboard('user-1');
+    expect(snapshots.ensureUserSnapshotCoverage).toHaveBeenCalledTimes(1);
+    expect(repaired.latestMatch).toEqual(warm.latestMatch);
+    expect(repaired.recentMatchHistory).toEqual(warm.recentMatchHistory);
   });
 
   it('includes dashboard coupon agenda read state and available count', async () => {
@@ -2692,7 +2714,7 @@ describe('AccountService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
       },
       questionnaireResponse: {
-        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({
@@ -2748,7 +2770,7 @@ describe('AccountService', () => {
         findUnique: jest.fn().mockResolvedValue(null),
       },
       questionnaireResponse: {
-        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       matchCycle: {
         findFirst: jest.fn().mockResolvedValue({

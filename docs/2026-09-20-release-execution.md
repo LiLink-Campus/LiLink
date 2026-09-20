@@ -97,3 +97,13 @@ Mac 发压到独立 Linux 的首页 API 链路冒烟：30 秒、每秒 1 位用�
 只读诊断在独立空合成库运行：30 次 `SELECT 1` 的 P50 89 ms、P95 103 ms；匹配页压测期间另一组 P50 81 ms、P95 85 ms。热态首页汇总执行 13 条 SQL，问卷 5 条，联系方式 1 条。后续候选移除当前问卷重复加载版本和题目的两次查询，并让券包查询与其他首页资料并行；保持当前版本检查和答卷注意项。42 项账号单测、6 项 PostgreSQL 问卷/VIP 回归通过（`artifacts/e2e/f71153c7a546/`）。新候选仍须重测，不以查询次数减少推断容量通过。
 
 本轮完整日志、入口请求记录及资源状态为 `mac-api-27228c4.log`、`mac-ingress-27228c4.jsonl`、`mac-resource-27228c4.json`；负载摘要为 `mac-load-home-500-120-1m-27228c4.json` 和 `mac-load-match-500-60-1m-27228c4.json`。Mailpit 保存了本次 API 启动后收到的 500 封测试邮件；更早已发送的邮件在此前收件器中，不能把新收件器计数当作全部 3,500 封邮件的收件证明。生产没有切换。
+
+## Vercel 隔离 Preview 接通与性能复验
+
+用户完成 Vercel 登录后，已为 `codex/questionnaire-reset-release` 配置独立 Preview 域名 `release-20260920.lilink.top` 和 API `release-api-20260920.lilink.top`。API 通过 Mac 的 Cloudflare Tunnel 连接独立合成数据库；用户、管理员、商户使用独立会话 Cookie，Preview 不发送 Sentry 事件。生产域名、生产数据库和 API 容器未切换。`a1ccc0f9d5e2a869fac1804c59671dbc8f536918` 的 Vercel Preview、两次 CI、Browser E2E、Storybook 均成功。
+
+内置浏览器实际登录后能看到合成用户首页和新版完整问卷。Node.js + Playwright 经限定测试域名、一小时有效的临时访问凭据执行远端链路：已确认昵称保存及刷新、报名及刷新、取消报名和 API 回读；整套远端浏览器验收尚未通过。首轮保存等待超过测试默认 5 秒；实际 PUT 耗时约 9.4 秒。另一轮保存刷新时 API 发生 `Connection terminated unexpectedly`，页面显示“暂时无法加载”，已记录为失败。测试断言中旧的“过往匹配记录”文本已按实际“过往匹配”标题校正。失败报告保留，不能用后续重跑覆盖。
+
+`a1ccc0f` 在正常后台任务和真实限流下，每分钟 500 位首页用户、120 秒完成 1,001 位用户 / 4,004 次 API 请求，全部业务成功，0 意外 429、0 丢弃迭代。bootstrap P95 989 ms / P99 1,586 ms，问卷 P95 634 ms、联系方式 409 ms，四接口整组 P95 995 ms；仍因 bootstrap 超过 800 ms 未通过。数据为 `mac-load-home-500-120-1m-a1ccc0f.json`，服务端请求与资源记录为 `mac-ingress-a1ccc0f.jsonl`、`mac-resource-a1ccc0f.json`。
+
+后续候选合并首页快照读取，完整快照直接复用，缺失时仍等待修复并重读；当前问卷完成状态直接按活动版本筛选，避免加载旧答案与额外版本查询。昵称保存改为在匹配锁内批量更新快照昵称，保留历史资料与联系方式内容，不逐轮重建。55 项账号/快照单测和 21 项真实 PostgreSQL 问卷、VIP、揭晓、注销与隐私测试通过（`artifacts/e2e/308c12198b70/`），包含昵称/空昵称更新后其余快照字段保持、注销限制保留；新镜像和完整容量矩阵仍需复测。

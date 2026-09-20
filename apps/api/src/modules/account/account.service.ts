@@ -92,9 +92,6 @@ type CurrentParticipationSummary = {
   intent: PrismaWeeklyIntent | null;
 };
 type DashboardSnapshotStore = {
-  findFirst: (
-    args: Prisma.UserCycleDashboardSnapshotFindFirstArgs,
-  ) => Promise<DashboardSnapshotRecord | null>;
   findMany: (
     args: Prisma.UserCycleDashboardSnapshotFindManyArgs,
   ) => Promise<DashboardSnapshotRecord[]>;
@@ -336,9 +333,9 @@ export class AccountService {
       this.prisma.userProfile.findUnique({
         where: { userId },
       }),
-      this.prisma.questionnaireResponse.findUnique({
-        where: { userId },
-        include: { version: { select: { isCurrent: true } } },
+      this.prisma.questionnaireResponse.findFirst({
+        where: { userId, version: { isCurrent: true } },
+        select: { submittedAt: true },
       }),
       this.prisma.matchCycle.findFirst({
         where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
@@ -388,15 +385,18 @@ export class AccountService {
         ].filter(Boolean),
       ),
     );
-    await this.dashboardSnapshotService.ensureUserSnapshotCoverage({
-      userId,
-      latestParticipationCycleId: lastRevealedParticipation?.cycleId ?? null,
-      recentRevealedCycleIds: revealedCycleIds,
-    });
-
-    const [currentParticipation, latestSnapshot, recentSnapshots]: [
+    const readSnapshots = () =>
+      latestSnapshotCandidateCycleIds.length === 0 || !snapshotStore
+        ? Promise.resolve<DashboardSnapshotRecord[]>([])
+        : snapshotStore.findMany({
+            where: {
+              userId,
+              cycleId: { in: latestSnapshotCandidateCycleIds },
+            },
+            orderBy: { cycleRevealAt: 'desc' },
+          });
+    const [currentParticipation, existingSnapshots]: [
       CurrentParticipationSummary | null,
-      DashboardSnapshotRecord | null,
       DashboardSnapshotRecord[],
     ] = await Promise.all([
       cycle
@@ -413,33 +413,18 @@ export class AccountService {
             },
           })
         : Promise.resolve(null),
-      latestSnapshotCandidateCycleIds.length === 0 || !snapshotStore
-        ? Promise.resolve<DashboardSnapshotRecord | null>(null)
-        : snapshotStore.findFirst({
-            where: {
-              userId,
-              cycleId: {
-                in: latestSnapshotCandidateCycleIds,
-              },
-            },
-            orderBy: {
-              cycleRevealAt: 'desc',
-            },
-          }),
-      revealedCycleIds.length === 0 || !snapshotStore
-        ? Promise.resolve<DashboardSnapshotRecord[]>([])
-        : snapshotStore.findMany({
-            where: {
-              userId,
-              cycleId: {
-                in: revealedCycleIds,
-              },
-            },
-            orderBy: {
-              cycleRevealAt: 'desc',
-            },
-          }),
+      readSnapshots(),
     ]);
+    let recentSnapshots = existingSnapshots;
+    if (existingSnapshots.length < latestSnapshotCandidateCycleIds.length) {
+      await this.dashboardSnapshotService.ensureUserSnapshotCoverage({
+        userId,
+        latestParticipationCycleId: lastRevealedParticipation?.cycleId ?? null,
+        recentRevealedCycleIds: revealedCycleIds,
+      });
+      recentSnapshots = await readSnapshots();
+    }
+    const latestSnapshot = recentSnapshots[0] ?? null;
     const recentSnapshotByCycleId = new Map(
       recentSnapshots.map((snapshot) => [snapshot.cycleId, snapshot]),
     );
@@ -487,9 +472,7 @@ export class AccountService {
         : null;
     return {
       profile,
-      questionnaireSubmittedAt: questionnaire?.version?.isCurrent
-        ? this.toIsoString(questionnaire.submittedAt)
-        : null,
+      questionnaireSubmittedAt: this.toIsoString(questionnaire?.submittedAt),
       currentCycle: cycle
         ? {
             id: cycle.id,
@@ -1162,7 +1145,9 @@ export class AccountService {
       this.matchEstimateService?.invalidatePrecomputedCycle();
       // Questionnaire fields are frozen on each match; only an account-name change affects old cards.
       if (displayNameUpdate !== undefined) {
-        await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+        await this.dashboardSnapshotService.syncUserDisplayNameSnapshots(
+          userId,
+        );
       }
 
       // Submitting the questionnaire is one of the two activation signals; try
@@ -1206,7 +1191,9 @@ export class AccountService {
           : await this.prisma.questionnaireResponse.upsert(draftUpsertArgs);
 
       if (displayNameUpdate !== undefined) {
-        await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+        await this.dashboardSnapshotService.syncUserDisplayNameSnapshots(
+          userId,
+        );
       }
 
       return {

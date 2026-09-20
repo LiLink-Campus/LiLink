@@ -84,6 +84,7 @@ describe('VIP profile persistence and actual matching eligibility (PostgreSQL)',
     userId = user.id;
     const snapshot = {
       syncUserMatchSnapshots: jest.fn().mockResolvedValue(undefined),
+      syncUserDisplayNameSnapshots: jest.fn().mockResolvedValue(undefined),
     };
     account = new AccountService(
       prisma as PrismaService,

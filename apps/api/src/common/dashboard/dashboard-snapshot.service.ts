@@ -382,6 +382,41 @@ export class DashboardSnapshotService {
     }
   }
 
+  async syncUserDisplayNameSnapshots(userId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      // Match locks serialize this metadata update with rebuilds and redaction.
+      await tx.$queryRaw`
+        SELECT m."id" FROM "Match" m
+        WHERE EXISTS (
+          SELECT 1 FROM "MatchParticipant" p
+          WHERE p."matchId" = m."id" AND p."userId" = ${userId}
+        )
+        ORDER BY m."id" FOR UPDATE OF m
+      `;
+      await tx.$executeRaw`
+        UPDATE "UserCycleDashboardSnapshot" s
+        SET "matchPayload" = jsonb_set(s."matchPayload", '{participants}', (
+          SELECT jsonb_agg(
+            CASE WHEN item->>'userId' = u."id"
+              THEN jsonb_set(item, '{displayName}', COALESCE(to_jsonb(u."displayName"), 'null'::jsonb))
+              ELSE item END ORDER BY position
+          )
+          FROM jsonb_array_elements(
+            CASE WHEN jsonb_typeof(s."matchPayload"->'participants') = 'array'
+              THEN s."matchPayload"->'participants' ELSE '[]'::jsonb END
+          ) WITH ORDINALITY AS participant(item, position)
+        )), "updatedAt" = CURRENT_TIMESTAMP
+        FROM "User" u
+        WHERE u."id" = ${userId}
+          AND s."matchPayload"->'participants' @> ${JSON.stringify([{ userId }])}::jsonb
+          AND EXISTS (
+            SELECT 1 FROM "MatchParticipant" p
+            WHERE p."matchId" = s."matchId" AND p."userId" = u."id"
+          )
+      `;
+    });
+  }
+
   private async syncCycleSnapshotsDirect(
     cycleId: string,
     store: SnapshotStoreClient,
