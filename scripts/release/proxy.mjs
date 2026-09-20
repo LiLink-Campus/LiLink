@@ -13,6 +13,11 @@ if (!Number.isInteger(upstreamPort) || upstreamPort < 1024 || upstreamPort > 655
 const proxyPort = Number(process.env.RELEASE_PROXY_PORT ?? 4080);
 if (!Number.isInteger(proxyPort) || (proxyPort !== 0 && proxyPort < 1024) || proxyPort > 65535) throw new Error('Invalid loopback proxy port.');
 const server = http.createServer((request, response) => {
+  if (request.method === 'GET' && request.url === '/') {
+    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    response.end('<!doctype html><title>LiLink isolated rehearsal</title><p>Isolated test gateway. Business requests require rehearsal access.</p>');
+    return;
+  }
   const preflight = request.method === 'OPTIONS' && request.url.startsWith('/v1/') && request.headers.origin === 'https://release-20260920.lilink.top' && ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(request.headers['access-control-request-method']);
   const supplied = request.headers['x-release-access'] ?? request.headers.cookie?.match(/(?:^|;\s*)lilink_release_access=([^;]+)/)?.[1] ?? '';
   // Browsers omit cookies on CORS preflight; the actual request still needs access.

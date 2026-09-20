@@ -60,6 +60,8 @@ test('only the isolated web origin can preflight; actual requests remain authent
   try {
     const [{ port }] = await once(child, 'message');
     const call = (method, path, headers) => fetch(`http://127.0.0.1:${port}${path}`, { method, headers });
+    assert.equal((await call('GET', '/', {})).status, 200);
+    assert.equal((await call('GET', '/__release', {})).status, 403);
     const preflight = { origin: 'https://release-20260920.lilink.top', 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' };
     const allowed = await call('OPTIONS', '/v1/auth/login', preflight);
     assert.equal(allowed.status, 204);
