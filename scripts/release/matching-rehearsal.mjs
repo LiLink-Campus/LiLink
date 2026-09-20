@@ -54,7 +54,7 @@ try {
     assert.equal(stopped, false, 'Normal read load stopped; do not advance to the next matching stage.');
     const cycleId = `release_worker_${process.env.SENTRY_RELEASE}_${count}`;
     assert.equal(await db.matchCycle.count({ where: { id: cycleId } }), 0, 'Use a fresh candidate SHA for a new rehearsal.');
-    await db.matchCycle.create({ data: { id: cycleId, codename: `合成撮合 ${count} ${process.env.SENTRY_RELEASE.slice(0, 12)}`, status: 'OPEN', participationDeadline: new Date(Date.now() - 60_000), revealAt: new Date(Date.now() + 3600_000) } });
+    await db.matchCycle.create({ data: { id: cycleId, codename: `合成撮合 ${count} ${process.env.SENTRY_RELEASE.slice(0, 12)}`, status: 'DRAFT', participationDeadline: new Date(Date.now() - 60_000), revealAt: new Date(Date.now() + 3600_000) } });
     await db.cycleParticipation.createMany({ data: Array.from({ length: count }, (_, i) => ({ cycleId, userId: `release_user_${String(i).padStart(4, '0')}`, status: 'OPTED_IN', intent: 'BOTH', optedInAt: new Date() })) });
     let pending = true;
     const latencies = [];
@@ -72,6 +72,8 @@ try {
     const start = performance.now();
     let prepared;
     try {
+      // Publish only complete fixtures to the live scheduler.
+      await db.matchCycle.update({ where: { id: cycleId }, data: { status: 'OPEN' } });
       prepared = await tick();
       if (!prepared.preparedCycleIds.includes(cycleId) && automaticJobs) {
         await waitForCompletion(async () => (await db.matchCycle.findUnique({ where: { id: cycleId } }))?.status === 'REVEAL_READY', 'The scheduler did not finish the expected preparation.');

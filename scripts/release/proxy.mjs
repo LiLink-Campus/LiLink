@@ -22,7 +22,16 @@ const server = http.createServer((request, response) => {
   const supplied = request.headers['x-release-access'] ?? request.headers.cookie?.match(/(?:^|;\s*)lilink_release_access=([^;]+)/)?.[1] ?? '';
   // Browsers omit cookies on CORS preflight; the actual request still needs access.
   if (!preflight && (typeof supplied !== 'string' || Buffer.byteLength(supplied) !== Buffer.byteLength(secret) || !timingSafeEqual(Buffer.from(supplied), Buffer.from(secret)))) { response.writeHead(403); response.end('Isolated rehearsal'); return; }
-  if (request.url === '/__release') { response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify(identity)); return; }
+  if (request.url === '/__release') {
+    void fetch(`http://127.0.0.1:${upstreamPort}/v1/health`, { signal: AbortSignal.timeout(2000) }).then(async health => {
+      const body = await health.json();
+      if (!health.ok || body.ok !== true || body.service !== 'lilink-api') throw new Error('API is not ready.');
+      response.setHeader('Content-Type', 'application/json');
+      response.setHeader('Cache-Control', 'no-store');
+      response.end(JSON.stringify(identity));
+    }).catch(() => { response.writeHead(503); response.end('Rehearsal API is not ready.'); });
+    return;
+  }
   if (request.url === '/__evidence') {
     void Promise.all([command('docker', ['logs', '--tail', '150', 'release-api']), command('docker', ['stats', '--no-stream', '--format', '{{json .}}', 'release-api'])]).then(([logs, stats]) => {
       response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify({ identity, logs: logs.stdout + logs.stderr, resources: stats.stdout }));
@@ -38,7 +47,11 @@ const server = http.createServer((request, response) => {
     response.writeHead(res.statusCode, res.headers); res.pipe(response);
     res.on('end', () => console.log(JSON.stringify({ startedAt, traceId, path: request.url.split('?')[0], method: request.method, status: res.statusCode, ms: Math.round(performance.now() - started) })));
   });
-  upstream.on('error', () => { response.writeHead(502); response.end('Upstream unavailable'); });
+  upstream.on('error', () => {
+    console.log(JSON.stringify({ startedAt, traceId, path: request.url.split('?')[0], method: request.method, status: 502, ms: Math.round(performance.now() - started) }));
+    if (!response.headersSent) response.writeHead(502);
+    response.end('Upstream unavailable');
+  });
   request.pipe(upstream);
 });
 server.listen(proxyPort, '127.0.0.1', () => process.send?.({ port: server.address().port }));

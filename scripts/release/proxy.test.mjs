@@ -7,14 +7,22 @@ import { fork } from 'node:child_process';
 import { once } from 'node:events';
 import http from 'node:http';
 
-test('invalid multibyte credentials return 403 without crashing the rehearsal proxy', { timeout: 10_000 }, async () => {
+test('identity requires valid credentials and a healthy upstream', { timeout: 10_000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'lilink-release-proxy-'));
   const key = 'isolated-proxy-test-key-0123456789';
   const access = path.join(dir, 'key');
   await writeFile(access, key, { mode: 0o600 });
+  let healthy = true;
+  const upstream = http.createServer((request, response) => {
+    assert.equal(request.url, '/v1/health');
+    response.writeHead(healthy ? 200 : 503, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ ok: healthy, service: 'lilink-api' }));
+  });
+  upstream.listen(0, '127.0.0.1');
+  await once(upstream, 'listening');
   const child = fork(new URL('./proxy.mjs', import.meta.url), [], {
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-    env: { ...process.env, RELEASE_ACCESS_FILE: access, RELEASE_PROXY_PORT: '0', GITHUB_SHA: 'proxy-test' },
+    env: { ...process.env, RELEASE_ACCESS_FILE: access, RELEASE_PROXY_PORT: '0', RELEASE_API_PORT: String(upstream.address().port), GITHUB_SHA: 'proxy-test' },
   });
   try {
     const [{ port }] = await once(child, 'message');
@@ -27,12 +35,19 @@ test('invalid multibyte credentials return 403 without crashing the rehearsal pr
     });
     assert.equal(await request('é'.repeat(key.length)), 403);
     assert.equal(await request(key), 200);
+    healthy = false;
+    assert.equal(await request(key), 503);
+    upstream.closeAllConnections();
+    await new Promise(resolve => upstream.close(resolve));
+    assert.equal(await request(key), 503);
   } finally {
     if (child.exitCode === null && child.signalCode === null) {
       const exited = once(child, 'exit');
       child.kill('SIGTERM');
       await exited;
     }
+    upstream.closeAllConnections();
+    await new Promise(resolve => upstream.close(resolve));
     await rm(dir, { recursive: true });
   }
 });
