@@ -99,6 +99,30 @@ it('preserves recent history, older participation and per-user current intent in
       intent: null,
     });
     expect(absent.some((row) => row.kind === 'LAST_PARTICIPATION')).toBe(false);
+    await db.cycleParticipation.create({
+      data: {
+        userId: users[1],
+        cycleId: history[4].id,
+        status: 'OPTED_OUT',
+        intent: 'FRIEND',
+      },
+    });
+    expect(
+      (await read(users[1])).find(
+        (row) => row.kind === 'RECENT' && row.id === history[4].id,
+      ),
+    ).toMatchObject({
+      participationStatus: 'OPTED_OUT',
+      intent: 'FRIEND',
+    });
+    expect(
+      (await read(users[0])).find(
+        (row) => row.kind === 'RECENT' && row.id === history[4].id,
+      ),
+    ).toMatchObject({
+      participationStatus: null,
+      intent: null,
+    });
     await db.matchCycle.update({
       where: { id: currentId },
       data: { status: 'REVEALED', revealAt: new Date('2700-01-01T00:00:00Z') },

@@ -367,13 +367,25 @@ export class AccountService {
           });
     const existingSnapshots = await readSnapshots();
     let recentSnapshots = existingSnapshots;
-    if (existingSnapshots.length < latestSnapshotCandidateCycleIds.length) {
+    const participatedRecentCycleIds = revealedCycles
+      .filter((row) => row.participationStatus !== null)
+      .map((row) => row.id);
+    const expectedSnapshotCycleIds = [
+      ...participatedRecentCycleIds,
+      ...(lastRevealedParticipation ? [lastRevealedParticipation.cycleId] : []),
+    ];
+    const existingSnapshotCycleIds = new Set(
+      existingSnapshots.map((snapshot) => snapshot.cycleId),
+    );
+    if (
+      expectedSnapshotCycleIds.some((id) => !existingSnapshotCycleIds.has(id))
+    ) {
       const repaired =
         await this.dashboardSnapshotService.ensureUserSnapshotCoverage({
           userId,
           latestParticipationCycleId:
             lastRevealedParticipation?.cycleId ?? null,
-          recentRevealedCycleIds: revealedCycleIds,
+          recentRevealedCycleIds: participatedRecentCycleIds,
           existingSnapshotCycleIds: existingSnapshots.map(
             (snapshot) => snapshot.cycleId,
           ),

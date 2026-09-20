@@ -45,8 +45,9 @@ export function readDashboardCycles(
     LEFT JOIN "CycleParticipation" p ON p."cycleId" = c.id AND p."userId" = ${userId}
     UNION ALL
     SELECT 'RECENT'::text AS kind, c.*,
-           NULL::"ParticipationStatus" AS "participationStatus", NULL::"WeeklyIntent" AS intent
+           p.status AS "participationStatus", p.intent
     FROM recent_cycles c
+    LEFT JOIN "CycleParticipation" p ON p."cycleId" = c.id AND p."userId" = ${userId}
     UNION ALL
     SELECT 'LAST_PARTICIPATION'::text AS kind, p.* FROM last_participation p
     ORDER BY kind, "revealAt" DESC

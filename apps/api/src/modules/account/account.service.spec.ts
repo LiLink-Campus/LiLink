@@ -345,7 +345,7 @@ function createDashboardPrismaMock({
         kind: 'RECENT',
         status: 'REVEALED',
         participationDeadline: cycle.revealAt,
-        participationStatus: null,
+        participationStatus: participationByCycleId.get(cycle.id) ?? null,
         intent: null,
       })),
       ...(currentCycle
@@ -2584,6 +2584,35 @@ describe('AccountService', () => {
     expect(snapshots.ensureUserSnapshotCoverage).toHaveBeenCalledTimes(1);
     expect(repaired.latestMatch).toEqual(warm.latestMatch);
     expect(repaired.recentMatchHistory).toEqual(warm.recentMatchHistory);
+  });
+
+  it('skips repairs for unjoined rounds while preserving retained snapshots', async () => {
+    const cycle = buildRevealedCycle(
+      'cycle-1',
+      '第一轮',
+      '2026-04-01T12:00:00.000Z',
+    );
+    const prisma = createDashboardPrismaMock({ revealedCycles: [cycle] });
+    const snapshots = createDashboardSnapshotServiceMock();
+    const service = new AccountService(
+      prisma as never,
+      {} as never,
+      snapshots as never,
+    );
+    const empty = await service.getDashboard('user-1');
+    expect(empty.recentMatchHistory[0].result).toBe('NOT_PARTICIPATED');
+    expect(snapshots.ensureUserSnapshotCoverage).not.toHaveBeenCalled();
+
+    prisma.userCycleDashboardSnapshot.findMany.mockResolvedValueOnce([
+      buildDashboardSnapshotRecord({
+        cycle,
+        participationStatus: 'OPTED_IN',
+        matchParticipant: null,
+      }),
+    ]);
+    const retained = await service.getDashboard('user-1');
+    expect(retained.recentMatchHistory[0].result).toBe('UNMATCHED');
+    expect(snapshots.ensureUserSnapshotCoverage).not.toHaveBeenCalled();
   });
 
   it('includes dashboard coupon agenda read state and available count', async () => {
