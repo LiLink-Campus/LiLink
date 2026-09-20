@@ -5,6 +5,10 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerApiBaseUrl } from "./api-base-url";
 
+export class ServerApiError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
 const USER_COOKIE_NAME = process.env.COOKIE_NAME?.trim() || "lilink_token";
 const ADMIN_COOKIE_NAME =
   process.env.ADMIN_COOKIE_NAME?.trim() || "lilink_admin_token";
@@ -59,7 +63,7 @@ async function fetchApiServer<T>(
   options: ServerFetchOptions,
 ): Promise<T> {
   const cookieHeader = await buildForwardedCookieHeader(
-    options.cookieNames ?? [],
+    [...(options.cookieNames ?? []), "lilink_release_access"],
   );
   const response = await fetch(`${await getServerApiBaseUrl()}${path}`, {
     ...options,
@@ -74,10 +78,12 @@ async function fetchApiServer<T>(
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(parseFailedResponseBody(body, response.status));
+    throw new ServerApiError(parseFailedResponseBody(body, response.status), response.status);
   }
 
-  return response.json() as Promise<T>;
+  const body = await response.text();
+  // Nest returns an empty successful body for a missing optional questionnaire.
+  return (body.trim() ? JSON.parse(body) : null) as T;
 }
 
 export function hasUserSessionCookie() {

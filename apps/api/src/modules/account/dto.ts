@@ -132,6 +132,10 @@ export class UpdateProfileDto {
 }
 
 export class SaveQuestionnaireDto {
+  @IsString()
+  @Length(1, 128)
+  versionId!: string;
+
   @IsObject()
   answers!: Record<string, unknown>;
 

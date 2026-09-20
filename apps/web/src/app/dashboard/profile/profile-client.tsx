@@ -354,7 +354,9 @@ export function ProfileClient({
   initialSavedQuestionnaire,
   initialContactPreferences,
   initialVip = null,
+  initialQuestionnaireVersionId,
 }: {
+  initialQuestionnaireVersionId?: string;
   initialVip?: VipStatus | null;
   initialContactPreferences: ContactPreferencesPayload;
   initialUser: AuthMePayload;
@@ -897,7 +899,7 @@ export function ProfileClient({
           "/me/questionnaire",
           {
             method: "PUT",
-            body: JSON.stringify(payload),
+            body: JSON.stringify({ ...payload, versionId: initialQuestionnaireVersionId ?? initialSavedQuestionnaire?.currentVersionId }),
             signal: autosaveTimeout.signal,
           },
         );

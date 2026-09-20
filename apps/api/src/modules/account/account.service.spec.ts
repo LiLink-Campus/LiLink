@@ -389,6 +389,8 @@ function buildSubmittedQuestionnaireResponse(
   }> = {},
 ) {
   return {
+    versionId: 'q-test',
+    version: { isCurrent: true },
     answers: {
       [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
       [HARD_MATCH_KEYS.partnerAgeMin]: 18,
@@ -400,7 +402,7 @@ function buildSubmittedQuestionnaireResponse(
       [HARD_MATCH_KEYS.languages]: ['中文'],
       [HARD_MATCH_KEYS.partnerLanguages]: [],
       [HARD_MATCH_KEYS.looks]: '5',
-      [HARD_MATCH_KEYS.partnerLooks]: ['5'],
+      [HARD_MATCH_KEYS.partnerLooks]: ['5', '6', '7', '8', '9', '10'],
       [HARD_MATCH_KEYS.heightCm]: 175,
       [HARD_MATCH_KEYS.partnerHeightMin]: 150,
       [HARD_MATCH_KEYS.partnerHeightMax]: 195,
@@ -437,7 +439,7 @@ function buildSubmittedHardMatchDraftForm(
     languages: ['中文'],
     partnerLanguages: ['中文'],
     looks: '5',
-    partnerLooks: ['5'],
+    partnerLooks: ['5', '6', '7', '8', '9', '10'],
     heightCm: '175',
     weightKg: '65',
     partnerHeightMin: '150',
@@ -617,6 +619,7 @@ describe('AccountService', () => {
     expect(findUniqueResponse).toHaveBeenCalledWith({
       where: { userId: 'user-1' },
       select: {
+        versionId: true,
         answers: true,
         draftAnswers: true,
         submittedAt: true,
@@ -688,6 +691,7 @@ describe('AccountService', () => {
         findUnique: jest.fn().mockResolvedValue({
           // Legacy / corrupted record: submittedAt is set but the hard-match
           // payload is missing required keys.
+          versionId: 'q-test',
           answers: { [HARD_MATCH_KEYS.gender]: '男' },
           submittedAt: new Date('2026-04-01T00:00:00.000Z'),
         }),
@@ -698,7 +702,10 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
+      buildQuestionnaireServiceWithSchema({
+        questions: [],
+        schools: [{ id: 'school-bupt' }],
+      }),
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -831,7 +838,7 @@ describe('AccountService', () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
-  it('allows opt-in when a draft exists but still satisfies every required field', async () => {
+  it('requires an actual submission even when a stored draft looks complete', async () => {
     const upsert = jest.fn().mockResolvedValue({
       id: 'participation-1',
       status: 'OPTED_IN',
@@ -889,9 +896,10 @@ describe('AccountService', () => {
       createDashboardSnapshotServiceMock() as never,
     );
 
-    await service.setParticipation('user-1', { optIn: true, intent: 'BOTH' });
-
-    expect(upsert).toHaveBeenCalled();
+    await expect(
+      service.setParticipation('user-1', { optIn: true, intent: 'BOTH' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it('persists the chosen intent and writes it into the audit log on opt-in', async () => {
@@ -929,7 +937,10 @@ describe('AccountService', () => {
     };
     const service = new AccountService(
       prisma as never,
-      {} as never,
+      buildQuestionnaireServiceWithSchema({
+        questions: [],
+        schools: [{ id: 'school-bupt' }],
+      }),
       createDashboardSnapshotServiceMock() as never,
     );
 
@@ -1138,7 +1149,7 @@ describe('AccountService', () => {
         },
         questionnaireResponse: {
           findUnique: jest.fn().mockResolvedValue({
-            versionId: 'version-old',
+            versionId: 'version-current',
             answers: {
               ...buildSubmittedQuestionnaireResponse().answers,
               current_question: 'kept',
@@ -1202,7 +1213,7 @@ describe('AccountService', () => {
     const result = await service.getQuestionnaire('user-1');
 
     expect(result).toMatchObject({
-      versionId: 'version-old',
+      versionId: 'version-current',
       currentVersionId: 'version-current',
       answers: {
         current_question: 'kept',
@@ -1235,7 +1246,7 @@ describe('AccountService', () => {
         },
         questionnaireResponse: {
           findUnique: jest.fn().mockResolvedValue({
-            versionId: 'version-old',
+            versionId: 'version-current',
             answers: {
               ...buildSubmittedQuestionnaireResponse().answers,
               current_question: 'kept',
@@ -1299,21 +1310,21 @@ describe('AccountService', () => {
     );
 
     await expect(service.getQuestionnaire('user-1')).resolves.toMatchObject({
-      versionId: 'version-old',
+      versionId: 'version-current',
       currentVersionId: 'version-current',
       attention: {
         currentVersionId: 'version-current',
         acknowledgedKeys: [],
-        pendingUpdatedKeys: ['new_question'],
+        pendingUpdatedKeys: [],
         missingRequiredKeys: ['new_question'],
         pendingKeys: ['new_question'],
         items: [
           {
             key: 'new_question',
             prompt: 'New question',
-            updated: true,
+            updated: false,
             missingRequired: true,
-            acknowledged: false,
+            acknowledged: true,
           },
         ],
       },
@@ -1333,7 +1344,7 @@ describe('AccountService', () => {
         },
         questionnaireResponse: {
           findUnique: jest.fn().mockResolvedValue({
-            versionId: 'version-old',
+            versionId: 'version-current',
             answers: {
               ...legacyAnswers,
               current_question: 'kept',
@@ -1708,6 +1719,7 @@ describe('AccountService', () => {
 
     await expect(
       service.saveQuestionnaire('user-1', {
+        versionId: 'version-1',
         displayName: '测试昵称',
         answers: {
           current_question: 'kept',
@@ -1721,7 +1733,7 @@ describe('AccountService', () => {
           gender: '女',
           partnerGenders: ['男'],
           looks: '5',
-          partnerLooks: ['5'],
+          partnerLooks: ['5', '6', '7', '8', '9', '10'],
           heightCm: '165',
           weightKg: '65',
           partnerHeightMin: '160',
@@ -1749,7 +1761,7 @@ describe('AccountService', () => {
         current_question: 'kept',
         [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
         [HARD_MATCH_KEYS.school]: 'school-bupt',
-        [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
+        [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-cuc'],
       }),
       ['school-bupt', 'school-cuc'],
     );
@@ -1856,6 +1868,7 @@ describe('AccountService', () => {
 
     await expect(
       service.saveQuestionnaire('user-1', {
+        versionId: 'version-1',
         displayName: '测试昵称',
         answers: {
           current_question: 'kept',
@@ -1869,7 +1882,7 @@ describe('AccountService', () => {
           gender: '女',
           partnerGenders: ['男'],
           looks: '5',
-          partnerLooks: ['5'],
+          partnerLooks: ['5', '6', '7', '8', '9', '10'],
           heightCm: '165',
           weightKg: '65',
           partnerHeightMin: '160',
@@ -1948,6 +1961,7 @@ describe('AccountService', () => {
 
     await expect(
       service.saveQuestionnaire('user-1', {
+        versionId: 'version-1',
         displayName: 'Draft User',
         answers: {
           current_question: 'partial-answer',
@@ -1961,7 +1975,7 @@ describe('AccountService', () => {
           gender: '女',
           partnerGenders: ['男'],
           looks: '5',
-          partnerLooks: ['5'],
+          partnerLooks: ['5', '6', '7', '8', '9', '10'],
           heightCm: '',
           weightKg: '65',
           partnerHeightMin: '160',
@@ -2080,6 +2094,7 @@ describe('AccountService', () => {
 
     await expect(
       service.saveQuestionnaire('user-1', {
+        versionId: 'version-1',
         displayName: '新昵称',
         answers: {
           current_question: 'partial-answer',
@@ -2093,7 +2108,7 @@ describe('AccountService', () => {
           gender: '女',
           partnerGenders: ['男'],
           looks: '5',
-          partnerLooks: ['5'],
+          partnerLooks: ['5', '6', '7', '8', '9', '10'],
           heightCm: '',
           weightKg: '65',
           partnerHeightMin: '160',
@@ -2178,6 +2193,7 @@ describe('AccountService', () => {
 
     await expect(
       service.saveQuestionnaire('user-1', {
+        versionId: 'version-1',
         displayName: '测试昵称',
         answers: {
           current_question: 'partial-answer',
@@ -2191,7 +2207,7 @@ describe('AccountService', () => {
           gender: '女',
           partnerGenders: ['男'],
           looks: '5',
-          partnerLooks: ['5'],
+          partnerLooks: ['5', '6', '7', '8', '9', '10'],
           heightCm: '',
           weightKg: '65',
           partnerHeightMin: '160',
@@ -2260,6 +2276,7 @@ describe('AccountService', () => {
 
     await expect(
       service.saveQuestionnaire('user-1', {
+        versionId: 'version-1',
         displayName: '测试昵称',
         answers: {
           current_question: 'partial-answer',
@@ -2273,7 +2290,7 @@ describe('AccountService', () => {
           gender: '未知性别',
           partnerGenders: ['男'],
           looks: '5',
-          partnerLooks: ['5'],
+          partnerLooks: ['5', '6', '7', '8', '9', '10'],
           heightCm: '165',
           weightKg: '65',
           partnerHeightMin: '160',
@@ -2317,6 +2334,7 @@ describe('AccountService', () => {
 
     await expect(
       service.saveQuestionnaire('user-1', {
+        versionId: 'version-1',
         answers: {},
         hardMatchForm: {},
       }),

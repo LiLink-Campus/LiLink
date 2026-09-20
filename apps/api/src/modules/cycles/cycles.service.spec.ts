@@ -92,6 +92,8 @@ type CyclesServiceTestHarness = {
   } | null;
   toEligibleParticipants: (
     participations: unknown[],
+    questionnaire: { id: string; questions: unknown[] },
+    allowedSchoolIds: string[],
   ) => EligibleParticipantStub[];
   calculatePairs: (
     participants: EligibleParticipantStub[],
@@ -227,7 +229,14 @@ function createCyclesService(
   dashboardSnapshotService = createDashboardSnapshotServiceMock(),
 ) {
   return new CyclesService(
-    prisma as never,
+    {
+      school: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+      },
+      ...(prisma as object),
+    } as never,
     dashboardSnapshotService as never,
     {} as never,
   );
@@ -479,60 +488,67 @@ describe('CyclesService', () => {
       >
     ).toEligibleParticipants.bind(service);
 
-    const participants = toEligibleParticipants([
-      {
-        intent: 'BOTH',
-        user: {
-          id: 'user-1',
-          displayName: 'A',
-          vipActivations: [
-            { expiresAt: new Date(Date.now() + 60_000), revokedAt: null },
-          ],
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: {
-              hard_birth_date: '2000-05-10',
-              hard_partner_age_min: 18,
-              hard_partner_age_max: 30,
-              hard_gender: '女',
-              hard_partner_genders: ['男'],
-              hard_looks: '5',
-              hard_partner_looks: ['5'],
-              hard_height_cm: 165,
-              hard_partner_height_min: 120,
-              hard_partner_height_max: 220,
-              hard_one_liner_intro: '喜欢徒步。',
-              hard_excluded_partner_schools: [SCHOOL_CUC],
+    const participants = toEligibleParticipants(
+      [
+        {
+          intent: 'BOTH',
+          user: {
+            id: 'user-1',
+            displayName: 'A',
+            vipActivations: [
+              { expiresAt: new Date(Date.now() + 60_000), revokedAt: null },
+            ],
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: {
+                hard_birth_date: '2000-05-10',
+                hard_partner_age_min: 18,
+                hard_partner_age_max: 30,
+                hard_gender: '女',
+                hard_partner_genders: ['男'],
+                hard_looks: '5',
+                hard_partner_looks: ['5', '6', '7', '8', '9', '10'],
+                hard_height_cm: 165,
+                hard_weight_kg: 55,
+                hard_partner_height_min: 120,
+                hard_partner_height_max: 220,
+                hard_one_liner_intro: '喜欢徒步。',
+                hard_excluded_partner_schools: [SCHOOL_CUC],
+              },
             },
           },
         },
-      },
-      {
-        intent: 'FRIEND',
-        user: {
-          id: 'user-2',
-          displayName: 'B',
-          school: null,
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: {
-              hard_birth_date: '1999-07-10',
-              hard_partner_age_min: 18,
-              hard_partner_age_max: 30,
-              hard_gender: '男',
-              hard_partner_genders: ['女'],
-              hard_looks: '5',
-              hard_partner_looks: ['5'],
-              hard_height_cm: 178,
-              hard_partner_height_min: 120,
-              hard_partner_height_max: 220,
-              hard_one_liner_intro: '喜欢阅读。',
+        {
+          intent: 'FRIEND',
+          user: {
+            id: 'user-2',
+            displayName: 'B',
+            school: null,
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: {
+                hard_birth_date: '1999-07-10',
+                hard_partner_age_min: 18,
+                hard_partner_age_max: 30,
+                hard_gender: '男',
+                hard_partner_genders: ['女'],
+                hard_looks: '5',
+                hard_partner_looks: ['5', '6', '7', '8', '9', '10'],
+                hard_height_cm: 178,
+                hard_partner_height_min: 120,
+                hard_partner_height_max: 220,
+                hard_one_liner_intro: '喜欢阅读。',
+              },
             },
           },
         },
-      },
-    ]);
+      ],
+      { id: 'q-current', questions: [] },
+      [SCHOOL_BUPT, SCHOOL_CUC],
+    );
 
     expect(participants).toHaveLength(1);
     expect(participants[0]).toMatchObject({
@@ -558,32 +574,38 @@ describe('CyclesService', () => {
       >
     ).toEligibleParticipants.bind(service);
 
-    const participants = toEligibleParticipants([
-      {
-        intent: 'BOTH',
-        user: {
-          id: 'user-1',
-          displayName: 'A',
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: null,
-            answers: {
-              hard_birth_date: '2000-05-10',
-              hard_partner_age_min: 18,
-              hard_partner_age_max: 30,
-              hard_gender: '女',
-              hard_partner_genders: ['男'],
-              hard_looks: '5',
-              hard_partner_looks: ['5'],
-              hard_height_cm: 165,
-              hard_partner_height_min: 120,
-              hard_partner_height_max: 220,
-              hard_one_liner_intro: '喜欢徒步。',
+    const participants = toEligibleParticipants(
+      [
+        {
+          intent: 'BOTH',
+          user: {
+            id: 'user-1',
+            displayName: 'A',
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: null,
+              answers: {
+                hard_birth_date: '2000-05-10',
+                hard_partner_age_min: 18,
+                hard_partner_age_max: 30,
+                hard_gender: '女',
+                hard_partner_genders: ['男'],
+                hard_looks: '5',
+                hard_partner_looks: ['5', '6', '7', '8', '9', '10'],
+                hard_height_cm: 165,
+                hard_weight_kg: 55,
+                hard_partner_height_min: 120,
+                hard_partner_height_max: 220,
+                hard_one_liner_intro: '喜欢徒步。',
+              },
             },
           },
         },
-      },
-    ]);
+      ],
+      { id: 'q-current', questions: [] },
+      [SCHOOL_BUPT, SCHOOL_CUC],
+    );
 
     expect(participants).toEqual([]);
   });
@@ -604,52 +626,60 @@ describe('CyclesService', () => {
       hard_gender: '女',
       hard_partner_genders: ['男'],
       hard_looks: '5',
-      hard_partner_looks: ['5'],
+      hard_partner_looks: ['5', '6', '7', '8', '9', '10'],
       hard_height_cm: 165,
+      hard_weight_kg: 55,
       hard_partner_height_min: 120,
       hard_partner_height_max: 220,
       hard_one_liner_intro: '喜欢徒步。',
       hard_excluded_partner_schools: [],
     };
 
-    const participants = toEligibleParticipants([
-      {
-        intent: null,
-        user: {
-          id: 'user-no-intent',
-          displayName: 'NoIntent',
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: validQuestionnaireAnswers,
+    const participants = toEligibleParticipants(
+      [
+        {
+          intent: null,
+          user: {
+            id: 'user-no-intent',
+            displayName: 'NoIntent',
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: validQuestionnaireAnswers,
+            },
           },
         },
-      },
-      {
-        intent: 'GHOST',
-        user: {
-          id: 'user-bad-intent',
-          displayName: 'BadIntent',
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: validQuestionnaireAnswers,
+        {
+          intent: 'GHOST',
+          user: {
+            id: 'user-bad-intent',
+            displayName: 'BadIntent',
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: validQuestionnaireAnswers,
+            },
           },
         },
-      },
-      {
-        intent: 'DATE',
-        user: {
-          id: 'user-good',
-          displayName: 'Good',
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: validQuestionnaireAnswers,
+        {
+          intent: 'DATE',
+          user: {
+            id: 'user-good',
+            displayName: 'Good',
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: validQuestionnaireAnswers,
+            },
           },
         },
-      },
-    ]);
+      ],
+      { id: 'q-current', questions: [] },
+      [SCHOOL_BUPT, SCHOOL_CUC],
+    );
 
     expect(participants.map((participant) => participant.id)).toEqual([
       'user-good',
@@ -1040,8 +1070,8 @@ describe('CyclesService', () => {
       candidates: [],
       selectedPairs: [
         {
-          left: { id: 'user-1' },
-          right: { id: 'user-2' },
+          left: createBroadParticipant('user-1', {}),
+          right: createBroadParticipant('user-2', {}),
           score: 88,
         },
       ],
@@ -1103,7 +1133,14 @@ describe('CyclesService', () => {
       ),
     };
     const service = new CyclesService(
-      prisma as never,
+      {
+        school: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+        },
+        ...prisma,
+      } as never,
       createDashboardSnapshotServiceMock() as never,
       {} as never,
     );
@@ -1191,7 +1228,14 @@ describe('CyclesService', () => {
       ),
     };
     const service = new CyclesService(
-      prisma as never,
+      {
+        school: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+        },
+        ...prisma,
+      } as never,
       createDashboardSnapshotServiceMock() as never,
       {} as never,
     );
@@ -1283,7 +1327,14 @@ describe('CyclesService', () => {
       ),
     };
     const service = new CyclesService(
-      prisma as never,
+      {
+        school: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+        },
+        ...prisma,
+      } as never,
       createDashboardSnapshotServiceMock() as never,
       {} as never,
     );
@@ -1345,7 +1396,14 @@ describe('CyclesService', () => {
       },
     };
     const service = new CyclesService(
-      prisma as never,
+      {
+        school: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+        },
+        ...prisma,
+      } as never,
       createDashboardSnapshotServiceMock() as never,
       {} as never,
     );
@@ -2646,7 +2704,7 @@ describe('VIP filtering at cycle processing time', () => {
     hard_gender: '女',
     hard_partner_genders: ['男'],
     hard_looks: '5',
-    hard_partner_looks: ['9'],
+    hard_partner_looks: ['9', '10'],
     hard_height_cm: 165,
     hard_weight_kg: 55,
     hard_partner_height_min: 180,
@@ -2674,24 +2732,32 @@ describe('VIP filtering at cycle processing time', () => {
             ];
       const [participant] = (
         service as unknown as CyclesServiceTestHarness
-      ).toEligibleParticipants([
-        {
-          intent: 'DATE',
-          user: {
-            id: 'fixture',
-            displayName: 'Fixture',
-            school: { id: SCHOOL_BUPT },
-            vipActivations: grants,
-            questionnaireResponse: { answers: raw, submittedAt: new Date() },
+      ).toEligibleParticipants(
+        [
+          {
+            intent: 'DATE',
+            user: {
+              id: 'fixture',
+              displayName: 'Fixture',
+              school: { id: SCHOOL_BUPT },
+              vipActivations: grants,
+              questionnaireResponse: {
+                versionId: 'q-current',
+                answers: raw,
+                submittedAt: new Date(),
+              },
+            },
           },
-        },
-      ]);
+        ],
+        { id: 'q-current', questions: [] },
+        [SCHOOL_BUPT, SCHOOL_CUC],
+      );
       expect(participant).toBeDefined();
       expect(participant.hardMatchAnswers.partnerHeightMin).toBe(
         state === 'active' ? 180 : 120,
       );
       expect(participant.hardMatchAnswers.partnerLooks).toHaveLength(
-        state === 'active' ? 1 : 10,
+        state === 'active' ? 2 : 10,
       );
       expect(participant.hardMatchAnswers.excludedPartnerSchools).toEqual(
         state === 'active' ? [SCHOOL_CUC] : [],

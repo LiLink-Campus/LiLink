@@ -1,0 +1,749 @@
+{
+  "source": "production questionnaire 2026-09-20 plus approved lifestyle revision",
+  "questions": [
+    {
+      "key": "relationship_intent",
+      "type": "SINGLE_SELECT",
+      "order": 1,
+      "prompt": "你更想进入一段怎样的关系？",
+      "weight": 4,
+      "options": [
+        {
+          "label": "认真稳定的关系",
+          "value": "认真稳定的关系"
+        },
+        {
+          "label": "先认真了解再决定",
+          "value": "先认真了解再决定"
+        },
+        {
+          "label": "轻松认识，顺其自然",
+          "value": "轻松认识，顺其自然"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "pace",
+      "type": "SINGLE_SELECT",
+      "order": 2,
+      "prompt": "你更舒服的关系推进节奏是？",
+      "weight": 3,
+      "options": [
+        {
+          "label": "慢热",
+          "value": "慢热"
+        },
+        {
+          "label": "平衡",
+          "value": "平衡"
+        },
+        {
+          "label": "主动推进",
+          "value": "主动推进"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "define_relationship_timing",
+      "type": "SINGLE_SELECT",
+      "order": 3,
+      "prompt": "你更接受什么时候明确关系？",
+      "weight": 3,
+      "options": [
+        {
+          "label": "熟悉后尽快明确",
+          "value": "熟悉后尽快明确"
+        },
+        {
+          "label": "相处一段时间再确认",
+          "value": "相处一段时间再确认"
+        },
+        {
+          "label": "不急着定义关系",
+          "value": "不急着定义关系"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "contact_frequency",
+      "type": "SINGLE_SELECT",
+      "order": 4,
+      "prompt": "你理想中的联系频率更接近哪一种？",
+      "weight": 3,
+      "options": [
+        {
+          "label": "高互动",
+          "value": "高互动"
+        },
+        {
+          "label": "适中",
+          "value": "适中"
+        },
+        {
+          "label": "保持留白",
+          "value": "保持留白"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "weekend",
+      "type": "SINGLE_SELECT",
+      "order": 5,
+      "prompt": "理想周末更接近哪一种？",
+      "weight": 2,
+      "options": [
+        {
+          "label": "出门探索",
+          "value": "出门探索"
+        },
+        {
+          "label": "轻社交",
+          "value": "轻社交"
+        },
+        {
+          "label": "安静恢复",
+          "value": "安静恢复"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "communication",
+      "type": "SINGLE_SELECT",
+      "order": 6,
+      "prompt": "发生分歧时，你更希望对方怎么做？",
+      "weight": 4,
+      "options": [
+        {
+          "label": "当场说清楚",
+          "value": "当场说清楚"
+        },
+        {
+          "label": "先冷静再沟通",
+          "value": "先冷静再沟通"
+        },
+        {
+          "label": "给彼此缓冲时间",
+          "value": "给彼此缓冲时间"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "repair_style",
+      "type": "SINGLE_SELECT",
+      "order": 7,
+      "prompt": "关系里闹别扭后，你更吃哪种修复方式？",
+      "weight": 4,
+      "options": [
+        {
+          "label": "先讲清楚逻辑",
+          "value": "先讲清楚逻辑"
+        },
+        {
+          "label": "先安抚情绪",
+          "value": "先安抚情绪"
+        },
+        {
+          "label": "先给空间再回来聊",
+          "value": "先给空间再回来聊"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "apology_expectation",
+      "type": "SINGLE_SELECT",
+      "order": 8,
+      "prompt": "如果对方做错了事，你更看重哪一点？",
+      "weight": 3,
+      "options": [
+        {
+          "label": "及时道歉",
+          "value": "及时道歉"
+        },
+        {
+          "label": "解释清楚",
+          "value": "解释清楚"
+        },
+        {
+          "label": "后续行动",
+          "value": "后续行动"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "outing_spend_style",
+      "type": "SINGLE_SELECT",
+      "order": 9,
+      "prompt": "一起出去玩时，花钱方式你更倾向哪一种？",
+      "weight": 2,
+      "options": [
+        {
+          "label": "无所谓，看当时和心情",
+          "value": "无所谓，看当时和心情"
+        },
+        {
+          "label": "更希望 AA",
+          "value": "更希望 AA"
+        },
+        {
+          "label": "更能接受对方多出或主动请客",
+          "value": "更能接受对方多出或主动请客"
+        },
+        {
+          "label": "更愿意自己多出或主动请客",
+          "value": "更愿意自己多出或主动请客"
+        },
+        {
+          "label": "不太希望总是只有我出钱（不强求对方全包）",
+          "value": "不太希望总是只有我出钱（不强求对方全包）"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "career_relationship_balance",
+      "type": "SINGLE_SELECT",
+      "order": 10,
+      "prompt": "现阶段你更希望感情和个人发展怎么平衡？",
+      "weight": 2,
+      "options": [
+        {
+          "label": "感情优先",
+          "value": "感情优先"
+        },
+        {
+          "label": "尽量平衡",
+          "value": "尽量平衡"
+        },
+        {
+          "label": "更看重学业或事业",
+          "value": "更看重学业或事业"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "social_energy",
+      "type": "SCALE",
+      "order": 11,
+      "prompt": "熟起来以后，我通常会主动推进联系和见面。",
+      "weight": 2,
+      "options": [
+        {
+          "label": "非常不像我",
+          "value": "非常不像我"
+        },
+        {
+          "label": "比较不像我",
+          "value": "比较不像我"
+        },
+        {
+          "label": "看情况",
+          "value": "看情况"
+        },
+        {
+          "label": "比较像我",
+          "value": "比较像我"
+        },
+        {
+          "label": "非常像我",
+          "value": "非常像我"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "emotional_openness",
+      "type": "SCALE",
+      "order": 12,
+      "prompt": "在关系里，我愿意把自己的真实情绪直接说出来。",
+      "weight": 2,
+      "options": [
+        {
+          "label": "非常不像我",
+          "value": "非常不像我"
+        },
+        {
+          "label": "比较不像我",
+          "value": "比较不像我"
+        },
+        {
+          "label": "看情况",
+          "value": "看情况"
+        },
+        {
+          "label": "比较像我",
+          "value": "比较像我"
+        },
+        {
+          "label": "非常像我",
+          "value": "非常像我"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "space_need",
+      "type": "SCALE",
+      "order": 13,
+      "prompt": "即使关系亲密，我也需要稳定的独处空间。",
+      "weight": 2,
+      "options": [
+        {
+          "label": "非常不像我",
+          "value": "非常不像我"
+        },
+        {
+          "label": "比较不像我",
+          "value": "比较不像我"
+        },
+        {
+          "label": "看情况",
+          "value": "看情况"
+        },
+        {
+          "label": "比较像我",
+          "value": "比较像我"
+        },
+        {
+          "label": "非常像我",
+          "value": "非常像我"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "novelty_need",
+      "type": "SCALE",
+      "order": 14,
+      "prompt": "我希望关系里持续有新鲜感和变化。",
+      "weight": 2,
+      "options": [
+        {
+          "label": "非常不像我",
+          "value": "非常不像我"
+        },
+        {
+          "label": "比较不像我",
+          "value": "比较不像我"
+        },
+        {
+          "label": "看情况",
+          "value": "看情况"
+        },
+        {
+          "label": "比较像我",
+          "value": "比较像我"
+        },
+        {
+          "label": "非常像我",
+          "value": "非常像我"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "values",
+      "type": "MULTI_SELECT",
+      "order": 15,
+      "prompt": "请选择你最看重的几个价值。",
+      "weight": 4,
+      "options": [
+        {
+          "label": "真诚",
+          "value": "真诚"
+        },
+        {
+          "label": "稳定",
+          "value": "稳定"
+        },
+        {
+          "label": "责任感",
+          "value": "责任感"
+        },
+        {
+          "label": "尊重边界",
+          "value": "尊重边界"
+        },
+        {
+          "label": "好奇心",
+          "value": "好奇心"
+        },
+        {
+          "label": "上进",
+          "value": "上进"
+        },
+        {
+          "label": "温柔",
+          "value": "温柔"
+        },
+        {
+          "label": "幽默感",
+          "value": "幽默感"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "green_flags",
+      "type": "MULTI_SELECT",
+      "order": 16,
+      "prompt": "请选择最能打动你的 3 个\"加分项\"。",
+      "weight": 3,
+      "options": [
+        {
+          "label": "说到做到",
+          "value": "说到做到"
+        },
+        {
+          "label": "情绪稳定",
+          "value": "情绪稳定"
+        },
+        {
+          "label": "边界清楚",
+          "value": "边界清楚"
+        },
+        {
+          "label": "愿意表达",
+          "value": "愿意表达"
+        },
+        {
+          "label": "有上进心",
+          "value": "有上进心"
+        },
+        {
+          "label": "会照顾人",
+          "value": "会照顾人"
+        },
+        {
+          "label": "松弛幽默",
+          "value": "松弛幽默"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": 3
+    },
+    {
+      "key": "red_flag_sensitivity",
+      "type": "MULTI_SELECT",
+      "order": 17,
+      "prompt": "请选择你最在意的几个\"雷点\"。",
+      "weight": 3,
+      "options": [
+        {
+          "label": "冷处理",
+          "value": "冷处理"
+        },
+        {
+          "label": "阴阳怪气",
+          "value": "阴阳怪气"
+        },
+        {
+          "label": "控制欲",
+          "value": "控制欲"
+        },
+        {
+          "label": "失联",
+          "value": "失联"
+        },
+        {
+          "label": "迟到失约",
+          "value": "迟到失约"
+        },
+        {
+          "label": "情绪爆炸",
+          "value": "情绪爆炸"
+        },
+        {
+          "label": "不尊重边界",
+          "value": "不尊重边界"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "shared_growth_topics",
+      "type": "MULTI_SELECT",
+      "order": 18,
+      "prompt": "如果长期相处，你更愿意一起投入哪些方向？",
+      "weight": 2,
+      "options": [
+        {
+          "label": "学业事业",
+          "value": "学业事业"
+        },
+        {
+          "label": "健身作息",
+          "value": "健身作息"
+        },
+        {
+          "label": "情绪成熟",
+          "value": "情绪成熟"
+        },
+        {
+          "label": "旅行体验",
+          "value": "旅行体验"
+        },
+        {
+          "label": "审美兴趣",
+          "value": "审美兴趣"
+        },
+        {
+          "label": "社交拓展",
+          "value": "社交拓展"
+        },
+        {
+          "label": "财务规划",
+          "value": "财务规划"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "feeling_cared_for",
+      "type": "MULTI_SELECT",
+      "order": 19,
+      "prompt": "你最容易从哪些行为里感到被在乎？",
+      "weight": 3,
+      "options": [
+        {
+          "label": "及时回复",
+          "value": "及时回复"
+        },
+        {
+          "label": "主动约我",
+          "value": "主动约我"
+        },
+        {
+          "label": "记住细节",
+          "value": "记住细节"
+        },
+        {
+          "label": "明确表达喜欢",
+          "value": "明确表达喜欢"
+        },
+        {
+          "label": "实际照顾",
+          "value": "实际照顾"
+        },
+        {
+          "label": "稳定陪伴",
+          "value": "稳定陪伴"
+        },
+        {
+          "label": "尊重我的节奏",
+          "value": "尊重我的节奏"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": null
+    },
+    {
+      "key": "ideal_date_style",
+      "type": "MULTI_SELECT",
+      "order": 20,
+      "prompt": "请选择你最喜欢的 3 种约会方式。",
+      "weight": 2,
+      "options": [
+        {
+          "label": "散步聊天",
+          "value": "散步聊天"
+        },
+        {
+          "label": "探店吃饭",
+          "value": "探店吃饭"
+        },
+        {
+          "label": "运动户外",
+          "value": "运动户外"
+        },
+        {
+          "label": "看展看电影",
+          "value": "看展看电影"
+        },
+        {
+          "label": "宅家陪伴",
+          "value": "宅家陪伴"
+        },
+        {
+          "label": "短途出行",
+          "value": "短途出行"
+        },
+        {
+          "label": "一起做正事",
+          "value": "一起做正事"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": 3
+    },
+    {
+      "key": "future_picture",
+      "type": "MULTI_SELECT",
+      "order": 21,
+      "prompt": "你希望一段关系最终更像什么？请选择 3 项。",
+      "weight": 2,
+      "options": [
+        {
+          "label": "稳定陪伴",
+          "value": "稳定陪伴"
+        },
+        {
+          "label": "个人成长",
+          "value": "个人成长"
+        },
+        {
+          "label": "经济安全",
+          "value": "经济安全"
+        },
+        {
+          "label": "自由感",
+          "value": "自由感"
+        },
+        {
+          "label": "家庭连接",
+          "value": "家庭连接"
+        },
+        {
+          "label": "新鲜体验",
+          "value": "新鲜体验"
+        },
+        {
+          "label": "共同目标",
+          "value": "共同目标"
+        }
+      ],
+      "required": true,
+      "description": null,
+      "selectionLimit": 3
+    },
+    {
+      "key": "exercise_frequency",
+      "prompt": "锻炼频率",
+      "description": null,
+      "type": "SINGLE_SELECT",
+      "weight": 0,
+      "order": 22,
+      "required": true,
+      "selectionLimit": null,
+      "options": [
+        {
+          "value": "很少或不锻炼",
+          "label": "很少或不锻炼"
+        },
+        {
+          "value": "每周 1–2 次",
+          "label": "每周 1–2 次"
+        },
+        {
+          "value": "每周 3–4 次",
+          "label": "每周 3–4 次"
+        },
+        {
+          "value": "每周 5 次及以上",
+          "label": "每周 5 次及以上"
+        }
+      ]
+    },
+    {
+      "key": "smoking_status",
+      "prompt": "吸烟情况",
+      "description": null,
+      "type": "SINGLE_SELECT",
+      "weight": 0,
+      "order": 23,
+      "required": true,
+      "selectionLimit": null,
+      "options": [
+        {
+          "value": "不吸烟",
+          "label": "不吸烟"
+        },
+        {
+          "value": "偶尔吸烟",
+          "label": "偶尔吸烟"
+        },
+        {
+          "value": "经常吸烟",
+          "label": "经常吸烟"
+        },
+        {
+          "value": "每天吸烟",
+          "label": "每天吸烟"
+        }
+      ]
+    },
+    {
+      "key": "drinking_frequency",
+      "prompt": "饮酒频率",
+      "description": null,
+      "type": "SINGLE_SELECT",
+      "weight": 0,
+      "order": 24,
+      "required": true,
+      "selectionLimit": null,
+      "options": [
+        {
+          "value": "不饮酒",
+          "label": "不饮酒"
+        },
+        {
+          "value": "偶尔社交饮酒",
+          "label": "偶尔社交饮酒"
+        },
+        {
+          "value": "每周 1–2 次",
+          "label": "每周 1–2 次"
+        },
+        {
+          "value": "每周 3 次及以上",
+          "label": "每周 3 次及以上"
+        }
+      ]
+    }
+  ]
+}

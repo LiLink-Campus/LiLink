@@ -390,6 +390,7 @@ export class MailService {
     waitForCompletion: true,
   })
   async handleEmailQueue() {
+    if (!env.BACKGROUND_JOBS_ENABLED || env.RELEASE_MAINTENANCE) return;
     if (Date.now() > this.flushPollUntil) {
       return;
     }
@@ -405,6 +406,7 @@ export class MailService {
   async flushQueuedEmails(
     options: { dedupeKeys?: string[]; limit?: number } = {},
   ) {
+    if (!env.MAIL_DELIVERY_ENABLED || env.RELEASE_MAINTENANCE) return;
     // A targeted (inline) flush means a caller just enqueued mail; keep the
     // backstop window open so the cron re-sweeps even if this call no-ops on
     // the isFlushing lock or its delivery throws before claiming the row.

@@ -1,0 +1,62 @@
+name: Isolated release rehearsal
+on:
+  push:
+    branches: [codex/questionnaire-reset-release]
+    paths: [apps/api/**, packages/shared/**, scripts/release/**, .github/workflows/release-rehearsal.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: isolated-release-rehearsal
+  cancel-in-progress: false
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 130
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - name: Prepare isolated secret files
+        env:
+          RELEASE_DB: ${{ secrets.RELEASE_REHEARSAL_DATABASE_URL }}
+          RELEASE_KEY: ${{ secrets.RELEASE_REHEARSAL_ACCESS_KEY }}
+          TUNNEL_TOKEN: ${{ secrets.RELEASE_REHEARSAL_TUNNEL_TOKEN }}
+        run: |
+          umask 077
+          mkdir -p artifacts/release-secret artifacts/release-output
+          node scripts/release/runner-env.mjs
+      - name: Build exact production image
+        run: docker build -f apps/api/Dockerfile.prod --build-arg SENTRY_RELEASE="$GITHUB_SHA" -t "lilink-api:$GITHUB_SHA" .
+      - name: Start isolated API and seed synthetic data
+        run: |
+          docker network create release-test
+          docker run -d --name release-mail --network release-test ghcr.io/axllent/mailpit:v1.20
+          docker run --rm --network release-test -v "$PWD/artifacts/release-secret/api_env:/run/secrets/api_env:ro" "lilink-api:$GITHUB_SHA" node scripts/production-entrypoint.mjs npx prisma migrate deploy
+          docker run --rm --user 0 --network release-test -v "$PWD/artifacts/release-secret/api_env:/run/secrets/api_env:ro" -v "$PWD/scripts/release:/release:ro" -v "$PWD/artifacts/release-output:/release-output" "lilink-api:$GITHUB_SHA" node scripts/production-entrypoint.mjs node /release/seed-load.mjs
+          docker run -d --name release-api --network release-test --cpus=2 --memory=3584m --memory-swap=5632m -p 127.0.0.1:4000:4000 -v "$PWD/artifacts/release-secret/api_env:/run/secrets/api_env:ro" "lilink-api:$GITHUB_SHA"
+      - name: Expose only the authenticated rehearsal proxy
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/download/2026.9.1/cloudflared-linux-amd64 -o artifacts/cloudflared
+          echo '03f1f25d1cc93b9ad6c60569d44060bc4f17ed97075760ed8cfca4b12dcd68cc  artifacts/cloudflared' | sha256sum -c
+          chmod +x artifacts/cloudflared
+          RELEASE_ACCESS_FILE=artifacts/release-secret/access-key node scripts/release/proxy.mjs > artifacts/release-output/requests.jsonl 2>&1 &
+          artifacts/cloudflared tunnel --no-autoupdate run --token-file artifacts/release-secret/tunnel-token > artifacts/release-output/tunnel.log 2>&1 &
+          for i in $(seq 1 660); do
+            if [ -f artifacts/release-stop ]; then break; fi
+            docker stats --no-stream --format '{{json .}}' release-api >> artifacts/release-output/resources.jsonl
+            sleep 10
+          done
+      - name: Collect image and runtime evidence
+        if: always()
+        run: |
+          docker logs release-api > artifacts/release-output/api.log 2>&1 || true
+          docker inspect --format '{{json .State}}' release-api > artifacts/release-output/container-state.json || true
+          docker save "lilink-api:$GITHUB_SHA" | gzip > artifacts/release-output/api-image.tar.gz
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: isolated-release-${{ github.sha }}
+          path: artifacts/release-output
+          retention-days: 3

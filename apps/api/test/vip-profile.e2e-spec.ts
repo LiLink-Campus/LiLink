@@ -4,11 +4,7 @@ import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AccountService } from '../src/modules/account/account.service';
 import { QuestionnaireService } from '../src/modules/questionnaire/questionnaire.service';
 import { CyclesService } from '../src/modules/cycles/cycles.service';
-import {
-  HARD_MATCH_LOOKS,
-  LIFESTYLE_QUESTIONS,
-  HARD_MATCH_KEYS as K,
-} from '@lilink/shared';
+import { LIFESTYLE_QUESTIONS, HARD_MATCH_KEYS as K } from '@lilink/shared';
 
 const fixture = `vip-profile-${randomUUID()}`;
 describe('VIP profile persistence and actual matching eligibility (PostgreSQL)', () => {
@@ -110,8 +106,9 @@ describe('VIP profile persistence and actual matching eligibility (PostgreSQL)',
     await prisma.school.deleteMany({ where: { id: schoolId } });
     await prisma.$disconnect();
   });
-  it('saves lifestyle answers, ignores forged premium filters, and restores from the database', async () => {
+  it('preserves saved premium preferences without granting matching privileges', async () => {
     const result = await account.saveQuestionnaire(userId, {
+      versionId,
       answers,
       hardMatchForm: form,
       displayName: '测试同学',
@@ -120,11 +117,12 @@ describe('VIP profile persistence and actual matching eligibility (PostgreSQL)',
     const saved = await account.getQuestionnaire(userId);
     expect(saved?.answers).toMatchObject({
       ...answers,
-      [K.partnerHeightMin]: 120,
-      [K.partnerLooks]: [...HARD_MATCH_LOOKS],
-      [K.excludedPartnerSchools]: [],
+      [K.partnerHeightMin]: 180,
+      [K.partnerLooks]: ['8', '9', '10'],
+      [K.excludedPartnerSchools]: [schoolId],
     });
     const incomplete = await account.saveQuestionnaire(userId, {
+      versionId,
       answers: { ...answers, exercise_frequency: undefined },
       hardMatchForm: form,
       displayName: '测试同学',
@@ -148,6 +146,7 @@ describe('VIP profile persistence and actual matching eligibility (PostgreSQL)',
     expect(
       (
         await account.saveQuestionnaire(userId, {
+          versionId,
           answers,
           hardMatchForm: form,
           displayName: '测试同学',
@@ -165,14 +164,25 @@ describe('VIP profile persistence and actual matching eligibility (PostgreSQL)',
       });
       return (
         cycles as unknown as {
-          toEligibleParticipants: (rows: unknown[]) => Array<{
+          toEligibleParticipants: (
+            rows: unknown[],
+            questionnaire: unknown,
+            schoolIds: string[],
+          ) => Array<{
             hardMatchAnswers: {
               partnerHeightMin: number;
               excludedPartnerSchools: string[];
             };
           }>;
         }
-      ).toEligibleParticipants([{ intent: 'DATE', user }])[0].hardMatchAnswers;
+      ).toEligibleParticipants(
+        [{ intent: 'DATE', user }],
+        await prisma.questionnaireVersion.findUniqueOrThrow({
+          where: { id: versionId },
+          include: { questions: true },
+        }),
+        [schoolId],
+      )[0].hardMatchAnswers;
     }
     expect(await effective()).toMatchObject({
       partnerHeightMin: 180,

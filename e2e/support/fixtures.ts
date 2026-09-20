@@ -63,7 +63,7 @@ export async function completeProfile(context: BrowserContext, db: any) {
   const version = await db.questionnaireVersion.findFirstOrThrow({ where: { isCurrent: true }, include: { questions: true }, orderBy: { createdAt: 'desc' } });
   const answers = Object.fromEntries(version.questions.map((q: any) => [q.key, q.type === 'MULTI_SELECT' ? q.options.slice(0, q.selectionLimit ?? 1).map((option: any) => option.value) : q.options[0].value]));
   const response = await context.request.put(`${api}/me/questionnaire`, { data: {
-    displayName: '自动化同学', answers,
+    versionId: version.id, displayName: '自动化同学', answers,
     hardMatchForm: {
       birthYear: '2000', birthMonth: '1', birthDay: '1', gender: '女', partnerGenders: ['男', '女'],
       partnerAgeMin: '18', partnerAgeMax: '40', nationality: '中国', languages: ['中文'],

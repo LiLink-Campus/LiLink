@@ -1,3 +1,4 @@
+import { validateQuestionnaireAnswers } from '../questionnaire/questionnaire.service';
 import { effectiveMatchingAnswers, hasActiveVip } from '@lilink/shared';
 import {
   BadRequestException,
@@ -94,6 +95,7 @@ export const CYCLE_PROCESSING_INCLUDE = {
           questionnaireResponse: {
             select: {
               versionId: true,
+              draftAnswers: true,
               answers: true,
               submittedAt: true,
             },
@@ -675,7 +677,13 @@ export class CyclesService {
 
     try {
       const optedInCount = cycle.participations.length;
-      const participants = this.toEligibleParticipants(cycle.participations);
+      const participants = this.toEligibleParticipants(
+        cycle.participations,
+        questionnaire,
+        (await this.prisma.school.findMany({ select: { id: true } })).map(
+          (school) => school.id,
+        ),
+      );
       const questionnairesByVersionId =
         await this.loadQuestionnairesByVersionId(participants, questionnaire);
 
@@ -732,11 +740,26 @@ export class CyclesService {
                   {
                     cycleId: cycle.id,
                     userId: pair.left.id,
+                    profileSnapshot: {
+                      source: 'matching-preparation',
+                      versionId: pair.left.questionnaireVersionId,
+                      introLine: pair.left.hardMatchAnswers.oneLinerIntro,
+                      gender: pair.left.hardMatchAnswers.gender,
+                      partnerGenders: pair.left.hardMatchAnswers.partnerGenders,
+                    },
                     position: 1,
                   },
                   {
                     cycleId: cycle.id,
                     userId: pair.right.id,
+                    profileSnapshot: {
+                      source: 'matching-preparation',
+                      versionId: pair.right.questionnaireVersionId,
+                      introLine: pair.right.hardMatchAnswers.oneLinerIntro,
+                      gender: pair.right.hardMatchAnswers.gender,
+                      partnerGenders:
+                        pair.right.hardMatchAnswers.partnerGenders,
+                    },
                     position: 2,
                   },
                 ],
@@ -1068,6 +1091,7 @@ export class CyclesService {
                   questionnaireResponse: {
                     select: {
                       versionId: true,
+                      draftAnswers: true,
                       answers: true,
                       submittedAt: true,
                     },
@@ -1103,7 +1127,13 @@ export class CyclesService {
       };
     }
 
-    const participants = this.toEligibleParticipants(cycle.participations);
+    const participants = this.toEligibleParticipants(
+      cycle.participations,
+      questionnaire,
+      (await this.prisma.school.findMany({ select: { id: true } })).map(
+        (school) => school.id,
+      ),
+    );
     const questionnairesByVersionId = await this.loadQuestionnairesByVersionId(
       participants,
       questionnaire,
@@ -1334,18 +1364,23 @@ export class CyclesService {
         }>;
         questionnaireResponse: {
           versionId?: string | null;
+          draftAnswers?: Prisma.JsonValue;
           answers: Prisma.JsonValue;
           submittedAt: Date | null;
         } | null;
       };
     }>,
+    questionnaire: { id: string; questions: QuestionnaireQuestion[] },
+    allowedSchoolIds: string[],
   ): EligibleParticipant[] {
     return participations
       .map((entry): EligibleParticipant | null => {
         const { user } = entry;
         if (
           !user.questionnaireResponse ||
-          user.questionnaireResponse.submittedAt == null
+          user.questionnaireResponse.submittedAt == null ||
+          user.questionnaireResponse.versionId !== questionnaire.id ||
+          user.questionnaireResponse.draftAnswers != null
         ) {
           return null;
         }
@@ -1364,6 +1399,16 @@ export class CyclesService {
           >),
           [HARD_MATCH_KEYS.school]: user.school?.id ?? '',
         };
+        try {
+          validateQuestionnaireAnswers(
+            questionnaire.questions,
+            answers,
+            allowedSchoolIds,
+          );
+        } catch (error) {
+          if (error instanceof BadRequestException) return null;
+          throw error;
+        }
         const hardMatchAnswers = tryReadHardMatchAnswers(
           effectiveMatchingAnswers(answers, hasActiveVip(user.vipActivations)),
         );

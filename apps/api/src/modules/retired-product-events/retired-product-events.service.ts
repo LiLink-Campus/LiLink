@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { env } from '../../config/env';
 
 @Injectable()
 export class RetiredProductEventsService {
@@ -13,6 +14,7 @@ export class RetiredProductEventsService {
     waitForCompletion: true,
   })
   async handleRetention() {
+    if (!env.BACKGROUND_JOBS_ENABLED || env.RELEASE_MAINTENANCE) return;
     try {
       await this.purgeExpiredEvents();
     } catch (error) {

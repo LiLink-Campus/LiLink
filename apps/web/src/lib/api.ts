@@ -8,6 +8,9 @@ import type {
 } from "@lilink/shared";
 
 const API_ERROR_EN_TO_ZH: Record<string, string> = {
+  "Questionnaire version is outdated. Reload before saving.": "问卷已更新，请刷新页面后重新填写。旧问卷不会覆盖新版内容。",
+  "Complete the current questionnaire before opting into matching.": "请先完整填写新版问卷，再报名本轮匹配。",
+  "Partner looks must be a continuous minimum-score range.": "请选择对方颜值最低分。",
   "This email domain is not currently accepted.":
     "该邮箱后缀不在平台当前支持的学校列表中。请使用学校在后台登记的学校邮箱域名（常见为 .edu.cn 等官方后缀）。若不确定，可向学校 IT 或平台管理员确认。",
   "No valid verification code was found.":

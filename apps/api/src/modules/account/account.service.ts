@@ -1,6 +1,5 @@
 import {
   effectiveMatchingAnswers,
-  effectivePreferenceForm,
   hasActiveVip,
   VIP_FILTER_KEYS,
 } from '@lilink/shared';
@@ -338,6 +337,7 @@ export class AccountService {
       }),
       this.prisma.questionnaireResponse.findUnique({
         where: { userId },
+        include: { version: { select: { isCurrent: true } } },
       }),
       this.prisma.matchCycle.findFirst({
         where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
@@ -487,7 +487,9 @@ export class AccountService {
 
     return {
       profile,
-      questionnaireSubmittedAt: this.toIsoString(questionnaire?.submittedAt),
+      questionnaireSubmittedAt: questionnaire?.version?.isCurrent
+        ? this.toIsoString(questionnaire.submittedAt)
+        : null,
       currentCycle: cycle
         ? {
             id: cycle.id,
@@ -1036,6 +1038,12 @@ export class AccountService {
       }),
     ]);
 
+    if (input.versionId !== questionnaire.id) {
+      throw new BadRequestException(
+        'Questionnaire version is outdated. Reload before saving.',
+      );
+    }
+
     if (!user.school?.id) {
       throw new BadRequestException(
         'A recognized school is required before saving the questionnaire.',
@@ -1072,10 +1080,7 @@ export class AccountService {
       }
 
       const hardMatchAnswers = buildHardMatchAnswerRecordFromFormInput(
-        effectivePreferenceForm(
-          input.hardMatchForm,
-          hasActiveVip(user.vipActivations),
-        ),
+        input.hardMatchForm,
         user.school.id,
         allowedSchoolIds,
       );
@@ -1233,20 +1238,12 @@ export class AccountService {
       }),
     ]);
 
-    if (!response) {
+    if (
+      !response ||
+      !currentQuestionnaire ||
+      response.versionId !== currentQuestionnaire.id
+    )
       return null;
-    }
-
-    if (!currentQuestionnaire) {
-      return {
-        versionId: response.versionId,
-        currentVersionId: null,
-        answers: isRecord(response.answers) ? response.answers : {},
-        submittedAt: this.toIsoString(response.submittedAt),
-        draft: null,
-        attention: null,
-      };
-    }
 
     const allowedSchoolIds = currentQuestionnaire.schools.map(
       (school) => school.id,
@@ -1659,6 +1656,7 @@ export class AccountService {
     const response = await this.prisma.questionnaireResponse.findUnique({
       where: { userId },
       select: {
+        versionId: true,
         answers: true,
         draftAnswers: true,
         submittedAt: true,
@@ -1675,6 +1673,22 @@ export class AccountService {
         'Submit a complete questionnaire before opting into matching.',
       );
     }
+
+    const currentQuestionnaire =
+      await this.questionnaireService.getCurrentVersion();
+    if (response.versionId !== currentQuestionnaire.id) {
+      throw new BadRequestException(
+        'Complete the current questionnaire before opting into matching.',
+      );
+    }
+    this.questionnaireService.validateAnswers(
+      currentQuestionnaire.questions,
+      {
+        ...(isRecord(response.answers) ? response.answers : {}),
+        [HARD_MATCH_KEYS.school]: schoolId ?? '',
+      },
+      currentQuestionnaire.schools.map((school) => school.id),
+    );
 
     const vipActive = hasActiveVip(response.user?.vipActivations);
     const hardMatchAnswers = tryReadHardMatchAnswers(
@@ -1709,53 +1723,9 @@ export class AccountService {
     }
 
     if (response.draftAnswers != null) {
-      await this.assertDraftQuestionnaireIsComplete(
-        response.draftAnswers,
-        schoolId,
-        vipActive,
+      throw new BadRequestException(
+        'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
       );
-    }
-  }
-
-  // Validates the in-progress draft using the same rules as a real submission.
-  // Throws a user-facing BadRequest when the draft is missing required answers
-  // so the home participation gate can surface it as "questionnaire has
-  // unsaved incomplete changes".
-  private async assertDraftQuestionnaireIsComplete(
-    rawDraftAnswers: Prisma.JsonValue,
-    schoolId: string | null,
-    vipActive = false,
-  ) {
-    const questionnaire = await this.questionnaireService.getCurrentVersion();
-    const allowedSchoolIds = questionnaire.schools.map((school) => school.id);
-    const draft = this.normalizeStoredQuestionnaireDraftPayload(
-      questionnaire.questions,
-      rawDraftAnswers,
-      allowedSchoolIds,
-    );
-
-    if (!draft) {
-      return;
-    }
-
-    try {
-      const draftHardMatchAnswers = buildHardMatchAnswerRecordFromFormInput(
-        effectivePreferenceForm(draft.hardMatchForm, vipActive),
-        schoolId ?? '',
-        allowedSchoolIds,
-      );
-      this.questionnaireService.validateAnswers(
-        questionnaire.questions,
-        { ...draft.softAnswers, ...draftHardMatchAnswers },
-        allowedSchoolIds,
-      );
-    } catch (error) {
-      if (error instanceof IncompleteQuestionnaireSubmissionException) {
-        throw new BadRequestException(
-          'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
-        );
-      }
-      throw error;
     }
   }
 }

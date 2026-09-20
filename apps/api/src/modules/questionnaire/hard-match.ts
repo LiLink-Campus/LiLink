@@ -879,10 +879,8 @@ function normalizeHardMatchValues(
       HARD_MATCH_KEYS.partnerExerciseFrequency,
       LIFESTYLE_QUESTIONS[0].options,
     ),
-    partnerLooks: normalizeMultiChoice(
+    partnerLooks: normalizeMinimumLooks(
       rawAnswers[HARD_MATCH_KEYS.partnerLooks],
-      HARD_MATCH_KEYS.partnerLooks,
-      HARD_MATCH_LOOKS,
     ),
     heightCm,
     partnerHeightMin,
@@ -903,6 +901,25 @@ function normalizeHardMatchValues(
     excludedPartnerSchoolGenders:
       excludedPartnerPreferences.excludedPartnerSchoolGenders,
   };
+}
+
+function normalizeMinimumLooks(value: unknown): HardMatchLooks[] {
+  const values = normalizeMultiChoice(
+    value,
+    HARD_MATCH_KEYS.partnerLooks,
+    HARD_MATCH_LOOKS,
+  );
+  const minimum = Math.min(...values.map(Number));
+  const expected = HARD_MATCH_LOOKS.filter((score) => Number(score) >= minimum);
+  if (
+    values.length !== expected.length ||
+    expected.some((score) => !values.includes(score))
+  ) {
+    throw new BadRequestException(
+      'Partner looks must be a continuous minimum-score range.',
+    );
+  }
+  return expected;
 }
 
 export function normalizeHardMatchAnswers(

@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { env } from './config/env';
+import { releaseMaintenance } from './common/http/release-maintenance';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -33,6 +34,7 @@ async function bootstrap() {
   app.setGlobalPrefix('v1');
   app.use(helmet());
   app.use(cookieParser());
+  app.use(releaseMaintenance);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

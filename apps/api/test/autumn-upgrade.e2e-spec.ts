@@ -41,6 +41,144 @@ describe('Autumn upgrade safety (PostgreSQL)', () => {
     ).rejects.toThrow(rollback);
   }
 
+  it('archives exact submitted and draft values before clearing active answers and freezes history', async () => {
+    await rollbackTest(async (tx) => {
+      await tx.questionnaireVersion.updateMany({ data: { isCurrent: false } });
+      const version = await tx.questionnaireVersion.create({
+        data: {
+          title: 'Reset fixture',
+          isCurrent: true,
+          questions: {
+            create: {
+              key: 'custom',
+              prompt: 'Custom',
+              type: 'SINGLE_SELECT',
+              order: 1,
+              weight: 0,
+              required: false,
+            },
+          },
+        },
+      });
+      const user = await tx.user.create({
+        data: {
+          email: `${randomUUID()}@example.test`,
+          passwordHash: 'preserved-hash',
+          displayName: 'Preserved name',
+          status: 'ACTIVE',
+          profile: { create: { headline: 'Fallback headline' } },
+        },
+      });
+      const response = await tx.questionnaireResponse.create({
+        data: {
+          userId: user.id,
+          versionId: version.id,
+          answers: {
+            retired_key: ['old', null],
+            hard_one_liner_intro: ' Original intro ',
+            hard_gender: '女',
+            hard_partner_genders: ['男'],
+          },
+          draftAnswers: { retired_key: null, nested: { untouched: true } },
+          acknowledgedQuestionnaireVersionId: version.id,
+          acknowledgedQuestionnaireKeys: ['retired_key'],
+          acknowledgedHardMatchSignatures: { opaque: 'exact' },
+          submittedAt: new Date(),
+        },
+      });
+      const cycle = await tx.matchCycle.create({
+        data: {
+          codename: randomUUID(),
+          status: 'REVEALED',
+          participationDeadline: new Date(),
+          revealAt: new Date(),
+        },
+      });
+      const match = await tx.match.create({
+        data: {
+          cycleId: cycle.id,
+          score: 85,
+          participants: {
+            create: { cycleId: cycle.id, userId: user.id, position: 0 },
+          },
+        },
+      });
+      const sql = readMigration(
+        '20260920200000_archive_and_reset_questionnaires',
+      );
+      await tx.$executeRawUnsafe(
+        sql.slice(sql.indexOf('DO $$'), sql.lastIndexOf('COMMIT;')),
+      );
+      const archive = await tx.questionnaireResponseArchive.findUniqueOrThrow({
+        where: {
+          releaseId_sourceResponseId: {
+            releaseId: 'autumn-reset-2026-09-20',
+            sourceResponseId: response.id,
+          },
+        },
+      });
+      for (const key of [
+        'userId',
+        'versionId',
+        'answers',
+        'draftAnswers',
+        'acknowledgedQuestionnaireVersionId',
+        'acknowledgedQuestionnaireKeys',
+        'acknowledgedHardMatchSignatures',
+        'submittedAt',
+      ] as const)
+        expect(archive[key]).toEqual(response[key]);
+      expect(archive.sourceUpdatedAt).toEqual(response.updatedAt);
+      const active = await tx.questionnaireResponse.findUniqueOrThrow({
+        where: { id: response.id },
+      });
+      expect(active.versionId).not.toBe(version.id);
+      expect(active).toMatchObject({
+        answers: {},
+        draftAnswers: null,
+        submittedAt: null,
+        acknowledgedQuestionnaireVersionId: null,
+        acknowledgedQuestionnaireKeys: null,
+        acknowledgedHardMatchSignatures: null,
+      });
+      await tx.questionnaireResponse.update({
+        where: { id: response.id },
+        data: {
+          answers: { hard_one_liner_intro: 'New intro', hard_gender: '男' },
+          draftAnswers: { new: true },
+        },
+      });
+      const participant = await tx.matchParticipant.findFirstOrThrow({
+        where: { matchId: match.id },
+      });
+      expect(participant.profileSnapshot).toMatchObject({
+        introLine: 'Original intro',
+        gender: '女',
+        partnerGenders: ['男'],
+        archiveId: archive.id,
+        source: 'pre-reset-visible-profile',
+      });
+      expect(
+        await tx.questionnaireResponseArchive.findUnique({
+          where: { id: archive.id },
+        }),
+      ).toEqual(archive);
+      expect(
+        await tx.user.findUnique({ where: { id: user.id } }),
+      ).toMatchObject({
+        passwordHash: 'preserved-hash',
+        displayName: 'Preserved name',
+        status: 'ACTIVE',
+      });
+      expect(
+        await tx.question.count({ where: { versionId: version.id } }),
+      ).toBe(1);
+      expect(
+        await tx.question.count({ where: { versionId: active.versionId } }),
+      ).toBe(1);
+    });
+  });
+
   it('retires legacy active enrollments and prevents prepared matches from disclosing contacts', async () => {
     await rollbackTest(async (tx) => {
       const [row] = await tx.$queryRaw<

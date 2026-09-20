@@ -56,6 +56,7 @@ const dashboardSnapshotMatchSelect = {
       userId: true,
       introducedContactType: true,
       introducedContactValue: true,
+      profileSnapshot: true,
       user: {
         select: {
           email: true,
@@ -780,23 +781,44 @@ export class DashboardSnapshotService {
             return {
               userId: participant.userId,
               displayName: participant.user.displayName,
-              introLine: this.displayIntroLine(
-                participant.user.questionnaireResponse?.answers,
-                participant.user.profile?.headline,
-              ),
+              ...this.readParticipantProfile(participant),
               email: contact?.type === 'EMAIL' ? contact.value : null,
               contact,
               schoolName: participant.user.school?.name ?? null,
-              gender: this.readHardGender(
-                participant.user.questionnaireResponse?.answers,
-              ),
-              partnerGenders: this.readHardPartnerGenders(
-                participant.user.questionnaireResponse?.answers,
-              ),
               weeklyIntent:
                 input.intentByUserId.get(participant.userId) ?? null,
             };
           }),
+    };
+  }
+
+  private readParticipantProfile(
+    participant: SnapshotMatch['participants'][number],
+  ) {
+    const snapshot = participant.profileSnapshot;
+    if (isRecord(snapshot)) {
+      return {
+        introLine:
+          typeof snapshot.introLine === 'string' ? snapshot.introLine : null,
+        gender: typeof snapshot.gender === 'string' ? snapshot.gender : null,
+        partnerGenders: Array.isArray(snapshot.partnerGenders)
+          ? snapshot.partnerGenders.filter(
+              (value): value is string => typeof value === 'string',
+            )
+          : [],
+      };
+    }
+    return {
+      introLine: this.displayIntroLine(
+        participant.user.questionnaireResponse?.answers,
+        participant.user.profile?.headline,
+      ),
+      gender: this.readHardGender(
+        participant.user.questionnaireResponse?.answers,
+      ),
+      partnerGenders: this.readHardPartnerGenders(
+        participant.user.questionnaireResponse?.answers,
+      ),
     };
   }
 
