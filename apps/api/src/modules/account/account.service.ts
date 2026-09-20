@@ -331,6 +331,7 @@ export class AccountService {
       cycle,
       revealedCycles,
       lastRevealedParticipation,
+      couponAgenda,
     ] = await Promise.all([
       this.prisma.userProfile.findUnique({
         where: { userId },
@@ -373,6 +374,7 @@ export class AccountService {
           },
         },
       }),
+      getDashboardCouponAgenda(this.prisma, userId),
     ]);
 
     const revealedCycleIds = revealedCycles.map((item) => item.id);
@@ -483,8 +485,6 @@ export class AccountService {
       latestMatch != null
         ? this.toDashboardHistoryLimitedReason(latestSnapshot?.limitedReason)
         : null;
-    const couponAgenda = await getDashboardCouponAgenda(this.prisma, userId);
-
     return {
       profile,
       questionnaireSubmittedAt: questionnaire?.version?.isCurrent
@@ -1221,15 +1221,6 @@ export class AccountService {
     const [response, currentQuestionnaire, user] = await Promise.all([
       this.prisma.questionnaireResponse.findUnique({
         where: { userId },
-        include: {
-          version: {
-            include: {
-              questions: {
-                orderBy: { order: 'asc' },
-              },
-            },
-          },
-        },
       }),
       this.questionnaireService.getCurrentVersion().catch(() => null),
       this.prisma.user.findUnique({
@@ -1297,7 +1288,7 @@ export class AccountService {
         vipActive: hasActiveVip(user?.vipActivations),
         currentVersionId: currentQuestionnaire.id,
         currentQuestions: currentQuestionnaire.questions,
-        previousQuestions: response.version?.questions ?? [],
+        previousQuestions: currentQuestionnaire.questions,
         responseVersionId: response.versionId,
         rawAnswers: schoolAwareAnswers,
         filteredAnswers,
