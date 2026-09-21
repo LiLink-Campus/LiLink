@@ -17,6 +17,36 @@ type ServerFetchOptions = RequestInit & {
   cookieNames?: string[];
 };
 
+const RETRYABLE_READ_STATUSES = new Set([502, 503, 504, 520, 522, 523, 524]);
+
+async function readServerResponse(url: string, options: RequestInit) {
+  const attempts = (options.method ?? "GET").toUpperCase() === "GET" && !options.body ? 2 : 1;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), 4_000);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: options.signal ? AbortSignal.any([options.signal, deadline.signal]) : deadline.signal,
+      });
+      const headersReceived = performance.now();
+      const body = await response.text();
+      if (attempt + 1 < attempts && RETRYABLE_READ_STATUSES.has(response.status)) continue;
+      return { response, headersReceived, body };
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
+      const networkFailure = error instanceof TypeError;
+      if (attempt + 1 < attempts && (deadline.signal.aborted || networkFailure)) continue;
+      if (deadline.signal.aborted) throw new ServerApiError("服务响应超时，请稍后重试。", 504);
+      if (networkFailure) throw new ServerApiError("暂时无法连接服务，请稍后重试。", 503);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new ServerApiError("暂时无法连接服务，请稍后重试。", 503);
+}
+
 function parseFailedResponseBody(text: string, status: number): string {
   const trimmed = text.trim();
   if (!trimmed) {
@@ -69,7 +99,7 @@ async function fetchApiServer<T>(
   const traceId = process.env.SERVER_API_TIMING_LOG_ENABLED === "true"
     ? crypto.randomUUID()
     : undefined;
-  const response = await fetch(`${await getServerApiBaseUrl()}${path}`, {
+  const { response, headersReceived, body } = await readServerResponse(`${await getServerApiBaseUrl()}${path}`, {
     ...options,
     headers: {
       Accept: "application/json",
@@ -80,8 +110,6 @@ async function fetchApiServer<T>(
     },
     cache: options.cache ?? "no-store",
   });
-  const headersReceived = performance.now();
-  const body = await response.text();
   if (traceId) {
     console.info(JSON.stringify({
       event: "server_api_timing",
