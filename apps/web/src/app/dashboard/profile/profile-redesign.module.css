@@ -448,6 +448,12 @@
 
 .desktopDirectory, .desktopOnly, .desktopProgress, .desktopComplete { display: none; }
 
+/* Keep the hint outside the scroller so it never covers an answer. */
+.scrollHint { display: flex; align-items: center; justify-content: center; min-height: 24px; margin-bottom: 4px; color: var(--color-brand); font-size: 12px; line-height: 20px; }
+.scrollHint[data-direction="none"] { visibility: hidden; }
+.scrollHint > span { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; background: var(--color-brand-tint); }
+.scrollHint svg { flex: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
 /* Reserve the action row and size each question to the remaining viewport. */
 @media (max-width: 879px) {
   .page.page { max-width: none; padding: 12px 16px 8px; }
@@ -486,11 +492,16 @@
 }
 
 @media (max-width: 879px) and (max-height: 500px) {
+  .page.page { padding-top: 4px; }
   .page .saveNotice:not([data-tone="error"]) span { display: none; }
-  .page .saveNotice { padding-block: 4px; margin-bottom: 4px; }
+  .page .saveNotice { padding-block: 2px; margin-bottom: 0; }
   .page nav { margin-bottom: 4px; }
+  .page nav button { min-height: 32px; padding-block: 2px; }
   .page .reader { padding-block: 4px; }
   .page .readerProgress { padding-block: 2px; }
+  .page .readerProgress button { padding-block: 4px; }
+  .scrollHint { min-height: 20px; margin-bottom: 0; }
+  .scrollHint > span { padding-block: 0; }
 }
 
 @media (min-width: 880px) {

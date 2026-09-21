@@ -3,10 +3,10 @@ import { test, expect, visit } from '../support/fixtures';
 
 test.beforeEach(async ({ signedIn }) => { void signedIn; });
 
-async function openQuestion(page: Page, title: string) {
+async function openQuestion(page: Page, title: string, group = '关于你') {
   const directory = page.getByRole('button', { name: '题目目录', exact: true });
   if (await directory.isVisible()) await directory.click();
-  await page.getByRole('button', { name: new RegExp(`关于你第 \\d+ 题：${title}$`) }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: new RegExp(`${group}第 \\d+ 题：${title}$`) }).filter({ visible: true }).click();
 }
 
 async function expectActionsAtBottom(page: Page) {
@@ -87,4 +87,42 @@ test('mobile profile remains editable when available viewport height changes', a
   await page.reload({ waitUntil: 'domcontentloaded' });
   await openQuestion(page, '一句话介绍');
   await expect(intro).toHaveValue('可视高度变化后仍然保留的合成测试介绍');
+});
+
+test('scroll hints follow hidden content and keep actions stable @smoke', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await visit(page, '/dashboard/profile');
+  const main = page.getByRole('main');
+  const down = main.getByText('下方还有内容 · 滑动查看', { exact: true });
+  const both = main.getByText('上下还有内容 · 滑动查看', { exact: true });
+  const up = main.getByText('上方还有内容 · 滑动查看', { exact: true });
+  await expect(down).not.toBeVisible();
+  await openQuestion(page, '希望对方吸烟情况', '希望遇见谁');
+  const reader = page.getByRole('region', { name: '当前题目' });
+  await expect(down).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('scroll-hint-top.png') });
+  const next = page.getByRole('button', { name: '下一题 →', exact: true });
+  const before = await next.boundingBox();
+  await reader.evaluate(element => { element.scrollTop = (element.scrollHeight - element.clientHeight) / 2; });
+  await expect(both).toBeVisible();
+  await reader.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await expect(up).toBeVisible();
+  await expect(down).not.toBeVisible();
+  const lastOption = page.locator('[data-reader-hidden="false"] [data-choice]').last();
+  await expect(lastOption).toBeInViewport({ ratio: 1 });
+  expect((await next.boundingBox())!.y).toBeCloseTo(before!.y, 0);
+  await expectActionsAtBottom(page);
+  await page.screenshot({ path: testInfo.outputPath('scroll-hint-bottom.png') });
+
+  await next.click();
+  await expect(reader).toHaveJSProperty('scrollTop', 0);
+  await expect(down).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1200 });
+  await expect(down).not.toBeVisible();
+  await expect(up).not.toBeVisible();
+  await page.setViewportSize({ width: 360, height: 640 });
+  await expect(down).toBeVisible();
+  await openQuestion(page, '昵称');
+  await expect(down).not.toBeVisible();
+  await expect(up).not.toBeVisible();
 });
