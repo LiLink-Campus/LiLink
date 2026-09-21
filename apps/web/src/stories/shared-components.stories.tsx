@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { useState } from "react";
-import { AnnouncementDialog } from "@/app/announcement-dialog";
 import { QrCode } from "@/components/qr-code";
 import * as Icons from "@/app/dashboard/_components/icons";
 import * as Illustrations from "@/app/dashboard/_components/illustrations";
@@ -67,12 +66,6 @@ export const IllustrationGallery: Story = {
     </div>
   ),
   play: visible("CoffeeCupsIllustration"),
-};
-export const Announcement: Story = {
-  render: () => <AnnouncementDialog />,
-  play: async ({ canvasElement }) => {
-    await expect(await within(canvasElement).findByRole("dialog")).toBeVisible();
-  },
 };
 export const Qr: Story = {
   render: () => <QrCode value="https://example.test/i/STORYCODE" />,

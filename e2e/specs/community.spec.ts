@@ -28,7 +28,12 @@ test('community snapshot survives refresh failure and recovers at 30 seconds @sm
   await page.clock.pauseAt(new Date("2026-09-21T00:00:01Z"));
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('list', { name: listName })).toBeVisible();
-  await expect.poll(() => attempts).toBe(1);
+  // Next's beforeInteractive bootstrap uses a zero-delay timer before hydration.
+  // Let startup timers run without advancing the 30-second refresh interval.
+  await expect.poll(async () => {
+    await page.clock.runFor(1);
+    return attempts;
+  }).toBe(1);
   await expect(page.getByText(/更新暂时失败|人数统计暂时不可用|正在加载人数统计/)).toHaveCount(0);
   expect(attempts).toBe(1);
   await page.clock.fastForward(29_000);
