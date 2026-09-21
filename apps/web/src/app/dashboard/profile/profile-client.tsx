@@ -1291,7 +1291,7 @@ export function ProfileClient({
             </section>;
           })}
         </aside>
-        <nav aria-label="问卷分组" className={dcx("app-section-tabs")}>
+        <nav aria-label="问卷分组" className={`${dcx("app-section-tabs")} ${styles.moduleTabs}`}>
           {PROFILE_TABS.map((tab) => (
             <Fragment key={tab.id}>
             <button

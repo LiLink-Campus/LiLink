@@ -847,6 +847,7 @@ export const ProfileDesktop: Story = {
     const c = within(canvasElement);
     const directory = c.getByRole("complementary", { name: "桌面题目目录" });
     await expect(directory).toBeVisible();
+    await expect(c.getByLabelText("问卷分组")).not.toBeVisible();
     await userEvent.click(within(directory).getByRole("button", { name: /一句话介绍/ }));
     await expect(c.getByPlaceholderText("比如：喜欢散步和独立电影，期待遇见能一起分享日常的人。")).toBeVisible();
     await userEvent.click(within(directory).getByRole("button", { name: /^希望遇见谁第 1 题/ }));
