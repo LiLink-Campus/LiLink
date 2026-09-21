@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 import { getServerApiBaseUrl } from "./api-base-url";
+import { fetchServerApi } from "./server-api-transport";
 
 class PublicDataError extends Error {
   constructor(readonly reason: string, readonly retryable: boolean) {
@@ -18,7 +19,7 @@ async function loadPublicData(base: string, path: PublicDataPath): Promise<unkno
     let status: number | null = null;
     let upstreamRay: string | null = null;
     try {
-      const response = await fetch(`${base}${path}`, {
+      const response = await fetchServerApi(`${base}${path}`, {
         cache: "no-store",
         headers: { Accept: "application/json" },
         signal: controller.signal,

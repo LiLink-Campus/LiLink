@@ -904,7 +904,7 @@ export function ProfileClient({
             body: JSON.stringify({ ...payload, versionId: initialQuestionnaireVersionId ?? initialSavedQuestionnaire?.currentVersionId }),
             signal: autosaveTimeout.signal,
           },
-          questionnaireRetryAttemptRef.current > 0 ? "/api/questionnaire" : undefined,
+          questionnaireRetryAttemptRef.current > 0 ? undefined : "/api/questionnaire",
         );
 
         if (!questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken)) {
