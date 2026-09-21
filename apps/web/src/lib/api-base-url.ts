@@ -67,6 +67,10 @@ export function getClientApiBaseUrl(): string {
 }
 
 export async function getServerApiBaseUrl(): Promise<string> {
+  // Production uses a fixed origin; reading request headers would disable ISR.
+  if (process.env.NODE_ENV === "production") {
+    return resolveApiBaseUrlForHost(null);
+  }
   const { headers } = await import("next/headers");
   const host = (await headers()).get("host");
   return resolveApiBaseUrlForHost(host);

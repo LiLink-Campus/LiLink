@@ -11,7 +11,7 @@ export function SocialQr({ channel, className }: {
 }) {
   return (
     <a href={channel.image} target="_blank" rel="noopener noreferrer" aria-label={`查看 LiLink ${channel.name}二维码原图`}>
-      <Image className={className} src={channel.image} alt={`LiLink ${channel.name}二维码`} width={160} height={160} unoptimized />
+      <Image className={className} src={channel.image} alt={`LiLink ${channel.name}二维码`} width={160} height={160} sizes="160px" />
     </a>
   );
 }

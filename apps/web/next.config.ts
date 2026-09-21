@@ -28,6 +28,9 @@ function createNextConfig(phase: string): NextConfig {
 
   return {
     output: "standalone",
+    images: {
+      qualities: [60, 75],
+    },
     allowedDevOrigins: resolveAllowedDevOrigins(),
     transpilePackages: ["@lilink/shared"],
     turbopack: {

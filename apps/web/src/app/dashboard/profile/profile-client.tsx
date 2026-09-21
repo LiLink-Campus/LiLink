@@ -398,8 +398,8 @@ export function ProfileClient({
     initialDashboard,
   );
   const [questions] = useState<Question[]>(initialQuestions);
-  const lifestyleQuestions = questions.filter(question => isLifestyleQuestion(question.key));
-  const valuesQuestions = questions.filter(question => !isLifestyleQuestion(question.key));
+  const lifestyleQuestions = useMemo(() => questions.filter(question => isLifestyleQuestion(question.key)), [questions]);
+  const valuesQuestions = useMemo(() => questions.filter(question => !isLifestyleQuestion(question.key)), [questions]);
   const [schoolSearch, setSchoolSearch] = useState("");
   const [schoolOptions] = useState<HardMatchSchoolOption[]>(initialSchools);
   const [answers, setAnswers] = useState<Record<string, unknown>>(
@@ -1172,7 +1172,7 @@ export function ProfileClient({
   function locateIncomplete() {
     const target = incompleteTargets[0];
     if (!target) return;
-    const index = readerItems.filter(item => item.tab === target.tab).findIndex(item => item.node.id === profileAttentionElementId(target.key) || item.node.querySelector(`[id="${profileAttentionElementId(target.key)}"]`));
+    const index = readerItems.filter(item => item.tab === target.tab).findIndex(item => item.elementIds.has(profileAttentionElementId(target.key)));
     openQuestion(target.tab, Math.max(0, index));
     setPendingIncompleteKey({ key: target.key });
   }
@@ -1190,7 +1190,7 @@ export function ProfileClient({
   const [completedSnapshot, setCompletedSnapshot] = useState<string | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
   const directoryRef = useRef<HTMLDialogElement>(null);
-  const [readerItems, setReaderItems] = useState<{ node: HTMLElement; tab: ProfileTab; title: string }[]>([]);
+  const [readerItems, setReaderItems] = useState<{ node: HTMLElement; tab: ProfileTab; title: string; elementIds: Set<string> }[]>([]);
   const [questionIndex, setQuestionIndex] = useState(0);
   const moduleNavRef = useRef<HTMLElement>(null);
   const moduleItems = useMemo(() => readerItems.filter(item => item.tab === activeTab), [readerItems, activeTab]);
@@ -1213,6 +1213,7 @@ export function ProfileClient({
     if (!root) return;
     const items = Array.from(root.querySelectorAll<HTMLElement>('[data-reader-item]')).map(node => ({
       node,
+      elementIds: new Set([node.id, ...Array.from(node.querySelectorAll('[id]'), element => element.id)]),
       tab: node.closest<HTMLElement>('[data-reader-module]')!.dataset.readerModule as ProfileTab,
       title: node.getAttribute('data-reader-title') || node.getAttribute('aria-label') || node.querySelector('legend, h2')?.textContent?.trim() || '资料',
     }));
@@ -1246,8 +1247,7 @@ export function ProfileClient({
     if (!animate && readerRef.current) readerRef.current.scrollTop = 0;
   }
   function itemIncomplete(item: (typeof readerItems)[number]) {
-    return incompleteTargets.some(target => item.node.id === profileAttentionElementId(target.key) ||
-      Array.from(item.node.querySelectorAll('[id]')).some(node => node.id === profileAttentionElementId(target.key)));
+    return incompleteTargets.some(target => item.elementIds.has(profileAttentionElementId(target.key)));
   }
 
 

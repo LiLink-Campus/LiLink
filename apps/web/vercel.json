@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "regions": ["hkg1"],
+  "regions": ["sin1"],
   "buildCommand": "cd ../.. && npm run build:shared && cd apps/web && next build",
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {

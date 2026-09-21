@@ -7,8 +7,10 @@ import { UserCenter } from "./user-center";
 
 export default async function DashboardMePage() {
   await ensureDashboardSession();
-  const user = await fetchUserApiServer<AuthMePayload>("/auth/me").catch(() => null);
+  const [user, status] = await Promise.all([
+    fetchUserApiServer<AuthMePayload>("/auth/me").catch(() => null),
+    fetchUserApiServer<VipStatus>("/me/vip").catch(() => null),
+  ]);
   if (!user) redirect("/login");
-  const status = await fetchUserApiServer<VipStatus>("/me/vip").catch(() => null);
   return <UserCenter initialUser={user} initialStatus={status} />;
 }
