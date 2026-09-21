@@ -4,6 +4,7 @@ import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerApiBaseUrl } from "./api-base-url";
+import { fetchServerApi } from "./server-api-transport";
 
 export class ServerApiError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
@@ -25,7 +26,7 @@ async function readServerResponse(url: string, options: RequestInit) {
     const deadline = new AbortController();
     const timer = setTimeout(() => deadline.abort(), (options.method ?? "GET").toUpperCase() === "GET" ? 4_000 : 12_000);
     try {
-      const response = await fetch(url, {
+      const response = await fetchServerApi(url, {
         ...options,
         signal: options.signal ? AbortSignal.any([options.signal, deadline.signal]) : deadline.signal,
       });

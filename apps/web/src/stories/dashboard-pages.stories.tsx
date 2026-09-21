@@ -308,7 +308,7 @@ export const HomeNoCycle: Story = {
 
 export const ProfileRequiredFields: Story = {
   ...Profile,
-  parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true }))] } } },
+  parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true }))] } } },
   render: () => <ProfileClient {...profileProps} initialSavedQuestionnaire={{
     versionId: "profile-layout-regression",
     currentVersionId: "profile-layout-regression",
@@ -433,7 +433,7 @@ export const ProfilePremiumLocked: Story = {
 };
 export const ProfilePremiumActive: Story = {
   ...ProfilePremiumLocked,
-  parameters: { ...route("/dashboard/profile"), msw: { handlers: { site: [http.get(`${api}/me/vip`, () => HttpResponse.json(profileVip)), http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })), ...siteHandlers] } } },
+  parameters: { ...route("/dashboard/profile"), msw: { handlers: { site: [http.get(`${api}/me/vip`, () => HttpResponse.json(profileVip)), http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })), ...siteHandlers] } } },
   render: () => <ProfileClient {...profileProps} initialVip={profileVip} />,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -472,7 +472,7 @@ export const ProfileLifestyle: Story = {
       items: LIFESTYLE_QUESTIONS.map(q => ({ key: q.key, prompt: q.prompt, missingRequired: true, updated: false, acknowledged: false })),
     },
   }} />,
-  parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true }))] } } },
+  parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true }))] } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     for (const question of LIFESTYLE_QUESTIONS) {
@@ -531,7 +531,7 @@ export const UserCenterDeleteDialog: Story = {
 };
 
 export const ProfileSaveFailure: Story = {
-  parameters: { ...route("/dashboard/profile"), msw: { handlers: { site: [http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ message: "Save unavailable" }, { status: 400 })), ...siteHandlers] } } },
+  parameters: { ...route("/dashboard/profile"), msw: { handlers: { site: [http.put("/api/questionnaire", () => HttpResponse.json({ message: "Save unavailable" }, { status: 400 })), ...siteHandlers] } } },
   render: () => <ProfileClient {...profileProps} />,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -605,7 +605,7 @@ export const ProfileLooksScore: Story = {
 export const ProfileWeightAcknowledgement: Story = {
   ...Profile,
   parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [
-    http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
+    http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
     http.put(`${api}/me/questionnaire/acknowledgement`, () => HttpResponse.json({ currentVersionId: "weight-regression", acknowledgedKeys: ["hard_weight_kg"] })),
   ] } } },
   render: () => <ProfileClient {...profileProps} initialSavedQuestionnaire={{
@@ -814,7 +814,7 @@ export const ProfileInterruptReaderRefresh: Story = {
   },
   parameters: { ...route("/dashboard/profile"), msw: { handlers: { site: [
     http.get(`${api}/me/vip`, () => HttpResponse.json(activateVipDuringReaderRefresh ? profileVip : { active: false, expiresAt: null })),
-    http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
+    http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
     ...siteHandlers,
   ] } } },
   play: async ({ canvasElement }) => {
@@ -881,8 +881,8 @@ export const ProfileRetryingSave: Story = {
   ...Profile,
   tags: ["smoke"],
   parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [
-    http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ message: "Temporary outage" }, { status: 503 })),
-    http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
+    http.put("/api/questionnaire", () => HttpResponse.json({ message: "Temporary outage" }, { status: 503 })),
+    http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
   ] } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);

@@ -51,7 +51,7 @@ test('archived profile basics remain editable without restoring questionnaire co
   expect(participation.status()).toBe(400);
 
   await openQuestion('颜值自评');
-  await page.route('**/v1/me/questionnaire', route => route.request().method() === 'PUT' ? route.abort('failed') : route.continue());
+  await page.route('**/api/questionnaire', route => route.abort('failed'));
   const looks = page.getByRole('slider', { name: '颜值自评', exact: true });
   await looks.focus();
   await looks.press('Home');
@@ -62,7 +62,7 @@ test('archived profile basics remain editable without restoring questionnaire co
   await expect(page.getByText('保存失败', { exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('save-retrying.png'), fullPage: true });
   await expect(page.getByText('草稿已自动保存', { exact: true })).toBeVisible();
-  await page.unroute('**/v1/me/questionnaire');
+  await page.unroute('**/api/questionnaire');
   await page.reload({ waitUntil: 'domcontentloaded' });
   await openQuestion('颜值自评');
   await expect(looks).toHaveAttribute('aria-valuetext', '4');
