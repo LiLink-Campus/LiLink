@@ -1,4 +1,6 @@
 "use client";
+
+import { InteractiveFields } from "@/components/interactive-fields";
 import Link from "next/link";
 import { QuestionField, QuestionHeading, ScaleChoice, ChoiceOption, QuestionChoices } from "./question-components";
 import type { VipStatus } from "../vip/vip-client";
@@ -1276,6 +1278,7 @@ export function ProfileClient({
         {questionnaireSaveError ? <button type="button" onClick={() => setQuestionnaireManualRetryTick((tick) => tick + 1)}>重试保存</button> : null}
       </aside>
       <section className={`${dcx("ui-card ui-card--padded")} ${styles.workspace}`}>
+        <InteractiveFields>
         <aside className={styles.desktopDirectory} aria-label="桌面题目目录">
           <h2>题目目录</h2>
           <p>按模块查看，点击题号跳转</p>
@@ -2043,6 +2046,7 @@ export function ProfileClient({
           })}
           </div>
         </dialog>
+        </InteractiveFields>
       </section>
     </div>
   );
