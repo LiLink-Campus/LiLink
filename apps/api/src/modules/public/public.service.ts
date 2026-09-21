@@ -1,5 +1,7 @@
 import { normalizeSchoolEmailDomains } from '@lilink/shared';
 import { Injectable } from '@nestjs/common';
+import { publicQuestionnaireGenderJoin } from '../../common/analytics/public-questionnaire-gender';
+import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type LandingPayload = {
@@ -156,12 +158,12 @@ export class PublicService {
         this.prisma.user.count({
           where: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
         }),
-        this.prisma.questionnaireResponse.count({
-          where: {
-            submittedAt: { not: null },
-            user: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
-          },
-        }),
+        this.prisma.$queryRaw<{ count: number }[]>(Prisma.sql`
+          SELECT COUNT(*)::int AS count FROM "User" u
+          ${publicQuestionnaireGenderJoin}
+          WHERE u."status" = 'ACTIVE' AND u."deactivatedAt" IS NULL
+            AND u."isTest" = false AND public_gender.gender IS NOT NULL
+        `),
         this.prisma.match.count({
           where: {
             revealedAt: { not: null },
@@ -185,7 +187,7 @@ export class PublicService {
       tagline: '在黎安，遇见真正同频的人。',
       stats: {
         registeredUsers: userCount,
-        completedQuestionnaires: completedProfiles,
+        completedQuestionnaires: completedProfiles[0].count,
         matchesDelivered: matchCount,
       },
       currentCycle: currentCycle

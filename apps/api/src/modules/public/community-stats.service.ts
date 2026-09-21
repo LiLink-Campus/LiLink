@@ -1,6 +1,6 @@
-import { HARD_MATCH_KEYS } from '@lilink/shared';
 import { Injectable } from '@nestjs/common';
 import { emptyGenderBuckets, genderKey } from '../../common/analytics/gender';
+import { publicQuestionnaireGenderJoin } from '../../common/analytics/public-questionnaire-gender';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -47,15 +47,21 @@ export class CommunityStatsService {
       }[]
     >(Prisma.sql`
       SELECT u."schoolId", s."name" AS "schoolName",
-        TRIM(r."answers"->>${HARD_MATCH_KEYS.gender}) AS "gender", COUNT(*)::int AS "count"
+        public_gender.gender, COUNT(*)::int AS "count"
       FROM "User" u
       LEFT JOIN "School" s ON s."id" = u."schoolId"
-      LEFT JOIN "QuestionnaireResponse" r ON r."userId" = u."id" AND r."submittedAt" IS NOT NULL
+      ${publicQuestionnaireGenderJoin}
       WHERE u."status" = 'ACTIVE' AND u."deactivatedAt" IS NULL AND u."isTest" = false
       GROUP BY 1, 2, 3
     `);
     const genders = emptyGenderBuckets();
-    const schools = new Map<string | null, CommunityStats['schools'][number]>();
+    const eligibleSchools = await this.prisma.school.findMany({
+      where: { registrationEligible: true },
+      select: { id: true, name: true },
+    });
+    const schools = new Map<string | null, CommunityStats['schools'][number]>(
+      eligibleSchools.map((school) => [school.id, { ...school, count: 0 }]),
+    );
     let total = 0;
     for (const row of rows) {
       const count = Number(row.count);

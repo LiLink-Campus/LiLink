@@ -7,9 +7,7 @@ describe('PublicService', () => {
       user: {
         count: jest.fn().mockResolvedValue(100),
       },
-      questionnaireResponse: {
-        count: jest.fn().mockResolvedValue(80),
-      },
+      $queryRaw: jest.fn().mockResolvedValue([{ count: 80 }]),
       match: {
         count: matchCount,
       },
@@ -44,9 +42,7 @@ describe('PublicService', () => {
       user: {
         count: jest.fn().mockResolvedValue(85),
       },
-      questionnaireResponse: {
-        count: jest.fn().mockResolvedValue(64),
-      },
+      $queryRaw: jest.fn().mockResolvedValue([{ count: 64 }]),
       match: {
         count: jest.fn().mockResolvedValue(15),
       },
@@ -84,7 +80,7 @@ describe('PublicService', () => {
     });
 
     expect(prisma.user.count).toHaveBeenCalledTimes(1);
-    expect(prisma.questionnaireResponse.count).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(prisma.match.count).toHaveBeenCalledTimes(1);
     expect(prisma.matchCycle.findFirst).toHaveBeenCalledTimes(1);
   });

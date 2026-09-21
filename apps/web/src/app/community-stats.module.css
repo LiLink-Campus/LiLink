@@ -29,7 +29,6 @@
 .barLabel strong { flex: none; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .barTrack { height: 9px; background: #ebe5df; border-radius: 2px; }
 .barFill { height: 100%; background: #9b4c65; border-radius: 2px; transition: width 900ms cubic-bezier(.22,1,.36,1); }
-.expand { display: flex; gap: 16px; align-items: center; justify-content: center; margin: 24px auto 0; padding: 10px 14px; background: transparent; border: 0; color: #89364f; font: inherit; font-size: 12px; cursor: pointer; }
 .empty { color: var(--color-text-secondary); text-align: center; padding: 28px 0; font-size: 13px; }
 .section button:focus-visible { outline: 2px solid #89364f; outline-offset: 3px; }
 @media(max-width: 700px) { .section { padding: 28px 22px 44px; } .charts { grid-template-columns: minmax(0, 1fr); gap: 36px; margin-top: 30px; } .schoolPanel { border-top: 1px solid var(--color-border); padding-top: 30px; } .donutWrap { width: 230px; } .legend { max-width: 360px; margin: auto; } }

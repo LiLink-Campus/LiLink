@@ -20,8 +20,8 @@ export const Overview: Story = {
 export const PaymentDetails: Story = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await userEvent.click(c.getByText("¥199 定金和 ¥400 尾款分别什么时候支付？"));
-    await expect(c.getByText(/先支付 ¥199 定金，开始人工登记与画像梳理/)).toBeVisible();
+    await userEvent.click(c.getByText("¥299 定金和 ¥300 尾款分别什么时候支付？"));
+    await expect(c.getByText(/先支付 ¥299 定金，开始人工登记与画像梳理/)).toBeVisible();
   },
 };
 
