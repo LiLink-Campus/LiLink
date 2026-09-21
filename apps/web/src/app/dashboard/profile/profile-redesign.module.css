@@ -448,23 +448,49 @@
 
 .desktopDirectory, .desktopOnly, .desktopProgress, .desktopComplete { display: none; }
 
-/* Let mobile forms grow with their content instead of nesting a clipped scroller. */
+/* Reserve the action row and size each question to the remaining viewport. */
 @media (max-width: 879px) {
-  :global(body):has(.page):not(:has(dialog[open])) { overflow: auto; }
-  .page.page { position: relative; inset: auto; width: 100%; max-width: none; height: auto; padding: 0; overflow: visible; }
-  .page > .workspace { flex: none; }
-  .page nav { scroll-margin-top: calc(var(--appbar-height, 60px) + 8px); }
-  .page .reader { flex: none; height: auto; min-height: 0; overflow: visible; scrollbar-gutter: auto; padding: 16px; }
-  .page .readerToolbar { margin-bottom: 16px; }
+  .page.page { max-width: none; padding: 12px 16px 8px; }
+  .page.page nav { padding: 0; }
+  .page > .workspace { flex: 1; min-height: 0; }
+  .page .reader { flex: 1; min-height: 0; container-type: size; overflow: hidden auto; scrollbar-gutter: stable; padding: 16px; }
+  .page .readerToolbar { margin-bottom: 12px; }
   .page .reader fieldset[data-question] > legend { width: 1px; padding: 0; }
   .page .reader [data-reader-module="self"] [data-reader-item],
-  .page .reader [data-reader-module="partner"] [data-reader-item] { margin-top: 16px; }
-  .page .reader .identity label[data-reader-item] { gap: 16px; }
-  .page .reader [data-scale-choice] > [data-readout] { margin: 12px 0 16px; }
-  .page .reader [data-readout="number"] strong { font-size: 48px; }
+  .page .reader [data-reader-module="partner"] [data-reader-item] { margin-top: clamp(8px, 5cqh, 40px); }
+  .page .reader [data-reader-module="self"] fieldset[data-question],
+  .page .reader [data-reader-module="partner"] fieldset[data-question],
+  .page .reader .identity label[data-reader-item] { gap: clamp(8px, 3cqh, 20px); }
+  .page .reader .identity .introEditor textarea { height: clamp(60px, 28cqh, 130px); min-height: 60px; }
+  .page .reader [data-scale-choice] > [data-readout] { margin: clamp(4px, 2cqh, 12px) 0; }
+  .page .reader [data-readout="number"] strong { font-size: clamp(32px, 10cqh, 56px); }
   .page .reader .ratingDescription { min-height: 0; }
-  .page .moduleFooter { position: static; margin-top: 12px; }
-  .page .moduleActions { margin-bottom: env(safe-area-inset-bottom, 0px); }
+  .page .moduleFooter { flex: none; margin-top: 8px; }
+}
+
+@media (max-width: 879px) and (max-height: 740px) {
+  .page.page { padding-top: 8px; }
+  .page .saveNotice { padding: 6px 12px; margin-bottom: 8px; }
+  .page nav { margin-bottom: 8px; }
+  .page nav button { min-height: 40px; padding-block: 6px; }
+  .page .reader { padding: 12px; }
+  .page .readerToolbar { margin-bottom: 8px; }
+  .page .reader [data-reader-module="self"] fieldset[data-question] > [data-question-title],
+  .page .reader [data-reader-module="partner"] fieldset[data-question] > [data-question-title],
+  .page .reader .identity label[data-reader-item] { font-size: 21px; }
+  .page .reader fieldset[data-question] [data-choice-layout="list"] [data-choice] { min-height: 44px; padding-block: 8px; }
+  .page .reader [data-reader-module="self"] [data-choice-layout="list"],
+  .page .reader [data-reader-module="partner"] [data-choice-layout="list"] { margin-top: 0; gap: 8px; }
+  .page .reader .introEditor { padding: 12px; }
+  .page .previousModule, .page .nextModule { min-height: 44px; }
+}
+
+@media (max-width: 879px) and (max-height: 500px) {
+  .page .saveNotice:not([data-tone="error"]) span { display: none; }
+  .page .saveNotice { padding-block: 4px; margin-bottom: 4px; }
+  .page nav { margin-bottom: 4px; }
+  .page .reader { padding-block: 4px; }
+  .page .readerProgress { padding-block: 2px; }
 }
 
 @media (min-width: 880px) {
@@ -508,4 +534,18 @@
   .page .moduleActions button { flex: 0 0 auto; width: auto; min-width: 100px; }
   .page .previousModule { margin-right: auto; }
   .page .desktopComplete { display: block; padding: 10px 16px; border: 1px solid var(--color-brand); border-radius: 10px; background: white; color: var(--color-brand); font: inherit; cursor: pointer; }
+}
+
+@media (min-width: 880px) and (max-height: 760px) {
+  .page.page { gap: 16px; }
+  .pageHeading h1 { font-size: 30px; }
+  .page .reader { padding: 16px 24px; }
+  .page .readerToolbar { gap: 8px; padding-bottom: 12px; margin-bottom: 12px; }
+  .page .reader [data-reader-module="self"] [data-reader-item],
+  .page .reader [data-reader-module="partner"] [data-reader-item] { margin-top: 16px; }
+  .page .reader .identity label[data-reader-item] { gap: 16px; }
+  .page .reader .identity .introEditor textarea { height: 80px; min-height: 64px; }
+  .page .reader [data-scale-choice] > [data-readout] { margin: 12px 0; }
+  .page .reader [data-readout="number"] strong { font-size: 48px; }
+  .page .reader .ratingDescription { min-height: 0; }
 }

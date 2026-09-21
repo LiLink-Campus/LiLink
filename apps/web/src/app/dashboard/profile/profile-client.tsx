@@ -1192,7 +1192,6 @@ export function ProfileClient({
   const directoryRef = useRef<HTMLDialogElement>(null);
   const [readerItems, setReaderItems] = useState<{ node: HTMLElement; tab: ProfileTab; title: string; elementIds: Set<string> }[]>([]);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const moduleNavRef = useRef<HTMLElement>(null);
   const previousReaderSelection = useRef<string | null>(null);
   const moduleItems = useMemo(() => readerItems.filter(item => item.tab === activeTab), [readerItems, activeTab]);
   const currentIndex = Math.min(questionIndex, Math.max(0, moduleItems.length - 1));
@@ -1224,9 +1223,8 @@ export function ProfileClient({
     for (const item of readerItems) item.node.dataset.readerHidden = String(item !== moduleItems[currentIndex]);
     if (!moduleItems[currentIndex]) return;
     const selection = `${activeTab}:${currentIndex}`;
-    if (previousReaderSelection.current !== null && previousReaderSelection.current !== selection
-      && window.matchMedia("(max-width: 879px)").matches) {
-      moduleNavRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
+    if (previousReaderSelection.current !== selection && readerRef.current) {
+      readerRef.current.scrollTop = 0;
     }
     previousReaderSelection.current = selection;
   }, [readerItems, moduleItems, currentIndex, activeTab]);
@@ -1288,7 +1286,7 @@ export function ProfileClient({
             </section>;
           })}
         </aside>
-        <nav ref={moduleNavRef} aria-label="问卷分组" className={dcx("app-section-tabs")}>
+        <nav aria-label="问卷分组" className={dcx("app-section-tabs")}>
           {PROFILE_TABS.map((tab) => (
             <Fragment key={tab.id}>
             <button
@@ -1309,7 +1307,7 @@ export function ProfileClient({
         </nav>
 
 
-        <div ref={readerRef} className={styles.reader} onChange={event => {
+        <div ref={readerRef} className={styles.reader} role="region" aria-label="当前题目" onChange={event => {
           const target = event.target;
           if (!(target instanceof HTMLInputElement) || !target.closest("[data-choice-layout]")) return;
           cancelQuestionTransition();
