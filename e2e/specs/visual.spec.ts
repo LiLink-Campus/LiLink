@@ -3,7 +3,7 @@ import { test, expect, visit } from '../support/fixtures';
 for (const route of ['/login', '/register', '/forgot-password']) {
   test(`public page layout and baseline ${route} @visual`, async ({ page, isMobile }) => {
     await visit(page, route);
-    // Closing the announcement can leave the pointer over a choice card.
+    // Capture the default card appearance, without desktop pointer hover.
     if (!isMobile) await page.mouse.move(0, 0);
     await page.evaluate(() => document.fonts.ready);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
