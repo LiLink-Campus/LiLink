@@ -27,9 +27,8 @@ export function MemberPageView({ slug }: { slug: "yoryon" | "member-02" }) {
           <p>我曾以为，最远的旅程是从家到学校，从学校到社会，从社会到远方。后来才明白，最远的旅程，是从自己到自己。</p>
         </blockquote>
         <div className={styles.introText}>
-          <p>大三休学中。<br />希望用一段时间探索自己真正想要的生活。</p>
-          <p>玻璃心，抗压能力一般，容易内耗，经常想太多。<br />慢慢学着接受失败、接受不确定，也接受自己的平凡。</p>
-          <p>我希望有一天，自己能拥有三种自由：<br /><strong className={styles.freedom}>随时离开的能力，随时重新开始的能力，以及按照自己认可的方式生活的能力。</strong></p>
+          <p>原本写了很多，要么感觉太装了，要么感觉太糖了，要么感觉太作了。</p>
+          <p>索性全部删掉，不写了。</p>
           <p className={styles.writingNote}>抖音和小红书偶尔更新一些日记、碎碎念和无病呻吟。<br />个人主页、公众号写点正常的技术博客。</p>
         </div>
       </> : <div className={styles.introText}>
