@@ -50,14 +50,14 @@ describe("anonymous public data cache", () => {
     vi.stubGlobal("fetch", request);
     await expect(getCachedPublicData("/public/community")).rejects.toThrow("HTTP 429");
     expect(request).toHaveBeenCalledTimes(1);
-    expect(console.warn).toHaveBeenCalledWith("[public-data] /public/community: HTTP 429");
+    expect(console.warn).toHaveBeenCalledWith("[public-data] /public/community: HTTP 429", expect.objectContaining({ phase: "response", status: 429, attempt: 1 }));
   });
 
   it("bounds a stalled body to two 4-second attempts", async () => {
     vi.useFakeTimers();
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const request = vi.fn((_url, options: RequestInit) => Promise.resolve({
-      ok: true,
+      ok: true, status: 200, headers: new Headers(),
       json: () => new Promise((_resolve, reject) => {
         options.signal!.addEventListener("abort", () => reject(new Error("stalled")), { once: true });
       }),
@@ -68,5 +68,14 @@ describe("anonymous public data cache", () => {
     await result;
     expect(request).toHaveBeenCalledTimes(2);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("records safe connection diagnostics without logging raw error messages", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("private URL and headers", { cause: { code: "ECONNRESET", message: "secret" } })));
+    await expect(getCachedPublicData("/public/community")).rejects.toThrow("unavailable");
+    expect(warn).toHaveBeenCalledWith("[public-data] /public/community: network or invalid response", expect.objectContaining({ phase: "connection", status: null, causeCode: "ECONNRESET", attempt: 2 }));
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("secret");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("private URL");
   });
 });

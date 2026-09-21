@@ -10,7 +10,6 @@ export type { CommunityStatsPayload } from "../lib/community-stats";
 
 export function CommunityStats({ initialData = null }: { initialData?: CommunityStatsPayload | null }) {
   const [data, setData] = useState<CommunityStatsPayload | null>(initialData);
-  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let active = true;
     let pending = false;
@@ -24,9 +23,9 @@ export function CommunityStats({ initialData = null }: { initialData?: Community
         const response = await fetch("/api/public/community", { cache: "default", signal: controller.signal });
         if (!response.ok) throw new Error("Unavailable");
         const next = await response.json() as CommunityStatsPayload;
-        if (active) { setData(next); setFailed(false); }
+        if (active) setData(next);
       } catch {
-        if (active) setFailed(true);
+        // Keep the last successful snapshot; diagnostics belong in server logs.
       } finally {
         clearTimeout(timeout);
         pending = false;
@@ -39,9 +38,11 @@ export function CommunityStats({ initialData = null }: { initialData?: Community
     return () => { active = false; controller?.abort(); clearInterval(interval); document.removeEventListener("visibilitychange", resume); };
   }, []);
 
+  // Statistics are optional: a cold-cache outage must not become a page error.
+  if (!data) return null;
+
   return <section className={styles.section} aria-labelledby="community-title">
     <header className={styles.header}><h2 id="community-title">在这里，遇见同学</h2><p>看看已有多少同学加入 LiLink</p></header>
-    {(!data || failed) && <p className={styles.status} role="status">{failed ? (data ? "更新暂时失败，以下为上次成功统计；每 30 秒自动重试" : "人数统计暂时不可用，每 30 秒自动重试") : "正在加载人数统计…"}</p>}
-    {data && <CommunityCharts data={data} />}
+    <CommunityCharts data={data} />
   </section>;
 }
