@@ -1,6 +1,64 @@
 import { test, expect, api, visit, completeProfile } from '../support/fixtures';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 test.beforeEach(async ({ signedIn }) => { void signedIn; });
+
+test('archived profile basics remain editable without restoring questionnaire completion @smoke', async ({ page, context, db, account }, testInfo) => {
+  const version = await db.questionnaireVersion.findFirstOrThrow({ where: { isCurrent: true } });
+  const resetAt = new Date('2026-09-20T12:00:00.000Z');
+  const response = await db.questionnaireResponse.create({ data: {
+    userId: account.id, versionId: version.id, answers: {}, updatedAt: resetAt,
+  } });
+  await db.user.update({ where: { id: account.id }, data: {
+    preferredContactChannel: 'WECHAT',
+    contactMethods: { create: { type: 'WECHAT', value: 'synthetic_wechat' } },
+  } });
+  await db.questionnaireResponseArchive.create({ data: {
+    id: `archive-${account.id}`, releaseId: 'autumn-reset-2026-09-20', sourceResponseId: response.id,
+    userId: account.id, versionId: version.id, archivedAt: resetAt, sourceUpdatedAt: resetAt,
+    submittedAt: resetAt, answers: { hard_gender: '女', hard_one_liner_intro: '原来的介绍，喜欢散步和读书。', hard_height_cm: 175, old_question: 'old' },
+  } });
+  const migration = readFileSync(path.join(process.env.E2E_WORKSPACE!, 'apps/api/prisma/migrations/20260921110000_reuse_archived_profile_basics/migration.sql'), 'utf8');
+  const update = migration.slice(migration.indexOf('WITH historical_profile'), migration.lastIndexOf('COMMIT;')).trim();
+  await db.$executeRawUnsafe(update);
+
+  await visit(page, '/dashboard/profile');
+  const name = page.getByRole('textbox', { name: '昵称', exact: true });
+  await expect(name).toHaveValue('自动化同学');
+  async function openQuestion(title: string) {
+    const directory = page.getByRole('button', { name: '题目目录', exact: true });
+    if (await directory.isVisible()) await directory.click();
+    await page.getByRole('button', { name: new RegExp(`关于你第 \\d+ 题：${title}$`) }).filter({ visible: true }).click();
+  }
+  await openQuestion('一句话介绍');
+  const intro = page.getByRole('textbox', { name: /一句话介绍/ });
+  await expect(intro).toHaveValue('原来的介绍，喜欢散步和读书。');
+  await page.screenshot({ path: testInfo.outputPath('restored-intro.png'), fullPage: true });
+  await openQuestion('联系方式');
+  await expect(page.getByRole('textbox', { name: '微信内容', exact: true })).toHaveValue('synthetic_wechat');
+  await openQuestion('性别');
+  await expect(page.getByRole('radio', { name: '女', exact: true })).toBeChecked();
+  await page.screenshot({ path: testInfo.outputPath('restored-gender.png'), fullPage: true });
+  await openQuestion('身高');
+  await expect(page.locator('select[name="heightCm"]')).toHaveValue('');
+  const saved = await (await context.request.get(`${api}/me/questionnaire`)).json();
+  expect(saved.submittedAt).toBeNull();
+  expect(saved.answers.hard_gender).toBe('女');
+  expect(saved.answers.hard_one_liner_intro).toBe('原来的介绍，喜欢散步和读书。');
+  expect(saved.answers.old_question).toBeUndefined();
+  const participation = await context.request.put(`${api}/me/participation`, { data: { optIn: true, intent: 'BOTH' } });
+  expect(participation.status()).toBe(400);
+
+  await openQuestion('一句话介绍');
+  await intro.fill('');
+  await expect(page.getByRole('main').getByText('草稿已自动保存', { exact: true })).toBeVisible();
+  expect(await db.$executeRawUnsafe(update)).toBe(0);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await openQuestion('一句话介绍');
+  await expect(intro).toHaveValue('');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+});
 
 test('profile autosave persists after reload @smoke', async ({ page, context, db }) => {
   await completeProfile(context, db);
