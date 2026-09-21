@@ -98,6 +98,7 @@ function parseFailedResponseBody(text: string, status: number): string {
 export async function fetchApi<T>(
   path: string,
   init?: RequestInit,
+  sameOriginPath?: "/api/questionnaire",
 ): Promise<T> {
   const headers = new Headers(init?.headers);
 
@@ -105,7 +106,7 @@ export async function fetchApi<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${getClientApiBaseUrl()}${path}`, {
+  const response = await fetch(sameOriginPath ?? `${getClientApiBaseUrl()}${path}`, {
     ...init,
     headers,
     credentials: "include",

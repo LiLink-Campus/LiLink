@@ -381,7 +381,7 @@
       "key": "values",
       "type": "MULTI_SELECT",
       "order": 15,
-      "prompt": "请选择你最看重的几个价值。",
+      "prompt": "请选择你最看重的 3 项价值。",
       "weight": 4,
       "options": [
         {
@@ -419,7 +419,7 @@
       ],
       "required": true,
       "description": null,
-      "selectionLimit": null
+      "selectionLimit": 3
     },
     {
       "key": "green_flags",
@@ -465,7 +465,7 @@
       "key": "red_flag_sensitivity",
       "type": "MULTI_SELECT",
       "order": 17,
-      "prompt": "请选择你最在意的几个\"雷点\"。",
+      "prompt": "请选择你最在意的 3 个\"雷点\"。",
       "weight": 3,
       "options": [
         {
@@ -499,13 +499,13 @@
       ],
       "required": true,
       "description": null,
-      "selectionLimit": null
+      "selectionLimit": 3
     },
     {
       "key": "shared_growth_topics",
       "type": "MULTI_SELECT",
       "order": 18,
-      "prompt": "如果长期相处，你更愿意一起投入哪些方向？",
+      "prompt": "如果长期相处，你更愿意一起投入哪 3 个方向？",
       "weight": 2,
       "options": [
         {
@@ -539,13 +539,13 @@
       ],
       "required": true,
       "description": null,
-      "selectionLimit": null
+      "selectionLimit": 3
     },
     {
       "key": "feeling_cared_for",
       "type": "MULTI_SELECT",
       "order": 19,
-      "prompt": "你最容易从哪些行为里感到被在乎？",
+      "prompt": "你最容易从哪 3 种行为里感到被在乎？",
       "weight": 3,
       "options": [
         {
@@ -579,7 +579,7 @@
       ],
       "required": true,
       "description": null,
-      "selectionLimit": null
+      "selectionLimit": 3
     },
     {
       "key": "ideal_date_style",

@@ -463,6 +463,7 @@ export const ProfilePremiumActive: Story = {
 };
 export const ProfileLifestyle: Story = {
   ...Profile,
+  tags: ["smoke"],
   render: () => <ProfileClient {...profileProps} initialSavedQuestionnaire={{
     versionId: "lifestyle-regression", currentVersionId: "lifestyle-regression", answers: {}, submittedAt: null, draft: null,
     attention: { currentVersionId: "lifestyle-regression", acknowledgedKeys: [], pendingUpdatedKeys: [],
@@ -476,6 +477,9 @@ export const ProfileLifestyle: Story = {
     for (const question of LIFESTYLE_QUESTIONS) {
       await jumpQuestion(canvasElement, question.key === "exercise_frequency" ? "锻炼情况" : question.prompt);
       const group = c.getByRole("group", { name: question.key === "exercise_frequency" ? "锻炼情况" : question.prompt });
+      await expect(within(group).queryByRole("slider")).toBeNull();
+      const rows = within(group).getAllByRole("radio").map(input => input.closest("label")!.getBoundingClientRect());
+      rows.slice(1).forEach((row, index) => expect(row.top).toBeGreaterThanOrEqual(rows[index].bottom));
       await userEvent.click(within(group).getByRole("radio", { name: question.options[1] }));
       await expect(within(group).getByRole("radio", { name: question.options[1] })).toBeChecked();
       await expect(within(group).queryByText("本题待补完。")).toBeNull();
@@ -871,3 +875,41 @@ export const UserCenterDesktop: Story = {
 
 export const ProfilePremiumLockedMobile: Story = { ...ProfilePremiumLocked, globals: { viewport: { value: "mobile390", isRotated: false } } };
 export const ProfilePremiumActiveMobile: Story = { ...ProfilePremiumActive, globals: { viewport: { value: "mobile390", isRotated: false } } };
+
+export const ProfileRetryingSave: Story = {
+  ...Profile,
+  tags: ["smoke"],
+  parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [
+    http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ message: "Temporary outage" }, { status: 503 })),
+    http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
+  ] } } },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await userEvent.type(c.getByLabelText("昵称", { exact: true }), "重试验收");
+    await expect(await c.findByText("正在重试保存…", { exact: true }, { timeout: 3000 })).toBeVisible();
+    await expect(c.queryByText("保存失败", { exact: true })).toBeNull();
+    await expect(await c.findByText("草稿已自动保存", { exact: true }, { timeout: 5000 })).toBeVisible();
+  },
+};
+
+const threeChoiceQuestions = [
+  { key: "values", prompt: "请选择你最看重的 3 项价值。", labels: ["真诚", "尊重", "成长", "稳定", "自由"] },
+  { key: "red_flag_sensitivity", prompt: '请选择你最在意的 3 个"雷点"。', labels: ["不尊重边界", "失信", "沟通回避", "控制欲", "情绪不稳定"] },
+  { key: "shared_growth_topics", prompt: "如果长期相处，你更愿意一起投入哪 3 个方向？", labels: ["健康", "学习", "事业", "家庭", "兴趣"] },
+  { key: "feeling_cared_for", prompt: "你最容易从哪 3 种行为里感到被在乎？", labels: ["认真倾听", "及时回应", "共同陪伴", "实际帮助", "尊重选择"] },
+].map(q => ({ id: q.key, key: q.key, prompt: q.prompt, type: "MULTI_SELECT" as const, required: true, selectionLimit: 3, options: q.labels.map(label => ({ value: label, label })) }));
+
+export const ProfileThreeChoices: Story = {
+  ...Profile,
+  tags: ["smoke"],
+  parameters: ProfileLifestyle.parameters,
+  render: () => <ProfileClient {...profileProps} initialQuestions={threeChoiceQuestions} />,
+  play: async ({ canvasElement }) => {
+    await jumpQuestion(canvasElement, threeChoiceQuestions[0].prompt);
+    const c = within(within(canvasElement).getByRole("group", { name: threeChoiceQuestions[0].prompt }));
+    await expect(c.getByText("本题必须选择 3 项。", { exact: true })).toBeVisible();
+    await userEvent.click(c.getByText("真诚", { exact: true }));
+    await userEvent.click(c.getByText("尊重", { exact: true }));
+    await expect(c.getByRole("checkbox", { name: "尊重" })).toBeChecked();
+  },
+};

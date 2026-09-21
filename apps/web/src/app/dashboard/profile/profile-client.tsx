@@ -184,6 +184,7 @@ type QuestionnaireAutosaveState =
   | "idle"
   | "pending"
   | "saving"
+  | "retrying"
   | "draft-saved"
   | "submitted"
   | "error";
@@ -361,7 +362,7 @@ export function ProfileClient({
   initialVip?: VipStatus | null;
   initialContactPreferences: ContactPreferencesPayload;
   initialUser: AuthMePayload;
-  initialDashboard: DashboardPayload;
+  initialDashboard: Pick<DashboardPayload, "questionnaireSubmittedAt">;
   initialQuestions: Question[];
   initialSchools: HardMatchSchoolOption[];
   initialSavedQuestionnaire: SavedQuestionnairePayload;
@@ -395,7 +396,7 @@ export function ProfileClient({
     initialDraft?.hardMatchForm ??
     hardMatchFormFromAnswers(initialSubmittedAnswers, initialSchools);
   const initialHardMatchForm = { ...loadedHardMatchForm, partnerLooks: loadedHardMatchForm.partnerLooks.length ? loadedHardMatchForm.partnerLooks : [...HARD_MATCH_LOOKS] };
-  const [dashboard, setDashboard] = useState<DashboardPayload | null>(
+  const [dashboard, setDashboard] = useState<Pick<DashboardPayload, "questionnaireSubmittedAt"> | null>(
     initialDashboard,
   );
   const [questions] = useState<Question[]>(initialQuestions);
@@ -892,7 +893,7 @@ export function ProfileClient({
 
       questionnaireSaveInFlightRef.current = true;
       questionnaireSaveAbortRef.current = autosaveTimeout.controller;
-      setQuestionnaireSaveState("saving");
+      setQuestionnaireSaveState(questionnaireRetryAttemptRef.current > 0 ? "retrying" : "saving");
       setQuestionnaireSaveError(null);
 
       try {
@@ -903,6 +904,7 @@ export function ProfileClient({
             body: JSON.stringify({ ...payload, versionId: initialQuestionnaireVersionId ?? initialSavedQuestionnaire?.currentVersionId }),
             signal: autosaveTimeout.signal,
           },
+          questionnaireRetryAttemptRef.current > 0 ? "/api/questionnaire" : undefined,
         );
 
         if (!questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken)) {
@@ -973,10 +975,9 @@ export function ProfileClient({
           shouldStopRetryingCurrentSnapshot = true;
         }
 
-        setQuestionnaireSaveState("error");
-        setQuestionnaireSaveError(
-          questionnaireAutosaveFailureMessage(caughtError, retryDelayMs),
-        );
+        setQuestionnaireSaveState(shouldScheduleRetry ? "retrying" : "error");
+        setQuestionnaireSaveError(shouldScheduleRetry ? null :
+          questionnaireAutosaveFailureMessage(caughtError, retryDelayMs));
       } finally {
         autosaveTimeout.clear();
         questionnaireSaveAbortRef.current = null;
@@ -1055,7 +1056,7 @@ export function ProfileClient({
         queuedQuestionnaireSaveRef.current = null;
         // A concurrent save already persisted this snapshot; clear stale indicator.
         setQuestionnaireSaveState((current) =>
-          current === "pending" || current === "error" ? "idle" : current,
+          current === "pending" || current === "retrying" || current === "error" ? "idle" : current,
         );
         setQuestionnaireSaveError(null);
         return;
@@ -1083,7 +1084,7 @@ export function ProfileClient({
       // Clear any stale "pending" or "error" indicator that was set before
       // the timer could fire, so the UI doesn't stay frozen on a false alarm.
       setQuestionnaireSaveState((current) =>
-        current === "pending" || current === "error" ? "idle" : current,
+        current === "pending" || current === "retrying" || current === "error" ? "idle" : current,
       );
       setQuestionnaireSaveError(null);
       return;
@@ -1481,7 +1482,13 @@ export function ProfileClient({
                   className={attentionBlockClassName([question.key])}>
                   {renderQuestionBlockHeading(question.key === "exercise_frequency" ? "锻炼情况" : question.prompt)}
                   {renderAttentionNote([question.key])}
-                  <ScaleChoice readout="label" label={question.key === "exercise_frequency" ? "锻炼情况" : question.prompt} name={question.key} value={answers[question.key]} options={question.options ?? []} onChange={value => setAnswers(current => ({ ...current, [question.key]: value }))} />
+                  <QuestionChoices layout="list">
+                    {question.options?.map(option => <ChoiceOption key={option.value}>
+                      <input type="radio" name={question.key} checked={answers[question.key] === option.value}
+                        onChange={() => setAnswers(current => ({ ...current, [question.key]: option.value }))} />
+                      <span>{option.label}</span>
+                    </ChoiceOption>)}
+                  </QuestionChoices>
 
                 </QuestionField>)}
               </div>

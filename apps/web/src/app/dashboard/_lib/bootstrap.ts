@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { VipStatus } from "../vip/vip-client";
 import {
   fetchUserApiServer,
   hasUserSessionCookie,
@@ -38,64 +39,30 @@ export async function loadDashboardCore() {
   }
 }
 
-/**
- * Loader for the home hub. Pulls the dashboard summary plus the latest
- * questionnaire schema + saved answers so the page can compute a real
- * completion percentage instead of showing a binary "saved / not saved".
- */
-export async function loadDashboardHome() {
-  await ensureDashboardSession();
+type QuestionnairePageData = {
+  user: DashboardBootstrapPayload["user"];
+  questionnaire: QuestionnairePayload;
+  savedQuestionnaire: SavedQuestionnairePayload;
+  contactPreferences: ContactPreferencesPayload;
+};
 
+type HomePageData = QuestionnairePageData & Pick<DashboardBootstrapPayload, "dashboard">;
+type ProfilePageData = QuestionnairePageData & {
+  dashboard: Pick<DashboardBootstrapPayload["dashboard"], "questionnaireSubmittedAt">;
+  vip: VipStatus | null;
+};
+type CenterPageData = { user: DashboardBootstrapPayload["user"]; vip: VipStatus | null };
+
+async function loadPage<T>(page: "home" | "profile" | "center") {
+  await ensureDashboardSession();
   try {
-    const [bootstrap, questionnaire, savedQuestionnaire, contactPreferences] =
-      await Promise.all([
-        fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
-        fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
-        fetchUserApiServer<SavedQuestionnairePayload>(
-          "/me/questionnaire",
-        ),
-        fetchUserApiServer<ContactPreferencesPayload>(
-          "/me/contact-preferences",
-        ),
-      ]);
-    return {
-      user: bootstrap.user,
-      dashboard: bootstrap.dashboard,
-      questionnaire,
-      savedQuestionnaire,
-      contactPreferences,
-    };
+    return await fetchUserApiServer<T>(`/me/page-bootstrap/${page}`);
   } catch (error) {
     if (error instanceof ServerApiError && error.status === 401) redirect("/login");
     throw error;
   }
 }
 
-/**
- * Profile sub-page loader: identity, dashboard summary (for header status),
- * and the matching questionnaire schema + saved answers.
- */
-export async function loadDashboardProfile() {
-  await ensureDashboardSession();
-
-  try {
-    const [bootstrap, contactPreferences, questionnaire, savedQuestionnaire] = await Promise.all([
-      fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap"),
-      fetchUserApiServer<ContactPreferencesPayload>("/me/contact-preferences"),
-      fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
-      fetchUserApiServer<SavedQuestionnairePayload>(
-        "/me/questionnaire",
-      ),
-    ]);
-    return {
-      user: bootstrap.user,
-      dashboard: bootstrap.dashboard,
-      questionnaire,
-      savedQuestionnaire,
-      contactPreferences,
-    };
-  } catch (error) {
-    if (error instanceof ServerApiError && error.status === 401) redirect("/login");
-    throw error;
-  }
-}
+export function loadDashboardHome() { return loadPage<HomePageData>("home"); }
+export function loadDashboardProfile() { return loadPage<ProfilePageData>("profile"); }
+export function loadDashboardCenter() { return loadPage<CenterPageData>("center"); }
