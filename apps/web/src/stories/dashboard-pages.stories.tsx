@@ -11,6 +11,7 @@ import { CouponsClient } from "@/app/dashboard/coupons/coupons-client";
 import { ReferralsClient } from "@/app/dashboard/referrals/referrals-client";
 import { MatchHistoryClient } from "@/app/dashboard/match/history/match-history-client";
 import Loading from "@/app/dashboard/loading";
+import DashboardError from "@/app/dashboard/error";
 import {
   matchDashboardFixtures as dashboards,
   matchStoryUser as user,
@@ -911,5 +912,15 @@ export const ProfileThreeChoices: Story = {
     await userEvent.click(c.getByText("真诚", { exact: true }));
     await userEvent.click(c.getByText("尊重", { exact: true }));
     await expect(c.getByRole("checkbox", { name: "尊重" })).toBeChecked();
+  },
+};
+
+export const DashboardUnavailable: Story = {
+  tags: ["smoke"],
+  render: () => <DashboardError reset={() => {}} />,
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(c.getByRole("heading", { name: "暂时无法加载" })).toBeVisible();
+    await expect(c.getByRole("button", { name: "重新加载" })).toBeEnabled();
   },
 };
