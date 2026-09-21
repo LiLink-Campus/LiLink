@@ -162,6 +162,7 @@ function buildIntroducedContact(input: {
 export class DashboardSnapshotService {
   private readonly inFlightCycleSyncs = new Map<string, Promise<void>>();
   private readonly inFlightCycleRebuilds = new Map<string, Promise<void>>();
+  private readonly inFlightCycleRepairs = new Map<string, Promise<void>>();
   private readonly inFlightMatchSyncs = new Map<string, Promise<void>>();
   private readonly inFlightUserCycleSyncs = new Map<string, Promise<void>>();
   private readonly inFlightCycleUserSyncs = new Map<
@@ -236,14 +237,28 @@ export class DashboardSnapshotService {
 
     await Promise.all(
       cycleIdsToSync.map((cycleId) =>
-        this.syncUserCycleSnapshot({
-          userId: input.userId,
-          cycleId,
-          onlyIfMissing: true,
-        }),
+        this.ensureCycleSnapshotCoverage(cycleId),
       ),
     );
     return cycleIdsToSync.length > 0;
+  }
+
+  private async ensureCycleSnapshotCoverage(cycleId: string) {
+    const existing = this.inFlightCycleRepairs.get(cycleId);
+    if (existing) return existing;
+
+    // Share one batch across readers instead of exhausting the pool per user.
+    const pending = this.enqueueCycleSnapshotSync(cycleId, () =>
+      this.prisma.$transaction(
+        (tx) => this.syncCycleSnapshotsDirect(cycleId, tx, true),
+        { timeout: 30_000 },
+      ),
+    ).finally(() => {
+      if (this.inFlightCycleRepairs.get(cycleId) === pending)
+        this.inFlightCycleRepairs.delete(cycleId);
+    });
+    this.inFlightCycleRepairs.set(cycleId, pending);
+    return pending;
   }
 
   async syncCycleSnapshots(cycleId: string, store?: SnapshotStoreClient) {
@@ -444,6 +459,7 @@ export class DashboardSnapshotService {
   private async syncCycleSnapshotsDirect(
     cycleId: string,
     store: SnapshotStoreClient,
+    onlyIfMissing = false,
   ) {
     const cycle = await store.matchCycle.findUnique({
       where: { id: cycleId },
@@ -455,6 +471,7 @@ export class DashboardSnapshotService {
     }
 
     if (cycle.status !== 'REVEALED') {
+      if (onlyIfMissing) return;
       await store.userCycleDashboardSnapshot.deleteMany({
         where: { cycleId },
       });
@@ -470,6 +487,22 @@ export class DashboardSnapshotService {
       },
     });
 
+    const existingUserIds = new Set(
+      onlyIfMissing
+        ? (
+            await store.userCycleDashboardSnapshot.findMany({
+              where: { cycleId },
+              select: { userId: true },
+            })
+          ).map((snapshot) => snapshot.userId)
+        : [],
+    );
+    if (
+      onlyIfMissing &&
+      participations.every(({ userId }) => existingUserIds.has(userId))
+    )
+      return;
+
     // Serialize sensitive reads and writes with account deletion and reports.
     await store.$queryRaw`
       SELECT "id" FROM "Match"
@@ -477,9 +510,11 @@ export class DashboardSnapshotService {
       ORDER BY "id" FOR UPDATE
     `;
 
-    await store.userCycleDashboardSnapshot.deleteMany({
-      where: { cycleId },
-    });
+    if (!onlyIfMissing) {
+      await store.userCycleDashboardSnapshot.deleteMany({
+        where: { cycleId },
+      });
+    }
 
     if (participations.length === 0) {
       return;
@@ -508,7 +543,7 @@ export class DashboardSnapshotService {
       participations,
       matches,
       blocks,
-    });
+    }).filter((snapshot) => !existingUserIds.has(snapshot.userId));
 
     if (snapshots.length > 0) {
       await store.userCycleDashboardSnapshot.createMany({

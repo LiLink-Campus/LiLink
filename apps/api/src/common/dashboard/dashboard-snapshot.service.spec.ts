@@ -253,7 +253,7 @@ describe('DashboardSnapshotService', () => {
     );
   });
 
-  it('fills only the missing user-cycle snapshot during dashboard coverage checks', async () => {
+  it('batches missing coverage without replacing existing snapshots', async () => {
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([]),
       matchCycle: {
@@ -265,20 +265,18 @@ describe('DashboardSnapshotService', () => {
         }),
       },
       cycleParticipation: {
-        findUnique: jest.fn().mockResolvedValue({
-          userId: 'user-1',
-          status: 'OPTED_IN',
-        }),
+        findMany: jest.fn().mockResolvedValue([
+          { userId: 'user-1', status: 'OPTED_IN' },
+          { userId: 'user-2', status: 'OPTED_OUT' },
+          { userId: 'user-3', status: 'OPTED_OUT' },
+        ]),
       },
-      match: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      block: {
-        findMany: jest.fn(),
-      },
+      match: { findMany: jest.fn().mockResolvedValue([]) },
+      block: { findMany: jest.fn().mockResolvedValue([]) },
       userCycleDashboardSnapshot: {
+        findMany: jest.fn().mockResolvedValue([{ userId: 'user-2' }]),
         deleteMany: jest.fn(),
-        upsert: jest.fn().mockResolvedValue(undefined),
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };
     const prisma = {
@@ -288,40 +286,32 @@ describe('DashboardSnapshotService', () => {
       cycleParticipation: {
         findMany: jest.fn().mockResolvedValue([{ cycleId: 'cycle-1' }]),
       },
-      userCycleDashboardSnapshot: {
-        findMany: jest.fn().mockResolvedValue([]),
-        findUnique: jest.fn().mockResolvedValue(null),
-      },
     };
     const service = new DashboardSnapshotService(prisma as never);
-
     await service.ensureUserSnapshotCoverage({
       userId: 'user-1',
       recentRevealedCycleIds: ['cycle-1'],
+      existingSnapshotCycleIds: [],
     });
-
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
     expect(tx.userCycleDashboardSnapshot.deleteMany).not.toHaveBeenCalled();
-    expect(tx.userCycleDashboardSnapshot.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          userId_cycleId: {
-            userId: 'user-1',
-            cycleId: 'cycle-1',
-          },
-        },
-      }),
-    );
+    expect(tx.userCycleDashboardSnapshot.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ userId: 'user-1' }),
+        expect.objectContaining({ userId: 'user-3' }),
+      ],
+      skipDuplicates: true,
+    });
   });
 
   it.each([false, true])(
-    'rechecks queued coverage after a full rebuild (rebuild failed: %s)',
+    'coalesces 100 cold readers behind a full rebuild (rebuild failed: %s)',
     async (rebuildFails) => {
       let release!: () => void;
       const barrier = new Promise<void>((resolve) => {
         release = resolve;
       });
-      let rebuilt = false;
       const prisma = {
         $transaction: jest.fn(
           async (callback: (store: unknown) => Promise<void>) => callback({}),
@@ -329,29 +319,22 @@ describe('DashboardSnapshotService', () => {
         cycleParticipation: {
           findMany: jest.fn().mockResolvedValue([{ cycleId: 'cycle-1' }]),
         },
-        userCycleDashboardSnapshot: {
-          findUnique: jest
-            .fn()
-            .mockImplementation(() =>
-              Promise.resolve(rebuilt ? { userId: 'present' } : null),
-            ),
-        },
       };
       const service = new DashboardSnapshotService(prisma as never);
       const methods = service as unknown as {
-        syncCycleSnapshotsDirect(): Promise<void>;
-        syncUserCycleSnapshotDirect(): Promise<void>;
+        syncCycleSnapshotsDirect(
+          cycleId: string,
+          store: unknown,
+          onlyIfMissing?: boolean,
+        ): Promise<void>;
       };
-      jest
+      const direct = jest
         .spyOn(methods, 'syncCycleSnapshotsDirect')
-        .mockImplementation(async () => {
+        .mockImplementation(async (_cycle, _store, onlyIfMissing) => {
+          if (onlyIfMissing) return;
           await barrier;
           if (rebuildFails) throw new Error('Simulated rebuild failure');
-          rebuilt = true;
         });
-      const userSync = jest
-        .spyOn(methods, 'syncUserCycleSnapshotDirect')
-        .mockResolvedValue();
       const rebuild = service
         .syncCycleSnapshots('cycle-1')
         .catch((error: unknown) => error);
@@ -363,17 +346,12 @@ describe('DashboardSnapshotService', () => {
         }),
       );
       await Promise.resolve();
-      expect(
-        prisma.userCycleDashboardSnapshot.findUnique,
-      ).not.toHaveBeenCalled();
+      expect(direct.mock.calls.some((call) => call[2])).toBe(false);
       release();
       await rebuild;
       expect(await Promise.all(coverage)).toEqual(Array(100).fill(true));
-      expect(
-        prisma.userCycleDashboardSnapshot.findUnique,
-      ).toHaveBeenCalledTimes(100);
-      expect(userSync).toHaveBeenCalledTimes(rebuildFails ? 100 : 0);
-      expect(prisma.$transaction).toHaveBeenCalledTimes(rebuildFails ? 101 : 1);
+      expect(direct.mock.calls.filter((call) => call[2])).toHaveLength(1);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
     },
   );
 

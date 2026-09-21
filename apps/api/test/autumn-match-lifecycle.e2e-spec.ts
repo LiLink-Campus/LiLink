@@ -335,6 +335,98 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     ).toBe(2);
   });
 
+  it('repairs a cold cycle in one batch for 100 distinct concurrent readers', async () => {
+    const { cycle, match } = await seedPair();
+    await prisma.matchCycle.update({
+      where: { id: cycle.id },
+      data: { status: 'REVEALED' },
+    });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { revealedAt: new Date(), introducedAt: new Date() },
+    });
+    await snapshots.syncCycleSnapshots(cycle.id);
+    const original = await prisma.userCycleDashboardSnapshot.findMany({
+      where: { cycleId: cycle.id },
+      orderBy: { userId: 'asc' },
+    });
+    const readers = Array.from({ length: 100 }, (_, n) => ({
+      id: `${tag}-cold-${n}`,
+      email: `cold-${n}@${tag}.example`,
+      passwordHash: hash,
+      schoolId,
+    }));
+    await prisma.user.createMany({ data: readers });
+    userIds.push(...readers.map(({ id }) => id));
+    await prisma.cycleParticipation.createMany({
+      data: readers.map(({ id }) => ({
+        userId: id,
+        cycleId: cycle.id,
+        status: 'OPTED_OUT' as const,
+      })),
+    });
+    const start = barrier();
+    const allQueued = barrier();
+    let queued = 0;
+    let writes = 0;
+    const client = prisma.$extends({
+      query: {
+        cycleParticipation: {
+          async findMany({ args, query }) {
+            const result = await query(args);
+            if (typeof args.where?.userId === 'string') {
+              if (++queued === readers.length) allQueued.resolve();
+              await start.promise;
+            }
+            return result;
+          },
+        },
+        userCycleDashboardSnapshot: {
+          async createMany({ args, query }) {
+            writes++;
+            return query(args);
+          },
+        },
+      },
+    });
+    const service = new DashboardSnapshotService(
+      client as unknown as PrismaService,
+    );
+    const requests = readers.map(({ id }) =>
+      service.ensureUserSnapshotCoverage({
+        userId: id,
+        recentRevealedCycleIds: [cycle.id],
+        existingSnapshotCycleIds: [],
+      }),
+    );
+    try {
+      await allQueued.promise;
+    } finally {
+      start.resolve();
+    }
+    expect(await Promise.all(requests)).toEqual(Array(100).fill(true));
+    expect(writes).toBe(1);
+    expect(
+      await prisma.userCycleDashboardSnapshot.count({
+        where: { cycleId: cycle.id },
+      }),
+    ).toBe(102);
+    expect(
+      await prisma.userCycleDashboardSnapshot.findMany({
+        where: {
+          cycleId: cycle.id,
+          userId: { in: original.map(({ userId }) => userId) },
+        },
+        orderBy: { userId: 'asc' },
+      }),
+    ).toEqual(original);
+    expect(
+      await prisma.outboundEmail.count({
+        where: { recipientEmail: { in: readers.map(({ email }) => email) } },
+      }),
+    ).toBe(0);
+  });
+
   it.each(['lazy', 'match', 'cycle'] as const)(
     'serializes %s snapshot rebuilds with deactivation without restoring private contacts',
     async (mode) => {
