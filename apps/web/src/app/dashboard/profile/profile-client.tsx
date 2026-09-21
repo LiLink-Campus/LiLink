@@ -1308,6 +1308,7 @@ export function ProfileClient({
         </nav>
 
 
+        <div className={styles.readerFrame}>
         <div ref={readerRef} className={styles.reader} role="region" aria-label="当前题目" onChange={event => {
           const target = event.target;
           if (!(target instanceof HTMLInputElement) || !target.closest("[data-choice-layout]")) return;
@@ -2006,8 +2007,9 @@ export function ProfileClient({
           </div>
         )}
         </div>
-        <footer className={styles.moduleFooter}>
           <ReaderScrollHint readerRef={readerRef} question={moduleItems[currentIndex]?.node} />
+        </div>
+        <footer className={styles.moduleFooter}>
           <div className={styles.readerProgress}><span>{incompleteTargets.length ? `还有 ${incompleteTargets.length} 题待完善` : '必答项已完成'}</span><button type="button" onClick={() => incompleteTargets.length ? locateIncomplete() : setCompletedSnapshot(questionnaireSnapshot)}>{incompleteTargets.length ? '去补全 →' : '完成问卷'}</button></div>
           <div className={styles.moduleActions}>
             <button className={styles.previousModule} type="button" disabled={currentIndex === 0 && !previousReaderModule} onClick={() => currentIndex > 0 ? openQuestion(activeTab, currentIndex - 1) : previousReaderModule && openQuestion(previousReaderModule.id, Math.max(0, readerItems.filter(item => item.tab === previousReaderModule.id).length - 1))}>{currentIndex === 0 && previousReaderModule ? "← 上一模块" : "← 上一题"}</button>
