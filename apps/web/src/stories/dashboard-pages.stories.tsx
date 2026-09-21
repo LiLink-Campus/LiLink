@@ -337,6 +337,35 @@ export const ProfileRequiredFields: Story = {
   },
 };
 
+export const ProfileIntro: Story = {
+  ...Profile,
+  play: async ({ canvasElement }) => {
+    await jumpQuestion(canvasElement, "一句话介绍");
+    await expect(within(canvasElement).getByRole("textbox", { name: /一句话介绍/ })).toBeVisible();
+  },
+};
+export const ProfileContact: Story = {
+  ...Profile,
+  play: async ({ canvasElement }) => {
+    await jumpQuestion(canvasElement, "联系方式");
+    await expect(within(canvasElement).getByRole("textbox", { name: /内容$/ })).toBeVisible();
+  },
+};
+export const ProfileGender: Story = {
+  ...ProfileRequiredFields,
+  play: async ({ canvasElement }) => {
+    await jumpQuestion(canvasElement, "性别");
+    await expect(within(canvasElement).getByRole("radio", { name: "非二元" })).toBeVisible();
+  },
+};
+export const ProfileLooksRequired: Story = {
+  ...ProfileRequiredFields,
+  play: async ({ canvasElement }) => {
+    await jumpQuestion(canvasElement, "颜值自评");
+    await expect(within(canvasElement).getByRole("slider", { name: "颜值自评" })).toHaveAttribute("aria-valuetext", "未选择");
+  },
+};
+
 const profileVip = { active: true, activatedAt: now, expiresAt: "2099-01-01T00:00:00.000Z", durationDays: 30, priceYuan: "29.90", advancedFiltersAvailable: true };
 export const ProfilePremiumLocked: Story = {
   parameters: route("/dashboard/profile"),

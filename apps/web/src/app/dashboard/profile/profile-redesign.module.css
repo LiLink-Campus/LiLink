@@ -447,6 +447,26 @@
 
 
 .desktopDirectory, .desktopOnly, .desktopProgress, .desktopComplete { display: none; }
+
+/* Let mobile forms grow with their content instead of nesting a clipped scroller. */
+@media (max-width: 879px) {
+  :global(body):has(.page):not(:has(dialog[open])) { overflow: auto; }
+  .page.page { position: relative; inset: auto; width: 100%; max-width: none; height: auto; padding: 0; overflow: visible; }
+  .page > .workspace { flex: none; }
+  .page nav { scroll-margin-top: calc(var(--appbar-height, 60px) + 8px); }
+  .page .reader { flex: none; height: auto; min-height: 0; overflow: visible; scrollbar-gutter: auto; padding: 16px; }
+  .page .readerToolbar { margin-bottom: 16px; }
+  .page .reader fieldset[data-question] > legend { width: 1px; padding: 0; }
+  .page .reader [data-reader-module="self"] [data-reader-item],
+  .page .reader [data-reader-module="partner"] [data-reader-item] { margin-top: 16px; }
+  .page .reader .identity label[data-reader-item] { gap: 16px; }
+  .page .reader [data-scale-choice] > [data-readout] { margin: 12px 0 16px; }
+  .page .reader [data-readout="number"] strong { font-size: 48px; }
+  .page .reader .ratingDescription { min-height: 0; }
+  .page .moduleFooter { position: static; margin-top: 12px; }
+  .page .moduleActions { margin-bottom: env(safe-area-inset-bottom, 0px); }
+}
+
 @media (min-width: 880px) {
   :global(body):has(.page):not(:has(dialog[open])) { overflow: auto; }
   .page.page { position: relative; inset: auto; max-width: none; width: 100%; height: calc(100dvh - var(--appbar-height) - 48px); min-height: 0; padding: 0; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) minmax(240px, .75fr); gap: 24px; }

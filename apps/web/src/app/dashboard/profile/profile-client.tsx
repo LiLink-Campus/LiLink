@@ -1193,6 +1193,7 @@ export function ProfileClient({
   const [readerItems, setReaderItems] = useState<{ node: HTMLElement; tab: ProfileTab; title: string; elementIds: Set<string> }[]>([]);
   const [questionIndex, setQuestionIndex] = useState(0);
   const moduleNavRef = useRef<HTMLElement>(null);
+  const previousReaderSelection = useRef<string | null>(null);
   const moduleItems = useMemo(() => readerItems.filter(item => item.tab === activeTab), [readerItems, activeTab]);
   const currentIndex = Math.min(questionIndex, Math.max(0, moduleItems.length - 1));
   const previousReaderModule = PROFILE_TABS[PROFILE_TABS.findIndex(tab => tab.id === activeTab) - 1];
@@ -1221,7 +1222,14 @@ export function ProfileClient({
   }, [vipActive, questions, cancelQuestionTransition]);
   useLayoutEffect(() => {
     for (const item of readerItems) item.node.dataset.readerHidden = String(item !== moduleItems[currentIndex]);
-  }, [readerItems, moduleItems, currentIndex]);
+    if (!moduleItems[currentIndex]) return;
+    const selection = `${activeTab}:${currentIndex}`;
+    if (previousReaderSelection.current !== null && previousReaderSelection.current !== selection
+      && window.matchMedia("(max-width: 879px)").matches) {
+      moduleNavRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
+    }
+    previousReaderSelection.current = selection;
+  }, [readerItems, moduleItems, currentIndex, activeTab]);
   useEffect(() => cancelQuestionTransition, [cancelQuestionTransition]);
   function openQuestion(tab: ProfileTab, index: number, animate = false) {
     cancelQuestionTransition();
