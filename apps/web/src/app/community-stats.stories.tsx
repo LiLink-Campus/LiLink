@@ -28,6 +28,20 @@ export const Overview: Story = {
     await expect(c.getByRole("img", { name: /男 18 人/ })).toBeVisible();
   },
 };
+export const AllSchools: Story = {
+  parameters: { msw: { handlers: [session, http.get("*/api/public/community", () => HttpResponse.json({
+    ...fixture,
+    schools: Array.from({ length: 11 }, (_, index) => ({
+      id: `school-${index}`, name: `示例大学 ${index + 1}`, count: index === 0 ? 42 : 0,
+    })),
+  }))] } },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    const list = await c.findByRole("list", { name: "各学校已加入人数" });
+    await expect(within(list).getAllByRole("listitem")).toHaveLength(11);
+    await expect(c.getByText("示例大学 11", { exact: false })).toBeVisible();
+  },
+};
 export const Empty: Story = {
   parameters: { msw: { handlers: [session, http.get("*/api/public/community", () => HttpResponse.json({ ...fixture, total: 0, genders: { male: 0, female: 0, nonBinary: 0, unknown: 0 }, schools: [] }))] } },
   play: async ({ canvasElement }) => { await expect(await within(canvasElement).findByText("暂无同学加入")).toBeVisible(); },

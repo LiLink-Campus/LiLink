@@ -8,7 +8,10 @@ describe('CommunityStatsService', () => {
       { schoolId: 'b', schoolName: '乙大学', gender: '非二元', count: 1 },
       { schoolId: null, schoolName: null, gender: null, count: 4 },
     ]);
-    const service = new CommunityStatsService({ $queryRaw: query } as never);
+    const service = new CommunityStatsService({
+      $queryRaw: query,
+      school: { findMany: jest.fn().mockResolvedValue([]) },
+    } as never);
     const result = await service.getStats();
     expect(result).toMatchObject({
       total: 10,
@@ -33,7 +36,10 @@ describe('CommunityStatsService', () => {
       .mockResolvedValue([
         { schoolId: 'a', schoolName: 'Before', gender: '男', count: 1 },
       ]);
-    const service = new CommunityStatsService({ $queryRaw: query } as never);
+    const service = new CommunityStatsService({
+      $queryRaw: query,
+      school: { findMany: jest.fn().mockResolvedValue([]) },
+    } as never);
     await service.getStats();
     query.mockResolvedValue([
       { schoolId: 'a', schoolName: 'After', gender: '男', count: 1 },
@@ -48,7 +54,10 @@ describe('CommunityStatsService', () => {
     const clock = jest.spyOn(Date, 'now').mockImplementation(() => now);
     const query = jest.fn().mockResolvedValue([]);
     try {
-      const service = new CommunityStatsService({ $queryRaw: query } as never);
+      const service = new CommunityStatsService({
+        $queryRaw: query,
+        school: { findMany: jest.fn().mockResolvedValue([]) },
+      } as never);
       await Promise.all([service.getStats(), service.getStats()]);
       expect(query).toHaveBeenCalledTimes(1);
       now += 10001;

@@ -135,7 +135,7 @@ export function HomePageView({ landing }: { landing: LandingPayload | null }) {
           <strong>
             {landing ? landing.stats.completedQuestionnaires : "—"}
           </strong>
-          <span>已完成问卷</span>
+          <span>累计完成问卷</span>
         </div>
         <div>
           <strong className={matchesLabelIsNarrative ? styles.statsStripNote : undefined}>

@@ -1014,7 +1014,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
       data: {
         userId: left.id,
         versionId: retainedVersion.id,
-        answers: {},
+        answers: { hard_gender: '男' },
         submittedAt: new Date(),
       },
     });

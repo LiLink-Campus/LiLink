@@ -14,7 +14,6 @@ const genders = [
 export function CommunityCharts({ data }: { data: CommunityStatsPayload }) {
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setReady(true), 40);
     return () => clearTimeout(timer);
@@ -26,7 +25,6 @@ export function CommunityCharts({ data }: { data: CommunityStatsPayload }) {
     return { ...item, count, share, start };
   });
   const selected = slices.find(item => item.key === active);
-  const schools = expanded ? data.schools : data.schools.slice(0, 6);
   const maximum = Math.max(1, ...data.schools.map(item => item.count));
 
   return <div className={styles.charts}>
@@ -48,12 +46,11 @@ export function CommunityCharts({ data }: { data: CommunityStatsPayload }) {
       <div className={styles.chartHeading}><h3 id="school-chart-title">同学来自这些学校</h3><span>已加入 {data.total} 人</span></div>
       {data.schools.length ? <>
         <ol className={styles.bars} aria-label="各学校已加入人数">
-          {schools.map((school, index) => <li key={school.id ?? "none"}>
+          {data.schools.map((school, index) => <li key={school.id ?? "none"}>
             <div className={styles.barLabel}><span><small>{String(index + 1).padStart(2, "0")}</small>{school.name}</span><strong>{school.count}<small> 人</small></strong></div>
             <div className={styles.barTrack} aria-hidden="true"><div className={styles.barFill} style={{ width: `${ready ? school.count / maximum * 100 : 0}%` }} /></div>
           </li>)}
         </ol>
-        {data.schools.length > 6 && <button type="button" className={styles.expand} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "收起学校" : "查看全部学校"}<span aria-hidden="true">{expanded ? "−" : "+"}</span></button>}
       </> : <p className={styles.empty}>暂无学校人数数据</p>}
     </section>
   </div>;
