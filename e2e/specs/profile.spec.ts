@@ -59,3 +59,34 @@ test('rapid back navigation restores a usable profile', async ({ page }) => {
   await page.getByRole('textbox', { name: '昵称', exact: true }).fill('返回后可编辑');
   await expect(page.getByRole('main').getByText('草稿已自动保存', { exact: true })).toBeVisible();
 });
+
+test('question pickers load on navigation and preserve saved selections @smoke', async ({ page, context, db }) => {
+  await completeProfile(context, db);
+  await visit(page, '/dashboard/profile');
+  const height = page.locator('select[name="heightCm"]');
+  const weight = page.locator('select[name="weightKg"]');
+  await expect(height.locator('option')).toHaveCount(2);
+  await expect(weight.locator('option')).toHaveCount(2);
+
+  async function openQuestion(title: string) {
+    const directory = page.getByRole('button', { name: '题目目录', exact: true });
+    if (await directory.isVisible()) await directory.click();
+    await page.getByRole('button', { name: new RegExp(`关于你第 \\d+ 题：${title}$`) }).filter({ visible: true }).click();
+  }
+  await openQuestion('身高');
+  await expect(height).toBeVisible();
+  expect(await height.locator('option').count()).toBeGreaterThan(100);
+  await height.selectOption('177');
+  await expect(page.getByRole('main').getByText('全部修改已保存', { exact: true })).toBeVisible();
+  await openQuestion('体重');
+  await expect(weight).toBeVisible();
+  expect(await weight.locator('option').count()).toBeGreaterThan(200);
+  await expect(height.locator('option')).toHaveCount(2);
+  await weight.selectOption('72');
+  await expect(page.getByRole('main').getByText('全部修改已保存', { exact: true })).toBeVisible();
+  await openQuestion('身高');
+  await expect(height).toHaveValue('177');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await openQuestion('体重');
+  await expect(page.getByRole('combobox', { name: '选择你的体重' })).toHaveValue('72');
+});

@@ -94,9 +94,9 @@ export function PhoneCountryPicker({ value, onChange }: { value: CountryCode; on
         <input ref={search} type="search" aria-label="搜索国家、地区或区号" placeholder="国家、地区或区号，如 +86" autoComplete="off" value={query} onChange={(event) => { setQuery(event.target.value); results.current?.scrollTo({ top: 0 }); }} onKeyDown={handleSearchKey} />
         {query && <button type="button" aria-label="清空区号搜索" onClick={() => { setQuery(""); search.current?.focus(); }}>×</button>}
       </div>
-      {open && <div ref={results} className={styles.results}>
+      <div ref={results} className={styles.results}>
         {trimmedQuery ? <><p className={styles.groupLabel} role="status">找到 {filtered.length} 个国家或地区</p>{filtered.length ? countryList(filtered, "区号搜索结果") : <div className={styles.empty}><strong>没有找到相关区号</strong><p>试试国家或地区名，也可以直接搜索 +86。</p></div>}</> : <><p className={styles.groupLabel}>常用地区</p>{countryList(common, "常用国家和地区")}<p className={styles.groupLabel}>其他国家和地区</p>{countryList(remaining, "其他国家和地区")}</>}
-      </div>}
+      </div>
     </dialog>
   </>;
 }

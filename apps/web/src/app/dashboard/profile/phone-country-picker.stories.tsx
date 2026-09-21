@@ -27,7 +27,6 @@ export const LongRegionName: Story = { args: { value: "CC" } };
 
 export const CommonRegions: Story = {
   play: async ({ canvas, userEvent }) => {
-    await expect(canvas.queryByRole("list", { name: "其他国家和地区", hidden: true })).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "电话区号：中国 +86" }));
     const dialog = within(canvas.getByRole("dialog", { name: "选择电话区号" }));
     await expect(dialog.getByRole("searchbox", { name: "搜索国家、地区或区号" })).toHaveFocus();
@@ -49,7 +48,6 @@ export const SearchAndKeyboardSelection: Story = {
     await userEvent.type(search, "加拿大");
     await userEvent.keyboard("{Enter}");
     await waitFor(() => expect(canvas.getByRole("button", { name: "电话区号：加拿大 +1" })).toHaveFocus());
-    await expect(canvas.queryByRole("list", { name: "区号搜索结果", hidden: true })).not.toBeInTheDocument();
     await expect(args.onChange).toHaveBeenLastCalledWith("CA");
     await expect(submitted).not.toHaveBeenCalled();
     await userEvent.click(canvas.getByRole("button", { name: "电话区号：加拿大 +1" }));
