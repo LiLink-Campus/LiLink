@@ -23,15 +23,17 @@ test('community snapshot survives refresh failure and recovers at 30 seconds @sm
       generatedAt: new Date().toISOString(),
     } }) : route.fulfill({ status: 503, json: { message: 'Unavailable' } });
   });
-  await page.clock.install();
+  // Freeze before mounting so network and screenshot time cannot advance the poll.
+  await page.clock.install({ time: new Date("2026-09-21T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-09-21T00:00:01Z"));
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('list', { name: listName })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: '上次成功统计；每 30 秒自动重试' })).toBeVisible();
   expect(attempts).toBe(1);
-  await page.getByRole('heading', { name: '在这里，遇见同学' }).scrollIntoViewIfNeeded();
-  await page.screenshot({ path: testInfo.outputPath('saved-stats-on-failure.png') });
   await page.clock.fastForward(29_000);
   expect(attempts).toBe(1);
+  await page.getByRole('heading', { name: '在这里，遇见同学' }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath('saved-stats-on-failure.png') });
   recovered = true;
   await page.clock.fastForward(1_000);
   await expect(page.getByText('恢复后的示例大学')).toBeVisible();
