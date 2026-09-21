@@ -378,19 +378,19 @@ export const ProfileLongChoices: Story = {
     const next = c.getByRole("button", { name: "下一题 →" });
     const top = next.getBoundingClientRect().top;
     const reader = c.getByRole("region", { name: "当前题目" });
-    await waitFor(() => expect(c.getByText("下方还有内容 · 滑动查看")).toBeVisible());
+    await waitFor(() => expect(c.getByText("↓ 下方还有内容")).toBeVisible());
     reader.scrollTop = (reader.scrollHeight - reader.clientHeight) / 2;
-    await waitFor(() => expect(c.getByText("上下还有内容 · 滑动查看")).toBeVisible());
+    await waitFor(() => expect(c.getByText("↓ 下方还有内容")).toBeVisible());
     const last = c.getByRole("radio", { name: /周末安排 12/ });
     const option = last.closest("label")!;
     reader.scrollTop = reader.scrollHeight;
-    await waitFor(() => expect(c.getByText("上方还有内容 · 滑动查看")).toBeVisible());
+    await waitFor(() => expect(c.getByText("↓ 下方还有内容")).not.toBeVisible());
     await expect(last).toBeVisible();
     // Allow subpixel rounding when scrolling to the content edge.
     await expect(option.getBoundingClientRect().bottom - c.getByRole("region", { name: "当前题目" }).getBoundingClientRect().bottom).toBeLessThanOrEqual(1);
     await expect(next.getBoundingClientRect().top).toBe(top);
     reader.scrollTop = 0;
-    await waitFor(() => expect(c.getByText("下方还有内容 · 滑动查看")).toBeVisible());
+    await waitFor(() => expect(c.getByText("↓ 下方还有内容")).toBeVisible());
   },
 };
 
@@ -401,7 +401,7 @@ export const ProfileLongChoicesBottom: Story = {
     const c = within(context.canvasElement);
     const reader = c.getByRole("region", { name: "当前题目" });
     reader.scrollTop = reader.scrollHeight;
-    await waitFor(() => expect(c.getByText("上方还有内容 · 滑动查看")).toBeVisible());
+    await waitFor(() => expect(c.getByText("↓ 下方还有内容")).not.toBeVisible());
   },
 };
 
