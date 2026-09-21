@@ -2,7 +2,6 @@ import { test as base, expect, type Page, type BrowserContext } from '@playwrigh
 import { createRequire } from 'node:module';
 import { randomUUID, createHash } from 'node:crypto';
 import path from 'node:path';
-import { announcements } from '../../apps/web/src/app/announcements';
 import { assertTestDatabase } from '../../scripts/e2e/environment.mjs';
 
 assertTestDatabase(process.env.DATABASE_URL!);
@@ -46,11 +45,6 @@ export { expect };
 
 export async function visit(page: Page, route: string) {
   await page.goto(route, { waitUntil: 'domcontentloaded' });
-  const latest = announcements[0];
-  if (latest && await page.evaluate(id => localStorage.getItem('lilink_seen_announcement') !== id, latest.id)) {
-    await page.getByRole('button', { name: '知道了', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: latest.title, exact: true })).not.toBeVisible();
-  }
 }
 export async function login(page: Page, account: Account, secret = password) {
   await visit(page, '/login');

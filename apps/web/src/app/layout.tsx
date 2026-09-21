@@ -5,7 +5,6 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { resolveApiOriginForPreconnect } from "../lib/public-server-api";
 import { AuthSessionProvider } from "./auth-session";
-import { AnnouncementDialog } from "./announcement-dialog";
 import { PublicChrome } from "./public-chrome";
 import { PwaInstallProvider } from "./_components/PwaInstall";
 import { ServiceWorkerRegistrar } from "./_components/ServiceWorkerRegistrar";
@@ -62,7 +61,6 @@ export default async function RootLayout({
         <AuthSessionProvider>
           <PwaInstallProvider><PublicChrome>{children}</PublicChrome></PwaInstallProvider>
         </AuthSessionProvider>
-        <AnnouncementDialog />
         <ServiceWorkerRegistrar />
         <Analytics />
         {process.env.VERCEL_ENV === "production" && <SpeedInsights sampleRate={0.1} />}
