@@ -390,6 +390,7 @@ export class MailService {
     waitForCompletion: true,
   })
   async handleEmailQueue() {
+    if (!env.BACKGROUND_JOBS_ENABLED || env.RELEASE_MAINTENANCE) return;
     if (Date.now() > this.flushPollUntil) {
       return;
     }
@@ -405,6 +406,7 @@ export class MailService {
   async flushQueuedEmails(
     options: { dedupeKeys?: string[]; limit?: number } = {},
   ) {
+    if (!env.MAIL_DELIVERY_ENABLED || env.RELEASE_MAINTENANCE) return;
     // A targeted (inline) flush means a caller just enqueued mail; keep the
     // backstop window open so the cron re-sweeps even if this call no-ops on
     // the isFlushing lock or its delivery throws before claiming the row.
@@ -502,6 +504,9 @@ export class MailService {
   private async processOutboundEmailWithSlot(
     email: OutboundEmailRecord,
   ): Promise<'processed' | 'claimed-by-another-worker' | 'not-eligible'> {
+    if (!env.MAIL_DELIVERY_ENABLED || env.RELEASE_MAINTENANCE) {
+      return 'not-eligible';
+    }
     // Retired reminders can still exist in old queues or stale worker snapshots.
     if (email.dedupeKey.startsWith('meetup-reminder:')) {
       await this.prisma.outboundEmail.updateMany({
@@ -535,18 +540,21 @@ export class MailService {
     };
     const matchId = matchIdFromEmailKey(email.dedupeKey);
     const claimResult = matchId
-      ? await this.prisma.$transaction(async (tx) => {
-          await tx.$queryRaw`SELECT "id" FROM "Match" WHERE "id" = ${matchId} FOR UPDATE`;
-          if (!(await canSendMatchEmail(tx, matchId, email.recipientEmail))) {
-            await cancelMatchEmails(
-              tx,
-              [matchId],
-              'Match unavailable before delivery.',
-            );
-            return null;
-          }
-          return tx.outboundEmail.updateMany(claimArgs);
-        })
+      ? await this.prisma.$transaction(
+          async (tx) => {
+            await tx.$queryRaw`SELECT "id" FROM "Match" WHERE "id" = ${matchId} FOR UPDATE`;
+            if (!(await canSendMatchEmail(tx, matchId, email.recipientEmail))) {
+              await cancelMatchEmails(
+                tx,
+                [matchId],
+                'Match unavailable before delivery.',
+              );
+              return null;
+            }
+            return tx.outboundEmail.updateMany(claimArgs);
+          },
+          { timeout: 30_000 },
+        )
       : await this.prisma.outboundEmail.updateMany(claimArgs);
 
     if (!claimResult) return 'not-eligible';

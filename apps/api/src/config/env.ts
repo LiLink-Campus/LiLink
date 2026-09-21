@@ -10,6 +10,19 @@ const bundledSentryRelease = resolveBundledSentryRelease();
 const envSchema = z.object({
   APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+  RELEASE_MAINTENANCE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  RELEASE_ACCESS_KEY: z.string().min(32).optional(),
+  BACKGROUND_JOBS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  MAIL_DELIVERY_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   // Comma-separated browser origins (e.g. https://example.com,https://www.example.com).
   CLIENT_ORIGIN: z
     .string()

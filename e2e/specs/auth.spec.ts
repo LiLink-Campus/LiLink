@@ -13,6 +13,19 @@ test('login, logout, and protected route @smoke', async ({ page, account }) => {
   expect((await page.request.get(`${api}/auth/me`)).status()).toBe(401);
 });
 
+test('login respects reduced motion while focusing form fields @smoke', async ({ page, account }, testInfo) => {
+  await visit(page, '/login');
+  await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'auto');
+  await page.getByLabel('邮箱', { exact: true }).fill(account.email);
+  await page.getByLabel('密码', { exact: true }).fill(password);
+  await page.screenshot({ path: testInfo.outputPath('login-reduced-motion.png'), fullPage: true });
+  const response = page.waitForResponse(response => response.url() === `${api}/auth/login` && response.request().method() === 'POST');
+  await page.getByRole('button', { name: '登录', exact: true }).click();
+  expect((await response).ok()).toBeTruthy();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page.getByRole('button', { name: /^账号菜单：/ })).toBeVisible();
+});
+
 test('school registration delivers mail and creates a usable account @smoke', async ({ page }) => {
   const email = `${randomUUID()}@school.example.test`;
   await visit(page, '/register/school');

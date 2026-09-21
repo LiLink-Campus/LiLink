@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CyclesService } from './cycles.service';
+import { env } from '../../config/env';
 
 @Injectable()
 export class CyclesAutomationService {
@@ -18,6 +19,7 @@ export class CyclesAutomationService {
     waitForCompletion: true,
   })
   async handleTick() {
+    if (!env.BACKGROUND_JOBS_ENABLED || env.RELEASE_MAINTENANCE) return;
     if (!this.cyclesService.isAutomationDue()) {
       return;
     }

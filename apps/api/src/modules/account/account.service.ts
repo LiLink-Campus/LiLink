@@ -1,6 +1,5 @@
 import {
   effectiveMatchingAnswers,
-  effectivePreferenceForm,
   hasActiveVip,
   VIP_FILTER_KEYS,
 } from '@lilink/shared';
@@ -16,7 +15,6 @@ import {
   type ContactChannelType as PrismaContactChannelType,
   type QuestionType,
   type UserCycleDashboardSnapshot,
-  type WeeklyIntent as PrismaWeeklyIntent,
 } from '../../common/prisma/client';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import {
@@ -73,6 +71,7 @@ import {
   UpdateProfileDto,
 } from './dto';
 import { MatchEstimateService } from './match-estimate.service';
+import { readDashboardCycles } from './dashboard-cycles';
 
 const DASHBOARD_HISTORY_LIMIT = 3;
 const EDITABLE_CONTACT_CHANNEL_SET = new Set<ContactChannelType>(
@@ -88,14 +87,7 @@ type DashboardCycleSummary = Prisma.MatchCycleGetPayload<{
 }>;
 
 type DashboardSnapshotRecord = UserCycleDashboardSnapshot;
-type CurrentParticipationSummary = {
-  status: 'OPTED_IN' | 'OPTED_OUT';
-  intent: PrismaWeeklyIntent | null;
-};
 type DashboardSnapshotStore = {
-  findFirst: (
-    args: Prisma.UserCycleDashboardSnapshotFindFirstArgs,
-  ) => Promise<DashboardSnapshotRecord | null>;
   findMany: (
     args: Prisma.UserCycleDashboardSnapshotFindManyArgs,
   ) => Promise<DashboardSnapshotRecord[]>;
@@ -326,54 +318,31 @@ export class AccountService {
         userCycleDashboardSnapshot?: DashboardSnapshotStore;
       }
     ).userCycleDashboardSnapshot;
-    const [
-      profile,
-      questionnaire,
-      cycle,
-      revealedCycles,
-      lastRevealedParticipation,
-    ] = await Promise.all([
-      this.prisma.userProfile.findUnique({
-        where: { userId },
-      }),
-      this.prisma.questionnaireResponse.findUnique({
-        where: { userId },
-      }),
-      this.prisma.matchCycle.findFirst({
-        where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
-        orderBy: { revealAt: 'asc' },
-      }),
-      this.prisma.matchCycle.findMany({
-        where: { status: 'REVEALED' },
-        orderBy: { revealAt: 'desc' },
-        take: DASHBOARD_HISTORY_LIMIT,
-        select: {
-          id: true,
-          codename: true,
-          revealAt: true,
-        },
-      }),
-      this.prisma.cycleParticipation.findFirst({
-        where: {
-          userId,
-          cycle: { status: 'REVEALED' },
-        },
-        orderBy: {
-          cycle: { revealAt: 'desc' },
-        },
-        select: {
-          cycleId: true,
-          status: true,
-          cycle: {
-            select: {
-              id: true,
-              codename: true,
-              revealAt: true,
-            },
-          },
-        },
-      }),
-    ]);
+    const [profile, questionnaire, cycleRows, couponAgenda] = await Promise.all(
+      [
+        this.prisma.userProfile.findUnique({
+          where: { userId },
+        }),
+        this.prisma.questionnaireResponse.findFirst({
+          where: { userId, version: { isCurrent: true } },
+          select: { submittedAt: true },
+        }),
+        readDashboardCycles(this.prisma, userId, DASHBOARD_HISTORY_LIMIT),
+        getDashboardCouponAgenda(this.prisma, userId),
+      ],
+    );
+    const cycle = cycleRows.find((row) => row.kind === 'CURRENT') ?? null;
+    const revealedCycles = cycleRows.filter((row) => row.kind === 'RECENT');
+    const lastParticipationRow = cycleRows.find(
+      (row) => row.kind === 'LAST_PARTICIPATION',
+    );
+    const lastRevealedParticipation = lastParticipationRow
+      ? {
+          cycleId: lastParticipationRow.id,
+          status: lastParticipationRow.participationStatus!,
+          cycle: lastParticipationRow,
+        }
+      : null;
 
     const revealedCycleIds = revealedCycles.map((item) => item.id);
     const latestSnapshotCandidateCycleIds = Array.from(
@@ -386,58 +355,44 @@ export class AccountService {
         ].filter(Boolean),
       ),
     );
-    await this.dashboardSnapshotService.ensureUserSnapshotCoverage({
-      userId,
-      latestParticipationCycleId: lastRevealedParticipation?.cycleId ?? null,
-      recentRevealedCycleIds: revealedCycleIds,
-    });
-
-    const [currentParticipation, latestSnapshot, recentSnapshots]: [
-      CurrentParticipationSummary | null,
-      DashboardSnapshotRecord | null,
-      DashboardSnapshotRecord[],
-    ] = await Promise.all([
-      cycle
-        ? this.prisma.cycleParticipation.findUnique({
-            where: {
-              cycleId_userId: {
-                cycleId: cycle.id,
-                userId,
-              },
-            },
-            select: {
-              status: true,
-              intent: true,
-            },
-          })
-        : Promise.resolve(null),
+    const readSnapshots = () =>
       latestSnapshotCandidateCycleIds.length === 0 || !snapshotStore
-        ? Promise.resolve<DashboardSnapshotRecord | null>(null)
-        : snapshotStore.findFirst({
-            where: {
-              userId,
-              cycleId: {
-                in: latestSnapshotCandidateCycleIds,
-              },
-            },
-            orderBy: {
-              cycleRevealAt: 'desc',
-            },
-          }),
-      revealedCycleIds.length === 0 || !snapshotStore
         ? Promise.resolve<DashboardSnapshotRecord[]>([])
         : snapshotStore.findMany({
             where: {
               userId,
-              cycleId: {
-                in: revealedCycleIds,
-              },
+              cycleId: { in: latestSnapshotCandidateCycleIds },
             },
-            orderBy: {
-              cycleRevealAt: 'desc',
-            },
-          }),
-    ]);
+            orderBy: { cycleRevealAt: 'desc' },
+          });
+    const existingSnapshots = await readSnapshots();
+    let recentSnapshots = existingSnapshots;
+    const participatedRecentCycleIds = revealedCycles
+      .filter((row) => row.participationStatus !== null)
+      .map((row) => row.id);
+    const expectedSnapshotCycleIds = [
+      ...participatedRecentCycleIds,
+      ...(lastRevealedParticipation ? [lastRevealedParticipation.cycleId] : []),
+    ];
+    const existingSnapshotCycleIds = new Set(
+      existingSnapshots.map((snapshot) => snapshot.cycleId),
+    );
+    if (
+      expectedSnapshotCycleIds.some((id) => !existingSnapshotCycleIds.has(id))
+    ) {
+      const repaired =
+        await this.dashboardSnapshotService.ensureUserSnapshotCoverage({
+          userId,
+          latestParticipationCycleId:
+            lastRevealedParticipation?.cycleId ?? null,
+          recentRevealedCycleIds: participatedRecentCycleIds,
+          existingSnapshotCycleIds: existingSnapshots.map(
+            (snapshot) => snapshot.cycleId,
+          ),
+        });
+      if (repaired) recentSnapshots = await readSnapshots();
+    }
+    const latestSnapshot = recentSnapshots[0] ?? null;
     const recentSnapshotByCycleId = new Map(
       recentSnapshots.map((snapshot) => [snapshot.cycleId, snapshot]),
     );
@@ -483,8 +438,6 @@ export class AccountService {
       latestMatch != null
         ? this.toDashboardHistoryLimitedReason(latestSnapshot?.limitedReason)
         : null;
-    const couponAgenda = await getDashboardCouponAgenda(this.prisma, userId);
-
     return {
       profile,
       questionnaireSubmittedAt: this.toIsoString(questionnaire?.submittedAt),
@@ -495,8 +448,8 @@ export class AccountService {
             revealAt: cycle.revealAt.toISOString(),
             participationDeadline: cycle.participationDeadline.toISOString(),
             status: cycle.status,
-            participationStatus: currentParticipation?.status ?? 'OPTED_OUT',
-            intent: currentParticipation?.intent ?? null,
+            participationStatus: cycle.participationStatus ?? 'OPTED_OUT',
+            intent: cycle.intent,
           }
         : null,
       latestMatch,
@@ -891,27 +844,27 @@ export class AccountService {
   }
 
   async getContactPreferences(userId: string) {
-    const user = await this.prisma.$transaction(
-      (tx) =>
-        tx.user.findUnique({
-          where: { id: userId },
-          select: {
-            email: true,
-            preferredContactChannel: true,
-            contactPreferencesRevision: true,
-            contactMethods: {
-              select: {
-                type: true,
-                value: true,
-              },
-              orderBy: {
-                type: 'asc',
-              },
-            },
-          },
-        }),
-      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-    );
+    // One statement keeps the revision and methods in the same MVCC snapshot.
+    const [user] = await this.prisma.$queryRaw<
+      Array<{
+        email: string;
+        preferredContactChannel: PrismaContactChannelType;
+        contactPreferencesRevision: number;
+        contactMethods: Array<{
+          type: PrismaContactChannelType;
+          value: string;
+        }>;
+      }>
+    >`
+      SELECT u."email", u."preferredContactChannel", u."contactPreferencesRevision",
+        COALESCE((
+          SELECT jsonb_agg(
+            jsonb_build_object('type', c."type", 'value', c."value")
+            ORDER BY c."type"
+          ) FROM "UserContactMethod" c WHERE c."userId" = u."id"
+        ), '[]'::jsonb) AS "contactMethods"
+      FROM "User" u WHERE u."id" = ${userId}
+    `;
 
     if (!user) {
       throw new NotFoundException('User not found.');
@@ -1036,6 +989,12 @@ export class AccountService {
       }),
     ]);
 
+    if (input.versionId !== questionnaire.id) {
+      throw new BadRequestException(
+        'Questionnaire version is outdated. Reload before saving.',
+      );
+    }
+
     if (!user.school?.id) {
       throw new BadRequestException(
         'A recognized school is required before saving the questionnaire.',
@@ -1072,10 +1031,7 @@ export class AccountService {
       }
 
       const hardMatchAnswers = buildHardMatchAnswerRecordFromFormInput(
-        effectivePreferenceForm(
-          input.hardMatchForm,
-          hasActiveVip(user.vipActivations),
-        ),
+        input.hardMatchForm,
         user.school.id,
         allowedSchoolIds,
       );
@@ -1155,7 +1111,12 @@ export class AccountService {
       await this.prisma.$transaction(submittedOperations);
 
       this.matchEstimateService?.invalidatePrecomputedCycle();
-      await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+      // Questionnaire fields are frozen on each match; only an account-name change affects old cards.
+      if (displayNameUpdate !== undefined) {
+        await this.dashboardSnapshotService.syncUserDisplayNameSnapshots(
+          userId,
+        );
+      }
 
       // Submitting the questionnaire is one of the two activation signals; try
       // to grant activation-reward coupons (a no-op until the user has also
@@ -1198,7 +1159,9 @@ export class AccountService {
           : await this.prisma.questionnaireResponse.upsert(draftUpsertArgs);
 
       if (displayNameUpdate !== undefined) {
-        await this.dashboardSnapshotService.syncUserMatchSnapshots(userId);
+        await this.dashboardSnapshotService.syncUserDisplayNameSnapshots(
+          userId,
+        );
       }
 
       return {
@@ -1213,15 +1176,6 @@ export class AccountService {
     const [response, currentQuestionnaire, user] = await Promise.all([
       this.prisma.questionnaireResponse.findUnique({
         where: { userId },
-        include: {
-          version: {
-            include: {
-              questions: {
-                orderBy: { order: 'asc' },
-              },
-            },
-          },
-        },
       }),
       this.questionnaireService.getCurrentVersion().catch(() => null),
       this.prisma.user.findUnique({
@@ -1233,20 +1187,12 @@ export class AccountService {
       }),
     ]);
 
-    if (!response) {
+    if (
+      !response ||
+      !currentQuestionnaire ||
+      response.versionId !== currentQuestionnaire.id
+    )
       return null;
-    }
-
-    if (!currentQuestionnaire) {
-      return {
-        versionId: response.versionId,
-        currentVersionId: null,
-        answers: isRecord(response.answers) ? response.answers : {},
-        submittedAt: this.toIsoString(response.submittedAt),
-        draft: null,
-        attention: null,
-      };
-    }
 
     const allowedSchoolIds = currentQuestionnaire.schools.map(
       (school) => school.id,
@@ -1297,7 +1243,7 @@ export class AccountService {
         vipActive: hasActiveVip(user?.vipActivations),
         currentVersionId: currentQuestionnaire.id,
         currentQuestions: currentQuestionnaire.questions,
-        previousQuestions: response.version?.questions ?? [],
+        previousQuestions: currentQuestionnaire.questions,
         responseVersionId: response.versionId,
         rawAnswers: schoolAwareAnswers,
         filteredAnswers,
@@ -1659,6 +1605,7 @@ export class AccountService {
     const response = await this.prisma.questionnaireResponse.findUnique({
       where: { userId },
       select: {
+        versionId: true,
         answers: true,
         draftAnswers: true,
         submittedAt: true,
@@ -1675,6 +1622,22 @@ export class AccountService {
         'Submit a complete questionnaire before opting into matching.',
       );
     }
+
+    const currentQuestionnaire =
+      await this.questionnaireService.getCurrentVersion();
+    if (response.versionId !== currentQuestionnaire.id) {
+      throw new BadRequestException(
+        'Complete the current questionnaire before opting into matching.',
+      );
+    }
+    this.questionnaireService.validateAnswers(
+      currentQuestionnaire.questions,
+      {
+        ...(isRecord(response.answers) ? response.answers : {}),
+        [HARD_MATCH_KEYS.school]: schoolId ?? '',
+      },
+      currentQuestionnaire.schools.map((school) => school.id),
+    );
 
     const vipActive = hasActiveVip(response.user?.vipActivations);
     const hardMatchAnswers = tryReadHardMatchAnswers(
@@ -1709,53 +1672,9 @@ export class AccountService {
     }
 
     if (response.draftAnswers != null) {
-      await this.assertDraftQuestionnaireIsComplete(
-        response.draftAnswers,
-        schoolId,
-        vipActive,
+      throw new BadRequestException(
+        'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
       );
-    }
-  }
-
-  // Validates the in-progress draft using the same rules as a real submission.
-  // Throws a user-facing BadRequest when the draft is missing required answers
-  // so the home participation gate can surface it as "questionnaire has
-  // unsaved incomplete changes".
-  private async assertDraftQuestionnaireIsComplete(
-    rawDraftAnswers: Prisma.JsonValue,
-    schoolId: string | null,
-    vipActive = false,
-  ) {
-    const questionnaire = await this.questionnaireService.getCurrentVersion();
-    const allowedSchoolIds = questionnaire.schools.map((school) => school.id);
-    const draft = this.normalizeStoredQuestionnaireDraftPayload(
-      questionnaire.questions,
-      rawDraftAnswers,
-      allowedSchoolIds,
-    );
-
-    if (!draft) {
-      return;
-    }
-
-    try {
-      const draftHardMatchAnswers = buildHardMatchAnswerRecordFromFormInput(
-        effectivePreferenceForm(draft.hardMatchForm, vipActive),
-        schoolId ?? '',
-        allowedSchoolIds,
-      );
-      this.questionnaireService.validateAnswers(
-        questionnaire.questions,
-        { ...draft.softAnswers, ...draftHardMatchAnswers },
-        allowedSchoolIds,
-      );
-    } catch (error) {
-      if (error instanceof IncompleteQuestionnaireSubmissionException) {
-        throw new BadRequestException(
-          'Your questionnaire has unsaved incomplete changes. Please finish or discard the draft before opting in.',
-        );
-      }
-      throw error;
     }
   }
 }

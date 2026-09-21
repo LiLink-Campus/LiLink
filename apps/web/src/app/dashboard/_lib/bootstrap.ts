@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import {
   fetchUserApiServer,
   hasUserSessionCookie,
+  ServerApiError,
 } from "../../../lib/server-api";
 import type {
   ContactPreferencesPayload,
@@ -31,8 +32,9 @@ export async function loadDashboardCore() {
     const { user, dashboard } =
       await fetchUserApiServer<DashboardBootstrapPayload>("/me/bootstrap");
     return { user, dashboard };
-  } catch {
-    redirect("/login");
+  } catch (error) {
+    if (error instanceof ServerApiError && error.status === 401) redirect("/login");
+    throw error;
   }
 }
 
@@ -51,7 +53,7 @@ export async function loadDashboardHome() {
         fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
         fetchUserApiServer<SavedQuestionnairePayload>(
           "/me/questionnaire",
-        ).catch(() => null),
+        ),
         fetchUserApiServer<ContactPreferencesPayload>(
           "/me/contact-preferences",
         ),
@@ -63,8 +65,9 @@ export async function loadDashboardHome() {
       savedQuestionnaire,
       contactPreferences,
     };
-  } catch {
-    redirect("/login");
+  } catch (error) {
+    if (error instanceof ServerApiError && error.status === 401) redirect("/login");
+    throw error;
   }
 }
 
@@ -82,7 +85,7 @@ export async function loadDashboardProfile() {
       fetchUserApiServer<QuestionnairePayload>("/questionnaire/current"),
       fetchUserApiServer<SavedQuestionnairePayload>(
         "/me/questionnaire",
-      ).catch(() => null),
+      ),
     ]);
     return {
       user: bootstrap.user,
@@ -91,8 +94,8 @@ export async function loadDashboardProfile() {
       savedQuestionnaire,
       contactPreferences,
     };
-  } catch {
-    redirect("/login");
+  } catch (error) {
+    if (error instanceof ServerApiError && error.status === 401) redirect("/login");
+    throw error;
   }
 }
-

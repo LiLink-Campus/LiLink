@@ -185,6 +185,248 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     `${env.COOKIE_NAME}=${jwt.sign({ sub: id, email })}`;
   const server = () => app.getHttpServer() as Parameters<typeof request>[0];
 
+  it('updates only historical display names and preserves redacted cards', async () => {
+    const { left, cycle, match } = await seedPair();
+    await prisma.matchCycle.update({
+      where: { id: cycle.id },
+      data: { status: 'REVEALED' },
+    });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { revealedAt: new Date(), introducedAt: new Date() },
+    });
+    await snapshots.syncMatchSnapshots(match.id);
+    const readCards = () =>
+      prisma.userCycleDashboardSnapshot.findMany({
+        where: { matchId: match.id },
+        orderBy: { userId: 'asc' },
+      });
+    const before = await readCards();
+    expect(before).toHaveLength(2);
+    for (const displayName of ['新昵称', null]) {
+      await prisma.user.update({
+        where: { id: left.id },
+        data: { displayName },
+      });
+      await snapshots.syncUserDisplayNameSnapshots(left.id);
+      const after = await readCards();
+      expect(after.map(({ matchPayload }) => matchPayload)).toEqual(
+        before.map(({ matchPayload }) => {
+          const payload = matchPayload as unknown as {
+            participants: Array<{ userId: string; displayName: string | null }>;
+          };
+          return {
+            ...payload,
+            participants: payload.participants.map((participant) =>
+              participant.userId === left.id
+                ? { ...participant, displayName }
+                : participant,
+            ),
+          };
+        }),
+      );
+      expect(
+        after.map(({ userId, cycleId, visibility, limitedReason }) => ({
+          userId,
+          cycleId,
+          visibility,
+          limitedReason,
+        })),
+      ).toEqual(
+        before.map(({ userId, cycleId, visibility, limitedReason }) => ({
+          userId,
+          cycleId,
+          visibility,
+          limitedReason,
+        })),
+      );
+    }
+    await deletion.deleteAccount(left.id, password);
+    const redacted = await readCards();
+    expect(redacted.some((card) => card.visibility === 'LIMITED')).toBe(true);
+    await snapshots.syncUserDisplayNameSnapshots(left.id);
+    expect(
+      (await readCards()).map(
+        ({ matchPayload, visibility, limitedReason }) => ({
+          matchPayload,
+          visibility,
+          limitedReason,
+        }),
+      ),
+    ).toEqual(
+      redacted.map(({ matchPayload, visibility, limitedReason }) => ({
+        matchPayload,
+        visibility,
+        limitedReason,
+      })),
+    );
+  });
+
+  it('uses the committed full rebuild for waiting dashboard readers without duplicate writes', async () => {
+    const { left, right, cycle, match } = await seedPair();
+    await prisma.matchCycle.update({
+      where: { id: cycle.id },
+      data: { status: 'REVEALED' },
+    });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { revealedAt: new Date(), introducedAt: new Date() },
+    });
+    const rowsWritten = barrier();
+    const allowCommit = barrier();
+    const readersQueued = barrier();
+    let readers = 0;
+    let lazyWrites = 0;
+    const client = prisma.$extends({
+      query: {
+        userCycleDashboardSnapshot: {
+          async createMany({ args, query }) {
+            const result = await query(args);
+            rowsWritten.resolve();
+            await allowCommit.promise;
+            return result;
+          },
+          async upsert({ args, query }) {
+            lazyWrites++;
+            return query(args);
+          },
+        },
+        cycleParticipation: {
+          async findMany({ args, query }) {
+            const result = await query(args);
+            if (typeof args.where?.userId === 'string' && ++readers === 2)
+              readersQueued.resolve();
+            return result;
+          },
+        },
+      },
+    });
+    const service = new DashboardSnapshotService(
+      client as unknown as PrismaService,
+    );
+    const rebuild = service.syncCycleSnapshots(cycle.id);
+    const coverage: Promise<boolean>[] = [];
+    try {
+      await rowsWritten.promise;
+      for (const user of [left, right])
+        coverage.push(
+          service.ensureUserSnapshotCoverage({
+            userId: user.id,
+            recentRevealedCycleIds: [cycle.id],
+            existingSnapshotCycleIds: [],
+          }),
+        );
+      await readersQueued.promise;
+      expect(
+        await prisma.userCycleDashboardSnapshot.count({
+          where: { cycleId: cycle.id },
+        }),
+      ).toBe(0);
+    } finally {
+      allowCommit.resolve();
+      await Promise.all([rebuild, ...coverage]);
+    }
+    expect(await Promise.all(coverage)).toEqual([true, true]);
+    expect(lazyWrites).toBe(0);
+    expect(
+      await prisma.userCycleDashboardSnapshot.count({
+        where: { cycleId: cycle.id },
+      }),
+    ).toBe(2);
+  });
+
+  it('repairs a cold cycle in one batch for 100 distinct concurrent readers', async () => {
+    const { cycle, match } = await seedPair();
+    await prisma.matchCycle.update({
+      where: { id: cycle.id },
+      data: { status: 'REVEALED' },
+    });
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { revealedAt: new Date(), introducedAt: new Date() },
+    });
+    await snapshots.syncCycleSnapshots(cycle.id);
+    const original = await prisma.userCycleDashboardSnapshot.findMany({
+      where: { cycleId: cycle.id },
+      orderBy: { userId: 'asc' },
+    });
+    const readers = Array.from({ length: 100 }, (_, n) => ({
+      id: `${tag}-cold-${n}`,
+      email: `cold-${n}@${tag}.example`,
+      passwordHash: hash,
+      schoolId,
+    }));
+    await prisma.user.createMany({ data: readers });
+    userIds.push(...readers.map(({ id }) => id));
+    await prisma.cycleParticipation.createMany({
+      data: readers.map(({ id }) => ({
+        userId: id,
+        cycleId: cycle.id,
+        status: 'OPTED_OUT' as const,
+      })),
+    });
+    const start = barrier();
+    const allQueued = barrier();
+    let queued = 0;
+    let writes = 0;
+    const client = prisma.$extends({
+      query: {
+        cycleParticipation: {
+          async findMany({ args, query }) {
+            const result = await query(args);
+            if (typeof args.where?.userId === 'string') {
+              if (++queued === readers.length) allQueued.resolve();
+              await start.promise;
+            }
+            return result;
+          },
+        },
+        userCycleDashboardSnapshot: {
+          async createMany({ args, query }) {
+            writes++;
+            return query(args);
+          },
+        },
+      },
+    });
+    const service = new DashboardSnapshotService(
+      client as unknown as PrismaService,
+    );
+    const requests = readers.map(({ id }) =>
+      service.ensureUserSnapshotCoverage({
+        userId: id,
+        recentRevealedCycleIds: [cycle.id],
+        existingSnapshotCycleIds: [],
+      }),
+    );
+    try {
+      await allQueued.promise;
+    } finally {
+      start.resolve();
+    }
+    expect(await Promise.all(requests)).toEqual(Array(100).fill(true));
+    expect(writes).toBe(1);
+    expect(
+      await prisma.userCycleDashboardSnapshot.count({
+        where: { cycleId: cycle.id },
+      }),
+    ).toBe(102);
+    expect(
+      await prisma.userCycleDashboardSnapshot.findMany({
+        where: {
+          cycleId: cycle.id,
+          userId: { in: original.map(({ userId }) => userId) },
+        },
+        orderBy: { userId: 'asc' },
+      }),
+    ).toEqual(original);
+    expect(
+      await prisma.outboundEmail.count({
+        where: { recipientEmail: { in: readers.map(({ email }) => email) } },
+      }),
+    ).toBe(0);
+  });
+
   it.each(['lazy', 'match', 'cycle'] as const)(
     'serializes %s snapshot rebuilds with deactivation without restoring private contacts',
     async (mode) => {

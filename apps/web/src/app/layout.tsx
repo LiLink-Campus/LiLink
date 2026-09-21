@@ -24,8 +24,13 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-capable": "yes",
   },
   icons: {
-    apple: "/icons/apple-touch-icon.png?v=dove-20260920",
-    icon: [{ url: "/icons/icon.svg?v=dove-20260920", sizes: "any", type: "image/svg+xml" }],
+    apple: "/icons/apple-touch-icon.png?v=brand-20260921",
+    icon: [
+      { url: "/favicon.ico?v=brand-20260921", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
+      { url: "/icons/favicon-32.png?v=brand-20260921", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon.svg?v=brand-20260921", sizes: "any", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.ico?v=brand-20260921",
   },
 };
 

@@ -34,3 +34,6 @@ apps/web
 docs/archive/2026-04-05-testing-operations.md
 docs/archive/2026-04-12-operations-notes.md
 docs/archive/2026-06-02-operations-topology.md
+
+# Release backups and secret files never enter build contexts.
+artifacts

@@ -1,3 +1,4 @@
+import { MatchingEngine } from './matching.engine';
 import { BadRequestException } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { QuestionType } from '../../common/prisma/client';
@@ -92,6 +93,8 @@ type CyclesServiceTestHarness = {
   } | null;
   toEligibleParticipants: (
     participations: unknown[],
+    questionnaire: { id: string; questions: unknown[] },
+    allowedSchoolIds: string[],
   ) => EligibleParticipantStub[];
   calculatePairs: (
     participants: EligibleParticipantStub[],
@@ -100,10 +103,21 @@ type CyclesServiceTestHarness = {
     currentCycleId?: string,
     questionnairesByVersionId?: Map<string, unknown[]>,
   ) => Promise<{
+    candidateCount?: number;
     candidates: CandidatePairStub[];
     selectedPairs: CandidatePairStub[];
   }>;
 };
+
+jest.mock('./matching.executor', () => ({
+  runMatching: (input: unknown) => {
+    const { MatchingEngine } =
+      jest.requireActual<typeof import('./matching.engine')>(
+        './matching.engine',
+      );
+    return Promise.resolve(new MatchingEngine().calculate(input as never));
+  },
+}));
 
 const SCHOOL_BUPT = 'school-bupt';
 const SCHOOL_CUC = 'school-cuc';
@@ -227,19 +241,27 @@ function createCyclesService(
   dashboardSnapshotService = createDashboardSnapshotServiceMock(),
 ) {
   return new CyclesService(
-    prisma as never,
+    {
+      school: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+      },
+      ...(prisma as object),
+    } as never,
     dashboardSnapshotService as never,
     {} as never,
   );
 }
 
-function bindRawScorePairForTest(service: CyclesService) {
-  const harness = service as unknown as Pick<
+function bindRawScorePairForTest() {
+  const engine = new MatchingEngine();
+  const harness = engine as unknown as Pick<
     CyclesServiceTestHarness,
     'calculatePairRawScore' | 'normalizeMatchScore'
   >;
-  const calculatePairRawScore = harness.calculatePairRawScore.bind(service);
-  const normalizeMatchScore = harness.normalizeMatchScore.bind(service);
+  const calculatePairRawScore = harness.calculatePairRawScore.bind(engine);
+  const normalizeMatchScore = harness.normalizeMatchScore.bind(engine);
 
   return (
     ...args: Parameters<CyclesServiceTestHarness['calculatePairRawScore']>
@@ -259,7 +281,9 @@ function bindRawScorePairForTest(service: CyclesService) {
 const MOCK_RAW_SCORE_BOUNDS = { min: 70, max: 100 };
 
 describe('CyclesService', () => {
-  afterEach(() => {});
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   it('declares dashboard snapshot sync as a module dependency', () => {
     const imports: unknown = Reflect.getMetadata(
@@ -479,60 +503,67 @@ describe('CyclesService', () => {
       >
     ).toEligibleParticipants.bind(service);
 
-    const participants = toEligibleParticipants([
-      {
-        intent: 'BOTH',
-        user: {
-          id: 'user-1',
-          displayName: 'A',
-          vipActivations: [
-            { expiresAt: new Date(Date.now() + 60_000), revokedAt: null },
-          ],
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: {
-              hard_birth_date: '2000-05-10',
-              hard_partner_age_min: 18,
-              hard_partner_age_max: 30,
-              hard_gender: '女',
-              hard_partner_genders: ['男'],
-              hard_looks: '5',
-              hard_partner_looks: ['5'],
-              hard_height_cm: 165,
-              hard_partner_height_min: 120,
-              hard_partner_height_max: 220,
-              hard_one_liner_intro: '喜欢徒步。',
-              hard_excluded_partner_schools: [SCHOOL_CUC],
+    const participants = toEligibleParticipants(
+      [
+        {
+          intent: 'BOTH',
+          user: {
+            id: 'user-1',
+            displayName: 'A',
+            vipActivations: [
+              { expiresAt: new Date(Date.now() + 60_000), revokedAt: null },
+            ],
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: {
+                hard_birth_date: '2000-05-10',
+                hard_partner_age_min: 18,
+                hard_partner_age_max: 30,
+                hard_gender: '女',
+                hard_partner_genders: ['男'],
+                hard_looks: '5',
+                hard_partner_looks: ['5', '6', '7', '8', '9', '10'],
+                hard_height_cm: 165,
+                hard_weight_kg: 55,
+                hard_partner_height_min: 120,
+                hard_partner_height_max: 220,
+                hard_one_liner_intro: '喜欢徒步。',
+                hard_excluded_partner_schools: [SCHOOL_CUC],
+              },
             },
           },
         },
-      },
-      {
-        intent: 'FRIEND',
-        user: {
-          id: 'user-2',
-          displayName: 'B',
-          school: null,
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: {
-              hard_birth_date: '1999-07-10',
-              hard_partner_age_min: 18,
-              hard_partner_age_max: 30,
-              hard_gender: '男',
-              hard_partner_genders: ['女'],
-              hard_looks: '5',
-              hard_partner_looks: ['5'],
-              hard_height_cm: 178,
-              hard_partner_height_min: 120,
-              hard_partner_height_max: 220,
-              hard_one_liner_intro: '喜欢阅读。',
+        {
+          intent: 'FRIEND',
+          user: {
+            id: 'user-2',
+            displayName: 'B',
+            school: null,
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: {
+                hard_birth_date: '1999-07-10',
+                hard_partner_age_min: 18,
+                hard_partner_age_max: 30,
+                hard_gender: '男',
+                hard_partner_genders: ['女'],
+                hard_looks: '5',
+                hard_partner_looks: ['5', '6', '7', '8', '9', '10'],
+                hard_height_cm: 178,
+                hard_partner_height_min: 120,
+                hard_partner_height_max: 220,
+                hard_one_liner_intro: '喜欢阅读。',
+              },
             },
           },
         },
-      },
-    ]);
+      ],
+      { id: 'q-current', questions: [] },
+      [SCHOOL_BUPT, SCHOOL_CUC],
+    );
 
     expect(participants).toHaveLength(1);
     expect(participants[0]).toMatchObject({
@@ -558,32 +589,38 @@ describe('CyclesService', () => {
       >
     ).toEligibleParticipants.bind(service);
 
-    const participants = toEligibleParticipants([
-      {
-        intent: 'BOTH',
-        user: {
-          id: 'user-1',
-          displayName: 'A',
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: null,
-            answers: {
-              hard_birth_date: '2000-05-10',
-              hard_partner_age_min: 18,
-              hard_partner_age_max: 30,
-              hard_gender: '女',
-              hard_partner_genders: ['男'],
-              hard_looks: '5',
-              hard_partner_looks: ['5'],
-              hard_height_cm: 165,
-              hard_partner_height_min: 120,
-              hard_partner_height_max: 220,
-              hard_one_liner_intro: '喜欢徒步。',
+    const participants = toEligibleParticipants(
+      [
+        {
+          intent: 'BOTH',
+          user: {
+            id: 'user-1',
+            displayName: 'A',
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: null,
+              answers: {
+                hard_birth_date: '2000-05-10',
+                hard_partner_age_min: 18,
+                hard_partner_age_max: 30,
+                hard_gender: '女',
+                hard_partner_genders: ['男'],
+                hard_looks: '5',
+                hard_partner_looks: ['5', '6', '7', '8', '9', '10'],
+                hard_height_cm: 165,
+                hard_weight_kg: 55,
+                hard_partner_height_min: 120,
+                hard_partner_height_max: 220,
+                hard_one_liner_intro: '喜欢徒步。',
+              },
             },
           },
         },
-      },
-    ]);
+      ],
+      { id: 'q-current', questions: [] },
+      [SCHOOL_BUPT, SCHOOL_CUC],
+    );
 
     expect(participants).toEqual([]);
   });
@@ -604,52 +641,60 @@ describe('CyclesService', () => {
       hard_gender: '女',
       hard_partner_genders: ['男'],
       hard_looks: '5',
-      hard_partner_looks: ['5'],
+      hard_partner_looks: ['5', '6', '7', '8', '9', '10'],
       hard_height_cm: 165,
+      hard_weight_kg: 55,
       hard_partner_height_min: 120,
       hard_partner_height_max: 220,
       hard_one_liner_intro: '喜欢徒步。',
       hard_excluded_partner_schools: [],
     };
 
-    const participants = toEligibleParticipants([
-      {
-        intent: null,
-        user: {
-          id: 'user-no-intent',
-          displayName: 'NoIntent',
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: validQuestionnaireAnswers,
+    const participants = toEligibleParticipants(
+      [
+        {
+          intent: null,
+          user: {
+            id: 'user-no-intent',
+            displayName: 'NoIntent',
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: validQuestionnaireAnswers,
+            },
           },
         },
-      },
-      {
-        intent: 'GHOST',
-        user: {
-          id: 'user-bad-intent',
-          displayName: 'BadIntent',
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: validQuestionnaireAnswers,
+        {
+          intent: 'GHOST',
+          user: {
+            id: 'user-bad-intent',
+            displayName: 'BadIntent',
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: validQuestionnaireAnswers,
+            },
           },
         },
-      },
-      {
-        intent: 'DATE',
-        user: {
-          id: 'user-good',
-          displayName: 'Good',
-          school: { id: SCHOOL_BUPT },
-          questionnaireResponse: {
-            submittedAt: new Date('2026-04-18T12:00:00.000Z'),
-            answers: validQuestionnaireAnswers,
+        {
+          intent: 'DATE',
+          user: {
+            id: 'user-good',
+            displayName: 'Good',
+            school: { id: SCHOOL_BUPT },
+            questionnaireResponse: {
+              versionId: 'q-current',
+              submittedAt: new Date('2026-04-18T12:00:00.000Z'),
+              answers: validQuestionnaireAnswers,
+            },
           },
         },
-      },
-    ]);
+      ],
+      { id: 'q-current', questions: [] },
+      [SCHOOL_BUPT, SCHOOL_CUC],
+    );
 
     expect(participants.map((participant) => participant.id)).toEqual([
       'user-good',
@@ -658,8 +703,7 @@ describe('CyclesService', () => {
   });
 
   it('blocks pairing when weekly intents are incompatible (FRIEND vs DATE)', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const friendOnly = createBroadParticipant('user-friend', {}, 'FRIEND');
     const dateOnly = createBroadParticipant('user-date', {}, 'DATE');
@@ -690,8 +734,7 @@ describe('CyclesService', () => {
     // offset and entered partnerAgeMin/Max=4..5 meaning "对方比我小 4-5
     // 岁". With age as a hard filter the pair was dropped; soft scoring
     // keeps it in the candidate set instead.
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const left = createBroadParticipant('age-soft-left', {});
     const rightWithMisreadWindow = createBroadParticipant('age-soft-right', {});
@@ -712,8 +755,7 @@ describe('CyclesService', () => {
   });
 
   it('scores pairs whose ages fall inside the partner window higher than pairs that fall fully outside', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
     const revealAt = new Date('2026-04-10T00:00:00.000Z');
 
     const inside = createBroadParticipant('age-inside', {});
@@ -742,8 +784,7 @@ describe('CyclesService', () => {
     //   2 years outside                   -> 0.50
     //   ... (decay 0.25 per year, floors at 0)
     // Average × AGE_PREFERENCE_SOFT_BONUS (=6) is added to rawScore.
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
     const revealAt = new Date('2026-04-10T00:00:00.000Z');
 
     const me = createBroadParticipant('age-decay-me', {});
@@ -796,8 +837,7 @@ describe('CyclesService', () => {
   });
 
   it('normalizes multi-select scoring so broad selections are not rewarded', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const focusedMatch = scorePair(
       createBroadParticipant('user-1', {
@@ -831,8 +871,7 @@ describe('CyclesService', () => {
   });
 
   it('gives adjacent scale answers partial credit', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const adjacentMatch = scorePair(
       createBroadParticipant('user-1', {
@@ -866,8 +905,7 @@ describe('CyclesService', () => {
   });
 
   it('keeps looks preferences out of hard filtering', () => {
-    const service = createCyclesService({});
-    const scorePair = bindRawScorePairForTest(service);
+    const scorePair = bindRawScorePairForTest();
 
     const left = createBroadParticipant('user-1', {});
     const right = createBroadParticipant('user-2', {});
@@ -973,8 +1011,11 @@ describe('CyclesService', () => {
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
             cycleParticipation,
+            matchParticipant: {
+              createMany: jest.fn().mockResolvedValue({ count: 2 }),
+            },
             match: {
-              create: matchCreate,
+              createMany: matchCreate,
               updateMany: matchUpdateMany,
             },
             matchCycle: {
@@ -1040,8 +1081,8 @@ describe('CyclesService', () => {
       candidates: [],
       selectedPairs: [
         {
-          left: { id: 'user-1' },
-          right: { id: 'user-2' },
+          left: createBroadParticipant('user-1', {}),
+          right: createBroadParticipant('user-2', {}),
           score: 88,
         },
       ],
@@ -1103,7 +1144,14 @@ describe('CyclesService', () => {
       ),
     };
     const service = new CyclesService(
-      prisma as never,
+      {
+        school: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+        },
+        ...prisma,
+      } as never,
       createDashboardSnapshotServiceMock() as never,
       {} as never,
     );
@@ -1181,8 +1229,11 @@ describe('CyclesService', () => {
         async (callback: (tx: unknown) => Promise<unknown>) =>
           callback({
             cycleParticipation,
+            matchParticipant: {
+              createMany: jest.fn().mockResolvedValue({ count: 2 }),
+            },
             match: {
-              create: matchCreate,
+              createMany: matchCreate,
             },
             matchCycle: {
               updateMany: activePreparationClaim,
@@ -1191,7 +1242,14 @@ describe('CyclesService', () => {
       ),
     };
     const service = new CyclesService(
-      prisma as never,
+      {
+        school: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+        },
+        ...prisma,
+      } as never,
       createDashboardSnapshotServiceMock() as never,
       {} as never,
     );
@@ -1283,7 +1341,14 @@ describe('CyclesService', () => {
       ),
     };
     const service = new CyclesService(
-      prisma as never,
+      {
+        school: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+        },
+        ...prisma,
+      } as never,
       createDashboardSnapshotServiceMock() as never,
       {} as never,
     );
@@ -1345,7 +1410,14 @@ describe('CyclesService', () => {
       },
     };
     const service = new CyclesService(
-      prisma as never,
+      {
+        school: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: SCHOOL_BUPT }, { id: SCHOOL_CUC }]),
+        },
+        ...prisma,
+      } as never,
       createDashboardSnapshotServiceMock() as never,
       {} as never,
     );
@@ -1467,7 +1539,7 @@ describe('CyclesService', () => {
       },
       match: {
         deleteMany: matchDeleteMany,
-        create: matchCreate,
+        createMany: matchCreate,
       },
       userCycleDashboardSnapshot: {
         deleteMany: snapshotDeleteMany,
@@ -1490,7 +1562,7 @@ describe('CyclesService', () => {
           cycleParticipation,
           match: {
             deleteMany: matchDeleteMany,
-            create: matchCreate,
+            createMany: matchCreate,
             updateMany: revealMatchUpdateMany,
           },
           matchCycle: {
@@ -1669,7 +1741,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -1734,7 +1806,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -1807,7 +1879,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -1888,7 +1960,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -1969,7 +2041,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2021,7 +2093,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2079,7 +2151,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2129,7 +2201,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2267,7 +2339,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2346,7 +2418,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2414,7 +2486,7 @@ describe('CyclesService', () => {
     const calculatePairs = (
       service as unknown as Pick<CyclesServiceTestHarness, 'calculatePairs'>
     ).calculatePairs.bind(service);
-    const scorePairHarness = service as unknown as Pick<
+    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2646,7 +2718,7 @@ describe('VIP filtering at cycle processing time', () => {
     hard_gender: '女',
     hard_partner_genders: ['男'],
     hard_looks: '5',
-    hard_partner_looks: ['9'],
+    hard_partner_looks: ['9', '10'],
     hard_height_cm: 165,
     hard_weight_kg: 55,
     hard_partner_height_min: 180,
@@ -2674,24 +2746,32 @@ describe('VIP filtering at cycle processing time', () => {
             ];
       const [participant] = (
         service as unknown as CyclesServiceTestHarness
-      ).toEligibleParticipants([
-        {
-          intent: 'DATE',
-          user: {
-            id: 'fixture',
-            displayName: 'Fixture',
-            school: { id: SCHOOL_BUPT },
-            vipActivations: grants,
-            questionnaireResponse: { answers: raw, submittedAt: new Date() },
+      ).toEligibleParticipants(
+        [
+          {
+            intent: 'DATE',
+            user: {
+              id: 'fixture',
+              displayName: 'Fixture',
+              school: { id: SCHOOL_BUPT },
+              vipActivations: grants,
+              questionnaireResponse: {
+                versionId: 'q-current',
+                answers: raw,
+                submittedAt: new Date(),
+              },
+            },
           },
-        },
-      ]);
+        ],
+        { id: 'q-current', questions: [] },
+        [SCHOOL_BUPT, SCHOOL_CUC],
+      );
       expect(participant).toBeDefined();
       expect(participant.hardMatchAnswers.partnerHeightMin).toBe(
         state === 'active' ? 180 : 120,
       );
       expect(participant.hardMatchAnswers.partnerLooks).toHaveLength(
-        state === 'active' ? 1 : 10,
+        state === 'active' ? 2 : 10,
       );
       expect(participant.hardMatchAnswers.excludedPartnerSchools).toEqual(
         state === 'active' ? [SCHOOL_CUC] : [],

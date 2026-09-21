@@ -56,6 +56,7 @@ const dashboardSnapshotMatchSelect = {
       userId: true,
       introducedContactType: true,
       introducedContactValue: true,
+      profileSnapshot: true,
       user: {
         select: {
           email: true,
@@ -161,8 +162,13 @@ function buildIntroducedContact(input: {
 export class DashboardSnapshotService {
   private readonly inFlightCycleSyncs = new Map<string, Promise<void>>();
   private readonly inFlightCycleRebuilds = new Map<string, Promise<void>>();
+  private readonly inFlightCycleRepairs = new Map<string, Promise<void>>();
   private readonly inFlightMatchSyncs = new Map<string, Promise<void>>();
   private readonly inFlightUserCycleSyncs = new Map<string, Promise<void>>();
+  private readonly inFlightCycleUserSyncs = new Map<
+    string,
+    Set<Promise<void>>
+  >();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -170,6 +176,7 @@ export class DashboardSnapshotService {
     userId: string;
     latestParticipationCycleId?: string | null;
     recentRevealedCycleIds?: string[];
+    existingSnapshotCycleIds?: string[];
   }) {
     const candidateCycleIds = Array.from(
       new Set(
@@ -183,30 +190,31 @@ export class DashboardSnapshotService {
     );
 
     if (candidateCycleIds.length === 0) {
-      return;
+      return false;
     }
 
-    const existingSnapshots =
-      await this.prisma.userCycleDashboardSnapshot.findMany({
-        where: {
-          userId: input.userId,
-          cycleId: {
-            in: candidateCycleIds,
-          },
-        },
-        select: {
-          cycleId: true,
-        },
-      });
     const existingSnapshotCycleIds = new Set(
-      existingSnapshots.map((snapshot) => snapshot.cycleId),
+      input.existingSnapshotCycleIds ??
+        (
+          await this.prisma.userCycleDashboardSnapshot.findMany({
+            where: {
+              userId: input.userId,
+              cycleId: {
+                in: candidateCycleIds,
+              },
+            },
+            select: {
+              cycleId: true,
+            },
+          })
+        ).map((snapshot) => snapshot.cycleId),
     );
     const missingCycleIds = candidateCycleIds.filter(
       (cycleId) => !existingSnapshotCycleIds.has(cycleId),
     );
 
     if (missingCycleIds.length === 0) {
-      return;
+      return false;
     }
 
     const participations = await this.prisma.cycleParticipation.findMany({
@@ -227,12 +235,30 @@ export class DashboardSnapshotService {
       new Set(participations.map((participation) => participation.cycleId)),
     );
 
-    for (const cycleId of cycleIdsToSync) {
-      await this.syncUserCycleSnapshot({
-        userId: input.userId,
-        cycleId,
-      });
-    }
+    await Promise.all(
+      cycleIdsToSync.map((cycleId) =>
+        this.ensureCycleSnapshotCoverage(cycleId),
+      ),
+    );
+    return cycleIdsToSync.length > 0;
+  }
+
+  private async ensureCycleSnapshotCoverage(cycleId: string) {
+    const existing = this.inFlightCycleRepairs.get(cycleId);
+    if (existing) return existing;
+
+    // Share one batch across readers instead of exhausting the pool per user.
+    const pending = this.enqueueCycleSnapshotSync(cycleId, () =>
+      this.prisma.$transaction(
+        (tx) => this.syncCycleSnapshotsDirect(cycleId, tx, true),
+        { timeout: 30_000 },
+      ),
+    ).finally(() => {
+      if (this.inFlightCycleRepairs.get(cycleId) === pending)
+        this.inFlightCycleRepairs.delete(cycleId);
+    });
+    this.inFlightCycleRepairs.set(cycleId, pending);
+    return pending;
   }
 
   async syncCycleSnapshots(cycleId: string, store?: SnapshotStoreClient) {
@@ -248,9 +274,12 @@ export class DashboardSnapshotService {
     }
 
     const pendingSync = this.enqueueCycleSnapshotSync(cycleId, () =>
-      this.prisma.$transaction(async (tx) => {
-        await this.syncCycleSnapshotsDirect(cycleId, tx);
-      }),
+      this.prisma.$transaction(
+        async (tx) => {
+          await this.syncCycleSnapshotsDirect(cycleId, tx);
+        },
+        { timeout: 30_000 },
+      ),
     ).finally(() => {
       if (this.inFlightCycleRebuilds.get(cycleId) === pendingSync) {
         this.inFlightCycleRebuilds.delete(cycleId);
@@ -262,7 +291,7 @@ export class DashboardSnapshotService {
   }
 
   async syncUserCycleSnapshot(
-    input: { userId: string; cycleId: string },
+    input: { userId: string; cycleId: string; onlyIfMissing?: boolean },
     store?: SnapshotStoreClient,
   ) {
     if (store) {
@@ -277,10 +306,27 @@ export class DashboardSnapshotService {
       return;
     }
 
-    const pendingSync = this.enqueueCycleSnapshotSync(input.cycleId, () =>
-      this.prisma.$transaction(async (tx) => {
-        await this.syncUserCycleSnapshotDirect(input, tx);
-      }),
+    const pendingSync = this.enqueueUserCycleSnapshotSync(
+      input.cycleId,
+      async () => {
+        // A preceding full rebuild may already have filled this missing row.
+        if (input.onlyIfMissing) {
+          const existing =
+            await this.prisma.userCycleDashboardSnapshot.findUnique({
+              where: {
+                userId_cycleId: {
+                  userId: input.userId,
+                  cycleId: input.cycleId,
+                },
+              },
+              select: { userId: true },
+            });
+          if (existing) return;
+        }
+        await this.prisma.$transaction(async (tx) => {
+          await this.syncUserCycleSnapshotDirect(input, tx);
+        });
+      },
     ).finally(() => {
       this.inFlightUserCycleSyncs.delete(syncKey);
     });
@@ -294,8 +340,13 @@ export class DashboardSnapshotService {
     operation: () => Promise<void>,
   ) {
     const previousSync = this.inFlightCycleSyncs.get(cycleId);
-    const pendingSync = (previousSync ?? Promise.resolve())
-      .catch(() => undefined)
+    const precedingUsers = [
+      ...(this.inFlightCycleUserSyncs.get(cycleId) ?? []),
+    ];
+    const pendingSync = Promise.allSettled([
+      ...(previousSync ? [previousSync] : []),
+      ...precedingUsers,
+    ])
       .then(operation)
       .finally(() => {
         if (this.inFlightCycleSyncs.get(cycleId) === pendingSync) {
@@ -305,6 +356,29 @@ export class DashboardSnapshotService {
     this.inFlightCycleSyncs.set(cycleId, pendingSync);
 
     await pendingSync;
+  }
+
+  private async enqueueUserCycleSnapshotSync(
+    cycleId: string,
+    operation: () => Promise<void>,
+  ) {
+    const precedingRebuild = this.inFlightCycleSyncs.get(cycleId);
+    const users =
+      this.inFlightCycleUserSyncs.get(cycleId) ?? new Set<Promise<void>>();
+    this.inFlightCycleUserSyncs.set(cycleId, users);
+    const pending = (precedingRebuild ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(operation)
+      .finally(() => {
+        users.delete(pending);
+        if (
+          users.size === 0 &&
+          this.inFlightCycleUserSyncs.get(cycleId) === users
+        )
+          this.inFlightCycleUserSyncs.delete(cycleId);
+      });
+    users.add(pending);
+    await pending;
   }
 
   async syncMatchSnapshots(matchId: string, store?: SnapshotStoreClient) {
@@ -347,9 +421,45 @@ export class DashboardSnapshotService {
     }
   }
 
+  async syncUserDisplayNameSnapshots(userId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      // Match locks serialize this metadata update with rebuilds and redaction.
+      await tx.$queryRaw`
+        SELECT m."id" FROM "Match" m
+        WHERE EXISTS (
+          SELECT 1 FROM "MatchParticipant" p
+          WHERE p."matchId" = m."id" AND p."userId" = ${userId}
+        )
+        ORDER BY m."id" FOR UPDATE OF m
+      `;
+      await tx.$executeRaw`
+        UPDATE "UserCycleDashboardSnapshot" s
+        SET "matchPayload" = jsonb_set(s."matchPayload", '{participants}', (
+          SELECT jsonb_agg(
+            CASE WHEN item->>'userId' = u."id"
+              THEN jsonb_set(item, '{displayName}', COALESCE(to_jsonb(u."displayName"), 'null'::jsonb))
+              ELSE item END ORDER BY position
+          )
+          FROM jsonb_array_elements(
+            CASE WHEN jsonb_typeof(s."matchPayload"->'participants') = 'array'
+              THEN s."matchPayload"->'participants' ELSE '[]'::jsonb END
+          ) WITH ORDINALITY AS participant(item, position)
+        )), "updatedAt" = CURRENT_TIMESTAMP
+        FROM "User" u
+        WHERE u."id" = ${userId}
+          AND s."matchPayload"->'participants' @> ${JSON.stringify([{ userId }])}::jsonb
+          AND EXISTS (
+            SELECT 1 FROM "MatchParticipant" p
+            WHERE p."matchId" = s."matchId" AND p."userId" = u."id"
+          )
+      `;
+    });
+  }
+
   private async syncCycleSnapshotsDirect(
     cycleId: string,
     store: SnapshotStoreClient,
+    onlyIfMissing = false,
   ) {
     const cycle = await store.matchCycle.findUnique({
       where: { id: cycleId },
@@ -361,6 +471,7 @@ export class DashboardSnapshotService {
     }
 
     if (cycle.status !== 'REVEALED') {
+      if (onlyIfMissing) return;
       await store.userCycleDashboardSnapshot.deleteMany({
         where: { cycleId },
       });
@@ -376,6 +487,22 @@ export class DashboardSnapshotService {
       },
     });
 
+    const existingUserIds = new Set(
+      onlyIfMissing
+        ? (
+            await store.userCycleDashboardSnapshot.findMany({
+              where: { cycleId },
+              select: { userId: true },
+            })
+          ).map((snapshot) => snapshot.userId)
+        : [],
+    );
+    if (
+      onlyIfMissing &&
+      participations.every(({ userId }) => existingUserIds.has(userId))
+    )
+      return;
+
     // Serialize sensitive reads and writes with account deletion and reports.
     await store.$queryRaw`
       SELECT "id" FROM "Match"
@@ -383,9 +510,11 @@ export class DashboardSnapshotService {
       ORDER BY "id" FOR UPDATE
     `;
 
-    await store.userCycleDashboardSnapshot.deleteMany({
-      where: { cycleId },
-    });
+    if (!onlyIfMissing) {
+      await store.userCycleDashboardSnapshot.deleteMany({
+        where: { cycleId },
+      });
+    }
 
     if (participations.length === 0) {
       return;
@@ -414,7 +543,7 @@ export class DashboardSnapshotService {
       participations,
       matches,
       blocks,
-    });
+    }).filter((snapshot) => !existingUserIds.has(snapshot.userId));
 
     if (snapshots.length > 0) {
       await store.userCycleDashboardSnapshot.createMany({
@@ -780,23 +909,44 @@ export class DashboardSnapshotService {
             return {
               userId: participant.userId,
               displayName: participant.user.displayName,
-              introLine: this.displayIntroLine(
-                participant.user.questionnaireResponse?.answers,
-                participant.user.profile?.headline,
-              ),
+              ...this.readParticipantProfile(participant),
               email: contact?.type === 'EMAIL' ? contact.value : null,
               contact,
               schoolName: participant.user.school?.name ?? null,
-              gender: this.readHardGender(
-                participant.user.questionnaireResponse?.answers,
-              ),
-              partnerGenders: this.readHardPartnerGenders(
-                participant.user.questionnaireResponse?.answers,
-              ),
               weeklyIntent:
                 input.intentByUserId.get(participant.userId) ?? null,
             };
           }),
+    };
+  }
+
+  private readParticipantProfile(
+    participant: SnapshotMatch['participants'][number],
+  ) {
+    const snapshot = participant.profileSnapshot;
+    if (isRecord(snapshot)) {
+      return {
+        introLine:
+          typeof snapshot.introLine === 'string' ? snapshot.introLine : null,
+        gender: typeof snapshot.gender === 'string' ? snapshot.gender : null,
+        partnerGenders: Array.isArray(snapshot.partnerGenders)
+          ? snapshot.partnerGenders.filter(
+              (value): value is string => typeof value === 'string',
+            )
+          : [],
+      };
+    }
+    return {
+      introLine: this.displayIntroLine(
+        participant.user.questionnaireResponse?.answers,
+        participant.user.profile?.headline,
+      ),
+      gender: this.readHardGender(
+        participant.user.questionnaireResponse?.answers,
+      ),
+      partnerGenders: this.readHardPartnerGenders(
+        participant.user.questionnaireResponse?.answers,
+      ),
     };
   }
 

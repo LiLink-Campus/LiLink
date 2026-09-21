@@ -8,6 +8,7 @@ import { randomBytes } from 'node:crypto';
 import { testEnvironment } from './environment.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const apiOnly = process.argv.includes('--api');
 const startedAt = Date.now();
 const runId = randomBytes(6).toString('hex');
 const output = path.join(root, 'artifacts/e2e', runId);
@@ -78,6 +79,7 @@ const ports = [];
 while (ports.length < 5) { const port = await freePort(); if (!ports.includes(port) && port !== 5432) ports.push(port); }
 const [dbPort, smtpPort, mailPort, apiPort, webPort] = ports;
 const env = testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId });
+if (apiOnly) env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_e2e_', '/lilink_vip_test_');
 Object.assign(env, { E2E_SOURCE_ROOT: root, E2E_OUTPUT: output, E2E_WORKSPACE: workspace, LILINK_BUILD_WORKSPACE_ROOT: root });
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { void cleanup().finally(() => process.exit(130)); });
 
@@ -95,7 +97,7 @@ try {
   for (const name of ['api', 'web']) await linkDependencies(path.join(root, 'apps', name, 'node_modules'), path.join(workspace, 'apps', name, 'node_modules'));
   const dbName = `lilink-e2e-db-${runId}`;
   containers.push(dbName);
-  await command('docker', ['run', '-d', '--name', dbName, '--label', `lilink.e2e=${runId}`, '-p', `127.0.0.1:${dbPort}:5432`, '-e', `POSTGRES_DB=lilink_e2e_${runId}`, '-e', 'POSTGRES_USER=e2e', '-e', 'POSTGRES_PASSWORD=e2e', '--tmpfs', '/var/lib/postgresql/data:rw', 'postgres:17-alpine'], { label: 'infra' });
+  await command('docker', ['run', '-d', '--name', dbName, '--label', `lilink.e2e=${runId}`, '-p', `127.0.0.1:${dbPort}:5432`, '-e', `POSTGRES_DB=${apiOnly ? 'lilink_vip_test' : 'lilink_e2e'}_${runId}`, '-e', 'POSTGRES_USER=e2e', '-e', 'POSTGRES_PASSWORD=e2e', '--tmpfs', '/var/lib/postgresql/data:rw', 'postgres:17-alpine'], { label: 'infra' });
   const mailName = `lilink-e2e-mail-${runId}`;
   containers.push(mailName);
   await command('docker', ['run', '-d', '--name', mailName, '--label', `lilink.e2e=${runId}`, '-p', `127.0.0.1:${smtpPort}:1025`, '-p', `127.0.0.1:${mailPort}:8025`, 'ghcr.io/axllent/mailpit:v1.20'], { label: 'infra' });
@@ -106,6 +108,9 @@ try {
   await command('npm', ['run', 'build:shared'], { label: 'build' });
   await command('npm', ['run', 'db:migrate:deploy'], { label: 'migrate' });
   await command('npm', ['run', 'build:api'], { label: 'build' });
+  if (apiOnly) {
+    await command('npm', ['run', 'test:e2e', '--workspace', 'api', '--', '--runInBand', ...process.argv.slice(2).filter(arg => arg !== '--api')], { label: 'tests' });
+  } else {
   await command('node', ['apps/api/scripts/seed-defaults.mjs'], { label: 'seed' });
   await command('node', ['e2e/support/seed.mjs'], { label: 'seed' });
   await command('npm', ['run', 'build:web'], { label: 'build' });
@@ -113,6 +118,7 @@ try {
   const web = command('npm', ['run', 'start', '--workspace', 'web', '--', '--hostname', '127.0.0.1', '--port', String(webPort)], { background: true, label: 'web' });
   await Promise.all([waitFor(`${env.E2E_API_URL}/health`, api), waitFor(`${env.E2E_WEB_URL}/login`, web), waitFor(`${env.E2E_MAIL_URL}/api/v1/messages`, api)]);
   await command('npx', ['playwright', 'test', ...process.argv.slice(2)], { label: 'tests' });
+  }
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

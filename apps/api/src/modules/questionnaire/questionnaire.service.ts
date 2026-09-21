@@ -18,7 +18,7 @@ type QuestionnaireQuestion = {
   key: string;
   prompt: string;
   type: QuestionType;
-  required: boolean;
+  required?: boolean;
   selectionLimit?: number | null;
   options: Prisma.JsonValue | null;
 };
@@ -173,53 +173,11 @@ export class QuestionnaireService {
     rawAnswers: Record<string, unknown>,
     allowedSchoolIds: readonly string[],
   ) {
-    const questionsByKey = new Map(
-      questions.map((question) => [question.key, question]),
+    return validateQuestionnaireAnswers(
+      questions,
+      rawAnswers,
+      allowedSchoolIds,
     );
-    const allowedQuestionKeys = new Set([
-      ...questionsByKey.keys(),
-      ...hardMatchQuestionKeys(),
-    ]);
-
-    for (const answerKey of Object.keys(rawAnswers)) {
-      if (!allowedQuestionKeys.has(answerKey)) {
-        throw new BadRequestException(
-          `Unexpected questionnaire field: ${answerKey}.`,
-        );
-      }
-    }
-
-    const normalizedAnswers: Record<string, QuestionnaireAnswerValue> = {
-      ...normalizeHardMatchAnswers(rawAnswers, allowedSchoolIds),
-    };
-
-    for (const question of questions) {
-      const rawAnswer = rawAnswers[question.key];
-
-      if (rawAnswer == null) {
-        throw new IncompleteQuestionnaireSubmissionException(
-          `Question "${question.prompt}" is required.`,
-        );
-      }
-
-      const normalizedAnswer = normalizeQuestionAnswer(question, rawAnswer);
-
-      if (
-        normalizedAnswer == null ||
-        (question.type === 'MULTI_SELECT' &&
-          question.selectionLimit != null &&
-          Array.isArray(normalizedAnswer) &&
-          normalizedAnswer.length !== question.selectionLimit)
-      ) {
-        throw new IncompleteQuestionnaireSubmissionException(
-          `Question "${question.prompt}" is required.`,
-        );
-      }
-
-      normalizedAnswers[question.key] = normalizedAnswer;
-    }
-
-    return normalizedAnswers;
   }
 
   sanitizeStoredAnswers(
@@ -256,4 +214,58 @@ export class QuestionnaireService {
       orderBy: { name: 'asc' },
     });
   }
+}
+
+export function validateQuestionnaireAnswers(
+  questions: QuestionnaireQuestion[],
+  rawAnswers: Record<string, unknown>,
+  allowedSchoolIds: readonly string[],
+) {
+  const questionsByKey = new Map(
+    questions.map((question) => [question.key, question]),
+  );
+  const allowedQuestionKeys = new Set([
+    ...questionsByKey.keys(),
+    ...hardMatchQuestionKeys(),
+  ]);
+
+  for (const answerKey of Object.keys(rawAnswers)) {
+    if (!allowedQuestionKeys.has(answerKey)) {
+      throw new BadRequestException(
+        `Unexpected questionnaire field: ${answerKey}.`,
+      );
+    }
+  }
+
+  const normalizedAnswers: Record<string, QuestionnaireAnswerValue> = {
+    ...normalizeHardMatchAnswers(rawAnswers, allowedSchoolIds),
+  };
+
+  for (const question of questions) {
+    const rawAnswer = rawAnswers[question.key];
+
+    if (rawAnswer == null) {
+      throw new IncompleteQuestionnaireSubmissionException(
+        `Question "${question.prompt}" is required.`,
+      );
+    }
+
+    const normalizedAnswer = normalizeQuestionAnswer(question, rawAnswer);
+
+    if (
+      normalizedAnswer == null ||
+      (question.type === 'MULTI_SELECT' &&
+        question.selectionLimit != null &&
+        Array.isArray(normalizedAnswer) &&
+        normalizedAnswer.length !== question.selectionLimit)
+    ) {
+      throw new IncompleteQuestionnaireSubmissionException(
+        `Question "${question.prompt}" is required.`,
+      );
+    }
+
+    normalizedAnswers[question.key] = normalizedAnswer;
+  }
+
+  return normalizedAnswers;
 }

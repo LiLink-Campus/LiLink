@@ -5,6 +5,10 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerApiBaseUrl } from "./api-base-url";
 
+export class ServerApiError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
 const USER_COOKIE_NAME = process.env.COOKIE_NAME?.trim() || "lilink_token";
 const ADMIN_COOKIE_NAME =
   process.env.ADMIN_COOKIE_NAME?.trim() || "lilink_admin_token";
@@ -59,8 +63,12 @@ async function fetchApiServer<T>(
   options: ServerFetchOptions,
 ): Promise<T> {
   const cookieHeader = await buildForwardedCookieHeader(
-    options.cookieNames ?? [],
+    [...(options.cookieNames ?? []), "lilink_release_access"],
   );
+  const started = performance.now();
+  const traceId = process.env.SERVER_API_TIMING_LOG_ENABLED === "true"
+    ? crypto.randomUUID()
+    : undefined;
   const response = await fetch(`${await getServerApiBaseUrl()}${path}`, {
     ...options,
     headers: {
@@ -68,16 +76,31 @@ async function fetchApiServer<T>(
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(cookieHeader ? { Cookie: cookieHeader } : {}),
       ...(options.headers ?? {}),
+      ...(traceId ? { "x-lilink-trace-id": traceId } : {}),
     },
     cache: options.cache ?? "no-store",
   });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(parseFailedResponseBody(body, response.status));
+  const headersReceived = performance.now();
+  const body = await response.text();
+  if (traceId) {
+    console.info(JSON.stringify({
+      event: "server_api_timing",
+      traceId,
+      startedAt: new Date(performance.timeOrigin + started).toISOString(),
+      path: path.split("?")[0],
+      status: response.status,
+      headersMs: Math.round(headersReceived - started),
+      bodyMs: Math.round(performance.now() - headersReceived),
+      totalMs: Math.round(performance.now() - started),
+    }));
   }
 
-  return response.json() as Promise<T>;
+  if (!response.ok) {
+    throw new ServerApiError(parseFailedResponseBody(body, response.status), response.status);
+  }
+
+  // Nest returns an empty successful body for a missing optional questionnaire.
+  return (body.trim() ? JSON.parse(body) : null) as T;
 }
 
 export function hasUserSessionCookie() {

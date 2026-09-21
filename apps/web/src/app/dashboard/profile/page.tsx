@@ -14,6 +14,7 @@ export default async function DashboardProfilePage() {
       initialUser={user}
       initialDashboard={dashboard}
       initialQuestions={questionnaire.questions}
+      initialQuestionnaireVersionId={questionnaire.id}
       initialSchools={questionnaire.schools}
       initialSavedQuestionnaire={savedQuestionnaire}
     />

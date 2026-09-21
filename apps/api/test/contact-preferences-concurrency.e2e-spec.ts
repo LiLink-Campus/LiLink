@@ -91,6 +91,54 @@ describe('Contact preferences concurrency (PostgreSQL)', () => {
     });
   });
 
+  it('reads a consistent revision and methods while another transaction changes both', async () => {
+    const user = await seedUser();
+    let releaseWrite = () => {};
+    let announceWrite = () => {};
+    const continueWrite = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    const writeStarted = new Promise<void>((resolve) => {
+      announceWrite = resolve;
+    });
+    const write = prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          contactPreferencesRevision: 1,
+          preferredContactChannel: 'WECHAT',
+        },
+      });
+      announceWrite();
+      await continueWrite;
+      await tx.userContactMethod.create({
+        data: { userId: user.id, type: 'WECHAT', value: 'new_contact' },
+      });
+    });
+    try {
+      await writeStarted;
+      expect(await account.getContactPreferences(user.id)).toMatchObject({
+        revision: 0,
+        preferredContactChannel: 'EMAIL',
+        methods: [],
+      });
+    } finally {
+      releaseWrite();
+      await write;
+    }
+    expect(await account.getContactPreferences(user.id)).toMatchObject({
+      revision: 1,
+      preferredContactChannel: 'WECHAT',
+      methods: [{ type: 'WECHAT', value: 'new_contact' }],
+    });
+  });
+
+  it('keeps missing accounts as a not-found response', async () => {
+    await expect(
+      account.getContactPreferences(randomUUID()),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
   it('rejects an in-flight request from a deactivated account', async () => {
     const user = await seedUser();
     await prisma.user.update({

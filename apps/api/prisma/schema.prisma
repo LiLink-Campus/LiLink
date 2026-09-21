@@ -197,6 +197,7 @@ model User {
   updatedAt                  DateTime                     @updatedAt
   profile                    UserProfile?
   questionnaireResponse      QuestionnaireResponse?
+  questionnaireArchives      QuestionnaireResponseArchive[]
   participations             CycleParticipation[]
   reportsFiled               Report[]                     @relation("Reporter")
   reportsReceived            Report[]                     @relation("ReportedUser")
@@ -312,6 +313,7 @@ model QuestionnaireVersion {
   isCurrent   Boolean                 @default(false)
   questions   Question[]
   responses   QuestionnaireResponse[]
+  archives    QuestionnaireResponseArchive[]
   createdAt   DateTime                @default(now())
   updatedAt   DateTime                @updatedAt
 
@@ -352,6 +354,27 @@ model QuestionnaireResponse {
 
   @@index([versionId])
   @@index([submittedAt])
+}
+
+model QuestionnaireResponseArchive {
+  id                                 String               @id
+  releaseId                          String
+  sourceResponseId                   String
+  userId                             String
+  user                               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versionId                          String
+  version                            QuestionnaireVersion @relation(fields: [versionId], references: [id])
+  answers                            Json
+  draftAnswers                       Json?
+  acknowledgedQuestionnaireVersionId String?
+  acknowledgedQuestionnaireKeys      Json?
+  acknowledgedHardMatchSignatures    Json?
+  submittedAt                        DateTime?
+  sourceUpdatedAt                    DateTime
+  archivedAt                         DateTime             @default(now())
+
+  @@unique([releaseId, sourceResponseId])
+  @@index([userId, archivedAt])
 }
 
 model MatchCycle {
@@ -433,6 +456,7 @@ model MatchParticipant {
   contactRequestedAt     DateTime?
   introducedContactType  ContactChannelType?
   introducedContactValue String?
+  profileSnapshot        Json?
   createdAt              DateTime            @default(now())
   meetupParticipants     MeetupParticipant[]
 
