@@ -7,7 +7,13 @@ export function releaseMaintenance(
   response: Response,
   next: NextFunction,
 ) {
-  if (!env.RELEASE_MAINTENANCE || request.path === '/v1/health') return next();
+  // Browser preflights carry no cookies; CORS validates their origin downstream.
+  if (
+    !env.RELEASE_MAINTENANCE ||
+    request.path === '/v1/health' ||
+    request.method === 'OPTIONS'
+  )
+    return next();
   const supplied: unknown = request.cookies?.lilink_release_access;
   const expected = env.RELEASE_ACCESS_KEY;
   if (
