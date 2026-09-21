@@ -366,6 +366,27 @@ export const ProfileLooksRequired: Story = {
   },
 };
 
+export const ProfileLongChoices: Story = {
+  ...Profile,
+  render: () => <ProfileClient {...profileProps} initialQuestions={[
+    { ...questions[0], options: Array.from({ length: 12 }, (_, index) => ({ value: `option-${index}`, label: `周末安排 ${index + 1}：一起散步、读书，慢慢了解彼此的生活习惯。` })) },
+    ...profileProps.initialQuestions.slice(1),
+  ]} />,
+  play: async ({ canvasElement }) => {
+    await jumpQuestion(canvasElement, questions[0].prompt);
+    const c = within(canvasElement);
+    const next = c.getByRole("button", { name: "下一题 →" });
+    const top = next.getBoundingClientRect().top;
+    const last = c.getByRole("radio", { name: /周末安排 12/ });
+    const option = last.closest("label")!;
+    option.scrollIntoView({ block: "end", behavior: "instant" });
+    await expect(last).toBeVisible();
+    // Allow subpixel rounding when scrolling to the content edge.
+    await expect(option.getBoundingClientRect().bottom - c.getByRole("region", { name: "当前题目" }).getBoundingClientRect().bottom).toBeLessThanOrEqual(1);
+    await expect(next.getBoundingClientRect().top).toBe(top);
+  },
+};
+
 const profileVip = { active: true, activatedAt: now, expiresAt: "2099-01-01T00:00:00.000Z", durationDays: 30, priceYuan: "29.90", advancedFiltersAvailable: true };
 export const ProfilePremiumLocked: Story = {
   parameters: route("/dashboard/profile"),

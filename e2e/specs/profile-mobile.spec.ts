@@ -4,54 +4,71 @@ import { test, expect, visit } from '../support/fixtures';
 test.beforeEach(async ({ signedIn }) => { void signedIn; });
 
 async function openQuestion(page: Page, title: string) {
-  await page.getByRole('button', { name: '题目目录', exact: true }).click();
-  await page.getByRole('dialog', { name: '题目目录' })
-    .getByRole('button', { name: new RegExp(`关于你第 \\d+ 题：${title}$`) }).click();
+  const directory = page.getByRole('button', { name: '题目目录', exact: true });
+  if (await directory.isVisible()) await directory.click();
+  await page.getByRole('button', { name: new RegExp(`关于你第 \\d+ 题：${title}$`) }).filter({ visible: true }).click();
 }
 
-async function revealByPageScroll(page: Page, target: Locator) {
-  // Scroll the document as a phone user would, never the nested question card.
-  await target.evaluate(element => {
-    window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - 110, behavior: 'instant' });
+async function expectActionsAtBottom(page: Page) {
+  const next = page.getByRole('button', { name: '下一题 →', exact: true });
+  await expect(next).toBeInViewport({ ratio: 1 });
+  const gap = await next.evaluate(element => {
+    const tabbar = document.querySelector('nav[aria-label="底部导航"]');
+    const navRect = tabbar?.getBoundingClientRect();
+    const bottom = navRect && navRect.height > 0 ? navRect.top : innerHeight;
+    return bottom - element.getBoundingClientRect().bottom;
   });
+  expect(gap).toBeGreaterThanOrEqual(0);
+  expect(gap).toBeLessThanOrEqual(40);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+}
+
+async function revealQuestionControl(page: Page, target: Locator) {
+  const next = page.getByRole('button', { name: '下一题 →', exact: true });
+  const before = await next.boundingBox();
+  await target.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
   await expect(target).toBeInViewport({ ratio: 1 });
   await expect.poll(() => target.evaluate(element => {
     const r = element.getBoundingClientRect();
     const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     return element === hit || element.contains(hit);
   })).toBe(true);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect((await next.boundingBox())!.y).toBeCloseTo(before!.y, 0);
+  await expectActionsAtBottom(page);
 }
 
-for (const viewport of [{ width: 320, height: 568 }, { width: 360, height: 640 }, { width: 420, height: 740 }, { width: 879, height: 700 }]) {
-  test(`mobile questionnaire controls stay reachable by page scrolling at ${viewport.width}x${viewport.height} @smoke`, async ({ page, db, account }, testInfo) => {
+const viewports = [
+  { width: 320, height: 568 }, { width: 360, height: 640 }, { width: 420, height: 740 },
+  { width: 446, height: 904 }, { width: 760, height: 1100 }, { width: 879, height: 700 },
+  { width: 880, height: 650 }, { width: 1280, height: 900 }, { width: 1440, height: 1200 },
+];
+for (const viewport of viewports) {
+  test(`questionnaire actions stay at bottom at ${viewport.width}x${viewport.height} @smoke`, async ({ page, db, account }, testInfo) => {
     await page.setViewportSize(viewport);
     const version = await db.questionnaireVersion.findFirstOrThrow({ where: { isCurrent: true } });
     await db.questionnaireResponse.create({ data: { userId: account.id, versionId: version.id, answers: {} } });
     await visit(page, '/dashboard/profile');
+    await expectActionsAtBottom(page);
+    await page.screenshot({ path: testInfo.outputPath('nickname.png') });
 
     await openQuestion(page, '一句话介绍');
-    await revealByPageScroll(page, page.getByRole('textbox', { name: /一句话介绍/ }));
+    await revealQuestionControl(page, page.getByRole('textbox', { name: /一句话介绍/ }));
     await page.screenshot({ path: testInfo.outputPath('intro.png') });
-
     await openQuestion(page, '联系方式');
-    await revealByPageScroll(page, page.getByRole('textbox', { name: /内容$/ }));
+    await revealQuestionControl(page, page.getByRole('textbox', { name: /内容$/ }));
     await page.screenshot({ path: testInfo.outputPath('contact.png') });
-
     await openQuestion(page, '性别');
-    const lastGender = page.locator('[data-reader-hidden="false"] [data-choice]').last();
-    await revealByPageScroll(page, lastGender);
+    await revealQuestionControl(page, page.locator('[data-reader-hidden="false"] [data-choice]').last());
     await page.screenshot({ path: testInfo.outputPath('gender.png') });
-
     await openQuestion(page, '颜值自评');
     const slider = page.getByRole('slider', { name: '颜值自评', exact: true });
     await expect(slider).toHaveAttribute('aria-valuetext', '未选择');
-    await revealByPageScroll(page, slider);
+    await revealQuestionControl(page, slider);
     await page.screenshot({ path: testInfo.outputPath('looks.png') });
-    await revealByPageScroll(page, page.getByRole('button', { name: '下一题 →', exact: true }));
     await page.getByRole('button', { name: '下一题 →', exact: true }).click();
     await expect(page.locator('[data-reader-hidden="false"] [data-question-title]')).toBeInViewport({ ratio: 1 });
-    await expect(page.getByRole('combobox', { name: '选择你的身高' })).toBeVisible();
+    await expect(page.getByRole('region', { name: '当前题目' })).toHaveJSProperty('scrollTop', 0);
+    await expectActionsAtBottom(page);
   });
 }
 
@@ -61,9 +78,9 @@ test('mobile profile remains editable when available viewport height changes', a
   await openQuestion(page, '一句话介绍');
   const intro = page.getByRole('textbox', { name: /一句话介绍/ });
   await intro.fill('可视高度变化后仍然保留的合成测试介绍');
-  // This models reduced space, not a claim of physical on-screen keyboard coverage.
+  // Reduced space is not physical on-screen keyboard coverage.
   await page.setViewportSize({ width: 390, height: 400 });
-  await revealByPageScroll(page, intro);
+  await revealQuestionControl(page, intro);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(intro).toHaveValue('可视高度变化后仍然保留的合成测试介绍');
   await expect(page.getByRole('main').getByText('草稿已自动保存', { exact: true })).toBeVisible();
