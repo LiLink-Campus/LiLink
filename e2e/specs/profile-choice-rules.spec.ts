@@ -94,3 +94,29 @@ test('choice-rule migration keeps historical definitions and submitted answers i
     throw rollback;
   })).rejects.toThrow('rollback migration probe');
 });
+
+// The lock simulates an unavailable backend in this runner's disposable database.
+test('dashboard retry fetches fresh server data after a read timeout', async ({ page, db }, info) => {
+  let release!: () => void;
+  let acquired!: () => void;
+  const hold = new Promise<void>(resolve => { release = resolve; });
+  const ready = new Promise<void>(resolve => { acquired = resolve; });
+  const blocked = db.$transaction(async (tx: any) => {
+    await tx.$executeRawUnsafe('LOCK TABLE "QuestionnaireResponse" IN ACCESS EXCLUSIVE MODE');
+    acquired();
+    await hold;
+  }, { timeout: 25_000 });
+  try {
+    await ready;
+    await visit(page, '/dashboard/profile');
+    await expect(page.getByRole('heading', { name: '暂时无法加载' })).toBeVisible({ timeout: 15_000 });
+    await page.screenshot({ path: info.outputPath('dashboard-timeout.png'), fullPage: true });
+  } finally {
+    release();
+    await blocked;
+  }
+  await page.getByRole('button', { name: '重新加载', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: '昵称', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '暂时无法加载' })).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath('dashboard-recovered.png'), fullPage: true });
+});
