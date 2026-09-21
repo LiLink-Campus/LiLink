@@ -1,5 +1,7 @@
 "use client";
 
+import { InteractiveFields } from "@/components/interactive-fields";
+
 import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -219,6 +221,7 @@ export default function RegisterSchoolClient() {
       loginHref={loginHref}
       backHref={step === 1 ? chooserHref : undefined}
     >
+      <InteractiveFields>
       {step === 1 ? (
         <form className={authStyles.stack} onSubmit={continueRegistration}>
           <Field
@@ -355,6 +358,7 @@ export default function RegisterSchoolClient() {
           </ActionGroup>
         </form>
       )}
+      </InteractiveFields>
     </RegisterShell>
   );
 }

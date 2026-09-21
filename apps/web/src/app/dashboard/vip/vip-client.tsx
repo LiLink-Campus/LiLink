@@ -1,5 +1,7 @@
 "use client";
 
+import { InteractiveFields } from "@/components/interactive-fields";
+
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { fetchApi } from "../../../lib/api";
@@ -94,13 +96,13 @@ export function VipClient({ initialStatus }: { initialStatus: VipStatus | null }
       <h2 id="vip-comparison-title">普通用户与 VIP，有什么不同？</h2>
       <div className={styles.tableWrap}><table><caption className={styles.srOnly}>普通用户与 VIP 权益对比</caption><thead><tr><th scope="col">权益</th><th scope="col">普通用户</th><th scope="col">VIP</th></tr></thead><tbody>{benefits.map(item => <tr key={item.label}><th scope="row">{item.label}</th><td><span aria-hidden="true">{item.free ? "✓" : "—"}</span><span className={styles.srOnly}>{item.free ? "支持" : "不支持"}</span></td><td><span aria-hidden="true">✓</span><span className={styles.srOnly}>支持</span></td></tr>)}</tbody></table></div>
     </section>
-    {status && <form id="vip-activation" className={styles.card} onSubmit={activate}>
+    {status && <InteractiveFields><form id="vip-activation" className={styles.card} onSubmit={activate}>
       <div><h2>使用激活码</h2><p className={styles.subtitle}>粘贴云猫订单中的 24 位激活码</p></div>
       <div className={styles.field}><label htmlFor="vip-code">VIP 激活码</label>
       <input id="vip-code" value={code} onChange={event => setCode(event.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false} required minLength={24} maxLength={64} disabled={busy} placeholder="输入或粘贴激活码" /></div>
       <button className={styles.primary} type="submit" disabled={busy || code.trim().length < 24}>{busy ? "正在处理…" : `确认激活 ${days} 天 VIP`}</button>
       <p className={styles.note}>每个激活码仅可绑定一个账号，请确认当前登录账号。激活码不要公开或转发。</p>
-    </form>}
+    </form></InteractiveFields>}
     {!status && <p role="status" className={styles.note}>暂时无法读取会员状态，请刷新后再激活。</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <footer className={styles.footer}>

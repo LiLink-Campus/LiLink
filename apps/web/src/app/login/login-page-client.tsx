@@ -1,5 +1,7 @@
 "use client";
 
+import { InteractiveFields } from "@/components/interactive-fields";
+
 import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
@@ -63,6 +65,7 @@ export default function LoginPageClient() {
     >
       <Card className={`${authStyles.panel} ${styles.card} animate-in`} layout="plain">
         <h1>欢迎回来</h1>
+        <InteractiveFields>
         <form className={authStyles.stack} onSubmit={handleSubmit}>
           <Field label="邮箱">
             <Input
@@ -97,6 +100,7 @@ export default function LoginPageClient() {
             {pending ? "登录中…" : "登录"}
           </Button>
         </form>
+        </InteractiveFields>
         <p className={authStyles.hint}>
           还没有账号？<Link href={registerHref}>立即注册</Link>
         </p>

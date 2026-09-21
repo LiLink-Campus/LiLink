@@ -1,6 +1,27 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, api, password, visit, login, mailCode } from '../support/fixtures';
 
+test('login waits for its handlers before accepting input @smoke', async ({ page, account }) => {
+  let releaseScripts!: () => void;
+  const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });
+  await page.route('**/_next/static/**/*.js', async route => {
+    await scriptsReady;
+    await route.continue();
+  });
+  try {
+    await page.goto('/login', { waitUntil: 'commit' });
+    await expect(page.getByLabel('邮箱', { exact: true })).toBeDisabled();
+    await expect(page.getByLabel('密码', { exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '登录', exact: true })).toBeDisabled();
+  } finally {
+    releaseScripts();
+  }
+  await page.getByLabel('邮箱', { exact: true }).fill(account.email);
+  await page.getByLabel('密码', { exact: true }).fill(password);
+  await page.getByRole('button', { name: '登录', exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+});
+
 test('login, logout, and protected route @smoke', async ({ page, account }) => {
   await login(page, account);
   await visit(page, '/dashboard/me');
