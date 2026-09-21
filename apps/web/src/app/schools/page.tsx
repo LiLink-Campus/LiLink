@@ -39,6 +39,7 @@ export default function SchoolsPage() {
                   src={`/images/schools/${group.logo}`}
                   width={80}
                   height={80}
+                  sizes="(max-width: 700px) 68px, 80px"
                   alt={`${group.name}校徽`}
                 />
                 <div>
@@ -59,7 +60,7 @@ export default function SchoolsPage() {
                         src={`/images/schools/${school.logo}`}
                         width={160}
                         height={68}
-                        unoptimized
+                        sizes="160px"
                         alt={`${school.name}标识`}
                       />
                     </div>

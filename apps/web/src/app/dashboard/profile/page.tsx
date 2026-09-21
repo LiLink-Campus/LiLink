@@ -4,9 +4,11 @@ import { loadDashboardProfile } from "../_lib/bootstrap";
 import { ProfileClient } from "./profile-client";
 
 export default async function DashboardProfilePage() {
-  const { user, dashboard, questionnaire, savedQuestionnaire, contactPreferences } =
-    await loadDashboardProfile();
-  const vip = await fetchUserApiServer<VipStatus>("/me/vip").catch(() => null);
+  const [profile, vip] = await Promise.all([
+    loadDashboardProfile(),
+    fetchUserApiServer<VipStatus>("/me/vip").catch(() => null),
+  ]);
+  const { user, dashboard, questionnaire, savedQuestionnaire, contactPreferences } = profile;
   return (
     <ProfileClient
       initialVip={vip}

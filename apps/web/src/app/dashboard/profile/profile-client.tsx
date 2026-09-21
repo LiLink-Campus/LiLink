@@ -398,8 +398,8 @@ export function ProfileClient({
     initialDashboard,
   );
   const [questions] = useState<Question[]>(initialQuestions);
-  const lifestyleQuestions = questions.filter(question => isLifestyleQuestion(question.key));
-  const valuesQuestions = questions.filter(question => !isLifestyleQuestion(question.key));
+  const lifestyleQuestions = useMemo(() => questions.filter(question => isLifestyleQuestion(question.key)), [questions]);
+  const valuesQuestions = useMemo(() => questions.filter(question => !isLifestyleQuestion(question.key)), [questions]);
   const [schoolSearch, setSchoolSearch] = useState("");
   const [schoolOptions] = useState<HardMatchSchoolOption[]>(initialSchools);
   const [answers, setAnswers] = useState<Record<string, unknown>>(
@@ -1172,7 +1172,7 @@ export function ProfileClient({
   function locateIncomplete() {
     const target = incompleteTargets[0];
     if (!target) return;
-    const index = readerItems.filter(item => item.tab === target.tab).findIndex(item => item.node.id === profileAttentionElementId(target.key) || item.node.querySelector(`[id="${profileAttentionElementId(target.key)}"]`));
+    const index = readerItems.filter(item => item.tab === target.tab).findIndex(item => item.elementIds.has(profileAttentionElementId(target.key)));
     openQuestion(target.tab, Math.max(0, index));
     setPendingIncompleteKey({ key: target.key });
   }
@@ -1190,7 +1190,7 @@ export function ProfileClient({
   const [completedSnapshot, setCompletedSnapshot] = useState<string | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
   const directoryRef = useRef<HTMLDialogElement>(null);
-  const [readerItems, setReaderItems] = useState<{ node: HTMLElement; tab: ProfileTab; title: string }[]>([]);
+  const [readerItems, setReaderItems] = useState<{ node: HTMLElement; tab: ProfileTab; title: string; elementIds: Set<string> }[]>([]);
   const [questionIndex, setQuestionIndex] = useState(0);
   const moduleNavRef = useRef<HTMLElement>(null);
   const moduleItems = useMemo(() => readerItems.filter(item => item.tab === activeTab), [readerItems, activeTab]);
@@ -1213,6 +1213,7 @@ export function ProfileClient({
     if (!root) return;
     const items = Array.from(root.querySelectorAll<HTMLElement>('[data-reader-item]')).map(node => ({
       node,
+      elementIds: new Set([node.id, ...Array.from(node.querySelectorAll('[id]'), element => element.id)]),
       tab: node.closest<HTMLElement>('[data-reader-module]')!.dataset.readerModule as ProfileTab,
       title: node.getAttribute('data-reader-title') || node.getAttribute('aria-label') || node.querySelector('legend, h2')?.textContent?.trim() || '资料',
     }));
@@ -1245,9 +1246,12 @@ export function ProfileClient({
     directoryRef.current?.close();
     if (!animate && readerRef.current) readerRef.current.scrollTop = 0;
   }
+  function questionOptions(fieldId: string, options: ValuePickerOption[], value: string) {
+    if (moduleItems[currentIndex]?.elementIds.has(fieldId)) return options;
+    return options.filter(option => option.value === value);
+  }
   function itemIncomplete(item: (typeof readerItems)[number]) {
-    return incompleteTargets.some(target => item.node.id === profileAttentionElementId(target.key) ||
-      Array.from(item.node.querySelectorAll('[id]')).some(node => node.id === profileAttentionElementId(target.key)));
+    return incompleteTargets.some(target => item.elementIds.has(profileAttentionElementId(target.key)));
   }
 
 
@@ -1422,7 +1426,7 @@ export function ProfileClient({
                   id={buildDashboardFieldId("height-cm")}
                   name="heightCm"
                   value={hardMatchForm.heightCm}
-                  options={HEIGHT_VALUE_OPTIONS}
+                  options={questionOptions(buildDashboardFieldId("height-cm"), HEIGHT_VALUE_OPTIONS, hardMatchForm.heightCm)}
                   suffix="cm"
                   placeholder="请选择身高"
                   sheetTitle="选择你的身高"
@@ -1450,7 +1454,7 @@ export function ProfileClient({
                   id={buildDashboardFieldId("weight-kg")}
                   name="weightKg"
                   value={hardMatchForm.weightKg}
-                  options={WEIGHT_VALUE_OPTIONS}
+                  options={questionOptions(buildDashboardFieldId("weight-kg"), WEIGHT_VALUE_OPTIONS, hardMatchForm.weightKg)}
                   placeholder="请选择体重"
                   sheetTitle="选择你的体重"
                   onChange={(next) =>
@@ -1503,7 +1507,7 @@ export function ProfileClient({
                       id={buildDashboardFieldId("partner-age-min")}
                       name="partnerAgeMin"
                       value={hardMatchForm.partnerAgeMin}
-                      options={AGE_VALUE_OPTIONS}
+                      options={questionOptions(buildDashboardFieldId("partner-age-min"), AGE_VALUE_OPTIONS, hardMatchForm.partnerAgeMin)}
                       suffix="岁"
                       placeholder="请选择"
                       sheetTitle="对方年龄下限"
@@ -1518,7 +1522,7 @@ export function ProfileClient({
                       id={buildDashboardFieldId("partner-age-max")}
                       name="partnerAgeMax"
                       value={hardMatchForm.partnerAgeMax}
-                      options={AGE_VALUE_OPTIONS}
+                      options={questionOptions(buildDashboardFieldId("partner-age-max"), AGE_VALUE_OPTIONS, hardMatchForm.partnerAgeMax)}
                       suffix="岁"
                       placeholder="请选择"
                       sheetTitle="对方年龄上限"
@@ -1653,7 +1657,7 @@ export function ProfileClient({
                       id={buildDashboardFieldId("partner-height-min")}
                       name="partnerHeightMin"
                       value={hardMatchForm.partnerHeightMin}
-                      options={HEIGHT_VALUE_OPTIONS}
+                      options={questionOptions(buildDashboardFieldId("partner-height-min"), HEIGHT_VALUE_OPTIONS, hardMatchForm.partnerHeightMin)}
                       suffix="cm"
                       placeholder="请选择"
                       sheetTitle="希望对方身高下限"
@@ -1671,7 +1675,7 @@ export function ProfileClient({
                       id={buildDashboardFieldId("partner-height-max")}
                       name="partnerHeightMax"
                       value={hardMatchForm.partnerHeightMax}
-                      options={HEIGHT_VALUE_OPTIONS}
+                      options={questionOptions(buildDashboardFieldId("partner-height-max"), HEIGHT_VALUE_OPTIONS, hardMatchForm.partnerHeightMax)}
                       suffix="cm"
                       placeholder="请选择"
                       sheetTitle="希望对方身高上限"
@@ -1708,7 +1712,7 @@ export function ProfileClient({
                       id={buildDashboardFieldId("partner-weight-min")}
                       name="partnerWeightMin"
                       value={hardMatchForm.partnerWeightMin}
-                      options={PARTNER_WEIGHT_VALUE_OPTIONS}
+                      options={questionOptions(buildDashboardFieldId("partner-weight-min"), PARTNER_WEIGHT_VALUE_OPTIONS, hardMatchForm.partnerWeightMin)}
                       placeholder="不限"
                       sheetTitle="希望对方体重下限"
                       onChange={(next) =>
@@ -1725,7 +1729,7 @@ export function ProfileClient({
                       id={buildDashboardFieldId("partner-weight-max")}
                       name="partnerWeightMax"
                       value={hardMatchForm.partnerWeightMax}
-                      options={PARTNER_WEIGHT_VALUE_OPTIONS}
+                      options={questionOptions(buildDashboardFieldId("partner-weight-max"), PARTNER_WEIGHT_VALUE_OPTIONS, hardMatchForm.partnerWeightMax)}
                       placeholder="不限"
                       sheetTitle="希望对方体重上限"
                       onChange={(next) =>

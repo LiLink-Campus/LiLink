@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 
 export default async function VipPage() {
   await ensureDashboardSession();
-  try { await fetchUserApiServer("/auth/me"); }
-  catch { redirect("/login"); }
-  const status = await fetchUserApiServer<VipStatus>("/me/vip").catch(() => null);
+  const [user, status] = await Promise.all([
+    fetchUserApiServer("/auth/me").catch(() => null),
+    fetchUserApiServer<VipStatus>("/me/vip").catch(() => null),
+  ]);
+  if (!user) redirect("/login");
   return <VipClient initialStatus={status} />;
 }

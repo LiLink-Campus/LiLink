@@ -101,6 +101,7 @@ export function HomePageView({ landing }: { landing: LandingPayload | null }) {
             fill
             priority
             fetchPriority="high"
+            quality={60}
             sizes="100vw"
           />
         </div>
