@@ -48,5 +48,16 @@ export const Empty: Story = {
 };
 export const Unavailable: Story = {
   parameters: { msw: { handlers: [session, http.get("*/api/public/community", () => new HttpResponse(null, { status: 503 }))] } },
-  play: async ({ canvasElement }) => { await expect(await within(canvasElement).findByText("人数统计暂时不可用，稍后自动重试")).toBeVisible(); },
+  play: async ({ canvasElement }) => { await expect(await within(canvasElement).findByText("人数统计暂时不可用，每 30 秒自动重试")).toBeVisible(); },
+};
+
+export const SavedStatisticsDuringOutage: Story = {
+  args: { initialData: fixture },
+  parameters: Unavailable.parameters,
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(await c.findByText("更新暂时失败，以下为上次成功统计；每 30 秒自动重试")).toBeVisible();
+    await expect(c.getByRole("list", { name: "各学校已加入人数" })).toBeVisible();
+    await expect(c.getByRole("img", { name: /男 18 人/ })).toBeVisible();
+  },
 };

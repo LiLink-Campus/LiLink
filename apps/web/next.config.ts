@@ -31,6 +31,12 @@ function createNextConfig(phase: string): NextConfig {
     images: {
       qualities: [60, 75],
     },
+    async headers() {
+      return [{
+        source: "/images/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" }],
+      }];
+    },
     allowedDevOrigins: resolveAllowedDevOrigins(),
     transpilePackages: ["@lilink/shared"],
     turbopack: {

@@ -4,7 +4,7 @@ import { fetchEligibleSchools, findMatchingSchool } from "./eligible-schools";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("fetchEligibleSchools", () => {
-  it("requests the backend without browser caching and supports cancellation", async () => {
+  it("uses the shared public cache and supports cancellation", async () => {
     const payload = {
       schools: [],
       totalSchoolCount: 0,
@@ -17,8 +17,8 @@ describe("fetchEligibleSchools", () => {
 
     await expect(fetchEligibleSchools({ signal: controller.signal })).resolves.toEqual(payload);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:4000/v1/public/schools",
-      expect.objectContaining({ cache: "no-store", signal: controller.signal })
+      "/api/public/schools",
+      expect.objectContaining({ cache: "default", signal: controller.signal })
     );
   });
 

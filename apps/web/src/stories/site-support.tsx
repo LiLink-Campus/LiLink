@@ -49,7 +49,7 @@ export const failure = (path: string, method: "get" | "post" | "put" = "get") =>
 export const guest = http.get(`${api}/auth/me`, () =>
   HttpResponse.json({ message: "未登录" }, { status: 401 })
 );
-export const schoolHandler = json("/public/schools", schools);
+export const schoolHandler = http.get("*/api/public/schools", () => HttpResponse.json(schools));
 export const readState = {
   target: "coupons",
   version: "story-v1",

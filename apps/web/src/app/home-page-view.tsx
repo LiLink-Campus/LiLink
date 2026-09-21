@@ -1,6 +1,7 @@
 import { ButtonLink } from "@/components/ui";
 import Link from "next/link";
 import Image from "next/image";
+import type { CommunityStatsPayload } from "../lib/community-stats";
 import type { LandingPayload } from "../lib/landing-payload";
 import {
   CampusLineart,
@@ -68,7 +69,10 @@ const features = [
   },
 ];
 
-export function HomePageView({ landing }: { landing: LandingPayload | null }) {
+export function HomePageView({ landing, community = null }: {
+  landing: LandingPayload | null;
+  community?: CommunityStatsPayload | null;
+}) {
   const matchesDelivered = landing?.stats.matchesDelivered ?? 0;
   const matchesLabelIsNarrative = landing != null && matchesDelivered <= 0;
 
@@ -150,7 +154,7 @@ export function HomePageView({ landing }: { landing: LandingPayload | null }) {
         </div>
       </section>
 
-      <CommunityStats />
+      <CommunityStats initialData={community} />
 
       <section className={styles.section} aria-labelledby="steps-heading">
         <div className={styles.sectionHeader}>
