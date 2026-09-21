@@ -1,6 +1,7 @@
 .entry { display: flex; align-items: center; gap: 16px; width: 100%; padding: 12px 16px; border: 1px solid #e8e0da; border-radius: 16px; background: #fff; color: #322b29; text-align: left; cursor: pointer; }
 .entry svg { width: 30px; height: 30px; flex-shrink: 0; color: #92344f; }
 .entry > span:nth-child(2) { flex: 1; }
+.entry:disabled, .primary:disabled { cursor: progress; opacity: 0.7; }
 .entry strong { display: block; font-size: 16px; font-weight: 600; }
 .entry small { display: block; margin-top: 5px; color: #827870; font-size: 13px; }
 .card { position: relative; margin-top: 20px; padding: 22px; border: 1px solid #eadfd6; border-radius: 16px; background: #faf8f5; }
