@@ -50,6 +50,27 @@ test('archived profile basics remain editable without restoring questionnaire co
   const participation = await context.request.put(`${api}/me/participation`, { data: { optIn: true, intent: 'BOTH' } });
   expect(participation.status()).toBe(400);
 
+  await openQuestion('颜值自评');
+  await page.route('**/v1/me/questionnaire', route => route.request().method() === 'PUT' ? route.abort('failed') : route.continue());
+  const looks = page.getByRole('slider', { name: '颜值自评', exact: true });
+  await looks.focus();
+  await looks.press('Home');
+  await looks.press('ArrowRight');
+  await looks.press('ArrowRight');
+  await looks.press('ArrowRight');
+  await expect(page.getByText('正在重试保存…', { exact: true })).toBeVisible();
+  await expect(page.getByText('保存失败', { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('save-retrying.png'), fullPage: true });
+  await expect(page.getByText('草稿已自动保存', { exact: true })).toBeVisible();
+  await page.unroute('**/v1/me/questionnaire');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await openQuestion('颜值自评');
+  await expect(looks).toHaveAttribute('aria-valuetext', '4');
+  const retried = await (await context.request.get(`${api}/me/questionnaire`)).json();
+  expect(retried.draft.hardMatchForm.looks).toBe('4');
+  expect(retried.submittedAt).toBeNull();
+  await page.screenshot({ path: testInfo.outputPath('save-recovered.png'), fullPage: true });
+
   await openQuestion('一句话介绍');
   await intro.fill('');
   await expect(page.getByRole('main').getByText('草稿已自动保存', { exact: true })).toBeVisible();
@@ -85,18 +106,23 @@ test('incomplete profile remains a draft and cannot participate @smoke', async (
 });
 
 test('save failure preserves input and recovers after service restoration', async ({ page, context, db }) => {
+  test.setTimeout(65_000);
   await completeProfile(context, db);
   await visit(page, '/dashboard/profile');
   await page.route('**/v1/me/questionnaire', route => route.request().method() === 'PUT'
     ? route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'E2E 暂时无法保存' }) })
     : route.continue());
+  await page.route('**/api/questionnaire', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'E2E 暂时无法保存' }) }));
   const name = page.getByRole('textbox', { name: '昵称', exact: true });
   await name.fill('断网时保留的昵称');
-  await expect(page.getByRole('main').getByText('保存失败', { exact: true })).toBeVisible();
+  await expect(page.getByText('正在重试保存…', { exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByText('保存失败', { exact: true })).toBeVisible({ timeout: 35_000 });
   await expect(name).toHaveValue('断网时保留的昵称');
   await expect(page.getByRole('main').getByText('全部修改已保存', { exact: true })).toHaveCount(0);
   expect((await (await context.request.get(`${api}/auth/me`)).json()).displayName).toBe('自动化同学');
   await page.unroute('**/v1/me/questionnaire');
+  await page.unroute('**/api/questionnaire');
+  await page.getByRole('button', { name: '重试保存', exact: true }).click();
   await expect(page.getByRole('main').getByText('全部修改已保存', { exact: true })).toBeVisible({ timeout: 25_000 });
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(name).toHaveValue('断网时保留的昵称');

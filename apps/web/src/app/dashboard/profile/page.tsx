@@ -1,14 +1,8 @@
-import { fetchUserApiServer } from "../../../lib/server-api";
-import type { VipStatus } from "../vip/vip-client";
 import { loadDashboardProfile } from "../_lib/bootstrap";
 import { ProfileClient } from "./profile-client";
 
 export default async function DashboardProfilePage() {
-  const [profile, vip] = await Promise.all([
-    loadDashboardProfile(),
-    fetchUserApiServer<VipStatus>("/me/vip").catch(() => null),
-  ]);
-  const { user, dashboard, questionnaire, savedQuestionnaire, contactPreferences } = profile;
+  const { user, dashboard, questionnaire, savedQuestionnaire, contactPreferences, vip } = await loadDashboardProfile();
   return (
     <ProfileClient
       initialVip={vip}

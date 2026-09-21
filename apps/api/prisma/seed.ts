@@ -343,12 +343,12 @@ const QUESTIONNAIRE_DEFINITIONS: readonly QuestionnaireSeedQuestion[] = [
   },
   {
     key: 'values',
-    prompt: '请选择你最看重的 4 项价值。',
+    prompt: '请选择你最看重的 3 项价值。',
     type: QuestionType.MULTI_SELECT,
     order: 15,
     weight: 4,
     options: VALUE_POOL,
-    selectionLimit: 4,
+    selectionLimit: 3,
   },
   {
     key: 'green_flags',

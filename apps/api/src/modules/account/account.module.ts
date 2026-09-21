@@ -6,10 +6,12 @@ import { PublicModule } from '../public/public.module';
 import { MatchEstimateService } from './match-estimate.service';
 import { QuestionnaireModule } from '../questionnaire/questionnaire.module';
 import { ActivationModule } from '../activation/activation.module';
+import { VipModule } from '../vip/vip.module';
+import { PageBootstrapController } from './page-bootstrap.controller';
 
 @Module({
-  imports: [QuestionnaireModule, ActivationModule, PublicModule],
-  controllers: [AccountController],
+  imports: [QuestionnaireModule, ActivationModule, PublicModule, VipModule],
+  controllers: [AccountController, PageBootstrapController],
   providers: [AccountService, MatchEstimateService, AccountDeletionService],
 })
 export class AccountModule {}

@@ -23,7 +23,7 @@ async function readServerResponse(url: string, options: RequestInit) {
   const attempts = (options.method ?? "GET").toUpperCase() === "GET" && !options.body ? 2 : 1;
   for (let attempt = 0; attempt < attempts; attempt++) {
     const deadline = new AbortController();
-    const timer = setTimeout(() => deadline.abort(), 4_000);
+    const timer = setTimeout(() => deadline.abort(), (options.method ?? "GET").toUpperCase() === "GET" ? 4_000 : 12_000);
     try {
       const response = await fetch(url, {
         ...options,

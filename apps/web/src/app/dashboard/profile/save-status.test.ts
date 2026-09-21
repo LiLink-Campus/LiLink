@@ -8,6 +8,8 @@ describe("profile save feedback", () => {
   it("shows in-flight and failure states ahead of a previously submitted profile", () => {
     expect(profileSavePresentation("saving", true, false, true).label).toBe("正在保存…");
     expect(profileSavePresentation("error", true, false, true).tone).toBe("error");
+    expect(profileSavePresentation("retrying", true, false, true)).toMatchObject({ label: "正在重试保存…", tone: "pending" });
+    expect(profileSavePresentation("retrying", true, false, true).detail).toContain("尚未确认保存");
   });
   it("distinguishes saved drafts from complete matching data", () => {
     expect(profileSavePresentation("draft-saved", true, true, false).detail).toContain("上次完整资料");
