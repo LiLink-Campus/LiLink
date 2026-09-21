@@ -1,4 +1,16 @@
 api.lilink.top {
 	encode zstd gzip
-	reverse_proxy 127.0.0.1:4000
+	handle /.well-known/lilink-bimi.svg {
+		root * /home/admin/lilink/assets/email
+		rewrite * /lilink-bimi.svg
+		header {
+			Content-Type image/svg+xml
+			Cache-Control "public, max-age=3600"
+			X-Content-Type-Options nosniff
+		}
+		file_server
+	}
+	handle {
+		reverse_proxy 127.0.0.1:4000
+	}
 }
