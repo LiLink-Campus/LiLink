@@ -23,7 +23,7 @@ const updatedSchools: EligibleSchoolsPayload = {
 let currentSchools = schools;
 let shouldFail = false;
 let requestCount = 0;
-const schoolHandler = http.get(`${api}/public/schools`, () => {
+const schoolHandler = http.get("*/api/public/schools", () => {
   requestCount += 1;
   return shouldFail
     ? HttpResponse.json({ message: "Synthetic unavailable" }, { status: 503 })
@@ -133,7 +133,7 @@ export const Loading: Story = {
     msw: {
       handlers: {
         site: [
-          http.get(`${api}/public/schools`, async () => {
+          http.get("*/api/public/schools", async () => {
             await delay("infinite");
             return HttpResponse.json(schools);
           }),
@@ -170,7 +170,7 @@ export const NewRequestWins: Story = {
     msw: {
       handlers: {
         site: [
-          http.get(`${api}/public/schools`, async () => {
+          http.get("*/api/public/schools", async () => {
             requestCount += 1;
             if (requestCount === 1) {
               await delay(400);

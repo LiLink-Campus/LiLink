@@ -1,14 +1,11 @@
-import { getServerApiBaseUrl } from "@/lib/api-base-url";
+import { getCommunityStats } from "@/lib/community-stats-server";
 
 export async function GET() {
   try {
-    const base = await getServerApiBaseUrl();
-    const response = await fetch(`${base}/public/community`, {
-      cache: "no-store", signal: AbortSignal.timeout(8000),
-    });
-    if (!response.ok) throw new Error("Community statistics unavailable");
-    return Response.json(await response.json(), { headers: { "Cache-Control": "no-store" } });
+    return Response.json(await getCommunityStats(), { headers: { "Cache-Control": "public, max-age=30, s-maxage=30, stale-while-revalidate=300" } });
   } catch {
-    return Response.json({ message: "人数统计暂时不可用" }, { status: 503 });
+    return Response.json({ message: "人数统计暂时不可用" }, {
+      status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "30" },
+    });
   }
 }

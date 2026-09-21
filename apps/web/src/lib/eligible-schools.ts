@@ -1,5 +1,3 @@
-import { getClientApiBaseUrl } from "./api-base-url";
-
 export type EligibleSchool = {
   id: string;
   name: string;
@@ -65,9 +63,9 @@ export function findMatchingSchool(
 export async function fetchEligibleSchools(
   options: { signal?: AbortSignal } = {},
 ): Promise<EligibleSchoolsPayload> {
-  const response = await fetch(`${getClientApiBaseUrl()}/public/schools`, {
+  const response = await fetch("/api/public/schools", {
     headers: { Accept: "application/json" },
-    cache: "no-store",
+    cache: "default",
     signal: options.signal,
   });
 
