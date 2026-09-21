@@ -93,6 +93,7 @@ it('pauses real scheduled writes and mail, then resumes them against disposable 
       await retention.handleRetention();
       await mail.handleEmailQueue();
       await mail.flushQueuedEmails({ dedupeKeys: [tag] });
+      await mail.deliverQueuedEmailNow(tag);
       expect(
         await db.matchCycle.findUnique({
           where: { id: tag },
@@ -105,6 +106,12 @@ it('pauses real scheduled writes and mail, then resumes them against disposable 
           select: { status: true, attempts: true },
         }),
       ).toEqual({ status: 'PENDING', attempts: 0 });
+      const pausedMessages = (await (
+        await fetch(
+          `${mailbox.origin}/api/v1/search?query=${encodeURIComponent(`to:${tag}@example.test`)}`,
+        )
+      ).json()) as { messages: unknown[] };
+      expect(pausedMessages.messages).toHaveLength(0);
       expect(await db.productEvent.count({ where: { id: tag } })).toBe(1);
       expect(await db.productEventOutbox.count({ where: { id: tag } })).toBe(1);
     }

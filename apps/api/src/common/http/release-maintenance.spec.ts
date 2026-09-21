@@ -67,7 +67,7 @@ describe('Release isolation', () => {
     },
   );
   it.each(['maintenance', 'mail'] as const)(
-    'blocks inline mail as well as cron when %s is disabled',
+    'blocks targeted queue flushes as well as cron when %s is disabled',
     async (mode) => {
       env.RELEASE_MAINTENANCE = mode === 'maintenance';
       env.MAIL_DELIVERY_ENABLED = mode !== 'mail';

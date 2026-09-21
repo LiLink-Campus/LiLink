@@ -81,6 +81,8 @@ function createMailService(
 
 describe('MailService', () => {
   const originalSendConcurrency = env.SMTP_SEND_CONCURRENCY;
+  const originalMaintenance = env.RELEASE_MAINTENANCE;
+  const originalMailDelivery = env.MAIL_DELIVERY_ENABLED;
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -90,7 +92,30 @@ describe('MailService', () => {
       sendMail,
     }));
     env.SMTP_SEND_CONCURRENCY = originalSendConcurrency;
+    env.RELEASE_MAINTENANCE = originalMaintenance;
+    env.MAIL_DELIVERY_ENABLED = originalMailDelivery;
   });
+
+  it.each(['maintenance', 'mail'] as const)(
+    'keeps immediate verification delivery pending while %s is disabled',
+    async (mode) => {
+      env.RELEASE_MAINTENANCE = mode === 'maintenance';
+      env.MAIL_DELIVERY_ENABLED = mode !== 'mail';
+      const email = buildOutboundEmail();
+      const updateMany = jest.fn();
+      const service = createMailService({
+        outboundEmail: {
+          findUnique: jest.fn().mockResolvedValue(email),
+          updateMany,
+        },
+      });
+      expect(await service.deliverQueuedEmailNow(email.dedupeKey)).toEqual(
+        email,
+      );
+      expect(updateMany).not.toHaveBeenCalled();
+      expect(sendMail).not.toHaveBeenCalled();
+    },
+  );
 
   it('builds a pair of deduplicated automatic reveal emails', () => {
     const service = createMailService();

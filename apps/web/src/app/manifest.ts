@@ -17,17 +17,17 @@ export default function manifest(): MetadataRoute.Manifest {
     dir: "ltr",
     categories: ["social", "lifestyle"],
     icons: [
-      { src: "/icons/icon-192.png?v=dove-20260920", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-512.png?v=dove-20260920", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-maskable-512.png?v=dove-20260920", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/icon-192.png?v=brand-20260921", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-512.png?v=brand-20260921", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/icon-maskable-512.png?v=brand-20260921", sizes: "512x512", type: "image/png", purpose: "maskable" },
       {
-        src: "/icons/icon.svg?v=dove-20260920",
+        src: "/icons/icon.svg?v=brand-20260921",
         sizes: "any",
         type: "image/svg+xml",
         purpose: "any",
       },
       {
-        src: "/icons/icon-maskable.svg?v=dove-20260920",
+        src: "/icons/icon-maskable.svg?v=brand-20260921",
         sizes: "any",
         type: "image/svg+xml",
         purpose: "maskable",

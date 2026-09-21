@@ -504,6 +504,9 @@ export class MailService {
   private async processOutboundEmailWithSlot(
     email: OutboundEmailRecord,
   ): Promise<'processed' | 'claimed-by-another-worker' | 'not-eligible'> {
+    if (!env.MAIL_DELIVERY_ENABLED || env.RELEASE_MAINTENANCE) {
+      return 'not-eligible';
+    }
     // Retired reminders can still exist in old queues or stale worker snapshots.
     if (email.dedupeKey.startsWith('meetup-reminder:')) {
       await this.prisma.outboundEmail.updateMany({

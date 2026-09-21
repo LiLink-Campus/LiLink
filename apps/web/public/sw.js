@@ -1,6 +1,6 @@
 // LiLink PWA service worker: minimal offline fallback + installability.
 // Bump CACHE when offline assets change.
-const CACHE = "lilink-pwa-v4-standard-dove";
+const CACHE = "lilink-pwa-v5-brand-icons";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/icons/icon.svg", "/icons/icon-maskable.svg"];
 
