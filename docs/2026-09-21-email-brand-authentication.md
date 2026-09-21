@@ -33,7 +33,7 @@ v=BIMI1; l=https://api.lilink.top/.well-known/lilink-bimi.svg; a=;
 v=DMARC1; p=quarantine; sp=quarantine; pct=100; adkim=r; aspf=r; rua=mailto:dmarc_report@service.aliyun.com
 ```
 
-飞书人工发信需另取实际收件邮件头确认，不用旧阿里云从主域名发送的历史邮件代替。主域名计划使用以下策略，只有核验飞书正常发信的认证与域名对齐后才启用：
+用户已从飞书人工发信，Gmail 实际收件头显示 SPF pass，Return-Path 与可见发件人均为 `lilink.top`，满足 DMARC 的 SPF 对齐条件。DKIM 签名也通过，但签名域是飞书托管域，不计为与 LiLink 对齐的 DKIM。核验后为主域名启用以下策略：
 
 ```text
 v=DMARC1; p=quarantine; sp=quarantine; pct=100; adkim=r; aspf=r
@@ -41,7 +41,9 @@ v=DMARC1; p=quarantine; sp=quarantine; pct=100; adkim=r; aspf=r
 
 `quarantine` 请求收件方隔离未通过认证的邮件；`adkim=r` 和 `aspf=r` 保留宽松域名对齐，避免无必要地改成严格对齐。机器域名保留原阿里云汇总报告地址；主域名不新增外部报告接收人，也不把自动报告发送到个人邮箱。
 
-BIMI 要求组织主域名及其子域名启用完整 DMARC 执行策略。因此，只配置机器子域名或先发布 logo，不能宣称组织级 BIMI 就绪。
+BIMI 要求组织主域名及其子域名启用完整 DMARC 执行策略，本次两者都使用 `quarantine`、`pct=100`。飞书人工邮件当前依靠对齐的 SPF 通过 DMARC；转发可能改变 SPF，若后续需要提高转发兼容性，应在飞书支持的设置中启用自定义域名 DKIM，不能仅复制公钥伪装为已启用。
+
+飞书核验邮件在主域名策略启用前已被 Gmail 放入垃圾箱。认证通过不等于投递到收件箱，本次未移动该邮件或声称解决信誉/过滤问题。收件头证据取得于策略修改前；策略修改后的验证是 DNS 回读及既有已认证邮件的域名对齐核验，没有额外重复发信。
 
 ## 验证与回退
 
