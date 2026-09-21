@@ -8,6 +8,7 @@ import { BirthDatePicker } from "../_components/BirthDatePicker";
 import { profileSavePresentation } from "./save-status";
 import styles from "./profile-redesign.module.css";
 import { ContactEditor, type ContactSaveStatus } from "./contact-editor";
+import { ReaderScrollHint } from "./reader-scroll-hint";
 import { dcx } from "../_lib/dashboard-class-names";
 import {
   createAutosaveLifecycleGate,
@@ -2006,6 +2007,7 @@ export function ProfileClient({
         )}
         </div>
         <footer className={styles.moduleFooter}>
+          <ReaderScrollHint readerRef={readerRef} question={moduleItems[currentIndex]?.node} />
           <div className={styles.readerProgress}><span>{incompleteTargets.length ? `还有 ${incompleteTargets.length} 题待完善` : '必答项已完成'}</span><button type="button" onClick={() => incompleteTargets.length ? locateIncomplete() : setCompletedSnapshot(questionnaireSnapshot)}>{incompleteTargets.length ? '去补全 →' : '完成问卷'}</button></div>
           <div className={styles.moduleActions}>
             <button className={styles.previousModule} type="button" disabled={currentIndex === 0 && !previousReaderModule} onClick={() => currentIndex > 0 ? openQuestion(activeTab, currentIndex - 1) : previousReaderModule && openQuestion(previousReaderModule.id, Math.max(0, readerItems.filter(item => item.tab === previousReaderModule.id).length - 1))}>{currentIndex === 0 && previousReaderModule ? "← 上一模块" : "← 上一题"}</button>
