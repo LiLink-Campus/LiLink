@@ -32,12 +32,12 @@ const AGE_PREFERENCE_SOFT_BONUS = 6;
 const AGE_PREFERENCE_DECAY_PER_YEAR = 0.25;
 const NORMALIZED_SCORE_MIN = 70;
 const NORMALIZED_SCORE_MAX = 100;
-const PRIORITY_UNMATCHED_STREAK_THRESHOLD = 3;
+const PRIORITY_UNMATCHED_STREAK_THRESHOLD = 2;
 const PRE_PRIORITY_UNMATCHED_STREAK_BONUS = 2;
 // First-cycle boost: a small, lowest-tier nudge so users in their very first
 // opt-in cycle are slightly more likely to be matched, improving the first
 // experience and retention. Lives at the same tier as rawScore — it never
-// overrides the priority, streak, or match-count-maximization tiers. Applied
+// overrides the unmatched-priority, VIP, or matched-user tiers. Applied
 // linearly per first-cycle user on a pair (one new user +N, both new +2N).
 const NEW_OPT_IN_FIRST_CYCLE_BONUS = 6;
 
@@ -45,6 +45,7 @@ export type EligibleParticipant = {
   id: string;
   displayName: string | null;
   questionnaireVersionId: string | null;
+  vipActive: boolean;
   hardMatchAnswers: HardMatchAnswers;
   answers: Record<string, unknown>;
   intent: WeeklyIntent;
@@ -60,7 +61,7 @@ export type CandidatePair = {
 
 type RetentionWeightTiers = {
   priorityUser: number;
-  priorityStreak: number;
+  vipUser: number;
   matchedUser: number;
 };
 
@@ -284,7 +285,6 @@ export class MatchingEngine {
     const retentionWeightTiers = this.buildRetentionWeightTiers(
       participants.length,
       scoreBounds,
-      unmatchedStreaks,
     );
     const candidateByPairKey = new Map<string, CandidatePair>();
     const participantCount = participants.length;
@@ -416,6 +416,8 @@ export class MatchingEngine {
           rawScore: scored.rawScore,
           leftUnmatchedStreak,
           rightUnmatchedStreak,
+          leftIsVip: input.left.vipActive,
+          rightIsVip: input.right.vipActive,
           leftIsFirstCycle: input.firstCycleParticipantIds.has(input.left.id),
           rightIsFirstCycle: input.firstCycleParticipantIds.has(input.right.id),
           tiers: input.retentionWeightTiers,
@@ -441,7 +443,6 @@ export class MatchingEngine {
   private buildRetentionWeightTiers(
     participantCount: number,
     scoreBounds: MatchScoreBounds,
-    unmatchedStreaks: Map<string, number>,
   ): RetentionWeightTiers {
     const maxPairCount = Math.max(1, Math.floor(participantCount / 2));
     const maxPrePriorityBonusTotal =
@@ -461,21 +462,15 @@ export class MatchingEngine {
       maxNewUserBonusTotal;
     const matchedUser = maxCompatibilityTotal + 1;
     const maxMatchedUserTotal = maxPairCount * 2 * matchedUser;
-    const priorityStreak = maxMatchedUserTotal + maxCompatibilityTotal + 1;
-    const maxPriorityStreak = Math.max(
-      0,
-      ...[...unmatchedStreaks.values()].filter(
-        (streak) => streak >= PRIORITY_UNMATCHED_STREAK_THRESHOLD,
-      ),
-    );
-    const maxPriorityStreakTotal =
-      maxPairCount * 2 * maxPriorityStreak * priorityStreak;
+    // Each tier outweighs every lower-tier contribution across the pool.
+    const vipUser = maxMatchedUserTotal + maxCompatibilityTotal + 1;
+    const maxVipUserTotal = maxPairCount * 2 * vipUser;
     const priorityUser =
-      maxPriorityStreakTotal + maxMatchedUserTotal + maxCompatibilityTotal + 1;
+      maxVipUserTotal + maxMatchedUserTotal + maxCompatibilityTotal + 1;
 
     return {
       priorityUser,
-      priorityStreak,
+      vipUser,
       matchedUser,
     };
   }
@@ -484,17 +479,20 @@ export class MatchingEngine {
     rawScore: number;
     leftUnmatchedStreak: number;
     rightUnmatchedStreak: number;
+    leftIsVip: boolean;
+    rightIsVip: boolean;
     leftIsFirstCycle: boolean;
     rightIsFirstCycle: boolean;
     tiers: RetentionWeightTiers;
   }) {
-    const leftPriorityStreak = this.toPriorityStreak(input.leftUnmatchedStreak);
-    const rightPriorityStreak = this.toPriorityStreak(
-      input.rightUnmatchedStreak,
-    );
     const priorityUserCount =
-      (leftPriorityStreak > 0 ? 1 : 0) + (rightPriorityStreak > 0 ? 1 : 0);
-    const priorityStreakTotal = leftPriorityStreak + rightPriorityStreak;
+      (input.leftUnmatchedStreak >= PRIORITY_UNMATCHED_STREAK_THRESHOLD
+        ? 1
+        : 0) +
+      (input.rightUnmatchedStreak >= PRIORITY_UNMATCHED_STREAK_THRESHOLD
+        ? 1
+        : 0);
+    const vipUserCount = (input.leftIsVip ? 1 : 0) + (input.rightIsVip ? 1 : 0);
     const regularStreakTotal =
       this.toRegularStreak(input.leftUnmatchedStreak) +
       this.toRegularStreak(input.rightUnmatchedStreak);
@@ -503,18 +501,12 @@ export class MatchingEngine {
 
     return (
       priorityUserCount * input.tiers.priorityUser +
-      priorityStreakTotal * input.tiers.priorityStreak +
+      vipUserCount * input.tiers.vipUser +
       2 * input.tiers.matchedUser +
       regularStreakTotal * PRE_PRIORITY_UNMATCHED_STREAK_BONUS +
       newOptInCount * NEW_OPT_IN_FIRST_CYCLE_BONUS +
       input.rawScore
     );
-  }
-
-  private toPriorityStreak(unmatchedStreak: number) {
-    return unmatchedStreak >= PRIORITY_UNMATCHED_STREAK_THRESHOLD
-      ? unmatchedStreak
-      : 0;
   }
 
   private toRegularStreak(unmatchedStreak: number) {
