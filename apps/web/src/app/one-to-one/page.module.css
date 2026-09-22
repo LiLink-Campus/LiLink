@@ -34,6 +34,24 @@
 .experienceItems { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 30px; }
 @media (max-width: 700px) { .experienceItems { grid-template-columns: 1fr; gap: 22px; } }
 
+@media (min-width: 701px) {
+  .experience { grid-template-columns: minmax(0, 1fr); gap: 32px; padding: 48px 0; }
+  .experience h2 { margin: 12px 0 0; font-size: clamp(30px, 3vw, 36px); line-height: 1.4; }
+  .experience h2 br { display: none; }
+  .experienceItems { grid-template-columns: minmax(0, 1fr); gap: 0; align-items: stretch; border-top: 1px solid #e6ddd5; }
+  .experienceItems article { display: grid; grid-template-columns: 48px 180px minmax(0, 1fr); gap: 20px; align-items: baseline; padding: 22px 0; border-bottom: 1px solid #e6ddd5; }
+  .experience .number { font-size: 32px; line-height: 1; }
+  .experience h3 { margin: 0; font-size: 20px; }
+  .experienceItems p { margin: 0; }
+}
+
+@media (min-width: 1000px) {
+  .experienceItems { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
+  .experienceItems article { display: block; padding: 24px 0 0; border-bottom: 0; }
+  .experience .number { display: block; }
+  .experience h3 { margin: 20px 0 10px; }
+}
+
 .page { padding-bottom: 24px; }
 .page .faqSection { padding-bottom: clamp(1.75rem, 3.5vw, 3rem); }
 .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; min-height: 0; padding: 36px 0; }

@@ -47,7 +47,7 @@ export default function OneToOnePage() {
     </section>
 
     <section id="participate" className={styles.experience} aria-labelledby="flow-title">
-      <header><span className={styles.eyebrow}>从了解彼此，到认真相遇</span><h2 id="flow-title">简单的五步，<br />让相遇更自然。</h2><p>以下为服务开放后的参与流程。<br />当前仅展示方案，暂不开放登记或付款。</p></header>
+      <header><span className={styles.eyebrow}>从了解彼此，到认真相遇</span><h2 id="flow-title">简单的五步，<br />让相遇更自然。</h2></header>
       <div className={styles.experienceItems}>
         {steps.map(([title,copy], index) => <article key={title}><span className={styles.number}>0{index + 1}</span><h3>{title}</h3><p>{copy}</p></article>)}
       </div>
