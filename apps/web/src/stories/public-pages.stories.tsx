@@ -51,7 +51,7 @@ export const TermsPage: Story = {
   render: () => <Terms />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "用户协议", level: 1 })).toBeVisible();
+    await waitFor(() => expect(canvas.getByRole("heading", { name: "用户协议", level: 1 })).toBeVisible());
     await expect(canvas.queryByRole("navigation", { name: "本页目录" })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("navigation", { name: "协议与政策" })).not.toBeInTheDocument();
     await expect(canvas.queryByText("有疑问，和我们说说")).not.toBeInTheDocument();
