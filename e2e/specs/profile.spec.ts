@@ -27,6 +27,7 @@ test('archived profile basics remain editable without restoring questionnaire co
   const name = page.getByRole('textbox', { name: '昵称', exact: true });
   await expect(name).toHaveValue('自动化同学');
   async function openQuestion(title: string) {
+    await expect(page.getByRole('region', { name: '当前题目' })).toBeVisible();
     const directory = page.getByRole('button', { name: '题目目录', exact: true });
     if (await directory.isVisible()) await directory.click();
     await page.getByRole('button', { name: new RegExp(`关于你第 \\d+ 题：${title}$`) }).filter({ visible: true }).click();
@@ -153,6 +154,7 @@ test('question pickers load on navigation and preserve saved selections @smoke',
   await expect(weight.locator('option')).toHaveCount(2);
 
   async function openQuestion(title: string) {
+    await expect(page.getByRole('region', { name: '当前题目' })).toBeVisible();
     const directory = page.getByRole('button', { name: '题目目录', exact: true });
     if (await directory.isVisible()) await directory.click();
     await page.getByRole('button', { name: new RegExp(`关于你第 \\d+ 题：${title}$`) }).filter({ visible: true }).click();

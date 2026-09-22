@@ -11,6 +11,7 @@ test('lifestyle choices form rows and persist after reload @smoke', async ({ pag
     await visit(page, '/dashboard/profile');
     const q = questions.find((q: { key: string }) => q.key === key);
     const title = key === 'exercise_frequency' ? '锻炼情况' : q.prompt;
+    await expect(page.getByRole('region', { name: '当前题目' })).toBeVisible();
     const directory = page.getByRole('button', { name: '题目目录', exact: true });
     if (await directory.isVisible()) await directory.click();
     await page.getByRole('button', { name: new RegExp(`关于你第 \\d+ 题：${title}$`) }).filter({ visible: true }).click();
@@ -42,6 +43,7 @@ test('four value questions require exactly three selections and keep incomplete 
     const q = questions.find((q: { key: string }) => q.key === key);
     expect(q.selectionLimit).toBe(3);
     await visit(page, '/dashboard/profile');
+    await expect(page.getByRole('region', { name: '当前题目' })).toBeVisible();
     const directory = page.getByRole('button', { name: '题目目录', exact: true });
     if (await directory.isVisible()) await directory.click();
     await page.getByRole('button', { name: new RegExp(`价值观第 \\d+ 题：${q.prompt.replace(/[?？。.]/g, '.')}$`) }).filter({ visible: true }).click();
