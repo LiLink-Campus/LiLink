@@ -29,11 +29,11 @@ export function UserCenter({ initialStatus, initialUser }: { initialStatus: VipS
   const active = status?.active && (!status.expiresAt || Date.parse(status.expiresAt) > Date.now());
   return <div className={styles.page}>
     <header className={styles.heading}><h1>用户中心</h1><p className={styles.desktopOnly}>管理你的账号与权益。</p></header>
-    <section className={styles.identity} aria-label="账号信息">
+    <section className={`${styles.identity} ${active ? styles.identityActive : ""}`} aria-label="账号信息">
       <span className={styles.avatar} aria-hidden="true">{Array.from(name)[0]?.toUpperCase()}</span>
-      <div><h2>{name}</h2><p>{account.email}</p><Link className={styles.desktopOnly} href="/dashboard/profile">编辑匹配资料 →</Link></div>
+      <div><div className={styles.nameRow}><h2>{name}</h2>{active && <span className={styles.vipBadge} aria-label="VIP 会员"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"><path d="m3 7 5 4 4-7 4 7 5-4-2 11H5L3 7Z" /><path d="M6 21h12" /></svg>VIP<span className={styles.sparkle} aria-hidden="true">✦</span></span>}</div><p>{account.email}</p><Link className={styles.desktopOnly} href="/dashboard/profile">编辑匹配资料 →</Link></div>
     </section>
-    <section className={styles.vip} aria-labelledby="center-vip-title">
+    <section className={`${styles.vip} ${active ? styles.vipActive : ""}`} aria-labelledby="center-vip-title">
       <HeartIcon className={styles.decoration} />
       <div className={styles.vipHeading}><h2 id="center-vip-title">VIP 与激活码</h2><span>{!status ? "状态待刷新" : active ? "已开通" : status.expiresAt ? "已到期" : "未开通"}</span></div>
       <p className={styles.filters}>学校 · 身高 · 体重 · 颜值 · 锻炼频率</p>

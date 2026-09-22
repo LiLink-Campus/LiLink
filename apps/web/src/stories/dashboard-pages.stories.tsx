@@ -499,6 +499,7 @@ export const UserCenterFree: Story = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await expect(c.getByRole("heading", { name: "用户中心" })).toBeVisible();
+    await expect(c.queryByLabelText("VIP 会员")).toBeNull();
     await expect(c.getByRole("link", { name: "查看权益与激活" })).toHaveAttribute("href", "/dashboard/vip");
     await expect(c.getByRole("link", { name: /我的邀请/ })).toHaveAttribute("href", "/dashboard/referrals");
     await expect(c.getByRole("link", { name: /我的优惠券/ })).toHaveAttribute("href", "/dashboard/coupons");
@@ -508,7 +509,16 @@ export const UserCenterActive: Story = {
   ...UserCenterFree,
   render: () => <UserCenter initialUser={user} initialStatus={{ ...centerStatus, active: true, activatedAt: "2026-09-17T00:00:00Z", expiresAt: "2099-10-17T00:00:00Z" }} />,
   parameters: { ...route("/dashboard/me"), msw: { handlers: { site: [http.get(`${api}/me/vip`, () => HttpResponse.json({ ...centerStatus, active: true, expiresAt: "2099-10-17T00:00:00Z" })), ...siteHandlers] } } },
-  play: visible("已开通"),
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(c.getByText("已开通", { exact: true })).toBeVisible();
+    await expect(c.getByLabelText("VIP 会员")).toBeVisible();
+    if (window.innerWidth >= 880) {
+      const identity = c.getByRole("region", { name: "账号信息" }).getBoundingClientRect();
+      const vip = c.getByRole("region", { name: "VIP 与激活码" }).getBoundingClientRect();
+      await expect(Math.abs(identity.height - vip.height)).toBeLessThan(1);
+    }
+  },
 };
 export const UserCenterUnavailable: Story = { ...UserCenterFree, render: () => <UserCenter initialUser={user} initialStatus={null} />, play: visible("状态待刷新") };
 export const UserCenterMenu: Story = {

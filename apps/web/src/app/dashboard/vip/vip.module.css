@@ -57,6 +57,20 @@
 .contactMethod p { margin: 8px 0; }
 .contactQr { display: block; width: 160px; height: 160px; margin: 14px auto; }
 .contactDialog form button { width: 100%; }
+.resultDialog { margin: auto; box-sizing: border-box; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 30px 24px 24px; border: 1px solid #e3d6c3; border-radius: 24px; background: var(--color-surface, #fff); color: var(--color-text); text-align: center; box-shadow: 0 20px 70px #38292426; }
+.resultDialog::backdrop { background: #38292480; }
+.resultIcon { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%; background: #f5eee9; color: #805848; font-family: var(--font-display); font-size: 30px; }
+.resultIcon[data-tone="success"] { background: linear-gradient(135deg, #f9ecd0, #efd196); color: #71501f; }
+.resultIcon[data-tone="error"] { background: #fbebe9; color: #a33d39; }
+.resultIcon svg { width: 30px; height: 30px; }
+.resultDialog h2 { margin: 0 0 12px; font-family: var(--font-display); font-size: 26px; font-weight: 500; color: #742c41; }
+.resultDialog > p { color: var(--color-text-muted); font-size: 14px; }
+.resultExpiry { display: grid; gap: 6px; margin-top: 20px; padding: 16px 10px; border-radius: 14px; background: #faf4eb; }
+.resultExpiry p, .resultExpiry small { font-size: 12px; color: #826951; }
+.resultExpiry span { font-size: 13px; color: #785834; }
+.resultExpiry time { font-size: clamp(19px, 5vw, 24px); font-weight: 600; color: #654318; font-variant-numeric: tabular-nums; }
+.resultDialog form { margin-top: 24px; }
+.resultDialog form button { width: 100%; }
 
 .purchase { display: grid; gap: 10px; margin-top: -8px; text-align: center; }
 .purchaseButton { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 48px; border-radius: 12px; background: #e7c68e; color: #4b321e; text-decoration: none; font-weight: 600; padding: 14px 16px; box-shadow: 0 6px 16px #8a64301a; }

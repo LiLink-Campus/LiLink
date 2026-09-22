@@ -3,6 +3,17 @@
 .page h1 { font-family: var(--font-display); font-size: clamp(30px, 5vw, 42px); font-weight: 600; }
 .identity { display: flex; gap: 20px; align-items: center; min-width: 0; }
 .identity > div { min-width: 0; }
+.nameRow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.vipBadge { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 4px 9px; border: 1px solid #c39b55; border-radius: 999px; background: linear-gradient(115deg, #f2d493, #fff1c9 48%, #e9c37e); color: #654318; font-size: 12px; line-height: 1.5; font-weight: 700; letter-spacing: .06em; box-shadow: 0 2px 9px #b2863526; }
+.vipBadge svg { width: 17px; height: 17px; }
+.vipBadge::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 25%, #ffffffb3 50%, transparent 75%); transform: translateX(-130%); animation: vip-shine 5s ease-in-out infinite; pointer-events: none; }
+.sparkle { font-size: 12px; animation: vip-twinkle 3s ease-in-out infinite; }
+.identityActive .avatar { outline: 2px solid #d2ad68; outline-offset: 4px; background: linear-gradient(140deg, #963f58, #742c41); }
+.vip.vipActive { border-color: #c8a36b; }
+.vipActive .vipHeading > span { background: #f5dfb0; color: #684219; }
+@keyframes vip-shine { 0%, 65% { transform: translateX(-130%); } 90%, 100% { transform: translateX(130%); } }
+@keyframes vip-twinkle { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .vipBadge::after, .sparkle { animation: none; } }
 .avatar { width: 72px; height: 72px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: #dc796c; color: white; font-family: var(--font-display); font-size: 32px; }
 .identity h2 { font-family: var(--font-display); font-size: 24px; overflow-wrap: anywhere; }
 .identity p { color: var(--color-text-muted); font-size: 15px; margin-top: 5px; overflow-wrap: anywhere; }
@@ -46,9 +57,10 @@
   .heading h1 { font-size: 40px; }
   .page .heading p { margin-top: 8px; color: var(--color-text-muted); font-size: 15px; }
   .desktopOnly { display: block; }
-  .identity { grid-area: identity; min-height: 180px; padding: 28px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }
+  .identity { grid-area: identity; align-self: stretch; min-height: 180px; padding: 28px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }
+  .identityActive { border-color: #dbc69e; background: linear-gradient(135deg, #fffdf8, #fbf2e5); }
   .identity a { margin-top: 16px; color: var(--color-brand); font-size: 14px; text-decoration: none; }
-  .vip { grid-area: vip; min-height: 180px; padding: 28px; background: #803f53; }
+  .vip { grid-area: vip; align-self: stretch; min-height: 180px; padding: 28px; background: #803f53; }
   .vipHeading { justify-content: flex-start; }
   .vipHeading h2 { font-size: 27px; }
   .vipLink { margin-top: 20px; }

@@ -68,13 +68,22 @@ describe('VIP activation (isolated PostgreSQL)', () => {
     const secret = await code();
     const before = Date.now();
     const result = await vip.activate(id, secret);
+    expect(result.activationOutcome).toBe('ACTIVATED');
+    expect(result.previousExpiresAt).toBeNull();
     expect(result.active).toBe(true);
     expect(result.activatedAt!.getTime()).toBeGreaterThanOrEqual(before);
     expect(result.expiresAt!.getTime() - result.activatedAt!.getTime()).toBe(
       VIP_DURATION_MS,
     );
-    expect(await vip.activate(id, secret)).toEqual(result);
-    expect(await vip.getStatus(id)).toEqual(result);
+    const { activationOutcome, previousExpiresAt, ...status } = result;
+    expect(activationOutcome).toBe('ACTIVATED');
+    expect(previousExpiresAt).toBeNull();
+    expect(await vip.activate(id, secret)).toEqual({
+      ...status,
+      activationOutcome: 'ALREADY_REDEEMED',
+      previousExpiresAt: null,
+    });
+    expect(await vip.getStatus(id)).toEqual(status);
   });
   it('allows only one winner when two accounts redeem the same code', async () => {
     const [a, b, secret] = await Promise.all([user(), user(), code()]);
@@ -85,6 +94,35 @@ describe('VIP activation (isolated PostgreSQL)', () => {
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((r) => r.status === 'rejected')).toHaveLength(1);
   });
+  it('keeps each activation receipt consistent when another code commits before the response', async () => {
+    const [id, firstCode, secondCode] = await Promise.all([
+      user(),
+      code(),
+      code(),
+    ]);
+    const transaction = prisma.$transaction.bind(prisma);
+    const delayedTransaction = jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementationOnce(async (callback) => {
+        const receipt = await transaction(callback);
+        // Let a second redemption finish before delivering the first response.
+        await vip.activate(id, secondCode);
+        return receipt;
+      });
+    try {
+      const receipt = await vip.activate(id, firstCode);
+      const firstGrant = await prisma.vipActivation.findUniqueOrThrow({
+        where: { codeHash: hashVipCode(firstCode) },
+      });
+      expect(receipt.activationOutcome).toBe('ACTIVATED');
+      expect(receipt.expiresAt).toEqual(firstGrant.expiresAt);
+      expect((await vip.getStatus(id)).expiresAt!.getTime()).toBe(
+        receipt.expiresAt!.getTime() + VIP_DURATION_MS,
+      );
+    } finally {
+      delayedTransaction.mockRestore();
+    }
+  });
   it('extends membership for each new code even when redeemed concurrently', async () => {
     const [id, a, b] = await Promise.all([user(), code(), code()]);
     const results = await Promise.allSettled([
@@ -92,6 +130,13 @@ describe('VIP activation (isolated PostgreSQL)', () => {
       vip.activate(id, b),
     ]);
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(2);
+    expect(
+      results
+        .flatMap((r) =>
+          r.status === 'fulfilled' ? [r.value.activationOutcome] : [],
+        )
+        .sort(),
+    ).toEqual(['ACTIVATED', 'EXTENDED']);
     const grants = await prisma.vipActivation.findMany({
       where: { userId: id },
       orderBy: { expiresAt: 'asc' },
@@ -103,7 +148,11 @@ describe('VIP activation (isolated PostgreSQL)', () => {
       grants[1].expiresAt!.getTime() - grants[0].activatedAt!.getTime(),
     ).toBe(2 * VIP_DURATION_MS);
     const beforeRetry = await vip.getStatus(id);
-    expect(await vip.activate(id, a)).toEqual(beforeRetry);
+    expect(await vip.activate(id, a)).toEqual({
+      ...beforeRetry,
+      activationOutcome: 'ALREADY_REDEEMED',
+      previousExpiresAt: null,
+    });
     const unused = await prisma.vipActivation.count({
       where: {
         codeHash: { in: [hashVipCode(a), hashVipCode(b)] },
@@ -124,8 +173,20 @@ describe('VIP activation (isolated PostgreSQL)', () => {
       },
     });
     expect((await vip.getStatus(id)).active).toBe(false);
-    expect((await vip.activate(id, secret)).active).toBe(false);
-    expect((await vip.activate(id, await code())).active).toBe(true);
+    expect(await vip.activate(id, secret)).toMatchObject({
+      active: false,
+      activationOutcome: 'ALREADY_REDEEMED',
+    });
+    const previous = await vip.getStatus(id);
+    const restarted = await vip.activate(id, await code());
+    expect(restarted).toMatchObject({
+      active: true,
+      activationOutcome: 'REACTIVATED',
+      previousExpiresAt: previous.expiresAt,
+    });
+    expect(
+      restarted.expiresAt!.getTime() - restarted.activatedAt!.getTime(),
+    ).toBe(VIP_DURATION_MS);
   });
   it('revocation blocks unused codes and immediately removes active membership', async () => {
     const id = await user();
@@ -211,7 +272,7 @@ describe('VIP activation (isolated PostgreSQL)', () => {
     });
     const current = await vip.activate(id, b);
     await revokeVipCodes(prisma, { batch, hashes: [hashVipCode(a)] });
-    expect(await vip.getStatus(id)).toEqual(current);
+    expect(current).toMatchObject(await vip.getStatus(id));
   });
 
   it('serializes renewal and revocation for the same account', async () => {

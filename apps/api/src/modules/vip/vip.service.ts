@@ -8,6 +8,11 @@ import { createHash } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export const VIP_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+export type VipActivationOutcome =
+  | 'ACTIVATED'
+  | 'EXTENDED'
+  | 'REACTIVATED'
+  | 'ALREADY_REDEEMED';
 
 export function hashVipCode(input: string) {
   const code = input.trim().replace(/[\s-]/g, '').toUpperCase();
@@ -21,8 +26,11 @@ export function hashVipCode(input: string) {
 export class VipService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getStatus(userId: string) {
-    const grant = await this.prisma.vipActivation.findFirst({
+  async getStatus(
+    userId: string,
+    db: Pick<PrismaService, 'vipActivation'> = this.prisma,
+  ) {
+    const grant = await db.vipActivation.findFirst({
       where: { userId, revokedAt: null },
       orderBy: { expiresAt: 'desc' },
       select: { activatedAt: true, expiresAt: true },
@@ -41,7 +49,7 @@ export class VipService {
 
   async activate(userId: string, input: string) {
     const codeHash = hashVipCode(input);
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       // Serialize activation for this account, including different codes.
       await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
       const user = await tx.user.findUnique({
@@ -56,15 +64,22 @@ export class VipService {
         throw new BadRequestException(
           '激活码无效或已停用，请核对订单或联系客服。',
         );
-      if (code.userId === userId) return;
+      if (code.userId === userId)
+        return {
+          ...(await this.getStatus(userId, tx)),
+          activationOutcome: 'ALREADY_REDEEMED' as VipActivationOutcome,
+          previousExpiresAt: null,
+        };
       if (code.userId)
         throw new ConflictException('此激活码已被使用，请勿重复兑换。');
       const now = new Date();
       const current = await tx.vipActivation.findFirst({
-        where: { userId, revokedAt: null, expiresAt: { gt: now } },
+        where: { userId, revokedAt: null },
         orderBy: { expiresAt: 'desc' },
       });
-      const startsAt = current?.expiresAt ?? now;
+      const previousExpiresAt = current?.expiresAt ?? null;
+      const extending = previousExpiresAt && previousExpiresAt > now;
+      const startsAt = extending ? previousExpiresAt : now;
       const claimed = await tx.vipActivation.updateMany({
         where: { id: code.id, userId: null, revokedAt: null },
         data: {
@@ -82,7 +97,15 @@ export class VipService {
           metadata: { activationId: code.id, durationDays: 30 },
         },
       });
+      return {
+        ...(await this.getStatus(userId, tx)),
+        activationOutcome: (extending
+          ? 'EXTENDED'
+          : previousExpiresAt
+            ? 'REACTIVATED'
+            : 'ACTIVATED') as VipActivationOutcome,
+        previousExpiresAt,
+      };
     });
-    return this.getStatus(userId);
   }
 }
