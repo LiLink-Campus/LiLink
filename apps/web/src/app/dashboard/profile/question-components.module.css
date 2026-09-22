@@ -5,6 +5,7 @@
 .choice:has(input:checked) { color: #8d3650; border-color: #d7a4b5; background: #f9e7ed; }
 .choice:has(input:focus-visible) { outline: 2px solid #8d3650; outline-offset: 2px; }
 .choice:has(input:disabled) { opacity: .5; cursor: default; }
+.choice[data-minimum-selection]:has(input:disabled) { opacity: 1; }
 
 .scale { width: 100%; min-width: 0; }
 .scaleValue { font-size: 12px; line-height: 1.5; color: #8d3650; text-align: right; }

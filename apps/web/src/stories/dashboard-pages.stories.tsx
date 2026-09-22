@@ -446,6 +446,10 @@ export const ProfilePremiumActive: Story = {
 
     await jumpQuestion(canvasElement, "希望对方锻炼频率");
     const exercise = within(c.getByRole("group", { name: "希望对方锻炼频率" }));
+    await expect(exercise.queryByRole("checkbox", { name: "不限" })).toBeNull();
+    await expect(exercise.getByRole("checkbox", { name: "每周 3–4 次" })).toBeChecked();
+    await userEvent.click(exercise.getByText("每周 3–4 次", { exact: true }));
+    await expect(exercise.getByRole("checkbox", { name: "每周 3–4 次" })).not.toBeChecked();
     await userEvent.click(exercise.getByText("每周 3–4 次", { exact: true }));
     await expect(exercise.getByRole("checkbox", { name: "每周 3–4 次" })).toBeChecked();
     await expect(c.queryByRole("dialog")).toBeNull();
@@ -631,24 +635,56 @@ export const ProfilePartnerLifestyle: Story = {
     const c = within(canvasElement);
     await jumpQuestion(canvasElement, "希望对方吸烟情况");
     const smoking = within(c.getByRole("group", { name: "希望对方吸烟情况" }));
-    await expect(smoking.getByRole("checkbox", { name: "不限" })).toBeChecked();
-    await userEvent.click(smoking.getByText("不吸烟", { exact: true }));
-    await userEvent.click(smoking.getByText("偶尔吸烟", { exact: true }));
+    await expect(smoking.queryByRole("checkbox", { name: "不限" })).toBeNull();
+    for (const input of smoking.getAllByRole("checkbox")) await expect(input).toBeChecked();
+    await userEvent.click(smoking.getByText("经常吸烟", { exact: true }));
+    await userEvent.click(smoking.getByText("每天吸烟", { exact: true }));
     await expect(smoking.getByRole("checkbox", { name: "不吸烟" })).toBeChecked();
     await expect(smoking.getByRole("checkbox", { name: "偶尔吸烟" })).toBeChecked();
-    await expect(smoking.getByRole("checkbox", { name: "不限" })).not.toBeChecked();
+    await expect(smoking.getByRole("checkbox", { name: "经常吸烟" })).not.toBeChecked();
+    await expect(smoking.getByRole("checkbox", { name: "每天吸烟" })).not.toBeChecked();
     await expect(c.queryByRole("dialog")).toBeNull();
     await jumpQuestion(canvasElement, "希望对方饮酒频率");
-    await userEvent.click(within(c.getByRole("group", { name: "希望对方饮酒频率" })).getByText("不饮酒", { exact: true }));
+    const drinking = within(c.getByRole("group", { name: "希望对方饮酒频率" }));
+    await expect(drinking.queryByRole("checkbox", { name: "不限" })).toBeNull();
+    for (const input of drinking.getAllByRole("checkbox")) await expect(input).toBeChecked();
+    await userEvent.click(drinking.getByText("不饮酒", { exact: true }));
+    await expect(drinking.getByRole("checkbox", { name: "不饮酒" })).not.toBeChecked();
     await expect(c.queryByRole("dialog")).toBeNull();
     await jumpQuestion(canvasElement, "希望对方锻炼频率");
-    await userEvent.click(within(c.getByRole("group", { name: "希望对方锻炼频率" })).getByText("每周 3–4 次", { exact: true }));
+    const exercise = within(c.getByRole("group", { name: "希望对方锻炼频率" }));
+    await expect(exercise.queryByRole("checkbox", { name: "不限" })).toBeNull();
+    await userEvent.click(exercise.getByText("每周 3–4 次", { exact: true }));
     await expect(c.getByRole("dialog", { name: "开通 VIP，设置高级筛选" })).toBeVisible();
     await userEvent.click(c.getByRole("button", { name: "暂不开通，继续填写" }));
+    for (const input of exercise.getAllByRole("checkbox")) await expect(input).toBeChecked();
     await jumpQuestion(canvasElement, "希望对方的颜值");
     await expect(c.getByRole("slider", { name: "对方颜值最低分" })).toHaveAttribute("aria-valuetext", "1分及以上");
     await jumpQuestion(canvasElement, "希望对方吸烟情况");
     await expect(within(c.getByRole("group", { name: "希望对方吸烟情况" })).getByRole("checkbox", { name: "不吸烟" })).toBeChecked();
+  },
+};
+
+export const ProfilePartnerLifestyleSaved: Story = {
+  ...Profile,
+  parameters: ProfileLifestyle.parameters,
+  render: () => <ProfileClient {...profileProps} initialSavedQuestionnaire={{
+    ...savedProfile,
+    answers: { ...savedProfile.answers, hard_partner_smoking_status: ["不吸烟"], hard_partner_drinking_frequency: ["不饮酒"], hard_partner_exercise_frequency: [] },
+  }} />,
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    for (const [title, answer] of [["希望对方吸烟情况", "不吸烟"], ["希望对方饮酒频率", "不饮酒"]]) {
+      await jumpQuestion(canvasElement, title);
+      const group = within(c.getByRole("group", { name: title }));
+      await expect(group.getByRole("checkbox", { name: answer })).toBeChecked();
+      await expect(group.getAllByRole("checkbox").filter(input => (input as HTMLInputElement).checked)).toHaveLength(1);
+      await expect(group.queryByRole("checkbox", { name: "不限" })).toBeNull();
+    }
+    await jumpQuestion(canvasElement, "希望对方锻炼频率");
+    for (const input of within(c.getByRole("group", { name: "希望对方锻炼频率" })).getAllByRole("checkbox")) await expect(input).toBeChecked();
+    await expect(c.getByLabelText("问卷保存状态")).not.toHaveTextContent("正在保存");
+    await jumpQuestion(canvasElement, "希望对方吸烟情况");
   },
 };
 
