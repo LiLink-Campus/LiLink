@@ -27,3 +27,13 @@ These rules extend the root `AGENTS.md` for the Next.js application.
 - Run repeatable end-to-end flows with Node.js and Playwright Test through `npm run test:e2e:web` or the scoped commands in `docs/e2e-testing.md`. Do not replay these flows with an AI browser agent.
 - Keep the in-app browser for targeted visual review of new or changed UI. Automated Chromium/WebKit runs provide functional regression and screenshot evidence; report engine coverage accurately.
 - Never point browser E2E fixtures at existing developer or production databases. Use the runner's disposable services and synthetic accounts. Do not automatically approve screenshot differences or hide flaky tests with retries.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

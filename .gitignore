@@ -85,6 +85,10 @@ marketing/
 /公司架构/
 /交接文档/
 
+# Local reference websites
+/campusdate/
+/datedrop/
+
 # Private operational archives (local only; never publish).
 /运维笔记.md
 /docs/archive/2026-04-05-testing-operations.md

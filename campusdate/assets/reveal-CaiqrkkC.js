@@ -1,1 +1,0 @@
-const r=new IntersectionObserver(e=>{e.forEach(s=>{s.isIntersecting&&(s.target.classList.add("revealed"),r.unobserve(s.target))})},{threshold:.1,rootMargin:"0px 0px -60px 0px"}),t={mounted(e,s){e.classList.add("reveal"),s.value&&(e.style.transitionDelay=s.value),r.observe(e)},unmounted(e){r.unobserve(e)}};export{t as v};

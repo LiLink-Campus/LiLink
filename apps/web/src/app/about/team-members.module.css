@@ -1,9 +1,11 @@
-.team { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 2rem; }
+.team { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 2rem; }
 .member { text-align: center; background: var(--color-canvas); }
-.avatar { display: grid; place-content: center; width: 112px; height: 112px; margin: 0 auto 1rem; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-ink); font-size: 12px; line-height: 1.6; }
+.avatar { object-fit: cover; object-position: center; display: grid; place-content: center; width: 112px; height: 112px; margin: 0 auto 1rem; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-ink); font-size: 12px; line-height: 1.6; }
 .avatarImage { object-fit: contain; border-radius: 0; background: transparent; mix-blend-mode: multiply; }
 .member h3 { margin: 0; font-size: 1rem; font-weight: 600; }
 .role { margin: 0.4rem 0 0; color: var(--color-text-muted); font-size: 0.75rem; line-height: 1.6; }
 .link { display: inline-block; margin-top: 12px; padding: 8px 4px; color: var(--color-brand-ink); font-size: 13px; text-underline-offset: 5px; }
 .link:hover { text-decoration: underline; }
 @media (max-width: 640px) { .avatar { width: 72px; height: 72px; font-size: 10px; } .role { font-size: 11px; } }
+
+@media (max-width: 640px) { .team { gap: 10px; } .member { min-width: 0; } .member h3 { font-size: 13px; overflow-wrap: anywhere; min-height: 40px; display: grid; align-content: center; } .role { min-height: 36px; } }

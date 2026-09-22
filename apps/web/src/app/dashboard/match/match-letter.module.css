@@ -7,9 +7,8 @@
 .envelope { color: #89354f; font-family: serif; font-size: 28px; line-height: 1; }
 .letterHeading p { margin: 0; color: #978b80; font: 14px/1.7 "Kaiti SC", "STKaiti", serif; letter-spacing: 2px; }
 .letter { padding: 28px 24px 0; overflow: hidden; border: 1px solid #e6ded7; border-radius: 24px; box-shadow: 0 3px 14px rgb(70 45 35 / 3%); background: #fdfbf9; }
-.nameRow { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; min-height: 102px; margin-bottom: 15px; }
-.nameRow h2 { position: relative; min-width: 0; margin: 0; color: #89354f; font: 400 68px/1.25 var(--font-match-name), "Kaiti SC", cursive; font-synthesis: none; overflow-wrap: anywhere; }
-.nameRow h2::after { content: ''; position: absolute; width: 76px; height: 1px; background: #dab8c2; bottom: -3px; left: 80%; transform: rotate(-13deg); }
+.nameRow { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+.nameRow h2 { position: relative; min-width: 0; margin: 0; color: #89354f; flex: 1; font: 600 28px/1.5 var(--font-body); overflow-wrap: anywhere; }
 .englishNote { flex-shrink: 0; padding-top: 7px; transform: rotate(-13deg); font: italic 23px/1.05 "Snell Roundhand", "Brush Script MT", cursive; color: #c1b9b1; text-align: right; }
 .introduction { padding: 12px 0 28px; font-size: 16px; line-height: 1.9; color: #534940; }
 .introduction p { margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
@@ -37,9 +36,9 @@
   .header h1 { font-size: 27px; }
   .header a { min-width: 142px; padding-inline: 20px; font-size: 13px; }
   .letter { padding: 24px 20px 0; }
-  .nameRow { min-height: 87px; }
-  .nameRow h2 { font-size: 60px; }
-  .englishNote { font-size: 20px; }
+  .nameRow { flex-direction: column-reverse; gap: 12px; }
+  .nameRow h2 { width: 100%; font-size: 23px; }
+  .englishNote { align-self: flex-end; font-size: 18px; }
   .introduction { font-size: 15px; }
   .facts { gap: 18px 20px; }
   .facts > div { gap: 10px; font-size: 13px; }

@@ -45,6 +45,7 @@ services:
     ports:
       - "127.0.0.1:4000:4000"
     volumes:
+      - ./apps/api/nest-cli.json:/app/apps/api/nest-cli.json:ro
       - ./apps/api/prisma:/app/apps/api/prisma
       - ./apps/api/scripts:/app/apps/api/scripts
       - ./apps/api/src:/app/apps/api/src

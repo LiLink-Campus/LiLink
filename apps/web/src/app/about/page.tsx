@@ -1,22 +1,24 @@
+import { ImageReadyPage } from "../_components/ImageReadyPage";
 import TeamMembers from "./team-members";
 import styles from "./about.module.css";
 
 export default function AboutPage() {
   return (
-    <main className={styles.page}>
+    <ImageReadyPage className={styles.page} background="/images/about/watercolor-atlas.png">
+      <link rel="preload" as="image" href="/images/about/watercolor-atlas.png" fetchPriority="high" />
       <div className={styles.inner}>
         <header className={styles.masthead}>
           <div className={styles.campusArt} aria-hidden="true" />
           <div className={styles.intro}>
             <h1>关于 LiLink</h1>
             <p className={styles.meta}>
-              校园里的，认真相遇。我们是一个由两位伙伴共同建设的小团队，
+              校园里的，认真相遇。我们是一个由几位伙伴共同建设的小团队，
               希望用一份认真填写的问卷，为熟悉的校园生活带来新的相识。
               从第一次了解，到愿意走近彼此，让每一份期待都有被认真对待的机会。
             </p>
             <p className={styles.mobileIntro}>
               校园里的，认真相遇。<br />
-              两位伙伴，一份共同的期待。<br />
+              几位伙伴，一份共同的期待。<br />
               让认真相识的机会，走进日常校园。
             </p>
           </div>
@@ -68,6 +70,6 @@ export default function AboutPage() {
           </dl>
         </section>
       </div>
-    </main>
+    </ImageReadyPage>
   );
 }

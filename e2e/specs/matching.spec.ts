@@ -1,4 +1,4 @@
-import { test, expect, api, visit, completeProfile } from '../support/fixtures';
+import { test, expect, visit, completeProfile } from '../support/fixtures';
 
 test.beforeEach(async ({ signedIn }) => { void signedIn; });
 
@@ -19,7 +19,7 @@ test('join, reload, withdraw from current cycle @smoke', async ({ page, context,
   expect(await db.cycleParticipation.count({ where: { userId: account.id, status: 'OPTED_IN' } })).toBe(0);
 });
 
-test('published match reveals the correct partner and survives reload @smoke', async ({ page, db, account }) => {
+test('published match can be opened, collapsed, and reopened after reload @smoke', async ({ page, db, account }) => {
   const peer = await db.user.create({ data: { email: `peer-${account.email}`, displayName: '匹配对象小林', passwordHash: 'unusable', status: 'ACTIVE', schoolId: (await db.school.findUniqueOrThrow({ where: { slug: 'e2e-school' } })).id } });
   const cycle = await db.matchCycle.create({ data: {
     codename: `result-${account.id}`, status: 'REVEALED', participationDeadline: new Date(Date.now() - 120_000), revealAt: new Date(Date.now() - 60_000),
@@ -28,11 +28,22 @@ test('published match reveals the correct partner and survives reload @smoke', a
   try {
     await db.match.create({ data: { cycleId: cycle.id, score: 88, revealedAt: new Date(), introducedAt: new Date(), participants: { create: [account, peer].map((user, position) => ({ userId: user.id, cycleId: cycle.id, position })) } } });
     await visit(page, '/dashboard/match');
-    await page.getByRole('button', { name: '打开来信，查看本轮匹配', exact: true }).click();
-    await expect(page.getByRole('main').getByRole('heading', { name: '匹配对象小林', level: 2, exact: true })).toBeVisible();
+    const openResult = page.getByRole('button', { name: '查看上一轮结果 →', exact: true });
+    const partner = page.getByRole('main').getByRole('heading', { name: '匹配对象小林', level: 2, exact: true });
+    await expect(openResult).toBeVisible();
+    await expect(partner).toHaveCount(0);
+    await openResult.click();
+    await expect(partner).toBeVisible();
+    await page.getByRole('button', { name: '← 收起来信', exact: true }).click();
+    await expect(openResult).toBeVisible();
+    await expect(partner).toHaveCount(0);
+    await openResult.click();
+    await expect(partner).toBeVisible();
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('main').getByRole('heading', { name: '匹配对象小林', level: 2, exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: '打开来信，查看本轮匹配', exact: true })).toHaveCount(0);
+    await expect(openResult).toBeVisible();
+    await expect(partner).toHaveCount(0);
+    await openResult.click();
+    await expect(partner).toBeVisible();
   } finally { await db.matchCycle.delete({ where: { id: cycle.id } }); }
 });
 
@@ -58,15 +69,15 @@ test('unmatched published cycle shows a clear result instead of an empty page', 
   } });
   try {
     await visit(page, '/dashboard/match');
-    await expect(page.getByRole('heading', { name: '本轮未匹配到对象', exact: true })).toBeVisible();
-    const action = page.getByRole('link', { name: '去完善匹配资料', exact: true });
+    await expect(page.getByRole('heading', { name: '合拍的人，值得再等一等', exact: true })).toBeVisible();
+    const action = page.getByRole('link', { name: '去完善匹配资料 →', exact: true });
     await expect(action).toBeVisible();
     await action.scrollIntoViewIfNeeded();
     await expect(action).toBeInViewport({ ratio: 1 });
     if (!isMobile) {
       for (const width of [879, 880, 1280]) {
         await page.setViewportSize({ width, height: 720 });
-        await action.scrollIntoViewIfNeeded();
+        await action.evaluate(link => link.scrollIntoView({ block: 'center' }));
         await expect(action).toBeInViewport({ ratio: 1 });
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.screenshot({ path: testInfo.outputPath(`unmatched-${width}.png`), fullPage: true });

@@ -1,0 +1,9 @@
+ALTER TABLE "MatchLead" ALTER COLUMN "phone" DROP NOT NULL,
+ADD COLUMN "userId" TEXT,
+ADD COLUMN "realName" TEXT,
+ADD COLUMN "school" TEXT,
+ADD COLUMN "major" TEXT,
+ADD COLUMN "contact" TEXT,
+ADD COLUMN "consentAt" TIMESTAMP(3);
+CREATE UNIQUE INDEX "MatchLead_userId_key" ON "MatchLead"("userId");
+ALTER TABLE "MatchLead" ADD CONSTRAINT "MatchLead_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

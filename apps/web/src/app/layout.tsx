@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
-import { INSTALL_CAPTURE_SCRIPT } from "../lib/pwa-install-state";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { resolveApiOriginForPreconnect } from "../lib/public-server-api";
@@ -57,7 +55,6 @@ export default async function RootLayout({
         ) : null}
       </head>
       <body>
-        <Script id="pwa-install-capture" strategy="beforeInteractive">{INSTALL_CAPTURE_SCRIPT}</Script>
         <AuthSessionProvider>
           <PwaInstallProvider><PublicChrome>{children}</PublicChrome></PwaInstallProvider>
         </AuthSessionProvider>

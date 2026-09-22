@@ -8,7 +8,7 @@ import { cx } from "../admin-class-names";
 import commonStyles from "../admin-common.module.css";
 import styles from "./page.module.css";
 
-type Lead = { id: string; phone: string; contacted: boolean; createdAt: string };
+type Lead = { id: string; phone: string | null; realName?: string | null; school?: string | null; major?: string | null; contact?: string | null; user?: { id: string; email: string; displayName: string | null } | null; contacted: boolean; createdAt: string };
 
 export default function MatchLeadsPage() {
   const { authenticated } = useAdmin();
@@ -92,7 +92,7 @@ export default function MatchLeadsPage() {
             <table className={cx(commonStyles, "admin-table")}>
               <thead>
                 <tr>
-                  <th>手机号</th>
+                  <th>对应账号</th><th>真实姓名</th><th>学校 / 专业</th><th>联系方式</th>
                   <th>登记时间</th>
                   <th>联系状态</th>
                   <th>操作</th>
@@ -101,11 +101,10 @@ export default function MatchLeadsPage() {
               <tbody>
                 {leads.map((lead) => (
                   <tr key={lead.id}>
-                    <td>
-                      <a className={styles.phone} href={`tel:${lead.phone}`}>
-                        {lead.phone}
-                      </a>
-                    </td>
+                    <td>{lead.user ? <><div>{lead.user.email}</div><small>账号 ID：{lead.user.id}</small></> : "历史登记（未关联账号）"}</td>
+                    <td>{lead.realName || "—"}</td>
+                    <td><div>{lead.school || "—"}</div><small>{lead.major || "—"}</small></td>
+                    <td>{lead.contact || lead.phone || "—"}</td>
                     <td>{new Date(lead.createdAt).toLocaleString("zh-CN")}</td>
                     <td>
                       <span className={styles.badge} data-contacted={lead.contacted}>

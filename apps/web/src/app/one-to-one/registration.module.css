@@ -1,0 +1,22 @@
+.entry { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 16px; width: 100%; }
+.entry strong { color: var(--color-brand); font-size: 18px; }
+.entry p { margin: 6px 0 0; font-size: 14px; color: var(--color-text-secondary); line-height: 1.7; }
+.entry button, .dialog button[type='submit'], .dialog > div > button, .dialog a { padding: 12px 20px; border: 0; border-radius: 10px; background: #89354f; color: white; font: inherit; cursor: pointer; }
+.dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); margin: auto; padding: 24px; border: 1px solid #ded5cd; border-radius: 18px; background: #faf8f5; color: #392e2a; overflow-y: auto; }
+.dialog::backdrop { background: #30262266; }
+.dialog header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.dialog h2 { margin: 0; font-size: 22px; }
+.dialog header button { width: 36px; height: 36px; background: transparent; border: 0; font-size: 28px; cursor: pointer; }
+.dialog p { font-size: 14px; line-height: 1.7; }
+.dialog fieldset { display: grid; gap: 14px; border: 0; padding: 0; margin: 20px 0; }
+.dialog label { display: grid; gap: 6px; font-size: 14px; }
+.dialog input:not([type='checkbox']) { width: 100%; min-width: 0; padding: 11px; border: 1px solid #d9cec7; border-radius: 8px; background: white; font: inherit; font-size: 16px; }
+.dialog .consent { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.7; }
+.dialog button:disabled { opacity: .6; cursor: wait; }
+.dialog [role='alert'] { color: #a52945; }
+
+.entry > div { flex: 0 1 auto; min-width: 0; }
+.entry > button { flex: none; white-space: nowrap; padding: 12px 16px; font-size: 14px; }
+@media (max-width: 480px) { .entry { gap: 12px; } .entry strong { font-size: 16px; } .entry p { font-size: 12px; } .entry > button { padding: 11px 12px; font-size: 13px; } }
+
+.sticky { position: fixed; left: 0; right: 0; z-index: 50; padding: 12px 20px; border-bottom: 1px solid #ded4cb; background: #faf8f4; box-shadow: 0 4px 14px #392e2a0d; }

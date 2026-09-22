@@ -90,14 +90,14 @@ export const MatchedNotIntroduced = {
   ...fixtureStory("matchedNotIntroduced"),
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await expect(c.getByRole("heading", { name: /本轮未匹配到对象|这一次，暂未遇到合适的同学/ })).toBeVisible();
+    await expect(c.getByRole("heading", { name: /合拍的人，值得再等一等/ })).toBeVisible();
     await expect(c.queryByRole("button", { name: /^复制/ })).not.toBeInTheDocument();
   },
 } satisfies Story;
 
 async function checkUnintroducedContact(canvasElement: HTMLElement) {
   const c = within(canvasElement);
-  await expect(c.getByRole("heading", { name: /本轮未匹配到对象|这一次，暂未遇到合适的同学/ })).toBeVisible();
+  await expect(c.getByRole("heading", { name: /合拍的人，值得再等一等/ })).toBeVisible();
   await expect(c.queryByText("陈一诺")).not.toBeInTheDocument();
   await expect(c.queryByRole("button", { name: "打开来信，查看本轮匹配" })).not.toBeInTheDocument();
   await expect(c.queryByRole("button", { name: /举报/ })).not.toBeInTheDocument();
@@ -156,6 +156,7 @@ export const IntroducedEmailFallback = {
   ...fixtureStory("introducedEmailFallback"),
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByRole("button", { name: "查看上一轮结果 →" }));
     await expect(await c.findByText("yinuo@example.edu.cn")).toBeVisible();
     await userEvent.click(c.getByRole("button", { name: "复制联络邮箱" }));
     await expect(await c.findByText(/已复制|复制失败，请长按联系方式复制/)).toBeVisible();
@@ -167,6 +168,7 @@ export const IntroducedContactUnavailable = {
   ...fixtureStory("introducedContactUnavailable"),
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByRole("button", { name: "查看上一轮结果 →" }));
     await expect(await c.findByText("对方暂无可公开的联系方式。")).toBeVisible();
     await expect(c.queryByRole("button", { name: /^复制/ })).not.toBeInTheDocument();
   },
@@ -207,6 +209,7 @@ export const CopyContact = {
   },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByRole("button", { name: "查看上一轮结果 →" }));
     await userEvent.click(await c.findByRole("button", { name: "复制微信号" }));
     await expect(await c.findByText(/已复制|复制失败，请长按联系方式复制/)).toBeVisible();
     await expect(copyEvents).toHaveLength(0);
@@ -244,8 +247,6 @@ export const DesktopWithHistory = {
     const history = canvas.getByRole("complementary", { name: "过往匹配" });
     await expect(history).toBeVisible();
     await expect(within(history).getAllByRole("listitem")).toHaveLength(3);
-    const current = canvas.getByRole("heading", { name: "本轮匹配" }).parentElement!.parentElement!;
-    await expect(Math.abs(history.getBoundingClientRect().height - current.getBoundingClientRect().height)).toBeLessThan(1);
     await expect(canvas.getByRole("heading", { name: "我的匹配", level: 1 })).toBeVisible();
     const initialHeight = history.getBoundingClientRect().height;
     const details = within(history).getByRole("button", { name: "查看详情" });
@@ -255,8 +256,7 @@ export const DesktopWithHistory = {
     await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() => expect(details).toHaveFocus());
     await expect(Math.abs(history.getBoundingClientRect().height - initialHeight)).toBeLessThan(1);
-    await expect(Math.abs(current.getBoundingClientRect().height - initialHeight)).toBeLessThan(1);
-    await expect(canvas.getByRole("link", { name: "过往匹配记录", hidden: true })).not.toBeVisible();
+    await expect(canvas.getByText("过往记录 →")).not.toBeVisible();
   },
 } satisfies Story;
 
@@ -271,7 +271,7 @@ async function checkWaitingAction(canvasElement: HTMLElement, heading: string, l
 export const LastRoundUnmatchedDesktop: Story = {
   ...fixtureStory("lastRoundUnmatched"),
   globals: { viewport: { value: "desktop1280" } },
-  play: ({ canvasElement }) => checkWaitingAction(canvasElement, "本轮未匹配到对象", "去完善匹配资料", "/dashboard/profile"),
+  play: async ({ canvasElement }) => { await expect(within(canvasElement).getByRole("heading", { name: "合拍的人，值得再等一等" })).toBeVisible(); },
 };
 
 export const MissingIntentDesktop: Story = {
@@ -284,7 +284,7 @@ export const MissingIntentDesktop: Story = {
     },
   },
   globals: { viewport: { value: "desktop1280" } },
-  play: ({ canvasElement }) => checkWaitingAction(canvasElement, "待选择本周意向", "返回首页选择", "/dashboard"),
+  play: async ({ canvasElement }) => { await expect(within(canvasElement).getByRole("button", { name: "确认参与本轮" })).toBeVisible(); },
 };
 
 export const MissingIntentMobile: Story = {
@@ -303,7 +303,7 @@ export const IncompleteProfileDesktop: Story = {
     },
   },
   globals: { viewport: { value: "desktop1280" } },
-  play: ({ canvasElement }) => checkWaitingAction(canvasElement, "还没有匹配结果", "去完善匹配资料", "/dashboard/profile"),
+  play: ({ canvasElement }) => checkWaitingAction(canvasElement, "下一封来信，值得期待", "去完善匹配资料 →", "/dashboard/profile"),
 };
 
 export const IncompleteProfileMobile: Story = {
@@ -320,5 +320,5 @@ export const LockedMissingIntentDesktop: Story = {
       currentCycle: { ...MissingIntentDesktop.args!.initialDashboard!.currentCycle!, status: "PREPARING" },
     },
   },
-  play: ({ canvasElement }) => checkWaitingAction(canvasElement, "本轮已锁定", "去完善匹配资料", "/dashboard/profile"),
+  play: async ({ canvasElement }) => { const c = within(canvasElement); await expect(c.getByText("本轮报名已截止")).toBeVisible(); await expect(c.queryByRole("button", { name: "确认参与本轮" })).not.toBeInTheDocument(); },
 };

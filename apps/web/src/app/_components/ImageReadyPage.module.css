@@ -1,0 +1,18 @@
+.page[data-image-ready="false"] {
+  position: relative;
+  animation: none;
+}
+
+.page[data-image-ready="false"] > :not(.loading) {
+  visibility: hidden;
+}
+
+.loading {
+  position: absolute;
+  top: 30vh;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}

@@ -22,21 +22,19 @@ export function getInstallState(): InstallState {
 
 export const INSTALL_READY_WAIT_MS = 2000;
 
-// Static first-party code executed before hydration, without an extra request.
-export const INSTALL_CAPTURE_SCRIPT = `// Capture install eligibility before React hydrates, and retain it across routes.
-(function () {
+// Called by client instrumentation before React hydrates.
+export function initializeInstallCapture() {
   if (window.__lilinkInstallCaptureReady) return;
   window.__lilinkInstallCaptureReady = true;
-  var state = window.__lilinkInstallState || { event: null, installed: false, prompting: false };
-  window.__lilinkInstallState = state;
-  window.addEventListener("beforeinstallprompt", function (event) {
-    if (typeof event.prompt !== "function" || !event.userChoice) return;
+  const state = getInstallState();
+  window.addEventListener("beforeinstallprompt", (event) => {
+    const installEvent = event as InstallEvent;
+    if (typeof installEvent.prompt !== "function" || !installEvent.userChoice) return;
     event.preventDefault();
-    if (!state.installed) state.event = event;
+    if (!state.installed) state.event = installEvent;
   });
-  window.addEventListener("appinstalled", function () {
+  window.addEventListener("appinstalled", () => {
     state.event = null;
     state.installed = true;
   });
-})();
-`;
+}

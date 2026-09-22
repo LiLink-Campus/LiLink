@@ -2,6 +2,8 @@
 // The added config here will be used whenever a users loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
+import { initializeInstallCapture } from "./lib/pwa-install-state";
+
 import * as Sentry from "@sentry/nextjs";
 import {
   sentryDsn,
@@ -10,6 +12,8 @@ import {
   sentryTracesSampleRate,
   shouldDropInjectedAddEventListenerTagNameError,
 } from "./lib/sentry-config";
+
+initializeInstallCapture();
 
 Sentry.init({
   dsn: sentryDsn || undefined,

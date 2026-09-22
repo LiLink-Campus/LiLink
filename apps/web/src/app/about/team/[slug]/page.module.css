@@ -6,7 +6,7 @@
 .avatar { flex-shrink: 0; }
 .placeholder { width: 112px; height: 112px; flex-shrink: 0; }
 .avatar { object-fit: contain; border-radius: 0; background: transparent; mix-blend-mode: multiply; }
-.photo { object-fit: cover; border-radius: 50%; mix-blend-mode: normal; }
+.photo { width: 112px; height: 112px; object-fit: cover; border-radius: 50%; mix-blend-mode: normal; }
 .placeholder { display: grid; place-content: center; border-radius: 50%; background: var(--color-brand-tint); color: var(--color-brand-ink); font-size: 12px; text-align: center; }
 .socials { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 28px; font-size: 14px; color: var(--color-brand-ink); }
 .socials a { text-underline-offset: 5px; }
@@ -44,3 +44,8 @@
 @media (max-width: 640px) {
   .socials.founderSocials { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; align-items: start; }
 }
+
+.header > div { min-width: 0; }
+.header h1 { overflow-wrap: anywhere; }
+
+.introText p { word-break: normal; overflow-wrap: anywhere; }

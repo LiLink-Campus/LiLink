@@ -1,3 +1,4 @@
+import { ImageReadyPage } from "./_components/ImageReadyPage";
 import { ButtonLink } from "@/components/ui";
 import Link from "next/link";
 import Image from "next/image";
@@ -77,7 +78,7 @@ export function HomePageView({ landing, community = null }: {
   const matchesLabelIsNarrative = landing != null && matchesDelivered <= 0;
 
   return (
-    <main className={styles.homePage}>
+    <ImageReadyPage className={styles.homePage}>
       <section className={styles.hero}>
         <div className={styles.heroContent}>
           <p className={styles.heroEyebrow}>LiLink · 校园里的，认真相遇</p>
@@ -100,6 +101,7 @@ export function HomePageView({ landing, community = null }: {
         </div>
         <div className={styles.heroIllustration} aria-hidden="true">
           <Image
+            data-page-image
             src="/images/campus-blossom-scene-anime.webp"
             alt=""
             fill
@@ -219,6 +221,6 @@ export function HomePageView({ landing, community = null }: {
           </div>
         </div>
       </section>
-    </main>
+    </ImageReadyPage>
   );
 }

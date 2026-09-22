@@ -176,6 +176,7 @@ model SchoolDomain {
 }
 
 model User {
+  matchLead MatchLead?
   id                         String                       @id @default(cuid())
   email                      String                       @unique
   deactivatedAt              DateTime?
@@ -1002,7 +1003,14 @@ model ProductEventOutbox {
 
 model MatchLead {
   id String @id @default(cuid())
-  phone String @unique
+  phone String? @unique
+  userId String? @unique
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  realName String?
+  school String?
+  major String?
+  contact String?
+  consentAt DateTime?
   contacted Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

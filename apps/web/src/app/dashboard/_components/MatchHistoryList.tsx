@@ -43,7 +43,7 @@ export function MatchHistoryList({
   }
 
   return (
-    <ul className={styles.list}>
+    <ul className={styles.list} data-compact={desktopCards || undefined}>
       {history.map((item) => {
         const participationLabel =
           item.participationStatus === "OPTED_IN" ? "已参加" : "未参加";

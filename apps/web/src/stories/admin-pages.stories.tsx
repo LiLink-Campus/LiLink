@@ -430,6 +430,7 @@ export const MatchLeadsContacted: Story = {
             {
               id: "lead-story",
               phone: "+6590000000",
+              realName: "测试同学", school: "测试大学", major: "计算机科学", contact: "test_wechat", user: { id: "synthetic-user", email: "test@example.test", displayName: "测试同学" },
               contacted: true,
               createdAt: "2026-09-15T08:00:00Z",
             },
@@ -446,7 +447,8 @@ function leadUpdateHandlers() {
   return [
     http.get(`${api}/admin/match-leads`, () =>
       HttpResponse.json([
-        { id: "lead-story", phone: "+6590000000", contacted, createdAt: "2026-09-15T08:00:00Z" },
+        { id: "lead-story", phone: "+6590000000",
+              realName: "测试同学", school: "测试大学", major: "计算机科学", contact: "test_wechat", user: { id: "synthetic-user", email: "test@example.test", displayName: "测试同学" }, contacted, createdAt: "2026-09-15T08:00:00Z" },
       ])
     ),
     http.patch(`${api}/admin/match-leads/lead-story`, async ({ request }) => {
