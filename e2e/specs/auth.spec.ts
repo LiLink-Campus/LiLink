@@ -65,7 +65,30 @@ test('school registration delivers mail and creates a usable account @smoke', as
   await login(page, { id: '', email, displayName: '' });
 });
 
-test('password reset mail invalidates old password', async ({ page, account }) => {
+test('password reset waits for its handlers before accepting input @smoke', async ({ page, account }, testInfo) => {
+  let releaseScripts!: () => void;
+  const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });
+  await page.route('**/_next/static/**/*.js', async route => {
+    await scriptsReady;
+    await route.continue();
+  });
+  try {
+    await page.goto('/forgot-password', { waitUntil: 'commit' });
+    await expect(page.getByLabel('注册邮箱', { exact: true })).toBeDisabled();
+    await expect(page.getByLabel('验证码', { exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '发送验证码', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '下一步', exact: true })).toBeDisabled();
+  } finally {
+    releaseScripts();
+  }
+  await page.getByLabel('注册邮箱', { exact: true }).fill(account.email);
+  await page.getByRole('button', { name: '发送验证码', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: '验证码已发送' })).toBeVisible();
+  expect(await mailCode(page, account.email)).toMatch(/^\d{6}$/);
+  await testInfo.attach('password-reset-email', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+});
+
+test('password reset mail invalidates old password', async ({ page, account }, testInfo) => {
   const newPassword = 'ReplacementE2e456!';
   await visit(page, '/forgot-password');
   await page.getByLabel('注册邮箱', { exact: true }).fill(account.email);
@@ -75,6 +98,7 @@ test('password reset mail invalidates old password', async ({ page, account }) =
   await page.getByRole('button', { name: '下一步', exact: true }).click();
   await page.getByLabel('新密码', { exact: true }).fill(newPassword);
   await page.getByLabel('确认新密码', { exact: true }).fill(newPassword);
+  await testInfo.attach('password-reset-new-password', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
   await page.getByRole('button', { name: '重置密码', exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard/);
   await page.context().clearCookies();
