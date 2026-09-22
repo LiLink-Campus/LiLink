@@ -75,12 +75,12 @@ export const GuideBecomesInstall: Story = {
     const c = within(canvasElement);
     await userEvent.click((await c.findAllByRole("button", { name: /添加到桌面/ }))[0]);
     const d = within(await within(document.body).findByRole("dialog"));
-    await waitFor(() => expect(d.getByText("在浏览器菜单中查找安装入口")).toBeVisible(), { timeout: INSTALL_READY_WAIT_MS + 1500 });
+    await waitFor(() => expect(d.getByText("自动添加失败，以下是手动添加步骤")).toBeVisible(), { timeout: INSTALL_READY_WAIT_MS + 1500 });
     let calls = 0;
     window.dispatchEvent(installEvent(async () => { calls++; }));
     await expect(await d.findByRole("button", { name: "立即安装" })).toBeVisible();
     await expect(calls).toBe(0);
-    await expect(d.queryByText("在浏览器菜单中查找安装入口")).toBeNull();
+    await expect(d.queryByText("自动添加失败，以下是手动添加步骤")).toBeNull();
   },
 };
 
@@ -111,7 +111,7 @@ export const PromptFailureCanRecover: Story = {
     window.dispatchEvent(installEvent(async () => { throw new Error("Unavailable install UI"); }));
     await userEvent.click(entry);
     const d = within(await within(document.body).findByRole("dialog"));
-    await expect(d.getByText("在浏览器菜单中查找安装入口")).toBeVisible();
+    await expect(d.getByText("自动添加失败，以下是手动添加步骤")).toBeVisible();
     window.dispatchEvent(installEvent(async () => {}));
     await userEvent.click(await d.findByRole("button", { name: "立即安装" }));
     await waitFor(() => expect(c.queryByRole("complementary")).toBeNull());

@@ -125,7 +125,7 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
           <p>请先在系统浏览器中打开 LiLink</p>
           <ol><li><span>1</span>点击右上角菜单，选择在浏览器中打开</li><li><span>2</span>在浏览器菜单中选择安装应用或添加到主屏幕</li></ol>
         </> : <>
-          <p>在浏览器菜单中查找安装入口</p>
+          <p>自动添加失败，以下是手动添加步骤</p>
           <ol><li><span>1</span><svg className={styles.stepIcon} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>打开浏览器菜单</li><li><span>2</span><StepIcon />选择「安装应用」或「添加到主屏幕」</li></ol>
         </>}
         {mode === "ready" || mode === "cancelled" ? <button className={styles.primary} onClick={() => void install()} disabled={busy}>{mode === "ready" ? "立即安装" : "重新尝试安装"}</button> : mode === "checking" ? <button className={styles.primary} onClick={() => { clearWait(); setMode("guide"); }}>查看手动添加方法</button> : <button className={styles.primary} onClick={() => dialog.current?.close()}>知道了</button>}
