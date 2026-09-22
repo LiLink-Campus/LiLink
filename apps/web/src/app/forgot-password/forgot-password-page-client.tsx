@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { Button, Card, Field, FormMessage, Input } from "@/components/ui";
 import { ActionGroup } from "@/components/semantic";
+import { InteractiveFields } from "@/components/interactive-fields";
 import { fetchApi } from "../../lib/api";
 import {
   GrassRowIllustration,
@@ -121,6 +122,7 @@ export default function ForgotPasswordPageClient({ initialEmail = "" }: { initia
           <p className={`${styles.subtitle} ${styles.stepTwoSubtitle}`}>设置新密码，提交时将核验邮箱验证码。</p>
         )}
 
+        <InteractiveFields>
         {step === 1 ? (
           <form className={authStyles.stack} onSubmit={continueToPassword}>
             <Field label="注册邮箱">
@@ -196,6 +198,7 @@ export default function ForgotPasswordPageClient({ initialEmail = "" }: { initia
             </ActionGroup>
           </form>
         )}
+        </InteractiveFields>
 
         <p className={authStyles.hint}>
           {signedIn ? <Link href="/dashboard/me">← 返回用户中心</Link> : <>想起密码了？<Link href="/login">返回登录</Link></>}
