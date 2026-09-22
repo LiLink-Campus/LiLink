@@ -11,6 +11,7 @@ import { profileSavePresentation } from "./save-status";
 import styles from "./profile-redesign.module.css";
 import { ContactEditor, type ContactSaveStatus } from "./contact-editor";
 import { ReaderScrollHint } from "./reader-scroll-hint";
+import { LifestylePreferenceChoices } from "./lifestyle-preference-choices";
 import { dcx } from "../_lib/dashboard-class-names";
 import {
   createAutosaveLifecycleGate,
@@ -1600,37 +1601,19 @@ export function ProfileClient({
               <QuestionField data-reader-item className={styles.partnerLifestyle} id={profileAttentionElementId(HARD_MATCH_KEYS.partnerSmokingStatus)}>
                 {renderQuestionBlockHeading("希望对方吸烟情况")}
 
-                <p>可多选，选择你能接受的情况</p>
-                <QuestionChoices layout="list">
-                  <ChoiceOption><input type="checkbox" checked={!(hardMatchForm.partnerSmokingStatus?.length)} onChange={() => setHardMatchForm(form => ({ ...form, partnerSmokingStatus: [] }))} /><span>不限</span></ChoiceOption>
-                  {LIFESTYLE_QUESTIONS[1].options.map(option => <ChoiceOption key={option}>
-                    <input type="checkbox" checked={hardMatchForm.partnerSmokingStatus?.includes(option) ?? false} onChange={() => setHardMatchForm(form => ({ ...form, partnerSmokingStatus: toggleMultiSelectValue(form.partnerSmokingStatus ?? [], option) }))} /><span>{option}</span>
-                  </ChoiceOption>)}
-                </QuestionChoices>
+                <LifestylePreferenceChoices value={hardMatchForm.partnerSmokingStatus} options={LIFESTYLE_QUESTIONS[1].options} onChange={value => setHardMatchForm(form => ({ ...form, partnerSmokingStatus: value }))} />
               </QuestionField>
 
               <QuestionField data-reader-item className={styles.partnerLifestyle} id={profileAttentionElementId(HARD_MATCH_KEYS.partnerDrinkingFrequency)}>
                 {renderQuestionBlockHeading("希望对方饮酒频率")}
 
-                <p>可多选，选择你能接受的情况</p>
-                <QuestionChoices layout="list">
-                  <ChoiceOption><input type="checkbox" checked={!(hardMatchForm.partnerDrinkingFrequency?.length)} onChange={() => setHardMatchForm(form => ({ ...form, partnerDrinkingFrequency: [] }))} /><span>不限</span></ChoiceOption>
-                  {LIFESTYLE_QUESTIONS[2].options.map(option => <ChoiceOption key={option}>
-                    <input type="checkbox" checked={hardMatchForm.partnerDrinkingFrequency?.includes(option) ?? false} onChange={() => setHardMatchForm(form => ({ ...form, partnerDrinkingFrequency: toggleMultiSelectValue(form.partnerDrinkingFrequency ?? [], option) }))} /><span>{option}</span>
-                  </ChoiceOption>)}
-                </QuestionChoices>
+                <LifestylePreferenceChoices value={hardMatchForm.partnerDrinkingFrequency} options={LIFESTYLE_QUESTIONS[2].options} onChange={value => setHardMatchForm(form => ({ ...form, partnerDrinkingFrequency: value }))} />
               </QuestionField>
 
               <QuestionField data-reader-item className={styles.partnerLifestyle} id={profileAttentionElementId(HARD_MATCH_KEYS.partnerExerciseFrequency)}>
                 {renderQuestionBlockHeading("希望对方锻炼频率")}
                 <p className={styles.premiumHint}>高级筛选 · {vipActive ? "VIP 已启用" : "需要 VIP，开通后可设置"}</p>
-                <p>可多选，选择你能接受的情况</p>
-                <QuestionChoices layout="list">
-                  <ChoiceOption><input type="checkbox" checked={!(hardMatchForm.partnerExerciseFrequency?.length)} onChange={() => updatePremiumForm(form => ({ ...form, partnerExerciseFrequency: [] }))} /><span>不限</span></ChoiceOption>
-                  {LIFESTYLE_QUESTIONS[0].options.map(option => <ChoiceOption key={option}>
-                    <input type="checkbox" checked={hardMatchForm.partnerExerciseFrequency?.includes(option) ?? false} onChange={() => updatePremiumForm(form => ({ ...form, partnerExerciseFrequency: toggleMultiSelectValue(form.partnerExerciseFrequency ?? [], option) }))} /><span>{option}</span>
-                  </ChoiceOption>)}
-                </QuestionChoices>
+                <LifestylePreferenceChoices value={hardMatchForm.partnerExerciseFrequency} options={LIFESTYLE_QUESTIONS[0].options} onChange={value => updatePremiumForm(form => ({ ...form, partnerExerciseFrequency: value }))} />
               </QuestionField>
               <div className={styles.premiumFields}>
               <QuestionField data-reader-item
