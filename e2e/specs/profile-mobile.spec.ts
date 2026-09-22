@@ -4,6 +4,8 @@ import { test, expect, visit } from '../support/fixtures';
 test.beforeEach(async ({ signedIn }) => { void signedIn; });
 
 async function openQuestion(page: Page, title: string, group = '关于你') {
+  // Wait for the streamed profile before deciding which directory is visible.
+  await expect(page.getByRole('region', { name: '当前题目' })).toBeVisible();
   const directory = page.getByRole('button', { name: '题目目录', exact: true });
   if (await directory.isVisible()) await directory.click();
   await page.getByRole('button', { name: new RegExp(`${group}第 \\d+ 题：${title}$`) }).filter({ visible: true }).click();
