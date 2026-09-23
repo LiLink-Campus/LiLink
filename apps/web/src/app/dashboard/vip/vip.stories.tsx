@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { http, HttpResponse } from "msw";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { VipClient, type VipStatus } from "./vip-client";
 import { api, dashboardShell, route } from "@/stories/site-support";
 
@@ -96,7 +96,7 @@ export const InvalidFormat: Story = {
     await expect(dialog).toBeVisible();
     await userEvent.click(within(dialog).getByRole('button', { name: '知道了' }));
     await expect(dialog).not.toBeVisible();
-    await expect(submit).toHaveFocus();
+    await waitFor(() => expect(submit).toHaveFocus());
     await userEvent.click(submit);
     await expect(dialog).toBeVisible();
   },
