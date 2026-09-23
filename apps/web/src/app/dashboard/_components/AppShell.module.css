@@ -213,6 +213,11 @@
 
 .headerNav, .desktopOnly { display: none; }
 
+@media (max-width: 879px) {
+  .shell:has([data-profile-reader]) { --appbar-height: 52px; --tabbar-height: 64px; }
+  .shell:has([data-profile-reader]) .tabbar { padding-block: 4px calc(4px + env(safe-area-inset-bottom, 0px)); }
+}
+
 .focused .tabbar {
   display: none;
 }

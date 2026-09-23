@@ -99,6 +99,8 @@ test('scroll hints follow hidden content and keep actions stable @smoke', async 
   await expect(down).not.toBeVisible();
   await openQuestion(page, '希望对方吸烟情况', '希望遇见谁');
   const reader = page.getByRole('region', { name: '当前题目' });
+  // Exercise overflow even when compact spacing fits the question at 640px.
+  await page.setViewportSize({ width: 360, height: 520 });
   await expect(down).toBeVisible();
   const hintBox = await down.boundingBox();
   const readerBox = await reader.boundingBox();
@@ -122,7 +124,7 @@ test('scroll hints follow hidden content and keep actions stable @smoke', async 
   await expect(down).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1200 });
   await expect(down).not.toBeVisible();
-  await page.setViewportSize({ width: 360, height: 640 });
+  await page.setViewportSize({ width: 360, height: 520 });
   await expect(down).toBeVisible();
   await openQuestion(page, '昵称');
   await expect(down).not.toBeVisible();
