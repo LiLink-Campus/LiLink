@@ -194,6 +194,8 @@ export class AdminAnalyticsService {
     const cycleIds = cycles.map((cycle) => cycle.id);
     // Aggregate opted-in (cycle, gender) counts in SQL instead of pulling every
     // participant's questionnaire JSON across the recent cycles.
+    // History uses the first retained archive after reveal, not a point-in-time answer snapshot.
+    // Actual reveal events survive schedule edits; the latest event also covers reruns.
     const rows =
       cycleIds.length > 0
         ? await this.prisma.$queryRaw<
@@ -203,6 +205,14 @@ export class AdminAnalyticsService {
               count: bigint | number;
             }>
           >(Prisma.sql`
+            WITH cycle_reveals AS (
+              SELECT a."metadata"->>'cycleId' AS cycle_id,
+                MAX(a."createdAt") AS revealed_at
+              FROM "AuditLog" a
+              WHERE a."action" = 'cycle.revealed'
+                AND a."metadata"->>'cycleId' IN (${Prisma.join(cycleIds)})
+              GROUP BY a."metadata"->>'cycleId'
+            )
             SELECT
               base."cycleId" AS "cycleId",
               base."gender" AS "gender",
@@ -210,11 +220,34 @@ export class AdminAnalyticsService {
             FROM (
               SELECT
                 cp."cycleId" AS "cycleId",
-                TRIM(r."answers"->>${HARD_MATCH_KEYS.gender}) AS "gender"
+                retained_profile.gender AS "gender"
               FROM "CycleParticipation" cp
               JOIN "User" u ON u."id" = cp."userId"
-              LEFT JOIN "QuestionnaireResponse" r
-                ON r."userId" = cp."userId" AND r."submittedAt" IS NOT NULL
+              JOIN "MatchCycle" c ON c."id" = cp."cycleId"
+              LEFT JOIN cycle_reveals cr ON cr.cycle_id = c."id"
+              LEFT JOIN LATERAL (
+                SELECT candidate.gender
+                FROM (
+                  SELECT TRIM(r."answers"->>${HARD_MATCH_KEYS.gender}) AS gender,
+                    1 AS priority, r."updatedAt" AS snapshot_at,
+                    r."submittedAt" AS submitted_at, r."updatedAt" AS saved_at,
+                    r."id" AS id
+                  FROM "QuestionnaireResponse" r
+                  WHERE r."userId" = cp."userId" AND r."submittedAt" IS NOT NULL
+                  UNION ALL
+                  SELECT TRIM(a."answers"->>${HARD_MATCH_KEYS.gender}) AS gender,
+                    0 AS priority, a."archivedAt" AS snapshot_at,
+                    a."submittedAt" AS submitted_at, a."sourceUpdatedAt" AS saved_at,
+                    a."id" AS id
+                  FROM "QuestionnaireResponseArchive" a
+                  WHERE a."userId" = cp."userId" AND a."submittedAt" IS NOT NULL
+                    AND c."status" = 'REVEALED'
+                    AND a."archivedAt" >= COALESCE(cr.revealed_at, c."revealAt")
+                ) candidate
+                ORDER BY candidate.priority, candidate.snapshot_at,
+                  candidate.submitted_at DESC, candidate.saved_at DESC, candidate.id DESC
+                LIMIT 1
+              ) retained_profile ON TRUE
               WHERE cp."cycleId" IN (${Prisma.join(cycleIds)})
                 AND cp."status" = 'OPTED_IN'
                 AND u."deactivatedAt" IS NULL

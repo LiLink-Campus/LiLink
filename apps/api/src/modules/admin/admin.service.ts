@@ -777,14 +777,12 @@ export class AdminService {
         },
       });
 
+      this.cyclesService.invalidateAutomationSchedule();
+
       await this.adminAuditService.write(adminActorId, 'cycle.updated', {
         cycleId: cycle.id,
         status: cycle.status,
       });
-
-      // Cycle timing/state changed out of band; let the automation tick pick it
-      // up on its next run instead of waiting for the idle safety re-check.
-      this.cyclesService.invalidateAutomationSchedule();
 
       return cycle;
     }
@@ -799,14 +797,12 @@ export class AdminService {
       },
     });
 
+    this.cyclesService.invalidateAutomationSchedule();
+
     await this.adminAuditService.write(adminActorId, 'cycle.created', {
       cycleId: cycle.id,
       status: cycle.status,
     });
-
-    // Cycle timing/state changed out of band; let the automation tick pick it
-    // up on its next run instead of waiting for the idle safety re-check.
-    this.cyclesService.invalidateAutomationSchedule();
 
     return cycle;
   }

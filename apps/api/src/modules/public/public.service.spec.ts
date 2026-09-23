@@ -85,6 +85,55 @@ describe('PublicService', () => {
     expect(prisma.matchCycle.findFirst).toHaveBeenCalledTimes(1);
   });
 
+  it('does not let an invalidated in-flight landing request replace or detach a newer load', async () => {
+    type Cycle = {
+      codename: string;
+      revealAt: Date;
+      participationDeadline: Date;
+    };
+    let finishOld!: (cycle: Cycle | null) => void;
+    let finishNew!: (cycle: Cycle | null) => void;
+    const oldLoad = new Promise<Cycle | null>((resolve) => {
+      finishOld = resolve;
+    });
+    const newLoad = new Promise<Cycle | null>((resolve) => {
+      finishNew = resolve;
+    });
+    const prisma = {
+      user: { count: jest.fn().mockResolvedValue(85) },
+      $queryRaw: jest.fn().mockResolvedValue([{ count: 64 }]),
+      match: { count: jest.fn().mockResolvedValue(15) },
+      matchCycle: {
+        findFirst: jest
+          .fn()
+          .mockReturnValueOnce(oldLoad)
+          .mockReturnValueOnce(newLoad),
+      },
+    };
+    const service = new PublicService(prisma as never);
+    const staleRequest = service.getLandingPayload();
+    service.invalidateLandingCache();
+    const freshRequest = service.getLandingPayload();
+    finishOld(null);
+    await staleRequest;
+    const concurrentRequest = service.getLandingPayload();
+    expect(prisma.matchCycle.findFirst).toHaveBeenCalledTimes(2);
+
+    const cycle = {
+      codename: '第12周',
+      revealAt: new Date('2026-09-29T13:00:00Z'),
+      participationDeadline: new Date('2026-09-29T11:00:00Z'),
+    };
+    finishNew(cycle);
+    for (const request of [freshRequest, concurrentRequest]) {
+      await expect(request).resolves.toMatchObject({ currentCycle: cycle });
+    }
+    await expect(service.getLandingPayload()).resolves.toMatchObject({
+      currentCycle: cycle,
+    });
+    expect(prisma.matchCycle.findFirst).toHaveBeenCalledTimes(2);
+  });
+
   describe('getEligibleSchools', () => {
     it('returns schools with their domains and aggregated counts', async () => {
       const findMany = jest.fn<
