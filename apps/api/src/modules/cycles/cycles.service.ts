@@ -26,6 +26,7 @@ import {
   type QuestionnaireQuestion,
 } from './matching.engine';
 import { runMatching } from './matching.executor';
+import { PublicService } from '../public/public.service';
 
 const PREPARATION_RECOVERY_THRESHOLD_MS = 10 * 60 * 1000;
 // Cycle automation scheduling. The tick gate (cycles-automation.service) skips
@@ -132,6 +133,7 @@ export class CyclesService {
     private readonly prisma: PrismaService,
     private readonly dashboardSnapshotService: DashboardSnapshotService,
     private readonly mailService: MailService,
+    private readonly publicService: PublicService = new PublicService(prisma),
   ) {}
 
   async runRevealCycle(options: RunRevealCycleOptions = {}) {
@@ -240,13 +242,14 @@ export class CyclesService {
   }
 
   /**
-   * Forget the cached automation schedule so the next tick re-evaluates it.
+   * Forget the cached automation schedule and public cycle snapshot.
    * Call after any out-of-band change to cycle timing/state (admin create,
    * edit, open, or manual run) so a newly actionable cycle is picked up within
    * one tick interval instead of waiting for the idle safety re-check.
    */
   invalidateAutomationSchedule(): void {
     this.nextAutomationAt = null;
+    this.publicService.invalidateLandingCache();
   }
 
   /**
@@ -821,6 +824,8 @@ export class CyclesService {
       };
     }
 
+    this.publicService.invalidateLandingCache();
+
     // Rebuild dashboard snapshots outside the reveal transaction so the cycle
     // status / match updates commit (and release their row locks) quickly
     // instead of being held for the whole per-participation rebuild. A failure
@@ -1369,6 +1374,7 @@ export class CyclesService {
         data: { status: 'OPEN' },
       });
     });
+    this.publicService.invalidateLandingCache();
   }
 
   private async revertPreparationClaimIfEmpty(

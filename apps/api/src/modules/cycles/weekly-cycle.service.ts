@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { PublicService } from '../public/public.service';
 
 export const WEEKLY_CYCLE_SETTING_KEY = 'weekly-cycle-schedule';
 export const CYCLE_MANAGEMENT_LOCK = 70412027;
@@ -44,7 +45,10 @@ export function weeklyNumber(name: string): number {
 
 @Injectable()
 export class WeeklyCycleService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly publicService: PublicService = new PublicService(prisma),
+  ) {}
 
   private async readSettings(
     tx: Pick<Prisma.TransactionClient, 'systemSetting'>,
@@ -74,7 +78,7 @@ export class WeeklyCycleService {
     ) {
       throw new BadRequestException('请选择有效的自动轮次设置。');
     }
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CYCLE_MANAGEMENT_LOCK}::integer)`;
       await tx.systemSetting.upsert({
         where: { key: WEEKLY_CYCLE_SETTING_KEY },
@@ -93,14 +97,18 @@ export class WeeklyCycleService {
         : null;
       return { ...input, createdCycle };
     });
+    if (result.createdCycle) this.publicService.invalidateLandingCache();
+    return result;
   }
 
   async ensureUpcomingCycle(now = new Date()) {
-    return this.prisma.$transaction(async (tx) => {
+    const cycle = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CYCLE_MANAGEMENT_LOCK}::integer)`;
       const settings = await this.readSettings(tx);
       return settings.enabled ? this.ensureCycle(tx, settings, now) : null;
     });
+    if (cycle) this.publicService.invalidateLandingCache();
+    return cycle;
   }
 
   private async ensureCycle(

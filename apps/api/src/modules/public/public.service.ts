@@ -51,8 +51,8 @@ type CachedEligibleSchoolsPayload = {
 // keeps the compute awake only ~5min (Neon's idle timer) then it suspends for
 // the rest, so it is billed ~5/30 of the time at steady idle, leaving headroom
 // under the free CU-h budget (10min worked too but left ~50% duty). Staleness
-// is acceptable: landing counters are cosmetic, and eligible-schools edits
-// invalidate the cache immediately via invalidateEligibleSchoolsCache().
+// is acceptable for cosmetic counters; cycle mutations invalidate the landing
+// cache after commit, and eligible-school edits invalidate their own cache.
 const LANDING_PAYLOAD_CACHE_TTL_MS = 30 * 60 * 1000;
 const ELIGIBLE_SCHOOLS_CACHE_TTL_MS = 30 * 60 * 1000;
 

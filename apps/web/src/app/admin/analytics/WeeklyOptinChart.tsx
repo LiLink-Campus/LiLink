@@ -31,17 +31,28 @@ export default function WeeklyOptinChart({
     revealAt: cycle.revealAt,
     male: cycle.optedIn.male,
     female: cycle.optedIn.female,
+    nonBinary: cycle.optedIn.nonBinary,
+    unknown: cycle.optedIn.unknown,
+    total: cycle.optedIn.total,
     femaleSharePercent:
       cycle.femaleShare == null ? null : Math.round(cycle.femaleShare * 1000) / 10,
   }));
   const hasData = rows.length > 0;
-  const totalOptins = rows.reduce((total, row) => total + row.male + row.female, 0);
+  const totals = rows.reduce(
+    (total, row) => ({
+      optedIn: total.optedIn + row.total,
+      nonBinary: total.nonBinary + row.nonBinary,
+      unknown: total.unknown + row.unknown,
+    }),
+    { optedIn: 0, nonBinary: 0, unknown: 0 },
+  );
 
   return (
     <section className={cx(adminStyles, "analytics-panel")}>
       <div className={cx(adminStyles, "analytics-panel-head")}>
         <h3>最近轮次报名趋势</h3>
-        <p>最近 8 个非草稿轮次；女生占比以男女报名人数为基数。</p>
+        <p>最近 8 个非草稿轮次；报名按轮次累计人次，包含全部性别；女生占比以男女报名人数为基数。</p>
+        <p>历史性别按留存问卷统计，并非当轮报名时的快照。</p>
       </div>
       {loading && !hasData ? (
         <div className={cx(adminStyles, "analytics-placeholder")}>正在加载每周报名…</div>
@@ -49,7 +60,9 @@ export default function WeeklyOptinChart({
         <>
           <div className={cx(adminStyles, "analytics-summary-row")}>
             <span>{rows.length} 个轮次</span>
-            <span>男女报名 {totalOptins}</span>
+            <span>报名 {totals.optedIn} 人次</span>
+            <span>非二元 {totals.nonBinary} 人次</span>
+            <span>未知性别 {totals.unknown} 人次</span>
           </div>
           <div className={cx(adminStyles, "analytics-chart")}>
             <ResponsiveContainer width="100%" height="100%">
@@ -57,7 +70,8 @@ export default function WeeklyOptinChart({
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="label"
-                  interval={0}
+                  interval="preserveStartEnd"
+                  minTickGap={12}
                   tick={{ fontSize: 12 }}
                   tickLine={false}
                   angle={-24}
@@ -80,14 +94,19 @@ export default function WeeklyOptinChart({
                   tickLine={false}
                   width={48}
                 />
-                <Tooltip />
+                <Tooltip
+                  labelFormatter={(label, payload) =>
+                    `${label}（报名 ${payload[0]?.payload.total ?? 0} 人）`
+                  }
+                />
                 <Legend />
                 <Bar
                   yAxisId="left"
                   dataKey="male"
                   name="男报名"
                   fill="var(--admin-chart-male)"
-                  radius={[4, 4, 0, 0]}
+                  stackId="optedIn"
+                  unit="人"
                   maxBarSize={32}
                 />
                 <Bar
@@ -95,7 +114,26 @@ export default function WeeklyOptinChart({
                   dataKey="female"
                   name="女报名"
                   fill="var(--admin-chart-female)"
-                  radius={[4, 4, 0, 0]}
+                  stackId="optedIn"
+                  unit="人"
+                  maxBarSize={32}
+                />
+                <Bar
+                  yAxisId="left"
+                  dataKey="nonBinary"
+                  name="非二元"
+                  fill="var(--color-warning)"
+                  stackId="optedIn"
+                  unit="人"
+                  maxBarSize={32}
+                />
+                <Bar
+                  yAxisId="left"
+                  dataKey="unknown"
+                  name="未知性别"
+                  fill="var(--color-text-muted)"
+                  stackId="optedIn"
+                  unit="人"
                   maxBarSize={32}
                 />
                 <Line
@@ -106,7 +144,6 @@ export default function WeeklyOptinChart({
                   stroke="var(--admin-chart-ratio)"
                   strokeWidth={2}
                   dot={{ r: 3 }}
-                  connectNulls
                   unit="%"
                 />
               </ComposedChart>
