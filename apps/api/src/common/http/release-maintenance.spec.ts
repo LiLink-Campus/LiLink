@@ -58,7 +58,12 @@ describe('Release isolation', () => {
       };
       const mail = new MailService({} as never);
       const flush = jest.spyOn(mail, 'flushQueuedEmails');
-      await new CyclesAutomationService(cycles as never).handleTick();
+      const weekly = { ensureUpcomingCycle: jest.fn() };
+      await new CyclesAutomationService(
+        cycles as never,
+        weekly as never,
+      ).handleTick();
+      expect(weekly.ensureUpcomingCycle).not.toHaveBeenCalled();
       await new RetiredProductEventsService(events as never).handleRetention();
       await mail.handleEmailQueue();
       expect(cycles.isAutomationDue).not.toHaveBeenCalled();

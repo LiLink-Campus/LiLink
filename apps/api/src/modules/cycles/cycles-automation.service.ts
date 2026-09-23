@@ -2,12 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CyclesService } from './cycles.service';
 import { env } from '../../config/env';
+import { WeeklyCycleService } from './weekly-cycle.service';
 
 @Injectable()
 export class CyclesAutomationService {
   private readonly logger = new Logger(CyclesAutomationService.name);
 
-  constructor(private readonly cyclesService: CyclesService) {}
+  constructor(
+    private readonly cyclesService: CyclesService,
+    private readonly weeklyCycleService: WeeklyCycleService,
+  ) {}
 
   // Runs every 5 minutes, but isAutomationDue() gates the DB work: when no cycle
   // boundary is due the tick returns without querying, so Neon's compute can
@@ -24,9 +28,12 @@ export class CyclesAutomationService {
       return;
     }
 
+    let failed = false;
     try {
       await this.cyclesService.runAutomationTick();
+      await this.weeklyCycleService.ensureUpcomingCycle();
     } catch (error) {
+      failed = true;
       const message =
         error instanceof Error
           ? error.message
@@ -44,6 +51,7 @@ export class CyclesAutomationService {
           `Cycle automation schedule refresh failed. ${message}`,
         );
       }
+      if (failed) this.cyclesService.invalidateAutomationSchedule();
     }
   }
 }

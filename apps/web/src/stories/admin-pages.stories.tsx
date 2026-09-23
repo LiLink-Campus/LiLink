@@ -16,7 +16,7 @@ import Promotion from "@/app/admin/promotion/page";
 import AdminLayoutShell from "@/app/admin/admin-layout-shell";
 import { adminShell, route, visible, json, failure, api } from "./site-support";
 import { adminHandlers, page, userAccountHandlers, cycleWorkbenchHandlers } from "./admin-handlers";
-import { overview, adminQuestions, campaign } from "./admin-fixtures";
+import { overview, adminQuestions, campaign, cycle, cycleDetail } from "./admin-fixtures";
 const meta = {
   id: "site-admin",
   title: "全站/运营后台",
@@ -582,5 +582,47 @@ export const NewLifestyleQuestion: Story = {
     await expect(c.getByRole("combobox", { name: "题型" })).toBeDisabled();
     await userEvent.click(c.getByRole("button", { name: /高级设置/ }));
     await expect(c.getByRole("spinbutton", { name: "权重" })).toHaveValue(0);
+  },
+};
+
+export const CyclesAutomation: Story = {
+  ...CyclesPage,
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await userEvent.click(await c.findByRole("checkbox", { name: "启用自动续轮" }));
+    await expect(c.getByRole("combobox", { name: "报名截止" })).toHaveValue("2");
+    await userEvent.click(c.getByRole("button", { name: "保存自动轮次设置" }));
+    await expect(await within(c.getByRole("region", { name: "每周自动续轮" })).findByRole("status")).toHaveTextContent("自动续轮已开启");
+  },
+};
+export const CyclesAutomationError: Story = {
+  ...CyclesPage,
+  parameters: { ...route("/admin/cycles"), msw: { handlers: { admin: [
+    http.put(`${api}/admin/weekly-cycle-settings`, () => HttpResponse.json({ message: "自动轮次设置保存失败。" }, { status: 503 })),
+    ...adminHandlers,
+  ] } } },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await userEvent.click(await c.findByRole("checkbox", { name: "启用自动续轮" }));
+    await userEvent.click(c.getByRole("button", { name: "保存自动轮次设置" }));
+    await expect(await c.findByRole("alert")).toHaveTextContent("自动轮次设置保存失败");
+    await expect(c.getByRole("button", { name: "保存自动轮次设置" })).toBeEnabled();
+  },
+};
+export const CyclesDeleteDraft: Story = {
+  ...CyclesPage,
+  parameters: { ...route("/admin/cycles"), msw: { handlers: { admin: [
+    json("/admin/cycles", page([{ ...cycle, status: "DRAFT", codename: "待清理草稿" }])),
+    json("/admin/cycles/:id", { ...cycleDetail, cycle: { ...cycle, status: "DRAFT" }, summary: { ...cycleDetail.summary, participationCount: 1, matchedPairCount: 0 } }),
+    ...adminHandlers,
+  ] } } },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    const button = await c.findByRole("button", { name: "删除草稿" });
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
+    const dialog = within(await c.findByRole("dialog", { name: "删除草稿轮次" }));
+    await expect(dialog.getByText(/确认删除“待清理草稿”？将同时删除本轮的 1 条参与记录/)).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "确认删除" })).toBeEnabled();
   },
 };

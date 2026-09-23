@@ -3,11 +3,12 @@ import { DashboardSnapshotModule } from '../../common/dashboard/dashboard-snapsh
 import { CyclesAutomationService } from './cycles-automation.service';
 import { CyclesController } from './cycles.controller';
 import { CyclesService } from './cycles.service';
+import { WeeklyCycleService } from './weekly-cycle.service';
 
 @Module({
   imports: [DashboardSnapshotModule],
   controllers: [CyclesController],
-  providers: [CyclesAutomationService, CyclesService],
-  exports: [CyclesService],
+  providers: [CyclesAutomationService, CyclesService, WeeklyCycleService],
+  exports: [CyclesService, WeeklyCycleService],
 })
 export class CyclesModule {}

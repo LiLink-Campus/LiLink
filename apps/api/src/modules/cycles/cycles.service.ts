@@ -260,7 +260,12 @@ export class CyclesService {
 
   private async computeNextAutomationAt(now: Date): Promise<Date> {
     const activeCycles = await this.prisma.matchCycle.findMany({
-      where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
+      where: {
+        OR: [
+          { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
+          { status: 'REVEALED', revealAt: { gt: now } },
+        ],
+      },
       select: { status: true, participationDeadline: true, revealAt: true },
     });
 
@@ -274,14 +279,15 @@ export class CyclesService {
       return new Date(now.getTime() + AUTOMATION_PREPARING_RECHECK_MS);
     }
 
-    // participationDeadline (OPEN) and revealAt (REVEAL_READY) are both
+    // Early manual reveals still gate the next weekly cycle until revealAt.
+    // participationDeadline (OPEN) and revealAt are both
     // non-nullable DateTime in the schema, and the empty / PREPARING cases
     // already returned above, so every remaining cycle yields one boundary.
     const nextBoundary = Math.min(
       ...activeCycles.map((cycle) =>
-        (cycle.status === 'REVEAL_READY'
-          ? cycle.revealAt
-          : cycle.participationDeadline
+        (cycle.status === 'OPEN'
+          ? cycle.participationDeadline
+          : cycle.revealAt
         ).getTime(),
       ),
     );

@@ -79,6 +79,23 @@ class ListQueryDto {
 
 export class ListSchoolsQueryDto extends ListQueryDto {}
 
+export class UpdateWeeklyCycleSettingsDto {
+  @IsBoolean()
+  enabled!: boolean;
+
+  @IsInt()
+  @IsIn([1, 2, 24])
+  deadlineHours!: number;
+}
+
+export class DeleteCycleDto {
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1_000_000)
+  expectedParticipationCount?: number;
+}
+
 export class ListCyclesQueryDto extends ListQueryDto {
   @IsOptional()
   @IsIn(['DRAFT', 'OPEN', 'PREPARING', 'REVEAL_READY', 'REVEALED'])
