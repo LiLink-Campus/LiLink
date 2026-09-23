@@ -84,7 +84,7 @@ function buildAdminQueryString(params: Record<string, string | number | undefine
 export default function AdminCyclesPage() {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<AdminCycle | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<(AdminCycle & { participationCount: number }) | null>(null);
   const [resultTab, setResultTab] = useState<"preview" | "final">("final");
   const previewRequest = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -368,7 +368,9 @@ export default function AdminCyclesPage() {
     setActionError(null);
     setActionMessage(null);
     try {
-      await fetchApi(`/admin/cycles/${deleteTarget.id}`, { method: "DELETE" });
+      await fetchApi(`/admin/cycles/${deleteTarget.id}`, {
+        method: "DELETE", body: JSON.stringify({ expectedParticipationCount: deleteTarget.participationCount }),
+      });
       setDeleteTarget(null);
       setSelectedCycleId(null);
       setPage(1);
@@ -474,7 +476,7 @@ export default function AdminCyclesPage() {
 
       <AdminDetailDialog open={!!deleteTarget} onClose={() => { if (!pending) setDeleteTarget(null); }} title="删除草稿轮次" headerLabel="轮次管理">
         <h2>删除草稿轮次</h2>
-        <p>确认删除“{deleteTarget?.codename}”？仅没有报名和匹配记录的草稿可删除，删除后不可恢复。</p>
+        <p>确认删除“{deleteTarget?.codename}”？将同时删除本轮的 {deleteTarget?.participationCount ?? 0} 条参与记录，删除后不可恢复。用户账号和问卷不受影响。</p>
         {actionError && <p role="alert" className="ui-form-message ui-form-message--error">{actionError}</p>}
         <div className="auth-actions">
           <button className="ui-button ui-button--secondary" type="button" disabled={!!pending} onClick={() => setDeleteTarget(null)}>取消</button>
@@ -515,13 +517,13 @@ export default function AdminCyclesPage() {
               编辑轮次
             </button>
             <button className="ui-button ui-button--secondary" type="button"
-              disabled={!selectedCycle || selectedCycle.status !== "DRAFT" || !!pending || detailLoading || !cycleDetail || cycleDetail.cycle.id !== selectedCycle.id || cycleDetail.summary.participationCount > 0 || cycleDetail.summary.matchedPairCount > 0}
-              onClick={() => { setActionError(null); setDeleteTarget(selectedCycle); }}>
+              disabled={!selectedCycle || selectedCycle.status !== "DRAFT" || !!pending || detailLoading || !cycleDetail || cycleDetail.cycle.id !== selectedCycle.id || cycleDetail.summary.matchedPairCount > 0}
+              onClick={() => { if (selectedCycle && cycleDetail) { setActionError(null); setDeleteTarget({ ...selectedCycle, participationCount: cycleDetail.summary.participationCount }); } }}>
               删除草稿
             </button>
           </div>
         </div>
-        <p className={styles.scopeNote}>仅没有报名和匹配记录的草稿可删除；进行中和已揭晓轮次保留历史记录。</p>
+        <p className={styles.scopeNote}>尚未生成匹配结果的草稿可删除，其参与记录会一并删除；进行中和已揭晓轮次保留历史记录。</p>
         <form className={cx(adminStyles, "admin-search-bar")} onSubmit={handleSearchSubmit}>
           <input
             value={draftSearch}

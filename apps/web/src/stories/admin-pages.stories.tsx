@@ -612,8 +612,8 @@ export const CyclesAutomationError: Story = {
 export const CyclesDeleteDraft: Story = {
   ...CyclesPage,
   parameters: { ...route("/admin/cycles"), msw: { handlers: { admin: [
-    json("/admin/cycles", page([{ ...cycle, status: "DRAFT", codename: "空白草稿" }])),
-    json("/admin/cycles/:id", { ...cycleDetail, cycle: { ...cycle, status: "DRAFT" }, summary: { ...cycleDetail.summary, participationCount: 0, matchedPairCount: 0 } }),
+    json("/admin/cycles", page([{ ...cycle, status: "DRAFT", codename: "待清理草稿" }])),
+    json("/admin/cycles/:id", { ...cycleDetail, cycle: { ...cycle, status: "DRAFT" }, summary: { ...cycleDetail.summary, participationCount: 1, matchedPairCount: 0 } }),
     ...adminHandlers,
   ] } } },
   play: async ({ canvasElement }) => {
@@ -622,7 +622,7 @@ export const CyclesDeleteDraft: Story = {
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
     const dialog = within(await c.findByRole("dialog", { name: "删除草稿轮次" }));
-    await expect(dialog.getByText(/确认删除“空白草稿”/)).toBeVisible();
+    await expect(dialog.getByText(/确认删除“待清理草稿”？将同时删除本轮的 1 条参与记录/)).toBeVisible();
     await expect(dialog.getByRole("button", { name: "确认删除" })).toBeEnabled();
   },
 };

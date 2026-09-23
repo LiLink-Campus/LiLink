@@ -220,9 +220,9 @@ describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
       expect(await prisma.matchCycle.count()).toBe(1);
     },
   );
-  it('refuses a draft with an opted-out participation, even when its visible registration count is zero', async () => {
+  it('requires the confirmed participation count, then deletes the draft while preserving its user', async () => {
     const draft = await seed('DRAFT');
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         email: 'weekly-user@example.test',
         passwordHash: 'unused',
@@ -230,11 +230,38 @@ describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
       },
     });
     await expect(admin.deleteCycle(draft.id, actor)).rejects.toThrow(
-      '只能删除',
+      '参与记录数量已变化',
     );
     expect(
       await prisma.cycleParticipation.count({ where: { cycleId: draft.id } }),
     ).toBe(1);
+    await admin.deleteCycle(draft.id, actor, 1);
+    expect(
+      await prisma.matchCycle.findUnique({ where: { id: draft.id } }),
+    ).toBeNull();
+    expect(
+      await prisma.cycleParticipation.count({ where: { cycleId: draft.id } }),
+    ).toBe(0);
+    expect(
+      await prisma.user.findUnique({ where: { id: user.id } }),
+    ).not.toBeNull();
+    expect(
+      await prisma.auditLog.findFirst({
+        where: {
+          action: 'cycle.deleted',
+          metadata: { path: ['cycleId'], equals: draft.id },
+        },
+      }),
+    ).toMatchObject({ metadata: { deletedParticipationCount: 1 } });
+  });
+  it('refuses a draft with generated matches', async () => {
+    const draft = await seed('DRAFT');
+    await prisma.match.create({ data: { cycleId: draft.id, score: 0 } });
+    await expect(admin.deleteCycle(draft.id, actor)).rejects.toThrow(
+      '只能删除',
+    );
+    expect(await prisma.matchCycle.count()).toBe(1);
+    expect(await prisma.match.count({ where: { cycleId: draft.id } })).toBe(1);
   });
   it('the real scheduler reveals an empty due cycle and opens one successor', async () => {
     const cycle = await seed('OPEN');

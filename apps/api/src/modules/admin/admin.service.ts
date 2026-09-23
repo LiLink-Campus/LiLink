@@ -662,30 +662,45 @@ export class AdminService {
     return result;
   }
 
-  async deleteCycle(cycleId: string, adminActorId: string) {
+  async deleteCycle(
+    cycleId: string,
+    adminActorId: string,
+    expectedParticipationCount = 0,
+  ) {
     await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CYCLE_MANAGEMENT_LOCK}::integer)`;
       await tx.$queryRaw`SELECT "id" FROM "MatchCycle" WHERE "id" = ${cycleId} FOR UPDATE`;
-      const cycle = await tx.matchCycle.findUnique({ where: { id: cycleId } });
+      const cycle = await tx.matchCycle.findUnique({
+        where: { id: cycleId },
+        include: { _count: { select: { participations: true } } },
+      });
       if (!cycle) throw new NotFoundException('轮次不存在或已删除。');
+      if (cycle._count.participations !== expectedParticipationCount) {
+        throw new ConflictException(
+          '参与记录数量已变化，请关闭弹窗并刷新轮次后重新确认。',
+        );
+      }
       const deleted = await tx.matchCycle.deleteMany({
         where: {
           id: cycleId,
           status: 'DRAFT',
-          participations: { none: {} },
           matches: { none: {} },
           dashboardSnapshots: { none: {} },
         },
       });
       if (deleted.count !== 1)
         throw new ConflictException(
-          '只能删除没有报名、匹配及结果记录的草稿轮次。',
+          '只能删除尚未生成匹配及结果记录的草稿轮次。',
         );
       await tx.auditLog.create({
         data: {
           adminActorId,
           action: 'cycle.deleted',
-          metadata: { cycleId, codename: cycle.codename },
+          metadata: {
+            cycleId,
+            codename: cycle.codename,
+            deletedParticipationCount: cycle._count.participations,
+          },
         },
       });
     });

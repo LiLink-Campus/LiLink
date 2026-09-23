@@ -88,6 +88,14 @@ export class UpdateWeeklyCycleSettingsDto {
   deadlineHours!: number;
 }
 
+export class DeleteCycleDto {
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1_000_000)
+  expectedParticipationCount?: number;
+}
+
 export class ListCyclesQueryDto extends ListQueryDto {
   @IsOptional()
   @IsIn(['DRAFT', 'OPEN', 'PREPARING', 'REVEAL_READY', 'REVEALED'])

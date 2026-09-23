@@ -35,6 +35,7 @@ import {
   UpsertCycleDto,
   UpsertQuestionDto,
   UpdateWeeklyCycleSettingsDto,
+  DeleteCycleDto,
 } from './dto';
 import { AdminService } from './admin.service';
 
@@ -131,8 +132,13 @@ export class AdminController {
   deleteCycle(
     @Req() request: AdminAuthenticatedRequest,
     @Param('cycleId') cycleId: string,
+    @Body() body: DeleteCycleDto,
   ) {
-    return this.adminService.deleteCycle(cycleId, request.admin!.id);
+    return this.adminService.deleteCycle(
+      cycleId,
+      request.admin!.id,
+      body?.expectedParticipationCount,
+    );
   }
 
   @Get('cycles/:cycleId/participants')

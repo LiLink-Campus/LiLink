@@ -71,17 +71,32 @@ test('@smoke admin cancels then deletes an empty draft with final list and audit
   expect(await db.auditLog.count({ where: { action: 'cycle.deleted', metadata: { path: ['cycleId'], equals: cycle.id } } })).toBe(1);
 });
 
-test('admin cannot delete active or historically used draft cycles', async ({ page, context, db, account }) => {
+test('admin confirms participation deletion while active and matched cycles remain protected', async ({ page, context, db, account }, info) => {
   await loginAdmin(context, db, account.id);
   const active = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
   expect((await context.request.delete(`${api}/admin/cycles/${active.id}`)).status()).toBe(409);
   const cycle = await db.matchCycle.create({ data: { codename: `已有参与-${account.id}`, status: 'DRAFT', participationDeadline: new Date('2035-01-01'), revealAt: new Date('2035-01-02'), participations: { create: { userId: account.id, status: 'OPTED_OUT' } } } });
   await visit(page, '/admin/cycles');
   await page.getByRole('button', { name: new RegExp(cycle.codename) }).click();
-  await expect(page.getByRole('button', { name: '删除草稿', exact: true })).toBeDisabled();
   expect((await context.request.delete(`${api}/admin/cycles/${cycle.id}`)).status()).toBe(409);
   expect(await db.matchCycle.findUnique({ where: { id: cycle.id } })).not.toBeNull();
-  await db.matchCycle.delete({ where: { id: cycle.id } });
+  await page.getByRole('button', { name: '删除草稿', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '删除草稿轮次' });
+  await expect(dialog).toContainText('1 条参与记录');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: info.outputPath('delete-participation-mobile.png') });
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('button', { name: new RegExp(cycle.codename) })).toHaveCount(0);
+  expect(await db.cycleParticipation.count({ where: { cycleId: cycle.id } })).toBe(0);
+  expect(await db.user.findUnique({ where: { id: account.id } })).not.toBeNull();
+  const matched = await db.matchCycle.create({ data: { codename: `已有匹配-${account.id}`, status: 'DRAFT', participationDeadline: new Date('2035-01-01'), revealAt: new Date('2035-01-02'), matches: { create: { score: 0 } } } });
+  await page.reload();
+  await page.getByRole('button', { name: new RegExp(matched.codename) }).click();
+  await expect(page.getByRole('button', { name: '删除草稿', exact: true })).toBeDisabled();
+  expect((await context.request.delete(`${api}/admin/cycles/${matched.id}`)).status()).toBe(409);
+  expect(await db.matchCycle.findUnique({ where: { id: matched.id } })).not.toBeNull();
+  await db.matchCycle.delete({ where: { id: matched.id } });
 });
 
 test('ordinary users cannot change the cycle schedule or delete cycles', async ({ context, signedIn }) => {
