@@ -101,7 +101,8 @@ export const Saving: Story = {
   parameters: { msw: { handlers: { profileSave: [http.put("/api/questionnaire", slowSave), http.put(`${api}/me/questionnaire`, slowSave)] } } },
   play: async ({ canvasElement }) => {
     await editExampleAnswer(canvasElement);
-    await expect(await within(canvasElement).findByText("保存中…", { exact: true })).toBeVisible();
+    const label = window.innerWidth < 880 ? "保存中…" : "正在保存…";
+    await expect(await within(canvasElement).findByText(label, { exact: true })).toBeVisible();
   },
 };
 
@@ -140,6 +141,7 @@ export const DraftSaved: Story = {
   },
   play: async ({ canvasElement }) => {
     await openExampleQuestion(canvasElement);
-    await expect(within(canvasElement).getByText("草稿已保存", { exact: true })).toBeVisible();
+    const label = window.innerWidth < 880 ? "草稿已保存" : "草稿已自动保存";
+    await expect(within(canvasElement).getByText(label, { exact: true })).toBeVisible();
   },
 };
