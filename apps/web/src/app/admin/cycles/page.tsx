@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminDetailDialog } from "../admin-detail-dialog";
 import CycleStatistics from "./cycle-statistics";
+import { WeeklyCycleSettings } from "./weekly-cycle-settings";
 import styles from "./cycles.module.css";
 import { fetchApi } from "../../../lib/api";
 import {
@@ -83,6 +84,7 @@ function buildAdminQueryString(params: Record<string, string | number | undefine
 export default function AdminCyclesPage() {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AdminCycle | null>(null);
   const [resultTab, setResultTab] = useState<"preview" | "final">("final");
   const previewRequest = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -360,6 +362,23 @@ export default function AdminCyclesPage() {
     }
   }
 
+  async function deleteCycle() {
+    if (!deleteTarget) return;
+    setPending("delete");
+    setActionError(null);
+    setActionMessage(null);
+    try {
+      await fetchApi(`/admin/cycles/${deleteTarget.id}`, { method: "DELETE" });
+      setDeleteTarget(null);
+      setSelectedCycleId(null);
+      setPage(1);
+      await refresh();
+      setActionMessage(`已删除草稿轮次“${deleteTarget.codename}”。`);
+    } catch (caughtError) {
+      setActionError(caughtError instanceof Error ? caughtError.message : "删除轮次失败。");
+    } finally { setPending(null); }
+  }
+
   async function previewCycle() {
     if (!isExistingCycleSelection(selectedCycleId)) return;
     previewRequest.current?.abort();
@@ -440,7 +459,7 @@ export default function AdminCyclesPage() {
           {error}
         </p>
       )}
-      {actionError && !editorOpen && (
+      {actionError && !editorOpen && !deleteTarget && (
         <p role="alert" className="ui-form-message ui-form-message--error">
           {actionError}
         </p>
@@ -450,6 +469,18 @@ export default function AdminCyclesPage() {
           {actionMessage}
         </p>
       )}
+
+      <WeeklyCycleSettings onSaved={() => { void refresh(); refreshSelectedCycleDataViews(); }} />
+
+      <AdminDetailDialog open={!!deleteTarget} onClose={() => { if (!pending) setDeleteTarget(null); }} title="删除草稿轮次" headerLabel="轮次管理">
+        <h2>删除草稿轮次</h2>
+        <p>确认删除“{deleteTarget?.codename}”？仅没有报名和匹配记录的草稿可删除，删除后不可恢复。</p>
+        {actionError && <p role="alert" className="ui-form-message ui-form-message--error">{actionError}</p>}
+        <div className="auth-actions">
+          <button className="ui-button ui-button--secondary" type="button" disabled={!!pending} onClick={() => setDeleteTarget(null)}>取消</button>
+          <button className="ui-button ui-button--primary" type="button" disabled={!!pending} onClick={() => void deleteCycle()}>{pending === "delete" ? "删除中…" : "确认删除"}</button>
+        </div>
+      </AdminDetailDialog>
 
       <section className={styles.panel} aria-labelledby="cycle-management-title">
         <div className={styles.sectionHead}>
@@ -483,8 +514,14 @@ export default function AdminCyclesPage() {
             >
               编辑轮次
             </button>
+            <button className="ui-button ui-button--secondary" type="button"
+              disabled={!selectedCycle || selectedCycle.status !== "DRAFT" || !!pending || detailLoading || !cycleDetail || cycleDetail.cycle.id !== selectedCycle.id || cycleDetail.summary.participationCount > 0 || cycleDetail.summary.matchedPairCount > 0}
+              onClick={() => { setActionError(null); setDeleteTarget(selectedCycle); }}>
+              删除草稿
+            </button>
           </div>
         </div>
+        <p className={styles.scopeNote}>仅没有报名和匹配记录的草稿可删除；进行中和已揭晓轮次保留历史记录。</p>
         <form className={cx(adminStyles, "admin-search-bar")} onSubmit={handleSearchSubmit}>
           <input
             value={draftSearch}

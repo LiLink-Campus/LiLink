@@ -5,6 +5,7 @@ import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snap
 import { MailService } from '../src/common/mail/mail.service';
 import { CyclesService } from '../src/modules/cycles/cycles.service';
 import { CyclesAutomationService } from '../src/modules/cycles/cycles-automation.service';
+import { WeeklyCycleService } from '../src/modules/cycles/weekly-cycle.service';
 import { RetiredProductEventsService } from '../src/modules/retired-product-events/retired-product-events.service';
 import { env } from '../src/config/env';
 
@@ -33,6 +34,7 @@ it('pauses real scheduled writes and mail, then resumes them against disposable 
       new DashboardSnapshotService(db as PrismaService),
       mail,
     ),
+    new WeeklyCycleService(db as PrismaService),
   );
   const retention = new RetiredProductEventsService(db as PrismaService);
   const previousCurrent = await db.questionnaireVersion.findMany({

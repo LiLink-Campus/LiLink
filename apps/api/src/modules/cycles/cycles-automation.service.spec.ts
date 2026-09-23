@@ -4,6 +4,7 @@ const buildCyclesService = (overrides: Record<string, unknown> = {}) => ({
   isAutomationDue: jest.fn().mockReturnValue(true),
   runAutomationTick: jest.fn().mockResolvedValue(undefined),
   refreshAutomationSchedule: jest.fn().mockResolvedValue(undefined),
+  invalidateAutomationSchedule: jest.fn(),
   ...overrides,
 });
 
@@ -12,7 +13,10 @@ describe('CyclesAutomationService', () => {
     const cyclesService = buildCyclesService({
       isAutomationDue: jest.fn().mockReturnValue(false),
     });
-    const service = new CyclesAutomationService(cyclesService as never);
+    const service = new CyclesAutomationService(
+      cyclesService as never,
+      { ensureUpcomingCycle: jest.fn().mockResolvedValue(null) } as never,
+    );
 
     await service.handleTick();
 
@@ -22,7 +26,10 @@ describe('CyclesAutomationService', () => {
 
   it('runs the tick and refreshes the schedule when due', async () => {
     const cyclesService = buildCyclesService();
-    const service = new CyclesAutomationService(cyclesService as never);
+    const service = new CyclesAutomationService(
+      cyclesService as never,
+      { ensureUpcomingCycle: jest.fn().mockResolvedValue(null) } as never,
+    );
 
     await service.handleTick();
 
@@ -34,10 +41,14 @@ describe('CyclesAutomationService', () => {
     const cyclesService = buildCyclesService({
       runAutomationTick: jest.fn().mockRejectedValue(new Error('tick failed')),
     });
-    const service = new CyclesAutomationService(cyclesService as never);
+    const service = new CyclesAutomationService(
+      cyclesService as never,
+      { ensureUpcomingCycle: jest.fn().mockResolvedValue(null) } as never,
+    );
 
     await expect(service.handleTick()).resolves.toBeUndefined();
     expect(cyclesService.refreshAutomationSchedule).toHaveBeenCalledTimes(1);
+    expect(cyclesService.invalidateAutomationSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('does not rethrow when refreshAutomationSchedule rejects', async () => {
@@ -46,8 +57,38 @@ describe('CyclesAutomationService', () => {
         .fn()
         .mockRejectedValue(new Error('refresh failed')),
     });
-    const service = new CyclesAutomationService(cyclesService as never);
+    const service = new CyclesAutomationService(
+      cyclesService as never,
+      { ensureUpcomingCycle: jest.fn().mockResolvedValue(null) } as never,
+    );
 
     await expect(service.handleTick()).resolves.toBeUndefined();
+  });
+});
+
+describe('weekly cycle handoff', () => {
+  it('creates the successor after reveal and before refreshing the next boundary', async () => {
+    const order: string[] = [];
+    const cycles = buildCyclesService({
+      runAutomationTick: jest.fn(() => {
+        order.push('reveal');
+        return Promise.resolve();
+      }),
+      refreshAutomationSchedule: jest.fn(() => {
+        order.push('refresh');
+        return Promise.resolve();
+      }),
+    });
+    const weekly = {
+      ensureUpcomingCycle: jest.fn(() => {
+        order.push('create');
+        return Promise.resolve();
+      }),
+    };
+    await new CyclesAutomationService(
+      cycles as never,
+      weekly as never,
+    ).handleTick();
+    expect(order).toEqual(['reveal', 'create', 'refresh']);
   });
 });

@@ -15,6 +15,10 @@ import { isRecordNotFoundError } from '../../common/prisma/errors';
 import { parseDateTimeAsChinaStandardOrInstant } from '../../common/time/china-standard-time';
 import { env } from '../../config/env';
 import { CyclesService } from '../cycles/cycles.service';
+import {
+  CYCLE_MANAGEMENT_LOCK,
+  WeeklyCycleService,
+} from '../cycles/weekly-cycle.service';
 import { normalizeQuestionOptions } from '../questionnaire/questionnaire-config';
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
@@ -44,6 +48,7 @@ import {
   UpdateUserStatusDto,
   UpsertCycleDto,
   UpsertQuestionDto,
+  UpdateWeeklyCycleSettingsDto,
 } from './dto';
 
 const adminSchoolNameSelect = {
@@ -203,6 +208,10 @@ export class AdminService {
     private readonly adminSchoolService: AdminSchoolService,
     @Optional() dashboardSnapshotService?: DashboardSnapshotService,
     @Optional() questionnaireService?: QuestionnaireService,
+    @Optional()
+    private readonly weeklyCycleService: WeeklyCycleService = new WeeklyCycleService(
+      prisma,
+    ),
   ) {
     this.dashboardSnapshotService =
       dashboardSnapshotService ?? defaultDashboardSnapshotPort;
@@ -635,6 +644,53 @@ export class AdminService {
     } catch {
       throw new BadRequestException('Invalid cycle datetime.');
     }
+  }
+
+  getWeeklyCycleSettings() {
+    return this.weeklyCycleService.getSettings();
+  }
+
+  async updateWeeklyCycleSettings(
+    input: UpdateWeeklyCycleSettingsDto,
+    adminActorId: string,
+  ) {
+    const result = await this.weeklyCycleService.updateSettings(
+      input,
+      adminActorId,
+    );
+    this.cyclesService.invalidateAutomationSchedule();
+    return result;
+  }
+
+  async deleteCycle(cycleId: string, adminActorId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CYCLE_MANAGEMENT_LOCK}::integer)`;
+      await tx.$queryRaw`SELECT "id" FROM "MatchCycle" WHERE "id" = ${cycleId} FOR UPDATE`;
+      const cycle = await tx.matchCycle.findUnique({ where: { id: cycleId } });
+      if (!cycle) throw new NotFoundException('轮次不存在或已删除。');
+      const deleted = await tx.matchCycle.deleteMany({
+        where: {
+          id: cycleId,
+          status: 'DRAFT',
+          participations: { none: {} },
+          matches: { none: {} },
+          dashboardSnapshots: { none: {} },
+        },
+      });
+      if (deleted.count !== 1)
+        throw new ConflictException(
+          '只能删除没有报名、匹配及结果记录的草稿轮次。',
+        );
+      await tx.auditLog.create({
+        data: {
+          adminActorId,
+          action: 'cycle.deleted',
+          metadata: { cycleId, codename: cycle.codename },
+        },
+      });
+    });
+    this.cyclesService.invalidateAutomationSchedule();
+    return { ok: true };
   }
 
   async upsertCycle(input: UpsertCycleDto, adminActorId: string) {

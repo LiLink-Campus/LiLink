@@ -34,6 +34,7 @@ import {
   UpdateSchoolDto,
   UpsertCycleDto,
   UpsertQuestionDto,
+  UpdateWeeklyCycleSettingsDto,
 } from './dto';
 import { AdminService } from './admin.service';
 
@@ -111,6 +112,27 @@ export class AdminController {
   @Get('cycles/:cycleId')
   getCycleDetail(@Param('cycleId') cycleId: string) {
     return this.adminService.getCycleDetail(cycleId);
+  }
+
+  @Get('weekly-cycle-settings')
+  getWeeklyCycleSettings() {
+    return this.adminService.getWeeklyCycleSettings();
+  }
+
+  @Put('weekly-cycle-settings')
+  updateWeeklyCycleSettings(
+    @Req() request: AdminAuthenticatedRequest,
+    @Body() body: UpdateWeeklyCycleSettingsDto,
+  ) {
+    return this.adminService.updateWeeklyCycleSettings(body, request.admin!.id);
+  }
+
+  @Delete('cycles/:cycleId')
+  deleteCycle(
+    @Req() request: AdminAuthenticatedRequest,
+    @Param('cycleId') cycleId: string,
+  ) {
+    return this.adminService.deleteCycle(cycleId, request.admin!.id);
   }
 
   @Get('cycles/:cycleId/participants')

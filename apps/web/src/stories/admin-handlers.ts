@@ -44,6 +44,10 @@ export const adminHandlers = [
   json("/admin/users/:id", f.adminUser),
   json("/admin/users/:id/questionnaire", { submittedAt: now, answers: { weekend: "outside" } }),
   json("/admin/users/:id/participations", page([{ cycleId: f.cycle.id, status: "OPTED_IN" }])),
+  json("/admin/weekly-cycle-settings", { enabled: false, deadlineHours: 2 }),
+  http.put(`${api}/admin/weekly-cycle-settings`, async ({ request }) =>
+    HttpResponse.json({ ...(await request.json() as object), createdCycle: null })
+  ),
   json("/admin/cycles", page([f.cycle])),
   json("/admin/cycles/:id", f.cycleDetail),
   json(
