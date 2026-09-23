@@ -123,6 +123,18 @@ const PROFILE_TABS: ReadonlyArray<{ id: ProfileTab; label: string }> = [
   { id: "values", label: "价值观" },
 ];
 
+const COMPACT_SAVE_LABELS: Readonly<Record<string, string>> = {
+  "全部修改已保存": "已保存",
+  "草稿已自动保存": "草稿已保存",
+  "正在重试保存…": "重试中…",
+  "正在保存…": "保存中…",
+  "有修改待保存": "待保存",
+  "尚未填写": "未填写",
+  "资料待补全": "待补全",
+  "联系方式正在自动保存": "联系方式保存中",
+  "联系方式待补全": "联系方式待完善",
+};
+
 const HARD_MATCH_FIELD_KEY_GROUPS = {
   birthDate: [HARD_MATCH_KEYS.birthDate],
   gender: [HARD_MATCH_KEYS.gender],
@@ -1173,6 +1185,7 @@ export function ProfileClient({
     detail: contactSaveStatus === "invalid" ? "请在关于你中填写选中的联系方式。" : contactSaveStatus === "error" ? "请在联系方式处重试保存。" : "请等待联系方式保存完成。",
     tone: contactSaveStatus === "error" ? "error" : "pending",
   };
+  const compactSaveLabel = COMPACT_SAVE_LABELS[savePresentation.label] ?? savePresentation.label;
   const [pendingIncompleteKey, setPendingIncompleteKey] = useState<{ key: string } | null>(null);
   function locateIncomplete() {
     const target = incompleteTargets[0];
@@ -1267,7 +1280,7 @@ export function ProfileClient({
 
 
   return (
-    <div data-desktop-viewport className={`${dcx("app-page-shell v2-page-shell")} ${styles.page}`}>
+    <div data-desktop-viewport data-profile-reader className={`${dcx("app-page-shell v2-page-shell")} ${styles.page}`}>
       <header className={styles.pageHeading}>
         <span className={styles.eyebrow}>让我们更了解你</span>
         <h1>我的资料</h1>
@@ -1328,7 +1341,15 @@ export function ProfileClient({
             else if (nextReaderModule) openQuestion(nextReaderModule.id, 0, true);
           }, 300);
         }}>
-          <div className={styles.readerToolbar}><span><span className={styles.desktopOnly}>{PROFILE_TABS.find(tab => tab.id === activeTab)?.label} · </span>{currentIndex + 1} / {moduleItems.length}</span><progress className={styles.desktopProgress} aria-label="当前模块进度" max={Math.max(1, moduleItems.length)} value={currentIndex + 1} /><button type="button" onClick={() => directoryRef.current?.showModal()} aria-label="题目目录"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5h12M9 12h12M9 19h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><circle cx="3" cy="5" r="1.5" fill="currentColor"/><circle cx="3" cy="12" r="1.5" fill="currentColor"/><circle cx="3" cy="19" r="1.5" fill="currentColor"/></svg><span>题目目录</span></button></div>
+          <div className={styles.readerToolbar}>
+            <span className={styles.questionCounter}><span className={styles.desktopOnly}>{PROFILE_TABS.find(tab => tab.id === activeTab)?.label} · </span>{currentIndex + 1} / {moduleItems.length}</span>
+            {savePresentation.tone !== "error" ? <span className={styles.compactSaveStatus} data-tone={savePresentation.tone} aria-hidden="true" title={`${savePresentation.label}。${savePresentation.detail}`}>
+              {savePresentation.tone === "saved" ? <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="currentColor" /><path d="m5.5 10 3 3 6-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg> : null}
+              {compactSaveLabel}
+            </span> : null}
+            <progress className={styles.desktopProgress} aria-label="当前模块进度" max={Math.max(1, moduleItems.length)} value={currentIndex + 1} />
+            <button type="button" onClick={() => directoryRef.current?.showModal()} aria-label="题目目录"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5h12M9 12h12M9 19h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><circle cx="3" cy="5" r="1.5" fill="currentColor"/><circle cx="3" cy="12" r="1.5" fill="currentColor"/><circle cx="3" cy="19" r="1.5" fill="currentColor"/></svg><span><span className={styles.desktopOnly}>题目</span>目录</span></button>
+          </div>
         {/* ── 关于你 ── */}
         {(
           <div data-reader-module="self" hidden={activeTab !== "self"} className={`${dcx("app-q-group")} ${styles.selfFlat}`}>

@@ -46,6 +46,10 @@ const preview: Preview = {
     },
     viewport: {
       options: {
+        mobileShort: {
+          name: "Mobile short 390 × 650",
+          styles: { width: "390px", height: "650px" },
+        },
         mobile360: {
           name: "Mobile 360",
           styles: {
