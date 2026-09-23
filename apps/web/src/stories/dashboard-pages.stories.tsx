@@ -515,7 +515,7 @@ export const UserCenterActive: Story = {
     await expect(c.getByLabelText("VIP 会员")).toBeVisible();
     if (window.innerWidth >= 880) {
       const identity = c.getByRole("region", { name: "账号信息" }).getBoundingClientRect();
-      const vip = c.getByRole("region", { name: "VIP 与激活码" }).getBoundingClientRect();
+      const vip = c.getByRole("region", { name: "LiLink VIP" }).getBoundingClientRect();
       await expect(Math.abs(identity.height - vip.height)).toBeLessThan(1);
     }
   },

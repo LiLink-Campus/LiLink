@@ -17,16 +17,32 @@
 .avatar { width: 72px; height: 72px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: #dc796c; color: white; font-family: var(--font-display); font-size: 32px; }
 .identity h2 { font-family: var(--font-display); font-size: 24px; overflow-wrap: anywhere; }
 .identity p { color: var(--color-text-muted); font-size: 15px; margin-top: 5px; overflow-wrap: anywhere; }
-.vip { position: relative; overflow: hidden; border: 1px solid #a55d70; border-radius: 20px; padding: 26px; color: #fff8f5; background: linear-gradient(120deg, #742c41, #963f58); box-shadow: 0 12px 28px #742c4112; }
+.vip { position: relative; overflow: hidden; border: 1.5px solid #c8a36b; border-radius: 20px; padding: 20px; color: #fff8f5; background: radial-gradient(ellipse at 100% 100%, #a458693b, transparent 70%), linear-gradient(120deg, #66283b, #81374e); box-shadow: 0 0 0 2px #e8d5af4d, 0 8px 24px #742c410a; }
 .vip > :not(.decoration) { position: relative; }
 .vipHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.vipHeading h2 { color: inherit; font-family: var(--font-display); font-size: clamp(23px, 4vw, 30px); font-weight: 500; }
-.vipHeading > span { border-radius: 999px; background: #ffffff24; padding: 5px 10px; white-space: nowrap; font-size: 12px; }
-.vip .tagline { margin-top: 16px; font-size: 18px; }
-.vip .filters { margin-top: 10px; color: #f1d9e1; font-size: 15px; }
-.vip .expiry { margin-top: 10px; font-size: 13px; color: #f1d9e1; }
-.vipLink { display: inline-flex; align-items: center; gap: 18px; margin-top: 22px; padding: 11px 22px; min-height: 44px; border-radius: 999px; color: #742c41; background: #fff7f5; text-decoration: none; font-weight: 600; }
-.decoration { position: absolute; width: 190px; height: 190px; right: -22px; bottom: -40px; opacity: .1; transform: rotate(-15deg); pointer-events: none; }
+.vipHeading h2 { display: flex; align-items: center; gap: 12px; color: inherit; font-family: var(--font-display); font-size: clamp(21px, 4vw, 26px); font-weight: 500; }
+.vipHeading h2 svg { width: 30px; height: 30px; flex-shrink: 0; color: #f2d493; }
+.vipHeading > span { border-radius: 999px; background: #ffffff24; padding: 4px 12px; white-space: nowrap; font-size: 12px; }
+.vipFeatures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 22px 0; }
+.vipFeatures > div { display: flex; align-items: center; gap: 10px; min-width: 0; padding-block: 8px; }
+.vipFeatures > div + div { border-left: 1px solid #f4d6a440; padding-left: 12px; }
+.vipFeatures svg { width: 34px; height: 40px; flex-shrink: 0; color: #f2d493; }
+.vipFeatures h3 { margin: 0; color: inherit; font-family: var(--font-display); font-weight: 500; font-size: clamp(19px, 3.6vw, 25px); white-space: nowrap; }
+.vipFeatures p { margin-top: 4px; color: #f1d9e1; font-size: 12px; }
+.vip .expiry { font-size: 13px; color: #f1d9e1; }
+.vipLink { display: inline-flex; align-items: center; gap: 12px; margin-top: 10px; padding: 8px 18px; min-height: 40px; border-radius: 999px; color: #742c41; background: #fff9f5; text-decoration: none; font-size: 14px; font-weight: 600; }
+.vipLink:hover { background: #f5e7cf; }
+.decoration { position: absolute; width: 190px; height: 140px; right: -18px; bottom: -25px; color: #e7c68e; opacity: .55; pointer-events: none; }
+@media (max-width: 380px) {
+  .vip { padding: 16px; }
+  .vipFeatures > div { gap: 6px; }
+  .vipFeatures > div + div { padding-left: 8px; }
+  .vipFeatures svg { width: 28px; height: 32px; }
+  .vipFeatures h3 { font-size: 18px; }
+  .vipFeatures p { font-size: 11px; }
+  .vipHeading h2 { gap: 8px; font-size: 21px; }
+  .vipHeading h2 svg { width: 26px; height: 26px; }
+}
 .page .sectionTitle { font-family: var(--font-display); font-size: 25px; font-weight: 500; margin-bottom: 16px; }
 .benefits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .benefits a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 18px; color: var(--color-text); text-decoration: none; }
@@ -39,14 +55,7 @@
 .security svg, .delete > span:first-child { width: 24px; height: 24px; flex-shrink: 0; }
 .security > a > span:last-child, .delete > span:last-child { margin-left: auto; font-size: 25px; color: var(--color-text-muted); }
 .page a:focus-visible, .page button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 4px; }
-@media (max-width: 380px) { .vip { padding: 20px; } .benefits a { gap: 8px; padding: 12px 10px; } .benefits svg { width: 23px; height: 23px; } .benefits strong { font-size: 14px; } .benefits span { font-size: 12px; } }
-
-/* Compact membership entry. */
-.vip { padding: 18px 20px; border-radius: 16px; box-shadow: none; }
-.vipHeading h2 { font-size: 21px; }
-.vip .filters { margin-top: 8px; font-size: 13px; }
-.vipLink { margin-top: 12px; min-height: 36px; padding: 6px 14px; gap: 12px; font-size: 13px; }
-.decoration { width: 120px; height: 120px; bottom: -35px; }
+@media (max-width: 380px) { .benefits a { gap: 8px; padding: 12px 10px; } .benefits svg { width: 23px; height: 23px; } .benefits strong { font-size: 14px; } .benefits span { font-size: 12px; } }
 
 .entryGroup { display: grid; gap: 12px; }
 
@@ -60,11 +69,13 @@
   .identity { grid-area: identity; align-self: stretch; min-height: 180px; padding: 28px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }
   .identityActive { border-color: #dbc69e; background: linear-gradient(135deg, #fffdf8, #fbf2e5); }
   .identity a { margin-top: 16px; color: var(--color-brand); font-size: 14px; text-decoration: none; }
-  .vip { grid-area: vip; align-self: stretch; min-height: 180px; padding: 28px; background: #803f53; }
-  .vipHeading { justify-content: flex-start; }
+  .vip { grid-area: vip; align-self: stretch; min-height: 250px; padding: 24px 28px; }
+  .vipHeading { justify-content: space-between; }
   .vipHeading h2 { font-size: 27px; }
-  .vipLink { margin-top: 20px; }
-  .decoration { width: 140px; height: 140px; right: 24px; bottom: 10px; opacity: .16; }
+  .vipFeatures { grid-template-columns: repeat(2, max-content); gap: 24px; max-width: 100%; }
+  .vipFeatures > div { gap: 12px; }
+  .vipFeatures > div + div { padding-left: 24px; }
+  .decoration { width: 220px; height: 160px; }
   .benefitsSection { grid-area: benefits; }
   .benefits a { min-height: 90px; padding: 20px; border-radius: 14px; }
   .securitySection { grid-area: security; padding: 24px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }

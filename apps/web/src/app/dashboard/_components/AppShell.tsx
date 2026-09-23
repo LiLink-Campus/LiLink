@@ -113,6 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const focused = isFocusedPath(pathname);
+  const vipPage = pathname === "/dashboard/vip";
 
   function handleFocusedBack() {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -146,7 +147,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className={styles.focusedHeaderSpacer} aria-hidden="true" />
           </header>
         ) : null}
-          <header className={`${styles.header} ${focused ? styles.desktopOnly : ""}`}>
+          {vipPage && <header className={styles.vipHeader}>
+            <Link href="/dashboard/me" className={styles.vipBack} aria-label="返回用户中心"><ArrowLeftIcon /></Link>
+            <h1>VIP 权益</h1>
+            <BrandMark href="/dashboard" variant="compact" showTagline={false} />
+          </header>}
+          <header className={`${styles.header} ${focused || vipPage ? styles.desktopOnly : ""}`}>
             <BrandMark href="/dashboard" variant="compact" showTagline={false} />
             <nav className={styles.headerNav} aria-label="主导航">
               {NAV_ITEMS.map(({ href, label }) => <Link key={href} href={href} onClick={closeMenu} aria-current={isActiveTab(pathname, href) ? "page" : undefined}>{label}</Link>)}
@@ -184,7 +190,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-        <main className={styles.main}>{children}</main>
+        <main className={`${styles.main} ${vipPage ? styles.vipMain : ""}`}>{children}</main>
 
         {focused ? null : (
           <nav className={styles.tabbar} aria-label="底部导航">

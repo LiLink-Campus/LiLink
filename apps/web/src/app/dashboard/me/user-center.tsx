@@ -6,7 +6,8 @@ import { useAuthSession } from "../../auth-session";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { fetchApi, type AuthMePayload } from "../../../lib/api";
 import type { VipStatus } from "../vip/vip-client";
-import { UserCircleIcon, HeartIcon } from "../_components/icons";
+import { UserCircleIcon } from "../_components/icons";
+import { FiltersIcon, PriorityIcon, VipCrown, VipOrbits } from "../vip/vip-art";
 import { DeleteAccount } from "./delete-account";
 import styles from "./user-center.module.css";
 
@@ -34,9 +35,12 @@ export function UserCenter({ initialStatus, initialUser }: { initialStatus: VipS
       <div><div className={styles.nameRow}><h2>{name}</h2>{active && <span className={styles.vipBadge} aria-label="VIP 会员"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"><path d="m3 7 5 4 4-7 4 7 5-4-2 11H5L3 7Z" /><path d="M6 21h12" /></svg>VIP<span className={styles.sparkle} aria-hidden="true">✦</span></span>}</div><p>{account.email}</p><Link className={styles.desktopOnly} href="/dashboard/profile">编辑匹配资料 →</Link></div>
     </section>
     <section className={`${styles.vip} ${active ? styles.vipActive : ""}`} aria-labelledby="center-vip-title">
-      <HeartIcon className={styles.decoration} />
-      <div className={styles.vipHeading}><h2 id="center-vip-title">VIP 与激活码</h2><span>{!status ? "状态待刷新" : active ? "已开通" : status.expiresAt ? "已到期" : "未开通"}</span></div>
-      <p className={styles.filters}>学校 · 身高 · 体重 · 颜值 · 锻炼频率</p>
+      <VipOrbits className={styles.decoration} />
+      <div className={styles.vipHeading}><h2 id="center-vip-title"><VipCrown />LiLink VIP</h2><span>{!status ? "状态待刷新" : active ? "已开通" : status.expiresAt ? "已到期" : "未开通"}</span></div>
+      <div className={styles.vipFeatures}>
+        <div><PriorityIcon /><div><h3>优先匹配</h3><p>匹配时优先安排</p></div></div>
+        <div><FiltersIcon /><div><h3>高级筛选</h3><p>更贴近你的期待</p></div></div>
+      </div>
       {active && status?.expiresAt && <p className={styles.expiry}>有效期至 {new Date(status.expiresAt).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}</p>}
       <Link className={styles.vipLink} href="/dashboard/vip">查看权益与激活 <span aria-hidden="true">→</span></Link>
     </section>
