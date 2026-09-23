@@ -19,7 +19,11 @@ test('VIP support dialog fits viewport @visual', async ({ page, signedIn, isMobi
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: '关闭', exact: true })).toBeFocused();
   if (!isMobile) await page.mouse.move(0, 0);
-  await expect(dialog).toHaveScreenshot('vip-support.png', { animations: 'disabled' });
+  await expect(dialog).toHaveScreenshot('vip-support.png', {
+    animations: 'disabled',
+    // Keep rounded corners independent of content behind the modal.
+    style: 'dialog::backdrop { background: #382924 !important; }',
+  });
   const bounds = await dialog.boundingBox();
   const viewport = page.viewportSize()!;
   expect(bounds!.x).toBeGreaterThanOrEqual(0);

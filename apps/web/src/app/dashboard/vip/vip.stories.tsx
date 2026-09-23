@@ -12,16 +12,37 @@ type Story = StoryObj<typeof meta>;
 export const NotActivated: Story = { args: { initialStatus: empty } };
 export const Active: Story = { args: { initialStatus: active }, play: async ({ canvasElement }) => {
   const c = within(canvasElement);
-  await expect(c.getByRole('link', { name: '购买 VIP 卡密' })).toBeVisible();
-  await expect(c.getByLabelText('VIP 激活码')).toBeVisible();
+  await expect(c.getByRole('link', { name: '购买激活码' })).toBeVisible();
+  await expect(c.getByLabelText('VIP 激活码')).not.toBeVisible();
+  await expect(c.getByText('已生效', { exact: true })).toBeVisible();
 } };
 export const Expired: Story = { args: { initialStatus: { ...active, active: false, expiresAt: '2026-09-01T08:00:00Z' } } };
-export const Unavailable: Story = { args: { initialStatus: null } };
+export const Unavailable: Story = { args: { initialStatus: null }, play: async ({ canvasElement }) => {
+  const c = within(canvasElement);
+  await expect(c.getByRole('button', { name: '使用激活码' })).toBeDisabled();
+  await expect(c.queryByText('已生效', { exact: true })).toBeNull();
+} };
+export const ActivationDialog: Story = { args: { initialStatus: active }, play: async ({ canvasElement }) => {
+  const c = within(canvasElement);
+  const trigger = c.getByRole('button', { name: '使用激活码' });
+  await userEvent.click(trigger);
+  const dialog = c.getByRole('dialog', { name: '使用激活码' });
+  await expect(c.getByLabelText('VIP 激活码')).toHaveFocus();
+  await userEvent.keyboard('{Escape}');
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toHaveFocus();
+  await userEvent.click(trigger);
+  await userEvent.click(c.getByRole('button', { name: '关闭激活弹窗' }));
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toHaveFocus();
+  await userEvent.click(trigger);
+} };
 export const Activate: Story = {
   args: { initialStatus: empty },
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.json({ ...active, activationOutcome: 'ACTIVATED' }))] } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByRole('button', { name: '使用激活码' }));
     await userEvent.type(c.getByLabelText('VIP 激活码'), 'ABCDEFGHIJKLMNOPQRSTUVWX');
     await userEvent.click(c.getByRole('button', { name: '确认激活 30 天 VIP' }));
     const dialog = await c.findByRole('dialog', { name: 'VIP 开通成功' });
@@ -36,6 +57,7 @@ export const InvalidCode: Story = {
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.json({ message: '此激活码已被使用，请勿重复兑换。' }, { status: 409 }))] } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByRole('button', { name: '使用激活码' }));
     await userEvent.type(c.getByLabelText('VIP 激活码'), 'ABCDEFGHIJKLMNOPQRSTUVWX');
     await userEvent.click(c.getByRole('button', { name: '确认激活 30 天 VIP' }));
     await expect(await c.findByRole('dialog', { name: '激活未完成' })).toHaveTextContent('已被使用');
@@ -49,6 +71,7 @@ function resultStory(outcome: string, title: string, initialStatus: VipStatus = 
     parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.json({ ...result, activationOutcome: outcome, previousExpiresAt: initialStatus.expiresAt }))] } } },
     play: async ({ canvasElement }) => {
       const c = within(canvasElement);
+      await userEvent.click(c.getByRole('button', { name: '使用激活码' }));
       await userEvent.type(c.getByLabelText('VIP 激活码'), 'ABCDEFGHIJKLMNOPQRSTUVWX');
       await userEvent.click(c.getByRole('button', { name: '确认激活 30 天 VIP' }));
       const dialog = await c.findByRole('dialog', { name: title });
@@ -66,6 +89,7 @@ export const InvalidFormat: Story = {
   args: { initialStatus: empty },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByRole('button', { name: '使用激活码' }));
     const submit = c.getByRole('button', { name: '确认激活 30 天 VIP' });
     await userEvent.click(submit);
     const dialog = await c.findByRole('dialog', { name: '请检查激活码' });
@@ -82,6 +106,7 @@ export const NetworkError: Story = {
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.error())] } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByRole('button', { name: '使用激活码' }));
     await userEvent.type(c.getByLabelText('VIP 激活码'), 'ABCDEFGHIJKLMNOPQRSTUVWX');
     await userEvent.click(c.getByRole('button', { name: '确认激活 30 天 VIP' }));
     await expect(await c.findByRole('dialog', { name: '暂未确认激活结果' })).toBeVisible();
@@ -93,6 +118,7 @@ export const UnavailableCode: Story = {
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.json({ message: '激活码无效或已停用，请核对订单或联系客服。' }, { status: 400 }))] } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByRole('button', { name: '使用激活码' }));
     await userEvent.type(c.getByLabelText('VIP 激活码'), 'ABCDEFGHIJKLMNOPQRSTUVWX');
     await userEvent.click(c.getByRole('button', { name: '确认激活 30 天 VIP' }));
     await expect(await c.findByRole('dialog', { name: '激活未完成' })).toHaveTextContent('激活码无效或已停用');
@@ -103,6 +129,7 @@ export const RateLimited: Story = {
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.json({ message: 'ThrottlerException: Too Many Requests' }, { status: 429 }))] } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByRole('button', { name: '使用激活码' }));
     await userEvent.type(c.getByLabelText('VIP 激活码'), 'ABCDEFGHIJKLMNOPQRSTUVWX');
     await userEvent.click(c.getByRole('button', { name: '确认激活 30 天 VIP' }));
     await expect(await c.findByRole('dialog', { name: '激活未完成' })).toHaveTextContent('操作太频繁');
@@ -112,9 +139,10 @@ export const Comparison: Story = {
   args: { initialStatus: empty },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await userEvent.click(c.getByText('VIP 与普通用户有什么区别？', { exact: true }));
     const table = within(c.getByRole('table', { name: '普通用户与 VIP 权益对比' }));
-    await expect(table.getAllByRole('row')).toHaveLength(10);
-    for (const name of ['学校筛选', '身高筛选', '体重筛选', '颜值筛选', '锻炼频率筛选']) {
+    await expect(table.getAllByRole('row')).toHaveLength(11);
+    for (const name of ['优先匹配', '学校筛选', '身高筛选', '体重筛选', '颜值筛选', '锻炼频率筛选']) {
       const row = within(table.getByRole('row', { name: new RegExp(name) }));
       await expect(row.getByText('不支持', { exact: true })).toBeInTheDocument();
       await expect(row.getByText('支持', { exact: true })).toBeInTheDocument();
@@ -124,10 +152,14 @@ export const Comparison: Story = {
       await expect(row.getAllByText('支持', { exact: true })).toHaveLength(2);
       await expect(row.queryByText('不支持', { exact: true })).toBeNull();
     }
-    await expect(c.getByRole('link', { name: '购买 VIP 卡密' })).toHaveAttribute('href', 'https://catfk.com/item/ry2djy');
-    await expect(c.getByRole('link', { name: /已有卡密/ })).toHaveAttribute('href', '#vip-activation');
+    await expect(c.getByRole('link', { name: '购买激活码' })).toHaveAttribute('href', 'https://catfk.com/item/ry2djy');
+    await userEvent.click(c.getByText('会员到期后会怎样？', { exact: true }));
+    await expect(c.getByRole('table', { name: '普通用户与 VIP 权益对比' })).toBeVisible();
     await expect(c.queryByText('更具体地表达偏好，不保证匹配成功。')).not.toBeInTheDocument();
-    await expect(c.getByText(/会员到期后，高级筛选将停止生效/)).toBeVisible();
+    await expect(c.getByText(/会员到期后，优先匹配与高级筛选将停止生效/)).toBeVisible();
+    await userEvent.click(c.getByText('会员到期后会怎样？', { exact: true }));
+    await expect(c.getByText(/会员到期后，优先匹配与高级筛选将停止生效/)).not.toBeVisible();
+    await expect(c.getByRole('table', { name: '普通用户与 VIP 权益对比' })).toBeVisible();
   },
 };
 
