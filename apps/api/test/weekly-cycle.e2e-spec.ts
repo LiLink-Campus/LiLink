@@ -263,6 +263,31 @@ describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
     expect(await prisma.matchCycle.count()).toBe(1);
     expect(await prisma.match.count({ where: { cycleId: draft.id } })).toBe(1);
   });
+  it('wakes at the original reveal boundary after an early manual reveal', async () => {
+    const draft = await seed('REVEALED');
+    const revealAt = new Date(now.getTime() + 20 * 60 * 1000);
+    await prisma.matchCycle.update({
+      where: { id: draft.id },
+      data: { revealAt },
+    });
+    await enable();
+    const cycles = new CyclesService(
+      prisma as PrismaService,
+      {} as never,
+      {} as never,
+    );
+    await cycles.refreshAutomationSchedule(now);
+    expect(cycles.isAutomationDue(now)).toBe(false);
+    expect(cycles.isAutomationDue(new Date(revealAt.getTime() - 1))).toBe(
+      false,
+    );
+    expect(cycles.isAutomationDue(revealAt)).toBe(true);
+    expect(await weekly.ensureUpcomingCycle(now)).toBeNull();
+    expect(await weekly.ensureUpcomingCycle(revealAt)).toMatchObject({
+      codename: '第12周',
+      status: 'OPEN',
+    });
+  });
   it('the real scheduler reveals an empty due cycle and opens one successor', async () => {
     const cycle = await seed('OPEN');
     const version = await prisma.questionnaireVersion.create({
