@@ -1202,8 +1202,9 @@ export class CyclesService {
           if (error instanceof BadRequestException) return null;
           throw error;
         }
+        const vipActive = hasActiveVip(user.vipActivations);
         const hardMatchAnswers = tryReadHardMatchAnswers(
-          effectiveMatchingAnswers(answers, hasActiveVip(user.vipActivations)),
+          effectiveMatchingAnswers(answers, vipActive),
         );
 
         if (!hardMatchAnswers) {
@@ -1214,6 +1215,7 @@ export class CyclesService {
           id: user.id,
           displayName: user.displayName,
           questionnaireVersionId: user.questionnaireResponse.versionId ?? null,
+          vipActive,
           hardMatchAnswers,
           answers,
           intent: entry.intent,

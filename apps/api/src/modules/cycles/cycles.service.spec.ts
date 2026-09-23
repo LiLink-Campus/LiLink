@@ -10,6 +10,7 @@ type EligibleParticipantStub = {
   id: string;
   displayName: string | null;
   questionnaireVersionId?: string | null;
+  vipActive: boolean;
   hardMatchAnswers: {
     birthDate: string;
     partnerAgeMin: number;
@@ -130,6 +131,7 @@ function createBroadParticipant(
   return {
     id,
     displayName: id,
+    vipActive: false,
     hardMatchAnswers: {
       birthDate: '2000-05-10',
       partnerAgeMin: 18,
@@ -1855,14 +1857,9 @@ describe('CyclesService', () => {
     ).toEqual(['user-a::user-c', 'user-b::user-d']);
   });
 
-  it('prioritizes a participant with three consecutive unmatched revealed opt-ins', async () => {
+  it('prioritizes a participant on their third opt-in after two unmatched reveals', async () => {
     const prisma = createPairCalculationPrisma({
       historicalParticipations: [
-        createHistoricalParticipation(
-          'user-priority',
-          'cycle-3',
-          '2026-04-03T00:00:00.000Z',
-        ),
         createHistoricalParticipation(
           'user-priority',
           'cycle-2',
@@ -1914,7 +1911,7 @@ describe('CyclesService', () => {
       participants,
       [],
       new Date('2026-04-10T00:00:00.000Z'),
-      'cycle-4',
+      'cycle-3',
     );
 
     expect(result.selectedPairs).toHaveLength(1);
@@ -2033,7 +2030,7 @@ describe('CyclesService', () => {
       matchedParticipations: [
         {
           userId: 'user-priority',
-          cycleId: 'cycle-2',
+          cycleId: 'cycle-3',
         },
       ],
     });
@@ -2767,6 +2764,7 @@ describe('VIP filtering at cycle processing time', () => {
         [SCHOOL_BUPT, SCHOOL_CUC],
       );
       expect(participant).toBeDefined();
+      expect(participant.vipActive).toBe(state === 'active');
       expect(participant.hardMatchAnswers.partnerHeightMin).toBe(
         state === 'active' ? 180 : 120,
       );

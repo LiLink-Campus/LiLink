@@ -11,6 +11,7 @@ function fixture(): MatchingInput {
       id: `worker-user-${i}`,
       displayName: null,
       questionnaireVersionId: null,
+      vipActive: i === 1,
       answers: {},
       intent: 'BOTH',
       hardMatchAnswers: {
