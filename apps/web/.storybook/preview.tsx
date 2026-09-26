@@ -2,6 +2,7 @@ import type { Preview } from "@storybook/nextjs-vite";
 import "../src/app/globals.css";
 import MockDate from "mockdate";
 import { initialize, mswLoader } from "msw-storybook-addon";
+import { setProfileReadAccount } from "../src/app/dashboard/_lib/profile-read-revision";
 import { AuthSessionProvider } from "../src/app/auth-session";
 import { ToastProvider } from "../src/app/dashboard/_components/ToastProvider";
 import { mswHandlers } from "./msw-handlers";
@@ -101,6 +102,7 @@ const preview: Preview = {
   },
   beforeEach({ parameters }) {
     delete document.documentElement.dataset.storybookReady;
+    setProfileReadAccount(null);
     if (parameters.fullSite) {
       localStorage.clear();
       sessionStorage.clear();

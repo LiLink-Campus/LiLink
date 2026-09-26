@@ -6,6 +6,10 @@ import { http, HttpResponse } from "msw";
 import { PwaInstallProvider } from "@/app/_components/PwaInstall";
 import { UserCenter } from "@/app/dashboard/me/user-center";
 import { HomeClient } from "@/app/dashboard/home-client";
+import { HomeBootstrap } from "@/app/dashboard/home-bootstrap";
+import { ProfileBootstrap } from "@/app/dashboard/profile/profile-bootstrap";
+import { CenterBootstrap } from "@/app/dashboard/me/center-bootstrap";
+import { homeProps, profileProps, homePageData, profilePageData } from "./dashboard-bootstrap-fixtures";
 import { ProfileClient } from "@/app/dashboard/profile/profile-client";
 import { CouponsClient } from "@/app/dashboard/coupons/coupons-client";
 import { ReferralsClient } from "@/app/dashboard/referrals/referrals-client";
@@ -17,7 +21,7 @@ import {
   matchStoryUser as user,
 } from "@/app/dashboard/match/match.fixtures";
 import { referralFixtures } from "@/app/dashboard/referrals/referrals.fixtures";
-import { contacts, questions, schools, coupon, now, savedProfile } from "./site-fixtures";
+import { questions, coupon, now, savedProfile } from "./site-fixtures";
 import { api, dashboardShell, failure, route, visible, siteHandlers } from "./site-support";
 
 const meta = {
@@ -25,32 +29,12 @@ const meta = {
   title: "全站/用户中心",
   tags: ["smoke", "page"],
   decorators: [dashboardShell],
-  parameters: { fullSite: true, ...route("/dashboard") },
+  parameters: { fullSite: true, ...route("/dashboard"), msw: { handlers: { session: [http.get(`${api}/auth/me`, () => HttpResponse.json(user))] } } },
 } satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;
-const homeProps = {
-  initialNowMs: Date.parse(now),
-  initialUser: user,
-  initialDashboard: dashboards.waitingNoResult,
-  questionnairePercent: 100,
-  questionnaireSubmitted: true,
-  questionnaireMissingOneLinerIntro: false,
-  questionnaireEligibleToOptIn: true,
-  questionnaireHasIncompleteDraft: false,
-  questionnaireAttention: null,
-  contactPreferences: contacts,
-};
-const profileProps = {
-  initialUser: user,
-  initialDashboard: { ...dashboards.waitingNoResult, questionnaireSubmittedAt: null },
-  initialQuestions: [...questions, ...LIFESTYLE_QUESTIONS.map(question => ({ id: question.key, key: question.key, prompt: question.prompt, type: "SINGLE_SELECT" as const, options: question.options.map(label => ({ label, value: label })) }))],
-  initialSchools: schools.schools,
-  initialSavedQuestionnaire: null,
-  initialContactPreferences: contacts,
-};
 export const HomeJoined: Story = {
-  render: () => <HomeClient {...homeProps} />,
+  render: () => <HomeBootstrap initialNowMs={homeProps.initialNowMs} initialData={homePageData} />,
   play: visible("你已报名本轮匹配"),
 };
 export const HomeNewUser: Story = {
@@ -124,7 +108,7 @@ async function jumpQuestion(canvasElement: HTMLElement, title: string) {
 export const Profile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   parameters: route("/dashboard/profile"),
-  render: () => <ProfileClient {...profileProps} />,
+  render: () => <ProfileBootstrap initialData={profilePageData} />,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await expect(c.getByPlaceholderText("希望 TA 怎样称呼你")).toBeVisible();
@@ -491,7 +475,7 @@ export const ProfileLifestyle: Story = {
 const centerStatus = { active: false, activatedAt: null, expiresAt: null, durationDays: 30, priceYuan: "29.9", advancedFiltersAvailable: true };
 export const UserCenterFree: Story = {
   parameters: { ...route("/dashboard/me") },
-  render: () => <UserCenter initialUser={user} initialStatus={centerStatus} />,
+  render: () => <CenterBootstrap initialData={{ user, vip: centerStatus }} />,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await expect(c.getByRole("heading", { name: "用户中心" })).toBeVisible();
