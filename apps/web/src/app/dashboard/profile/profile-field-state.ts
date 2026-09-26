@@ -7,10 +7,10 @@ import {
   buildDayOptions,
   hardMatchAttentionFields,
   type HardMatchFormState,
-} from "../../../lib/hard-match";
+} from "@lilink/shared";
 import type { ValuePickerOption } from "../_components/ValuePicker";
 import type { Question } from "../_lib/types";
-import { softQuestionAnswerIsComplete } from "../_lib/questionnaire";
+import { softQuestionAnswerIsComplete } from "@lilink/shared";
 
 function numericOptions(
   values: ReadonlyArray<number | string>,

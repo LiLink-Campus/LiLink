@@ -17,10 +17,10 @@ const mode = __ENV.MODE || 'read';
 if (!['read', 'mixed', 'home', 'match'].includes(mode)) throw new Error('Unknown load mode.');
 const mixed = mode === 'mixed';
 const timeUnit = __ENV.RATE_TIME_UNIT || '1s';
-const measuredReadRoutes = mode === 'match' ? ['/me/bootstrap'] : ['/me/bootstrap', '/me/questionnaire', '/me/contact-preferences', '/questionnaire/current'];
+const measuredReadRoutes = mode === 'home' ? ['/me/page-bootstrap/home'] : mode === 'match' ? ['/me/bootstrap'] : ['/me/bootstrap', '/me/questionnaire', '/me/contact-preferences', '/questionnaire/current'];
 if (!['1s', '1m'].includes(timeUnit)) throw new Error('RATE_TIME_UNIT must be 1s or 1m.');
 const expectedIterations = Math.floor(rate * seconds / (timeUnit === '1m' ? 60 : 1));
-const expectedRequests = mode === 'home' ? expectedIterations * 4 : mixed
+const expectedRequests = mixed
   ? expectedIterations + Math.floor(expectedIterations / 10) * 3 + Math.max(0, expectedIterations % 10 - 7)
   : expectedIterations;
 if (!Number.isInteger(rate) || rate < 1 || !Number.isInteger(seconds) || seconds < 1 || seconds > 1800 || expectedIterations < 1 || expectedRequests / seconds > 200) throw new Error('Invalid or oversized load schedule.');
@@ -91,8 +91,10 @@ export default function(data) {
     ['/questionnaire/current', body => body.id === 'release_autumn_20260920' && body.questions.length === 24],
   ];
   if (mode === 'home') {
-    const responses = http.batch(routes.map(([route]) => ['GET', `${target.baseUrl}/v1${route}`, null, params(route, 'GET')]));
-    responses.forEach((response, index) => record('GET', response, routes[index][1], routes[index][0]));
+    request('GET', '/me/page-bootstrap/home', null, body => body.user?.id === userId
+      && body.dashboard != null && body.questionnaireProgress != null
+      && body.contactPreferences != null && 'questionnaireAttention' in body
+      && !('questions' in body) && !('answers' in body) && !('questionnaire' in body) && !('version' in body) && !('savedQuestionnaire' in body));
   } else if (mode === 'match') {
     request('GET', routes[0][0], null, routes[0][1]);
   } else if (mixed && iteration % 10 >= 8) {

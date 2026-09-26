@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
-import { HARD_MATCH_KEYS } from "../../../lib/hard-match";
+import { HARD_MATCH_KEYS } from "@lilink/shared";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
 import { AdminIcon } from "../admin-icon";

@@ -214,7 +214,7 @@ export default function AdminCampaignsPage() {
             </button>
           ))}
         </div>
-        {loading ? (
+        {loading && !data ? (
           <p className={styles.empty}>加载活动…</p>
         ) : campaigns.length === 0 ? (
           <p className={styles.empty}>

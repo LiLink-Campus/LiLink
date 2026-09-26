@@ -1,44 +1,6 @@
-import { useEffect, useState, type RefObject } from "react";
+import type { RefObject } from "react";
 import Link from "next/link";
-import { fetchApi } from "../../../lib/api";
-import type { VipStatus } from "../vip/vip-client";
 import styles from "./profile-redesign.module.css";
-
-export function useProfileVipAccess(initialVip: VipStatus | null) {
-  const [vip, setVip] = useState(initialVip);
-  useEffect(() => {
-    let disposed = false;
-    const refresh = () => {
-      void fetchApi<VipStatus>("/me/vip")
-        .then((next) => {
-          if (!disposed) setVip(next);
-        })
-        .catch(() => {
-          if (!disposed) setVip(null);
-        });
-    };
-    const expire = vip?.expiresAt
-      ? window.setTimeout(
-          () => {
-            if (Date.parse(vip.expiresAt!) <= Date.now())
-              setVip((current) => (current ? { ...current, active: false } : null));
-            refresh();
-          },
-          Math.min(2_147_483_647, Math.max(0, Date.parse(vip.expiresAt) - Date.now()))
-        )
-      : undefined;
-    window.addEventListener("focus", refresh);
-    const interval = window.setInterval(refresh, 30_000);
-    return () => {
-      disposed = true;
-      window.removeEventListener("focus", refresh);
-      window.clearInterval(interval);
-      window.clearTimeout(expire);
-    };
-  }, [vip?.expiresAt]);
-
-  return Boolean(vip?.active);
-}
 
 export function ProfileVipDialog({
   vipDialogRef,

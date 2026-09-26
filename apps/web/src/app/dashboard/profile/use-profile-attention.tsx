@@ -1,8 +1,10 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { HARD_MATCH_WEIGHT_KEYS, VIP_FILTER_KEYS } from "@lilink/shared";
+import { createAutosaveTimeoutController, HARD_MATCH_WEIGHT_KEYS, VIP_FILTER_KEYS } from "@lilink/shared";
 import { fetchApi } from "../../../lib/api";
-import { hardMatchAttentionFields, type HardMatchFormState } from "../../../lib/hard-match";
-import { softQuestionAnswerIsComplete } from "../_lib/questionnaire";
+import { beginProfileWrite } from "../_lib/profile-read-revision";
+import { useProfileWriteOwner } from "../_lib/profile-write-owner";
+import { hardMatchAttentionFields, type HardMatchFormState } from "@lilink/shared";
+import { softQuestionAnswerIsComplete } from "@lilink/shared";
 import { dcx } from "../_lib/dashboard-class-names";
 import type {
   Question,
@@ -18,6 +20,7 @@ type QuestionnaireAcknowledgementResponse = {
 };
 
 const QUESTIONNAIRE_ATTENTION_VIEW_MS = 200;
+const QUESTIONNAIRE_ACKNOWLEDGEMENT_TIMEOUT_MS = 15_000;
 function questionnaireAttentionText(item: QuestionnaireAttentionItem) {
   if (item.updated && !item.acknowledged && item.missingRequired) {
     return "本题有更新，且当前答案待补完。";
@@ -31,6 +34,7 @@ function questionnaireAttentionText(item: QuestionnaireAttentionItem) {
 }
 
 export function useProfileAttention({
+  userId,
   initialAttention,
   answers,
   hardMatchForm,
@@ -39,6 +43,7 @@ export function useProfileAttention({
   activeTab,
   questionBlockRefs,
 }: {
+  userId: string;
   initialAttention: NonNullable<SavedQuestionnairePayload>["attention"] | null;
   answers: Record<string, unknown>;
   hardMatchForm: HardMatchFormState;
@@ -47,6 +52,7 @@ export function useProfileAttention({
   activeTab: ProfileTab;
   questionBlockRefs: ProfileFieldRegistry["questionBlockRefs"];
 }) {
+  const writeOwner = useProfileWriteOwner();
   const questionnaireAttention = initialAttention;
   const [acknowledgedQuestionnaireKeys, setAcknowledgedQuestionnaireKeys] = useState<string[]>(
     () => questionnaireAttention?.acknowledgedKeys ?? []
@@ -184,11 +190,14 @@ export function useProfileAttention({
       return;
     }
 
+    const deadline = createAutosaveTimeoutController(QUESTIONNAIRE_ACKNOWLEDGEMENT_TIMEOUT_MS);
+    const write = beginProfileWrite(userId, writeOwner);
     try {
       const result = await fetchApi<QuestionnaireAcknowledgementResponse>(
         "/me/questionnaire/acknowledgement",
         {
           method: "PUT",
+          signal: deadline.signal,
           body: JSON.stringify({
             versionId: questionnaireAttention.currentVersionId,
             keys,
@@ -196,6 +205,7 @@ export function useProfileAttention({
         }
       );
 
+      write.succeeded();
       if (mounted.current) {
         setAcknowledgedQuestionnaireKeys(result.acknowledgedKeys);
         const hardMatchKeySet = new Set<string>(
@@ -207,7 +217,10 @@ export function useProfileAttention({
         }
       }
     } catch {
-      // Keep the marker visible; the next viewport pass can retry.
+      // A timeout may already have committed; a later read resolves that state.
+    } finally {
+      deadline.clear();
+      write.finish();
     }
   }
 

@@ -108,6 +108,7 @@ describe('JwtAuthGuard', () => {
       sub: 'user-1',
       email: 'active@example.com',
       displayName: 'Active User',
+      preferredLocale: 'zh-CN',
     });
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });

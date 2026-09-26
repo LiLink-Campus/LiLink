@@ -8,10 +8,10 @@ import {
   HARD_MATCH_LOOKS,
   hardMatchFormFromAnswers,
   type HardMatchSchoolOption,
-} from "../../../lib/hard-match";
+} from "@lilink/shared";
 import type { VipStatus } from "../vip/vip-client";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
-import { keepCurrentQuestionAnswers } from "../_lib/questionnaire";
+import { keepCurrentQuestionAnswers } from "@lilink/shared";
 import { dcx } from "../_lib/dashboard-class-names";
 import type {
   ContactPreferencesPayload,
@@ -25,7 +25,8 @@ import { useProfileFieldRegistry } from "./use-profile-field-registry";
 import { useProfileAttention } from "./use-profile-attention";
 import { useProfileAutosave } from "./use-profile-autosave";
 import { initialProfileTab, useProfileReader } from "./use-profile-reader";
-import { ProfileVipDialog, useProfileVipAccess } from "./profile-vip-access";
+import { ProfileVipDialog } from "./profile-vip-access";
+import { useVipStatus } from "./use-vip-status";
 import { ProfileSelfSection } from "./profile-self-section";
 import { ProfilePartnerSection } from "./profile-partner-section";
 import { ProfileValuesSection } from "./profile-values-section";
@@ -61,7 +62,8 @@ export function ProfileClient({
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
   useDashboardSessionSeed(initialUser);
-  const vipActive = useProfileVipAccess(initialVip);
+  const { vip, error: vipError } = useVipStatus(initialVip);
+  const vipActive = Boolean(vip?.active);
   const vipDialogRef = useRef<HTMLDialogElement>(null);
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;
   const [questions] = useState(initialQuestions);
@@ -132,6 +134,7 @@ export function ProfileClient({
     snapshot,
   });
   const attention = useProfileAttention({
+    userId: initialUser.id,
     initialAttention: initialSavedQuestionnaire?.attention ?? null,
     answers,
     hardMatchForm,
@@ -141,6 +144,7 @@ export function ProfileClient({
     questionBlockRefs,
   });
   const autosave = useProfileAutosave({
+    userId: initialUser.id,
     payload,
     versionId: initialQuestionnaireVersionId ?? initialSavedQuestionnaire?.currentVersionId,
     initiallyHasDraft: Boolean(initialDraft),
@@ -164,6 +168,7 @@ export function ProfileClient({
       data-profile-reader
       className={`${dcx("app-page-shell v2-page-shell")} ${styles.page}`}
     >
+      {vipError && <p role="status" className="ui-form-message">{vipError}</p>}
       <header className={styles.pageHeading}>
         <span className={styles.eyebrow}>让我们更了解你</span>
         <h1>我的资料</h1>

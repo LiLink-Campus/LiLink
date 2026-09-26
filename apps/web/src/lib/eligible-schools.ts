@@ -1,3 +1,5 @@
+import { withReadDeadline } from "./read-deadline";
+
 export type EligibleSchool = {
   id: string;
   name: string;
@@ -63,10 +65,11 @@ export function findMatchingSchool(
 export async function fetchEligibleSchools(
   options: { signal?: AbortSignal } = {},
 ): Promise<EligibleSchoolsPayload> {
-  const response = await fetch("/api/public/schools", {
-    headers: { Accept: "application/json" },
-    cache: "default",
-    signal: options.signal,
+  return withReadDeadline(options.signal, async signal => {
+    const response = await fetch("/api/public/schools", {
+      headers: { Accept: "application/json" },
+      cache: "default",
+      signal,
   });
 
   if (!response.ok) {
@@ -74,4 +77,5 @@ export async function fetchEligibleSchools(
   }
 
   return (await response.json()) as EligibleSchoolsPayload;
+  });
 }

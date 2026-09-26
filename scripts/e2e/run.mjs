@@ -9,6 +9,13 @@ import { testEnvironment } from './environment.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const apiOnly = process.argv.includes('--api');
+const serve = process.argv.includes('--serve');
+const serveMinutesArg = process.argv.find(arg => arg.startsWith('--serve-minutes='));
+const serveMinutes = Number(serveMinutesArg?.split('=')[1] ?? 30);
+if ((serve && apiOnly) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 30) {
+  throw new Error('--serve is browser-only; --serve-minutes must be between 1 and 30.');
+}
+const playwrightArgs = process.argv.slice(2).filter(arg => arg !== '--serve' && !arg.startsWith('--serve-minutes='));
 const startedAt = Date.now();
 const runId = randomBytes(6).toString('hex');
 const output = path.join(root, 'artifacts/e2e', runId);
@@ -16,11 +23,15 @@ const workspace = path.join(output, 'workspace');
 const children = new Set();
 const containers = [];
 let stopping = false;
+let interrupted = false;
+let releaseSession;
+const interruptedSession = new Promise(resolve => { releaseSession = resolve; });
 await mkdir(workspace, { recursive: true });
 await writeFile(path.join(root, 'artifacts/e2e/latest.json'), JSON.stringify({ runId, output }, null, 2));
 
 function command(exe, args, options = {}) {
   const { background = false, label, ...spawnOptions } = options;
+  if (interrupted && label !== 'cleanup') throw new Error('Run interrupted.');
   const child = spawn(exe, args, { cwd: workspace, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'], ...spawnOptions });
   children.add(child);
   const log = createWriteStream(path.join(output, `${label || exe.replaceAll('/', '_')}.log`), { flags: 'a' });
@@ -43,7 +54,7 @@ async function freePort() {
 async function waitFor(url, child, timeout = 90000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`Service exited before readiness: ${url}`);
+    if (interrupted || child.exitCode !== null || child.signalCode !== null) throw new Error(`Service exited before readiness: ${url}`);
     try { if ((await fetch(url, { signal: AbortSignal.timeout(2000) })).ok) return; } catch {}
     await new Promise(resolve => setTimeout(resolve, 300));
   }
@@ -73,6 +84,7 @@ async function cleanup() {
     try { await command('docker', ['rm', '-fv', name], { label: 'cleanup' }); }
     catch (error) { console.error(`Cleanup failed for ${name}: ${error.message}`); process.exitCode = 1; }
   }
+  await rm(path.join(output, 'session.json'), { force: true });
   await rm(workspace, { recursive: true, force: true });
 }
 const ports = [];
@@ -81,7 +93,12 @@ const [dbPort, smtpPort, mailPort, apiPort, webPort] = ports;
 const env = testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId });
 if (apiOnly) env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_e2e_', '/lilink_vip_test_');
 Object.assign(env, { E2E_SOURCE_ROOT: root, E2E_OUTPUT: output, E2E_WORKSPACE: workspace, LILINK_BUILD_WORKSPACE_ROOT: root });
-for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { void cleanup().finally(() => process.exit(130)); });
+for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
+  interrupted = true;
+  process.exitCode = 130;
+  releaseSession();
+  for (const child of children) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} }
+});
 
 try {
   console.log(`E2E run ${runId}; reports: ${output}`);
@@ -113,15 +130,35 @@ try {
   } else {
   await command('node', ['apps/api/scripts/seed-defaults.mjs'], { label: 'seed' });
   await command('node', ['e2e/support/seed.mjs'], { label: 'seed' });
-  await command('npm', ['run', 'build:web'], { label: 'build' });
   const api = command('node', ['apps/api/dist/src/main.js'], { background: true, label: 'api' });
+  // Public prerendering must read the seeded API, not cache a connection failure.
+  await waitFor(`${env.E2E_API_URL}/health`, api);
+  await Promise.race([
+    command('npm', ['run', 'build:web'], { label: 'build' }),
+    api.done.then(() => { throw new Error('The isolated API exited during the web build.'); }),
+  ]);
   const web = command('npm', ['run', 'start', '--workspace', 'web', '--', '--hostname', '127.0.0.1', '--port', String(webPort)], { background: true, label: 'web' });
   await Promise.all([waitFor(`${env.E2E_API_URL}/health`, api), waitFor(`${env.E2E_WEB_URL}/login`, web), waitFor(`${env.E2E_MAIL_URL}/api/v1/messages`, api)]);
-  await command('npx', ['playwright', 'test', ...process.argv.slice(2)], { label: 'tests' });
+  const services = [api, web, ...containers.map(name => command('docker', ['wait', name], { background: true, label: 'service-watch' }))];
+  const serviceFailure = Promise.race(services.map(child => child.done.then(() => { throw new Error('An isolated service exited unexpectedly.'); })));
+  serviceFailure.catch(() => {});
+  if (serve) {
+    const expiresAt = new Date(Date.now() + serveMinutes * 60_000).toISOString();
+    await writeFile(path.join(output, 'session.json'), JSON.stringify({ runId, pid: process.pid,
+      webUrl: env.E2E_WEB_URL, apiUrl: env.E2E_API_URL, mailUrl: env.E2E_MAIL_URL, expiresAt }, null, 2));
+    console.log(`Isolated browser session ready: ${env.E2E_WEB_URL}; expires ${expiresAt}`);
+    let expiry;
+    try {
+      await Promise.race([serviceFailure, interruptedSession,
+        new Promise(resolve => { expiry = setTimeout(resolve, serveMinutes * 60_000); })]);
+    } finally { clearTimeout(expiry); }
+  } else {
+    await Promise.race([command('npx', ['playwright', 'test', ...playwrightArgs], { label: 'tests' }), serviceFailure]);
+  }
   }
 } catch (error) {
   console.error(error.message);
-  process.exitCode = 1;
+  process.exitCode = interrupted ? 130 : 1;
 } finally {
   await cleanup();
   await writeFile(path.join(output, 'run.json'), JSON.stringify({ runId, startedAt: new Date(startedAt).toISOString(), durationMs: Date.now() - startedAt, exitCode: process.exitCode || 0, arguments: process.argv.slice(2), platform: process.platform, arch: process.arch }, null, 2));

@@ -11,7 +11,7 @@ import {
   HARD_MATCH_GENDERS,
   HARD_MATCH_LOOKS,
   type HardMatchFormState,
-} from "../../../lib/hard-match";
+} from "@lilink/shared";
 import { ValuePicker, type ValuePickerOption } from "../_components/ValuePicker";
 import { buildDashboardFieldId } from "../_lib/format";
 import { profileAttentionElementId } from "../_lib/profile-attention";
@@ -21,7 +21,7 @@ import type { ProfileFieldRegistry } from "./use-profile-field-registry";
 import { HARD_MATCH_FIELD_KEY_GROUPS, type ProfileTab } from "./profile-field-state";
 import styles from "./profile-redesign.module.css";
 import { LIFESTYLE_QUESTIONS } from "@lilink/shared";
-import { toggleMultiSelectValue, type HardMatchSchoolOption } from "../../../lib/hard-match";
+import { toggleMultiSelectValue, type HardMatchSchoolOption } from "@lilink/shared";
 import { LifestylePreferenceChoices } from "./lifestyle-preference-choices";
 import {
   AGE_VALUE_OPTIONS,

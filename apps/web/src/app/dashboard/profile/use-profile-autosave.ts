@@ -5,7 +5,9 @@ import {
   takeNextAutosaveQueueItem,
 } from "@lilink/shared";
 import { fetchApi, isApiRequestError } from "../../../lib/api";
-import type { HardMatchFormState } from "../../../lib/hard-match";
+import { beginProfileWrite } from "../_lib/profile-read-revision";
+import { useProfileWriteOwner } from "../_lib/profile-write-owner";
+import type { HardMatchFormState } from "@lilink/shared";
 
 export type QuestionnaireSavePayload = {
   answers: Record<string, unknown>;
@@ -62,18 +64,21 @@ export type QuestionnaireSavedEvent = {
   snapshot: string;
 };
 export function useProfileAutosave({
+  userId,
   payload,
   versionId,
   initiallyHasDraft,
   initialSubmittedAt,
   onSaved,
 }: {
+  userId: string;
   payload: QuestionnaireSavePayload;
   versionId?: string | null;
   initiallyHasDraft: boolean;
   initialSubmittedAt: string | null;
   onSaved: (event: QuestionnaireSavedEvent) => void;
 }) {
+  const writeOwner = useProfileWriteOwner();
   const [submittedAt, setSubmittedAt] = useState(initialSubmittedAt);
   const [questionnaireSaveError, setQuestionnaireSaveError] = useState<string | null>(null);
   const [questionnaireSaveState, setQuestionnaireSaveState] = useState<QuestionnaireAutosaveState>(
@@ -109,7 +114,7 @@ export function useProfileAutosave({
       questionnaireAutosaveLifecycle.markUnmounted();
       clearQuestionnaireRetryTimer();
       queuedQuestionnaireSaveRef.current = null;
-      questionnaireSaveAbortRef.current?.abort();
+      // Let the sent write settle under its deadline; unmount cannot undo it.
     };
   }, [questionnaireAutosaveLifecycle]);
 
@@ -135,6 +140,7 @@ export function useProfileAutosave({
       setQuestionnaireSaveState(questionnaireRetryAttemptRef.current > 0 ? "retrying" : "saving");
       setQuestionnaireSaveError(null);
 
+      const write = beginProfileWrite(userId, writeOwner);
       try {
         const result = await fetchApi<QuestionnaireSaveResponse>(
           "/me/questionnaire",
@@ -146,6 +152,7 @@ export function useProfileAutosave({
           questionnaireRetryAttemptRef.current > 0 ? undefined : "/api/questionnaire"
         );
 
+        write.succeeded();
         if (!questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken)) {
           return;
         }
@@ -196,6 +203,7 @@ export function useProfileAutosave({
             : questionnaireAutosaveFailureMessage(caughtError, retryDelayMs)
         );
       } finally {
+        write.finish();
         autosaveTimeout.clear();
         questionnaireSaveAbortRef.current = null;
         questionnaireSaveInFlightRef.current = false;

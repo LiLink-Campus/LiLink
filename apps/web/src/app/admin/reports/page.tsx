@@ -177,10 +177,6 @@ export default function AdminReportsPage() {
     submitSearch();
   }
 
-  if (loading) {
-    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载举报中心...</div>;
-  }
-
   return (
     <div className={cx(adminStyles, "admin-page admin-page-stack admin-page-wide")}>
       <div className={cx(adminStyles, "admin-page-header admin-page-header-large")}>
@@ -192,6 +188,8 @@ export default function AdminReportsPage() {
           刷新
         </button>
       </div>
+
+      {loading && <p role="status">{data ? "正在更新列表…" : "正在加载列表…"}</p>}
 
       {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
       {actionError ? <p className="ui-form-message ui-form-message--error">{actionError}</p> : null}
@@ -310,7 +308,7 @@ export default function AdminReportsPage() {
                 </div>
               </div>
             ))}
-            {reports.length === 0 ? (
+            {!loading && reports.length === 0 ? (
               <div className={cx(adminStyles, "admin-empty-state")}>当前筛选条件下没有举报。</div>
             ) : null}
           </div>

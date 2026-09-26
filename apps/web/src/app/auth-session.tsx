@@ -1,5 +1,6 @@
 "use client";
 
+import { setProfileReadAccount } from "./dashboard/_lib/profile-read-revision";
 import { usePathname } from "next/navigation";
 import {
   createContext,
@@ -38,6 +39,7 @@ export function AuthSessionProvider({
   const onDashboardPath = pathname.startsWith("/dashboard");
 
   const setUser = useCallback((nextUser: AuthMePayload | null) => {
+    setProfileReadAccount(nextUser?.id ?? null);
     setUserState(nextUser);
     hydratedRef.current = true;
     setHydrated(true);
@@ -56,6 +58,8 @@ export function AuthSessionProvider({
     lastRefreshAtRef.current = now;
     try {
       const nextUser = await fetchAuthMeDeduped();
+      // A failed background auth read is not proof of logout.
+      if (nextUser) setProfileReadAccount(nextUser.id);
       setUserState(nextUser);
     } finally {
       hydratedRef.current = true;

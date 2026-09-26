@@ -1,11 +1,14 @@
-import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
 import { Controller, Get, Header, Req, UseGuards } from '@nestjs/common';
+import {
+  LOCALE_COOKIE_NAME,
+  parseSupportedLocale,
+  computeQuestionnaireProgress,
+} from '@lilink/shared';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { VipService } from '../vip/vip.service';
 import { AccountDashboardService } from './account-dashboard.service';
-import { AccountProfileService } from './account-profile.service';
 import { AccountQuestionnaireService } from './account-questionnaire.service';
 import { ContactPreferencesService } from './contact-preferences.service';
 
@@ -13,7 +16,6 @@ import { ContactPreferencesService } from './contact-preferences.service';
 @UseGuards(JwtAuthGuard)
 export class PageBootstrapController {
   constructor(
-    private readonly accountProfileService: AccountProfileService,
     private readonly accountDashboardService: AccountDashboardService,
     private readonly contactPreferencesService: ContactPreferencesService,
     private readonly accountQuestionnaireService: AccountQuestionnaireService,
@@ -21,10 +23,14 @@ export class PageBootstrapController {
     private readonly vipService: VipService,
   ) {}
 
-  private async user(request: AuthenticatedRequest) {
-    const user = await this.accountProfileService.getUserSummary(
-      request.user!.sub,
-    );
+  private user(request: AuthenticatedRequest) {
+    const identity = request.user!;
+    const user = {
+      id: identity.sub,
+      email: identity.email,
+      displayName: identity.displayName,
+      preferredLocale: identity.preferredLocale,
+    };
     const cookies = request.cookies as Record<string, unknown> | undefined;
     return {
       ...user,
@@ -47,20 +53,31 @@ export class PageBootstrapController {
   @Get('home')
   @Header('Cache-Control', 'private, no-store')
   async home(@Req() request: AuthenticatedRequest) {
-    const [user, dashboard, data] = await Promise.all([
-      this.user(request),
+    const user = this.user(request);
+    const [dashboard, data] = await Promise.all([
       this.accountDashboardService.getDashboard(request.user!.sub),
       this.questionnaireData(request.user!.sub),
     ]);
-    return { user, dashboard, ...data };
+    return {
+      user,
+      dashboard,
+      questionnaireProgress: computeQuestionnaireProgress({
+        questions: data.questionnaire.questions,
+        schools: data.questionnaire.schools,
+        savedQuestionnaire: data.savedQuestionnaire,
+        fallbackDisplayName: user.displayName,
+      }),
+      questionnaireAttention: data.savedQuestionnaire?.attention ?? null,
+      contactPreferences: data.contactPreferences,
+    };
   }
 
   @Get('profile')
   @Header('Cache-Control', 'private, no-store')
   async profile(@Req() request: AuthenticatedRequest) {
     // Editing a profile does not require loading or repairing match history.
-    const [user, data, vip] = await Promise.all([
-      this.user(request),
+    const user = this.user(request);
+    const [data, vip] = await Promise.all([
       this.questionnaireData(request.user!.sub),
       this.vipService.getStatus(request.user!.sub).catch(() => null),
     ]);
@@ -77,10 +94,10 @@ export class PageBootstrapController {
   @Get('center')
   @Header('Cache-Control', 'private, no-store')
   async center(@Req() request: AuthenticatedRequest) {
-    const [user, vip] = await Promise.all([
-      this.user(request),
-      this.vipService.getStatus(request.user!.sub).catch(() => null),
-    ]);
+    const user = this.user(request);
+    const vip = await this.vipService
+      .getStatus(request.user!.sub)
+      .catch(() => null);
     return { user, vip };
   }
 }

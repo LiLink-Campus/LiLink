@@ -1,4 +1,13 @@
-import { Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Header,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   JwtAuthGuard,
   type AuthenticatedRequest,
@@ -17,6 +26,26 @@ export class CouponController {
   @Get()
   list(@Req() request: AuthenticatedRequest) {
     return this.couponService.getMyCoupons(request.user!.sub);
+  }
+
+  @Get('overview')
+  @Header('Cache-Control', 'private, no-store')
+  overview(@Req() request: AuthenticatedRequest) {
+    return this.couponService.getMyCouponOverview(request.user!.sub);
+  }
+
+  @Get('page')
+  @Header('Cache-Control', 'private, no-store')
+  page(
+    @Req() request: AuthenticatedRequest,
+    @Query('status') status: unknown,
+    @Query('cursor') cursor: unknown,
+  ) {
+    return this.couponService.getMyCouponPage(
+      request.user!.sub,
+      status,
+      cursor,
+    );
   }
 
   @Get('read-state')

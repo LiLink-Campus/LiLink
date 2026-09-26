@@ -1,6 +1,7 @@
 import { ActivationService } from './activation.service';
 
 type MockTx = {
+  user: { findUnique: jest.Mock };
   $executeRaw: jest.Mock;
   campaign: { findMany: jest.Mock };
   campaignActivation: { upsert: jest.Mock; update: jest.Mock };
@@ -11,11 +12,14 @@ type MockTx = {
 
 function makeTxPrisma() {
   const tx: MockTx = {
+    user: { findUnique: jest.fn() },
     $executeRaw: jest.fn().mockResolvedValue(1),
     campaign: {
       findMany: jest
         .fn()
-        .mockResolvedValue([{ id: 'camp1', startsAt: null, endsAt: null }]),
+        .mockResolvedValue([
+          { id: 'camp1', startsAt: null, endsAt: null, activations: [] },
+        ]),
     },
     campaignActivation: {
       upsert: jest.fn(),
@@ -26,7 +30,6 @@ function makeTxPrisma() {
     auditLog: { create: jest.fn().mockResolvedValue({}) },
   };
   const prisma = {
-    user: { findUnique: jest.fn() },
     ...tx,
     $transaction: jest.fn((cb: (t: MockTx) => unknown) => cb(tx)),
   };

@@ -26,6 +26,8 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci
+      - name: Build shared workspace for test types
+        run: npm run build:shared
       - name: Check harness safety and test types
         run: |
           npm run test:e2e:infra

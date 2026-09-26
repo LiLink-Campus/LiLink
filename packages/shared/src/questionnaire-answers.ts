@@ -1,4 +1,4 @@
-import type { Question } from "./types";
+import type { Question } from "./questionnaire-types";
 
 export function keepCurrentQuestionAnswers(
   questions: Question[],

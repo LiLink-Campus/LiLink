@@ -28,26 +28,38 @@ test('VIP school exclusions survive reload and hash navigation selects the right
   } });
   await completeProfile(context, db);
   const school = await db.school.findUniqueOrThrow({ where: { slug: 'e2e-school' } });
-  const route = '/dashboard/profile#profile-attention-hard_excluded_partner_schools';
-  await visit(page, route);
-  const search = page.getByRole('textbox', { name: '搜索学校' });
-  await expect(search).toBeVisible();
-  await expect(page).toHaveURL(/\/dashboard\/profile$/);
-  await search.fill(school.name);
-  await page.getByRole('region', { name: '当前题目' }).locator('summary').filter({ hasText: school.name }).click();
-  const choice = page.getByRole('group', { name: `${school.name} 排除性别` }).getByRole('checkbox', { name: '男', exact: true });
-  await page.getByRole('group', { name: `${school.name} 排除性别` }).getByText('男', { exact: true }).click();
-  await expect(choice).toBeChecked();
-  await expect(page.getByRole('main').getByText('全部修改已保存', { exact: true })).toBeVisible();
-  const saved = await (await context.request.get(`${api}/me/questionnaire`)).json();
-  expect(saved.answers.hard_excluded_partner_school_genders).toEqual([{ schoolId: school.id, genders: ['男'] }]);
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await visit(page, route);
-  await expect(search).toBeVisible();
-  await search.fill(school.name);
-  await page.getByRole('region', { name: '当前题目' }).locator('summary').filter({ hasText: school.name }).click();
-  await expect(choice).toBeChecked();
-  await info.attach('school-exclusion-restored', { body: await page.screenshot(), contentType: 'image/png' });
+  const cycle = await db.matchCycle.create({ data: {
+    codename: `profile-estimate-${account.id}`, status: 'OPEN',
+    participationDeadline: new Date(Date.now() + 86_400_000),
+    revealAt: new Date(Date.now() + 172_800_000),
+  } });
+  try {
+    const route = '/dashboard/profile#profile-attention-hard_excluded_partner_schools';
+    const estimateResponse = page.waitForResponse(response => response.url() === `${api}/me/match-estimate`);
+    await visit(page, route);
+    const estimate = await estimateResponse;
+    expect(estimate.ok(), await estimate.text()).toBeTruthy();
+    expect((await estimate.json()).available).toBe(true);
+    await expect(page.getByText('排除后匹配到的概率：', { exact: true })).toBeVisible();
+    const search = page.getByRole('textbox', { name: '搜索学校' });
+    await expect(search).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard\/profile$/);
+    await search.fill(school.name);
+    await page.getByRole('region', { name: '当前题目' }).locator('summary').filter({ hasText: school.name }).click();
+    const choice = page.getByRole('group', { name: `${school.name} 排除性别` }).getByRole('checkbox', { name: '男', exact: true });
+    await page.getByRole('group', { name: `${school.name} 排除性别` }).getByText('男', { exact: true }).click();
+    await expect(choice).toBeChecked();
+    await expect(page.getByRole('main').getByText('全部修改已保存', { exact: true })).toBeVisible();
+    const saved = await (await context.request.get(`${api}/me/questionnaire`)).json();
+    expect(saved.answers.hard_excluded_partner_school_genders).toEqual([{ schoolId: school.id, genders: ['男'] }]);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await visit(page, route);
+    await expect(search).toBeVisible();
+    await search.fill(school.name);
+    await page.getByRole('region', { name: '当前题目' }).locator('summary').filter({ hasText: school.name }).click();
+    await expect(choice).toBeChecked();
+    await info.attach('school-exclusion-restored', { body: await page.screenshot(), contentType: 'image/png' });
+  } finally { await db.matchCycle.delete({ where: { id: cycle.id } }); }
 });
 
 test('viewing an unconfirmed weight does not acknowledge it before an explicit save', async ({ page, context, db, account }) => {

@@ -1,4 +1,4 @@
-import { useEffect, useState, type SetStateAction } from "react";
+import { useState, type SetStateAction } from "react";
 import { QuestionField, QuestionHeading, ChoiceOption } from "./question-components";
 import {
   HARD_MATCH_GENDERS,
@@ -8,8 +8,8 @@ import {
   toggleMultiSelectValue,
   type HardMatchSchoolOption,
   type HardMatchFormState,
-} from "../../../lib/hard-match";
-import { fetchMatchEstimate, type MatchEstimate } from "../../../lib/api";
+} from "@lilink/shared";
+import { useMatchEstimate } from "./use-match-estimate";
 import type { MatchEstimateBand } from "@lilink/shared";
 import { profileAttentionElementId } from "../_lib/profile-attention";
 import { buildDashboardFieldId } from "../_lib/format";
@@ -23,7 +23,6 @@ type SchoolExclusions = Pick<
   HardMatchFormState,
   "excludedPartnerSchools" | "excludedPartnerSchoolGenders"
 >;
-const MATCH_ESTIMATE_DEBOUNCE_MS = 400;
 
 const MATCH_ESTIMATE_BAND_LABELS: Record<MatchEstimateBand, string> = {
   HIGH: "较高",
@@ -68,39 +67,10 @@ export function ProfileSchoolExclusions({
   setAttentionBlockRef: ProfileFieldRegistry["setAttentionBlockRef"];
 } & ProfileAttentionDisplay) {
   const [schoolSearch, setSchoolSearch] = useState("");
-  const [matchEstimate, setMatchEstimate] = useState<MatchEstimate | null>(null);
-  const [matchEstimatePending, setMatchEstimatePending] = useState(false);
-  // Live, debounced match-odds estimate for the current partner exclusions.
-  // Only availability and the band return from the server; raw pool counts stay
-  // server-side.
-  useEffect(() => {
-    if (!vipActive) {
-      setMatchEstimate(null);
-      setMatchEstimatePending(false);
-      return;
-    }
-    let active = true;
-    const handle = window.setTimeout(() => {
-      if (active) setMatchEstimatePending(true);
-      fetchMatchEstimate({
-        excludedPartnerSchools: exclusions.excludedPartnerSchools,
-        excludedPartnerSchoolGenders: exclusions.excludedPartnerSchoolGenders,
-      })
-        .then((result) => {
-          if (active) setMatchEstimate(result.available ? result : null);
-        })
-        .catch(() => {
-          if (active) setMatchEstimate(null);
-        })
-        .finally(() => {
-          if (active) setMatchEstimatePending(false);
-        });
-    }, MATCH_ESTIMATE_DEBOUNCE_MS);
-    return () => {
-      active = false;
-      window.clearTimeout(handle);
-    };
-  }, [exclusions.excludedPartnerSchools, exclusions.excludedPartnerSchoolGenders, vipActive]);
+  const { matchEstimate, matchEstimatePending } = useMatchEstimate({
+    excludedPartnerSchools: exclusions.excludedPartnerSchools,
+    excludedPartnerSchoolGenders: exclusions.excludedPartnerSchoolGenders,
+  }, vipActive);
 
   function toggleExcludedPartnerSchoolGender(schoolId: string, gender: string) {
     onChange((current) => {

@@ -7,7 +7,7 @@ vi.mock("../../lib/server-api", () => ({
     constructor(message: string, readonly status: number) { super(message); }
   },
 }));
-vi.mock("./me/user-center", () => ({ UserCenter: () => null }));
+vi.mock("./me/center-bootstrap", () => ({ CenterBootstrap: () => null }));
 vi.mock("./vip/vip-client", () => ({ VipClient: () => null }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(() => { throw new Error("login redirect"); }) }));
 

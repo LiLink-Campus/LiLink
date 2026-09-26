@@ -61,10 +61,6 @@ function AdminAuditContent() {
     submitSearch();
   }
 
-  if (loading) {
-    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载审计日志...</div>;
-  }
-
   return (
     <div className={cx(adminStyles, "admin-page admin-page-stack admin-page-wide")}>
       <div className={cx(adminStyles, "admin-page-header admin-page-header-large")}>
@@ -82,6 +78,8 @@ function AdminAuditContent() {
           刷新
         </button>
       </div>
+
+      {loading && <p role="status">{data ? "正在更新列表…" : "正在加载列表…"}</p>}
 
       {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
 
@@ -160,7 +158,7 @@ function AdminAuditContent() {
                 </td>
               </tr>
             ))}
-            {logs.length === 0 ? (
+            {!loading && logs.length === 0 ? (
               <tr>
                 <td colSpan={5}>
                   <div className={cx(adminStyles, "admin-empty-state")}>没有匹配的审计日志。</div>

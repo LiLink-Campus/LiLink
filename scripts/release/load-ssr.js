@@ -4,14 +4,18 @@ import encoding from 'k6/encoding';
 import exec from 'k6/execution';
 import { check, fail } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
-import { resolveLoadTarget } from './targets.mjs';
+import { resolveLoadTarget, resolveSsrTarget } from './targets.mjs';
 
 const target = JSON.parse(open(__ENV.TARGET_FILE));
 const verified = resolveLoadTarget(target);
+if (!['https://release-api-20260920.lilink.top', 'http://127.0.0.1:4080'].includes(target.baseUrl)) {
+  throw new Error('Verified isolated API target is required.');
+}
 const secret = open(__ENV.ACCESS_FILE).trim();
 const cookies = JSON.parse(open(__ENV.SSR_COOKIES_FILE));
 const frontend = JSON.parse(open(__ENV.SSR_IDENTITY_FILE));
-const base = 'https://release-20260920.lilink.top';
+const expectedFrontend = JSON.parse(open(__ENV.SSR_EXPECTED_FILE));
+const base = resolveSsrTarget(expectedFrontend, frontend, __ENV.RELEASE_SHA);
 const mode = __ENV.MODE;
 const rate = Number(__ENV.LOAD_RATE);
 const seconds = Number(__ENV.LOAD_DURATION_SECONDS);
@@ -19,9 +23,6 @@ const expected = Math.floor(rate * seconds / 60);
 if (!['ssr-home', 'ssr-match'].includes(mode) || __ENV.RATE_TIME_UNIT !== '1m'
   || !Number.isInteger(rate) || rate < 1 || rate > 1000
   || !Number.isInteger(seconds) || seconds < 1 || seconds > 120 || expected < 1
-  || frontend.sha !== __ENV.RELEASE_SHA || frontend.alias !== base
-  || frontend.projectId !== 'prj_bdgQbPghUNmgkWPueeJq8Z6ZAb4J'
-  || frontend.branch !== 'codex/questionnaire-reset-release' || frontend.state !== 'READY'
   || cookies.length !== 1 || cookies[0].name !== '_vercel_jwt') {
   throw new Error('Unverified preview or oversized SSR schedule.');
 }
@@ -82,7 +83,7 @@ export default function () {
 export function handleSummary(data) {
   return { [__ENV.SUMMARY_FILE]: JSON.stringify({ config: {
     mode, rate, seconds, expectedIterations: expected,
-    expectedApiRequests: expected * (mode === 'ssr-home' ? 4 : 1),
+    expectedApiRequests: expected,
     release: __ENV.RELEASE_SHA, deploymentId: frontend.deploymentId,
   }, ...data }, null, 2) };
 }

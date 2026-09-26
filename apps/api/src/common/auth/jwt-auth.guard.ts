@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
+import { normalizeLocale, type SupportedLocale } from '@lilink/shared';
 import { env } from '../../config/env';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -14,6 +15,7 @@ type AuthenticatedUser = {
   sub: string;
   email: string;
   displayName: string | null;
+  preferredLocale: SupportedLocale;
 };
 
 type ActiveAuthenticatedUser = AuthenticatedUser & {
@@ -72,6 +74,7 @@ export class JwtAuthGuard implements CanActivate {
       sub: user.sub,
       email: user.email,
       displayName: user.displayName,
+      preferredLocale: user.preferredLocale,
     };
     void this.touchLastActiveAtIfStale(user).catch((error: unknown) => {
       const message = this.readErrorMessage(error);
@@ -106,6 +109,7 @@ export class JwtAuthGuard implements CanActivate {
         id: true,
         email: true,
         displayName: true,
+        preferredLocale: true,
         status: true,
         deactivatedAt: true,
         lastActiveAt: true,
@@ -124,6 +128,7 @@ export class JwtAuthGuard implements CanActivate {
       sub: user.id,
       email: user.email,
       displayName: user.displayName,
+      preferredLocale: normalizeLocale(user.preferredLocale),
       lastActiveAt: user.lastActiveAt,
     };
   }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from "react";
-import { HARD_MATCH_KEYS } from "../../../lib/hard-match";
+import { HARD_MATCH_KEYS } from "@lilink/shared";
 import type { ValuePickerOption } from "../_components/ValuePicker";
 import {
   profileAttentionElementId,

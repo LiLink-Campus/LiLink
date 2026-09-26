@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
 
 export type AdminIdentity = {
@@ -46,7 +46,7 @@ export function AdminProvider({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function refreshAuth() {
+  const refreshAuth = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -60,7 +60,7 @@ export function AdminProvider({
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     if (initialAdmin || skipInitialRefresh) {
@@ -68,7 +68,7 @@ export function AdminProvider({
     }
 
     void refreshAuth();
-  }, [initialAdmin, skipInitialRefresh]);
+  }, [initialAdmin, skipInitialRefresh, refreshAuth]);
 
   async function login(email: string, password: string) {
     setLoading(true);

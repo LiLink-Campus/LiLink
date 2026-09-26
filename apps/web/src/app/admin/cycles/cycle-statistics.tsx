@@ -1,8 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import { fetchApi } from "@/lib/api";
+import { useAdminRead } from "../use-admin-read";
 import type { AdminCycleDetail } from "../types";
 import type { SchoolsGenderResponse, WeeklyOptinResponse } from "../analytics/types";
 import styles from "./cycles.module.css";
@@ -19,69 +18,37 @@ export default function CycleStatistics({
   refreshKey: number;
   summary: AdminCycleDetail["summary"] | null;
 }) {
-  const [schools, setSchools] = useState<SchoolsGenderResponse | null>(null);
-  const [weekly, setWeekly] = useState<WeeklyOptinResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retry, setRetry] = useState(0);
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    setSchools(null);
-    setWeekly(null);
-    void Promise.all([
-      fetchApi<SchoolsGenderResponse>(
-        `/admin/analytics/schools-gender?${new URLSearchParams({ cycleId, includeTest: "true" })}`,
-        { signal: controller.signal }
-      ),
-      fetchApi<WeeklyOptinResponse>("/admin/analytics/weekly-optin?limit=8&includeTest=true", {
-        signal: controller.signal,
-      }),
-    ])
-      .then(([schoolData, weeklyData]) => {
-        if (!controller.signal.aborted) {
-          setSchools(schoolData);
-          setWeekly(weeklyData);
-        }
-      })
-      .catch((caught) => {
-        if (!controller.signal.aborted)
-          setError(caught instanceof Error ? caught.message : "图表加载失败。");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [cycleId, refreshKey, retry]);
-
+  const schoolRead = useAdminRead<SchoolsGenderResponse>(
+    `/admin/analytics/schools-gender?${new URLSearchParams({ cycleId, includeTest: "true" })}`,
+    refreshKey,
+  );
+  const weeklyRead = useAdminRead<WeeklyOptinResponse>(
+    "/admin/analytics/weekly-optin?limit=8&includeTest=true",
+    refreshKey,
+  );
+  const schools = schoolRead.data;
+  const weekly = weeklyRead.data;
+  const loading = schoolRead.loading && !schools;
   const total = schools?.totals.total ?? 0;
   const submitted = schools?.totals.submitted ?? 0;
   const missing = Math.max(0, total - submitted);
   const ratio = total > 0 ? Math.round((submitted / total) * 100) : null;
-  if (error)
-    return (
-      <div className={styles.chartError}>
-        <p role="alert">{error}</p>
-        <button
-          className="ui-button ui-button--secondary"
-          type="button"
-          onClick={() => setRetry((value) => value + 1)}
-        >
-          重试图表
-        </button>
-      </div>
-    );
 
   return (
     <>
       <p className={styles.scopeNote}>统计已报名并选择意图的正常账号，含测试账号。</p>
-      <div className={styles.charts} aria-busy={loading}>
+      {schoolRead.error && (
+        <div className={styles.chartError}>
+          <p role="alert">{schoolRead.error}</p>
+          <button type="button" className="ui-button ui-button--secondary" onClick={() => void schoolRead.refresh()}>重试学校统计</button>
+        </div>
+      )}
+      <div className={styles.charts}>
         <section className={styles.completion} aria-label="问卷完成度">
           <h3>本轮问卷完成度</h3>
-          <p>已报名 {loading ? "…" : total} 人</p>
-          {loading ? (
-            <div className={styles.chartLoading}>正在加载完成度…</div>
+          <p>已报名 {schools ? total : "…"} 人</p>
+          {!schools ? (
+            <div className={styles.chartLoading}>{schoolRead.error ? "完成度暂不可用" : "正在加载完成度…"}</div>
           ) : (
             <>
               <svg
@@ -146,9 +113,15 @@ export default function CycleStatistics({
             </p>
           )}
         </section>
-        <SchoolsGenderChart data={schools} loading={loading} />
+        {(!schoolRead.error || schools) && <SchoolsGenderChart data={schools} loading={loading} />}
         <div className={styles.trend}>
-          <WeeklyOptinChart data={weekly} loading={loading} />
+          {weeklyRead.error && (
+            <div className={styles.chartError}>
+              <p role="alert">{weeklyRead.error}</p>
+              <button type="button" className="ui-button ui-button--secondary" onClick={() => void weeklyRead.refresh()}>重试报名趋势</button>
+            </div>
+          )}
+          {(!weeklyRead.error || weekly) && <WeeklyOptinChart data={weekly} loading={weeklyRead.loading && !weekly} />}
         </div>
       </div>
     </>

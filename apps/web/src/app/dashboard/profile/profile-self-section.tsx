@@ -11,7 +11,7 @@ import {
   HARD_MATCH_GENDERS,
   HARD_MATCH_LOOKS,
   type HardMatchFormState,
-} from "../../../lib/hard-match";
+} from "@lilink/shared";
 import { ValuePicker, type ValuePickerOption } from "../_components/ValuePicker";
 import { buildDashboardFieldId } from "../_lib/format";
 import { profileAttentionElementId } from "../_lib/profile-attention";
@@ -27,7 +27,7 @@ import {
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
   BIRTH_YEAR_OPTIONS,
   buildDayOptions,
-} from "../../../lib/hard-match";
+} from "@lilink/shared";
 import { ContactEditor, type ContactSaveStatus } from "./contact-editor";
 import type { Question, ContactPreferencesPayload } from "../_lib/types";
 import {

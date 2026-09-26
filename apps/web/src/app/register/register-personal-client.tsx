@@ -173,7 +173,7 @@ export default function RegisterPersonalClient() {
     }
 
     if (
-      schoolsPending || schoolsError ||
+      schoolsPending ||
       !eligibleSchools.some((school) => school.id === trimmedManualSchoolId)
     ) {
       setError("请选择你的学校。");

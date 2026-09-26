@@ -1,3 +1,4 @@
+import { homeArtwork } from "./home-artwork";
 import { ImageReadyPage } from "./_components/ImageReadyPage";
 import { ButtonLink } from "@/components/ui";
 import Link from "next/link";
@@ -102,13 +103,10 @@ export function HomePageView({ landing, community = null }: {
         <div className={styles.heroIllustration} aria-hidden="true">
           <Image
             data-page-image
-            src="/images/campus-blossom-scene-anime.webp"
+            {...homeArtwork}
             alt=""
-            fill
             priority
             fetchPriority="high"
-            quality={60}
-            sizes="100vw"
           />
         </div>
       </section>

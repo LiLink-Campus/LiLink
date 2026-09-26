@@ -5,7 +5,12 @@ import { PageBootstrapController } from './page-bootstrap.controller';
 
 describe('private dashboard page bootstrap', () => {
   const request = {
-    user: { sub: 'signed-in-user' },
+    user: {
+      sub: 'signed-in-user',
+      email: 'synthetic@example.test',
+      displayName: 'Synthetic user',
+      preferredLocale: 'zh-CN',
+    },
     cookies: {},
   } as AuthenticatedRequest;
   const account = {
@@ -17,7 +22,6 @@ describe('private dashboard page bootstrap', () => {
   const questionnaire = { getCurrentVersion: jest.fn() };
   const vip = { getStatus: jest.fn() };
   const controller = new PageBootstrapController(
-    account as never,
     account as never,
     account as never,
     account as never,
@@ -33,11 +37,15 @@ describe('private dashboard page bootstrap', () => {
     account.getDashboard.mockResolvedValue({ recentMatchHistory: [] });
     account.getQuestionnaire.mockResolvedValue({
       submittedAt: '2026-09-20T00:00:00.000Z',
+      answers: {},
+      draft: null,
+      attention: null,
     });
     account.getContactPreferences.mockResolvedValue({ methods: [] });
     questionnaire.getCurrentVersion.mockResolvedValue({
       id: 'current',
       questions: [],
+      schools: [],
     });
     vip.getStatus.mockResolvedValue({ active: false });
   });
@@ -70,7 +78,7 @@ describe('private dashboard page bootstrap', () => {
   it('retains history and questionnaire progress for the home page', async () => {
     expect(await controller.home(request)).toMatchObject({
       dashboard: { recentMatchHistory: [] },
-      questionnaire: { id: 'current' },
+      questionnaireProgress: { submitted: true, eligibleToOptIn: false },
     });
     expect(account.getDashboard).toHaveBeenCalledWith('signed-in-user');
   });
