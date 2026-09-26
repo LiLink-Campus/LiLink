@@ -204,7 +204,7 @@ export function computeQuestionnaireProgress(args: {
       ]).size
     : 0;
 
-  // Mirrors AccountService.assertQuestionnaireReadyForOptIn: opting in
+  // Mirrors AccountParticipationService.assertQuestionnaireReadyForOptIn: opting in
   // requires a previous successful submission AND a current draft (if any)
   // that still satisfies every required field. Comparing the raw ratios
   // (rather than `percent === 100`) avoids misreporting eligibility because

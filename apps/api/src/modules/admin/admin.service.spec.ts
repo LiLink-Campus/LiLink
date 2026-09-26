@@ -1,3 +1,4 @@
+import { HARD_MATCH_KEYS } from '@lilink/shared';
 const mockEnv: { APP_ENV: 'development' | 'test' | 'production' } = {
   APP_ENV: 'test',
 };
@@ -12,7 +13,6 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
 describe('AdminService', () => {
   afterEach(() => {});

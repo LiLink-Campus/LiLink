@@ -3,8 +3,8 @@ import {
   type ParticipationStatus,
   type ReportStatus,
 } from '../prisma/client';
-import { readQuestionnaireOneLiner } from '../../modules/questionnaire/hard-match';
 import {
+  readQuestionnaireOneLiner,
   CONTACT_CHANNEL_LABELS,
   HARD_MATCH_KEYS,
   contactChannelLabel,

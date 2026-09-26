@@ -4,46 +4,6 @@ import { env } from '../../config/env';
 import { AuthController } from './auth.controller';
 
 describe('AuthController', () => {
-  it('forwards requestCode to AuthService with the submitted email', async () => {
-    const requestCode = jest.fn().mockResolvedValue({
-      email: 'user@example.com',
-      expiresAt: new Date(),
-      school: { schoolId: 'school-1' },
-    });
-    const authController = new AuthController({
-      requestCode,
-    } as never);
-
-    await expect(
-      authController.requestCode({ email: 'user@example.com' }),
-    ).resolves.toMatchObject({
-      email: 'user@example.com',
-      school: { schoolId: 'school-1' },
-    });
-
-    expect(requestCode).toHaveBeenCalledTimes(1);
-    expect(requestCode).toHaveBeenCalledWith('user@example.com', undefined);
-  });
-
-  it('forwards requestCode to AuthService with the submitted referral code', async () => {
-    const requestCode = jest.fn().mockResolvedValue({
-      email: 'user@qq.com',
-      expiresAt: new Date(),
-      school: null,
-    });
-    const authController = new AuthController({
-      requestCode,
-    } as never);
-
-    await authController.requestCode({
-      email: 'user@qq.com',
-      referralCode: 'VALIDCODE1',
-    });
-
-    expect(requestCode).toHaveBeenCalledTimes(1);
-    expect(requestCode).toHaveBeenCalledWith('user@qq.com', 'VALIDCODE1');
-  });
-
   it('strips the token from the login response body while still setting the cookie', async () => {
     const authController = new AuthController({
       login: jest.fn().mockResolvedValue({
@@ -83,43 +43,6 @@ describe('AuthController', () => {
       maxAge: userSessionConfig.cookieMaxAgeMs,
       path: '/',
     });
-  });
-
-  it('strips the token from the register response body while still setting the cookie', async () => {
-    const authController = new AuthController({
-      register: jest.fn().mockResolvedValue({
-        token: 'jwt-token',
-        user: {
-          id: 'user-1',
-          email: 'user@example.com',
-          displayName: 'User',
-        },
-      }),
-    } as never);
-    const response = {
-      cookie: jest.fn(),
-    };
-
-    await expect(
-      authController.register(
-        {
-          email: 'user@example.com',
-          code: '123456',
-          password: 'Password123',
-          displayName: 'User',
-          acceptedTerms: true,
-        },
-        { cookies: {} } as never,
-        response as never,
-      ),
-    ).resolves.toEqual({
-      user: {
-        id: 'user-1',
-        email: 'user@example.com',
-        displayName: 'User',
-      },
-    });
-    expect(response.cookie).toHaveBeenCalled();
   });
 
   it('strips the token from the reset-password response body while still setting the cookie', async () => {

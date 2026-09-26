@@ -1,5 +1,5 @@
+import { HARD_MATCH_KEYS } from '@lilink/shared';
 import { AdminSchoolService } from './admin-school.service';
-import { HARD_MATCH_KEYS } from '../questionnaire/hard-match';
 
 describe('AdminSchoolService', () => {
   it('normalizes domains when creating a school', async () => {

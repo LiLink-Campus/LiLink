@@ -16,15 +16,11 @@ import {
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
   HARD_MATCH_WEIGHT_MAX_KG,
   HARD_MATCH_WEIGHT_MIN_KG,
-  areHardMatchAnswersCompatible,
-  hardMatchQuestionKeys,
   normalizeExcludedPartnerPreferences,
   normalizeBirthDate,
   normalizeOneLinerIntro,
-  parseHardMatchAnswers,
   readIntegerInRange,
   readNullableIntegerInRange,
-  readQuestionnaireOneLiner,
   readSingleChoice,
   readStringArray,
   type HardMatchAnswers,
@@ -37,20 +33,6 @@ import {
   type HardMatchSchoolGenderExclusion,
 } from '@lilink/shared';
 import { IncompleteQuestionnaireSubmissionException } from './incomplete-questionnaire-submission.exception';
-
-/**
- * @internal Exported for hard-match tests.
- */
-export { HARD_MATCH_GENDERS, HARD_MATCH_LOOKS };
-
-export {
-  HARD_MATCH_KEYS,
-  areHardMatchAnswersCompatible,
-  hardMatchQuestionKeys,
-  readQuestionnaireOneLiner,
-  type HardMatchAnswers,
-  type HardMatchKey,
-};
 
 const HARD_MATCH_FIELD_LABELS: Record<HardMatchKey, string> = {
   [HARD_MATCH_KEYS.birthDate]: '出生年月日',
@@ -963,10 +945,4 @@ export function normalizeHardMatchAnswers(
     [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]:
       normalizedValues.excludedPartnerSchoolGenders,
   };
-}
-
-export function tryReadHardMatchAnswers(
-  rawAnswers: Record<string, unknown>,
-): HardMatchAnswers | null {
-  return parseHardMatchAnswers(rawAnswers);
 }

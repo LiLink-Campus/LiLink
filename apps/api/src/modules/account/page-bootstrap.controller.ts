@@ -4,17 +4,21 @@ import {
   parseSupportedLocale,
   computeQuestionnaireProgress,
 } from '@lilink/shared';
-import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { VipService } from '../vip/vip.service';
-import { AccountService } from './account.service';
+import { AccountDashboardService } from './account-dashboard.service';
+import { AccountQuestionnaireService } from './account-questionnaire.service';
+import { ContactPreferencesService } from './contact-preferences.service';
 
 @Controller('me/page-bootstrap')
 @UseGuards(JwtAuthGuard)
 export class PageBootstrapController {
   constructor(
-    private readonly accountService: AccountService,
+    private readonly accountDashboardService: AccountDashboardService,
+    private readonly contactPreferencesService: ContactPreferencesService,
+    private readonly accountQuestionnaireService: AccountQuestionnaireService,
     private readonly questionnaireService: QuestionnaireService,
     private readonly vipService: VipService,
   ) {}
@@ -40,8 +44,8 @@ export class PageBootstrapController {
     const [questionnaire, savedQuestionnaire, contactPreferences] =
       await Promise.all([
         this.questionnaireService.getCurrentVersion(),
-        this.accountService.getQuestionnaire(userId),
-        this.accountService.getContactPreferences(userId),
+        this.accountQuestionnaireService.getQuestionnaire(userId),
+        this.contactPreferencesService.getContactPreferences(userId),
       ]);
     return { questionnaire, savedQuestionnaire, contactPreferences };
   }
@@ -51,7 +55,7 @@ export class PageBootstrapController {
   async home(@Req() request: AuthenticatedRequest) {
     const user = this.user(request);
     const [dashboard, data] = await Promise.all([
-      this.accountService.getDashboard(request.user!.sub),
+      this.accountDashboardService.getDashboard(request.user!.sub),
       this.questionnaireData(request.user!.sub),
     ]);
     return {

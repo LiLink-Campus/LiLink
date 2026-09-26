@@ -1,8 +1,7 @@
-import { PageBootstrapController } from './page-bootstrap.controller';
-import type { AccountService } from './account.service';
+import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import type { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import type { VipService } from '../vip/vip.service';
-import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
+import { PageBootstrapController } from './page-bootstrap.controller';
 
 describe('private dashboard page bootstrap', () => {
   const request = {
@@ -23,7 +22,9 @@ describe('private dashboard page bootstrap', () => {
   const questionnaire = { getCurrentVersion: jest.fn() };
   const vip = { getStatus: jest.fn() };
   const controller = new PageBootstrapController(
-    account as unknown as AccountService,
+    account as never,
+    account as never,
+    account as never,
     questionnaire as unknown as QuestionnaireService,
     vip as unknown as VipService,
   );

@@ -1,5 +1,5 @@
 import { validate } from 'class-validator';
-import { AccountService } from './account.service';
+import { ContactPreferencesService } from './contact-preferences.service';
 import { UpdateContactPreferencesDto } from './dto';
 
 describe('Contact preferences revision guards', () => {
@@ -35,11 +35,7 @@ describe('Contact preferences revision guards', () => {
         }),
       ),
     };
-    const service = new AccountService(
-      prisma as never,
-      {} as never,
-      {} as never,
-    );
+    const service = new ContactPreferencesService(prisma as never);
     await expect(
       service.updateContactPreferences('user-1', {
         revision: 0,

@@ -1,7 +1,6 @@
-import { contactChannelLabel } from '@lilink/shared';
+import { contactChannelLabel, readQuestionnaireOneLiner } from '@lilink/shared';
 import { Prisma, type ContactChannelType } from '../prisma/client';
 import { MailService } from './mail.service';
-import { readQuestionnaireOneLiner } from '../../modules/questionnaire/hard-match';
 
 export async function queueMatchRevealEmails(
   tx: Prisma.TransactionClient,

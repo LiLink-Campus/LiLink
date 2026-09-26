@@ -1,15 +1,15 @@
+import { HARD_MATCH_KEYS as K, LIFESTYLE_QUESTIONS } from '@lilink/shared';
 import { randomUUID } from 'node:crypto';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
-import { AccountService } from '../src/modules/account/account.service';
-import { QuestionnaireService } from '../src/modules/questionnaire/questionnaire.service';
+import { AccountQuestionnaireService } from '../src/modules/account/account-questionnaire.service';
 import { CyclesService } from '../src/modules/cycles/cycles.service';
-import { LIFESTYLE_QUESTIONS, HARD_MATCH_KEYS as K } from '@lilink/shared';
+import { QuestionnaireService } from '../src/modules/questionnaire/questionnaire.service';
 
 const fixture = `vip-profile-${randomUUID()}`;
 describe('VIP profile persistence and actual matching eligibility (PostgreSQL)', () => {
   let prisma: PrismaClient;
-  let account: AccountService;
+  let account: AccountQuestionnaireService;
   let cycles: CyclesService;
   let userId: string;
   let schoolId: string;
@@ -86,7 +86,7 @@ describe('VIP profile persistence and actual matching eligibility (PostgreSQL)',
       syncUserMatchSnapshots: jest.fn().mockResolvedValue(undefined),
       syncUserDisplayNameSnapshots: jest.fn().mockResolvedValue(undefined),
     };
-    account = new AccountService(
+    account = new AccountQuestionnaireService(
       prisma as PrismaService,
       new QuestionnaireService(prisma as PrismaService),
       snapshot as never,

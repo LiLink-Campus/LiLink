@@ -5,14 +5,14 @@ jest.mock('nodemailer', () => ({
 }));
 
 import { randomUUID } from 'crypto';
-import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
-import { PrismaService } from '../src/common/prisma/prisma.service';
 import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snapshot.service';
 import { MailService } from '../src/common/mail/mail.service';
 import { queueMatchRevealEmails } from '../src/common/mail/queue-match-reveal';
-import { AccountService } from '../src/modules/account/account.service';
-import { CyclesService } from '../src/modules/cycles/cycles.service';
+import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
+import { PrismaService } from '../src/common/prisma/prisma.service';
 import { env } from '../src/config/env';
+import { MatchReportService } from '../src/modules/account/match-report.service';
+import { CyclesService } from '../src/modules/cycles/cycles.service';
 
 function deferred() {
   let resolve!: () => void;
@@ -25,7 +25,7 @@ function deferred() {
 describe('Match email invalidation (PostgreSQL)', () => {
   let prisma: PrismaClient;
   let mail: MailService;
-  let account: AccountService;
+  let account: MatchReportService;
   let reset: (id: string) => Promise<void>;
   const tag = `mail-match-${randomUUID()}`;
   const userIds: string[] = [];
@@ -46,11 +46,7 @@ describe('Match email invalidation (PostgreSQL)', () => {
     env.SMTP_SEND_CONCURRENCY = 1;
     mail = new MailService(prisma as PrismaService);
     const snapshots = new DashboardSnapshotService(prisma as PrismaService);
-    account = new AccountService(
-      prisma as PrismaService,
-      {} as never,
-      snapshots,
-    );
+    account = new MatchReportService(prisma as PrismaService, snapshots);
     const cycles = new CyclesService(prisma as PrismaService, snapshots, mail);
     reset = (id) =>
       (
