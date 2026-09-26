@@ -1,3 +1,4 @@
+import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
 import {
   BadRequestException,
   Body,
@@ -14,14 +15,16 @@ import {
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
-import { env } from '../../config/env';
-import { createSessionClearCookieOptions } from '../../common/auth/session-config';
-import { AccountDeletionService } from './account-deletion.service';
-import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
-import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
-import { AccountService } from './account.service';
-import { MatchEstimateService } from './match-estimate.service';
+import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { createSessionClearCookieOptions } from '../../common/auth/session-config';
+import { env } from '../../config/env';
+import { AccountDashboardService } from './account-dashboard.service';
+import { AccountDeletionService } from './account-deletion.service';
+import { AccountParticipationService } from './account-participation.service';
+import { AccountProfileService } from './account-profile.service';
+import { AccountQuestionnaireService } from './account-questionnaire.service';
+import { ContactPreferencesService } from './contact-preferences.service';
 import {
   AcknowledgeQuestionnaireItemsDto,
   DashboardResponseDto,
@@ -34,13 +37,20 @@ import {
   UpdateContactPreferencesDto,
   UpdateProfileDto,
 } from './dto';
+import { MatchEstimateService } from './match-estimate.service';
+import { MatchReportService } from './match-report.service';
 
 @ApiTags('me')
 @Controller('me')
 @UseGuards(JwtAuthGuard)
 export class AccountController {
   constructor(
-    private readonly accountService: AccountService,
+    private readonly accountProfileService: AccountProfileService,
+    private readonly accountDashboardService: AccountDashboardService,
+    private readonly contactPreferencesService: ContactPreferencesService,
+    private readonly accountQuestionnaireService: AccountQuestionnaireService,
+    private readonly accountParticipationService: AccountParticipationService,
+    private readonly matchReportService: MatchReportService,
     private readonly matchEstimateService: MatchEstimateService,
     private readonly accountDeletionService: AccountDeletionService,
   ) {}
@@ -66,15 +76,15 @@ export class AccountController {
   })
   @ApiOkResponse({ type: DashboardResponseDto })
   getDashboard(@Req() request: AuthenticatedRequest) {
-    return this.accountService.getDashboard(request.user!.sub);
+    return this.accountDashboardService.getDashboard(request.user!.sub);
   }
 
   @Get('bootstrap')
   async getDashboardBootstrap(@Req() request: AuthenticatedRequest) {
     const userId = request.user!.sub;
     const [dashboard, user] = await Promise.all([
-      this.accountService.getDashboard(userId),
-      this.accountService.getUserSummary(userId),
+      this.accountDashboardService.getDashboard(userId),
+      this.accountProfileService.getUserSummary(userId),
     ]);
     const cookieLocale = this.readLocaleCookie(request);
 
@@ -89,7 +99,7 @@ export class AccountController {
 
   @Get('profile')
   getProfile(@Req() request: AuthenticatedRequest) {
-    return this.accountService.getProfile(request.user!.sub);
+    return this.accountProfileService.getProfile(request.user!.sub);
   }
 
   @Put('profile')
@@ -97,12 +107,14 @@ export class AccountController {
     @Req() request: AuthenticatedRequest,
     @Body() body: UpdateProfileDto,
   ) {
-    return this.accountService.updateProfile(request.user!.sub, body);
+    return this.accountProfileService.updateProfile(request.user!.sub, body);
   }
 
   @Get('contact-preferences')
   getContactPreferences(@Req() request: AuthenticatedRequest) {
-    return this.accountService.getContactPreferences(request.user!.sub);
+    return this.contactPreferencesService.getContactPreferences(
+      request.user!.sub,
+    );
   }
 
   @Put('contact-preferences')
@@ -110,7 +122,7 @@ export class AccountController {
     @Req() request: AuthenticatedRequest,
     @Body() body: UpdateContactPreferencesDto,
   ) {
-    return this.accountService.updateContactPreferences(
+    return this.contactPreferencesService.updateContactPreferences(
       request.user!.sub,
       body,
     );
@@ -127,12 +139,14 @@ export class AccountController {
       throw new BadRequestException('Unsupported locale.');
     }
 
-    return this.accountService.updateLocale(request.user!.sub, { locale });
+    return this.accountProfileService.updateLocale(request.user!.sub, {
+      locale,
+    });
   }
 
   @Get('questionnaire')
   getQuestionnaire(@Req() request: AuthenticatedRequest) {
-    return this.accountService.getQuestionnaire(request.user!.sub);
+    return this.accountQuestionnaireService.getQuestionnaire(request.user!.sub);
   }
 
   @Put('questionnaire')
@@ -140,7 +154,10 @@ export class AccountController {
     @Req() request: AuthenticatedRequest,
     @Body() body: SaveQuestionnaireDto,
   ) {
-    return this.accountService.saveQuestionnaire(request.user!.sub, body);
+    return this.accountQuestionnaireService.saveQuestionnaire(
+      request.user!.sub,
+      body,
+    );
   }
 
   @Put('questionnaire/acknowledgement')
@@ -148,7 +165,7 @@ export class AccountController {
     @Req() request: AuthenticatedRequest,
     @Body() body: AcknowledgeQuestionnaireItemsDto,
   ) {
-    return this.accountService.acknowledgeQuestionnaireItems(
+    return this.accountQuestionnaireService.acknowledgeQuestionnaireItems(
       request.user!.sub,
       body,
     );
@@ -172,7 +189,10 @@ export class AccountController {
     @Req() request: AuthenticatedRequest,
     @Body() body: ToggleParticipationDto,
   ) {
-    return this.accountService.setParticipation(request.user!.sub, body);
+    return this.accountParticipationService.setParticipation(
+      request.user!.sub,
+      body,
+    );
   }
 
   @Post('matches/:matchId/report')
@@ -181,7 +201,11 @@ export class AccountController {
     @Param('matchId') matchId: string,
     @Body() body: ReportMatchDto,
   ) {
-    return this.accountService.reportMatch(request.user!.sub, matchId, body);
+    return this.matchReportService.reportMatch(
+      request.user!.sub,
+      matchId,
+      body,
+    );
   }
 
   private readLocaleCookie(request: AuthenticatedRequest) {

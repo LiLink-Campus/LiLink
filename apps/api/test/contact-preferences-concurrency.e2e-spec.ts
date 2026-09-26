@@ -1,21 +1,17 @@
 import { randomUUID } from 'crypto';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
-import { AccountService } from '../src/modules/account/account.service';
+import { ContactPreferencesService } from '../src/modules/account/contact-preferences.service';
 
 describe('Contact preferences concurrency (PostgreSQL)', () => {
   let prisma: PrismaClient;
-  let account: AccountService;
+  let account: ContactPreferencesService;
   const userIds: string[] = [];
 
   beforeAll(async () => {
     prisma = createPrismaClient();
     await prisma.$connect();
-    account = new AccountService(
-      prisma as PrismaService,
-      {} as never,
-      {} as never,
-    );
+    account = new ContactPreferencesService(prisma as PrismaService);
   });
 
   afterAll(async () => {

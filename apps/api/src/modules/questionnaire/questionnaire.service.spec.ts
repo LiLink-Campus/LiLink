@@ -1,10 +1,10 @@
-import { BadRequestException } from '@nestjs/common';
-import { QuestionType } from '../../common/prisma/client';
 import {
   HARD_MATCH_GENDERS,
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
-} from './hard-match';
+} from '@lilink/shared';
+import { BadRequestException } from '@nestjs/common';
+import { QuestionType } from '../../common/prisma/client';
 import { QuestionnaireService } from './questionnaire.service';
 
 describe('QuestionnaireService', () => {

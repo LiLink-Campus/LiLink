@@ -1,12 +1,6 @@
 import { AdminAnalyticsController } from './admin-analytics.controller';
 
 describe('AdminAnalyticsController', () => {
-  it('can be constructed with the service dependency', () => {
-    const controller = new AdminAnalyticsController({} as never);
-
-    expect(controller).toBeInstanceOf(AdminAnalyticsController);
-  });
-
   it('forwards schools-gender requests to AdminAnalyticsService', async () => {
     const service = {
       schoolsGender: jest.fn().mockResolvedValue({
