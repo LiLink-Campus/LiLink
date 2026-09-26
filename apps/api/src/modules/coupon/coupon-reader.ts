@@ -5,7 +5,6 @@ import {
   renderBenefitText,
 } from '@lilink/shared';
 import { Prisma } from '../../common/prisma/client';
-import { PrismaService } from '../../common/prisma/prisma.service';
 
 export const couponDetails = {
   template: {
@@ -86,7 +85,7 @@ function decodeCursor(
 }
 
 export async function readCouponPage(
-  prisma: PrismaService,
+  prisma: Pick<Prisma.TransactionClient, 'coupon'>,
   userId: string,
   rawStatus: unknown,
   rawCursor?: unknown,

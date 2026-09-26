@@ -40,10 +40,15 @@ export class CouponService {
     // Keep first-visit compensation; subsequent pages are strictly read-only.
     await this.activation?.tryGrantCoupons(userId);
     const now = new Date();
-    const [available, history] = await Promise.all([
-      readCouponPage(this.prisma, userId, 'available', undefined, now),
-      readCouponPage(this.prisma, userId, 'history', undefined, now),
-    ]);
+    // Both partitions must share a snapshot when redemption commits mid-read.
+    const [available, history] = await this.prisma.$transaction(
+      (tx) =>
+        Promise.all([
+          readCouponPage(tx, userId, 'available', undefined, now),
+          readCouponPage(tx, userId, 'history', undefined, now),
+        ]),
+      { isolationLevel: 'RepeatableRead' },
+    );
     return { available, history };
   }
 
