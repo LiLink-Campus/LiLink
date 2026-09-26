@@ -1,14 +1,16 @@
-import { BadRequestException } from '@nestjs/common';
 import {
   HARD_MATCH_GENDERS,
   HARD_MATCH_KEYS,
   HARD_MATCH_LOOKS,
   areHardMatchAnswersCompatible,
+  parseHardMatchAnswers,
+} from '@lilink/shared';
+import { BadRequestException } from '@nestjs/common';
+import {
   createEmptyHardMatchDraftForm,
   buildHardMatchAnswerRecordFromFormInput,
   normalizeHardMatchAnswers,
   sanitizeHardMatchDraftForm,
-  tryReadHardMatchAnswers,
 } from './hard-match';
 
 describe('hard-match helpers', () => {
@@ -66,7 +68,7 @@ describe('hard-match helpers', () => {
 
   it('rejects obsolete looks and clears them from drafts', () => {
     const legacy = { ...validAnswers, [HARD_MATCH_KEYS.looks]: '普通人' };
-    expect(tryReadHardMatchAnswers(legacy)).toBeNull();
+    expect(parseHardMatchAnswers(legacy)).toBeNull();
     expect(() => normalizeHardMatchAnswers(legacy, allowedSchoolIds)).toThrow();
     expect(
       sanitizeHardMatchDraftForm(
@@ -232,7 +234,7 @@ describe('hard-match helpers', () => {
 
   it('returns null when a stored hard-match answer set is incomplete', () => {
     expect(
-      tryReadHardMatchAnswers({
+      parseHardMatchAnswers({
         [HARD_MATCH_KEYS.birthDate]: '2000-05-10',
       }),
     ).toBeNull();
@@ -266,7 +268,7 @@ describe('hard-match helpers', () => {
   });
 
   it('applies height and mutual preference hard filters', () => {
-    const left = tryReadHardMatchAnswers({
+    const left = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
@@ -287,11 +289,11 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     } as const;
-    const right = tryReadHardMatchAnswers(rightAnswers)!;
+    const right = parseHardMatchAnswers(rightAnswers)!;
 
     expect(areHardMatchAnswersCompatible(left, right)).toBe(true);
 
-    const mismatchedRight = tryReadHardMatchAnswers({
+    const mismatchedRight = parseHardMatchAnswers({
       ...rightAnswers,
       [HARD_MATCH_KEYS.partnerGenders]: ['非二元'],
     })!;
@@ -303,14 +305,14 @@ describe('hard-match helpers', () => {
     // Many users mis-read partnerAgeMin/Max as a relative offset, e.g.
     // entering "4-5" when they meant "4-5 years younger than me". Age must
     // remain a soft preference; the cycles service handles the score decay.
-    const left = tryReadHardMatchAnswers({
+    const left = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.partnerAgeMin]: 4,
       [HARD_MATCH_KEYS.partnerAgeMax]: 5,
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
-    const right = tryReadHardMatchAnswers({
+    const right = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.gender]: '女',
       [HARD_MATCH_KEYS.partnerGenders]: ['男'],
@@ -332,12 +334,12 @@ describe('hard-match helpers', () => {
     // still score them; previously the legacy hard age filter would have
     // dropped the pair as soon as the calculated age fell outside the
     // window.
-    const left = tryReadHardMatchAnswers({
+    const left = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
-    const ancientRight = tryReadHardMatchAnswers({
+    const ancientRight = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.gender]: '女',
       [HARD_MATCH_KEYS.partnerGenders]: ['男'],
@@ -354,8 +356,8 @@ describe('hard-match helpers', () => {
   });
 
   it('rejects when height is out of partner range', () => {
-    const left = tryReadHardMatchAnswers(validAnswers)!;
-    const tooTallRight = tryReadHardMatchAnswers({
+    const left = parseHardMatchAnswers(validAnswers)!;
+    const tooTallRight = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.gender]: '女',
       [HARD_MATCH_KEYS.partnerGenders]: ['男'],
@@ -369,14 +371,14 @@ describe('hard-match helpers', () => {
   });
 
   it('does not treat looks preferences as hard filters', () => {
-    const left = tryReadHardMatchAnswers({
+    const left = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.looks]: '5',
       [HARD_MATCH_KEYS.partnerLooks]: ['5'],
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     })!;
-    const right = tryReadHardMatchAnswers({
+    const right = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.gender]: '女',
       [HARD_MATCH_KEYS.partnerGenders]: ['男'],
@@ -393,7 +395,7 @@ describe('hard-match helpers', () => {
   });
 
   it('ignores retired nationality and language filters while enforcing weight preferences', () => {
-    const left = tryReadHardMatchAnswers({
+    const left = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.nationality]: '中国',
       [HARD_MATCH_KEYS.partnerNationalities]: ['法国'],
@@ -421,18 +423,18 @@ describe('hard-match helpers', () => {
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
     } as const;
-    const right = tryReadHardMatchAnswers(rightAnswers)!;
+    const right = parseHardMatchAnswers(rightAnswers)!;
 
     expect(areHardMatchAnswersCompatible(left, right)).toBe(true);
 
-    const languageMismatch = tryReadHardMatchAnswers({
+    const languageMismatch = parseHardMatchAnswers({
       ...rightAnswers,
       [HARD_MATCH_KEYS.languages]: ['德语'],
     })!;
 
     expect(areHardMatchAnswersCompatible(left, languageMismatch)).toBe(true);
 
-    const weightMismatch = tryReadHardMatchAnswers({
+    const weightMismatch = parseHardMatchAnswers({
       ...rightAnswers,
       [HARD_MATCH_KEYS.weightKg]: 95,
     })!;
@@ -441,8 +443,8 @@ describe('hard-match helpers', () => {
   });
 
   it('rejects when either side excludes the other school id', () => {
-    const left = tryReadHardMatchAnswers(validAnswers)!;
-    const excludedRight = tryReadHardMatchAnswers({
+    const left = parseHardMatchAnswers(validAnswers)!;
+    const excludedRight = parseHardMatchAnswers({
       [HARD_MATCH_KEYS.birthDate]: '2001-07-12',
       [HARD_MATCH_KEYS.partnerAgeMin]: 18,
       [HARD_MATCH_KEYS.partnerAgeMax]: 35,
@@ -463,7 +465,7 @@ describe('hard-match helpers', () => {
   });
 
   it('rejects when a school-specific gender exclusion matches the counterpart', () => {
-    const left = tryReadHardMatchAnswers({
+    const left = parseHardMatchAnswers({
       ...validAnswers,
       [HARD_MATCH_KEYS.excludedPartnerSchools]: [],
       [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [
@@ -473,7 +475,7 @@ describe('hard-match helpers', () => {
         },
       ],
     })!;
-    const right = tryReadHardMatchAnswers({
+    const right = parseHardMatchAnswers({
       [HARD_MATCH_KEYS.birthDate]: '2001-07-12',
       [HARD_MATCH_KEYS.partnerAgeMin]: 18,
       [HARD_MATCH_KEYS.partnerAgeMax]: 35,

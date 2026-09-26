@@ -2,24 +2,29 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import * as argon2 from 'argon2';
-import { createHmac, randomUUID } from 'crypto';
 import cookieParser from 'cookie-parser';
+import { createHmac, randomUUID } from 'crypto';
 import request from 'supertest';
-import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
-import { PrismaService } from '../src/common/prisma/prisma.service';
 import { JwtAuthGuard } from '../src/common/auth/jwt-auth.guard';
 import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snapshot.service';
 import { MailService } from '../src/common/mail/mail.service';
-import { CyclesService } from '../src/modules/cycles/cycles.service';
-import { AccountController } from '../src/modules/account/account.controller';
-import { AccountService } from '../src/modules/account/account.service';
-import { AccountDeletionService } from '../src/modules/account/account-deletion.service';
-import { MatchEstimateService } from '../src/modules/account/match-estimate.service';
-import { AdminService } from '../src/modules/admin/admin.service';
-import { PublicService } from '../src/modules/public/public.service';
-import { AuthService } from '../src/modules/auth/auth.service';
+import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
+import { PrismaService } from '../src/common/prisma/prisma.service';
 import { env } from '../src/config/env';
+import { AccountDashboardService } from '../src/modules/account/account-dashboard.service';
+import { AccountDeletionService } from '../src/modules/account/account-deletion.service';
+import { AccountParticipationService } from '../src/modules/account/account-participation.service';
+import { AccountProfileService } from '../src/modules/account/account-profile.service';
+import { AccountQuestionnaireService } from '../src/modules/account/account-questionnaire.service';
+import { AccountController } from '../src/modules/account/account.controller';
+import { ContactPreferencesService } from '../src/modules/account/contact-preferences.service';
 import { DashboardResponseDto } from '../src/modules/account/dto';
+import { MatchEstimateService } from '../src/modules/account/match-estimate.service';
+import { MatchReportService } from '../src/modules/account/match-report.service';
+import { AdminService } from '../src/modules/admin/admin.service';
+import { AuthService } from '../src/modules/auth/auth.service';
+import { CyclesService } from '../src/modules/cycles/cycles.service';
+import { PublicService } from '../src/modules/public/public.service';
 
 const tag = `autumn-${randomUUID()}`;
 const password = 'LocalAutumn123!';
@@ -60,18 +65,49 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
       snapshots,
       new PublicService(prisma as PrismaService),
     );
-    const account = new AccountService(
-      prisma as PrismaService,
-      {} as never,
-      snapshots,
-    );
     const module = await Test.createTestingModule({
       controllers: [AccountController],
       providers: [
         JwtAuthGuard,
         { provide: JwtService, useValue: jwt },
         { provide: PrismaService, useValue: prisma },
-        { provide: AccountService, useValue: account },
+        {
+          provide: AccountProfileService,
+          useValue: new AccountProfileService(
+            prisma as PrismaService,
+            snapshots,
+          ),
+        },
+        {
+          provide: AccountDashboardService,
+          useValue: new AccountDashboardService(
+            prisma as PrismaService,
+            snapshots,
+          ),
+        },
+        {
+          provide: ContactPreferencesService,
+          useValue: new ContactPreferencesService(prisma as PrismaService),
+        },
+        {
+          provide: AccountQuestionnaireService,
+          useValue: new AccountQuestionnaireService(
+            prisma as PrismaService,
+            {} as never,
+            snapshots,
+          ),
+        },
+        {
+          provide: AccountParticipationService,
+          useValue: new AccountParticipationService(
+            prisma as PrismaService,
+            {} as never,
+          ),
+        },
+        {
+          provide: MatchReportService,
+          useValue: new MatchReportService(prisma as PrismaService, snapshots),
+        },
         { provide: MatchEstimateService, useValue: {} },
         { provide: AccountDeletionService, useValue: deletion },
       ],

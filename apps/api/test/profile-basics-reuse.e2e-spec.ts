@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
-import { AccountService } from '../src/modules/account/account.service';
+import { AccountQuestionnaireService } from '../src/modules/account/account-questionnaire.service';
 import { QuestionnaireService } from '../src/modules/questionnaire/questionnaire.service';
 
 const migration = readFileSync(
@@ -224,7 +224,7 @@ describe('Archived profile basics reuse (PostgreSQL)', () => {
           ).toEqual(untouched.user);
           expect(await tx.$executeRawUnsafe(update)).toBe(0);
 
-          const account = new AccountService(
+          const account = new AccountQuestionnaireService(
             tx as never,
             new QuestionnaireService(tx as never),
             {} as never,

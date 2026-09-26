@@ -6,13 +6,14 @@ import assert from 'node:assert/strict';
 
 const require = createRequire(path.join(process.cwd(), 'package.json'));
 const { runMatching } = require('./dist/src/modules/cycles/matching.executor.js');
-const { buildHardMatchAnswerRecordFromFormInput, tryReadHardMatchAnswers } = require('./dist/src/modules/questionnaire/hard-match.js');
+const { buildHardMatchAnswerRecordFromFormInput } = require('./dist/src/modules/questionnaire/hard-match.js');
+const { parseHardMatchAnswers } = require('@lilink/shared');
 const { questions } = JSON.parse(await readFile('prisma/fixtures/autumn-20260920-questionnaire.json', 'utf8'));
 const soft = Object.fromEntries(questions.map(q => [q.key, q.type === 'MULTI_SELECT' ? q.options.slice(0, q.selectionLimit ?? 1).map(o => o.value) : q.options[0].value]));
 const answers = { ...soft, ...buildHardMatchAnswerRecordFromFormInput({
   birthYear: '2000', birthMonth: '1', birthDay: '1', gender: '女', partnerGenders: ['女'], partnerAgeMin: '18', partnerAgeMax: '40', nationality: '中国', languages: ['中文'], partnerNationalities: [], partnerLanguages: [], looks: '5', partnerLooks: Array.from({ length: 10 }, (_, i) => String(i + 1)), heightCm: '165', weightKg: '55', partnerHeightMin: '120', partnerHeightMax: '230', partnerWeightMin: '30', partnerWeightMax: '300', oneLinerIntro: 'Synthetic benchmark', excludedPartnerSchools: [], excludedPartnerSchoolGenders: [],
 }, 'benchmark-school', ['benchmark-school']) };
-const hardMatchAnswers = tryReadHardMatchAnswers(answers, ['benchmark-school']);
+const hardMatchAnswers = parseHardMatchAnswers(answers);
 assert.ok(hardMatchAnswers);
 
 for (const count of [500, 1000, 2000]) {

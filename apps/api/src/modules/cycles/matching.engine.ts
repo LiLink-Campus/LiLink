@@ -2,14 +2,12 @@ import { BadRequestException } from '@nestjs/common';
 import blossom from '../../vendor/edmonds-blossom/index.cjs';
 import { Prisma, QuestionType } from '../../common/prisma/client';
 import {
-  HARD_MATCH_LOOKS,
-  HardMatchAnswers,
-  areHardMatchAnswersCompatible,
-} from '../questionnaire/hard-match';
-import {
   areWeeklyIntentsCompatible,
   calculateAgeOnDate,
   type WeeklyIntent,
+  HARD_MATCH_LOOKS,
+  HardMatchAnswers,
+  areHardMatchAnswersCompatible,
 } from '@lilink/shared';
 import {
   type QuestionOption,

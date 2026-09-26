@@ -1,5 +1,6 @@
+import type { AccountDashboardService } from './account-dashboard.service';
+import type { AccountProfileService } from './account-profile.service';
 import { AccountController } from './account.controller';
-import type { AccountService } from './account.service';
 
 describe('AccountController', () => {
   it('returns the signed-in user and dashboard in one bootstrap payload', async () => {
@@ -12,13 +13,19 @@ describe('AccountController', () => {
     };
     const accountService = {
       getDashboard: jest
-        .fn<AccountService['getDashboard']>()
+        .fn<AccountDashboardService['getDashboard']>()
         .mockResolvedValue(dashboard),
       getUserSummary: jest
-        .fn<AccountService['getUserSummary']>()
+        .fn<AccountProfileService['getUserSummary']>()
         .mockResolvedValue(userSummary),
-    } satisfies Pick<AccountService, 'getDashboard' | 'getUserSummary'>;
+    } satisfies Pick<AccountDashboardService, 'getDashboard'> &
+      Pick<AccountProfileService, 'getUserSummary'>;
     const accountController = new AccountController(
+      accountService as never,
+      accountService as never,
+      accountService as never,
+      accountService as never,
+      accountService as never,
       accountService as never,
       {} as never,
       {} as never,
@@ -46,6 +53,11 @@ describe('AccountController', () => {
       reportMatch: jest.fn().mockResolvedValue({ ok: true }),
     };
     const accountController = new AccountController(
+      accountService as never,
+      accountService as never,
+      accountService as never,
+      accountService as never,
+      accountService as never,
       accountService as never,
       {} as never,
       {} as never,

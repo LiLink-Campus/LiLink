@@ -1,18 +1,17 @@
-import { effectiveMatchingAnswers, hasActiveVip } from '@lilink/shared';
-import { Injectable } from '@nestjs/common';
 import {
+  effectiveMatchingAnswers,
   estimateMatchBand,
+  HARD_MATCH_KEYS,
+  hasActiveVip,
   normalizeExcludedPartnerPreferences,
+  parseHardMatchAnswers,
   type HardMatchGender,
   type MatchEstimateResult,
   type SchoolGenderCount,
 } from '@lilink/shared';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import {
-  HARD_MATCH_KEYS,
-  tryReadHardMatchAnswers,
-} from '../questionnaire/hard-match';
 
 /**
  * Mirrors cycles.service: only ACTIVE, non-test users opted in with a usable
@@ -174,7 +173,7 @@ export class MatchEstimateService {
       }
 
       const schoolId = user.school?.id ?? '';
-      const hardMatchAnswers = tryReadHardMatchAnswers(
+      const hardMatchAnswers = parseHardMatchAnswers(
         effectiveMatchingAnswers(
           {
             ...((questionnaire.answers ?? {}) as Record<string, unknown>),

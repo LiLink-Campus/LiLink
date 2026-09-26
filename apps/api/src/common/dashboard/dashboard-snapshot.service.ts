@@ -8,13 +8,13 @@ import {
   type ReportStatus,
 } from '../prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { readQuestionnaireOneLiner } from '../../modules/questionnaire/hard-match';
 import {
   CONTACT_CHANNEL_LABELS,
   HARD_MATCH_KEYS,
   contactChannelLabel,
   type ContactChannelType,
   type WeeklyIntent,
+  readQuestionnaireOneLiner,
 } from '@lilink/shared';
 import {
   DashboardHistoryVisibility,

@@ -1,15 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import {
-  createPrismaClient,
-  type PrismaClient,
-  type Prisma,
-} from '../src/common/prisma/client';
-import { PrismaService } from '../src/common/prisma/prisma.service';
 import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snapshot.service';
 import { MailService } from '../src/common/mail/mail.service';
+import {
+  createPrismaClient,
+  type Prisma,
+  type PrismaClient,
+} from '../src/common/prisma/client';
+import { PrismaService } from '../src/common/prisma/prisma.service';
+import { AccountDashboardService } from '../src/modules/account/account-dashboard.service';
 import { CyclesService } from '../src/modules/cycles/cycles.service';
-import { AccountService } from '../src/modules/account/account.service';
-import { QuestionnaireService } from '../src/modules/questionnaire/questionnaire.service';
 import { buildHardMatchAnswerRecordFromFormInput } from '../src/modules/questionnaire/hard-match';
 
 type VipState = 'free' | 'active' | 'expired' | 'revoked';
@@ -19,7 +18,7 @@ describe('matching priority through reveal and dashboard (PostgreSQL)', () => {
   const cycleIds: string[] = [];
   let db: PrismaClient;
   let cycles: CyclesService;
-  let account: AccountService;
+  let account: AccountDashboardService;
   let originalCurrent: string[] = [];
   let hardAnswers: Record<string, Prisma.InputJsonValue>;
   const baseTime = Date.now() - 7 * 86400_000;
@@ -102,11 +101,7 @@ describe('matching priority through reveal and dashboard (PostgreSQL)', () => {
     const mail = new MailService(prisma);
     jest.spyOn(mail, 'flushQueuedEmails').mockResolvedValue(undefined);
     cycles = new CyclesService(prisma, snapshots, mail);
-    account = new AccountService(
-      prisma,
-      new QuestionnaireService(prisma),
-      snapshots,
-    );
+    account = new AccountDashboardService(prisma, snapshots);
   });
 
   afterAll(async () => {

@@ -1,22 +1,30 @@
-import { Controller, Get, Header, Req, UseGuards } from '@nestjs/common';
 import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
-import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { Controller, Get, Header, Req, UseGuards } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { VipService } from '../vip/vip.service';
-import { AccountService } from './account.service';
+import { AccountDashboardService } from './account-dashboard.service';
+import { AccountProfileService } from './account-profile.service';
+import { AccountQuestionnaireService } from './account-questionnaire.service';
+import { ContactPreferencesService } from './contact-preferences.service';
 
 @Controller('me/page-bootstrap')
 @UseGuards(JwtAuthGuard)
 export class PageBootstrapController {
   constructor(
-    private readonly accountService: AccountService,
+    private readonly accountProfileService: AccountProfileService,
+    private readonly accountDashboardService: AccountDashboardService,
+    private readonly contactPreferencesService: ContactPreferencesService,
+    private readonly accountQuestionnaireService: AccountQuestionnaireService,
     private readonly questionnaireService: QuestionnaireService,
     private readonly vipService: VipService,
   ) {}
 
   private async user(request: AuthenticatedRequest) {
-    const user = await this.accountService.getUserSummary(request.user!.sub);
+    const user = await this.accountProfileService.getUserSummary(
+      request.user!.sub,
+    );
     const cookies = request.cookies as Record<string, unknown> | undefined;
     return {
       ...user,
@@ -30,8 +38,8 @@ export class PageBootstrapController {
     const [questionnaire, savedQuestionnaire, contactPreferences] =
       await Promise.all([
         this.questionnaireService.getCurrentVersion(),
-        this.accountService.getQuestionnaire(userId),
-        this.accountService.getContactPreferences(userId),
+        this.accountQuestionnaireService.getQuestionnaire(userId),
+        this.contactPreferencesService.getContactPreferences(userId),
       ]);
     return { questionnaire, savedQuestionnaire, contactPreferences };
   }
@@ -41,7 +49,7 @@ export class PageBootstrapController {
   async home(@Req() request: AuthenticatedRequest) {
     const [user, dashboard, data] = await Promise.all([
       this.user(request),
-      this.accountService.getDashboard(request.user!.sub),
+      this.accountDashboardService.getDashboard(request.user!.sub),
       this.questionnaireData(request.user!.sub),
     ]);
     return { user, dashboard, ...data };

@@ -19,12 +19,6 @@ type ValuePickerProps = {
   suffix?: string;
   /** Extra classes on the root element (e.g. density/layout modifiers). */
   rootClassName?: string;
-  /**
-   * Heading used as the picker's accessible name when no explicit
-   * `ariaLabel` is provided. Kept around so existing call sites stay
-   * source-compatible after consolidating onto the native control.
-   */
-  sheetTitle?: string;
 };
 
 /**
@@ -49,7 +43,6 @@ export function ValuePicker({
   ariaLabel,
   suffix,
   rootClassName,
-  sheetTitle,
 }: ValuePickerProps) {
   const selectedOption =
     options.find((option) => option.value === value) ?? null;
@@ -59,7 +52,7 @@ export function ValuePicker({
       : selectedOption.label
     : placeholder;
   const isPlaceholder = !selectedOption;
-  const accessibleName = ariaLabel ?? sheetTitle ?? placeholder;
+  const accessibleName = ariaLabel ?? placeholder;
   const hasPlaceholderOption = options.some((option) => option.value === "");
   const displayClassName = dcx(`picker-trigger picker-native-display${
     isPlaceholder ? " is-placeholder" : ""

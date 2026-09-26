@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { validateQuestionnaireAnswers } from '../questionnaire/questionnaire.service';
-import { effectiveMatchingAnswers, hasActiveVip } from '@lilink/shared';
+import {
+  effectiveMatchingAnswers,
+  hasActiveVip,
+  HARD_MATCH_KEYS,
+  parseHardMatchAnswers,
+} from '@lilink/shared';
 import {
   BadRequestException,
   Injectable,
@@ -13,10 +18,6 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { queueMatchRevealEmails } from '../../common/mail/queue-match-reveal';
 import { cancelMatchEmails } from '../../common/mail/match-mail';
-import {
-  HARD_MATCH_KEYS,
-  tryReadHardMatchAnswers,
-} from '../questionnaire/hard-match';
 import { isWeeklyIntent, type WeeklyIntent } from '@lilink/shared';
 import {
   prepareQuestions,
@@ -1214,7 +1215,7 @@ export class CyclesService {
           throw error;
         }
         const vipActive = hasActiveVip(user.vipActivations);
-        const hardMatchAnswers = tryReadHardMatchAnswers(
+        const hardMatchAnswers = parseHardMatchAnswers(
           effectiveMatchingAnswers(answers, vipActive),
         );
 
