@@ -11,15 +11,23 @@ describe("fetchEligibleSchools", () => {
       totalDomainCount: 0,
       generatedAt: "2026-09-12T00:00:00Z",
     };
-    const fetchMock = vi.fn().mockResolvedValue(Response.json(payload));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(payload));
     vi.stubGlobal("fetch", fetchMock);
     const controller = new AbortController();
 
     await expect(fetchEligibleSchools({ signal: controller.signal })).resolves.toEqual(payload);
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/public/schools",
-      expect.objectContaining({ cache: "default", signal: controller.signal })
+      expect.objectContaining({ cache: "default", signal: expect.any(AbortSignal) })
     );
+
+    fetchMock.mockImplementationOnce((_input, options) => new Promise((_resolve, reject) => {
+      options?.signal?.addEventListener("abort", () => reject(options.signal?.reason), { once: true });
+    }));
+    const request = fetchEligibleSchools({ signal: controller.signal });
+    const cancellation = expect(request).rejects.toMatchObject({ name: "AbortError" });
+    controller.abort();
+    await cancellation;
   });
 
   it("rejects backend failures rather than supplying a fallback school list", async () => {

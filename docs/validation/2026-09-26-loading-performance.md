@@ -121,6 +121,12 @@ At 2,000 participants, candidate generation consumed 6,293 ms and solving 538 ms
 | Infrastructure and load-target checks | 5 passed |
 | Changed CSS syntax / final diff check | Passed |
 
+### PR verification follow-up
+
+The first clean-checkout CI run exposed validation setup that the earlier local checks had not covered: browser test types imported shared before its build, two existing Web tests still assumed the previous signal/component boundary, and four Storybook interactions expected the old refresh/statistics behavior. The follow-up builds shared before the E2E typecheck and updates existing checks to assert cancellation propagation, retained content, request coalescing and independent statistics recovery. Storybook also permits same-origin Vite JSON module imports while keeping API mocks strict. No application behavior changed in this follow-up.
+
+Fresh local validation passed: Web **20 files / 125 tests**, Storybook **32 files / 301 tests** (one file excluded by the existing smoke-tag filter), Web/Storybook/E2E typechecks, affected-file lint and diff checks. The initial PR commit's remote API jobs also passed **72 suites / 648 tests** and **30 E2E suites / 159 tests**. Results for the final submitted commit and downloadable remote screenshot/report artifacts are recorded on the PR, separately from the earlier local browser matrix.
+
 For the complete current browser matrix in one fresh isolated run, append `e2e/specs/contact-navigation.spec.ts` to the browser command above. To repeat only the corrected visibility check: `node scripts/e2e/run.mjs e2e/specs/read-refresh.spec.ts --grep 'profile pauses hidden VIP'`. Existing focused API behavior checks: `npm run test --workspace api -- --runInBand --testPathPatterns='jwt-auth.guard|page-bootstrap.controller|activation.service|dashboard-snapshot|coupon.service|match-estimate.service|matching.engine|matching.executor'`.
 
 ## Validation boundaries

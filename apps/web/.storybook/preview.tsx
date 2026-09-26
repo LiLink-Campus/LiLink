@@ -14,6 +14,7 @@ initialize({
     // Keep API mocking strict while allowing the application's own assets.
     const localAsset =
       url.pathname.startsWith("/@id/virtual:next") ||
+      (url.pathname.startsWith("/@fs/") && url.pathname.endsWith(".json") && url.searchParams.has("import")) ||
       (url.pathname.startsWith("/src/") && url.pathname.endsWith(".css")) ||
       /^\/(images|icons|fonts)\//.test(url.pathname);
     if (request.method === "GET" && url.origin === window.location.origin && localAsset) return;

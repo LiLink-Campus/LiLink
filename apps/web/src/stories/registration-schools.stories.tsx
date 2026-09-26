@@ -23,6 +23,7 @@ const updatedSchools: EligibleSchoolsPayload = {
 let currentSchools = schools;
 let shouldFail = false;
 let requestCount = 0;
+let releaseSchoolRequest: (() => void) | undefined;
 const schoolHandler = http.get("*/api/public/schools", () => {
   requestCount += 1;
   return shouldFail
@@ -45,6 +46,7 @@ const meta = {
     currentSchools = schools;
     shouldFail = false;
     requestCount = 0;
+    releaseSchoolRequest = undefined;
   },
 } satisfies Meta;
 export default meta;
@@ -105,7 +107,12 @@ export const FailureWithRetry: Story = {
     shouldFail = true;
     const dialog = await openDialog(canvasElement);
     await expect(await dialog.findByRole("alert")).toHaveTextContent("学校列表加载失败");
-    await expect(dialog.queryByText(schools.schools[0].name)).not.toBeInTheDocument();
+    await expect(dialog.getByText(schools.schools[0].name)).toBeVisible();
+    await expect(dialog.getByRole("searchbox")).toBeEnabled();
+    await userEvent.type(dialog.getByRole("searchbox"), "qinghe.example.edu");
+    await expect(dialog.getByText(schools.schools[0].name)).toBeVisible();
+    await expect(dialog.queryByText(schools.schools[1].name)).not.toBeInTheDocument();
+    await userEvent.clear(dialog.getByRole("searchbox"));
     shouldFail = false;
     currentSchools = updatedSchools;
     const retry = dialog.getByRole("button", { name: "重试加载学校列表" });
@@ -165,7 +172,7 @@ export const Empty: Story = {
   },
 };
 
-export const NewRequestWins: Story = {
+export const SharedPendingRequest: Story = {
   parameters: {
     msw: {
       handlers: {
@@ -173,7 +180,7 @@ export const NewRequestWins: Story = {
           http.get("*/api/public/schools", async () => {
             requestCount += 1;
             if (requestCount === 1) {
-              await delay(400);
+              await new Promise<void>((resolve) => { releaseSchoolRequest = resolve; });
               return HttpResponse.json(schools);
             }
             return HttpResponse.json(updatedSchools);
@@ -184,12 +191,28 @@ export const NewRequestWins: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    await waitFor(() => expect(requestCount).toBe(1));
-    const dialog = await openDialog(canvasElement);
-    await waitFor(() => expect(dialog.getByText("新桥大学")).toBeVisible());
-    await new Promise((resolve) => setTimeout(resolve, 450));
-    await expect(dialog.getByText("新桥大学")).toBeVisible();
-    await expect(dialog.queryByText(schools.schools[0].name)).not.toBeInTheDocument();
+    try {
+      await waitFor(() => expect(requestCount).toBe(1));
+      const canvas = within(canvasElement);
+      let dialog = await openDialog(canvasElement);
+      await expect(dialog.getByText("正在加载最新学校列表…")).toBeVisible();
+      await expect(requestCount).toBe(1);
+      await userEvent.click(dialog.getByRole("button", { name: "关闭学校列表" }));
+      dialog = await openDialog(canvasElement);
+      await expect(requestCount).toBe(1);
+      releaseSchoolRequest?.();
+      await expect(await dialog.findByText(schools.schools[0].name)).toBeVisible();
+      await expect(dialog.getByRole("searchbox")).toBeEnabled();
+      await expect(requestCount).toBe(1);
+      await userEvent.click(dialog.getByRole("button", { name: "关闭学校列表" }));
+      dialog = await openDialog(canvasElement);
+      await expect(await dialog.findByText("新桥大学")).toBeVisible();
+      await expect(requestCount).toBe(2);
+      await expect(dialog.queryByText(schools.schools[0].name)).not.toBeInTheDocument();
+      await expect(canvas.getByRole("dialog", { name: "支持的学校" })).toBeVisible();
+    } finally {
+      releaseSchoolRequest?.();
+    }
   },
 };
 

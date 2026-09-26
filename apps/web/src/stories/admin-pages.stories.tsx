@@ -16,7 +16,7 @@ import Promotion from "@/app/admin/promotion/page";
 import AdminLayoutShell from "@/app/admin/admin-layout-shell";
 import { adminShell, route, visible, json, failure, api } from "./site-support";
 import { adminHandlers, page, userAccountHandlers, cycleWorkbenchHandlers } from "./admin-handlers";
-import { overview, adminQuestions, campaign, cycle, cycleDetail } from "./admin-fixtures";
+import { overview, adminQuestions, campaign, cycle, cycleDetail, schoolGender } from "./admin-fixtures";
 const meta = {
   id: "site-admin",
   title: "全站/运营后台",
@@ -268,16 +268,27 @@ export const CyclesPreviewError: Story = {
     await expect(c.getByRole("button", { name: "生成预演" })).toBeEnabled();
   },
 };
+let schoolStatisticsFail = true;
 export const CyclesChartsRetry: Story = {
   ...CyclesPage,
+  beforeEach: () => { schoolStatisticsFail = true; },
   parameters: {
     ...route("/admin/cycles"),
-    msw: { handlers: { admin: [failure("/admin/analytics/schools-gender"), ...adminHandlers] } },
+    msw: { handlers: { admin: [http.get(`${api}/admin/analytics/schools-gender`, () => schoolStatisticsFail
+      ? HttpResponse.json({ message: "模拟服务暂时不可用" }, { status: 503 })
+      : HttpResponse.json(schoolGender)), ...adminHandlers] } },
   },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await expect(await c.findByRole("alert")).toHaveTextContent(/模拟服务暂时不可用/);
-    await expect(c.getByRole("button", { name: "重试图表" })).toBeEnabled();
+    await expect(await c.findByText("报名 72 人次")).toBeVisible();
+    const retry = c.getByRole("button", { name: "重试学校统计" });
+    await expect(retry).toBeEnabled();
+    schoolStatisticsFail = false;
+    await userEvent.click(retry);
+    await expect(await c.findByRole("img", { name: /问卷完成率 92%/ })).toBeVisible();
+    await expect(c.queryByRole("alert")).not.toBeInTheDocument();
+    await expect(c.getByText("报名 72 人次")).toBeVisible();
     await expect(c.getByRole("tab", { name: "最终" })).toBeVisible();
   },
 };
@@ -417,7 +428,11 @@ export const MatchLeadsError: Story = {
     ...route("/admin/match-leads"),
     msw: { handlers: { admin: [failure("/admin/match-leads"), ...adminHandlers] } },
   },
-  play: visible("加载失败，请重试。"),
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(await c.findByRole("alert")).toHaveTextContent("模拟服务暂时不可用");
+    await expect(c.getByRole("button", { name: "刷新" })).toBeEnabled();
+  },
 };
 export const MatchLeadsContacted: Story = {
   render: () => <MatchLeads />,
