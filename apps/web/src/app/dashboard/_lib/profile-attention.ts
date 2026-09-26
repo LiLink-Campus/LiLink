@@ -1,5 +1,5 @@
 import { isLifestyleQuestion } from "@lilink/shared";
-import { hardMatchAttentionFieldForKey } from "../../../lib/hard-match";
+import { hardMatchAttentionFieldForKey } from "@lilink/shared";
 import type { Question } from "./types";
 import {
   profileAttentionElementId as sharedProfileAttentionElementId,

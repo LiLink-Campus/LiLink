@@ -73,10 +73,17 @@ export class MatchEstimateService {
     userId: string,
     input: MatchEstimateInput,
   ): Promise<MatchEstimateResult> {
-    const grants = await this.prisma.vipActivation.findMany({
-      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
-      select: { expiresAt: true, revokedAt: true },
-    });
+    const [grants, cycle] = await Promise.all([
+      this.prisma.vipActivation.findMany({
+        where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+        select: { expiresAt: true, revokedAt: true },
+      }),
+      this.prisma.matchCycle.findFirst({
+        where: { status: CURRENT_CYCLE_STATUSES },
+        orderBy: { revealAt: 'asc' },
+        select: { id: true },
+      }),
+    ]);
     const exclusions = normalizeExcludedPartnerPreferences(
       hasActiveVip(grants)
         ? {
@@ -85,12 +92,6 @@ export class MatchEstimateService {
           }
         : { excludedPartnerSchools: [], excludedPartnerSchoolGenders: [] },
     );
-
-    const cycle = await this.prisma.matchCycle.findFirst({
-      where: { status: CURRENT_CYCLE_STATUSES },
-      orderBy: { revealAt: 'asc' },
-      select: { id: true },
-    });
 
     if (!cycle) {
       return { available: false };

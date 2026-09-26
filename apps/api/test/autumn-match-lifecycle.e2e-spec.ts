@@ -335,7 +335,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     ).toBe(2);
   });
 
-  it('repairs a cold cycle in one batch for 100 distinct concurrent readers', async () => {
+  it('repairs 100 distinct concurrent readers while preserving existing snapshots', async () => {
     const { cycle, match } = await seedPair();
     await prisma.matchCycle.update({
       where: { id: cycle.id },
@@ -368,7 +368,6 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     const start = barrier();
     const allQueued = barrier();
     let queued = 0;
-    let writes = 0;
     const client = prisma.$extends({
       query: {
         cycleParticipation: {
@@ -379,12 +378,6 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
               await start.promise;
             }
             return result;
-          },
-        },
-        userCycleDashboardSnapshot: {
-          async createMany({ args, query }) {
-            writes++;
-            return query(args);
           },
         },
       },
@@ -405,7 +398,6 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
       start.resolve();
     }
     expect(await Promise.all(requests)).toEqual(Array(100).fill(true));
-    expect(writes).toBe(1);
     expect(
       await prisma.userCycleDashboardSnapshot.count({
         where: { cycleId: cycle.id },

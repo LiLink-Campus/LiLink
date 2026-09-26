@@ -35,6 +35,9 @@ function createNextConfig(phase: string): NextConfig {
       return [{
         source: "/images/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" }],
+      }, {
+        source: "/images/about/watercolor-atlas.09032dbdfd5e.webp",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       }];
     },
     allowedDevOrigins: resolveAllowedDevOrigins(),

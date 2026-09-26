@@ -1,21 +1,8 @@
-import {
-  readQuestionnaireOneLiner,
-  effectivePreferenceForm,
-} from "@lilink/shared";
-import {
-  getHardMatchFormSaveErrorMessage,
-  hardMatchAttentionKeys,
-  hardMatchFormFromAnswers,
-} from "../../../lib/hard-match";
-import {
-  keepCurrentQuestionAnswers,
-  softQuestionAnswerIsComplete,
-} from "./questionnaire";
-import type {
-  Question,
-  QuestionnairePayload,
-  SavedQuestionnairePayload,
-} from "./types";
+import { readQuestionnaireOneLiner, hardMatchAttentionKeys } from "./hard-match";
+import { effectivePreferenceForm } from "./profile-preferences";
+import { getHardMatchFormSaveErrorMessage, hardMatchFormFromAnswers } from "./hard-match-form";
+import { keepCurrentQuestionAnswers, softQuestionAnswerIsComplete } from "./questionnaire-answers";
+import type { Question, QuestionnairePayload, SavedQuestionnairePayload } from "./questionnaire-types";
 
 /**
  * Bucket weights for the home hub's "questionnaire progress" ring.

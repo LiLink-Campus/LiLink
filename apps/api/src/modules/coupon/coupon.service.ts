@@ -1,10 +1,6 @@
 import { ActivationService } from '../activation/activation.service';
 import { Injectable, Optional } from '@nestjs/common';
-import {
-  CouponRule,
-  effectiveCouponStatus,
-  renderBenefitText,
-} from '@lilink/shared';
+import { couponDetails, couponView, readCouponPage } from './coupon-reader';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
   getDashboardCouponAgenda,
@@ -30,50 +26,29 @@ export class CouponService {
     const coupons = await this.prisma.coupon.findMany({
       where: { userId },
       orderBy: { issuedAt: 'desc' },
-      include: {
-        template: {
-          select: {
-            title: true,
-            benefitType: true,
-            faceValue: true,
-            rule: true,
-            merchant: { select: { name: true } },
-          },
-        },
-        redemption: { select: { redeemedAt: true } },
-      },
+      include: couponDetails,
     });
 
     const now = new Date();
     // Flat shape per the contract's MyCouponResponseDto (dates as ISO strings).
     return {
-      items: coupons.map((coupon) => ({
-        id: coupon.id,
-        status: effectiveCouponStatus(
-          {
-            status: coupon.status,
-            expiresAt: coupon.expiresAt,
-          },
-          now,
-        ),
-        code: coupon.code,
-        merchantName: coupon.template.merchant.name,
-        title: coupon.template.title,
-        benefitType: coupon.template.benefitType,
-        benefitText: renderBenefitText({
-          benefitType: coupon.template.benefitType,
-          title: coupon.template.title,
-          faceValue: coupon.template.faceValue,
-          rule: coupon.template.rule as CouponRule | null,
-        }),
-        faceValue: coupon.template.faceValue,
-        issuedAt: coupon.issuedAt.toISOString(),
-        expiresAt: coupon.expiresAt ? coupon.expiresAt.toISOString() : null,
-        redeemedAt: coupon.redemption?.redeemedAt
-          ? coupon.redemption.redeemedAt.toISOString()
-          : null,
-      })),
+      items: coupons.map((coupon) => couponView(coupon, now)),
     };
+  }
+
+  async getMyCouponOverview(userId: string) {
+    // Keep first-visit compensation; subsequent pages are strictly read-only.
+    await this.activation?.tryGrantCoupons(userId);
+    const now = new Date();
+    const [available, history] = await Promise.all([
+      readCouponPage(this.prisma, userId, 'available', undefined, now),
+      readCouponPage(this.prisma, userId, 'history', undefined, now),
+    ]);
+    return { available, history };
+  }
+
+  getMyCouponPage(userId: string, status: unknown, cursor?: unknown) {
+    return readCouponPage(this.prisma, userId, status, cursor);
   }
 
   getMyCouponReadState(userId: string) {

@@ -7,6 +7,10 @@ import type { VipStatus } from "../vip/vip-client";
 import { LIFESTYLE_QUESTIONS, calculateAgeOnDate, isLifestyleQuestion, VIP_FILTER_KEYS } from "@lilink/shared";
 import { BirthDatePicker } from "../_components/BirthDatePicker";
 
+import { beginProfileWrite } from "../_lib/profile-read-revision";
+import { useProfileWriteOwner } from "../_lib/profile-write-owner";
+import { useVipStatus } from "./use-vip-status";
+import { useMatchEstimate } from "./use-match-estimate";
 import { profileSavePresentation } from "./save-status";
 import styles from "./profile-redesign.module.css";
 import { ContactEditor, type ContactSaveStatus } from "./contact-editor";
@@ -33,10 +37,8 @@ import {
 import { useRouter } from "next/navigation";
 import {
   fetchApi,
-  fetchMatchEstimate,
   isApiRequestError,
   type AuthMePayload,
-  type MatchEstimate,
 } from "../../../lib/api";
 import {
   HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
@@ -55,7 +57,7 @@ import {
   toggleMultiSelectValue,
   type HardMatchFormState,
   type HardMatchSchoolOption,
-} from "../../../lib/hard-match";
+} from "@lilink/shared";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import {
   ValuePicker,
@@ -70,7 +72,7 @@ import {
 import {
   keepCurrentQuestionAnswers,
   softQuestionAnswerIsComplete,
-} from "../_lib/questionnaire";
+} from "@lilink/shared";
 import type {
   ContactPreferencesPayload,
   DashboardPayload,
@@ -162,7 +164,6 @@ const HARD_MATCH_FIELD_KEY_GROUPS = {
   ],
 } as const;
 
-const MATCH_ESTIMATE_DEBOUNCE_MS = 400;
 
 const MATCH_ESTIMATE_BAND_LABELS: Record<MatchEstimateBand, string> = {
   HIGH: "较高",
@@ -383,28 +384,15 @@ export function ProfileClient({
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
   useDashboardSessionSeed(initialUser);
+  const writeOwner = useProfileWriteOwner();
   const router = useRouter();
-  const [vip, setVip] = useState(initialVip);
+  const { vip, error: vipError } = useVipStatus(initialVip);
   const vipActive = Boolean(vip?.active);
   const vipDialogRef = useRef<HTMLDialogElement>(null);
   function updatePremiumForm(update: Parameters<typeof setHardMatchForm>[0]) {
     if (!vipActive) { vipDialogRef.current?.showModal(); return; }
     setHardMatchForm(update);
   }
-  useEffect(() => {
-    let disposed = false;
-    const refresh = () => { void fetchApi<VipStatus>("/me/vip").then(next => {
-      if (!disposed) setVip(next);
-    }).catch(() => { if (!disposed) setVip(null); }); };
-    const expire = vip?.expiresAt ? window.setTimeout(() => {
-      if (Date.parse(vip.expiresAt!) <= Date.now()) setVip(current => current ? { ...current, active: false } : null);
-      refresh();
-    }, Math.min(2_147_483_647, Math.max(0, Date.parse(vip.expiresAt) - Date.now()))) : undefined;
-    window.addEventListener("focus", refresh);
-    const interval = window.setInterval(refresh, 30_000);
-    return () => { disposed = true; window.removeEventListener("focus", refresh); window.clearInterval(interval); window.clearTimeout(expire); };
-  }, [vip?.expiresAt]);
-
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;
   const initialSubmittedAnswers = initialSavedQuestionnaire?.answers;
   const loadedHardMatchForm =
@@ -425,10 +413,10 @@ export function ProfileClient({
   );
   const [hardMatchForm, setHardMatchForm] =
     useState<HardMatchFormState>(initialHardMatchForm);
-  const [matchEstimate, setMatchEstimate] = useState<MatchEstimate | null>(
-    null,
-  );
-  const [matchEstimatePending, setMatchEstimatePending] = useState(false);
+  const { matchEstimate, matchEstimatePending } = useMatchEstimate({
+    excludedPartnerSchools: hardMatchForm.excludedPartnerSchools,
+    excludedPartnerSchoolGenders: hardMatchForm.excludedPartnerSchoolGenders,
+  }, vipActive);
   const [displayName, setDisplayName] = useState(initialDraft?.displayName ?? initialUser.displayName ?? "");
   const [questionnaireSaveError, setQuestionnaireSaveError] = useState<
     string | null
@@ -493,39 +481,6 @@ export function ProfileClient({
     }
   }, [birthDayOptions, hardMatchForm.birthDay]);
 
-  // Live, debounced match-odds estimate for the current partner exclusions.
-  // Only availability and the band return from the server; raw pool counts stay
-  // server-side.
-  useEffect(() => {
-    if (!vipActive) { setMatchEstimate(null); setMatchEstimatePending(false); return; }
-    let active = true;
-    const handle = window.setTimeout(() => {
-      if (active) setMatchEstimatePending(true);
-      fetchMatchEstimate({
-        excludedPartnerSchools: hardMatchForm.excludedPartnerSchools,
-        excludedPartnerSchoolGenders:
-          hardMatchForm.excludedPartnerSchoolGenders,
-      })
-        .then((result) => {
-          if (active) setMatchEstimate(result.available ? result : null);
-        })
-        .catch(() => {
-          if (active) setMatchEstimate(null);
-        })
-        .finally(() => {
-          if (active) setMatchEstimatePending(false);
-        });
-    }, MATCH_ESTIMATE_DEBOUNCE_MS);
-    return () => {
-      active = false;
-      window.clearTimeout(handle);
-    };
-  }, [
-    hardMatchForm.excludedPartnerSchools,
-    hardMatchForm.excludedPartnerSchoolGenders,
-    vipActive,
-  ]);
-
   const questionnaireSavePayload = useMemo(
     () => buildQuestionnaireSavePayload(answers, hardMatchForm, displayName),
     [answers, hardMatchForm, displayName],
@@ -550,7 +505,7 @@ export function ProfileClient({
       questionnaireAutosaveLifecycle.markUnmounted();
       clearQuestionnaireRetryTimer();
       queuedQuestionnaireSaveRef.current = null;
-      questionnaireSaveAbortRef.current?.abort();
+      // Let an already sent write settle under its existing deadline.
     };
   }, [questionnaireAutosaveLifecycle]);
 
@@ -744,6 +699,7 @@ export function ProfileClient({
         return;
       }
 
+      const write = beginProfileWrite(initialUser.id, writeOwner);
       try {
         const result = await fetchApi<QuestionnaireAcknowledgementResponse>(
           "/me/questionnaire/acknowledgement",
@@ -756,6 +712,7 @@ export function ProfileClient({
           },
         );
 
+        write.succeeded();
         if (!questionnaireAutosaveLifecycle.isUnmounted()) {
           setAcknowledgedQuestionnaireKeys(result.acknowledgedKeys);
           const hardMatchKeySet = new Set<string>(
@@ -770,6 +727,8 @@ export function ProfileClient({
         }
       } catch {
         // Keep the marker visible; the next viewport pass can retry.
+      } finally {
+        write.finish();
       }
     },
   );
@@ -911,6 +870,7 @@ export function ProfileClient({
       setQuestionnaireSaveState(questionnaireRetryAttemptRef.current > 0 ? "retrying" : "saving");
       setQuestionnaireSaveError(null);
 
+      const write = beginProfileWrite(initialUser.id, writeOwner);
       try {
         const result = await fetchApi<QuestionnaireSaveResponse>(
           "/me/questionnaire",
@@ -922,6 +882,7 @@ export function ProfileClient({
           questionnaireRetryAttemptRef.current > 0 ? undefined : "/api/questionnaire",
         );
 
+        write.succeeded();
         if (!questionnaireAutosaveLifecycle.isTokenActive(lifecycleToken)) {
           return;
         }
@@ -994,6 +955,7 @@ export function ProfileClient({
         setQuestionnaireSaveError(shouldScheduleRetry ? null :
           questionnaireAutosaveFailureMessage(caughtError, retryDelayMs));
       } finally {
+        write.finish();
         autosaveTimeout.clear();
         questionnaireSaveAbortRef.current = null;
         questionnaireSaveInFlightRef.current = false;
@@ -1281,6 +1243,7 @@ export function ProfileClient({
 
   return (
     <div data-desktop-viewport data-profile-reader className={`${dcx("app-page-shell v2-page-shell")} ${styles.page}`}>
+      {vipError && <p role="status" className="ui-form-message">{vipError}</p>}
       <header className={styles.pageHeading}>
         <span className={styles.eyebrow}>让我们更了解你</span>
         <h1>我的资料</h1>

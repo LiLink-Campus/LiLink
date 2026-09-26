@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LIFESTYLE_QUESTIONS } from '@lilink/shared';
-import { hardMatchFormFromAnswers } from '../../../lib/hard-match';
+import { hardMatchFormFromAnswers } from "@lilink/shared";
 import { profileAttentionTabForKey } from './profile-attention';
-import { computeQuestionnaireProgress } from './progress';
+import { computeQuestionnaireProgress } from "@lilink/shared";
 import type { Question } from './types';
 
 const questions: Question[] = LIFESTYLE_QUESTIONS.map(q => ({ id: q.key, key: q.key, prompt: q.prompt, type: 'SINGLE_SELECT', options: q.options.map(label => ({ label, value: label })) }));

@@ -66,7 +66,7 @@ export const siteHandlers = [
   json("/me/dashboard", matchDashboardFixtures.waitingNoResult),
   json("/me/contact-preferences", contacts),
   json("/me/referral", referralFixtures.eduWithFullQuota),
-  json("/me/coupons", { items: [coupon] }),
+  json("/me/coupons/overview", { available: { items: [coupon], nextCursor: null }, history: { items: [], nextCursor: null } }),
   json("/me/coupons/read-state", readState),
   http.post(`${api}/me/coupons/read-state`, () => HttpResponse.json(readState)),
   json("/me/coupons/:id/redeem-secret", {

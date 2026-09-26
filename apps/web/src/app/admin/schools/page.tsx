@@ -247,10 +247,6 @@ export default function AdminSchoolsPage() {
     );
   }
 
-  if (loading) {
-    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载学校中心...</div>;
-  }
-
   return (
     <div className={cx(adminStyles, "qb-container")}>
       <div className={cx(adminStyles, "qb-header")}>
@@ -270,6 +266,8 @@ export default function AdminSchoolsPage() {
           </button>
         </div>
       </div>
+
+      {loading && <p role="status">{data ? "正在更新列表…" : "正在加载列表…"}</p>}
 
       {/* Stats */}
       <div className={cx(adminStyles, "qb-stats-row")}>
@@ -345,7 +343,7 @@ export default function AdminSchoolsPage() {
 
       {/* School list */}
       <div className={cx(adminStyles, "qb-list")}>
-        {schools.length === 0 && editingId !== "new" && (
+        {!loading && schools.length === 0 && editingId !== "new" && (
           <div className={cx(adminStyles, "admin-empty-state")}>
             {submittedSearch.trim()
               ? "没有找到匹配的学校。"

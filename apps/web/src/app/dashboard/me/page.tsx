@@ -1,7 +1,7 @@
 import { loadDashboardCenter } from "../_lib/bootstrap";
-import { UserCenter } from "./user-center";
+import { CenterBootstrap } from "./center-bootstrap";
 
 export default async function DashboardMePage() {
-  const { user, vip } = await loadDashboardCenter();
-  return <UserCenter initialUser={user} initialStatus={vip} />;
+  const initialData = await loadDashboardCenter();
+  return <CenterBootstrap key={initialData.user.id} initialData={initialData} />;
 }

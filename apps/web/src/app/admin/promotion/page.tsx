@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CHANNEL_META, type ReferralChannel } from "@lilink/shared";
-import { fetchApi } from "../../../lib/api";
+import { useAdminRead } from "../use-admin-read";
 import styles from "../growth.module.css";
 
 type Acquisition = {
@@ -31,33 +31,10 @@ export default function AdminPromotionPage() {
   const [to, setTo] = useState(() => dateInChina());
   const [range, setRange] = useState(() => ({ from: dateInChina(-29), to: dateInChina() }));
   const [revision, setRevision] = useState(0);
-  const [data, setData] = useState<Acquisition | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    setError("");
-    const start = new Date(`${range.from}T00:00:00+08:00`);
-    const end = new Date(new Date(`${range.to}T00:00:00+08:00`).getTime() + 86400000);
-    const params = new URLSearchParams({ from: start.toISOString(), to: end.toISOString() });
-    fetchApi<Acquisition>(`/admin/promotion/acquisition?${params}`)
-      .then((result) => {
-        if (alive) setData(result);
-      })
-      .catch((e) => {
-        if (alive) {
-          setError(e.message);
-          setData(null);
-        }
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [range, revision]);
+  const start = new Date(`${range.from}T00:00:00+08:00`);
+  const end = new Date(new Date(`${range.to}T00:00:00+08:00`).getTime() + 86400000);
+  const params = new URLSearchParams({ from: start.toISOString(), to: end.toISOString() });
+  const { data, loading, error } = useAdminRead<Acquisition>(`/admin/promotion/acquisition?${params}`, revision);
   function selectDays(days: number) {
     const next = { from: dateInChina(1 - days), to: dateInChina() };
     setFrom(next.from);
@@ -138,7 +115,7 @@ export default function AdminPromotionPage() {
           {error}
         </p>
       )}
-      {loading ? (
+      {loading && !data ? (
         <p className={styles.empty}>正在加载推广数据…</p>
       ) : (
         data && (

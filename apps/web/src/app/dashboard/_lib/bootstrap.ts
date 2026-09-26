@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { VipStatus } from "../vip/vip-client";
+import type { computeQuestionnaireProgress, QuestionnaireAttentionPayload } from "@lilink/shared";
 import {
   fetchUserApiServer,
   hasUserSessionCookie,
@@ -46,12 +47,16 @@ type QuestionnairePageData = {
   contactPreferences: ContactPreferencesPayload;
 };
 
-type HomePageData = QuestionnairePageData & Pick<DashboardBootstrapPayload, "dashboard">;
-type ProfilePageData = QuestionnairePageData & {
+export type HomePageData = DashboardBootstrapPayload & {
+  questionnaireProgress: ReturnType<typeof computeQuestionnaireProgress>;
+  questionnaireAttention: QuestionnaireAttentionPayload | null;
+  contactPreferences: ContactPreferencesPayload;
+};
+export type ProfilePageData = QuestionnairePageData & {
   dashboard: Pick<DashboardBootstrapPayload["dashboard"], "questionnaireSubmittedAt">;
   vip: VipStatus | null;
 };
-type CenterPageData = { user: DashboardBootstrapPayload["user"]; vip: VipStatus | null };
+export type CenterPageData = { user: DashboardBootstrapPayload["user"]; vip: VipStatus | null };
 
 async function loadPage<T>(page: "home" | "profile" | "center") {
   await ensureDashboardSession();

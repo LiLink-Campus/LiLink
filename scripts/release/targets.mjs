@@ -15,3 +15,18 @@ export function resolveDatabaseTarget(connectionString) {
   if (!['postgres:', 'postgresql:'].includes(url.protocol) || !['', '5432'].includes(url.port) || !target) throw new Error('Refusing a database outside the verified synthetic load targets.');
   return target;
 }
+
+// Expected configuration and freshly retrieved deployment identity are separate inputs.
+export function resolveSsrTarget(expected, actual, releaseSha) {
+  if (!expected || !actual || !/^[a-f0-9]{40}$/.test(releaseSha ?? '')
+    || !/^https:\/\/release-\d{8}\.lilink\.top$/.test(expected.alias ?? '')
+    || expected.alias === 'https://release-20260920.lilink.top'
+    || expected.projectId !== 'prj_bdgQbPghUNmgkWPueeJq8Z6ZAb4J'
+    || typeof expected.branch !== 'string' || !expected.branch.startsWith('codex/')
+    || typeof expected.deploymentId !== 'string' || !expected.deploymentId.startsWith('dpl_')
+    || expected.sha !== releaseSha || actual.state !== 'READY'
+    || ['alias', 'projectId', 'branch', 'deploymentId', 'sha'].some(key => actual[key] !== expected[key])) {
+    throw new Error('Refusing an unverified SSR preview identity.');
+  }
+  return expected.alias;
+}

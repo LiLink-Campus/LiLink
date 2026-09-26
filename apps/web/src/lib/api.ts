@@ -1,3 +1,4 @@
+import { withReadDeadline } from "./read-deadline";
 import { getClientApiBaseUrl } from "./api-base-url";
 import type {
   HardMatchSchoolGenderExclusion,
@@ -106,24 +107,24 @@ export async function fetchApi<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(sameOriginPath ?? `${getClientApiBaseUrl()}${path}`, {
-    ...init,
-    headers,
-    credentials: "include",
-    cache: init?.cache ?? "no-store",
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new ApiRequestError(
-      parseFailedResponseBody(body, response.status),
-      response.status,
-    );
-  }
-
-  const text = await response.text();
-  if (!text) return null as unknown as T;
-  return JSON.parse(text) as T;
+  const read = async (signal: AbortSignal | null | undefined) => {
+    const response = await fetch(sameOriginPath ?? `${getClientApiBaseUrl()}${path}`, {
+      ...init,
+      signal,
+      headers,
+      credentials: "include",
+      cache: init?.cache ?? "no-store",
+    });
+    const text = await response.text();
+    if (!response.ok) {
+      throw new ApiRequestError(parseFailedResponseBody(text, response.status), response.status);
+    }
+    if (!text) return null as unknown as T;
+    return JSON.parse(text) as T;
+  };
+  return (init?.method ?? "GET").toUpperCase() === "GET"
+    ? withReadDeadline(init?.signal, read)
+    : read(init?.signal);
 }
 
 export type AuthMePayload = {
@@ -162,11 +163,12 @@ export type MatchEstimate = Extract<MatchEstimateResult, { available: true }>;
  * partner-gender exclusions, against the current cycle's opted-in pool. Returns
  * only availability, the band, and a low-confidence flag — never raw pool counts.
  */
-export function fetchMatchEstimate(payload: MatchEstimatePayload) {
-  return fetchApi<MatchEstimateResult>("/me/match-estimate", {
+export function fetchMatchEstimate(payload: MatchEstimatePayload, signal?: AbortSignal) {
+  return withReadDeadline(signal, readSignal => fetchApi<MatchEstimateResult>("/me/match-estimate", {
+    signal: readSignal,
     method: "POST",
     body: JSON.stringify(payload),
-  });
+  }));
 }
 
 // --- Merchant promotion system (user-facing) ---
@@ -235,8 +237,16 @@ export type MyCoupon = {
   redeemedAt: string | null;
 };
 
-export function fetchMyCoupons() {
-  return fetchApi<{ items: MyCoupon[] }>("/me/coupons");
+export type CouponPage = { items: MyCoupon[]; nextCursor: string | null };
+export type CouponOverview = { available: CouponPage; history: CouponPage };
+export type CouponGroup = keyof CouponOverview;
+
+export function fetchCouponOverview(signal?: AbortSignal) {
+  return fetchApi<CouponOverview>("/me/coupons/overview", { signal });
+}
+
+export function fetchCouponPage(status: CouponGroup, cursor: string, signal?: AbortSignal) {
+  return fetchApi<CouponPage>(`/me/coupons/page?${new URLSearchParams({ status, cursor })}`, { signal });
 }
 
 export type CouponAgendaReadState = {
@@ -266,8 +276,8 @@ export type CouponRedeemSecret = {
   digits: number;
 };
 
-export function getCouponRedeemSecret(couponId: string) {
-  return fetchApi<CouponRedeemSecret>(`/me/coupons/${couponId}/redeem-secret`);
+export function getCouponRedeemSecret(couponId: string, signal?: AbortSignal) {
+  return fetchApi<CouponRedeemSecret>(`/me/coupons/${couponId}/redeem-secret`, { signal });
 }
 
 export type CouponStatusResponse = {
@@ -281,8 +291,8 @@ export type CouponStatusResponse = {
   merchantPromotion?: MerchantPromotionBlock[];
 };
 
-export function getCouponStatus(couponId: string) {
-  return fetchApi<CouponStatusResponse>(`/me/coupons/${couponId}/status`);
+export function getCouponStatus(couponId: string, signal?: AbortSignal) {
+  return fetchApi<CouponStatusResponse>(`/me/coupons/${couponId}/status`, { signal });
 }
 
 // --- Merchant portal (separate session from user/admin) ---

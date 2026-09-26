@@ -102,10 +102,6 @@ export default function AdminMerchantsPage() {
     submitSearch();
   }
 
-  if (loading) {
-    return <div className={cx(adminStyles, "admin-empty-state")}>正在加载商家…</div>;
-  }
-
   return (
     <div className={cx(adminStyles, "qb-container")}>
       <div className={cx(adminStyles, "qb-header")}>
@@ -128,6 +124,8 @@ export default function AdminMerchantsPage() {
           <AdminRefreshButton onClick={() => void refresh()} />
         </div>
       </div>
+
+      {loading && <p role="status">{data ? "正在更新列表…" : "正在加载列表…"}</p>}
 
       <AdminDetailDialog
         open={creating}
@@ -246,7 +244,7 @@ export default function AdminMerchantsPage() {
         </div>
 
         <div className={cx(adminStyles, "qb-list")} style={{ marginTop: "0.85rem" }}>
-          {merchants.length === 0 && (
+          {!loading && merchants.length === 0 && (
             <div className={cx(adminStyles, "admin-empty-state ic-list-empty")}>
               {submittedSearch.trim() || statusFilter
                 ? "没有匹配的商家，试试调整搜索或筛选条件。"

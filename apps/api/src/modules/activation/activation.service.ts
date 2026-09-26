@@ -20,24 +20,30 @@ export class ActivationService {
   /** Grant the current activity once per qualified user; retry on later visits. */
   async tryGrantCoupons(userId: string): Promise<void> {
     try {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
+      if (!(await this.isQualified(this.prisma, userId))) return;
+      // Completed activations are durable. Re-read the current campaign on every
+      // visit so the shortcut cannot hide rewards from a newly published one.
+      const campaigns = await this.prisma.campaign.findMany({
+        where: { status: 'ACTIVE' },
         select: {
-          firstOptedInAt: true,
-          status: true,
-          deactivatedAt: true,
-          questionnaireResponse: { select: { submittedAt: true } },
+          startsAt: true,
+          endsAt: true,
+          activations: {
+            where: { userId },
+            select: { couponsGrantedAt: true },
+          },
         },
+        take: 2,
       });
+      const campaign = campaigns[0];
+      const now = new Date();
       if (
-        !user ||
-        !user.firstOptedInAt ||
-        !user.questionnaireResponse?.submittedAt ||
-        user.status !== 'ACTIVE' ||
-        user.deactivatedAt
-      ) {
+        campaigns.length !== 1 ||
+        (campaign.startsAt && campaign.startsAt > now) ||
+        (campaign.endsAt && campaign.endsAt <= now) ||
+        campaign.activations[0]?.couponsGrantedAt
+      )
         return;
-      }
 
       await this.grant(userId);
     } catch (error) {
@@ -49,10 +55,33 @@ export class ActivationService {
     }
   }
 
+  private async isQualified(
+    store: Pick<Prisma.TransactionClient, 'user'>,
+    userId: string,
+  ) {
+    const user = await store.user.findUnique({
+      where: { id: userId },
+      select: {
+        firstOptedInAt: true,
+        status: true,
+        deactivatedAt: true,
+        questionnaireResponse: { select: { submittedAt: true } },
+      },
+    });
+    return Boolean(
+      user?.firstOptedInAt &&
+      user.questionnaireResponse?.submittedAt &&
+      user.status === 'ACTIVE' &&
+      !user.deactivatedAt,
+    );
+  }
+
   private async grant(userId: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      // Serialize publication/end and grants, including concurrent page visits.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(70412026)`;
+      // Publication/end retain the exclusive lock. Recipients can grant in
+      // parallel while an activation row serializes visits by the same user.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(70412026)`;
+      if (!(await this.isQualified(tx, userId))) return;
       const now = new Date();
       const activeCampaigns = await tx.campaign.findMany({
         where: { status: 'ACTIVE' },
@@ -80,7 +109,8 @@ export class ActivationService {
       const activation = await tx.campaignActivation.upsert({
         where: { userId_campaignId: { userId, campaignId } },
         create: { userId, campaignId },
-        update: {},
+        // A real UPDATE locks the row and returns the latest committed gate.
+        update: { userId },
         select: { id: true, couponsGrantedAt: true },
       });
       if (activation.couponsGrantedAt) return;

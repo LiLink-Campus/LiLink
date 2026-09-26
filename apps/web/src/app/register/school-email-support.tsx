@@ -45,7 +45,7 @@ export function SchoolEmailSupport({
           <p role="status">请补全 @ 前的邮箱账号</p>
         ) : pending ? (
           <p role="status">学校列表加载中…</p>
-        ) : error ? (
+        ) : error && !payload ? (
           <p role="status">暂时无法核对邮箱后缀</p>
         ) : match ? (
           <p role="status" className={styles.matched}>
@@ -88,14 +88,20 @@ export function SchoolEmailSupport({
             aria-label="搜索学校或邮箱后缀"
             placeholder="搜索学校或邮箱后缀"
             value={query}
-            disabled={pending || Boolean(error)}
+            disabled={!payload}
             onChange={(event) => setQuery(event.target.value)}
           />
+          {error && payload ? (
+            <div role="alert">
+              <p>{error} 当前保留上次学校列表。</p>
+              <Button type="button" variant="secondary" size="sm" onClick={onRefresh}>重试加载学校列表</Button>
+            </div>
+          ) : null}
           {pending ? (
             <p className={styles.empty} role="status">
               正在加载最新学校列表…
             </p>
-          ) : error ? (
+          ) : error && !payload ? (
             <div className={styles.empty}>
               <p role="alert">{error}</p>
               <Button type="button" variant="secondary" size="sm" onClick={onRefresh}>

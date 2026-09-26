@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { beginProfileWrite } from "../_lib/profile-read-revision";
+import { useProfileWriteOwner } from "../_lib/profile-write-owner";
 import { fetchApi, isApiRequestError } from "../../../lib/api";
 import type { ContactPreferencesPayload } from "../_lib/types";
 import { phoneDraftForInput, phoneDraftFromValue, phoneDraftValue, prepareContactSave, type PhoneDraft } from "./contact-save";
@@ -11,6 +13,7 @@ const channels = [{ value: "EMAIL", label: "邮箱" }, { value: "WECHAT", label:
 export type ContactSaveStatus = "saved" | "pending" | "saving" | "invalid" | "error";
 
 export function ContactEditor({ initial, userId, email, onStatus, onNavigateBlocked }: { initial: ContactPreferencesPayload; userId: string; email: string; onStatus: (status: ContactSaveStatus) => void; onNavigateBlocked?: () => void }) {
+  const writeOwner = useProfileWriteOwner();
   const router = useRouter();
   // Email addresses can be reused after account deletion; user IDs cannot.
   const draftKey = `lilink:contact-draft:v2:${userId}`;
@@ -95,7 +98,7 @@ export function ContactEditor({ initial, userId, email, onStatus, onNavigateBloc
     lifecycle.current += 1;
     return () => {
       lifecycle.current += 1;
-      activeRequest.current?.abort();
+      // Keep the existing write deadline; unmount cannot undo a committed save.
     };
   }, []);
   useEffect(() => { onStatus(status); }, [onStatus, status]);
@@ -127,6 +130,7 @@ export function ContactEditor({ initial, userId, email, onStatus, onNavigateBloc
         const controller = new AbortController();
         activeRequest.current = controller;
         const timeout = window.setTimeout(() => controller.abort(), 10_000);
+        const write = beginProfileWrite(userId, writeOwner);
         try {
           if (refreshBeforeRetry.current) {
             const current = await fetchApi<ContactPreferencesPayload>("/me/contact-preferences", { signal: controller.signal });
@@ -139,6 +143,7 @@ export function ContactEditor({ initial, userId, email, onStatus, onNavigateBloc
             body: JSON.stringify({ ...JSON.parse(payload), revision: revision.current }),
             signal: controller.signal,
           });
+          write.succeeded();
           if (lifecycle.current !== currentLifecycle) return;
           if (controller.signal.aborted) throw new Error("Contact save timed out.");
           blockedSave.current = null;
@@ -163,13 +168,14 @@ export function ContactEditor({ initial, userId, email, onStatus, onNavigateBloc
             setSaveError(message);
           }
         } finally {
+          write.finish();
           window.clearTimeout(timeout);
           if (activeRequest.current === controller) activeRequest.current = null;
         }
       });
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [payload, ready, retry]);
+  }, [payload, ready, retry, userId, writeOwner]);
 
   function changeMethod(type: ContactPreferencesPayload["methods"][number]["type"], next: string) {
     setMethods((current) => [...current.filter((method) => method.type !== type), { type, value: next }]);

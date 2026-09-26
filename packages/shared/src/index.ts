@@ -18,3 +18,8 @@ export { expandSchoolEmailDomains, normalizeSchoolEmailDomains } from "./school-
 export { SCHOOL_DIRECTORY, SCHOOL_EMAIL_INSTITUTIONS, SCHOOL_COOPERATION_GROUPS } from "./school-directory";
 
 export * from "./profile-preferences";
+
+export * from "./hard-match-form";
+export * from "./questionnaire-types";
+export * from "./questionnaire-answers";
+export * from "./questionnaire-progress";

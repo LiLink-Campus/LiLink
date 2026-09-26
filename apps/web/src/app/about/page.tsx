@@ -4,8 +4,8 @@ import styles from "./about.module.css";
 
 export default function AboutPage() {
   return (
-    <ImageReadyPage className={styles.page} background="/images/about/watercolor-atlas.png">
-      <link rel="preload" as="image" href="/images/about/watercolor-atlas.png" fetchPriority="high" />
+    <ImageReadyPage className={styles.page} background="/images/about/watercolor-atlas.09032dbdfd5e.webp">
+      <link rel="preload" as="image" href="/images/about/watercolor-atlas.09032dbdfd5e.webp" fetchPriority="high" />
       <div className={styles.inner}>
         <header className={styles.masthead}>
           <div className={styles.campusArt} aria-hidden="true" />

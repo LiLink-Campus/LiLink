@@ -1,4 +1,4 @@
-import { LIFESTYLE_QUESTIONS } from "@lilink/shared";
+import { LIFESTYLE_QUESTIONS } from "./lifestyle";
 import {
   AGE_OPTIONS,
   BIRTH_YEAR_OPTIONS,
@@ -29,25 +29,7 @@ import {
   readStringArray,
   splitBirthDate,
   type HardMatchSchoolGenderExclusion,
-} from "@lilink/shared";
-
-export {
-  AGE_OPTIONS,
-  BIRTH_YEAR_OPTIONS,
-  HARD_MATCH_GENDERS,
-  HARD_MATCH_KEYS,
-  HARD_MATCH_LANGUAGES,
-  HARD_MATCH_LOOKS,
-  HARD_MATCH_NATIONALITIES,
-  HARD_MATCH_ONE_LINER_INTRO_MAX_LENGTH,
-  HEIGHT_OPTIONS,
-  MONTH_OPTIONS,
-  WEIGHT_OPTIONS,
-  buildDayOptions,
-  hardMatchAttentionFieldForKey,
-  hardMatchAttentionKeys,
-  hardMatchAttentionFields,
-};
+} from "./hard-match";
 
 export type HardMatchSchoolOption = {
   id: string;

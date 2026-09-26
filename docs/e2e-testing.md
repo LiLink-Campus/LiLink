@@ -94,3 +94,34 @@ Linux 包装器只复制源码，使用容器内独立依赖卷。报告写入 `
 每轮输出 `artifacts/e2e/<run-id>/`：HTML 报告、JSON 结果、服务日志、失败截图/视频/trace、运行耗时信息。`latest.json` 供报告命令找到最近一次运行。CI 即使失败也上传证据并保留 7 天。文件均在 Git 忽略目录，不提交运行产物；已审核基准图除外。
 
 运行器、测试或业务变更后，先跑受影响用例；通过后再跑对应浏览器项目。不要依赖截图、HTTP 200 或构建成功单独判断业务完成。CI 工作流只有提交推送后才会实际触发，本地通过不代表远程 CI 已通过。
+
+## 图片等待与性能证据
+
+`node scripts/e2e/run.mjs e2e/specs/loading-performance.spec.ts` 验证图片延迟时正文保持隐藏、图片就绪后完整展示、失败时有界恢复，覆盖正常和减少动画设置。冷浏览器上下文及同一上下文回访输出脱敏 JSON：浏览器、视口、资源字节和完整首屏可见时间；该时间包含断言轮询开销，不能解释为精确渲染时刻或冷服务器指标。测试不改变用户要求的图片门槛，不保存响应正文或身份信息。
+
+## In-app browser 隔离预览
+
+```bash
+node scripts/e2e/run.mjs --serve --serve-minutes=30
+```
+
+复用相同的一次性数据库、合成数据和生产构建，服务就绪后生成 `artifacts/e2e/<run-id>/session.json`，只包含 runId、pid、webUrl、apiUrl、mailUrl、expiresAt。用其中的 webUrl 在 Codex in-app browser 查看；不访问已有开发数据库。默认和最长 30 分钟，最短 1 分钟；到期自动清理，Ctrl+C 或 SIGTERM 也会清理。API、Web、数据库或 Mailpit 提前退出会使本轮失败。结束时删除 session.json；留存 run.json 和脱敏证据。此模式只提供人工视觉检查环境，不代表自动测试通过。
+
+关于页背景保留原 PNG 作为无损再生成来源，实际页面只请求带内容 hash 的 WebP。复现压缩和像素等价检查（使用项目已有 sharp，不新增依赖）：
+
+```bash
+node --input-type=module <<'NODE'
+import sharp from 'sharp';
+import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+const source = await readFile('apps/web/public/images/about/watercolor-atlas.png');
+const optimized = await sharp(source).webp({ lossless: true, effort: 6 }).toBuffer();
+const originalPixels = await sharp(source).ensureAlpha().raw().toBuffer();
+const optimizedPixels = await sharp(optimized).ensureAlpha().raw().toBuffer();
+if (!originalPixels.equals(optimizedPixels)) throw new Error('Pixel mismatch');
+const hash = createHash('sha256').update(optimized).digest('hex').slice(0, 12);
+const checkedIn = await readFile(`apps/web/public/images/about/watercolor-atlas.${hash}.webp`);
+if (!optimized.equals(checkedIn)) throw new Error('Artifact mismatch');
+console.log({ originalBytes: source.length, optimizedBytes: optimized.length, hash, pixelEquivalent: true });
+NODE
+```

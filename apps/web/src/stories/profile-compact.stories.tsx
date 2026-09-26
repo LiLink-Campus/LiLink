@@ -4,7 +4,7 @@ import { delay, http, HttpResponse } from "msw";
 import { ProfileClient } from "@/app/dashboard/profile/profile-client";
 import type { Question } from "@/app/dashboard/_lib/types";
 import { matchDashboardFixtures, matchStoryUser } from "@/app/dashboard/match/match.fixtures";
-import { hardMatchFormFromAnswers } from "@/lib/hard-match";
+import { hardMatchFormFromAnswers } from "@lilink/shared";
 import questionnaire from "../../../api/prisma/fixtures/autumn-20260920-questionnaire.json";
 import { contacts, now, savedProfile, schools } from "./site-fixtures";
 import { api, dashboardShell, route } from "./site-support";

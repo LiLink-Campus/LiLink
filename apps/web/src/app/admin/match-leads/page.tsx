@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useAdmin } from "../admin-context";
+import { useState } from "react";
+import { useAdminRead } from "../use-admin-read";
 import { fetchApi } from "../../../lib/api";
 import { AdminIcon } from "../admin-icon";
 import { cx } from "../admin-class-names";
@@ -11,27 +11,10 @@ import styles from "./page.module.css";
 type Lead = { id: string; phone: string | null; realName?: string | null; school?: string | null; major?: string | null; contact?: string | null; user?: { id: string; email: string; displayName: string | null } | null; contacted: boolean; createdAt: string };
 
 export default function MatchLeadsPage() {
-  const { authenticated } = useAdmin();
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const { data, loading, error: loadError, refresh: load } = useAdminRead<Lead[]>("/admin/match-leads");
+  const leads = data ?? [];
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    if (!authenticated) return;
-    setLoading(true);
-    try {
-      setLeads(await fetchApi<Lead[]>("/admin/match-leads"));
-      setError("");
-    } catch {
-      setError("加载失败，请重试。");
-    } finally {
-      setLoading(false);
-    }
-  }, [authenticated]);
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   async function toggleContacted(lead: Lead) {
     setBusy(lead.id);
     try {
@@ -66,9 +49,9 @@ export default function MatchLeadsPage() {
           刷新
         </button>
       </header>
-      {error && (
+      {(error || loadError) && (
         <p className="ui-form-message ui-form-message--error" role="alert">
-          {error}
+          {error || loadError}
         </p>
       )}
       <div className={styles.panel}>
@@ -79,7 +62,7 @@ export default function MatchLeadsPage() {
             {leads.filter((lead) => !lead.contacted).length} 条
           </span>
         </div>
-        {loading ? (
+        {loading && !data ? (
           <div className={cx(commonStyles, "admin-empty-state")}>加载中…</div>
         ) : !leads.length ? (
           <div className={styles.empty}>

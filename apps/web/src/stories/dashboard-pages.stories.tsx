@@ -221,17 +221,13 @@ export const Coupons: Story = {
   render: () => (
     <CouponsClient
       initialUser={user}
-      initialCoupons={[
-        coupon,
-        {
-          ...coupon,
-          id: "expired",
-          status: "EXPIRED",
-          title: "已过期的双人套餐",
-          expiresAt: "2030-04-01T08:00:00Z",
-        },
-        { ...coupon, id: "redeemed", status: "REDEEMED", title: "已使用的咖啡券", redeemedAt: now },
-      ]}
+      initialOverview={{
+        available: { items: [coupon], nextCursor: null },
+        history: { items: [
+          { ...coupon, id: "expired", status: "EXPIRED", title: "已过期的双人套餐", expiresAt: "2030-04-01T08:00:00Z" },
+          { ...coupon, id: "redeemed", status: "REDEEMED", title: "已使用的咖啡券", redeemedAt: now },
+        ], nextCursor: null },
+      }}
     />
   ),
   play: visible(coupon.title),
@@ -246,13 +242,13 @@ export const CouponCode: Story = {
 };
 export const CouponsEmpty: Story = {
   parameters: route("/dashboard/coupons"),
-  render: () => <CouponsClient initialUser={user} initialCoupons={[]} />,
+  render: () => <CouponsClient initialUser={user} initialOverview={{ available: { items: [], nextCursor: null }, history: { items: [], nextCursor: null } }} />,
   play: visible(/暂无|还没有/),
 };
 export const CouponsFailure: Story = {
   parameters: {
     ...route("/dashboard/coupons"),
-    msw: { handlers: { site: [failure("/me/coupons"), ...siteHandlers] } },
+    msw: { handlers: { site: [failure("/me/coupons/overview"), ...siteHandlers] } },
   },
   render: () => <CouponsClient initialUser={user} />,
   play: visible(/模拟服务暂时不可用/),

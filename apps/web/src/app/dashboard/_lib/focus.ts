@@ -1,4 +1,4 @@
-import { HARD_MATCH_KEYS } from "../../../lib/hard-match";
+import { HARD_MATCH_KEYS } from "@lilink/shared";
 import { profileAttentionHashForKey } from "./profile-attention";
 import type {
   ContactPreferencesPayload,
