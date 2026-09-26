@@ -55,7 +55,10 @@ type Story = StoryObj<typeof meta>;
 async function openDialog(canvasElement: HTMLElement) {
   const canvas = within(canvasElement);
   await userEvent.click(canvas.getByRole("button", { name: "查看支持的学校" }));
-  return within(canvas.getByRole("dialog", { name: "支持的学校" }));
+  const dialog = canvas.getByRole("dialog", { name: "支持的学校" });
+  // The registration panel fades in; an open dialog can still have a hidden ancestor.
+  await waitFor(() => expect(dialog).toBeVisible());
+  return within(dialog);
 }
 
 export const RefreshOnReopen: Story = {
