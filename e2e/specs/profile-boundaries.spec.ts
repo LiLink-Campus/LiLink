@@ -1,4 +1,3 @@
-import { HARD_MATCH_KEYS as K, profileAttentionHashForKey } from '@lilink/shared';
 import { test, expect, api, visit, completeProfile } from '../support/fixtures';
 
 test.beforeEach(async ({ signedIn }) => { void signedIn; });
@@ -6,7 +5,7 @@ test.beforeEach(async ({ signedIn }) => { void signedIn; });
 test('free users cannot change premium school exclusions', async ({ page, context, db }, info) => {
   await completeProfile(context, db);
   const school = await db.school.findUniqueOrThrow({ where: { slug: 'e2e-school' } });
-  await visit(page, `/dashboard/profile${profileAttentionHashForKey(K.excludedPartnerSchools)}`);
+  await visit(page, '/dashboard/profile#profile-attention-hard_excluded_partner_schools');
   await expect(page.getByRole('textbox', { name: '搜索学校' })).toBeVisible();
   await page.getByRole('textbox', { name: '搜索学校' }).fill(school.name);
   await page.getByRole('region', { name: '当前题目' }).locator('summary').filter({ hasText: school.name }).click();
@@ -18,8 +17,8 @@ test('free users cannot change premium school exclusions', async ({ page, contex
   await info.attach('premium-school-gate', { body: await page.screenshot(), contentType: 'image/png' });
   await dialog.getByRole('button', { name: '暂不开通，继续填写' }).click();
   const saved = await (await context.request.get(`${api}/me/questionnaire`)).json();
-  expect(saved.answers[K.excludedPartnerSchools]).toEqual([]);
-  expect(saved.answers[K.excludedPartnerSchoolGenders]).toEqual([]);
+  expect(saved.answers.hard_excluded_partner_schools).toEqual([]);
+  expect(saved.answers.hard_excluded_partner_school_genders).toEqual([]);
 });
 
 test('VIP school exclusions survive reload and hash navigation selects the right question', async ({ page, context, db, account }, info) => {
@@ -29,7 +28,7 @@ test('VIP school exclusions survive reload and hash navigation selects the right
   } });
   await completeProfile(context, db);
   const school = await db.school.findUniqueOrThrow({ where: { slug: 'e2e-school' } });
-  const route = `/dashboard/profile${profileAttentionHashForKey(K.excludedPartnerSchools)}`;
+  const route = '/dashboard/profile#profile-attention-hard_excluded_partner_schools';
   await visit(page, route);
   const search = page.getByRole('textbox', { name: '搜索学校' });
   await expect(search).toBeVisible();
@@ -41,7 +40,7 @@ test('VIP school exclusions survive reload and hash navigation selects the right
   await expect(choice).toBeChecked();
   await expect(page.getByRole('main').getByText('全部修改已保存', { exact: true })).toBeVisible();
   const saved = await (await context.request.get(`${api}/me/questionnaire`)).json();
-  expect(saved.answers[K.excludedPartnerSchoolGenders]).toEqual([{ schoolId: school.id, genders: ['男'] }]);
+  expect(saved.answers.hard_excluded_partner_school_genders).toEqual([{ schoolId: school.id, genders: ['男'] }]);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await visit(page, route);
   await expect(search).toBeVisible();
@@ -56,26 +55,26 @@ test('viewing an unconfirmed weight does not acknowledge it before an explicit s
   const response = await db.questionnaireResponse.findUniqueOrThrow({ where: { userId: account.id } });
   const answers = { ...response.answers };
   const signatures = { ...response.acknowledgedHardMatchSignatures };
-  delete answers[K.weightKg];
-  delete signatures[K.weightKg];
+  delete answers.hard_weight_kg;
+  delete signatures.hard_weight_kg;
   await db.questionnaireResponse.update({ where: { userId: account.id }, data: {
     answers, acknowledgedHardMatchSignatures: signatures,
   } });
   await page.clock.install();
-  await visit(page, `/dashboard/profile${profileAttentionHashForKey(K.weightKg)}`);
+  await visit(page, '/dashboard/profile#profile-attention-hard_weight_kg');
   const weight = page.getByRole('combobox', { name: '选择你的体重' });
   await expect(weight).toBeVisible();
   await expect(weight).toHaveValue('');
   await page.clock.runFor(1000);
   const before = await (await context.request.get(`${api}/me/questionnaire`)).json();
-  expect(before.attention.pendingUpdatedKeys).toContain(K.weightKg);
-  expect(before.attention.items.find((item: { key: string }) => item.key === K.weightKg).acknowledged).toBe(false);
+  expect(before.attention.pendingUpdatedKeys).toContain('hard_weight_kg');
+  expect(before.attention.items.find((item: { key: string }) => item.key === 'hard_weight_kg').acknowledged).toBe(false);
   await weight.selectOption('57');
   await page.clock.runFor(1000);
   await expect(page.getByRole('main').getByText('全部修改已保存', { exact: true })).toBeVisible();
   const after = await (await context.request.get(`${api}/me/questionnaire`)).json();
-  expect(after.answers[K.weightKg]).toBe(57);
-  expect(after.attention.pendingKeys).not.toContain(K.weightKg);
+  expect(after.answers.hard_weight_kg).toBe(57);
+  expect(after.attention.pendingKeys).not.toContain('hard_weight_kg');
 });
 
 test('edits made while a save is in flight persist as the latest value', async ({ page, context, db }) => {

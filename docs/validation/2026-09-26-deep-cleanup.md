@@ -123,6 +123,8 @@ Account 与 page-bootstrap 测试保留并迁移依赖：包含用户身份映�
 npm run test --workspace api -- --runInBand
 node scripts/e2e/run.mjs --api
 npm run test --workspace web
+npm run test:e2e:infra
+npx tsc -p e2e/tsconfig.json
 node scripts/e2e/run.mjs e2e/specs/profile.spec.ts e2e/specs/profile-mobile.spec.ts e2e/specs/profile-choice-rules.spec.ts e2e/specs/contact-navigation.spec.ts e2e/specs/vip.spec.ts e2e/specs/matching.spec.ts e2e/specs/admin.spec.ts e2e/specs/community.spec.ts e2e/specs/profile-boundaries.spec.ts --project=chromium --project=mobile-webkit
 npm run typecheck:api
 npm run typecheck:web
@@ -146,3 +148,9 @@ git diff --check
 - 不带路径的设计系统 audit 会扫描 Git 忽略的 `artifacts/` 与 `campusdate/`，产生 936 项无关结果；限定 `apps/web/src` 的实际源码审计通过，未删工件或修改审计规则来隐藏结果。
 - 管理员、匹配周期等其他大类未在这轮同时拆分；外部协议、持久化数据和恢复路径的兼容义务继续保留。
 - 所有改动仍在本地清理分支，未 commit / push / deploy，未运行远端 CI。
+
+## PR 阶段补充
+
+PR #134 首轮 Browser E2E 在浏览器启动前的独立类型检查失败：新增用例引用 `@lilink/shared`，而干净安装尚无该包构建产物。用例已改为直接断言公开字段及 URL hash 契约，移除这项不必要的构建依赖，未放宽断言或修改生产代码。
+
+修正后 `npm run test:e2e:infra` 两项、`npx tsc -p e2e/tsconfig.json` 均通过；类型检查输入不含 shared 构建产物。四个边界场景在 Chromium / 移动 WebKit 重新运行 8 项全部通过，0 skipped / failed / flaky，证据为 `artifacts/e2e/dc316e7cfb73` 和 `artifacts/deep-cleanup-20260926/pr-boundaries-final.log`。首轮提交的 push / PR CI 均已通过；后续提交的远端工作流状态以 PR Checks 为准，未合并或部署生产。
