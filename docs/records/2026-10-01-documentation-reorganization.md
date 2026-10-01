@@ -14,9 +14,9 @@ lang: zh
 
 按逐篇清单归并现行指南、参考、决策、计划、记录、验收、归档和模板。业务解释的维护位置使用 canonical 标记；其他页引用对应参考。历史资料标明来源提交和效力，旧代码链接固定 Git 对象，删除重复段落前保留可追溯原稿。
 
-独立交接目录的七份原件完整迁入 Git 忽略的 docs/private，原目录已移除。私有导航更新，原件字节未改。秋季可运行副本与付费前端备份移入 prototypes；设计与开发过程归入 docs。Docker 构建上下文排除 docs/prototypes。
+初次整理将独立说明目录的七份原件移入本机忽略目录并核对字节；同日进一步按主题融合，取消原件集合、两份导航与独立归档说明。当前事实、历史背景和未决方案分别进入参考、记录与计划，维护者直接阅读 docs。秋季可运行副本与付费前端备份移入 prototypes；设计与开发过程归入 docs。Docker 构建上下文排除 docs/prototypes。
 
-清单记录 113 份原始 Markdown（104 份公开清单条目与 9 份私有原件/导航）；逐篇去向及新增文档职责见 [迁移表](2026-10-01-document-migration.md)。历史进程按 [Git 主线](project-history.md) 追溯，Git 收录、设计事件和生产部署分别判断。
+初次清单记录 113 份原始 Markdown（104 份公开清单条目与 9 份本机原件/导航）；逐篇去向及新增文档职责见 [迁移表](2026-10-01-document-migration.md)。历史进程按 [Git 主线](project-history.md) 追溯，Git 收录、设计事件和生产部署分别判断。
 
 ## 核验依据
 
@@ -24,7 +24,7 @@ lang: zh
 
 Seiso 使用 package/lock 固定的 0.3.0；CLI 实测不接受 kind: agents，AGENTS 按 howto 检查。现行与历史分域比较重复，历史链接继续检查，preview 保持人工审阅。
 
-## 重跑与工件
+## 初次重整验收与工件
 
 环境为 macOS、仓库锁定 Node/npm、完整 Git 历史和 npm ci 安装的依赖。文档检查不需要 API、数据库或真实账号。
 
@@ -36,13 +36,38 @@ npm run hooks:audit
 npm run test:hooks
 ```
 
-- artifacts/docs-verification/report.json：全部公开入口可达、分类父页面、八个事实维护页、npm 脚本、Git 历史目标、稳定规则和原型哈希断言。
+- artifacts/docs-verification/report.json：全部公开入口可达、分类父页面、事实维护页、npm 脚本、Git 历史目标、稳定规则和原型哈希断言。
 - artifacts/docs-verification/index.json 与 policy.json：完整检查集、有效类型、比较域与规则。
 - artifacts/docs-verification/stable.json / preview.json：诊断与统计；稳定从基线 22 条降至 0，preview 全规则诊断为 0，已人工审阅并去除历史计划/设计及分类入口的重复段落。
 - artifacts/documentation-reorganization/：整理前文件、SHA-256、首次/最近收录提交、入链、450 项初始迁移映射与链接改写记录；发布演练 README 后续归并使文件映射为 451 项。临时 Git index 识别 447 项重命名，其中原型的 404 个非 Markdown 文件为原样重命名；真实暂存区保持不变。173 条已迁移历史引用均在其原稿来源提交的祖先范围内，Git 行锚点未越界。
-- artifacts/docs-reorganization/handover-validation.json：私有原件七份哈希与大小一致、源目录消失、导航有效、Git 忽略且未跟踪。
+- artifacts/docs-reorganization/handover-validation.json：初次迁移时七份原件哈希与大小一致的证据。它不再代表项目保留原件目录；后续主题融合见下节。
 
 根 README 的开始开发、运行测试、匹配规则、发布/回滚、追溯旧决策五条路径全部通过，125 份公开检查文档均可从根入口到达并具有类型归属；其中 26 份本次新增文档也纳入清单。Git pre-commit 实际调用通过；四项 hooks 已安装并 audit 一致，复用的 13 项 hook 检查通过。
+
+## 同日主题融合
+
+以七份旧说明的 59 个二级章节为范围，对照当前源码与脚本逐项确定维护位置或退役原因，去向见 [迁移表](2026-10-01-document-migration.md#旧说明按主题融合)。新增产品主链路、环境迁移指南与迁移待确认计划，补充账户、优惠券、拓扑、发布与值守主题，组织资产提案进入项目历史。当前资料不再依赖独立交接手册。交叉复核还补齐用户 JWT 密钥轮换会使旧验证码 HMAC 失效的迁移影响，避免恢复队列后发送不可用的旧码。
+
+本次仅修改文档及其范围策略，没有操作生产环境、数据库或业务代码。目录索引补齐新主题与父页面回溯；检查策略撤销原件目录特例，通用忽略文件、链接隔离和源文件哈希约束继续有效。
+
+本机 artifacts/docs-fusion-20261001 保存 source-inventory.json、两份章节 coverage 和 report.json；只记录来源哈希、标题、去向、断言与环境，不保留旧正文。逐项核验包括全部章节有处置、融合目标公开且存在、源码依据有效、旧目录和占位页移除。重复运行文档门禁与八个真实 CLI 合成场景的命令为：
+
+```sh
+npm run docs:check
+npm run docs:verify
+npm run docs:tooling:verify
+npm run docs:hooks:verify
+```
+
+前提为完整 checkout、锁定依赖和项目声明的 Node/npm/Git；不需要应用服务、数据库或真实账号。本机章节元数据与指纹工件齐备时，可运行 `node artifacts/docs-fusion-20261001/verify-fusion.mjs` 重跑去向、目录移除与敏感字面值断言；通用文档门禁可在完整新 checkout 独立执行。运行结果与精确提交 CI 另记于本机融合工件；历史验收数量不作为此次通过证据。
+
+## 同日决策命名清理
+
+秋季决策中的 06–10 来自旧混合目录的章节序号；资料拆入不同职责目录后，这些序号不构成决策 ID 或依赖顺序。五篇文档去掉章节序号，日期可确认者采用日期与主题，其余仅用主题，更新分类索引、正文引用和迁移表中的目标位置；迁移表原路径及固定 Git 来源仍保留原名称。
+
+注册、资料层级、冗余匹配偏好和原始匹配历史决定均有正文中的 2026-09-10 依据。资料页容器探索的事件日期未确认，以主题命名并声明效力；匹配历史后来撤回“退出”的日期未确认，保留撤回记录且文件名采用中性的现有主题，不推定日期。旧序号仅在来源与初次迁移的历史路径中出现。
+
+本次不修改业务契约。使用完整 checkout、锁定依赖与项目 Node/npm，执行 `npm run docs:check`、`npm run docs:verify`；本机 artifacts/decision-naming-20261001 保存重命名清单、日期依据、来源链接与断言。检查新入口、父页面回溯、旧工作树链接消失、历史来源有效及 diff，不连接数据库或生产环境。本机清单齐备时，可运行 `node artifacts/decision-naming-20261001/verify-naming.mjs` 重跑命名和历史保真断言；通用门禁可在新 checkout 独立执行。
 
 ## 原型行为验收
 

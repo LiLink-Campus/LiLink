@@ -19,6 +19,7 @@ lang: zh
 | [用 Seiso 维护项目文档](documentation.md) | 日常维护与门禁 |
 | [首页本地数据库仿真](community-simulation.md) | 现行说明 |
 | [值守与故障排查](incident-response.md) | 现行说明 |
+| [新环境重建、数据迁移与域名切换](environment-migration.md) | 迁移前提、单写边界与恢复验收 |
 | [本地开发](local-development.md) | 现行说明 |
 | [生产发布与回滚](production-release.md) | 现行说明 |
 | [隔离环境发布演练](release-rehearsal.md) | 镜像、匹配、送信与恢复验收 |

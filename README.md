@@ -10,10 +10,12 @@ LiLink 面向高校学生提供周期性 1v1 匹配。用户建立账号、完�
 
 | 任务 | 入口 |
 | --- | --- |
+| 理解产品与用户路径 | [产品主链路](docs/reference/product.md) |
 | 开始开发 | [本地开发](docs/guides/local-development.md) |
 | 运行测试 | [浏览器 E2E](docs/guides/browser-e2e.md) |
 | 理解匹配规则 | [匹配与参与契约](docs/reference/matching.md) |
 | 查找发布与回滚 | [生产发布](docs/guides/production-release.md) |
+| 重建环境与迁移数据 | [环境迁移](docs/guides/environment-migration.md) |
 | 追溯开发与决策 | [Git 开发历史](docs/records/project-history.md) |
 | 维护文档 | [Seiso 文档维护](docs/guides/documentation.md) |
 
@@ -23,4 +25,4 @@ LiLink 面向高校学生提供周期性 1v1 匹配。用户建立账号、完�
 
 Agent 规则维护在 [AGENTS.md](AGENTS.md)，补充规则位于 [API 工作区](apps/api/AGENTS.md) 和 [Web 工作区](apps/web/AGENTS.md)。功能是否已部署须依据对应环境的发布记录与运行证据；Git 提交、原型预览和本地验收分别记录。
 
-文档通过 `npm run docs:check` 检查，通过 `npm run docs:verify` 验收导航与文档归属。私有原件与验收产物保持 Git 忽略。
+文档通过 `npm run docs:check` 检查，通过 `npm run docs:verify` 验收导航与文档归属。凭据由受控存储管理，验收产物保持 Git 忽略。

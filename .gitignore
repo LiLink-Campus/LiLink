@@ -81,16 +81,14 @@ loadtest/.staging-secrets/
 # own node_modules; not part of the main app build)
 marketing/
 
-# Internal team & handover docs (local only)
+# Internal team docs (local only)
 /公司架构/
-/交接文档/
 
 # Local reference websites
 /campusdate/
 /datedrop/
 
 # Private operational archives (local only; never publish).
-/docs/private/
 /运维笔记.md
 /docs/archive/2026-04-05-testing-operations.md
 /docs/archive/2026-06-02-operations-topology.md

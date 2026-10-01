@@ -10,7 +10,7 @@ lang: zh
 ## 新建与修改
 
 1. 从 docs 总入口选择文档职责。维护现行行为前核对代码、配置、migration 与实际验证范围；需要历史事实时查询 Git，运行状态另附时间与环境证据。
-2. 每项事实确定一个维护位置。其他页链接引用，长期页面不保存当天部署状态、测试数量或库存；这些观察进入注明日期的 records/validation。
+2. 每项事实确定一个维护位置。交接、调研或旧说明中的有效内容直接补入对应主题，不保留平行手册；当前契约对照源码，变更理由进入 decisions，历史过程进入注明日期的 records，待实施方案进入 plans。其他页链接引用，长期页面不保存当天部署状态、测试数量或库存；这些观察进入 records/validation。
 3. 声明必要的 `kind`，目录映射已正确时可直接继承；少量例外用 frontmatter。需要指定中文时使用 `lang: zh`。每个分类 README 直接列出直属文档与子分类索引；子文档与子分类索引回溯直属父 README。
 4. 移动或拆分时更新 Markdown 链接、标题锚点、命令与正文路径。历史代码引用固定到实际存在的 Git 提交，不将旧实现链接到语义已改变的当前文件。
 5. 运行 `npm run docs:check`、`npm run docs:verify`，查看工件与 diff。预览规则用 `npm run docs:preview` 人工审阅；豁免必须有具体规则和可复核理由。
@@ -41,7 +41,7 @@ pre-push 继续执行工作树 `docs:check`；GitHub push、pull_request 和手�
 
 `npm run docs:tooling:verify` 在合成 checkout 中调用真实检查 CLI，验证工作树链接拒绝指向私有或越界文件的符号链接，包括带锚点的私有目标，并接受公开目标；迁移 manifest 拒绝目标与清单同时改写、空文件集和经符号目录越界的目标；Seiso 配置异常时覆盖旧成功报告并保存终态失败结果。该验收只使用合成文件与现有 Git 对象，不连接数据库、不启动应用服务或创建 commit；Documentation workflow 同时执行它。
 
-历史与现行内容分别处于比较域，历史断链继续检查。私有原件、第三方 vendored 说明和原型内部来源文件的范围由 seiso.toml 声明；范围变化与正文一起审阅，不能通过空文件集获得通过结果。
+历史与现行内容分别处于比较域，历史断链继续检查。第三方 vendored 说明和原型内部来源文件的范围由 seiso.toml 声明；范围变化与正文一起审阅，不能通过空文件集获得通过结果。
 
 ## 验收工件
 
@@ -51,7 +51,7 @@ pre-push 继续执行工作树 `docs:check`；GitHub push、pull_request 和手�
 
 检查工具的八个合成场景、运行环境、数据前提、逐项断言与脱敏日志保存在 `artifacts/docs-tooling-verification/`；报告声明实际执行结果，失败不会复用上次成功。
 
-原型迁移额外运行 `docs:prototype:verify`，由命令管理隔离副本、随机 loopback 服务和回收，保存真实页面断言、服务端 fetch 守卫记录及 Chromium/WebKit 截图。无需启动业务 API 或已有原型服务。源素材迁移哈希与逐篇去向保留在此次重整记录中；公开工件不包含私有原件内容、配置、会话或真实用户数据。
+原型迁移额外运行 `docs:prototype:verify`，由命令管理隔离副本、随机 loopback 服务和回收，保存真实页面断言、服务端 fetch 守卫记录及 Chromium/WebKit 截图。无需启动业务 API 或已有原型服务。源素材迁移哈希与逐篇去向保留在此次重整记录中；公开工件不包含凭据、内部资源标识、私有连接配置、会话或真实用户数据。
 
 `prototypes/migration-sha256.json` 固定历史来源与当前目标文件。必要适配先记录原因与验收，保留 sourceSha256/sourceBytes 和原始 Git 来源，再更新目标哈希；检查同时验证原稿与适配结果。新探索另建有来源日期的副本，避免改写旧设计证据。
 

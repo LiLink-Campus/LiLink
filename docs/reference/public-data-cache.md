@@ -26,6 +26,20 @@ canonical: true
 
 缓存周期表示开始重新验证的时间，不是数据最大延迟：多层缓存及后台刷新会叠加延迟；持续故障时可能继续显示较旧的成功统计。学校列表只用于展示与邮箱识别，注册提交仍由 API 校验实时资格。发布替换默认策略的同路径图片时，已有浏览器缓存可能持续 1 小时；内容 hash 图片须随内容更新文件名，其缓存可持续 1 年。具体声明见 [Next 配置](../../apps/web/next.config.ts)。
 
+上述是 Web 层策略。API 进程的 landing、可注册学校目录和公开问卷结构缓存 TTL 为 30 分钟，社区统计为 10 秒；学校邮箱解析另有短期缓存。策略与常量由 [PublicService](../../apps/api/src/modules/public/public.service.ts)、[CommunityStatsService](../../apps/api/src/modules/public/community-stats.service.ts) 和 [QuestionnaireService](../../apps/api/src/modules/questionnaire/questionnaire.service.ts) 维护。
+
+写入不会统一清空公开缓存；显式失效范围如下：
+
+| 写入路径 | 失效范围 |
+| --- | --- |
+| 后台轮次创建/编辑/删除、周轮次设置和手动执行，自动周轮次创建、揭晓/强制重置及账号注销 | landing；见 [CyclesService](../../apps/api/src/modules/cycles/cycles.service.ts)、[WeeklyCycleService](../../apps/api/src/modules/cycles/weekly-cycle.service.ts)、[AccountDeletionService](../../apps/api/src/modules/account/account-deletion.service.ts) |
+| 学校管理 | 社区统计（含学校分组）、学校邮箱解析、可注册学校目录及公开问卷结构；见 [AdminSchoolService](../../apps/api/src/modules/admin/admin-school.service.ts) |
+| 后台发布问卷 revision | 公开问卷结构；见 [AdminService](../../apps/api/src/modules/admin/admin.service.ts) |
+
+注册、用户问卷提交及后台账号冻结不会主动清除 landing 缓存，它们引起的统计变化依赖 TTL 到期后的读取或后续相关失效。重启清空进程缓存，多实例的缓存状态独立，不能仅根据 Next 的 30/60 秒声明承诺端到端新鲜度。
+
+缓存成功响应可以在上游数据库暂时不可达时继续返回。`/v1/health` 只证明 API 进程应答，landing 返回成功也可能命中缓存；两者均不能单独证明数据库当前可读。指标的账号及归档口径由 [运营统计](analytics.md) 定义。
+
 验证入口：
 
 - `npm run test --workspace web -- src/lib/public-data-cache.test.ts src/lib/eligible-schools.test.ts`
