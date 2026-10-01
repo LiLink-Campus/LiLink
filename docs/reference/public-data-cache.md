@@ -26,6 +26,10 @@ canonical: true
 
 缓存周期表示开始重新验证的时间，不是数据最大延迟：多层缓存及后台刷新会叠加延迟；持续故障时可能继续显示较旧的成功统计。学校列表只用于展示与邮箱识别，注册提交仍由 API 校验实时资格。发布替换默认策略的同路径图片时，已有浏览器缓存可能持续 1 小时；内容 hash 图片须随内容更新文件名，其缓存可持续 1 年。具体声明见 [Next 配置](../../apps/web/next.config.ts)。
 
+上述是 Web 层策略。API 进程还缓存 landing、可注册学校目录与当前公开问卷 30 分钟，社区统计缓存 10 秒；对应业务写入会显式失效相关缓存。学校邮箱解析另有自己的短期缓存。重启清空进程缓存，多实例的缓存状态独立，不能仅根据 Next 的 30/60 秒声明承诺端到端新鲜度。API 当前值查询 [PublicService](../../apps/api/src/modules/public/public.service.ts)、[CommunityStatsService](../../apps/api/src/modules/public/community-stats.service.ts) 和 [QuestionnaireService](../../apps/api/src/modules/questionnaire/questionnaire.service.ts)。
+
+缓存成功响应可以在上游数据库暂时不可达时继续返回。`/v1/health` 只证明 API 进程应答，landing 返回成功也可能命中缓存；两者均不能单独证明数据库当前可读。指标的账号及归档口径由 [运营统计](analytics.md) 定义。
+
 验证入口：
 
 - `npm run test --workspace web -- src/lib/public-data-cache.test.ts src/lib/eligible-schools.test.ts`

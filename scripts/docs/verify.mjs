@@ -82,14 +82,6 @@ try {
     "nonempty-docs-scope",
     [...files.keys()].filter((file) => file.startsWith("docs/")).length > 90
   );
-  check(
-    "private-files-not-indexed",
-    ![...files.keys()].some((file) => file.startsWith("docs/private/"))
-  );
-  const ignored = run("git", ["check-ignore", "-q", "docs/private/example.md"]);
-  check("private-files-git-ignored", ignored.status === 0);
-  check("private-files-not-tracked", !run("git", ["ls-files", "docs/private"]).stdout.trim());
-
   const visited = new Set();
   const queue = ["README.md"];
   while (queue.length) {
@@ -132,6 +124,7 @@ try {
     navigation.missingBacklinks
   );
   const owners = [
+    "product",
     "topology",
     "account",
     "matching",

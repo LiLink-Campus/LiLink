@@ -37,10 +37,9 @@ lang: zh
 | [埋点优化与数据体系](2026-09-11-analytics-index.md) | 历史快照 |
 | [丘比特活动机制（Project Cupid）](2026-09-11-cupid-index.md) | 历史快照 |
 | [LiLink 现有埋点现状](2026-09-11-product-analytics-audit.md) | 历史快照 |
-| [旧交接资料统一归档](2026-10-01-handover-consolidation.md) | 历史快照 |
 
 ## 模板与命名
 
 本目录子文档采用 `kind: changelog`，并回溯本入口。命名与通用格式遵循 [统一维护规范](../guides/documentation.md)；具体内容围绕本目录职责组织。
 
-未脱敏交接原件与生产快照保存在 Git 忽略的 `docs/private/`，公开索引只保留脱敏说明。新规则统一进入参考文档，旧正文保持注明来源的历史效力。
+历史设计保留事件日期、来源和效力；当前规则由对应参考维护。主题融合与去向记录在 [文档重整实施](../records/2026-10-01-documentation-reorganization.md)，维护者按主题查阅，无需另一套交接资料。

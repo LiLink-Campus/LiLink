@@ -363,11 +363,15 @@ git show <commit>:<original-path>
 | 2026-09-26T22:24:41+08:00 | [f6b2b200](https://github.com/LiLink-Campus/LiLink/commit/f6b2b2003dfd53d8899878c5cf898dd6ee16eebc) | test: cover dashboard bootstrap recovery in Storybook (#136) |
 | 2026-09-27T00:47:47+08:00 | [a4f91a47](https://github.com/LiLink-Campus/LiLink/commit/a4f91a47cda9836e1d3f7c100d12fba12af4230c) | fix(api): keep coupon overview reads on one snapshot (#137) |
 
+## 旧资料中的组织资产设想
+
+2026-09-03 的迁移提案提出：基础设施与外部服务由新组织自行建立，旧资源仅作迁移源与短期恢复用途，正式域名保持连续；账户管理采用组织安全邮箱、组织拥有的云与 SaaS 项目、成员子账户、MFA 和撤权流程。这些是当时的设计意图，没有证明实际切换或资产归属已经完成。待确认事项归入 [环境迁移计划](../plans/environment-migration.md)，操作方法归入 [环境迁移指南](../guides/environment-migration.md)。旧资源地址、账户标识和聚合用户统计不作为现行文档事实保留。
+
 ## 效力冲突的处理
 
 - 早期见面、破冰和产品事件采集方案保留在归档；模块是否启用以当前 AppModule 与路由为准。
 - 秋季设计文件中的撤回与探索保留为有日期的决策，当前账户与匹配行为按参考文档核验。
-- 旧交接资料中的自动继承参与、工具链和生产统计只代表当时记录；当前每轮显式报名规则由匹配参考维护。
+- 2026-09-03 的说明包含自动继承参与、旧工具链和当时生产观察；现行规则分别由匹配与开发参考维护，旧观察不证明今天的运行状态。
 - 已实现功能的验收报告可以早于其提交时间；报告的本地、模拟、隔离数据库和生产范围分别保留。
 
 源文件逐篇去向见 [迁移表](2026-10-01-document-migration.md)，未确认的产品意图见 [计划入口](../plans/README.md)。

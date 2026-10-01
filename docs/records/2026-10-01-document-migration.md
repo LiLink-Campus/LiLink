@@ -22,7 +22,7 @@ lang: zh
 
 ## 逐篇去向
 
-历史页面只保存当时事实；现行页面核对当前代码、脚本与配置。私有原件保留原文，其细目由私有归档入口管理。入链列采用整理前的文件路径，空表示基线中无 Markdown 链接入链，不代表代码或正文中没有引用。
+历史页面只保存当时事实；现行页面核对当前代码、脚本与配置。旧说明按主题融合，章节去向与不再适用的内容见本页后续记录。入链列采用整理前的文件路径，空表示基线中无 Markdown 链接入链，不代表代码或正文中没有引用。
 
 | 原路径 | 用途 | 效力 | 目标路径 | 类型 | 基线入链 | 处理理由 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -89,7 +89,7 @@ lang: zh
 | `docs/archive/2026-09-08-local-development.md` | Local Development | 现行操作说明 | `docs/guides/local-development.md` | `howto` | `AGENTS.md`；`README.md`；`docs/archive/2026-04-12-operations-notes.md`；`docs/archive/2026-10-01-handover-consolidation.md`；`docs/archive/README.md` | 核对脚本后建立唯一操作入口 |
 | `docs/archive/2026-09-08-web-visual-verification.md` | Web Visual Verification | 现行操作说明 | `docs/guides/visual-verification.md` | `howto` | `README.md`；`apps/web/AGENTS.md`；`docs/archive/README.md` | 核对脚本后建立唯一操作入口 |
 | `docs/archive/2026-09-16-one-to-one-paid-frontend/README.md` | 人工匹配付费版前端备份 | 分类导航 | `prototypes/one-to-one-paid-2026-09-16/README.md` | `readme` | 无 | 建立职责边界与唯一维护入口 |
-| `docs/archive/2026-10-01-handover-consolidation.md` | 旧交接资料统一归档 | 历史快照或验收记录 | `docs/archive/2026-10-01-handover-consolidation.md` | `changelog` | `docs/archive/README.md` | 保留原始日期、来源提交和验证局限；代码链接固定历史版本 |
+| `docs/archive/2026-10-01-handover-consolidation.md` | 旧交接资料统一归档 | 历史快照或验收记录 | `docs/records/2026-10-01-documentation-reorganization.md` | `changelog` | `docs/archive/README.md` | 原独立归档说明已撤销；内容融合与历史去向由重整记录维护 |
 | `docs/archive/README.md` | LiLink 文档归档 | 分类导航 | `docs/archive/README.md` | `readme` | `README.md`；`docs/README.md`；`docs/archive/2026-10-01-handover-consolidation.md` | 建立职责边界与唯一维护入口 |
 | `docs/e2e-testing.md` | 浏览器自动化测试 | 现行操作说明 | `docs/guides/browser-e2e.md` | `howto` | `docs/archive/2026-10-01-handover-consolidation.md`；`docs/validation/2026-09-26-loading-performance.md` | 核对脚本后建立唯一操作入口 |
 | `docs/matching-priority.md` | 自动匹配优先级 | 现行行为契约 | `docs/reference/matching.md` | `reference` | 无 | 以当前代码核验；把历史运行状态拆入记录 |
@@ -131,9 +131,21 @@ lang: zh
 | `docs/埋点优化/现有埋点现状.md` | LiLink 现有埋点现状 | 历史快照或验收记录 | `docs/archive/2026-09-11-product-analytics-audit.md` | `changelog` | `docs/README.md`；`docs/埋点优化/2026-09-13-自动引荐与旧事件退役.md`；`docs/埋点优化/README.md` | 保留原始日期、来源提交和验证局限；代码链接固定历史版本 |
 | `scripts/release/README.md` | Isolated release checks | 有日期的演练工具说明 | `docs/records/2026-09-26-isolated-release-tools.md` | `changelog` | 无 | 分离固定资源与当时运行观察；现行指南说明源码约束和准备边界 |
 
-## 私有资料
+## 旧说明按主题融合
 
-七份交接历史原件与私有导航继续位于 Git 忽略的 `docs/private/`。本次维护公开入口和私有导航，不修改已核对哈希的原件，也不发布内部拓扑与数据。
+初次迁移暂存了 2026-09-03 的七份说明与两份导航；同日进一步按主题核对七份原稿的 59 个二级章节，取消独立原件目录、导航和归档占位页。有效内容进入下列维护位置，重复内容引用既有契约；过时流程按源码修正，旧资源标识、凭据和聚合用户统计不发布。
+
+| 原稿主题 | 融合位置 | 处理边界 |
+| --- | --- | --- |
+| 总览与导航 | [项目文档](../README.md)、[维护流程](../guides/documentation.md) | 合并入口与事实判断方法，撤销平行目录 |
+| 产品与业务全景 | [产品主链路](../reference/product.md)、账户、匹配、VIP 与券参考 | 核对当前流程，移除容量锁、自动继承、双向请求和见面协商等旧规则 |
+| 系统架构与数据模型 | [系统拓扑](../reference/topology.md)、[账户边界](../reference/account.md) | 补齐模块职责、领域不变量与认证边界，工具链引用开发指南 |
+| 生产环境与基础设施 | [生产发布](../guides/production-release.md)、[故障排查](../guides/incident-response.md) | 保存配置、任务与依赖契约；旧主机、数据库和运行统计不作为当前现场事实 |
+| 新环境重建与迁移方案 | [环境迁移指南](../guides/environment-migration.md)、[迁移计划](../plans/environment-migration.md) | 方法与未决选择分别维护，不宣称已执行切换 |
+| 运维发布与故障排查 | [发布指南](../guides/production-release.md)、[值守指南](../guides/incident-response.md) | 修正管理员创建、数据库健康判断、维护开关与自动轮次行为 |
+| 项目背景总稿 | 上述主题页与 [项目历史](project-history.md) | 与六份拆分稿合并；独有组织资产设想保留日期与提案效力 |
+
+章节清单只包含来源文件名、哈希、标题与去向，保存在本机 artifacts/docs-fusion-20261001；不复制原文。后续维护直接使用主题文档，迁移清单不是另一套业务规范。
 
 ## 本次新增文档归属
 

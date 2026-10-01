@@ -6,7 +6,6 @@ exclude = [
   "apps/api/src/vendor/**",
   "apps/web/public/fonts/**",
   "prototypes/autumn-2026/web/**",
-  "docs/private/**",
 ]
 
 preview = false
