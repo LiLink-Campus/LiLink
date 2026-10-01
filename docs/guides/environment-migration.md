@@ -31,7 +31,7 @@ lang: zh
 
 ## 预部署目标环境
 
-1. 固定候选提交、兼容 API/Web 版本及工具链；保留源环境可恢复镜像和 Web deployment。先完成 [浏览器 E2E](browser-e2e.md) 与适用的 [隔离发布演练](release-rehearsal.md)。
+1. 固定候选提交、兼容 API/Web 版本及工具链；保留源环境可恢复镜像和 Web deployment，并按 [发布前准备](production-release.md#发布前准备) 保存相应受控配置恢复点、核验恢复权限。先完成 [浏览器 E2E](browser-e2e.md) 与适用的 [隔离发布演练](release-rehearsal.md)。
 2. 建立个人 SSH 访问、最小权限、救援控制台、TLS 代理和安全组。API 按 Compose 绑定 loopback；Web 服务端直连路径如启用，也需纳入网络策略。检验实际加载的代理配置，不假设历史主机目录仍正确。
 3. 准备 runtime `api_env` 与独立 BuildKit secret，核对外部数据库 TLS/role、SMTP 和监控项目。检查日志保留、磁盘限额、外部探针、告警接收与数据库备份/PITR；为目标做恢复演练。
 4. 在隔离目标恢复演练数据并记录精确版本；受控验收期间关闭后台任务和真实送信，避免演练轮次、旧邮件或重复任务触达真实用户。
