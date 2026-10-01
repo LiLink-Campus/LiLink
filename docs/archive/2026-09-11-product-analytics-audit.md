@@ -365,7 +365,7 @@ KPI 比率在分母为 0 时返回 `null`；漏斗展示组件在分母为 0 时
 
 | 编号 | 证据入口 | 对应内容 |
 | --- | --- | --- |
-| E01 | [个人资料层级与见面流程退出](../decisions/autumn-2026/07-个人资料层级与见面流程退出.md)、[匹配历史最新决定](../decisions/autumn-2026/10-匹配历史退出与举报入口决策.md) | 设计副本决定与正式应用实施边界；历史匹配最新保留决定 |
+| E01 | [个人资料层级与见面流程退出](../decisions/autumn-2026/2026-09-10-个人资料层级与见面流程退出.md)、[匹配历史最新决定](../decisions/autumn-2026/2026-09-10-匹配历史与举报入口决策.md) | 设计副本决定与正式应用实施边界；历史匹配最新保留决定 |
 | E02 | [共享产品事件契约](https://github.com/LiLink-Campus/LiLink/blob/d3e109f1de371cd8079d409b47452b0c86db032c/packages/shared/src/product-analytics.ts) | `PRODUCT_EVENT_NAMES`、`PRODUCT_EVENT_DEFINITIONS`、各 sanitizer；17 个事件与允许字段 |
 | E03 | [Web 产品埋点工具](https://github.com/LiLink-Campus/LiLink/blob/1f31b177ef6117a87d8386dcd984c5315143c387/apps/web/src/lib/product-analytics.ts) | `useObservedFootprint`、`trackProductEvent`、`reserveOnceEvent`、`readSessionId` |
 | E04 | [首页](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/apps/web/src/app/dashboard/home-client.tsx)、[匹配页](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/apps/web/src/app/dashboard/match/match-client.tsx) | 首页 / 匹配曝光、联系方式点击、直接邀请入口 |
