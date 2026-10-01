@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/f6b2b2003dfd53d8899878c5cf898dd6ee16eebc/docs/validation/2026-09-26-storybook-bootstrap-coverage.md)；最近收录日期：2026-09-26。正文事件日期另行保留。
+
 # Storybook bootstrap coverage follow-up
 
 The full verification after PRs 134 and 135 merged at `a229ecb8` found ten

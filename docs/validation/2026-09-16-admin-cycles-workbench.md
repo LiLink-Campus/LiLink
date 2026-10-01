@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/docs/validation/2026-09-16-admin-cycles-workbench.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # 轮次中心：图表、预演与审计整合
 
 后续页面调整见[轮次列表常驻与统一编辑](2026-09-16-admin-cycles-flat.md)，其中列表折叠、参与者明细和执行操作的展示已更新。
@@ -29,10 +38,10 @@
 
 证据位于忽略目录 `artifacts/admin-cycles-refactor-2026-09-16/`：
 
-- [桌面图表与明细](../../artifacts/admin-cycles-refactor-2026-09-16/charts-populated-942.png)
-- [手机图表与明细](../../artifacts/admin-cycles-refactor-2026-09-16/charts-populated-390.png)
-- [真实预演时间](../../artifacts/admin-cycles-refactor-2026-09-16/preview-live.png)
-- [按轮次筛选的审计](../../artifacts/admin-cycles-refactor-2026-09-16/audit-filtered.png)
-- [浏览器验收结果](../../artifacts/admin-cycles-refactor-2026-09-16/browser-results.json)
+- 桌面图表与明细（本机历史工件：`artifacts/admin-cycles-refactor-2026-09-16/charts-populated-942.png`）
+- 手机图表与明细（本机历史工件：`artifacts/admin-cycles-refactor-2026-09-16/charts-populated-390.png`）
+- 真实预演时间（本机历史工件：`artifacts/admin-cycles-refactor-2026-09-16/preview-live.png`）
+- 按轮次筛选的审计（本机历史工件：`artifacts/admin-cycles-refactor-2026-09-16/audit-filtered.png`）
+- 浏览器验收结果（本机历史工件：`artifacts/admin-cycles-refactor-2026-09-16/browser-results.json`）
 
 仅本地实现与验证，没有提交、推送或部署。

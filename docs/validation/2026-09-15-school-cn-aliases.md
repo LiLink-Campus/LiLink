@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/docs/validation/2026-09-15-school-cn-aliases.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # 学校邮箱 .cn 后缀支持
 
 保留已配置的 `.edu.cn` 后缀，并支持移除 `.edu` 后的 `.cn` 别名，保留其他子域名前缀。例如 `muc.edu.cn → muc.cn`、`stu.blcu.edu.cn → stu.blcu.cn`。不扩展裸 `edu.cn` 或 `cn`。别名继承学校注册资格，不会启用被禁用的学校。同等匹配精度下，显式配置优先。

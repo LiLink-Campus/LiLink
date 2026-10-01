@@ -1,0 +1,42 @@
+name: Documentation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify documentation and reading paths
+        run: npm run docs:verify
+      - name: Verify documentation tooling boundaries
+        if: always()
+        run: npm run docs:tooling:verify
+      - name: Upload documentation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-verification
+          path: |
+            artifacts/docs-verification/
+            artifacts/docs-tooling-verification/
+          retention-days: 7

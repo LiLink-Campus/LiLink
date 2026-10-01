@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/docs/validation/2026-09-18-vip-redesign.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # VIP 页面视觉改版
 
 按已确认的设计稿实现米白背景、酒红会员卡、普通与 VIP 权益对比、激活表单、辅助操作和折叠售后说明。价格与有效天数优先读取会员接口。保留原有激活 API 和错误处理。

@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/a4f91a47cda9836e1d3f7c100d12fba12af4230c/docs/validation/2026-09-26-coupon-overview-consistency.md)；最近收录日期：2026-09-27。正文事件日期另行保留。
+
 # 优惠券概览并发一致性验收（2026-09-26）
 
 ## 目标与修复

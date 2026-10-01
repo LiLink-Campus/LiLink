@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/3da4b13b7012f17b072a49104a36f49a1f828c0e/docs/archive/2026-05-22-merchant-promotion-plan-and-todo.md)；最近收录日期：2026-09-08。正文事件日期另行保留。
+
 > 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
 > 来源提交：`74697f91fa9867b12be01dcf6a1ce96629ac5900`；原文件：`docs/merchant-promotion-plan-and-todo.zh-CN.md`。
 > 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。

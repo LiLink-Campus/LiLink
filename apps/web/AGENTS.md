@@ -6,7 +6,7 @@ These rules extend the root `AGENTS.md` for the Next.js application.
 
 - For every user-visible frontend change, verify all affected elements and states in the Codex in-app browser at desktop and mobile viewport sizes, with isolated Playwright WebKit checks for Safari-engine compatibility. Include text wrapping, element widths, overflow, icons, dialogs, expanded states, interactions, and breakpoint boundaries; retain visual evidence for the in-app browser and WebKit checks. Changes to shared components must cover their affected consuming pages. Add or update Storybook stories when practical and tag representative regression states with `tags: ["smoke"]`.
 - When reproducing a reference website, inspect its publicly loaded HTML, CSS, JavaScript, and relevant assets or requests before coding. Use confirmed implementation details where available; identify visual inferences when resources cannot be obtained.
-- Keep checks and captures scoped to affected states. Follow [visual verification](../../docs/archive/2026-09-08-web-visual-verification.md) for commands; use the full smoke suite when the change warrants it.
+- Keep checks and captures scoped to affected states. Follow [visual verification](../../docs/guides/visual-verification.md) for commands; use the full smoke suite when the change warrants it.
 - Post screenshots to a PR only when the task authorizes updating that PR. Otherwise, keep evidence local for review.
 - Use synthetic fixtures. Keep real user data, email addresses, secrets, production URLs, and private records out of Storybook. Keep generated screenshots and `storybook-static` out of application commits.
 
@@ -24,7 +24,7 @@ These rules extend the root `AGENTS.md` for the Next.js application.
 
 ## Automated End-to-End Regression
 
-- Run repeatable end-to-end flows with Node.js and Playwright Test through `npm run test:e2e:web` or the scoped commands in `docs/e2e-testing.md`. Do not replay these flows with an AI browser agent.
+- Run repeatable end-to-end flows with Node.js and Playwright Test through `npm run test:e2e:web` or the scoped commands in `docs/guides/browser-e2e.md`. Do not replay these flows with an AI browser agent.
 - Keep the in-app browser for targeted visual review of new or changed UI. Automated Chromium/WebKit runs provide functional regression and screenshot evidence; report engine coverage accurately.
 - Never point browser E2E fixtures at existing developer or production databases. Use the runner's disposable services and synthetic accounts. Do not automatically approve screenshot differences or hide flaky tests with retries.
 

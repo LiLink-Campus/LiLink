@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/docs/validation/2026-09-16-admin-cycles-flat.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # 轮次列表常驻与统一编辑
 
 本次根据轮次中心的后续反馈调整，覆盖此前验收记录中的折叠列表、参与者明细及「更多操作」展示方式。
@@ -17,9 +26,9 @@
 
 证据位于忽略目录 `artifacts/admin-cycles-flat-2026-09-16/`：
 
-- [桌面多轮次](../../artifacts/admin-cycles-flat-2026-09-16/cycles-942.png)
-- [手机多轮次](../../artifacts/admin-cycles-flat-2026-09-16/cycles-390.png)
-- [统一编辑表单](../../artifacts/admin-cycles-flat-2026-09-16/editor-942.png)
-- [浏览器检查结果](../../artifacts/admin-cycles-flat-2026-09-16/browser-results.json)
+- 桌面多轮次（本机历史工件：`artifacts/admin-cycles-flat-2026-09-16/cycles-942.png`）
+- 手机多轮次（本机历史工件：`artifacts/admin-cycles-flat-2026-09-16/cycles-390.png`）
+- 统一编辑表单（本机历史工件：`artifacts/admin-cycles-flat-2026-09-16/editor-942.png`）
+- 浏览器检查结果（本机历史工件：`artifacts/admin-cycles-flat-2026-09-16/browser-results.json`）
 
 仅本地修改与演示数据，没有提交、推送或部署。

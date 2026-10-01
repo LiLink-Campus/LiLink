@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/513ea1002b907d0f31f4827b3444265b5bec4e02/docs/validation/2026-09-26-redundant-code-cleanup.md)；最近收录日期：2026-09-26。正文事件日期另行保留。
+
 # 冗余测试与内部兼容代码清理
 
 本文件保留第一轮清理完成时的验收快照；后续职责拆分见 [深度清理记录](2026-09-26-deep-cleanup.md)。用户随后授权提交 PR，提交和远端 CI 状态以关联 PR 为准。

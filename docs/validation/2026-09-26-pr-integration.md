@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/a229ecb802567ffad7c0432df9d724fa22f36510/docs/validation/2026-09-26-pr-integration.md)；最近收录日期：2026-09-26。正文事件日期另行保留。
+
 # PR 134 / 135 integration validation
 
 ## Scope and design

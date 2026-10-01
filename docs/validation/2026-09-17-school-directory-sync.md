@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/docs/validation/2026-09-17-school-directory-sync.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # 本地学校名单与邮箱后缀统一
 
 - 静态 `/schools` 保留 11 组学校介绍，邮箱后缀覆盖 28 所境内外学校；初始化名单位于 `packages/shared/src/school-directory.ts`。

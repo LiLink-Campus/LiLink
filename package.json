@@ -86,10 +86,18 @@
     "test:e2e:web:ui": "node scripts/e2e/run.mjs --ui",
     "test:e2e:web:visual": "node scripts/e2e/run.mjs --grep @visual",
     "test:e2e:web:report": "node scripts/e2e/report.mjs",
-    "test:e2e:web:linux": "node scripts/e2e/linux.mjs"
+    "test:e2e:web:linux": "node scripts/e2e/linux.mjs",
+    "docs:check": "node scripts/docs/check.mjs",
+    "docs:check:staged": "node scripts/docs/check.mjs --staged",
+    "docs:hooks:verify": "node scripts/docs/verify-hooks.mjs",
+    "docs:tooling:verify": "node scripts/docs/verify-tooling.mjs",
+    "docs:preview": "seiso check --no-cache --preview --select ALL --statistics",
+    "docs:verify": "node scripts/docs/verify.mjs",
+    "docs:prototype:verify": "node scripts/docs/verify-prototype.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.60.0",
+    "@scarletkc/seiso": "0.3.0",
     "@storybook/addon-vitest": "^10.4.1",
     "@vitest/browser-playwright": "^4.1.11",
     "concurrently": "^9.2.1",

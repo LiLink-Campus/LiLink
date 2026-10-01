@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/eea1d33e4c37da04f00a46f00e3b483a9d3c5f6b/docs/validation/2026-09-20-dependency-security-review.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # 2026-09-20 发布前依赖安全复核
 
 本轮对秋季版本执行 `npm audit` 和 `npm audit --omit=dev`，核查上游公告及实际调用路径，并更新锁文件。没有使用 `npm audit fix --force` 降级 Prisma 或升级 NestJS 主版本。

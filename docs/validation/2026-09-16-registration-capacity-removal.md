@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/docs/validation/2026-09-16-registration-capacity-removal.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # 注册容量限制移除验收
 
 2026-09-16。按产品决定取消平台注册总人数上限。
@@ -39,9 +48,9 @@ npm run test:e2e --workspace api -- --runInBand --runTestsByPath \
 
 ## 本地证据
 
-- [桌面端展开状态](../../artifacts/admin-capacity-removal-2026-09-16/tools-open-1440.png)
-- [手机端展开状态](../../artifacts/admin-capacity-removal-2026-09-16/tools-open-390.png)
-- [浏览器验收结果](../../artifacts/admin-capacity-removal-2026-09-16/browser-results.json)
-- [PostgreSQL 测试日志](../../artifacts/admin-capacity-removal-2026-09-16/postgres-tests.log)
+- 桌面端展开状态（本机历史工件：`artifacts/admin-capacity-removal-2026-09-16/tools-open-1440.png`）
+- 手机端展开状态（本机历史工件：`artifacts/admin-capacity-removal-2026-09-16/tools-open-390.png`）
+- 浏览器验收结果（本机历史工件：`artifacts/admin-capacity-removal-2026-09-16/browser-results.json`）
+- PostgreSQL 测试日志（本机历史工件：`artifacts/admin-capacity-removal-2026-09-16/postgres-tests.log`）
 
 上述截图、脚本和日志在忽略目录 `artifacts/admin-capacity-removal-2026-09-16/` 中，仅供本地复核。

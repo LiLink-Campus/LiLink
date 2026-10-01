@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/docs/validation/2026-09-16-admin-redesign.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # 2026-09-16 后台视觉重构
 
 按用户要求，先使用内置 image_gen 生图工具生成设计稿，再实施前端。范围为 `/admin` 下 12 个页面及管理员登录页；没有接入 PostHog，也没有修改业务接口、权限或数据库。

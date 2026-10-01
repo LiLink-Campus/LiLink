@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/docs/validation/2026-09-16-admin-user-status.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # 用户详情状态与操作区分
 
 2026-09-16，根据后台用户详情的反馈调整。
@@ -36,9 +45,9 @@
 
 证据保存在忽略目录 `artifacts/admin-user-status-2026-09-16/`：
 
-- [对应用户反馈宽度的详情](../../artifacts/admin-user-status-2026-09-16/user-detail-942.png)
-- [手机端已停用状态](../../artifacts/admin-user-status-2026-09-16/user-account-suspended-390.png)
-- [状态更新失败提示](../../artifacts/admin-user-status-2026-09-16/user-account-status-error-1440.png)
-- [浏览器检查结果](../../artifacts/admin-user-status-2026-09-16/browser-results.json)
+- 对应用户反馈宽度的详情（本机历史工件：`artifacts/admin-user-status-2026-09-16/user-detail-942.png`）
+- 手机端已停用状态（本机历史工件：`artifacts/admin-user-status-2026-09-16/user-account-suspended-390.png`）
+- 状态更新失败提示（本机历史工件：`artifacts/admin-user-status-2026-09-16/user-account-status-error-1440.png`）
+- 浏览器检查结果（本机历史工件：`artifacts/admin-user-status-2026-09-16/browser-results.json`）
 
 改动已由本地开发服务加载；没有提交、推送或部署线上。

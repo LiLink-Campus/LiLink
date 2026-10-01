@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/3da4b13b7012f17b072a49104a36f49a1f828c0e/docs/archive/2026-05-21-invite-code-system-plan.md)；最近收录日期：2026-09-08。正文事件日期另行保留。
+
 > 归档说明：历史参考资料，不作为当前 Agent 执行指令；现行行为以代码和 AGENTS.md 为准。
 > 来源提交：`4afd9fcb1d4933c8a3f307a430075091bbcf9c97`；原文件：`docs/superpowers/plans/2026-05-21-invite-code-system.md`。
 > 日期前缀按文档形成时间命名；拓扑快照使用对应修订日期。归档时更新了文档链接，其余保留源版本内容。
@@ -20,29 +29,7 @@
 
 ## File Structure
 
-**API（新增）**
-- `apps/api/src/modules/invite-code/constants.ts` — 字母表/长度/重试上限。
-- `apps/api/src/modules/invite-code/dto.ts` — Create/List/SetActive DTO。
-- `apps/api/src/modules/invite-code/invite-code.service.ts` — 生成/创建/列表+统计/停用/注册解析。
-- `apps/api/src/modules/invite-code/invite-code.controller.ts` — `admin/invite-codes` 端点。
-- `apps/api/src/modules/invite-code/invite-code.module.ts` — 模块装配，导出 service。
-- `apps/api/src/modules/invite-code/invite-code.service.spec.ts` — 单测。
-
-**API（修改）**
-- `apps/api/prisma/schema.prisma` — `InviteCode` 模型 + `User.inviteCodeId`/索引。
-- `apps/api/src/common/validation/input-limits.ts` — 两个长度常量。
-- `apps/api/src/modules/auth/dto.ts` — `RegisterDto.inviteCode?`。
-- `apps/api/src/modules/auth/auth.service.ts` — 解析+落库（构造函数 +1 依赖）。
-- `apps/api/src/modules/auth/auth.service.spec.ts` — 更新实例化 + 新增用例。
-- `apps/api/src/modules/auth/auth.module.ts` — import `InviteCodeModule`。
-- `apps/api/src/app.module.ts` — 注册 `InviteCodeModule`。
-
-**Web（修改/新增）**
-- `apps/web/src/app/admin/types.ts` — `AdminInviteCode`。
-- `apps/web/src/lib/api.ts` — 错误文案翻译。
-- `apps/web/src/app/admin/invite-codes/page.tsx` — 后台页（新）。
-- `apps/web/src/app/admin/admin-layout-shell.tsx` — NAV +1。
-- `apps/web/src/app/register/register-page-client.tsx` — 邀请码输入。
+本计划的原始变更边界见 [同期设计](2026-05-21-invite-code-system.md) 的变更文件清单；具体任务保留在下文，完整原稿可由顶部来源链接追溯。
 
 ---
 

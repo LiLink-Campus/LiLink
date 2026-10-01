@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/a229ecb802567ffad7c0432df9d724fa22f36510/docs/validation/2026-09-26-loading-performance.md)；最近收录日期：2026-09-26。正文事件日期另行保留。
+
 # Loading and read-path performance validation
 
 Reference: [The Perfect App Has No Loading States](https://floriankiem.com/writing/the-perfect-app-has-no-loading-states).
@@ -85,7 +94,7 @@ The navigation fix addresses a demonstrated saved-nickname regression in Next Ro
 
 ### Resource and compute evidence
 
-Lossless image evidence: 1,326,798 → 941,534 bytes (**29.0% smaller**); equal decoded RGBA. See [resource reproduction](../e2e-testing.md). This is an asset-size measurement, not a claim of 29% faster page load.
+Lossless image evidence: 1,326,798 → 941,534 bytes (**29.0% smaller**); equal decoded RGBA. See [resource reproduction](../guides/browser-e2e.md). This is an asset-size measurement, not a claim of 29% faster page load.
 
 The actual `HomeArtworkPreload` component was also exercised with React 19's server renderer and a deliberately unresolved content promise: the initial chunk contained its image preload while content was absent; content arrived after promise release. Evidence: `artifacts/home-artwork-stream/evidence.json`. This is component-level streaming evidence with a synthetic resource, not a measurement of the deployed Next response or slow upstream API.
 

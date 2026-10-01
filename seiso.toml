@@ -1,0 +1,91 @@
+include = ["**/*.md", "**/*.markdown"]
+
+exclude = [
+  "node_modules/**",
+  ".github/pull_request_template.md",
+  "apps/api/src/vendor/**",
+  "apps/web/public/fonts/**",
+  "prototypes/autumn-2026/web/**",
+  "docs/private/**",
+]
+
+preview = false
+
+[[kinds]]
+path = "docs/guides/**"
+kind = "howto"
+
+[[kinds]]
+path = "docs/archive/**"
+kind = "changelog"
+
+[[kinds]]
+path = "docs/validation/**"
+kind = "changelog"
+
+[[kinds]]
+path = "docs/decisions/**"
+kind = "adr"
+
+[[kinds]]
+path = "docs/plans/**"
+kind = "plan"
+
+[[kinds]]
+path = "docs/templates/**"
+kind = "plan"
+
+[[kinds]]
+path = "docs/reference/**"
+kind = "reference"
+
+[[kinds]]
+path = "docs/records/**"
+kind = "changelog"
+
+[[kinds]]
+path = "docs/guides/incident-response.md"
+kind = "runbook"
+
+[[kinds]]
+path = "**/AGENTS.md"
+kind = "howto"
+
+[[kinds]]
+path = "**/README.md"
+kind = "readme"
+
+[[domains]]
+path = "docs/reference/**"
+name = "current"
+
+[[domains]]
+path = "docs/guides/**"
+name = "current"
+
+[[domains]]
+path = "docs/records/**"
+name = "history"
+
+[[domains]]
+path = "docs/validation/**"
+name = "history"
+
+[[domains]]
+path = "docs/archive/**"
+name = "history"
+
+[[domains]]
+path = "docs/decisions/**"
+name = "decisions"
+
+[[domains]]
+path = "docs/plans/**"
+name = "plans"
+
+[[domains]]
+path = "docs/templates/**"
+name = "templates"
+
+[lint]
+select = ["KND", "LNK", "SUP"]

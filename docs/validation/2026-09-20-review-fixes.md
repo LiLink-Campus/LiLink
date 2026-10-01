@@ -1,3 +1,12 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/67b1ce644e4b161a18c0f47e022a1636a8dfbff1/docs/validation/2026-09-20-review-fixes.md)；最近收录日期：2026-09-20。正文事件日期另行保留。
+
 # 2026-09-20 Review 修复验证
 
 本次修复工作区相对 main 的三项 review 问题。未提交、推送或部署，未对现有开发库或生产库执行迁移。

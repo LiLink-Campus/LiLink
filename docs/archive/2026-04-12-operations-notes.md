@@ -1,8 +1,17 @@
+---
+kind: changelog
+lang: zh
+---
+
+> 文档归属：[本目录入口](README.md)。
+> 效力：有日期的历史记录；原文中的“当前”“未部署”和测试数量仅适用于记录时点，不作为今天的运行状态或 Agent 指令。
+> 来源：[迁移前版本](https://github.com/LiLink-Campus/LiLink/blob/c6157c78198976eb3ce5cb3fe762f62991ace742/docs/archive/2026-04-12-operations-notes.md)；最近收录日期：2026-09-08。正文事件日期另行保留。
+
 > 脱敏归档：主机、账号、凭据和机器路径均为示例占位符。历史命令不代表当前部署方式，执行前必须按实际环境重新核对。
 
 # LiLink 运维笔记
 
-> 当前部署与操作请优先参照 [生产发布流程](2026-06-02-production-release-flow.md) 和 [本地开发](2026-09-08-local-development.md)。本文件保留历史结构，仅用于理解旧方案。
+> 当前部署与操作请优先参照 [生产发布流程](../guides/production-release.md) 和 [本地开发](../guides/local-development.md)。本文件保留历史结构，仅用于理解旧方案。
 
 > 阅读建议：第一次读按目录顺序通读；之后按需跳转。出事时直接翻**「一、应急剑谱」**，每个场景都是一页可拍。
 

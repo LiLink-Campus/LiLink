@@ -46,7 +46,7 @@ test("warns when Git hooks are missing", () => {
 
     assert.equal(result.ok, false);
     assert.equal(result.skipped, false);
-    assert.equal(result.failures.length, 2);
+    assert.equal(result.failures.length, GIT_HOOK_CONFIGS.length);
     assert.equal(warnings.length, 1);
     assert.match(warnings[0], /npm run hooks:install/);
   } finally {

@@ -38,7 +38,9 @@ test("audits installed Git hook config against the registry", () => {
       })),
       [
         { path: "git config hook.lilink-pre-commit-lint", ok: true },
+        { path: "git config hook.lilink-pre-commit-docs", ok: true },
         { path: "git config hook.lilink-pre-push-lint", ok: true },
+        { path: "git config hook.lilink-pre-push-docs", ok: true },
       ],
     );
   } finally {

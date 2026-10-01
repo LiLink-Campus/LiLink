@@ -1,0 +1,2437 @@
+{
+  "sourceCommit": "a4f91a47cda9836e1d3f7c100d12fba12af4230c",
+  "scope": "Prototype source, images and startup configuration; reviewed adaptations retain original Git source hashes and an acceptance record",
+  "algorithm": "SHA-256",
+  "files": [
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/about-editorial-concept.png",
+      "target": "prototypes/autumn-2026/design-explorations/about-editorial-concept.png",
+      "bytes": 1625697,
+      "sha256": "ff0d05abc27bf24fa3fdb6cb0a15ab73f80b03088766ee772ab30a97945e9062"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/about-mobile-concept.png",
+      "target": "prototypes/autumn-2026/design-explorations/about-mobile-concept.png",
+      "bytes": 1439847,
+      "sha256": "d9f3841ec6370b5603bb1d212c0ac2b8684cff2f28acf6fe28f7e15c38ef18df"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/delete-account-preview-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/delete-account-preview-mobile.png",
+      "bytes": 24978,
+      "sha256": "5698b11b057166b2ff16727676d2044b057a8b5164014d1ff7744472393ee809"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/history-empty-desktop.png",
+      "target": "prototypes/autumn-2026/design-explorations/history-empty-desktop.png",
+      "bytes": 14757,
+      "sha256": "6e11bf5e67bbedd3374ba0dac5203dbba069e237fa2c1a9a349df1a14f303df9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/history-record-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/history-record-mobile.png",
+      "bytes": 8379,
+      "sha256": "39d76829426f01a9361c009b8a00edccbd3c10151d2f74508f90cc60806b1d4f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/history-three-desktop.png",
+      "target": "prototypes/autumn-2026/design-explorations/history-three-desktop.png",
+      "bytes": 20112,
+      "sha256": "a01963949d63ce14ac6bff826be4d3d489c6bf0bf5e1bce5549f28b91664267c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/history-three-expanded-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/history-three-expanded-mobile.png",
+      "bytes": 18836,
+      "sha256": "b86ef93600e48090d0793a8170e5171e6504ba0103246b0c41ab568ebeff1f8d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/home-desktop-concept.png",
+      "target": "prototypes/autumn-2026/design-explorations/home-desktop-concept.png",
+      "bytes": 33801,
+      "sha256": "2e1095bfbd95969ed8b7dde79b5c8c10c8234f5bedf60efc3978c6c642c39c38"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/home-integrated-desktop.png",
+      "target": "prototypes/autumn-2026/design-explorations/home-integrated-desktop.png",
+      "bytes": 34440,
+      "sha256": "0e6a1371fdb4341c8ec1a6a9f4a839deb0b17bcd5e9df03628af3c25b9b1b2e6"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/home-integrated-mobile-guide.png",
+      "target": "prototypes/autumn-2026/design-explorations/home-integrated-mobile-guide.png",
+      "bytes": 34406,
+      "sha256": "b58e16c7798803ca0a53b30591c378ee821458e001cd47b60aa15b39e59ea71b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/home-integrated-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/home-integrated-mobile.png",
+      "bytes": 7389,
+      "sha256": "ac8c703f3aefaf2e39c6886358c0d589d7ece50b90dd6da379687917c6d1847d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/home-mobile-concept.png",
+      "target": "prototypes/autumn-2026/design-explorations/home-mobile-concept.png",
+      "bytes": 17738,
+      "sha256": "0bf9094ae6d28f64659b505d1d7e82cd584b53ea5fbac577936303caa999fec4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/home-mobile-onboarding.png",
+      "target": "prototypes/autumn-2026/design-explorations/home-mobile-onboarding.png",
+      "bytes": 35425,
+      "sha256": "e27ea9d2b4f8d7d54397b2636ac4d3c02b38e1c1ed64d3b2c6d3081253f99910"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/home-no-todo-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/home-no-todo-mobile.png",
+      "bytes": 16860,
+      "sha256": "348d2b44027d526945c08cf60b1717f90bb8144c285140bc60a7595d1a1db4c1"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/home-states-1280.png",
+      "target": "prototypes/autumn-2026/design-explorations/home-states-1280.png",
+      "bytes": 37138,
+      "sha256": "0356513a9bca017af278a253739c2e5e13bf81a8c3a09924ebc511275336657f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/home-states-390.png",
+      "target": "prototypes/autumn-2026/design-explorations/home-states-390.png",
+      "bytes": 22390,
+      "sha256": "6e169df3ed497b904d1179ba2852825e6c7505e43747ca66f383467f32dd8df6"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/intent-centered-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/intent-centered-mobile.png",
+      "bytes": 32672,
+      "sha256": "5c9228ddca494fe9cff69722a9d5db64a6bfb7d94d4e9d77f5d755bbac9fa55a"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/match-contact-polish-375.png",
+      "target": "prototypes/autumn-2026/design-explorations/match-contact-polish-375.png",
+      "bytes": 14771,
+      "sha256": "9319e0f9166e365e57139adff6965c1d6444a7e6e27be45f1e61888b7193bcda"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/match-contact-polish-446.png",
+      "target": "prototypes/autumn-2026/design-explorations/match-contact-polish-446.png",
+      "bytes": 16757,
+      "sha256": "49fa38b783600f7164b4a54781d9b276ba3d22a60fadc264f48b5cb11ce9d699"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/match-contact-polish-desktop.png",
+      "target": "prototypes/autumn-2026/design-explorations/match-contact-polish-desktop.png",
+      "bytes": 23406,
+      "sha256": "e991571659063c105bb6eeb126246c9695454cd13d5ff18d238f4ee04a396b10"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/match-letter-b-replica-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/match-letter-b-replica-mobile.png",
+      "bytes": 15664,
+      "sha256": "9c705ce33dea0ffbe2caf532cec5c9aafe0d2d9703796e26f9d42ae6490aacd4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/match-letter-desktop.png",
+      "target": "prototypes/autumn-2026/design-explorations/match-letter-desktop.png",
+      "bytes": 22635,
+      "sha256": "f4935d4b16021733c58d1768beb74573fddd2e622dd35903a57fa7a9b899da36"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/match-letter-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/match-letter-mobile.png",
+      "bytes": 15284,
+      "sha256": "a917818f127b45b5d996d10000157f65bdac2176a8561432cc40dec5144705c8"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/match-readable-name-curves-427.png",
+      "target": "prototypes/autumn-2026/design-explorations/match-readable-name-curves-427.png",
+      "bytes": 15835,
+      "sha256": "c7920de259da49a9c77a14171cd17655245ec986401dc8d6e38082ed623c6e38"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/me-separate-account-actions.png",
+      "target": "prototypes/autumn-2026/design-explorations/me-separate-account-actions.png",
+      "bytes": 10613,
+      "sha256": "cc093c76eb3f37ff0209f2fb6ad4a5e9d9da5668a9daaa6897aee5e80790375b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/mobile-school-layout.png",
+      "target": "prototypes/autumn-2026/design-explorations/mobile-school-layout.png",
+      "bytes": 1424887,
+      "sha256": "c1d9b2f6a61657bf978a22d48585c2ddbef272815d3708ad7bd7f53d6fc80976"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/preview-intent-fixed-desktop.png",
+      "target": "prototypes/autumn-2026/design-explorations/preview-intent-fixed-desktop.png",
+      "bytes": 50025,
+      "sha256": "0fca996069743def7948489cc6a5cf7f3dfb86ed0c29b83f6d7d9064fa007391"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/preview-intent-fixed-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/preview-intent-fixed-mobile.png",
+      "bytes": 31614,
+      "sha256": "d483fbbd964ba84fbf29b30be053c156c08516e286f04d513058ee316d584483"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/registration-email-concept.png",
+      "target": "prototypes/autumn-2026/design-explorations/registration-email-concept.png",
+      "bytes": 1554686,
+      "sha256": "83e4a898ee3501691f0050a81b16f15e16e5f0a9994e7be198ce42448df97f84"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/report-dialog-gutters-427.png",
+      "target": "prototypes/autumn-2026/design-explorations/report-dialog-gutters-427.png",
+      "bytes": 27391,
+      "sha256": "c9ebc72c348a402ae11b3807be6f4d0528ed7aad9b27529de4b8844b447c99ff"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/unmatched-letter-desktop.png",
+      "target": "prototypes/autumn-2026/design-explorations/unmatched-letter-desktop.png",
+      "bytes": 16914,
+      "sha256": "a29a97f0195e591dcb1b0fbab858046212a8034a0962b3db67f09a93fb297ffc"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/unmatched-letter-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/unmatched-letter-mobile.png",
+      "bytes": 10018,
+      "sha256": "753a4ce7438d1a29b0e8c6fe6f8f50398747fedf77d4284d9f76353ef4a423c5"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/waiting-letter-desktop.png",
+      "target": "prototypes/autumn-2026/design-explorations/waiting-letter-desktop.png",
+      "bytes": 17777,
+      "sha256": "8db670c89ce373a5d40af3af64e3fb0fec395793e1ebf2b77e24d39f0c1d5542"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/design-explorations/waiting-letter-mobile.png",
+      "target": "prototypes/autumn-2026/design-explorations/waiting-letter-mobile.png",
+      "bytes": 11629,
+      "sha256": "6498a954127695544a4ef80d17986bf01cb79ce4fac20230dc077caf275d2ad6"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/start.mjs",
+      "target": "prototypes/autumn-2026/start.mjs",
+      "bytes": 681,
+      "sha256": "501912931c59e07e6dc5403abb1465266aa8120e5b82b1b00e69d3d98d725eee"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/.env.example",
+      "target": "prototypes/autumn-2026/web/.env.example",
+      "bytes": 1079,
+      "sha256": "840a4e7047cf875afbd6b24f524f563ca3d12ca8e91d4f1944d76616c2142df4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/.gitignore",
+      "target": "prototypes/autumn-2026/web/.gitignore",
+      "bytes": 588,
+      "sha256": "b2afa79d90abedd979c07fdb77647bd3c1e4f6f7b8a65003f77edd284d2ad5d4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/.storybook/main.ts",
+      "target": "prototypes/autumn-2026/web/.storybook/main.ts",
+      "bytes": 477,
+      "sha256": "3f5b548db9282c15934298b2b567fa1eb37be0ff09db4a0e5fcb4990be64b5df"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/.storybook/msw-handlers.ts",
+      "target": "prototypes/autumn-2026/web/.storybook/msw-handlers.ts",
+      "bytes": 2055,
+      "sha256": "f8fe209f3a16fcea8ca8993a2aa199142f366374028dfb2ec11a248dee43a5e5"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/.storybook/preview.tsx",
+      "target": "prototypes/autumn-2026/web/.storybook/preview.tsx",
+      "bytes": 2230,
+      "sha256": "711cc9c99c2eec8192f1bff0def17d2e27bc1f0d9f779f2771386277cf9d33b2"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/eslint.config.mjs",
+      "target": "prototypes/autumn-2026/web/eslint.config.mjs",
+      "bytes": 699,
+      "sha256": "2d1f1e27396a74dbbde7fc5c6a907052bac6fe52beee6fb7ad80e7e9399772ad"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/next.config.ts",
+      "target": "prototypes/autumn-2026/web/next.config.ts",
+      "bytes": 1844,
+      "sha256": "16f570a9099c1bfae9973f8c60eaf18b9c3c9b61fbce1365a8fe618933bb6400"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/package.json",
+      "target": "prototypes/autumn-2026/web/package.json",
+      "bytes": 1909,
+      "sha256": "013145d2dda5da68dcc3c89e7b2b0db6435f9010ae7e25f4aa45c0255c1b8f69"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/postcss.config.mjs",
+      "target": "prototypes/autumn-2026/web/postcss.config.mjs",
+      "bytes": 94,
+      "sha256": "dfac7ac2d86d326a0e5adb024e7943c181393ed17a5fcb8f0315b24c7da6ddde"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/fonts/long-cang-OFL.txt",
+      "target": "prototypes/autumn-2026/web/public/fonts/long-cang-OFL.txt",
+      "bytes": 4390,
+      "sha256": "603546b7219a94bb59bf8294458194a5010119486354092b66a09a3fd61aeacc"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/fonts/long-cang.woff2",
+      "target": "prototypes/autumn-2026/web/public/fonts/long-cang.woff2",
+      "bytes": 2945400,
+      "sha256": "de9e3c600c93244b4e8bee2ae3bd91586918d60df1bbc0561c4b7cbd887db95f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/fonts/playfair-display-latin.woff2",
+      "target": "prototypes/autumn-2026/web/public/fonts/playfair-display-latin.woff2",
+      "bytes": 38460,
+      "sha256": "5d91eb5d522a03081946c44c8ca17c902230dfed5f0f9b5014262135d47b15b2"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/home-concept.html",
+      "target": "prototypes/autumn-2026/web/public/home-concept.html",
+      "bytes": 17778,
+      "sha256": "e948ac2e64e921f08158f6266866d8c34a22b601ef2ae1eeec64bbe4694582ac"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/icons/contact/LICENSE-simple-icons.txt",
+      "target": "prototypes/autumn-2026/web/public/icons/contact/LICENSE-simple-icons.txt",
+      "bytes": 6569,
+      "sha256": "9046848b63a5c92bff14e4accca80bd987e0623b74adf9226ce5198d312b79d5"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/icons/contact/LICENSE-tabler.txt",
+      "target": "prototypes/autumn-2026/web/public/icons/contact/LICENSE-tabler.txt",
+      "bytes": 1073,
+      "sha256": "b740a1d46122672da62833e97f7e7c8a13fa85cbc7445b584b297cc00dde93db"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/icons/contact/mail.svg",
+      "target": "prototypes/autumn-2026/web/public/icons/contact/mail.svg",
+      "bytes": 485,
+      "sha256": "5f27eaf548faab23f994093fa56cc9011b8457a1f2b26dc50e7ed5afe95727df"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/icons/contact/wechat-filled.svg",
+      "target": "prototypes/autumn-2026/web/public/icons/contact/wechat-filled.svg",
+      "bytes": 1330,
+      "sha256": "74b48b3d315337ce79cb644933b5f975e19996f564fcc4138ed67d45674c43ca"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/icons/contact/wechat.svg",
+      "target": "prototypes/autumn-2026/web/public/icons/contact/wechat.svg",
+      "bytes": 846,
+      "sha256": "b6dfbf95938e6222d88d7f840369be60619c24c5e5b71116d69442c84a3d3ad3"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/icons/contact/xiaohongshu.svg",
+      "target": "prototypes/autumn-2026/web/public/icons/contact/xiaohongshu.svg",
+      "bytes": 3584,
+      "sha256": "847cacc807f5c236031a7477381daa67fd829d89f3f80c16a547ff2efe050794"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/icons/icon-maskable.svg",
+      "target": "prototypes/autumn-2026/web/public/icons/icon-maskable.svg",
+      "bytes": 1484,
+      "sha256": "97324e30979ef31025e71d515880a283fbcb7994a3ed2b9dda056265741a412c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/icons/icon.svg",
+      "target": "prototypes/autumn-2026/web/public/icons/icon.svg",
+      "bytes": 1379,
+      "sha256": "f5a80339b9affcb51710a2ef0f8fa8c1407be04340acfbfa83a653e172b14b45"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/about/watercolor-atlas.png",
+      "target": "prototypes/autumn-2026/web/public/images/about/watercolor-atlas.png",
+      "bytes": 1326798,
+      "sha256": "359a0ab61ba25dbb74c8415f2c82532fad55b96fb1cd76581d131db12f9e8e96"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/campus-blossom-scene-anime.webp",
+      "target": "prototypes/autumn-2026/web/public/images/campus-blossom-scene-anime.webp",
+      "bytes": 350648,
+      "sha256": "61a2c790775d152c76c45029b8c45707612210039d06a26fc18ea5cba3fdf527"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/campus-clean-romance.webp",
+      "target": "prototypes/autumn-2026/web/public/images/campus-clean-romance.webp",
+      "bytes": 202338,
+      "sha256": "9b59e2c5ea242df42a507093dd3215924e15a5e9e5733abd3739e611f480ffd3"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/campus-couple-anime.webp",
+      "target": "prototypes/autumn-2026/web/public/images/campus-couple-anime.webp",
+      "bytes": 277602,
+      "sha256": "0ef429ac0855a79b6d058bf8bf68431e3eb0202bc4bc2910e0dfa0838be82b1c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/campus-day-anime.webp",
+      "target": "prototypes/autumn-2026/web/public/images/campus-day-anime.webp",
+      "bytes": 271776,
+      "sha256": "559a64216eb9947323a113dd26f5a92096c65a7e3e639edb5a6f01300de4ec6d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/campus-dusk-romance.webp",
+      "target": "prototypes/autumn-2026/web/public/images/campus-dusk-romance.webp",
+      "bytes": 138896,
+      "sha256": "84934447066ac8e4562bbf22de5a2ffe1d0f087d9aa520906c4dc97c6ef57e20"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/campus-evening-anime.webp",
+      "target": "prototypes/autumn-2026/web/public/images/campus-evening-anime.webp",
+      "bytes": 304826,
+      "sha256": "a3aa791b85fa5b110201bbf9df59f8ff6411e41b96fa044f42ca37c7b0223954"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/campus-rose-romance.webp",
+      "target": "prototypes/autumn-2026/web/public/images/campus-rose-romance.webp",
+      "bytes": 142430,
+      "sha256": "854384a54a1579ecc085170a4acd978ddd648c0792f8e1ef5613445d034bca55"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/letter-sprig.svg",
+      "target": "prototypes/autumn-2026/web/public/images/letter-sprig.svg",
+      "bytes": 722,
+      "sha256": "aa32fbcac976565102bd71b3c420e0292fb43535e8a0c84f708d517209131e14"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/aberdeen.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/aberdeen.png",
+      "bytes": 49837,
+      "sha256": "15f75ffe74216f00ce6a106bb19cd68faacfffa276eadcae9bfe7df93bf04253"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/abertay.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/abertay.png",
+      "bytes": 40066,
+      "sha256": "befb4789e982c5b7ef7f051da856aad7e715f2638d69ce761bf1a48cd83ecde6"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/alberta-mark.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/alberta-mark.png",
+      "bytes": 23352,
+      "sha256": "fd5d4427343de589379a6074323eac528c28043f1f3026486d9b3a740e0a60a4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/alberta.svg",
+      "target": "prototypes/autumn-2026/web/public/images/schools/alberta.svg",
+      "bytes": 18036,
+      "sha256": "c57922b7c308804e3c109a390070e9cf0e6b81978d47bc6cbb60168033b0b241"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/auckland.svg",
+      "target": "prototypes/autumn-2026/web/public/images/schools/auckland.svg",
+      "bytes": 24751,
+      "sha256": "99551131bdccdc9d5043edcc706c2fd7e5467cd2a5ab35a5500c925d40eb4b04"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/bcu.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/bcu.png",
+      "bytes": 3649,
+      "sha256": "b5a2d0ac5b1fa07e9d5de30a62ca31a484d46ebdc3f9e6dd7b6943fc35b28e43"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/blcu.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/blcu.png",
+      "bytes": 263911,
+      "sha256": "ea22aa4cacd3f379ff069034918162de4133e8a6e2b567ec5cf0a1e7f554951a"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/bsu.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/bsu.png",
+      "bytes": 88620,
+      "sha256": "e241eb682e9b42a85ad258d9eef6b5a6fc54c1673f288e80433be009951aac18"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/bupt.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/bupt.png",
+      "bytes": 199629,
+      "sha256": "da21ed7efdc216e84ae34af784b297f81be1be674a03a774b1b1ef3c5e20a48f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/cityu.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/cityu.png",
+      "bytes": 23140,
+      "sha256": "c304fa9364ab67658ed2d544249548be2deec2daecb6d306c7b78edc78ea33b4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/clermont.svg",
+      "target": "prototypes/autumn-2026/web/public/images/schools/clermont.svg",
+      "bytes": 7348,
+      "sha256": "b8845a3dc04740f8276a31b232003ddfda8e3fbd022d80476a8bd1fd326fa156"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/coventry.svg",
+      "target": "prototypes/autumn-2026/web/public/images/schools/coventry.svg",
+      "bytes": 7291,
+      "sha256": "0cc5ec7072b9a97878a715509422e373b0a5ad91a49b6c11805de301df1d6c4b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/cuc.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/cuc.png",
+      "bytes": 228341,
+      "sha256": "d72f2c7258697a9ec5a72e5ea2b17bd7184064c17d410858fca258cc3d8023e3"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/cugb.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/cugb.png",
+      "bytes": 183865,
+      "sha256": "9df559dc95e3a4cfa5cebf5f7e63dd458ad4ca04a173b5805c88789d6f74fe21"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/cupl.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/cupl.png",
+      "bytes": 185979,
+      "sha256": "a0b887b0cf335dd2a2525e20e7c475ff97a570abfcf41c7e4d3a9d84c42396a2"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/glasgow.svg",
+      "target": "prototypes/autumn-2026/web/public/images/schools/glasgow.svg",
+      "bytes": 15848,
+      "sha256": "0f2baba1974148cbe6bf1634aa4279e00837142671fea4d28b3d4abaa0087a49"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/lancaster.svg",
+      "target": "prototypes/autumn-2026/web/public/images/schools/lancaster.svg",
+      "bytes": 40660,
+      "sha256": "07125d04673ab10ff6e03a99195e7df9c437aac8ba0e929ffdf0b291881817de"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/mdx-mark.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/mdx-mark.png",
+      "bytes": 74106,
+      "sha256": "ae33155928e68ac57e4b1b202d41e43911443d5dd70bbb6d03b028e4be17a453"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/mdx-official.svg",
+      "target": "prototypes/autumn-2026/web/public/images/schools/mdx-official.svg",
+      "bytes": 270327,
+      "sha256": "bea7a7f5aef98aa5d5f6a8997a70bfb63e4a187f02db95522349ee1a41f1377e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/mdx.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/mdx.png",
+      "bytes": 3696,
+      "sha256": "1b1e50990666723776da80d3531dfb51da6009b027d63088500dfaa61d69ea48"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/mdx.svg",
+      "target": "prototypes/autumn-2026/web/public/images/schools/mdx.svg",
+      "bytes": 4401,
+      "sha256": "a07814aa4ea836b38e82ff54ee05e7ade0c1bea9eac051d1f753a34041666a40"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/muc.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/muc.png",
+      "bytes": 150796,
+      "sha256": "5b5c7a6e25577d7d01ece707ade3118d145f7708003297b6ca5ae738b8185234"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/nefu.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/nefu.png",
+      "bytes": 156212,
+      "sha256": "4f74b74244849cad2954dce880766a01f9683b421d5c38408ceef4fb505e1f46"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/nsu.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/nsu.png",
+      "bytes": 21638,
+      "sha256": "d23cd3c747797d01e33f34542e8807bcc15623f260c48b7b86ca19313d79393a"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/ottawa.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/ottawa.png",
+      "bytes": 18874,
+      "sha256": "9e6117f54bfb505fa07ad2a2d270c6ad9941ebaa98a8c32530c7ee54f765a0b7"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/qmul.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/qmul.png",
+      "bytes": 26420,
+      "sha256": "3d8dcec06b744a33b43f014bfc58223b3417b114e908e4f218ed9a8d1e9c5695"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/reading.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/reading.png",
+      "bytes": 16981,
+      "sha256": "4eb93480c923db00050c1b19e058ba592405187b3257ed6405898816a29406ef"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/tju.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/tju.png",
+      "bytes": 203967,
+      "sha256": "f4875222aa7e9c84c0e781915a59ebb2a14ae05b665e659c227e6d06f2a32a57"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/ubc-shield.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/ubc-shield.png",
+      "bytes": 3158,
+      "sha256": "c80c2c7fc7fd5226d8caa03b9a502a035e2e50640754cca2f4181e8abe397e12"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/ubc-wordmark-v2.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/ubc-wordmark-v2.png",
+      "bytes": 17411,
+      "sha256": "cbf0245bddec0f5e29db2bc170b8b0adbca862a23534f419f18d0bab44fd99b0"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/ubc-wordmark.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/ubc-wordmark.png",
+      "bytes": 12373,
+      "sha256": "cfced176cb034f3d87cd8c801ee46abc0a936a533bbf20e813733a4ce9ffe8d8"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/ubc.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/ubc.png",
+      "bytes": 40712,
+      "sha256": "4875be7ad5c48151c4eab229ddcc9d27b283750d05c6e34d26e3db60c9643647"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/uestc.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/uestc.png",
+      "bytes": 114883,
+      "sha256": "718262ef915ceef27c2da1c42ed4c5049b8a595f7bc4f84c1a284070cf3abf3f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/uts.svg",
+      "target": "prototypes/autumn-2026/web/public/images/schools/uts.svg",
+      "bytes": 2549,
+      "sha256": "9090430197b651e341224af5212ed9bbc86ec72d5779f35c9ab6d3376df244e4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/images/schools/xjtu.png",
+      "target": "prototypes/autumn-2026/web/public/images/schools/xjtu.png",
+      "bytes": 197994,
+      "sha256": "09c59fb5806da6b79c1a021b19eaf80056d8d4495c04c16be46db1370bc9ea85"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/offline.html",
+      "target": "prototypes/autumn-2026/web/public/offline.html",
+      "bytes": 1694,
+      "sha256": "d5f670f16595f4c8ab18bcb48aff70ac22367f9119f15af6edab30b5d3028ebd"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/public/sw.js",
+      "target": "prototypes/autumn-2026/web/public/sw.js",
+      "bytes": 1720,
+      "sha256": "0271997ff13f1b105279fab2c138622dd5d14872be636fd4508a935d5bf1b365"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/scripts/generate-pwa-icons.mjs",
+      "target": "prototypes/autumn-2026/web/scripts/generate-pwa-icons.mjs",
+      "bytes": 1024,
+      "sha256": "58a51e32ba80905b76a0da78288e792e4cf91b776ea34f4c124f486226205ec0"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/scripts/run-storybook.mjs",
+      "target": "prototypes/autumn-2026/web/scripts/run-storybook.mjs",
+      "bytes": 772,
+      "sha256": "d6cd1ea661814c134b231b1b28af4a379a54c6e48a21324e4fc982486f412d69"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/sentry.edge.config.ts",
+      "target": "prototypes/autumn-2026/web/sentry.edge.config.ts",
+      "bytes": 1037,
+      "sha256": "2ef8811478bbff1f605583b0d5f8ed4dac401d2ecde984282868fbd201ea5a7c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/sentry.server.config.ts",
+      "target": "prototypes/autumn-2026/web/sentry.server.config.ts",
+      "bytes": 882,
+      "sha256": "116d6d2c56bfa8b8179a2516ff345b2952034b5eed40c99f8913b189f77c8530"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/_components/DevlogUpdateNewLabel.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/_components/DevlogUpdateNewLabel.tsx",
+      "bytes": 499,
+      "sha256": "9969c11ee75c306d9885a6b8823a445c553d95aae563f856aff7c69c358d8a74"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/_components/FaqSection.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/_components/FaqSection.tsx",
+      "bytes": 3703,
+      "sha256": "af236a4be50ba83866b937efeaa27cd5eca6320b87e68b347f04cd94f4c4dd10"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/_components/PublicNarrowPageHero.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/_components/PublicNarrowPageHero.tsx",
+      "bytes": 1286,
+      "sha256": "60c772cf750dab632b750bb40018ca007fcf9a3b914614a66856d53bc5aca8a5"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/_components/RecentUpdates.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/_components/RecentUpdates.tsx",
+      "bytes": 1725,
+      "sha256": "30133ff4a7347a3cdce5234ed2a1e53698519e3239f362767dc647c872e768a1"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/_components/ServiceWorkerRegistrar.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/_components/ServiceWorkerRegistrar.tsx",
+      "bytes": 789,
+      "sha256": "2359c467f6a0a2bb6fcc2c6b20e8dceb113a999d8066da02ade347955c925975"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/_components/SocialFloater.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/_components/SocialFloater.tsx",
+      "bytes": 3059,
+      "sha256": "0dc35a729d9b7872856c15490e64bc20fe910d67ab188635368e434e2aeb9cc9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/_components/public-narrow-page-hero.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/_components/public-narrow-page-hero.module.css",
+      "bytes": 446,
+      "sha256": "0a658e19d2e86a551efaece36e006d740f24f31a62e912d7b924a94be7bf86e7"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/_components/recent-updates.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/_components/recent-updates.module.css",
+      "bytes": 1793,
+      "sha256": "9425fcd1b6cc6a91e5338641ba8911bbf3eb9391d5aef87d25ba24802a085a8d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/_components/social-floater.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/_components/social-floater.module.css",
+      "bytes": 2122,
+      "sha256": "2ce4e23613e553d82adb3d8302869ad1cb7404f265617b843ff8a161a5079cfd"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/about/about.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/about/about.module.css",
+      "bytes": 7768,
+      "sha256": "40066dfa3bc9acb45d353a85185f49c7b66a5aa1679a07318bacd288be52524b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/about/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/about/page.tsx",
+      "bytes": 5044,
+      "sha256": "656498c185fa447dc75deb5770d6b125b7903987338d94cda12c86f862ec1b64"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/admin-card.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/admin/admin-card.module.css",
+      "bytes": 3282,
+      "sha256": "ded1b08b1c44cdbec6ba10f83ab66651dc9ce5b1c77b36c480c5a21320bf3950"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/admin-class-names.ts",
+      "target": "prototypes/autumn-2026/web/src/app/admin/admin-class-names.ts",
+      "bytes": 556,
+      "sha256": "4582715811696ac0f3ce3d7033b71b22d6051ba9dd17eacb617a996b612ca470"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/admin-common.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/admin/admin-common.module.css",
+      "bytes": 31691,
+      "sha256": "0bc76937fc799d7743417c7b18e72be4bea4d8fc2e872e67d10016e4f0c69e1d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/admin-context.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/admin-context.tsx",
+      "bytes": 2703,
+      "sha256": "556b622bb2efe24e7beff0c57949ad2095c90214cebde1c709c170c50d214d34"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/admin-layout-shell.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/admin/admin-layout-shell.module.css",
+      "bytes": 7047,
+      "sha256": "77447dfdceb10befa2daab34931adba2d10b7c11579182f07943d2572365ad64"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/admin-layout-shell.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/admin-layout-shell.tsx",
+      "bytes": 8305,
+      "sha256": "05eaecb43f4b814304dcddd333b06dc4a6da04d26d5d27fb6030ecf14eb154fe"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/admin-overview-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/admin-overview-client.tsx",
+      "bytes": 17731,
+      "sha256": "2d9d59091eb44ab85b7e37b349872a91291696f1b64a6221bc7c1366cc8277ab"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/admin-pagination.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/admin-pagination.tsx",
+      "bytes": 781,
+      "sha256": "0c994dc6524025927117151f90dcd0dcb87750ec5a6df5be45aab7661c7ebc7e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/analytics/AdminAnalyticsDashboard.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/analytics/AdminAnalyticsDashboard.tsx",
+      "bytes": 10632,
+      "sha256": "9a92ef64666b5703ce8db03afabf2c1a3c575d94b495d0b251c71afaa10033b0"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/analytics/FunnelPanel.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/analytics/FunnelPanel.tsx",
+      "bytes": 2620,
+      "sha256": "8265c33c5e51e0658d3f7fba5e5a43cf6d316fad9976640dbba3bb5049ecc811"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/analytics/KpiStrip.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/analytics/KpiStrip.tsx",
+      "bytes": 1485,
+      "sha256": "368dbc9779a88a01d7b488f1229ed494dd880ff2ce057b92bcbb366da1dbf218"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/analytics/MatchLeaderboardTable.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/analytics/MatchLeaderboardTable.tsx",
+      "bytes": 11712,
+      "sha256": "50a6479b6eab9130ea59f2fc7d09e06a331002974b77f0c2a6665f0d3b6cec2e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/analytics/SchoolsGenderChart.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/analytics/SchoolsGenderChart.tsx",
+      "bytes": 2858,
+      "sha256": "88ca8234b40176d2b0c2ec43539a8f0bbfba0dd3e2ae37085b45c70a21fc6004"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/analytics/WeeklyOptinChart.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/analytics/WeeklyOptinChart.tsx",
+      "bytes": 3898,
+      "sha256": "569c2affd08b210c8489e48016bbbd117d71e8464ba8742fdfe811d7913d44a7"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/analytics/admin-analytics.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/admin/analytics/admin-analytics.module.css",
+      "bytes": 8694,
+      "sha256": "7162ae08d306ef27e0866058125ca5b66f5ef58ecca1b4ae1087294c89ac12e4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/analytics/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/analytics/page.tsx",
+      "bytes": 153,
+      "sha256": "bf70c71f14cc182e1e5d2bbd2382a37928c7dec0fc423a4f3583c29379969dec"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/analytics/types.ts",
+      "target": "prototypes/autumn-2026/web/src/app/admin/analytics/types.ts",
+      "bytes": 2116,
+      "sha256": "656438dd3fa164a49d7dd0e83ae58b18814228ea8f96e0ce2b524383af13e9e2"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/audit/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/audit/page.tsx",
+      "bytes": 4798,
+      "sha256": "496f04d67dfb779f78202a70837f309c3e9aff729a04aad8e9111940ee851824"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/campaigns/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/campaigns/page.tsx",
+      "bytes": 21179,
+      "sha256": "a4a92c6c0fd52a190da1b5f27205788af7ed0c66f12e35ebc8c86985f964b859"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/cycles/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/cycles/page.tsx",
+      "bytes": 47887,
+      "sha256": "5c197b0cc9c681f757e506f8bbd917ea5f439cdfea214b6c4bc37a4f956cfa60"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/layout.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/layout.tsx",
+      "bytes": 954,
+      "sha256": "80a8e1dabd82068057ce186344cdf47d4eef4c67944db0309cc8ad833372d3fa"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/merchant-admin-ui.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/merchant-admin-ui.tsx",
+      "bytes": 8311,
+      "sha256": "e41035535aa1ee64eaf9d3343e35d1aec4d611d2762456d2604d4dbe3b8fe846"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/merchant-admin.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/admin/merchant-admin.module.css",
+      "bytes": 17507,
+      "sha256": "1e59637f739318f2e656eed3a889784808559df7e8041bd495e4d6268431b69d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/merchants/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/merchants/page.tsx",
+      "bytes": 19615,
+      "sha256": "d41380c1e96b35ca5e78336e2236da93aad3a8d1fd4381cb6702fc963afb5fca"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/page.tsx",
+      "bytes": 976,
+      "sha256": "d1f6abd834632fd853f7b855cc7f3b22b68e9b6037a7de0e4a2843d280a9c613"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/promotion/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/promotion/page.tsx",
+      "bytes": 40442,
+      "sha256": "ec791fc87ab661df1cc1c97c4d5a4c71c9f07f871cf2caa39f3c3982cac67500"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/questionnaire/admin-questionnaire-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/questionnaire/admin-questionnaire-client.tsx",
+      "bytes": 25958,
+      "sha256": "1751ab28db1fdef598e0e68826180f154c4df62f62cbc6aa7e64c3052938f109"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/questionnaire/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/questionnaire/page.tsx",
+      "bytes": 810,
+      "sha256": "fd48b154033b843b60936fcea69e2e10845dae0d655bf547b1aeb3c3130aac32"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/reports/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/reports/page.tsx",
+      "bytes": 18770,
+      "sha256": "a69ed02a59304762b1f36bccd71d9675994ef410780d3b133ca15ef959ec0302"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/schools/admin-schools.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/admin/schools/admin-schools.module.css",
+      "bytes": 2698,
+      "sha256": "a93a04e6bccf0e47ed6353da8e9f86fb724c88f9195e8cca00b01fbf3d7c4bf1"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/schools/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/schools/page.tsx",
+      "bytes": 16977,
+      "sha256": "3d82d7e4cc60918255e8f9669694d55c694c6c90587438b02cffb417d3d4ab84"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/types.ts",
+      "target": "prototypes/autumn-2026/web/src/app/admin/types.ts",
+      "bytes": 8208,
+      "sha256": "a76d45317a6a7fd9734c675d800cc36ec89114c5fc9ad4bb953c217b83302c98"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/use-admin-collection.ts",
+      "target": "prototypes/autumn-2026/web/src/app/admin/use-admin-collection.ts",
+      "bytes": 1608,
+      "sha256": "5c9b07808d28246c3486499f0db5d4a8a5d0a6f7c956ea603caa7946dd224aef"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/use-admin-search.ts",
+      "target": "prototypes/autumn-2026/web/src/app/admin/use-admin-search.ts",
+      "bytes": 507,
+      "sha256": "21220ad4130964d68057723f98a05023077e323636a98706deca5474790d8e23"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/admin/users/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/admin/users/page.tsx",
+      "bytes": 38926,
+      "sha256": "aeace6d6036d1c3e09eb130890b451dd0c02ed2a1822b42f88e83aa8c8024f32"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/announcement-dialog.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/announcement-dialog.module.css",
+      "bytes": 1519,
+      "sha256": "c10ae9172478b05afdcc9e2dcc87ee409293837b41dc7a4763846a63ad210748"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/announcement-dialog.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/announcement-dialog.tsx",
+      "bytes": 1673,
+      "sha256": "1150ff81aa1eb4bd5eb2b2a100940338aa01e62fe69a36c85954040a94b7fd5c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/announcements.ts",
+      "target": "prototypes/autumn-2026/web/src/app/announcements.ts",
+      "bytes": 2503,
+      "sha256": "25c435d64016552480c8296997c7a4a6d09acbb2f5eb67982d0c2cea9a99d42a"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/api/devlog/latest/route.ts",
+      "target": "prototypes/autumn-2026/web/src/app/api/devlog/latest/route.ts",
+      "bytes": 522,
+      "sha256": "565dd647aa9089eaf4fd7ab7a3567405927c05a73b1e857ac6c371b57a42872c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/api/visual-preview/route.ts",
+      "target": "prototypes/autumn-2026/web/src/app/api/visual-preview/route.ts",
+      "bytes": 828,
+      "sha256": "c84885c0ec9fec5e45dd7f1028ff9ba390d1e25ca6108da7e19d5942372a6057"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/auth-page.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/auth-page.module.css",
+      "bytes": 1326,
+      "sha256": "ce1a9a97eba8f0d35f2dee15c33e93157d706b8105f6e0800e33d96bead8cc7f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/auth-session.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/auth-session.tsx",
+      "bytes": 3054,
+      "sha256": "6399fba5b3c608765157f89b872a319fe77fa7f23de82b4653af8fb9addf1a62"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/auth.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/auth.module.css",
+      "bytes": 6684,
+      "sha256": "8e2242dff5dc32f5b36ed54fc271f1024e1cf0af91b7187467ec999a7d92f436"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/brand-mark.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/brand-mark.module.css",
+      "bytes": 1483,
+      "sha256": "c8f39a24efec5bcd6a465155bde7e4898e5d5cf0302111e3d543dffd68d1139a"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/brand-mark.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/brand-mark.tsx",
+      "bytes": 1242,
+      "sha256": "4fded728b54fc90d32db1ce0678e70a610b1e862e83b9ca66a83c9ae39f54443"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/AgendaList.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/AgendaList.module.css",
+      "bytes": 6805,
+      "sha256": "7f8c0305fcf4af911586f4313a4aaba74d2ab429c57e6a8eb52d3537362b4c8e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/AgendaList.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/AgendaList.tsx",
+      "bytes": 7039,
+      "sha256": "8da29e7d29209ceb1b19b17111356765180b5b5c25c97c5e2443ff69139b2a32"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/AppShell.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/AppShell.module.css",
+      "bytes": 7403,
+      "sha256": "05471f44f6eae6521a565d48e5725caf9a1c93b3c5cf06731afdac7209afc7ef"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/AppShell.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/AppShell.tsx",
+      "bytes": 8522,
+      "sha256": "14507e0bd740047d58eafd8d40f54a7e6bf5ec0da87d6527e0114cc941d435b3"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/BirthDatePicker.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/BirthDatePicker.module.css",
+      "bytes": 1618,
+      "sha256": "adb688a5fb181cca5a49bb669f0b2b8eac0f17dd39e8907e95e7b3dc3e1ced6c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/BirthDatePicker.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/BirthDatePicker.tsx",
+      "bytes": 2156,
+      "sha256": "d11353c2ab0f748935f07151367bf8b2c9707ccbf454dfc154a0ed75f04b0721"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/CountdownBanner.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/CountdownBanner.module.css",
+      "bytes": 1880,
+      "sha256": "5437c6e78cb3314bd03c1ce268a540e1d819e12236d9ae15cc9e6f8f2ccf7dca"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/CountdownBanner.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/CountdownBanner.tsx",
+      "bytes": 1769,
+      "sha256": "ea61383b0aa622ad26e416c8af9fc637c698b7631ef6cc9f625aafdad85d0a83"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/CounterpartInfo.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/CounterpartInfo.stories.tsx",
+      "bytes": 1273,
+      "sha256": "10dd9e736998353ecde5247e5f42a91b6ea5f441593ab556c09b86d275218fdf"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/CounterpartInfo.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/CounterpartInfo.tsx",
+      "bytes": 2148,
+      "sha256": "3d3b2265ae51472aa3f5df75e4d4a0807d86b639b99b8b47f54f5bbbd12ecf5d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/DashboardSessionSeed.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/DashboardSessionSeed.tsx",
+      "bytes": 348,
+      "sha256": "2ab816256ac9bd760e521f8551a4b9d6b9ca848ff0efc578958551de5ae3042f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/HomeOverview.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/HomeOverview.module.css",
+      "bytes": 9129,
+      "sha256": "05dbd5c37e75972ba918f9d1bf8c27fc47fecad3d8b2114ef02f1f3b06075088"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/HomeOverview.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/HomeOverview.tsx",
+      "bytes": 14650,
+      "sha256": "754efedebdc13aa3031fea78077fe774405d1e06d8e1f7d75a2f36092300c093"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/IntentSheet.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/IntentSheet.module.css",
+      "bytes": 192,
+      "sha256": "e2021b3a914962298ff240553e5fb3ca24e1c48664b63b9be7de443f9198ad24"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/IntentSheet.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/IntentSheet.tsx",
+      "bytes": 4163,
+      "sha256": "a91c06cc8ecef7c7658b0924bc3038f816bb6eb87cc6523d34208b93d279ac22"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MatchHistoryList.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MatchHistoryList.tsx",
+      "bytes": 6485,
+      "sha256": "8a4cc06ae63f917ed37760f5d5c1852965ccfd112e3ee3e2cf54034b128d3f33"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MatchStateHero.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MatchStateHero.module.css",
+      "bytes": 8090,
+      "sha256": "b36d8a77312302c571c9c83588dbc9d7a7c6254f18ddff8e8b77862f3a01aa1d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MatchStateHero.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MatchStateHero.stories.tsx",
+      "bytes": 4491,
+      "sha256": "b1bdb3f231d4135a68396e4cf113bace514d4a657c1b67c210c618547308c948"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MatchStateHero.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MatchStateHero.tsx",
+      "bytes": 6187,
+      "sha256": "4bc31cb576acd9c9d7ca21a9bdb1ccac9102cb3c92fbf1ec1e1bafd7a86c01d4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MatchWaitingStrip.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MatchWaitingStrip.module.css",
+      "bytes": 1970,
+      "sha256": "16b952b2516533311632384d36864cc3c3e22ebd113b3627238e0c333cd5d941"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MatchWaitingStrip.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MatchWaitingStrip.stories.tsx",
+      "bytes": 3166,
+      "sha256": "fd93ad14eb96bef39ff4d5d599b0f43f42d99bf6b5759796b2275c88f00a9808"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MatchWaitingStrip.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MatchWaitingStrip.tsx",
+      "bytes": 2016,
+      "sha256": "c1e663f88429673aaccd77b1bd8058efb78571600147a7b5bae0f23c611884dd"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MeetupFeedbackForm.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MeetupFeedbackForm.stories.tsx",
+      "bytes": 4953,
+      "sha256": "659d35f21c1d27640ac59fa5b6f3c9923ac8a707ed7470e3dca34b8c7fd4fe0b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MeetupFeedbackForm.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MeetupFeedbackForm.tsx",
+      "bytes": 12183,
+      "sha256": "a179383462bf4804b5baf818267400029a0b2b24a95a9273c436f36ecf2aa790"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MeetupStatusRibbon.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MeetupStatusRibbon.stories.tsx",
+      "bytes": 4917,
+      "sha256": "bd57cc0b0f6bb81e7f82705a185834037bed946d2fee7153acdd09face89577f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/MeetupStatusRibbon.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/MeetupStatusRibbon.tsx",
+      "bytes": 5528,
+      "sha256": "190bd56bcb298e374ac4f57bc434e0f39f6135d649f7cd3a6a162ca89b65b8f9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/ReportForm.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/ReportForm.tsx",
+      "bytes": 4860,
+      "sha256": "314b680197dfe4b68e24a29f622cb402ec80234917e27d438788068d479ede7b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/RevealCountdown.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/RevealCountdown.tsx",
+      "bytes": 4224,
+      "sha256": "5870207bf3330fc4da2eec2e9c0b916e87ca35372fc36b60e7be2a86e9b846fb"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/ToastProvider.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/ToastProvider.module.css",
+      "bytes": 956,
+      "sha256": "bd9dfc72656603d571b941a7602d063579a2edc5d84f605b2c7f0729d890f9a6"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/ToastProvider.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/ToastProvider.stories.tsx",
+      "bytes": 950,
+      "sha256": "03b60bab782074c696c3c4c5dc536cae4ffe83c8905f165b749f11df12af729b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/ToastProvider.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/ToastProvider.tsx",
+      "bytes": 1973,
+      "sha256": "7c0036c4a0b5a5b69b734cc2e9a2eff637b4d194f959bd116d45f55dbaf49a29"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/ValuePicker.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/ValuePicker.tsx",
+      "bytes": 3164,
+      "sha256": "d986dd5591a3ec1e17c63beeef9310fb8dc92f77ec8a214e4402737ff4e52219"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/agenda-icons.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/agenda-icons.tsx",
+      "bytes": 454,
+      "sha256": "8cb1309f6376f3c041a3443488312b5cbb2dd16339540eaa7bc9315e4097f2c7"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/icons.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/icons.tsx",
+      "bytes": 6047,
+      "sha256": "fa9b331e41ed0f6baf0ddf3ffe5bc4ea6e87a3859d1571b64232e497309bd4f0"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/illustrations.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/illustrations.tsx",
+      "bytes": 9669,
+      "sha256": "3dac778df95f24810830368afb501e78ced64aa62640b020671b4e32e787d427"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_components/useMatchActions.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_components/useMatchActions.ts",
+      "bytes": 4700,
+      "sha256": "1f9f745095f1e7a73865f76c2d2184929be18d16d5475f839e5270a878c7a4ad"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/agenda-redesign.test.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/agenda-redesign.test.ts",
+      "bytes": 2012,
+      "sha256": "422b756aeb452cce079bcbaee1dea5fd41019831b0d1c38023710e86ecee9fc1"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/agenda.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/agenda.ts",
+      "bytes": 14575,
+      "sha256": "ceb7ae980f500d2545b9227d4eb876a66c1a9f94cf930963131ddbcf30945a10"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/bootstrap.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/bootstrap.ts",
+      "bytes": 3722,
+      "sha256": "cb29815969f28143e85bbdb1f394a39b758f76a2e8a8f88c3de0cc664efd30a3"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/coupon-agenda-read-cache.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/coupon-agenda-read-cache.ts",
+      "bytes": 3813,
+      "sha256": "ccd4bb7a65bb64b4f8b437212a404a1144596bbca8e75ec37011219abe482b2a"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/dashboard-class-names.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/dashboard-class-names.ts",
+      "bytes": 1298,
+      "sha256": "2daf01464ef585737243dec361e74edc06422683de5ac1b288155165a7bcfb39"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/dashboard-mutations.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/dashboard-mutations.ts",
+      "bytes": 2231,
+      "sha256": "50678e3e0b3b4abbe1c9f157f4f49259423573468b35714f6b51deb71b1eb236"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/focus.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/focus.ts",
+      "bytes": 3072,
+      "sha256": "496af69c9ae23f8de7708e97b2543fde285b2ae965eac061dd5f5ccc32fc6299"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/format.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/format.ts",
+      "bytes": 1916,
+      "sha256": "d835e68b4e501cf83f2e3f0371d898e82935fd1319aac17e0b9c28e92d872a77"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/meetup-feedback.test.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/meetup-feedback.test.ts",
+      "bytes": 2485,
+      "sha256": "bebfe33ffb01d0452d6db080efab69f79c5c06fd051c03fd1e2f4a3d8d70ada0"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/meetup-feedback.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/meetup-feedback.ts",
+      "bytes": 5179,
+      "sha256": "26be3ddabf3799f6f229f7f17265ac2ba795b6642cf41b9f57e2817ee9ccc1de"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/profile-attention.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/profile-attention.ts",
+      "bytes": 959,
+      "sha256": "89a49c3c3eca124a5ef84a64dc20334dedd47647cd67a7f9842e75eecb6e8f34"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/progress.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/progress.ts",
+      "bytes": 7422,
+      "sha256": "a4b2a5c94f7e545c32d523cd6d56eab93c7efa6c68637e8e09cb9f6222d60d1e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/questionnaire.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/questionnaire.ts",
+      "bytes": 2500,
+      "sha256": "5389e93ff0d97f7d680dc6b85dacb97feac5611fed55a5537ba4ee1c7346dafd"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/time-determinism.test.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/time-determinism.test.ts",
+      "bytes": 4906,
+      "sha256": "0caf02ef8bab0c746241c99d83adbca4caa09b06ac954a0311db67822be38f38"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/types.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/types.ts",
+      "bytes": 5080,
+      "sha256": "f5d5f5884f14069e37ad12371a808c0c9c8b38375d386816baf62fe5b0d7595f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_lib/use-client-now.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_lib/use-client-now.ts",
+      "bytes": 880,
+      "sha256": "0f18e601bf8d4036c4b1ddf86dae335b3d89ede82717685e92aa8da552dc0d06"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/ReportDialog.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/ReportDialog.module.css",
+      "bytes": 3532,
+      "sha256": "6660293defc9988116e1444a7eb9269b3e1a7e87a84419680e849e9803e8c67f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/ValuePicker.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/ValuePicker.module.css",
+      "bytes": 2741,
+      "sha256": "2c6483bf1a5e35016f9b58b8872d14fb2192dc45c13288e1f2fe1bee6737790b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/dashboardChrome.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/dashboardChrome.module.css",
+      "bytes": 2914,
+      "sha256": "f1f9383ebd661d5831ef47751f6997b01e81b3e8bc3fe987728d53dac258fb00"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/dashboardChromeV2.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/dashboardChromeV2.module.css",
+      "bytes": 3576,
+      "sha256": "20342a8fa16e5e78e8c97d537580eadcd04db5d7af53ac434f9cbfc86f3ab42e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/match.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/match.module.css",
+      "bytes": 7336,
+      "sha256": "f29216a6e7e205f7b177a1c2eba4f97f4d5fafbb6a4f5381b3cde32a7f5f6e44"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/me.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/me.module.css",
+      "bytes": 8222,
+      "sha256": "fa35e6685dab0df22d0c830d5cc6b48b9a533ff7be2033b08237a78578d9e731"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/meetup.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/meetup.module.css",
+      "bytes": 32201,
+      "sha256": "fddba582d76f1823adee250325c802059938f188484b992258f96f847d039c10"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/merchantBenefits.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/merchantBenefits.module.css",
+      "bytes": 19016,
+      "sha256": "46464a036641dd8cff978d6f1a4b156591727d07801dec4b54f76d36825934db"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/profile.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/profile.module.css",
+      "bytes": 17090,
+      "sha256": "923458010fb28014260d12b88e9fa2be3731c0d215172bc3e752efe9e4fbf6e7"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/_styles/sheet.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/_styles/sheet.module.css",
+      "bytes": 4943,
+      "sha256": "19bbca33394f9fa2f1cba4f9a175f00d27358e80f43fad66b0416b7f1b909ca7"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/coupons/coupons-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/coupons/coupons-client.tsx",
+      "bytes": 21425,
+      "sha256": "8fade84d055ec8f9b612df40fc452d30578e43158382f63d4f9925dbb1376752"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/coupons/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/coupons/page.tsx",
+      "bytes": 1025,
+      "sha256": "ff832d30b55fd5f25431626dff901ed10d5b063b245c43f716b8202abbe603a1"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/coupons/useCouponReadVisibility.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/coupons/useCouponReadVisibility.ts",
+      "bytes": 5788,
+      "sha256": "9fe8cc3978f5a8885e77f4d4340dbfc7e5558dd39a8a2e83b4dc7f73d0627d7b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/history/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/history/page.tsx",
+      "bytes": 131,
+      "sha256": "461fa1ea500f195d6ee4b15400ba431d4bb77f74cfbb177436e9dac1fb78974a"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/home-client.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/home-client.module.css",
+      "bytes": 1026,
+      "sha256": "41ef82d08a536418ebf296041d9605002c6f46153674aa07b4cef1289afad58c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/home-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/home-client.tsx",
+      "bytes": 10031,
+      "sha256": "e4ffa5018903c81474bb2c903f331e89cff09925987ea2225e828024e902a76c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/intent/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/intent/page.tsx",
+      "bytes": 299,
+      "sha256": "5904ce78551d59d66643a32e46169c68fe2cb00343f538a7bcbf85a3a857f0bc"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/layout.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/layout.tsx",
+      "bytes": 343,
+      "sha256": "cc5bb7f8856e0c939637c8cac3b457eb32432d49333b628d47f4af0e5ef9a328"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/loading.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/loading.module.css",
+      "bytes": 2468,
+      "sha256": "aea6d0b840c770ea8a222ebc2a02d50578867969807f90a3f61d7e54e78b1a20"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/loading.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/loading.tsx",
+      "bytes": 1040,
+      "sha256": "646c13355dae998622a3d110f60b4c1cc0ae85b2b362fe3c9f20f674a563bc3b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/history/history-preview.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/history/history-preview.ts",
+      "bytes": 1411,
+      "sha256": "0ab0c2a53d95c3c6c6cecf5afd1f35ebfd1ae710e1a13e01b0b36c62d2266ac1"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/history/match-history-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/history/match-history-client.tsx",
+      "bytes": 3867,
+      "sha256": "3b297b5cf29536f07bda320c3282966835f1170a9eebcc80acd1a91d3e1d18de"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/history/match-history.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/history/match-history.module.css",
+      "bytes": 3762,
+      "sha256": "b713c12bda68127b883eac54afeae63f5f41580de85f17b6792b811a65f51b57"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/history/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/history/page.tsx",
+      "bytes": 311,
+      "sha256": "18cf9bd9c67690fc7680c4ce83aaec227549e441195d657af0b3dbd0c5ea0ced"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/match-client.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/match-client.stories.tsx",
+      "bytes": 2625,
+      "sha256": "5bcc6e64a8d392af1f9c22fdaf5eec959aef82723e071a5e1845ebffadc97071"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/match-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/match-client.tsx",
+      "bytes": 13244,
+      "sha256": "429a82673a863fe075a14660cccf48e18a3831f5b6543167bd8ca4b321196872"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/match-letter.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/match-letter.module.css",
+      "bytes": 5478,
+      "sha256": "23b071a375b1225d5c43f78ccb8932c994ec1fd98e25855b25762063c043d551"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/match-responsive-matrix.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/match-responsive-matrix.stories.tsx",
+      "bytes": 5731,
+      "sha256": "756e54d5ebdf556b1496cfaabe78e5e2b7bb6fde550f687dcfbda3271f29c9b3"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/match-reveal.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/match-reveal.module.css",
+      "bytes": 4092,
+      "sha256": "b9e09199495dbdf8a750bda721c8685a05c7cd4c44b3d720153bbf1a21b81749"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/match-reveal.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/match-reveal.tsx",
+      "bytes": 2937,
+      "sha256": "8385f68786c682368f2fc1e12ec585cdcccf02fc82e88f9eda943ce4ff68c043"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/match.fixtures.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/match.fixtures.ts",
+      "bytes": 7754,
+      "sha256": "38809fa00fdde5ef86fae3f18ba84da89d6cc7e13cbcf8aaed1bde1bf1b2611b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/page.tsx",
+      "bytes": 510,
+      "sha256": "5b72296831bccf4ee0fccad25487dfc999e5c52a775c956e047ee62411870747"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/reveal-receipt.test.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/reveal-receipt.test.ts",
+      "bytes": 1125,
+      "sha256": "67a5f04ee9bde855c27f468158349f68bd3ff60d7967696a001d0dd4b27158e8"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/match/reveal-receipt.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/match/reveal-receipt.ts",
+      "bytes": 494,
+      "sha256": "3843d0b79dbeb73710b1e859b622d781681c383f0e81e3e26c83eeba37b5a6c6"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/me/card/card-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/me/card/card-client.tsx",
+      "bytes": 9709,
+      "sha256": "9e61d88285227e988e4ce2116e42487658cd87317e2be368acaff6c2b5cb573d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/me/card/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/me/card/page.tsx",
+      "bytes": 129,
+      "sha256": "61960501ba4f81e5f2f25058b00a0052b1a8222740a8234591053ed44f567399"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/me/me-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/me/me-client.tsx",
+      "bytes": 3091,
+      "sha256": "02b2e0afa1f185a98b6186d98e410531c3e454b6d6c883e1835f5aa3ff222a92"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/me/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/me/page.tsx",
+      "bytes": 115,
+      "sha256": "e33fa0a3a4b1f788466c67384a5a1f6a2c9fe65cf022456e54c3b01d604f16b7"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/[sessionId]/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/[sessionId]/page.tsx",
+      "bytes": 125,
+      "sha256": "7933e5146cbad6ba5af8d8176d5fcd36dc3488826f9f9074ef61a8ae83a76120"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/_components/MeetupActionCard.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/_components/MeetupActionCard.stories.tsx",
+      "bytes": 9729,
+      "sha256": "25f002cbad7d0ebd31e52c201144cef5e30709563586850ce90d2f502b4d5eff"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/_components/MeetupActionCard.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/_components/MeetupActionCard.tsx",
+      "bytes": 16001,
+      "sha256": "d1665380b4929d770773cee1ea04c6844767302487dae814969dbc1803b6795e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/_components/MeetupBottomBar.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/_components/MeetupBottomBar.tsx",
+      "bytes": 2899,
+      "sha256": "4b15a29d7f542d4ee595f2aafc66414d2882db118f32bf2a3968bfb4ac4e5a05"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/_components/MeetupClient.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/_components/MeetupClient.tsx",
+      "bytes": 62068,
+      "sha256": "ba54c91ce893c5fd8fc95fe9d692cf1886dae04e7334391c141993f6893d3448"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/_components/MeetupParticipantStrip.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/_components/MeetupParticipantStrip.tsx",
+      "bytes": 2136,
+      "sha256": "e4f21a1fe17dfd6fe8f8873e910d1e017c33363c5f9d5ddf62ce5f040e96e071"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/_components/MeetupProposalPreview.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/_components/MeetupProposalPreview.tsx",
+      "bytes": 1360,
+      "sha256": "f48d4788f32539dd572d1341f0f5be798932c1460df0a6ef81e3017c20562326"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/_components/meetup-format.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/_components/meetup-format.ts",
+      "bytes": 2574,
+      "sha256": "8525fc95a67029137af2c6fb90dc6db068a3e5fd5be615a16cfac5dce0506179"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/_components/meetup-reject-note.test.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/_components/meetup-reject-note.test.ts",
+      "bytes": 3901,
+      "sha256": "2f5db745385db9fb9d9240be455e5f7759a6d15f4d2d95ba37395a0e009badd0"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/_components/meetup-reject-note.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/_components/meetup-reject-note.ts",
+      "bytes": 1015,
+      "sha256": "83bcf8422b1c7ddcea2825d854e1a56fbb867740ca533d4508187641b2f35b65"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/meetup/start/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/meetup/start/page.tsx",
+      "bytes": 125,
+      "sha256": "7933e5146cbad6ba5af8d8176d5fcd36dc3488826f9f9074ef61a8ae83a76120"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/page.tsx",
+      "bytes": 1890,
+      "sha256": "ec28e6b1b89397a0603aafbc57f3dc28626c65f09fb15eb71fafaf7a9f81460e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/profile/contact-editor.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/profile/contact-editor.tsx",
+      "bytes": 4313,
+      "sha256": "f5a73c3f7ddc0f79978dd8b6db67c053e429fbc20051c4522bf288c93c34638e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/profile/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/profile/page.tsx",
+      "bytes": 587,
+      "sha256": "9ba8c81228450ae076df0796c9c25bbefd51e1b7a82843f3969f1a0c6e386509"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/profile/profile-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/profile/profile-client.tsx",
+      "bytes": 83288,
+      "sha256": "a9798ca392eccd7f4cfd4f8fec3e8aeb4e5ecd75d4b25a01bf9dcc0b3355fd9d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/profile/profile-redesign.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/profile/profile-redesign.module.css",
+      "bytes": 15944,
+      "sha256": "f62bb62336dc281e6ddf9a4b4ae790a1c26363752def559aea14f78e8e11481b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/profile/save-status.test.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/profile/save-status.test.ts",
+      "bytes": 1145,
+      "sha256": "7a4a2b72490502fcf1ac0ca0ca2e5899f72d44db4a1552e45b000a6511ddc633"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/profile/save-status.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/profile/save-status.ts",
+      "bytes": 1146,
+      "sha256": "d3d3f76dc598f41c04c0654166fbbcbc11a56a22ba8451204eb9c90feaf57c87"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/referrals/ReferralShareSheet.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/referrals/ReferralShareSheet.tsx",
+      "bytes": 6390,
+      "sha256": "b3678c9f26e7788984f9afca41a171eb2ec9f118277dc0f896029c74ff271a5b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/referrals/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/referrals/page.tsx",
+      "bytes": 803,
+      "sha256": "75d4401ceafd33c2b7071084f67db1169bd46e9e0cfc72e70ebd934a9aee9405"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/referrals/referrals-client.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/referrals/referrals-client.stories.tsx",
+      "bytes": 2025,
+      "sha256": "c5c46c5b48818979e8d9a730c32eeb88a3114fc3806f4e23bf8947aa05a6e683"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/referrals/referrals-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/referrals/referrals-client.tsx",
+      "bytes": 8826,
+      "sha256": "174bc29c90194eacf9bdb4cf4af414df737f73518668bb85c4c55e298e74c48c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/referrals/referrals.fixtures.ts",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/referrals/referrals.fixtures.ts",
+      "bytes": 1931,
+      "sha256": "2f923c2694b5649aaffe13d42ec67cf059cbc2ec4388b00e8dcbc840aefb4e1d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/dashboard/settings/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/dashboard/settings/page.tsx",
+      "bytes": 112,
+      "sha256": "6a56df62186b8a9d59bfa8b0a77bd37e655c3aac997f13f12a209db5867494d6"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/eligible-schools-panel.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/eligible-schools-panel.module.css",
+      "bytes": 3219,
+      "sha256": "11c8f390002b9f2403160b538591ec4a475255097db8c3fe894c546608ea3893"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/eligible-schools-panel.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/eligible-schools-panel.tsx",
+      "bytes": 10375,
+      "sha256": "6046ca15e18110f22a313c70505b13122a35c5ee64350ec93e57e65dd0ab0da3"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/error.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/error.module.css",
+      "bytes": 198,
+      "sha256": "50b2ac4efa26f7936205ae15a30f8f831dc267989cb6480a1996721706e68955"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/error.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/error.tsx",
+      "bytes": 800,
+      "sha256": "aabdb284f14f19e3a02f0669072d1fef68df226f11b0aff5934daba7f240c747"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/faq/faq.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/faq/faq.module.css",
+      "bytes": 1973,
+      "sha256": "c3f138e1ed850a64c059575aaef7fe41bbb615f752ed44b13e64238da7a058a8"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/faq/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/faq/page.tsx",
+      "bytes": 104,
+      "sha256": "e9f50f4dc51361e7dc8286ceba20d55660515b8b06a949193bbd90f16b270afc"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/forgot-password/forgot-password-page-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/forgot-password/forgot-password-page-client.tsx",
+      "bytes": 8187,
+      "sha256": "b186f85d92a0bb7880de827200c4def688140e06950317edb5c60a63de85b9a7"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/forgot-password/forgot-password.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/forgot-password/forgot-password.module.css",
+      "bytes": 695,
+      "sha256": "814077818693560a75cb9f2f76005c8a55a9b0d24260b2f36b639b08afa9653e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/forgot-password/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/forgot-password/page.tsx",
+      "bytes": 165,
+      "sha256": "38b3ed4525ac26a32ec20fc2dbfd991ecfc63e055e51ff1ea74ab120901fa0d5"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/global-error.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/global-error.module.css",
+      "bytes": 490,
+      "sha256": "bc586e7de7579e832ee4c4c30f76ca8c2afe8025dacdac428fa450edaa94a381"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/global-error.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/global-error.tsx",
+      "bytes": 776,
+      "sha256": "51ed5ec822a6214a8704453915cbb26968743201347e6756b37c58e38f20b4d9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/globals.css",
+      "target": "prototypes/autumn-2026/web/src/app/globals.css",
+      "bytes": 6645,
+      "sha256": "c53ca6c413ca531ce8d321063275589e64edaa727dce540c727f477ca81754b9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/hero-reveal-countdown.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/hero-reveal-countdown.tsx",
+      "bytes": 3201,
+      "sha256": "38f8cb20fe57c91bcc9ebac87b7cc1949eb2a7ed21032c6ecc1b4b390efe5da4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/i/[code]/landing-client.test.ts",
+      "target": "prototypes/autumn-2026/web/src/app/i/[code]/landing-client.test.ts",
+      "bytes": 718,
+      "sha256": "49749db29c9342096acfd47328408d80290f8202c1a55218f14b3ec1f2733d91"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/i/[code]/landing-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/i/[code]/landing-client.tsx",
+      "bytes": 3540,
+      "sha256": "c3e4c4ccbfaebf20bc1e80122715c90e3376c7a0e07e60c5cba9ffd1ebf17cf9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/i/[code]/landing.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/i/[code]/landing.module.css",
+      "bytes": 1030,
+      "sha256": "bdd2caaadd909df5b80caf37d081593a16bbf7a8641f635685a99bd328de1387"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/i/[code]/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/i/[code]/page.tsx",
+      "bytes": 251,
+      "sha256": "3418a2c79832525bb62aad0fdcfcba43f10dd5b5be3153e64bd5b0c38e040a3e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/layout.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/layout.tsx",
+      "bytes": 2112,
+      "sha256": "c256715a3e8a43c51ed7d32768e95c4b02576265a54bec640408257d90e1da2e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/login/login-page-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/login/login-page-client.tsx",
+      "bytes": 3584,
+      "sha256": "8c8bcbfd8989c322e0a973e31cf1c46c8f58a7044dfb0cfd973760b7d500025b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/login/login.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/login/login.module.css",
+      "bytes": 812,
+      "sha256": "b0cbdb91befb9d9bd2abfd3117a208436047c2b61a413431cb5268ef44cd70f9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/login/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/login/page.tsx",
+      "bytes": 588,
+      "sha256": "0a037c322d0f4e2912b3e31acf5ff34a6cbe2af342f8d4c3b4402a39cf46cb52"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/manifest.ts",
+      "target": "prototypes/autumn-2026/web/src/app/manifest.ts",
+      "bytes": 888,
+      "sha256": "350ee0c1effc2d9cbad74e25109886bd3f63e38e7e03b410585936bacb72d260"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/merchant/_components/RedeemConfirm.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/merchant/_components/RedeemConfirm.tsx",
+      "bytes": 7791,
+      "sha256": "c352340b4f909e3099aff73b517730a2158f257752ffbaab414733d151e3e05c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/merchant/login/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/merchant/login/page.tsx",
+      "bytes": 3519,
+      "sha256": "73dc87baafa0e8f6df634250adda64829ecbe9f8aeffc87642a0754e17bc0827"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/merchant/merchant.css",
+      "target": "prototypes/autumn-2026/web/src/app/merchant/merchant.css",
+      "bytes": 3509,
+      "sha256": "e5fb483b6e86487f1ea69209702ba2f8f427c56c212a8c582651d0ddf6057760"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/merchant/merchant.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/merchant/merchant.module.css",
+      "bytes": 495,
+      "sha256": "38a26bee87e468f54758455de288047581b993f8e1f37dfb6e98031dd4c9b3ee"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/merchant/redeem/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/merchant/redeem/page.tsx",
+      "bytes": 6959,
+      "sha256": "9ea070fb303ae754c29fec6cc50d0d328a5e78f55aece7cdf8aa54e2c87547f4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/mode-select-card.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/mode-select-card.module.css",
+      "bytes": 3049,
+      "sha256": "8b4e6c2c5e183ed61c4b18549d48e35c4de7fe896d04bd4a47256cd8ac828903"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/mode-select-card.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/mode-select-card.stories.tsx",
+      "bytes": 1556,
+      "sha256": "6a8a754b3cf4d27ca69d4582454f55554792d25e30ee50004c6710384ee308bb"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/mode-select-card.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/mode-select-card.tsx",
+      "bytes": 2281,
+      "sha256": "a80a3e8cd02962ad829d2fff03872d42845ee0cfabbd23fd1c31c92a2829425f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/not-found.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/not-found.tsx",
+      "bytes": 566,
+      "sha256": "e504fe805b77bcdd0f728da20be95d17fbdde378044601def67fba59150b6c15"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/page.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/page.module.css",
+      "bytes": 9739,
+      "sha256": "1051fbdfc3bd75107f947861c4ed6538670b3a5f73b7f9ad962f62693bd3678c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/page.tsx",
+      "bytes": 8395,
+      "sha256": "2f32892f75473b39aadef57128fb38599be46eedf73e913edd81fbd6e5536759"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/privacy/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/privacy/page.tsx",
+      "bytes": 903,
+      "sha256": "1c4225f53ad848461f663d7e7c308ef4ba560c75ef7f67ea8ac9bb56b64ca225"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/public-chrome.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/public-chrome.module.css",
+      "bytes": 4893,
+      "sha256": "358c7c5ead58778d4ba6db588732603591f28533efdf5ca68f04c0eb45d4165e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/public-chrome.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/public-chrome.tsx",
+      "bytes": 5594,
+      "sha256": "74a986917c17ca404e663218429dacca63cadc656a748ad4b5ca7ddbeb256466"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/public-layout.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/public-layout.module.css",
+      "bytes": 3746,
+      "sha256": "cfc7044b4d10f6b26cca3457f030e3fc465b5449b9fdb611b5ddb87dd0e1308b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/r/[code]/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/r/[code]/page.tsx",
+      "bytes": 5696,
+      "sha256": "a84aa08e0d9acdcd287d03fb6bc7fc62f06e717915ed4e8865e3c411cd449fc0"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/constants.ts",
+      "target": "prototypes/autumn-2026/web/src/app/register/constants.ts",
+      "bytes": 494,
+      "sha256": "26d9fe5f34d3ef2227e0ff2a5bbf0b9d651a08893d38ccc3c59d1b75bef4e70b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/register/page.tsx",
+      "bytes": 528,
+      "sha256": "998a0a389d89d4bd4bf3db40aa0e7f91aacde2331496151783e02050ca286e1d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/personal/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/register/personal/page.tsx",
+      "bytes": 563,
+      "sha256": "3315f03a8136b8a71156003dc4b6f60074ddae29718b49a98e55d9a61514b887"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/register-chooser-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/register/register-chooser-client.tsx",
+      "bytes": 2166,
+      "sha256": "eb49bdab7b0c568f11b03d9e2db66d4e79fc142c894b49619ce4e99c9f98e9db"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/register-chooser.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/register/register-chooser.module.css",
+      "bytes": 1540,
+      "sha256": "a3a2e1b2aa55662b207293b086d2be37a4fd34f32d4d9e75a46bb8f3d558419d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/register-flow.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/register/register-flow.module.css",
+      "bytes": 3312,
+      "sha256": "0c7c31e8aaf7fc50ccf745a3ac8e29c4d28c25bcd08209107998c37318d847c2"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/register-personal-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/register/register-personal-client.tsx",
+      "bytes": 13835,
+      "sha256": "210fd8647c245fafae6d1ad5c597b4d92364093c40ccadd2255dd29d6f2157da"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/register-school-client.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/register/register-school-client.tsx",
+      "bytes": 13036,
+      "sha256": "76dbfc463cf331bbc92583d77c78249ea2a920beaa62df9e4d28528ed3e913a4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/register-shell.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/register/register-shell.tsx",
+      "bytes": 1886,
+      "sha256": "623e682de1d0d82d07187156fce3fc2b8cd47d5096aa1c6fef535a57824c8c11"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/school-email-support.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/register/school-email-support.module.css",
+      "bytes": 2290,
+      "sha256": "a909c05345ccf6afc40ebe7f0906256fabb3b15e23112cf19563716443a52462"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/school-email-support.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/register/school-email-support.tsx",
+      "bytes": 2538,
+      "sha256": "071b408892615e8cff17633a4ed8b81b48279da17c25ced4b22c1b66791cdc8b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/school-list-retry.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/register/school-list-retry.tsx",
+      "bytes": 581,
+      "sha256": "ad946887fa07a2b3f2175046c27e60e59edfe89c50356c31b1a7f47960e45556"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/school/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/register/school/page.tsx",
+      "bytes": 551,
+      "sha256": "f928f0957c88db28613fa316375d47dbac980338df661d6d4260db07bb5d8f45"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/use-referral-attribution.ts",
+      "target": "prototypes/autumn-2026/web/src/app/register/use-referral-attribution.ts",
+      "bytes": 2027,
+      "sha256": "e1b8335a7e1a0667875db080595b1e7cbdaf3dc0ae4ae0bf410258b6b9283629"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/register/utils.ts",
+      "target": "prototypes/autumn-2026/web/src/app/register/utils.ts",
+      "bytes": 669,
+      "sha256": "7969ec860b20c48228d8417889d95d155d0017cb9e7bbbad3a038688d0c6fbdf"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/schools/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/schools/page.tsx",
+      "bytes": 3117,
+      "sha256": "4fae4b39a10f71e54716f0a3031d50b05bff5946d38d3ca17b3b3fe3d5dfbe95"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/schools/partners.ts",
+      "target": "prototypes/autumn-2026/web/src/app/schools/partners.ts",
+      "bytes": 7540,
+      "sha256": "4ac84c8b43a6748bbb27b53c2d5d93f1ca77320e31a0f58184c2ce08ebb0a7d9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/schools/school-domain-directory.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/schools/school-domain-directory.tsx",
+      "bytes": 1479,
+      "sha256": "367f56089990c8a22afcdad6922c4364e2dc60cc6ea28dbec32129e27c9fc36f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/schools/schools.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/schools/schools.module.css",
+      "bytes": 6749,
+      "sha256": "d7081b55d1c4097055daa02f6b2e0158e1e76879b34c37f5b98eeed9fc27e2dc"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/site-nav.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/site-nav.module.css",
+      "bytes": 3256,
+      "sha256": "6117c61ccb3e8f6705074b58126be498468a2feb2520505d65d0ea7efb5b238d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/site-nav.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/site-nav.tsx",
+      "bytes": 2283,
+      "sha256": "058a307692de88f0867a5138f17d7431d6dbbbe2e1f536e83962a17cde1162ec"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/terms/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/terms/page.tsx",
+      "bytes": 1224,
+      "sha256": "c4452bbffbf2e42c5f4052c3bfe8202a8a0d59c6a946c2e81d68d50d18d1fb1f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/updates-new-badge.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/updates-new-badge.tsx",
+      "bytes": 1475,
+      "sha256": "d4e5d9e29844221153a14f22def312f0c94820c64fffecb46dfe94c220afe12c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/updates/mark-seen.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/updates/mark-seen.tsx",
+      "bytes": 450,
+      "sha256": "df39b8a9c6a2b209b92186918cc2ec110b170e67868469c1c6ec9ecd14115b3e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/updates/page.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/updates/page.tsx",
+      "bytes": 4912,
+      "sha256": "8f1f30b3e57c6024edcf9dcb51a74f362107f36a372f964841712740ea07fcfc"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/updates/updates-pagination.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/updates/updates-pagination.tsx",
+      "bytes": 1191,
+      "sha256": "028d59a330f3c0c38a80f571742331d03470e639e228a217177ce1823b63bf61"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/updates/updates.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/updates/updates.module.css",
+      "bytes": 2286,
+      "sha256": "18abead170b32bcd2c56a2e31ece58359f86f1eabe7235c6bde460f3376e3a46"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/visual-preview-tools.module.css",
+      "target": "prototypes/autumn-2026/web/src/app/visual-preview-tools.module.css",
+      "bytes": 1110,
+      "sha256": "bd5342ce0bc528b5883d6233f3ff5b6d4ecede330283b8e0a148add2509a8083"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/app/visual-preview-tools.tsx",
+      "target": "prototypes/autumn-2026/web/src/app/visual-preview-tools.tsx",
+      "bytes": 1688,
+      "sha256": "8f2fd72a4d65c7514ae54a76d36b39a80654d311bf54142dd76ac454a0d4a65e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/components/qr-code.tsx",
+      "target": "prototypes/autumn-2026/web/src/components/qr-code.tsx",
+      "bytes": 1554,
+      "sha256": "aa0ffb3b8e341ab56aa9f7c4e0b0a93e8f9af7009d7f5e848d0a88cac5e5f7e8"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/components/semantic/index.tsx",
+      "target": "prototypes/autumn-2026/web/src/components/semantic/index.tsx",
+      "bytes": 307,
+      "sha256": "afc5769c88ca7677f6803603d0ebb478194556c315a51b2ddaa46493da117ca5"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/components/ui/button.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/components/ui/button.stories.tsx",
+      "bytes": 2061,
+      "sha256": "0cc327f6aa1fe029e2db412b21066673bfc44ce6fd754ee293ec46afcaee02d6"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/components/ui/card.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/components/ui/card.stories.tsx",
+      "bytes": 1503,
+      "sha256": "1b3f3d2ed03152aa5eac66a82dc6022fc382fea6792102c215e1bad97df24e36"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/components/ui/form-controls.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/components/ui/form-controls.stories.tsx",
+      "bytes": 1543,
+      "sha256": "c7c4f1d70cbc8eaaae074a9dd32c0d2945325a29e4c3d37dc16bc7bdfe682b71"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/components/ui/form-message.stories.tsx",
+      "target": "prototypes/autumn-2026/web/src/components/ui/form-message.stories.tsx",
+      "bytes": 671,
+      "sha256": "04aeca0702c28deb8bd43982a94e8ddfc09f1e96f0e2e30c917ebb35f7674483"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/components/ui/index.tsx",
+      "target": "prototypes/autumn-2026/web/src/components/ui/index.tsx",
+      "bytes": 4893,
+      "sha256": "4658e781775542f30a6b17951e376cf7e2553a917908069aaffad24f4c52231f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/instrumentation-client.ts",
+      "target": "prototypes/autumn-2026/web/src/instrumentation-client.ts",
+      "bytes": 1577,
+      "sha256": "4b36b586ef3cbacfe28041f149fecb1fc8607ed18dec0cdad596df6d40fdeafe"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/instrumentation.ts",
+      "target": "prototypes/autumn-2026/web/src/instrumentation.ts",
+      "bytes": 328,
+      "sha256": "4a351bb98c1ab7fed481670c78277c9321e014cb6d8aeaf73a6649d3611708df"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/api-base-url.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/api-base-url.ts",
+      "bytes": 3105,
+      "sha256": "de71d335e785b84e71d14aff7f8868fd2a90d4ad4b246158ca742afd46bc7636"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/api.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/api.ts",
+      "bytes": 18902,
+      "sha256": "0c4f3e2178e5a16fcc62305343537f80dfbe60d35dfebeb47eca0a7e24b4b4e7"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/china-standard-time.test.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/china-standard-time.test.ts",
+      "bytes": 467,
+      "sha256": "b8812c99f067a7afaad72f20cf78e1d0b2e60a5a30310b395fd922f1635227d4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/china-standard-time.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/china-standard-time.ts",
+      "bytes": 3569,
+      "sha256": "70102da8c0e304e9e3c08a04271342c2d640e90c31a0bad4e3cfadfa95bb3a19"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/cx.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/cx.ts",
+      "bytes": 125,
+      "sha256": "358eb54807fb190eeb8d843cfcc29389c4fc5373f91c9b526c5d6b41202befb9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/devlog-constants.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/devlog-constants.ts",
+      "bytes": 612,
+      "sha256": "e4a134370a261c926ec56432852cdf2a9d43b79aaa74c221915944806076a9bf"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/devlog-feed-utils.test.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/devlog-feed-utils.test.ts",
+      "bytes": 9440,
+      "sha256": "41fc0c0ce5172a2d3e0b1c2f518750295422f04b7720ffb3e3e310ab1d0f01a8"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/devlog-feed-utils.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/devlog-feed-utils.ts",
+      "bytes": 6032,
+      "sha256": "bf5ad7fbb86f74a414d433626796fb09ee4c7616dfc56c6e76fc0f117b885ce1"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/devlog-feed.test.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/devlog-feed.test.ts",
+      "bytes": 5288,
+      "sha256": "04b63a19d1d54bba0d11c3510a4373a665bf9239befc764e58da46936e8d05b3"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/devlog-feed.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/devlog-feed.ts",
+      "bytes": 3729,
+      "sha256": "c9ce0a8b9681057b8cb59763d241e4a2d8ed45df8dd0912957fb5bce1bd212c0",
+      "sourceSha256": "7dfe9c4ff3ace8bc90bbc67e06731d4289fb7db6a345f227dadf550e93752c5c",
+      "sourceBytes": 3535,
+      "adaptationRecord": "docs/validation/2026-10-01-documentation-review-fixes.md"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/devlog-seen-client.test.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/devlog-seen-client.test.ts",
+      "bytes": 3517,
+      "sha256": "56e194dfd0d377f0541e345891fb8a26578bdfb32fd535cec1dc9c6640ce9b15"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/devlog-seen-client.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/devlog-seen-client.ts",
+      "bytes": 803,
+      "sha256": "e4b76ac8815df5fc2a3418a8f31b3eaf29e13aa0f4067904bbcf79c0689686b1"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/eligible-schools.test.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/eligible-schools.test.ts",
+      "bytes": 993,
+      "sha256": "9098854972d938a9f65287b0d5bb870a3cae9d818da832f3330dcf5920f957b3"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/eligible-schools.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/eligible-schools.ts",
+      "bytes": 2316,
+      "sha256": "3a7991fb6f1a4a5e62ae4e0299a995d8e75334c2529c3a632e4412d87fb98227"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/format.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/format.ts",
+      "bytes": 147,
+      "sha256": "044adbb65ea272cfb958f7e9197d11f9e1042f049f503ab1bc3d0a149d275ea4"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/hard-match.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/hard-match.ts",
+      "bytes": 11724,
+      "sha256": "87883ccbf6beb7a237bc3b82ba778b8924fe65e0916aa41952b14fc0d35820c8"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/landing-payload.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/landing-payload.ts",
+      "bytes": 291,
+      "sha256": "ef68346ce6dea4517be6249e9af284c54b3b2e5f86178244fa47d49a4f4f74f6"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/product-analytics.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/product-analytics.ts",
+      "bytes": 12077,
+      "sha256": "d616b4c185be791dfe41103287b048f2ed43927f2f39f19596492b9bf228a14f"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/public-server-api.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/public-server-api.ts",
+      "bytes": 2303,
+      "sha256": "15fc2414269cd451db81691c5f94867a6b0555f3a1e7801c799a0f901cc077e7",
+      "sourceSha256": "3c38f12c9ab360ccb2c14d284239a845a698dbde8c6be8b7b8e2f952faf7821e",
+      "sourceBytes": 1893,
+      "adaptationRecord": "docs/validation/2026-10-01-documentation-review-fixes.md"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/sentry-config.test.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/sentry-config.test.ts",
+      "bytes": 1858,
+      "sha256": "29031e9e74551b2375de69fc2468ac1b52d99ceb693945c6b9ccc6fed6ff84fa"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/sentry-config.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/sentry-config.ts",
+      "bytes": 1842,
+      "sha256": "0d3c06847e5833c40bb3b426b04ec01196281f754a19ad4c53591822e13ebdef"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/server-api.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/server-api.ts",
+      "bytes": 4872,
+      "sha256": "53b2f989078099b76de6dbbfaca813d9faeab4fcaa7917bbbb533a6d29acd4ba"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/use-devlog-unseen.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/use-devlog-unseen.ts",
+      "bytes": 1109,
+      "sha256": "4f239ce99d6fba40f1ded9763aeb9043da6a98b2d0430753bf62907b51e98815"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/visual-preview/data.test.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/visual-preview/data.test.ts",
+      "bytes": 2489,
+      "sha256": "8b76521ccdee37e1ee8b01f406c408de4641bde1e71f3a5cf129208e8a6491d8"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/visual-preview/data.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/visual-preview/data.ts",
+      "bytes": 5679,
+      "sha256": "b18558b2444ee09d583fed897a1a64e68ce45a4a74fa796523323713cea5f633"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/visual-preview/mode.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/visual-preview/mode.ts",
+      "bytes": 364,
+      "sha256": "7075fdd5b0d8e60211964bf9b0c280fad7fc9b92eb36e63376273962977e6560"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/visual-preview/questionnaire.json",
+      "target": "prototypes/autumn-2026/web/src/lib/visual-preview/questionnaire.json",
+      "bytes": 13858,
+      "sha256": "11a381259d0fdc2fb96a5fa399e2432fcd8920bf41cf083623ef205861384e4d"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/visual-preview/schools.json",
+      "target": "prototypes/autumn-2026/web/src/lib/visual-preview/schools.json",
+      "bytes": 1767,
+      "sha256": "9ceab5da08e81874d448d295087fead450568a228738fa7860661ecf81da7748"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/lib/weekly-intent.ts",
+      "target": "prototypes/autumn-2026/web/src/lib/weekly-intent.ts",
+      "bytes": 999,
+      "sha256": "45a56bc2ca2265423a4e705f3c036ded9ee1146cf38c8b2098bba70a262effdf"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/proxy.ts",
+      "target": "prototypes/autumn-2026/web/src/proxy.ts",
+      "bytes": 1874,
+      "sha256": "2010a89aad9f7f9ff38866b1ef88e5bfa8557767cc41c7ed9dcde0b0c66d0a7b"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/styles/primitives.css",
+      "target": "prototypes/autumn-2026/web/src/styles/primitives.css",
+      "bytes": 6152,
+      "sha256": "c4a9e8ae92bbafdf20f271c5a2a172a7378e4e967dd1467bd6c20e3dc5d56a9e"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/styles/semantic.css",
+      "target": "prototypes/autumn-2026/web/src/styles/semantic.css",
+      "bytes": 947,
+      "sha256": "e9a0e7ea6bf9e22c7b8785c67c025169cfd90e0b09e9baeae2404133179440ce"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/src/styles/tokens.css",
+      "target": "prototypes/autumn-2026/web/src/styles/tokens.css",
+      "bytes": 3121,
+      "sha256": "9b70fb3092f930cd0859d916fd022bd27247df3c89a1f7da951c070f28c2ad8a"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/tsconfig.build.json",
+      "target": "prototypes/autumn-2026/web/tsconfig.build.json",
+      "bytes": 177,
+      "sha256": "3d828421aad0281745b316f78b9a57fbd39053d2e68cd170f88e3106ee7fd9b9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/tsconfig.json",
+      "target": "prototypes/autumn-2026/web/tsconfig.json",
+      "bytes": 762,
+      "sha256": "8fcdbc82b118a50e95315c29e2035bd7ae89cae9600fc2715433dc946dd9a70c"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/vercel.json",
+      "target": "prototypes/autumn-2026/web/vercel.json",
+      "bytes": 257,
+      "sha256": "64d016a076a5e9ee7e00abf7bd6fb4c461b680bec22f1fb0eb309b0f6e129517"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/web/vitest.config.ts",
+      "target": "prototypes/autumn-2026/web/vitest.config.ts",
+      "bytes": 309,
+      "sha256": "22d537038d99e3a5f59365681348b34f94c32aae0ef49134d37b0b423228c7b9"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/设计参考/我的资料-三版UI对比.png",
+      "target": "prototypes/autumn-2026/设计参考/我的资料-三版UI对比.png",
+      "bytes": 1352784,
+      "sha256": "5351420fe2dceb20b019bec525daf6b148082a2f4ce646e6a502c2d63ca0c0c5"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/设计参考/我的资料-容器层级三方案.png",
+      "target": "prototypes/autumn-2026/设计参考/我的资料-容器层级三方案.png",
+      "bytes": 1394890,
+      "sha256": "917df728180d10ad1a7bf008cee5b17075adb3c2814fff015a257348f350a019"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/设计参考/我的资料-极简方案与偏好精简.png",
+      "target": "prototypes/autumn-2026/设计参考/我的资料-极简方案与偏好精简.png",
+      "bytes": 1437053,
+      "sha256": "28f61736be7af34139dc094adbc5ec21709e45efdd94c9f7482ebaf8f991b979"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/设计参考/我的资料-生图设计稿.png",
+      "target": "prototypes/autumn-2026/设计参考/我的资料-生图设计稿.png",
+      "bytes": 1024520,
+      "sha256": "14e0a3be784123e430339fb5c85548deed96a71843c83b510c3d5292806a66fa"
+    },
+    {
+      "source": "docs/2026秋季开学视觉重构/设计参考/我的资料-自然介绍页设计稿.png",
+      "target": "prototypes/autumn-2026/设计参考/我的资料-自然介绍页设计稿.png",
+      "bytes": 1298646,
+      "sha256": "8fa12d2ea397d0e49b52cec74e0485af4865f05128f4580dd7c12635ab2518d5"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/assets/one-to-one-minimal.webp",
+      "target": "prototypes/one-to-one-paid-2026-09-16/assets/one-to-one-minimal.webp",
+      "bytes": 79912,
+      "sha256": "4bf770d6544b0eb3f88e361c4bf15f3f4803b3db918013b3368999c260066e37"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/dependencies/faq.module.css",
+      "target": "prototypes/one-to-one-paid-2026-09-16/dependencies/faq.module.css",
+      "bytes": 1973,
+      "sha256": "c3f138e1ed850a64c059575aaef7fe41bbb615f752ed44b13e64238da7a058a8"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/dependencies/phone-country-picker.module.css",
+      "target": "prototypes/one-to-one-paid-2026-09-16/dependencies/phone-country-picker.module.css",
+      "bytes": 4054,
+      "sha256": "89abe702300d310e0b5d5e90ab349a235abe3140c1027ddbd44e78fbc4d9d4e6"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/dependencies/phone-country-picker.tsx",
+      "target": "prototypes/one-to-one-paid-2026-09-16/dependencies/phone-country-picker.tsx",
+      "bytes": 7216,
+      "sha256": "fb3ca989b283ad7314c4bcfadf0f05f6ab4dcb0e8312c53f87729ec84a940f1c"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/one-to-one/page.module.css",
+      "target": "prototypes/one-to-one-paid-2026-09-16/one-to-one/page.module.css",
+      "bytes": 10420,
+      "sha256": "db55c32c1ee61af09a8589b1bebdbd5cedda90c8bd57ec476b4d3d12dd93c610"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/one-to-one/page.stories.tsx",
+      "target": "prototypes/one-to-one-paid-2026-09-16/one-to-one/page.stories.tsx",
+      "bytes": 878,
+      "sha256": "0d203401248e48fda402870033f9eb96930d82c8023ffeebdf9ce19768dbabb7"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/one-to-one/page.tsx",
+      "target": "prototypes/one-to-one-paid-2026-09-16/one-to-one/page.tsx",
+      "bytes": 5673,
+      "sha256": "784d39a5b66d24ff9629d6011038b53f121871f3c7a2cd3742ac8853817dabdc"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/one-to-one/registration.module.css",
+      "target": "prototypes/one-to-one-paid-2026-09-16/one-to-one/registration.module.css",
+      "bytes": 1707,
+      "sha256": "156be0128eb53c1dab91c9d720d98da4e39139ce7e07abfb0bbfdfb3486f3ac0"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/one-to-one/registration.tsx",
+      "target": "prototypes/one-to-one-paid-2026-09-16/one-to-one/registration.tsx",
+      "bytes": 2857,
+      "sha256": "719ef62dd2147f104231c30fdf4cd150c35fa8e0f4a9aaf54351196e8cb948f9"
+    },
+    {
+      "source": "docs/archive/2026-09-16-one-to-one-paid-frontend/sha256.json",
+      "target": "prototypes/one-to-one-paid-2026-09-16/sha256.json",
+      "bytes": 940,
+      "sha256": "78e3ddb645e004c5bd9da2e01f1347309d5980d020010f27d79efdf623c5a0fd"
+    }
+  ]
+}
