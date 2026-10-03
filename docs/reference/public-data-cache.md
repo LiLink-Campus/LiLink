@@ -8,44 +8,61 @@ canonical: true
 
 # 公开页面缓存策略
 
-首页人数图表在服务端 HTML 中带上最近成功的公开统计，客户端每 30 秒刷新一次；页面隐藏时暂停，重新可见时立即刷新。单次浏览器请求最多等 10 秒。刷新失败时保留已显示的数据并静默重试；没有成功数据时暂不展示这块可选图表，获取成功后再显示，不展示错误、无限加载提示或虚构的零人数。
+前端和全部静态资源继续由 Vercel 托管。首页展示服务端最近成功的公开快照，业务事件通过 API → Vercel 的持久化通知按需失效；已经打开的页面不轮询、不订阅 SSE，也不在恢复可见时请求新统计。设计理由、发布兼容性与回滚见[设计决策](../decisions/2026-10-03-public-home-snapshot.md)；容量假设与核算见[Hobby 预算](../plans/2026-10-03-vercel-hobby-budget.md)。
+
+## 读取与展示
 
 | 内容 | 缓存与刷新 |
 | --- | --- |
-| 人数、性别和学校人数 | Next Data Cache 30 秒；浏览器/CDN 30 秒，允许后台刷新 |
-| 首页注册人数、累计问卷、匹配数、轮次汇总 | Next Data Cache 60 秒；首页仍使用 ISR |
-| 注册学校及邮箱后缀 | 同源 `/api/public/schools`；Next Data Cache、浏览器/CDN 60 秒 |
-| `/images/*` 原图 | 默认浏览器/CDN 1 小时，允许后台刷新；关于页带内容 hash 的 WebP 例外为 1 年 immutable |
+| 首页 HTML/RSC、`/public/home` Data Cache | 3600 秒兜底，tag `public-home`；获准的业务通知以 `revalidateTag(tag, 'max')` 标记过期，保留旧值并后台刷新 |
+| 打开的首页 | 使用服务端快照，不追加浏览器统计请求；揭晓倒计时只依据已知时间在本地计时 |
+| 注册学校及邮箱后缀 | 同源 `/api/public/schools`；Data Cache、浏览器/Vercel 缓存 60 秒，tag `public-schools` |
 | 更新日志 | 沿用 1 小时缓存 |
-| 静态介绍页面、带内容哈希的 JS/CSS、Next 优化图片 | 沿用框架的静态/CDN 缓存 |
-| 登录状态、问卷答案、报名、VIP/支付、匹配结果、后台管理 | 保留原有私有/no-store 读取和写后刷新 |
+| 登录状态、问卷答案、报名、VIP/支付、匹配结果、后台管理 | 原有私有/no-store 读取与写后刷新 |
+| JS/CSS、字体、图片和图标 | 留在 Vercel；固定公开图片使用构建期响应式资源与同源 `public`，其余图片沿用 Next Image，无独立静态 CDN |
 
-公开缓存只允许 `/public/community`、`/public/landing`、`/public/schools`，不转发 Cookie、认证头或用户标识。API 地址与端点参与缓存键。刷新失败会抛出错误，使 Next 保留最近成功值；冷缓存失败返回 503 和 `Retry-After: 30`，错误响应不缓存。上游读取连接及响应体限时 4 秒，网络错误/5xx 最多重试一次，429 不立即重试。
+`HomeSnapshotSections` 与底部轮次提示直接消费服务端传入的 landing/community。页面再次加载时获取当时可用的快照；按需失效采用 stale-while-revalidate，因此首次访问仍可能看到旧值，随后读取才收敛。不承诺后台变更立即出现在已经打开的页面。
 
-错误仍记录在服务端，包括连接/响应阶段、上游 HTTP 状态、尝试次数、总耗时、白名单格式的网络错误码和 Cloudflare Ray ID。日志不记录 Cookie、认证头、响应正文或可能携带凭证的原始异常消息。前端隐藏可选统计的失败提示，不把真实接口错误伪装成成功。
+服务端只缓存 allowlist 中的 `/public/home`、`/public/schools`，不转发 Cookie、认证头或用户标识。API origin 和 path 参与缓存键；上游连接与响应体合计每次限时 4 秒，网络错误/5xx 最多重试一次，429 不立即重试。公开首页字段由 `parsePublicHome` 校验并投影，去掉不展示的 `generatedAt`，API 原有 community 外部响应仍保留该字段。
 
-缓存周期表示开始重新验证的时间，不是数据最大延迟：多层缓存及后台刷新会叠加延迟；持续故障时可能继续显示较旧的成功统计。学校列表只用于展示与邮箱识别，注册提交仍由 API 校验实时资格。发布替换默认策略的同路径图片时，已有浏览器缓存可能持续 1 小时；内容 hash 图片须随内容更新文件名，其缓存可持续 1 年。具体声明见 [Next 配置](../../apps/web/next.config.ts)。
+服务端读取失败会抛错，不能将失败转换成成功的空统计页覆盖旧快照。首次构建需要可用 API。已有快照过期后继续使用 stale-while-revalidate；持续故障下可能显示更旧的数据。3600 秒 TTL 只提供后续访问时的恢复机会，不是最大端到端延迟承诺，也不保证定时主动重生。API 成功响应带 `public,max-age=60`，故障返回 503/no-store。
 
-上述是 Web 层策略。API 进程的 landing、可注册学校目录和公开问卷结构缓存 TTL 为 30 分钟，社区统计为 10 秒；学校邮箱解析另有短期缓存。策略与常量由 [PublicService](../../apps/api/src/modules/public/public.service.ts)、[CommunityStatsService](../../apps/api/src/modules/public/community-stats.service.ts) 和 [QuestionnaireService](../../apps/api/src/modules/questionnaire/questionnaire.service.ts) 维护。
+Sentry 原有配置和自动追踪元数据保持不变。完整 HTML 在重新生成时仍可能变化，预算按重新生成的页面输出计量，不把去掉 generatedAt 当成零 ISR Writes 的保证。Data Cache JSON 与整页 ISR 是不同层，验收分别记录，不能将本地缓存文件写入直接当成线上写入账单；最终效果以生产 Vercel ISR Writes 确认。
 
-写入不会统一清空公开缓存；显式失效范围如下：
+## 业务变更与发送
 
-| 写入路径 | 失效范围 |
+`PublicCacheInvalidation` 只有 `home`、`schools` 两个 scope。第一条迁移中的延迟约束 trigger 在提交阶段比较公开投影相关字段，取得业务行锁之后才更新队列，避免注销与轮次揭晓形成锁序环；原事务回滚时队列更新一同回滚。注册/注销/冻结、学校归属、已提交性别、问卷归档、已揭晓且已介绍的匹配、轮次及学校目录变更均覆盖；登录、普通资料名字和无关 updatedAt 不排队。第二条迁移将普通变化合并窗口改为 30 分钟，并增加持久化领取字段 `claimedRevision`、`lastClaimedAt`。连续变化不会无限延后首次 dueAt。
+
+Dispatcher 启动恢复待办，已有业务提交后主动唤醒；每 1 分钟补扫未唤醒的变更。普通变化首次等待 30 分钟；轮次/学校等 urgent 首次可在 5 秒后尝试，但该 scope 已领取过失效后，所有后续变化共同受 30 分钟门限约束，urgent 也不绕过。发送尝试还至少间隔 60 秒。扫描和通知请求不等于页面重生。
+
+worker 清理本进程 landing/community/学校缓存，读取稳定公开投影，hash 不变时只确认 revision。revision + CAS lease 防止两个 worker 同时处理；发送中新增 revision 不能被旧确认吞掉。HTTP 超时 5 秒、最多 6 次故障尝试，等待 60/120/240/480/900 秒；耗尽后记录 exhaustedAt，停止自动尝试。重启恢复 pending，不重置耗尽项；最后一次领取后失联的 worker 在租约过期后也会持久化耗尽状态，不能领取第 7 次；新的相关业务变化可重新激活。人工重置必须按运维授权执行并先修复失败原因。诊断仅记录 scope、revision、attempt、是否耗尽，不打印秘密与用户数据。
+
+## 接收、持久化领取与重复控制
+
+API 用 `PUBLIC_CACHE_REVALIDATION_URL` 通知 Web `/api/internal/public-cache/revalidate`，两端共用不少于 32 字符的 `PUBLIC_CACHE_REVALIDATION_SECRET`。API 的 URL 非空时必须配置有效密钥；允许先仅配置密钥、保持 URL 为空，此时领取端可用而 dispatcher 禁用，保留小时 TTL。分阶段发布先上线含两条迁移与 claim 端点的 secret-only API，再上线带相同密钥的 Web，最后配置 API URL 开启发送；不需新增启用变量或修改全局后台任务开关。生产要求 HTTPS，URL 不携带凭据、query 或 fragment。Web 未配置有效共享密钥时返回 503。
+
+Web 验证 `HMAC-SHA256(secret, timestamp + '.' + rawBody)`：时间戳头 `x-lilink-timestamp`、十六进制签名头 `x-lilink-signature`；正文仅 `{scope,revision}`，最多 1024 bytes，读取正文最多 3 秒，时间容差 ±300 秒，revision 为正 bigint 整数字符串。scope 只能映射到固定 tag，不接受任意 path/tag。
+
+验证通过后，Web 将正文规范化为 `JSON.stringify({scope,revision})`，重新签名调用 API `/v1/internal/public-cache/claim`。API 原子更新持久化行：新 revision 且该 scope 距上次领取至少 30 分钟，才同时写入 claimedRevision/lastClaimedAt 并授予失效；允许范围仍限于当前已提交的 revision。领取状态不依赖 Vercel 进程内存，适用于多个接收实例。
+
+| 领取结果 | Web 响应与动作 |
 | --- | --- |
-| 后台轮次创建/编辑/删除、周轮次设置和手动执行，自动周轮次创建、揭晓/强制重置及账号注销 | landing；见 [CyclesService](../../apps/api/src/modules/cycles/cycles.service.ts)、[WeeklyCycleService](../../apps/api/src/modules/cycles/weekly-cycle.service.ts)、[AccountDeletionService](../../apps/api/src/modules/account/account-deletion.service.ts) |
-| 学校管理 | 社区统计（含学校分组）、学校邮箱解析、可注册学校目录及公开问卷结构；见 [AdminSchoolService](../../apps/api/src/modules/admin/admin-school.service.ts) |
-| 后台发布问卷 revision | 公开问卷结构；见 [AdminService](../../apps/api/src/modules/admin/admin.service.ts) |
+| 获准新 revision | 200，`invalidated: true`；执行该 scope 的 `revalidateTag(tag, 'max')` |
+| 同 revision 或旧 revision 已领取 | 200，`invalidated: false`；不再执行失效 |
+| 新 revision 尚在该 scope 的 30 分钟窗口 | 429，`invalidated: false`，附 1–1800 秒 `Retry-After`；不执行失效 |
+| API 领取调用失败或响应非法 | 503；不执行失效 |
 
-注册、用户问卷提交及后台账号冻结不会主动清除 landing 缓存，它们引起的统计变化依赖 TTL 到期后的读取或后续相关失效。重启清空进程缓存，多实例的缓存状态独立，不能仅根据 Next 的 30/60 秒声明承诺端到端新鲜度。
+响应均 `no-store`。Dispatcher 按有效 `Retry-After` 延后 pending，释放 lease 并减回本次 attempts，不将正常门限延后消耗为故障重试；同/旧 revision 的 200 可确认该次发送，避免响应丢失后的重复失效。
 
-缓存成功响应可以在上游数据库暂时不可达时继续返回。`/v1/health` 只证明 API 进程应答，landing 返回成功也可能命中缓存；两者均不能单独证明数据库当前可读。指标的账号及归档口径由 [运营统计](analytics.md) 定义。
+领取在 tag 失效之前持久化。如果 Web 在领取成功后、执行失效前崩溃，重试将得到 duplicate，可能漏掉这一次按需失效。这里选择约束重复写入，明确不承诺 exactly-once；小时 TTL 仅提供之后成功读取时的恢复机会，不能掩盖持续上游故障。接收成功日志或 200 也不能单独证明已产生新页面。
 
-验证入口：
+`schools` tag 管理注册资格目录，不改写 `/schools` 的静态合作学校介绍。资格展示可能暂时旧，注册提交仍由 API 实时验证。API 的 landing、可注册学校目录和问卷结构缓存仍为 30 分钟，community 为 10 秒；worker 清缓存只影响所在实例，多 API 实例上线前必须补跨实例版本同步。统计口径见[运营统计](analytics.md)。
 
-- `npm run test --workspace web -- src/lib/public-data-cache.test.ts src/lib/eligible-schools.test.ts`
-- `npm run test:storybook:web -- --run apps/web/src/app/community-stats.stories.tsx apps/web/src/stories/registration-schools.stories.tsx`
-- `node scripts/e2e/run.mjs community.spec.ts --project=chromium --project=mobile-chromium --project=webkit --project=mobile-webkit`
+## 验证入口
 
-E2E 只使用 runner 的临时数据库和合成数据。故障恢复用浏览器拦截模拟，验证服务端首屏已有统计、失败保留、30 秒后恢复和注册学校识别，不向生产发验证码。
+- `node scripts/e2e/run.mjs community.spec.ts home-cache-stability.spec.ts isr-write-budget.spec.ts vercel-assets.spec.ts pwa.spec.ts pwa-origin-failure.spec.ts --project=chromium --project=mobile-chromium --project=webkit --project=mobile-webkit`
+- `npm run test:storybook:web -- --run apps/web/src/app/community-stats.stories.tsx apps/web/src/stories/public-pages.stories.tsx`
 
-维护位置：[public-data-cache.ts](../../apps/web/src/lib/public-data-cache.ts)。
+需要 Node 24、npm 11、Docker、已安装依赖和 Playwright 浏览器。runner 使用 disposable PostgreSQL/Mailpit、合成账号、临时签名密钥与同源 loopback 服务。验收覆盖服务端首屏统计、停留与隐藏恢复不追加浏览器统计请求、故障保留与恢复、旧 30 秒窗口之后首页仍 HIT、管理员轮次修改后真实通知使重载页面及底部收敛、拒绝非法通知、事务回滚和合并、重复领取与门限、同源静态资源及 PWA 故障边界。
+
+工件保存于 `artifacts/e2e/<run-id>/`。本地行为结果和预算模型不等于生产账单；生产 ISR 用量与中国大陆当前生产版本性能对照均需独立证据。维护位置：[公开缓存](../../apps/web/src/lib/public-data-cache.ts)、[快照展示](../../apps/web/src/app/home-snapshot-sections.tsx)、[失效接收端](../../apps/web/src/app/api/internal/public-cache/revalidate/route.ts)、[领取端](../../apps/api/src/modules/public/public-cache-claim.controller.ts)、[持久化发送端](../../apps/api/src/modules/public/public-cache-invalidation.service.ts)。

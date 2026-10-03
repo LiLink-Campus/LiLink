@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { shellAssets } from "../lib/shell-assets.generated";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -17,17 +18,17 @@ export default function manifest(): MetadataRoute.Manifest {
     dir: "ltr",
     categories: ["social", "lifestyle"],
     icons: [
-      { src: "/icons/icon-192.png?v=brand-20260921", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-512.png?v=brand-20260921", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icons/icon-maskable-512.png?v=brand-20260921", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: shellAssets["icons/icon-192.png"], sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: shellAssets["icons/icon-512.png"], sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: shellAssets["icons/icon-maskable-512.png"], sizes: "512x512", type: "image/png", purpose: "maskable" },
       {
-        src: "/icons/icon.svg?v=brand-20260921",
+        src: shellAssets["icons/icon.svg"],
         sizes: "any",
         type: "image/svg+xml",
         purpose: "any",
       },
       {
-        src: "/icons/icon-maskable.svg?v=brand-20260921",
+        src: shellAssets["icons/icon-maskable.svg"],
         sizes: "any",
         type: "image/svg+xml",
         purpose: "maskable",

@@ -19,6 +19,10 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
+  PUBLIC_CACHE_REVALIDATION_URL: z.union([z.literal(''), z.url()]).default(''),
+  PUBLIC_CACHE_REVALIDATION_SECRET: z
+    .union([z.literal(''), z.string().min(32)])
+    .default(''),
   MAIL_DELIVERY_ENABLED: z
     .enum(['true', 'false'])
     .default('true')
@@ -149,7 +153,38 @@ const envSchema = z.object({
     .min(16, 'REDEEM_TICKET_SECRET must be at least 16 characters.'),
 });
 
-export const env = envSchema.parse(process.env);
+export const env = envSchema
+  .superRefine((value, ctx) => {
+    if (
+      Boolean(value.PUBLIC_CACHE_REVALIDATION_URL) &&
+      !value.PUBLIC_CACHE_REVALIDATION_SECRET
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Public cache revalidation URL requires a configured secret.',
+      });
+    }
+    if (value.PUBLIC_CACHE_REVALIDATION_URL) {
+      const url = new URL(value.PUBLIC_CACHE_REVALIDATION_URL);
+      if (
+        url.username ||
+        url.password ||
+        url.search ||
+        url.hash ||
+        !['http:', 'https:'].includes(url.protocol) ||
+        (url.protocol !== 'https:' &&
+          (value.APP_ENV === 'production' ||
+            !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            'Public cache revalidation requires HTTPS, or loopback HTTP outside production, without credentials, query or fragment.',
+        });
+      }
+    }
+  })
+  .parse(process.env);
 
 /**
  * True only in a local developer runtime, never in CI (APP_ENV=test) or on any

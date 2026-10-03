@@ -1,6 +1,12 @@
 import { HARD_MATCH_KEYS } from '@lilink/shared';
 import { test, expect, api, completeProfile, visit } from '../support/fixtures';
 
+type CountdownLayoutSample = { state: 'pending' | 'ready'; y: number; height: number; frame: number };
+type CountdownLayoutEvidence = { samples: CountdownLayoutSample[]; complete: boolean };
+
+// Failure boundary: initializing the countdown must not move the visible
+// confirmation action. Streaming may keep the placeholder hidden until after
+// hydration; only frames with a visible action can establish a layout baseline.
 test('home confirmation action stays in place when the countdown initializes @smoke', async ({ page, context, db, account, signedIn }, info) => {
   void signedIn;
   await completeProfile(context, db);
@@ -9,35 +15,60 @@ test('home confirmation action stays in place when the countdown initializes @sm
   await db.questionnaireResponse.update({ where: { userId: account.id }, data: {
     acknowledgedHardMatchSignatures: { ...response.acknowledgedHardMatchSignatures, [HARD_MATCH_KEYS.gender]: 'outdated-signature' },
   } });
-  let release!: () => void;
-  const gate = new Promise<void>(resolve => { release = resolve; });
-  await page.route('**/_next/static/chunks/*.js', async route => {
-    await gate;
-    await route.continue();
+  await page.addInitScript(() => {
+    if (location.pathname !== '/dashboard') return;
+    const evidence: CountdownLayoutEvidence = { samples: [], complete: false };
+    Object.defineProperty(window, '__countdownLayoutEvidence', { value: evidence });
+    let frame = 0;
+    let readyFrames = 0;
+    function observe() {
+      frame++;
+      const action = [...document.querySelectorAll('a')]
+        .find(element => /^去确认这\s*1\s*项/.test(element.textContent?.trim() ?? ''));
+      if (action) {
+        const box = action.getBoundingClientRect();
+        const style = getComputedStyle(action);
+        const section = action.closest('section');
+        const ready = section?.querySelector('[aria-label="距揭晓"]');
+        const pending = [...(section?.querySelectorAll('span') ?? [])]
+          .some(element => element.textContent?.trim() === '计算中');
+        if (box.width > 0 && box.height > 0 && style.visibility === 'visible'
+          && !action.closest('[hidden], [inert], [aria-hidden="true"]') && (ready || pending)) {
+          evidence.samples.push({ state: ready ? 'ready' : 'pending', y: box.y, height: box.height, frame });
+          readyFrames = ready ? readyFrames + 1 : 0;
+          if (readyFrames >= 3) { evidence.complete = true; return; }
+        }
+      }
+      requestAnimationFrame(observe);
+    }
+    requestAnimationFrame(observe);
   });
-  try {
-    await visit(page, '/dashboard');
-    await expect(page.getByText('计算中', { exact: true })).toBeVisible();
-    const action = page.getByRole('link', { name: /去确认这 1 项/ });
-    const before = await action.boundingBox();
-    expect(before).not.toBeNull();
-    release();
-    await expect(page.getByLabel('距揭晓', { exact: true })).toBeVisible();
-    await info.attach('countdown-after-initialization', { body: await page.screenshot(), contentType: 'image/png' });
-    const after = await action.boundingBox();
-    expect(after).not.toBeNull();
-    await info.attach('countdown-action-position', { body: JSON.stringify({
-      project: info.project.name, viewport: page.viewportSize(),
-      before: { y: before!.y, height: before!.height }, after: { y: after!.y, height: after!.height },
-    }), contentType: 'application/json' });
-    expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(1);
-    await action.click();
-    await expect(page).toHaveURL(/\/dashboard\/profile(?:#.*)?$/);
-    await expect(page.getByRole('group', { name: '性别', exact: true })).toBeInViewport();
-  } finally {
-    release();
-    if (!page.isClosed()) await page.unrouteAll({ behavior: 'wait' });
-  }
+  await visit(page, '/dashboard');
+  await page.waitForFunction(() => (window as typeof window & {
+    __countdownLayoutEvidence?: CountdownLayoutEvidence;
+  }).__countdownLayoutEvidence?.complete);
+  const observed = await page.evaluate(() => (window as typeof window & {
+    __countdownLayoutEvidence: CountdownLayoutEvidence;
+  }).__countdownLayoutEvidence);
+  const action = page.getByRole('link', { name: /去确认这 1 项/ });
+  await expect(action).toBeVisible();
+  await expect(page.getByLabel('距揭晓', { exact: true })).toBeVisible();
+  await info.attach('countdown-after-initialization', { body: await page.screenshot(), contentType: 'image/png' });
+  const before = observed.samples[0];
+  const after = await action.boundingBox();
+  expect(before).toBeDefined();
+  expect(after).not.toBeNull();
+  await info.attach('countdown-action-position', { body: JSON.stringify({
+    project: info.project.name, viewport: page.viewportSize(),
+    placeholderPainted: observed.samples.some(sample => sample.state === 'pending'),
+    samples: observed.samples,
+    before: { y: before.y, height: before.height }, after: { y: after!.y, height: after!.height },
+  }), contentType: 'application/json' });
+  for (const sample of observed.samples) expect(Math.abs(sample.y - before.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after!.y - before.y)).toBeLessThanOrEqual(1);
+  await action.click();
+  await expect(page).toHaveURL(/\/dashboard\/profile(?:#.*)?$/);
+  await expect(page.getByRole('group', { name: '性别', exact: true })).toBeInViewport();
 });
 
 test('profile recovers after a committed acknowledgement response stalls @smoke', async ({ page, context, db, account, signedIn }, info) => {

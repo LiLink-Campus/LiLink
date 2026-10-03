@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import styles from "./brand-mark.module.css";
+import { shellAssets } from "../lib/shell-assets.generated";
 
 type BrandMarkProps = {
   href?: string;
@@ -10,7 +11,7 @@ type BrandMarkProps = {
 
 export function BrandIcon() {
   return (
-    <Image src="/icons/icon.svg" alt="" width={52} height={52} unoptimized className={styles.art} />
+    <Image src={shellAssets["icons/icon.svg"]} alt="" width={52} height={52} unoptimized className={styles.art} />
   );
 }
 
@@ -24,7 +25,7 @@ export function BrandMark({ href = "/", variant = "default", showTagline = true 
         : `${styles.brandMark} brand-mark`;
 
   return (
-    <Link
+    <Link prefetch={false}
       href={href}
       className={`${className} ${showTagline ? styles.withTagline : ""}`}
       aria-label="LiLink 首页"

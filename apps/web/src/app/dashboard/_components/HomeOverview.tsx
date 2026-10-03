@@ -3,7 +3,7 @@
 import { PwaInstallCard } from "../../_components/PwaInstall";
 import Link from "next/link";
 import { RevealCountdown } from "./RevealCountdown";
-import Image from "next/image";
+import { StaticImage } from "@/components/StaticImage";
 import { useEffect, useId, useRef, useState } from "react";
 import type { Agenda, AgendaItem, AgendaItemAction } from "../_lib/agenda";
 import type { WeeklyIntent } from "../../../lib/weekly-intent";
@@ -16,7 +16,7 @@ const activities = [
     title: "想让相遇，更进一步？",
     description: "聊聊你期待的关系，让专人陪你认真寻找。",
     action: "了解一对一服务 ↗",
-    image: "/images/campus-clean-romance.webp",
+    image: "/images/campus-clean-romance.fdd0f4cc2596.webp",
   },
   {
     id: "partner",
@@ -24,7 +24,7 @@ const activities = [
     title: "下一次见面，多一个去处",
     description: "校园周边的相遇好去处，正在准备中。",
     action: "查看活动说明 ↗",
-    image: "/images/campus-couple-anime.webp",
+    image: "/images/campus-couple-anime.74b2881afd58.webp",
   },
 ] as const;
 
@@ -275,11 +275,12 @@ export function HomeOverview({
                 aria-hidden={index !== activityIndex}
                 inert={index !== activityIndex}
               >
-                <Image
+                <StaticImage
                   src={activity.image}
                   alt="校园活动插画"
                   width={700}
                   height={340}
+                  sizes="(max-width: 700px) 100vw, (max-width: 1120px) 36vw, 400px"
                   loading={index === 0 ? "eager" : "lazy"}
                   className={styles.campaignImage}
                 />

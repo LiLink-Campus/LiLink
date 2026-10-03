@@ -53,7 +53,7 @@ export function SiteNav() {
       </button>
       <nav id="public-site-nav" className={styles.nav} aria-label="主导航">
         {PUBLIC_NAV_ITEMS.map((item) => (
-          <Link
+          <Link prefetch={false}
             key={item.href}
             href={item.href}
             onClick={closeMenu}
@@ -63,7 +63,7 @@ export function SiteNav() {
           </Link>
         ))}
         <div className={styles.authCluster}>
-          <ButtonLink
+          <ButtonLink prefetch={false}
             href={authenticatedUser ? "/dashboard" : "/login"}
             variant="secondary"
             onClick={closeMenu}

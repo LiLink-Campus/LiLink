@@ -15,6 +15,14 @@ lang: zh
 
 ## 目录
 
+- [Vercel 静态资源、学校图集与背景融合验收](2026-10-04-vercel-resource-optimization.md)。
+- [保留 Vercel 的 ISR 控制与验收](2026-10-04-vercel-only-isr.md)。
+- [On-demand Revalidation 的 ISR Writes 专项验收](2026-10-04-isr-write-budget.md)。
+- [全站位图 WebP 压缩与用量复测](2026-10-04-webp-images.md)。
+- [公开页面性能对照](2026-10-03-public-performance.md)。
+- [大陆直连公开页面性能补测](2026-10-03-mainland-direct-performance.md)。
+- [Vercel 快照、失效与独立 CDN 本地验收](2026-10-03-vercel-cache-cdn.md)。
+
 - [文档自动检查与原型隔离修复](2026-10-01-documentation-review-fixes.md)。
 - [暂存文档门禁与分类导航修复](2026-10-01-staged-docs-navigation.md)。
 - [未提交文档重整的独立审查与修复](2026-10-01-uncommitted-review.md)。

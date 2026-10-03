@@ -1,5 +1,4 @@
 import { MemberPageView } from "@/app/about/team/[slug]/member-page-view";
-import { http, HttpResponse } from "msw";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, waitFor, userEvent, within } from "storybook/test";
 import { HomePageView } from "@/app/home-page-view";
@@ -22,7 +21,7 @@ const meta = {
   title: "全站/公开页面",
   tags: ["smoke", "page"],
   decorators: [publicShell],
-  parameters: { fullSite: true, msw: { handlers: { session: [guest], community: [http.get("*/api/public/community", () => HttpResponse.json({ total: 0, genders: { male: 0, female: 0, nonBinary: 0, unknown: 0 }, schools: [], generatedAt: "2026-09-17T10:00:00.000Z" }))] } } },
+  parameters: { fullSite: true, msw: { handlers: { session: [guest] } } },
 } satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;

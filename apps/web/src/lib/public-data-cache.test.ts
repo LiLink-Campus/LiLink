@@ -13,15 +13,11 @@ afterEach(() => {
 });
 
 describe("anonymous public data cache", () => {
-  it("caches only anonymous requests and uses separate refresh intervals", async () => {
+  it("caches only anonymous requests", async () => {
     const request = vi.fn().mockImplementation(async () => Response.json({ total: 42 }));
     vi.stubGlobal("fetch", request);
-    await expect(getCachedPublicData("/public/community")).resolves.toEqual({ total: 42 });
-    expect(unstable_cache).toHaveBeenLastCalledWith(expect.any(Function), ["public-data-v1"], { revalidate: 30 });
-    await getCachedPublicData("/public/schools");
-    expect(unstable_cache).toHaveBeenLastCalledWith(expect.any(Function), ["public-data-v1"], { revalidate: 60 });
-    await getCachedPublicData("/public/landing");
-    expect(unstable_cache).toHaveBeenLastCalledWith(expect.any(Function), ["public-data-v1"], { revalidate: 60 });
+    await expect(getCachedPublicData("/public/schools")).resolves.toEqual({ total: 42 });
+    expect(unstable_cache).toHaveBeenLastCalledWith(expect.any(Function), ["public-data-v2"], { revalidate: 60, tags: ["public-schools"] });
     for (const [, options] of request.mock.calls) {
       expect(options.headers).toEqual({ Accept: "application/json" });
       expect(options).not.toHaveProperty("credentials");
@@ -32,7 +28,7 @@ describe("anonymous public data cache", () => {
     const request = vi.fn().mockResolvedValueOnce(new Response(null, { status: 520 }))
       .mockResolvedValueOnce(Response.json({ total: 42 }));
     vi.stubGlobal("fetch", request);
-    await expect(getCachedPublicData("/public/community")).resolves.toEqual({ total: 42 });
+    await expect(getCachedPublicData("/public/schools")).resolves.toEqual({ total: 42 });
     expect(request).toHaveBeenCalledTimes(2);
   });
 
@@ -40,7 +36,7 @@ describe("anonymous public data cache", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const request = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
     vi.stubGlobal("fetch", request);
-    await expect(getCachedPublicData("/public/community")).rejects.toThrow("unavailable");
+    await expect(getCachedPublicData("/public/schools")).rejects.toThrow("unavailable");
     expect(request).toHaveBeenCalledTimes(2);
   });
 
@@ -48,9 +44,9 @@ describe("anonymous public data cache", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const request = vi.fn().mockResolvedValue(Response.json({ message: "private gateway detail" }, { status: 429 }));
     vi.stubGlobal("fetch", request);
-    await expect(getCachedPublicData("/public/community")).rejects.toThrow("HTTP 429");
+    await expect(getCachedPublicData("/public/schools")).rejects.toThrow("HTTP 429");
     expect(request).toHaveBeenCalledTimes(1);
-    expect(console.warn).toHaveBeenCalledWith("[public-data] /public/community: HTTP 429", expect.objectContaining({ phase: "response", status: 429, attempt: 1 }));
+    expect(console.warn).toHaveBeenCalledWith("[public-data] /public/schools: HTTP 429", expect.objectContaining({ phase: "response", status: 429, attempt: 1 }));
   });
 
   it("bounds a stalled body to two 4-second attempts", async () => {
@@ -63,7 +59,7 @@ describe("anonymous public data cache", () => {
       }),
     }));
     vi.stubGlobal("fetch", request);
-    const result = expect(getCachedPublicData("/public/community")).rejects.toThrow("timeout");
+    const result = expect(getCachedPublicData("/public/schools")).rejects.toThrow("timeout");
     await vi.advanceTimersByTimeAsync(8_000);
     await result;
     expect(request).toHaveBeenCalledTimes(2);
@@ -73,8 +69,8 @@ describe("anonymous public data cache", () => {
   it("records safe connection diagnostics without logging raw error messages", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("private URL and headers", { cause: { code: "ECONNRESET", message: "secret" } })));
-    await expect(getCachedPublicData("/public/community")).rejects.toThrow("unavailable");
-    expect(warn).toHaveBeenCalledWith("[public-data] /public/community: network or invalid response", expect.objectContaining({ phase: "connection", status: null, causeCode: "ECONNRESET", attempt: 2 }));
+    await expect(getCachedPublicData("/public/schools")).rejects.toThrow("unavailable");
+    expect(warn).toHaveBeenCalledWith("[public-data] /public/schools: network or invalid response", expect.objectContaining({ phase: "connection", status: null, causeCode: "ECONNRESET", attempt: 2 }));
     expect(JSON.stringify(warn.mock.calls)).not.toContain("secret");
     expect(JSON.stringify(warn.mock.calls)).not.toContain("private URL");
   });

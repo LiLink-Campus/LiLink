@@ -45,7 +45,7 @@ export function RegisterShell({
       <Card className={`${authStyles.panel} ${styles.panel} ${className} animate-in`} layout="plain">
         {backHref ? (
           <p className={authStyles.backLink}>
-            <Link href={backHref}>← {backLabel}</Link>
+            <Link prefetch={false} href={backHref}>← {backLabel}</Link>
           </p>
         ) : null}
         {!step && eyebrow ? <p className={authStyles.eyebrow}>{eyebrow}</p> : null}
@@ -53,7 +53,7 @@ export function RegisterShell({
         {description ? <p>{description}</p> : null}
         {children}
         <p className={authStyles.hint}>
-          已有账号？<Link href={loginHref}>立即登录</Link>
+          已有账号？<Link prefetch={false} href={loginHref}>立即登录</Link>
         </p>
       </Card>
     </main>

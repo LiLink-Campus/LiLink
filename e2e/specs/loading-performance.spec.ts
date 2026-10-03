@@ -67,12 +67,16 @@ test('complete artwork cold and warm navigation evidence @smoke', async ({ page,
         .filter(entry => entry.name.includes('/images/about/watercolor-atlas'))
         .map(entry => {
           const resource = entry as PerformanceResourceTiming;
-          return { path: new URL(resource.name).pathname, durationMs: resource.duration,
+          const url = new URL(resource.name);
+          return { origin: url.origin, path: url.pathname, durationMs: resource.duration,
             transferBytes: resource.transferSize, encodedBytes: resource.encodedBodySize,
             decodedBytes: resource.decodedBodySize };
         }),
     }), cache));
-    const artworkResponse = await page.request.get(samples.at(-1)!.artwork[0].path);
+    const artwork = samples.at(-1)!.artwork[0];
+    expect(artwork.origin).toBe(process.env.E2E_WEB_URL);
+    const artworkResponse = await page.request.get(`${artwork.origin}${artwork.path}`);
+    expect(artworkResponse.ok()).toBeTruthy();
     expect(artworkResponse.headers()['cache-control']).toContain('immutable');
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
   }

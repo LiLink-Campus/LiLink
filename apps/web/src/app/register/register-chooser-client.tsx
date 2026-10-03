@@ -30,7 +30,7 @@ export default function RegisterChooserClient() {
       loginHref={loginHref}
     >
       <div className={styles.choices}>
-        <Link href={schoolHref} className={styles.choice}>
+        <Link prefetch={false} href={schoolHref} className={styles.choice}>
           <span className={styles.choiceHeading}>
             <strong>学校邮箱</strong><span className={styles.badge}>免邀请码</span>
             <span className={styles.arrow} aria-hidden="true">→</span>
@@ -38,7 +38,7 @@ export default function RegisterChooserClient() {
           <p>使用合作高校邮箱，自动识别学校。</p>
         </Link>
 
-        <Link href={personalHref} className={styles.choice}>
+        <Link prefetch={false} href={personalHref} className={styles.choice}>
           <span className={styles.choiceHeading}>
             <strong>普通邮箱</strong><span className={styles.badgeMuted}>需邀请码</span>
             <span className={styles.arrow} aria-hidden="true">→</span>

@@ -541,6 +541,25 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 }
 
+// Transactional, coalesced invalidations for the two public Web snapshots.
+model PublicCacheInvalidation {
+  scope                String    @id
+  revision             BigInt    @default(1)
+  acknowledgedRevision BigInt    @default(0)
+  claimedRevision      BigInt    @default(0)
+  lastClaimedAt         DateTime?
+  urgent               Boolean   @default(false)
+  dueAt                DateTime  @default(now())
+  attempts             Int       @default(0)
+  lastAttemptAt        DateTime?
+  lastDeliveredAt      DateTime?
+  deliveredHash        String?
+  leaseUntil           DateTime?
+  leaseToken           String?
+  exhaustedAt          DateTime?
+  updatedAt            DateTime  @default(now())
+}
+
 enum OutboundEmailMessageCategory {
   TRANSACTIONAL
   BULK

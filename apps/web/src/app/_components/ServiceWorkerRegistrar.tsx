@@ -22,6 +22,7 @@ export function ServiceWorkerRegistrar() {
     } else {
       window.addEventListener("load", register, { once: true });
     }
+    return () => window.removeEventListener("load", register);
   }, []);
 
   return null;

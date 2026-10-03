@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { StaticImage } from "@/components/StaticImage";
 import { ParticipationStrip } from "./participation-strip";
 import Link from "next/link";
 
@@ -167,7 +167,7 @@ export function MatchClientView({
             {dashboard?.latestMatchVisibility !== "LIMITED" && <button className={desktop.back} onClick={() => setOpenedMatchId(null)}>← 收起来信</button>}
             {hero}
           </div> : <section className={desktop.welcome} aria-label="上一轮匹配结果">
-            <div className={desktop.artwork}><Image className={desktop.art} src="/images/match-letter-handwritten.png" width={1024} height={1024} alt="花枝环绕着一封等待打开的来信" priority sizes="(max-width: 879px) 85vw, 440px" /></div>
+            <div className={desktop.artwork}><StaticImage className={desktop.art} src="/images/match-letter-handwritten.8440550c4fe2.webp" width={1024} height={1024} alt="花枝环绕着一封等待打开的来信" priority sizes="(max-width: 879px) 85vw, 440px" /></div>
             <div className={desktop.welcomeCopy}>
               <h2>{counterpart ? "有一位同学，想认识你" : dashboard && lastRoundUnmatched(dashboard) ? "合拍的人，值得再等一等" : dashboard?.lastRevealedRound?.participationStatus === "OPTED_OUT" ? "上一轮，你暂未参与" : "下一封来信，值得期待"}</h2>
               <p>{counterpart ? "上一轮已匹配成功，去看看这封来信吧。" : dashboard && lastRoundUnmatched(dashboard) ? "上一轮暂未找到合适的同学。本轮参与状态可在上方确认。" : "这里会保留最近一轮的结果。准备好后，在上方确认参与新一轮相遇。"}</p>

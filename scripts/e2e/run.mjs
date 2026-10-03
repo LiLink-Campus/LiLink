@@ -9,13 +9,27 @@ import { testEnvironment } from './environment.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const apiOnly = process.argv.includes('--api');
+const buildOnly = process.argv.includes('--build-only');
 const serve = process.argv.includes('--serve');
 const serveMinutesArg = process.argv.find(arg => arg.startsWith('--serve-minutes='));
 const serveMinutes = Number(serveMinutesArg?.split('=')[1] ?? 30);
-if ((serve && apiOnly) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 30) {
-  throw new Error('--serve is browser-only; --serve-minutes must be between 1 and 30.');
+const extraOriginArgs = process.argv.filter(arg => arg.startsWith('--extra-client-origin='));
+const extraOriginArg = extraOriginArgs[0];
+const extraOrigin = extraOriginArg?.slice('--extra-client-origin='.length);
+if (extraOriginArgs.length > 1 || (extraOriginArg && !extraOrigin)) {
+  throw new Error('--extra-client-origin must be supplied at most once with a nonempty origin.');
 }
-const playwrightArgs = process.argv.slice(2).filter(arg => arg !== '--serve' && !arg.startsWith('--serve-minutes='));
+if (extraOrigin) {
+  const url = new URL(extraOrigin);
+  if (!serve || url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port || url.origin !== extraOrigin) {
+    throw new Error('--extra-client-origin requires --serve and an exact loopback HTTP origin.');
+  }
+}
+if ((serve && apiOnly) || (buildOnly && (serve || apiOnly)) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 90) {
+  throw new Error('--serve is browser-only; --serve-minutes must be between 1 and 90.');
+}
+const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin='));
+if (buildOnly && playwrightArgs.length) throw new Error('--build-only does not accept browser test arguments.');
 const startedAt = Date.now();
 const runId = randomBytes(6).toString('hex');
 const output = path.join(root, 'artifacts/e2e', runId);
@@ -91,6 +105,7 @@ const ports = [];
 while (ports.length < 5) { const port = await freePort(); if (!ports.includes(port) && port !== 5432) ports.push(port); }
 const [dbPort, smtpPort, mailPort, apiPort, webPort] = ports;
 const env = testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId });
+if (extraOrigin) env.CLIENT_ORIGIN += `,${extraOrigin}`;
 if (apiOnly) env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_e2e_', '/lilink_vip_test_');
 Object.assign(env, { E2E_SOURCE_ROOT: root, E2E_OUTPUT: output, E2E_WORKSPACE: workspace, LILINK_BUILD_WORKSPACE_ROOT: root });
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
@@ -131,12 +146,15 @@ try {
   await command('node', ['apps/api/scripts/seed-defaults.mjs'], { label: 'seed' });
   await command('node', ['e2e/support/seed.mjs'], { label: 'seed' });
   const api = command('node', ['apps/api/dist/src/main.js'], { background: true, label: 'api' });
+  env.E2E_API_PID = String(api.pid);
   // Public prerendering must read the seeded API, not cache a connection failure.
   await waitFor(`${env.E2E_API_URL}/health`, api);
+  if (buildOnly) await command('npm', ['run', 'typecheck:web'], { label: 'typecheck' });
   await Promise.race([
     command('npm', ['run', 'build:web'], { label: 'build' }),
     api.done.then(() => { throw new Error('The isolated API exited during the web build.'); }),
   ]);
+  if (!buildOnly) {
   const web = command('npm', ['run', 'start', '--workspace', 'web', '--', '--hostname', '127.0.0.1', '--port', String(webPort)], { background: true, label: 'web' });
   await Promise.all([waitFor(`${env.E2E_API_URL}/health`, api), waitFor(`${env.E2E_WEB_URL}/login`, web), waitFor(`${env.E2E_MAIL_URL}/api/v1/messages`, api)]);
   const services = [api, web, ...containers.map(name => command('docker', ['wait', name], { background: true, label: 'service-watch' }))];
@@ -154,6 +172,7 @@ try {
     } finally { clearTimeout(expiry); }
   } else {
     await Promise.race([command('npx', ['playwright', 'test', ...playwrightArgs], { label: 'tests' }), serviceFailure]);
+  }
   }
   }
 } catch (error) {

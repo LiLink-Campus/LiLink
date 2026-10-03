@@ -1,0 +1,535 @@
+{
+  "schemaVersion": 1,
+  "monthlyPageViews": 50000,
+  "windowDays": 31,
+  "targetUtilization": 0.8,
+  "uncertaintyMultiplier": 1.2,
+  "notes": [
+    "Current scope keeps every static asset and image on Vercel. Previous independent-CDN input and conclusions are retired from this current forecast.",
+    "50,000 monthly page views, 31 days, target 80% of each quota, and 1.2 uncertainty multiplier. Project arithmetic is conditional, not verified billing.",
+    "After public envelope comes from final row-split atlas same-session resource comparison f3c47b950f08, candidate source digest 91a044cf209bdb844e2a879bb758af75b4b530085f391d14d199edd96021e075:20 public route/viewport/cold-warm samples,29 cold outgoing requests and854316 request+response planning bytes;5 warm requests and9510 bytes. These are isolated public-route browser observations, not production route mix, private flows or bills.",
+    "Each all-cold page-view envelope conservatively incurs the largest observed public-page cost; it is not a production route-mix measurement. Actual user, bot and preview requests must be calibrated from Vercel.",
+    "Cold add-ons: 5 Vercel PWA requests/20KiB, 1 Speed script request, 0.5 sampled Analytics event, 0.07 Speed events, 2 Sentry requests/32KiB, and 0.5 other dynamic requests/32KiB. Telemetry adds 16KiB transfer. Warm PWA allowance is 1 request/4KiB.",
+    "Sentry configuration remains unchanged. CPU and memory use explicit allowances: 0.5 dynamic calls/PV at20msCPU,500ms,2GB and two Sentry calls/PV at10msCPU,250ms,2GB. Real telemetry, private flows and compute are unverified.",
+    "Public image-optimizer requests/read envelope are zero across all20 final sampled cells; fixed images now use same-origin pre-generated Vercel assets. This does not prove whole-project production Image Cache Reads zero. Private/dynamic paths, actual cache misses,2000 transformations and32000 write-unit allowances remain unverified and unchanged.",
+    "Homepage ISR uses the conservative22-unit complete-local-route-file envelope,1489 maximum accepted claims/month at30min persistent per-scope gating,744 hourly fallback opportunities and150 deployments.10000 other ISR units are reserved before1.2. A required two-generations-per-accepted-invalidation scenario remains visible.",
+    "3100 business delivery events/month at up to6 attempts cause18600 callback requests in the normal workload model. Persistent revision claims and30min gating cap accepted invalidations separately; callback transport cost is not automatically zero. Capacity stress adds44516 business events without removing that ISR gate.",
+    "Before and intermediate phases preserve historical Vercel-only measurements. They are policy comparisons and are not current production bills. The intermediate callback reserve is historical and its monthlyEvents is zero to avoid counting the same reserve twice.",
+    "ISR/Data Cache storage layout, compression, multiple active deployments, unchanged-output credit and platform generation concurrency remain unverified. There is no SSE, mandatory60s browser polling, or independent CDN in the proposed topology.",
+    "150 monthly builds at10min=1500min before1.2 is a forward workload allowance. Future retained deployment/functions storage, other team usage and post-deployment measurements remain unknown.",
+    "Final same-session resource ledger retains local telemetry404 and six partial warm application/json devlog responses on each side; unobserved tails, old URL redirects, private flows and real telemetry are not measured zero.20/20 public cells and isolated PWA capture completed; no missing optimized-image bodies. Browser-cache and worker-served responses do not become outgoing request savings on platform bills by assumption.",
+    "Final row-split atlas local full-home route outputs come from artifacts/resource-optimization-20261004/row-split-cache-outputs/summary.json:HTML64020B,RSC29041B,metadata165B,page-segment27527B,full-segment29041B,tree1058B; independently rounded envelope remains22 units/generation. The HTTP capture HTML63766B is a separate observation. Separate Data Cache files are not classified as billed ISR Writes.",
+    "Same-session comparison preserves50K PV,31 days,1.2 uncertainty,PWA-per-PV stress reserves,telemetry/Sentry,callback attempts,other-project reserves,all-cold/full-miss/two-generation pressures and unknown team/storage/compute/image-write evidence. Mixed-cold requests1490520 and all-cold2330520 still exceed800000.",
+    "PWA installation and installed revisit are observed separately (artifacts/resource-optimization-20261004/row-split-budget/comparison/pwa-session-calibrated.report.json):4 observed additional requests per new installation; monthly installations and installed revisits remain null/UNKNOWN. The per-PV PWA stress reserve is retained in this default model for same-condition attribution, not presented as actual session behavior.",
+    "Whole local prerendered-file independently rounded envelope changes217 to221 units/deployment (artifacts/resource-optimization-20261004/row-split-cache-outputs/summary.json):schools RSC/page/full representations grow4 to6 units each,while_not-found decreases2 combined units. Frequency and homepage22-unit model are unchanged; all-project ISR Writes are not asserted unchanged. The10000-unit in-project reserve for other ISR costs is retained, not enumerated proof of deployed writes."
+  ],
+  "evidence": {
+    "browser": {
+      "verified": false,
+      "source": "artifacts/resource-optimization-20261004/row-split-usage/{before,after}/browser-usage.json;artifacts/resource-optimization-20261004/row-split-comparison/summary.json:runf3c47b950f08,20/20 matched public cells; private flows,real telemetry,partial JSON tails and Vercel billing unverified.",
+      "publicMatrixVerified": true,
+      "sourceDigest": "91a044cf209bdb844e2a879bb758af75b4b530085f391d14d199edd96021e075",
+      "baselineSourceDigest": "51095c151a5fe17e2b95fb8d0f5e0f0a9a0cc9358a9ca88b02b0e815f6375b53"
+    },
+    "compute": {
+      "verified": false,
+      "source": "Project API confirms resourceConfig.fluid=true (artifacts/usage/vercel-project-flags.json). CPU/memory remain explicit workload allowances; Vercel metrics requires Observability Plus."
+    },
+    "images": {
+      "verified": false,
+      "source": "artifacts/resource-optimization-20261004/row-split-comparison/summary.json:all sampled public optimizer requests/read envelope0; actual Vercel reads for private/dynamic images, misses,transformations,writes and post-deployment usage unverified.",
+      "publicOptimizerEnvelopeVerified": true
+    },
+    "otherTeam": {
+      "verified": false,
+      "source": null
+    },
+    "productionAfter": {
+      "verified": false,
+      "source": null
+    },
+    "builds": {
+      "verified": false,
+      "source": "Historical snapshot artifacts/usage/vercel-dashboard-current.json observed2026-10-02T19:26:38.268Z and artifacts/usage/vercel-dashboard-lilink-builds.txt (mtime2026-10-02T19:30:48.238Z):127completed/0errored, about2h builds and8m queued. Not fetched in this current run.150totalattempts×10min remains a forward allowance, not an enforced cap or candidate maximum."
+    },
+    "storage": {
+      "verified": false,
+      "source": "Historical read-only IAB snapshot artifacts/usage/vercel-dashboard-current.json, observed2026-10-02T19:26:38.268Z, AllProjects/Hobby, display period Sep2,13:00–Oct2,13:00: Deployment Storage2.24GB/10GB and Functions Storage846.49MB/10GB. Not fetched in this current run. Candidate future retained peak/GB-months and future project/other-team split remain UNKNOWN."
+    }
+  },
+  "otherTeamUsage": {
+    "isrWrites": null,
+    "isrReads": null,
+    "cdnRequests": null,
+    "fastDataTransferBytes": null,
+    "fastOriginTransferBytes": null,
+    "functionInvocations": null,
+    "activeCpuHours": null,
+    "provisionedMemoryGBHours": null,
+    "imageTransformations": null,
+    "imageReads": null,
+    "imageWrites": null,
+    "webAnalyticsEvents": null,
+    "speedInsightsEvents": null,
+    "buildExecutionMinutes": null
+  },
+  "scenarios": [
+    {
+      "name": "mixed-browser-50-percent-cold",
+      "coldBrowserFraction": 0.5,
+      "persistentCacheMissFraction": 0.1
+    },
+    {
+      "name": "all-cold-browser",
+      "coldBrowserFraction": 1,
+      "persistentCacheMissFraction": 0.1
+    },
+    {
+      "name": "all-cold-browser-and-persistent-cache-miss",
+      "coldBrowserFraction": 1,
+      "persistentCacheMissFraction": 1
+    },
+    {
+      "name": "critical-change-every-minute-capacity-stress",
+      "coldBrowserFraction": 1,
+      "persistentCacheMissFraction": 1,
+      "extraHomeInvalidations": 44516,
+      "requiredForForecast": false
+    },
+    {
+      "name": "all-cold-and-two-generations-per-invalidation",
+      "coldBrowserFraction": 1,
+      "persistentCacheMissFraction": 1,
+      "generationsPerInvalidation": 2
+    }
+  ],
+  "before": {
+    "status": "isolated-browser-measured-plus-explicit-allowances",
+    "coldPerPageView": {
+      "isrWrites": 0,
+      "isrReads": 24,
+      "cdnRequests": 61.6,
+      "fastDataTransferBytes": 1874518.4,
+      "fastOriginTransferBytes": 87654.4,
+      "functionInvocations": 7.8999999999999995,
+      "activeCpuHours": 0.000023333333333333332,
+      "provisionedMemoryGBHours": 0.0011666666666666665,
+      "imageTransformations": 0,
+      "imageReads": 42,
+      "imageWrites": 0,
+      "webAnalyticsEvents": 0,
+      "speedInsightsEvents": 0,
+      "buildExecutionMinutes": 0
+    },
+    "warmPerPageView": {
+      "isrWrites": 0,
+      "isrReads": 26,
+      "cdnRequests": 32.6,
+      "fastDataTransferBytes": 178134.4,
+      "fastOriginTransferBytes": 87654.4,
+      "functionInvocations": 7.8999999999999995,
+      "activeCpuHours": 0.000023333333333333332,
+      "provisionedMemoryGBHours": 0.0011666666666666665,
+      "imageTransformations": 0,
+      "imageReads": 0,
+      "imageWrites": 0,
+      "webAnalyticsEvents": 0,
+      "speedInsightsEvents": 0,
+      "buildExecutionMinutes": 0
+    },
+    "monthlyAdditionalUsage": {
+      "isrWrites": 10000,
+      "isrReads": 1000,
+      "cdnRequests": 20000,
+      "fastDataTransferBytes": 500000000.0000005,
+      "fastOriginTransferBytes": 500000000.0000005,
+      "functionInvocations": 10000,
+      "activeCpuHours": 0.10000000000000009,
+      "provisionedMemoryGBHours": 10.000000000000007,
+      "imageTransformations": 2000,
+      "imageReads": 0,
+      "imageWrites": 32000,
+      "webAnalyticsEvents": 0,
+      "speedInsightsEvents": 0,
+      "buildExecutionMinutes": 1500
+    },
+    "analytics": {
+      "webSampleRate": 1,
+      "webEventsPerPageView": 1,
+      "speedSampleRate": 0.1,
+      "speedEventsPerPageView": 7
+    },
+    "isrRoutes": [
+      {
+        "name": "home",
+        "monthlyRequests": 50000,
+        "ttlSeconds": 30,
+        "monthlyInvalidations": 0,
+        "monthlyDeployments": 150,
+        "perRegeneration": {
+          "isrWrites": 8,
+          "isrReads": 0,
+          "cdnRequests": 0,
+          "fastDataTransferBytes": 0,
+          "fastOriginTransferBytes": 65536,
+          "functionInvocations": 1,
+          "activeCpuHours": 0.00002777777777777778,
+          "provisionedMemoryGBHours": 0.0002777777777777778,
+          "imageTransformations": 0,
+          "imageReads": 0,
+          "imageWrites": 0,
+          "webAnalyticsEvents": 0,
+          "speedInsightsEvents": 0,
+          "buildExecutionMinutes": 0
+        },
+        "cacheOutputs": [
+          {
+            "name": "html",
+            "bytes": 49152
+          },
+          {
+            "name": "rsc",
+            "bytes": 16384
+          }
+        ]
+      }
+    ]
+  },
+  "after": {
+    "status": "final-resource-optimized-Vercel-only-public-local-ledger-plus-current-ISR-policy-not-deployed",
+    "coldPerPageView": {
+      "isrWrites": 0,
+      "isrReads": 8,
+      "cdnRequests": 38.07,
+      "fastDataTransferBytes": 956716,
+      "fastOriginTransferBytes": 65536,
+      "functionInvocations": 2.5,
+      "activeCpuHours": 0.000008333333333333334,
+      "provisionedMemoryGBHours": 0.00041666666666666664,
+      "imageTransformations": 0,
+      "imageReads": 0,
+      "imageWrites": 0,
+      "webAnalyticsEvents": 0,
+      "speedInsightsEvents": 0,
+      "buildExecutionMinutes": 0
+    },
+    "warmPerPageView": {
+      "isrWrites": 0,
+      "isrReads": 8,
+      "cdnRequests": 10.07,
+      "fastDataTransferBytes": 95526,
+      "fastOriginTransferBytes": 65536,
+      "functionInvocations": 2.5,
+      "activeCpuHours": 0.000008333333333333334,
+      "provisionedMemoryGBHours": 0.00041666666666666664,
+      "imageTransformations": 0,
+      "imageReads": 0,
+      "imageWrites": 0,
+      "webAnalyticsEvents": 0,
+      "speedInsightsEvents": 0,
+      "buildExecutionMinutes": 0
+    },
+    "monthlyAdditionalUsage": {
+      "isrWrites": 10000,
+      "isrReads": 1000,
+      "cdnRequests": 20000,
+      "fastDataTransferBytes": 500000000.0000005,
+      "fastOriginTransferBytes": 500000000.0000005,
+      "functionInvocations": 10000,
+      "activeCpuHours": 0.10000000000000009,
+      "provisionedMemoryGBHours": 10.000000000000007,
+      "imageTransformations": 2000,
+      "imageReads": 0,
+      "imageWrites": 32000,
+      "webAnalyticsEvents": 0,
+      "speedInsightsEvents": 0,
+      "buildExecutionMinutes": 1500
+    },
+    "analytics": {
+      "webSampleRate": 0.5,
+      "webEventsPerPageView": 1,
+      "speedSampleRate": 0.01,
+      "speedEventsPerPageView": 7
+    },
+    "isrRoutes": [
+      {
+        "name": "home",
+        "monthlyRequests": 50000,
+        "ttlSeconds": 3600,
+        "monthlyInvalidations": 3100,
+        "monthlyDeployments": 150,
+        "perRegeneration": {
+          "isrWrites": 22,
+          "isrReads": 0,
+          "cdnRequests": 0,
+          "fastDataTransferBytes": 0,
+          "fastOriginTransferBytes": 65536,
+          "functionInvocations": 1,
+          "activeCpuHours": 0.00002777777777777778,
+          "provisionedMemoryGBHours": 0.0002777777777777778,
+          "imageTransformations": 0,
+          "imageReads": 0,
+          "imageWrites": 0,
+          "webAnalyticsEvents": 0,
+          "speedInsightsEvents": 0,
+          "buildExecutionMinutes": 0
+        },
+        "cacheOutputs": [
+          {
+            "name": "html",
+            "bytes": 64020
+          },
+          {
+            "name": "rsc",
+            "bytes": 29041
+          },
+          {
+            "name": "metadata",
+            "bytes": 165
+          },
+          {
+            "name": "page-segment",
+            "bytes": 27527
+          },
+          {
+            "name": "full-segment",
+            "bytes": 29041
+          },
+          {
+            "name": "tree-segment",
+            "bytes": 1058
+          }
+        ],
+        "invalidationPolicy": {
+          "minimumIntervalSeconds": 1800,
+          "persistentRevisionDeduplication": true
+        }
+      }
+    ],
+    "invalidationDelivery": {
+      "maxAttempts": 6,
+      "perAttempt": {
+        "isrWrites": 0,
+        "isrReads": 0,
+        "cdnRequests": 1,
+        "fastDataTransferBytes": 2048,
+        "fastOriginTransferBytes": 2048,
+        "functionInvocations": 1,
+        "activeCpuHours": 0.000005555555555555556,
+        "provisionedMemoryGBHours": 0.0001388888888888889,
+        "imageTransformations": 0,
+        "imageReads": 0,
+        "imageWrites": 0,
+        "webAnalyticsEvents": 0,
+        "speedInsightsEvents": 0,
+        "buildExecutionMinutes": 0
+      },
+      "monthlyEvents": 3100
+    },
+    "publicBrowserEnvelope": {
+      "cold": {
+        "networkRequests": 29,
+        "optimizedImageRequests": 0,
+        "estimatedImageReadUnits": 0,
+        "planningTransferBytes": 854316,
+        "incompleteResources": []
+      },
+      "warm": {
+        "networkRequests": 5,
+        "optimizedImageRequests": 0,
+        "estimatedImageReadUnits": 0,
+        "planningTransferBytes": 9510,
+        "incompleteResources": [
+          "desktop/warm-home:/api/devlog/latest",
+          "desktop/warm-about:/api/devlog/latest",
+          "desktop/warm-schools:/api/devlog/latest",
+          "mobile/warm-home:/api/devlog/latest",
+          "mobile/warm-about:/api/devlog/latest",
+          "mobile/warm-schools:/api/devlog/latest"
+        ]
+      },
+      "source": "artifacts/resource-optimization-20261004/row-split-comparison/summary.json; same-session matrix f3c47b950f08; Chromium 148.0.7778.96"
+    }
+  },
+  "intermediate": {
+    "status": "isolated-browser-measured-plus-explicit-allowances",
+    "coldPerPageView": {
+      "isrWrites": 0,
+      "isrReads": 8,
+      "cdnRequests": 35.07,
+      "fastDataTransferBytes": 852400,
+      "fastOriginTransferBytes": 65536,
+      "functionInvocations": 2.5,
+      "activeCpuHours": 0.000008333333333333334,
+      "provisionedMemoryGBHours": 0.00041666666666666664,
+      "imageTransformations": 0,
+      "imageReads": 42,
+      "imageWrites": 0,
+      "webAnalyticsEvents": 0,
+      "speedInsightsEvents": 0,
+      "buildExecutionMinutes": 0
+    },
+    "warmPerPageView": {
+      "isrWrites": 0,
+      "isrReads": 8,
+      "cdnRequests": 9.07,
+      "fastDataTransferBytes": 102016,
+      "fastOriginTransferBytes": 65536,
+      "functionInvocations": 2.5,
+      "activeCpuHours": 0.000008333333333333334,
+      "provisionedMemoryGBHours": 0.00041666666666666664,
+      "imageTransformations": 0,
+      "imageReads": 0,
+      "imageWrites": 0,
+      "webAnalyticsEvents": 0,
+      "speedInsightsEvents": 0,
+      "buildExecutionMinutes": 0
+    },
+    "monthlyAdditionalUsage": {
+      "isrWrites": 10000,
+      "isrReads": 1000,
+      "cdnRequests": 38600,
+      "fastDataTransferBytes": 538092800,
+      "fastOriginTransferBytes": 538092800,
+      "functionInvocations": 28600,
+      "activeCpuHours": 0.20333333333333325,
+      "provisionedMemoryGBHours": 12.583333333333336,
+      "imageTransformations": 2000,
+      "imageReads": 0,
+      "imageWrites": 32000,
+      "webAnalyticsEvents": 0,
+      "speedInsightsEvents": 0,
+      "buildExecutionMinutes": 1500
+    },
+    "analytics": {
+      "webSampleRate": 0.5,
+      "webEventsPerPageView": 1,
+      "speedSampleRate": 0.01,
+      "speedEventsPerPageView": 7
+    },
+    "isrRoutes": [
+      {
+        "name": "home",
+        "monthlyRequests": 50000,
+        "ttlSeconds": 3600,
+        "monthlyInvalidations": 3100,
+        "monthlyDeployments": 150,
+        "perRegeneration": {
+          "isrWrites": 8,
+          "isrReads": 0,
+          "cdnRequests": 0,
+          "fastDataTransferBytes": 0,
+          "fastOriginTransferBytes": 65536,
+          "functionInvocations": 1,
+          "activeCpuHours": 0.00002777777777777778,
+          "provisionedMemoryGBHours": 0.0002777777777777778,
+          "imageTransformations": 0,
+          "imageReads": 0,
+          "imageWrites": 0,
+          "webAnalyticsEvents": 0,
+          "speedInsightsEvents": 0,
+          "buildExecutionMinutes": 0
+        },
+        "cacheOutputs": [
+          {
+            "name": "html",
+            "bytes": 49152
+          },
+          {
+            "name": "rsc",
+            "bytes": 16384
+          }
+        ]
+      }
+    ],
+    "invalidationDelivery": {
+      "maxAttempts": 6,
+      "perAttempt": {
+        "isrWrites": 0,
+        "isrReads": 0,
+        "cdnRequests": 1,
+        "fastDataTransferBytes": 2048,
+        "fastOriginTransferBytes": 2048,
+        "functionInvocations": 1,
+        "activeCpuHours": 0.000005555555555555556,
+        "provisionedMemoryGBHours": 0.0001388888888888889,
+        "imageTransformations": 0,
+        "imageReads": 0,
+        "imageWrites": 0,
+        "webAnalyticsEvents": 0,
+        "speedInsightsEvents": 0,
+        "buildExecutionMinutes": 0
+      },
+      "monthlyEvents": 0
+    }
+  },
+  "deploymentStorage": {
+    "deploymentStorage": {
+      "label": "Deployment Storage",
+      "limitBytes": 10000000000,
+      "limitSource": "https://vercel.com/changelog/hobby-projects-now-retain-fewer-deployments-to-free-up-storage",
+      "before": {
+        "peakBytes": null,
+        "gbMonths": null
+      },
+      "intermediate": {
+        "peakBytes": null,
+        "gbMonths": null
+      },
+      "after": {
+        "peakBytes": null,
+        "gbMonths": null
+      },
+      "otherTeamPeakBytes": null,
+      "otherTeamGBMonths": null
+    },
+    "functionsStorage": {
+      "label": "Functions Storage",
+      "limitBytes": 10000000000,
+      "limitSource": "Vercel Hobby All Projects Usage dashboard, observed2026-10-02T19:26:38Z;artifacts/usage/vercel-dashboard-current.json displays10GB Functions Storage allowance.",
+      "before": {
+        "peakBytes": null,
+        "gbMonths": null
+      },
+      "intermediate": {
+        "peakBytes": null,
+        "gbMonths": null
+      },
+      "after": {
+        "peakBytes": null,
+        "gbMonths": null
+      },
+      "otherTeamPeakBytes": null,
+      "otherTeamGBMonths": null
+    }
+  },
+  "topology": "vercel-only",
+  "pwaSessionCalibration": {
+    "source": "artifacts/resource-optimization-20261004/row-split-budget/comparison/pwa-session-calibrated.report.json",
+    "monthlyInstallations": null,
+    "monthlyInstalledRevisits": null,
+    "observedAdditionalRequestsPerNewInstallation": 4,
+    "verified": false,
+    "note": "Installation means browser service-worker first install or version upgrade because production pages register automatically after load, not manual app-install clicks. Monthly install/upgrade/revisit counts and upgrade costs are unknown. Default per-PV stress remains unchanged; session-calibrated request/transfer forecasts are UNKNOWN. Telemetry has not been lowered."
+  },
+  "prerenderedOutputEnvelope": {
+    "source": "artifacts/resource-optimization-20261004/row-split-cache-outputs/summary.json",
+    "unitBytes": 8192,
+    "beforeUnitsPerDeployment": 217,
+    "afterUnitsPerDeployment": 221,
+    "productionBilling": false,
+    "note": "Local independently rounded file envelope includes overlapping segments and metadata; not provider billable object layout. Homepage generation envelope and frequency are unchanged."
+  },
+  "staticAtlasEvidence": {
+    "source": "artifacts/resource-optimization-20261004/after-row-split-source.json",
+    "partnerCountsByGroup": [
+      2,
+      3,
+      10,
+      13
+    ],
+    "dpr3TotalBytes": 495412,
+    "secondGroupDpr3Bytes": 50696,
+    "note": "Final partial-view grouping and bytes only; full-route browser request/read envelopes use the separate matched captures and are not provider billing."
+  }
+}

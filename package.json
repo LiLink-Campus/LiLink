@@ -44,6 +44,7 @@
     "build": "npm run build:shared && npm run typecheck:web && npm run build:web && npm run build:api",
     "build:shared": "npm run build --workspace @lilink/shared",
     "build:web": "npm run build --workspace web",
+    "images:generate": "node scripts/images/generate-static-assets.mjs",
     "build:api": "npm run build --workspace api",
     "typecheck:web": "npm run build:shared && npm run typecheck --workspace web",
     "typecheck:api": "npm run build:shared && npm run typecheck --workspace api",

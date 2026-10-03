@@ -133,7 +133,7 @@ export function SchoolEmailSupport({
               ))}
             </ul>
           )}
-          <Link className={styles.more} href="/schools">
+          <Link prefetch={false} className={styles.more} href="/schools">
             查看完整学校介绍 ›
           </Link>
         </div>

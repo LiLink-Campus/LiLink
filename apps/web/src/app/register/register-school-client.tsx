@@ -260,7 +260,7 @@ export default function RegisterSchoolClient() {
             <p className={authStyles.inlineSwitchHint}>
               不是学校邮箱？
               {" "}
-              <Link href={personalHref}>改用普通邮箱注册</Link>
+              <Link prefetch={false} href={personalHref}>改用普通邮箱注册</Link>
             </p>
           ) : null}
           <div className={flowStyles.codeRow}>

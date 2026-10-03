@@ -31,7 +31,7 @@
   text-wrap: pretty;
 }
 .campusArt, .botanicalArt, .petalsArt {
-  background-image: url('/images/about/watercolor-atlas.09032dbdfd5e.webp');
+  background-image: url('/images/about/watercolor-atlas.618382ffbabd.webp');
   background-size: 300% 100%;
   background-repeat: no-repeat;
   pointer-events: none;
@@ -74,9 +74,9 @@
 .contactList dt { font-size: 0.9375rem; font-weight: 500; color: var(--color-text); }
 .contactList dd { margin: 0.4rem 0 0; font-size: 0.8125rem; color: var(--color-text-muted); }
 .contactIcon { position: absolute; left: 0; top: 3px; width: 28px; height: 28px; background: #956d60; mask: var(--contact-icon) center / contain no-repeat; }
-.mailIcon { --contact-icon: url('/icons/contact/mail.svg'); }
-.wechatIcon { --contact-icon: url('/icons/contact/wechat.svg'); }
-.rednoteIcon { --contact-icon: url('/icons/contact/xiaohongshu.svg'); }
+.mailIcon { --contact-icon: url('/icons/contact/mail.5f27eaf548fa.svg'); }
+.wechatIcon { --contact-icon: url('/icons/contact/wechat.b6dfbf95938e.svg'); }
+.rednoteIcon { --contact-icon: url('/icons/contact/xiaohongshu.847cacc807f5.svg'); }
 
 @media (max-width: 820px) {
   .storyLayout { gap: 1.5rem; }

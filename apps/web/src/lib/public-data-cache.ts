@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { getServerApiBaseUrl } from "./api-base-url";
 import { fetchServerApi } from "./server-api-transport";
+import { parsePublicHome } from "./public-home";
 
 class PublicDataError extends Error {
   constructor(readonly reason: string, readonly retryable: boolean) {
@@ -29,9 +30,12 @@ async function loadPublicData(base: string, path: PublicDataPath): Promise<unkno
       const ray = response.headers.get("cf-ray");
       upstreamRay = ray && /^[a-f0-9]+-[A-Z]{3}$/.test(ray) ? ray : null;
       if (!response.ok) {
+        await response.body?.cancel();
         throw new PublicDataError(`HTTP ${response.status}`, response.status >= 500);
       }
-      return await response.json();
+      const payload = await response.json();
+      if (path === "/public/home") return parsePublicHome(payload);
+      return payload;
     } catch (error) {
       const retryable = controller.signal.aborted || error instanceof TypeError
         || (error instanceof PublicDataError && error.retryable);
@@ -53,17 +57,17 @@ async function loadPublicData(base: string, path: PublicDataPath): Promise<unkno
   throw new PublicDataError("retry exhausted", false);
 }
 
-type PublicDataPath = "/public/community" | "/public/landing" | "/public/schools";
+type PublicDataPath = "/public/home" | "/public/schools";
 const refreshSeconds: Record<PublicDataPath, number> = {
-  "/public/community": 30,
-  "/public/landing": 60,
+  "/public/home": 3600,
   "/public/schools": 60,
 };
 
 export async function getCachedPublicData<T>(path: PublicDataPath): Promise<T> {
   // Only allowlisted anonymous data belongs in this shared cache.
-  const cached = unstable_cache(loadPublicData, ["public-data-v1"], {
+  const cached = unstable_cache(loadPublicData, ["public-data-v2"], {
     revalidate: refreshSeconds[path],
+    tags: [path === "/public/home" ? "public-home" : "public-schools"],
   });
   // Resolve request-dependent development configuration outside the cache scope.
   return await cached(await getServerApiBaseUrl(), path) as T;

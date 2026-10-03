@@ -1,8 +1,9 @@
 import { normalizeSchoolEmailDomains } from '@lilink/shared';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { publicQuestionnaireGenderJoin } from '../../common/analytics/public-questionnaire-gender';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { PublicCacheInvalidationService } from './public-cache-invalidation.service';
 
 type LandingPayload = {
   brand: string;
@@ -70,9 +71,30 @@ export class PublicService {
     null;
   private eligibleSchoolsCacheEpoch = 0;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly invalidation?: PublicCacheInvalidationService,
+  ) {
+    invalidation?.register(
+      'home',
+      'landing',
+      () => this.clearLandingCache(),
+      () => this.getLandingPayload(),
+    );
+    invalidation?.register(
+      'schools',
+      'schools',
+      () => this.clearEligibleSchoolsCache(),
+      () => this.getEligibleSchools(),
+    );
+  }
 
   invalidateLandingCache() {
+    this.clearLandingCache();
+    this.invalidation?.wake();
+  }
+
+  private clearLandingCache() {
     this.landingCacheEpoch += 1;
     this.cachedLandingPayload = null;
     this.landingPayloadInFlight = null;
@@ -110,17 +132,22 @@ export class PublicService {
     }
 
     const cacheEpoch = this.eligibleSchoolsCacheEpoch;
-    this.eligibleSchoolsInFlight = this.loadEligibleSchools(cacheEpoch).finally(
-      () => {
+    const pending = this.loadEligibleSchools(cacheEpoch).finally(() => {
+      if (this.eligibleSchoolsInFlight === pending)
         this.eligibleSchoolsInFlight = null;
-      },
-    );
+    });
+    this.eligibleSchoolsInFlight = pending;
 
     return this.eligibleSchoolsInFlight;
   }
 
   // Drop the cached payload so the next read reflects an admin eligibility change before the TTL expires.
   invalidateEligibleSchoolsCache() {
+    this.clearEligibleSchoolsCache();
+    this.invalidation?.wake();
+  }
+
+  private clearEligibleSchoolsCache() {
     this.eligibleSchoolsCacheEpoch += 1;
     this.cachedEligibleSchools = null;
     this.eligibleSchoolsInFlight = null;

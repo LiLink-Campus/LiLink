@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "monthlyPageViews": 50000,
+  "windowDays": 31,
+  "monthlyLimitUnits": 200000,
+  "targetUtilization": 0.8,
+  "uncertaintyMultiplier": 1.2,
+  "unitBytes": 8192,
+  "monthlyDeployments": 150,
+  "otherProjectIsrReserveUnits": 10000,
+  "otherTeamIsrWrites": null,
+  "processedDeliveriesPerEvent": [
+    1,
+    2,
+    3,
+    6
+  ],
+  "routes": [
+    {
+      "name": "home",
+      "baselineTtlSeconds": 30,
+      "candidateTtlSeconds": 3600,
+      "monthlyStatsEvents": 2976,
+      "monthlyUrgentEvents": 124,
+      "generationsPerInvalidation": 1,
+      "cacheOutputs": [
+        {
+          "name": "html",
+          "bytes": 64548
+        },
+        {
+          "name": "rsc",
+          "bytes": 28356
+        },
+        {
+          "name": "metadata",
+          "bytes": 165
+        },
+        {
+          "name": "page-segment",
+          "bytes": 27015
+        },
+        {
+          "name": "full-segment",
+          "bytes": 28356
+        },
+        {
+          "name": "tree-segment",
+          "bytes": 465
+        }
+      ],
+      "outputBytesBasis": "Per-file maximum uncompressed local Next route outputs from final-core disposable run 6ab28cd11585, including metadata and overlapping segments: 22 units/generation. Not Vercel billed storage layout.",
+      "outputEvidence": "artifacts/e2e/6ab28cd11585/isr-write-evidence/evidence.json#versions",
+      "invalidationPolicy": {
+        "minimumIntervalSeconds": 1800,
+        "persistentRevisionDeduplication": true
+      }
+    }
+  ],
+  "outputSizeScenarios": [
+    {
+      "name": "gzip-main-outputs",
+      "outputBytesBasis": "Per-file maximum gzip bytes across all complete observed local HTML/RSC versions. Local gzip is a lower-size sensitivity and is not confirmed to be Vercel's storage compression.",
+      "outputEvidence": "artifacts/e2e/6ab28cd11585/isr-write-evidence/evidence.json#versions",
+      "cacheOutputsByRoute": {
+        "home": [
+          {
+            "name": "html",
+            "bytes": 14487
+          },
+          {
+            "name": "rsc",
+            "bytes": 7291
+          }
+        ]
+      }
+    },
+    {
+      "name": "html-rsc-only",
+      "outputBytesBasis": "HTML/RSC only: lower-size sensitivity, not the conservative default or confirmed billing object layout.",
+      "outputEvidence": "artifacts/e2e/6ab28cd11585/isr-write-evidence/evidence.json#versions",
+      "cacheOutputsByRoute": {
+        "home": [
+          {
+            "name": "html",
+            "bytes": 64548
+          },
+          {
+            "name": "rsc",
+            "bytes": 28356
+          }
+        ]
+      }
+    }
+  ],
+  "trafficScenarios": [
+    {
+      "name": "50000-total-pv-30000-home",
+      "monthlyRequestsByRoute": {
+        "home": 30000
+      },
+      "assumption": "60% of 50000 total page views reach home; prefetch, bots, preview deployment traffic and extra route requests must be included separately if present."
+    },
+    {
+      "name": "50000-total-pv-all-home",
+      "monthlyRequestsByRoute": {
+        "home": 50000
+      },
+      "assumption": "All 50000 page views reach home; this is a traffic sensitivity, not an assertion of production page mix."
+    }
+  ],
+  "assumptions": [
+    "Topology remains Vercel for Web, images, JavaScript, CSS, fonts, and icons. No separate static CDN is included.",
+    "31-day window and persistent per-scope 1800-second gate permit at most 1489 accepted invalidation claims including a window-boundary allowance. Stats and urgent changes share the same gate.",
+    "The API database stores monotonic receiver claims before Web invalidation. Duplicate and old revisions cannot claim again across Web instances; six successful transport deliveries do not mean six invalidations.",
+    "Claim-before-invalidate is at-most-once: a crash after claim can lose that invalidation. The unchanged 3600-second TTL supplies recovery opportunities; no immediate browser push is required.",
+    "3100 business changes/month are delivery workload demand, not accepted invalidations. The actual invalidation cap remains 1489 when business demand or replay attempts rise.",
+    "Required forecast includes two changed generations per accepted invalidation. That allowance is a sensitivity, not a proven Vercel hard maximum.",
+    "All complete observed local route files are conservatively included as 22 independently rounded units/generation. gzip and HTML/RSC-only sizes are lower-size sensitivities; storage compression and object grouping require Vercel usage calibration.",
+    "The 10000-unit project reserve includes /api/devlog/latest, deployment effects and other unmeasured project ISR. This is an allowance, not enumerated proof of every route or active deployment.",
+    "150 monthly deployments and a 1.2 uncertainty multiplier are forward assumptions. Multiple still-active deployments, bots and larger output must be added when actual data requires it.",
+    "No unchanged-content credit is taken: local Sentry trace metadata changed on otherwise repeated renders. Data Cache Reads/Writes are not classified as billed ISR Writes.",
+    "Other team future ISR Writes remain unknown. Project conditional capacity cannot establish account capacity or measured production effectiveness."
+  ],
+  "sources": [
+    "https://vercel.com/docs/incremental-static-regeneration/limits-and-pricing",
+    "https://vercel.com/docs/pricing/manage-and-optimize-usage",
+    "https://vercel.com/docs/plans/hobby"
+  ]
+}

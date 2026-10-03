@@ -42,6 +42,13 @@ jobs:
       - name: Test isolated release guards
         run: node --test scripts/release/*.test.mjs
 
+      - name: Verify usage evidence and budget contracts
+        run: |
+          node scripts/usage/verify-budget.mjs artifacts/usage-contracts/budget
+          node scripts/usage/verify-isr-write-budget.mjs artifacts/usage-contracts/isr
+          node scripts/usage/verify-browser-comparison.mjs artifacts/usage-contracts/comparison
+          node scripts/usage/verify-browser-capture.mjs artifacts/usage-contracts/capture
+
       - name: Install Chromium for CSS regression tests
         run: npx playwright install --with-deps chromium
 
@@ -63,8 +70,20 @@ jobs:
       - name: Verify lint does not rewrite files
         run: git diff --exit-code
 
-      - name: Run root build
-        run: npm run build
+      - name: Build against the disposable seeded API
+        run: node scripts/e2e/run.mjs --build-only
+
+      - name: Preserve isolated build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-build-${{ github.sha }}
+          path: |
+            artifacts/e2e/**/*.log
+            artifacts/e2e/**/run.json
+            artifacts/usage-contracts/**
+          retention-days: 7
+          if-no-files-found: ignore
 
   api-tests:
     name: API unit and e2e tests
@@ -130,4 +149,17 @@ jobs:
         run: npm run test --workspace api
 
       - name: Run API e2e tests
-        run: npm run test:e2e --workspace api
+        env:
+          E2E_OUTPUT: ${{ github.workspace }}/artifacts/api-e2e
+        run: |
+          mkdir -p "$E2E_OUTPUT"
+          npm run test:e2e --workspace api
+
+      - name: Preserve API concurrency acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-e2e-${{ github.sha }}
+          path: artifacts/api-e2e/public-cache-concurrency.json
+          retention-days: 7
+          if-no-files-found: ignore

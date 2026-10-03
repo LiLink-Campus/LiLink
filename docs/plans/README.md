@@ -15,6 +15,7 @@ lang: zh
 
 | 文档 | 用途 |
 | --- | --- |
+| [Vercel Hobby 用量预算](2026-10-03-vercel-hobby-budget.md) | 5 万 PV 月容量、前后测算和 20% 余量门槛 |
 | [核验后的待确认事项](open-questions.md) | 产品建议、历史计划与现场状态的确认边界 |
 | [环境迁移与组织资产待确认决策](environment-migration.md) | 历史提案、实施范围与未决选择 |
 | [偷偷助攻与双人撮合机制设计（丘比特活动 · Project Cupid）](2026-09-11-cupid.md) | 提案或模板 |

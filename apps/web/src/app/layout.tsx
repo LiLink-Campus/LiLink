@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { UsageAnalytics } from "./usage-analytics";
 import { resolveApiOriginForPreconnect } from "../lib/public-server-api";
 import { AuthSessionProvider } from "./auth-session";
 import { PublicChrome } from "./public-chrome";
 import { PwaInstallProvider } from "./_components/PwaInstall";
 import { ServiceWorkerRegistrar } from "./_components/ServiceWorkerRegistrar";
+import { shellAssets } from "../lib/shell-assets.generated";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,11 +23,11 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-capable": "yes",
   },
   icons: {
-    apple: "/icons/apple-touch-icon.png?v=brand-20260921",
+    apple: shellAssets["icons/apple-touch-icon.png"],
     icon: [
       { url: "/favicon.ico?v=brand-20260921", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
-      { url: "/icons/favicon-32.png?v=brand-20260921", sizes: "32x32", type: "image/png" },
-      { url: "/icons/icon.svg?v=brand-20260921", sizes: "any", type: "image/svg+xml" },
+      { url: shellAssets["icons/favicon-32.png"], sizes: "32x32", type: "image/png" },
+      { url: shellAssets["icons/icon.svg"], sizes: "any", type: "image/svg+xml" },
     ],
     shortcut: "/favicon.ico?v=brand-20260921",
   },
@@ -59,8 +59,7 @@ export default async function RootLayout({
           <PwaInstallProvider><PublicChrome>{children}</PublicChrome></PwaInstallProvider>
         </AuthSessionProvider>
         <ServiceWorkerRegistrar />
-        <Analytics />
-        {process.env.VERCEL_ENV === "production" && <SpeedInsights sampleRate={0.1} />}
+        <UsageAnalytics speedInsights={process.env.VERCEL_ENV === "production"} />
       </body>
     </html>
   );

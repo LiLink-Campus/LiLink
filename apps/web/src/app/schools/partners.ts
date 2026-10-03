@@ -15,7 +15,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "bupt",
     name: "北京邮电大学",
     campus: "玛丽女王海南学院",
-    logo: "bupt.png",
+    logo: "bupt.447a43c889fa.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "bupt")!.domains,
     source: "https://nic.bupt.edu.cn/fwzx/xxfw/dzyj1.htm",
     partners: [
@@ -23,7 +23,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "qmul",
         name: "伦敦玛丽女王大学",
         region: "英国",
-        logo: "qmul.png",
+        logo: "qmul.b9d4b0037880.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "qmul")!.domains,
         source: "https://www.qmul.ac.uk/its/its-student-hub/",
       },
@@ -33,7 +33,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "cuc",
     name: "中国传媒大学",
     campus: "海南国际学院",
-    logo: "cuc.png",
+    logo: "cuc.25129a156b6f.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "cuc")!.domains,
     source: "https://its.cuc.edu.cn/2024/0813/c8502a241958/page.htm",
     partners: [
@@ -49,7 +49,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "abertay",
         name: "阿伯泰大学",
         region: "英国",
-        logo: "abertay.png",
+        logo: "abertay.0e1e4811e0e5.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "abertay")!.domains,
         source: "https://www.abertay.ac.uk/welcome/new-students/when-you-arrive/first-few-days/",
       },
@@ -59,7 +59,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "uestc",
     name: "电子科技大学",
     campus: "格拉斯哥海南学院",
-    logo: "uestc.png",
+    logo: "uestc.27d2a3b9974b.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "uestc")!.domains,
     source:
       "https://info.uestc.edu.cn/__local/2/8B/9F/37DA3EAED9DD823159C2CB9EABE_F23B9C5E_D26F4.pdf",
@@ -78,7 +78,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "bsu",
     name: "北京体育大学",
     campus: "海南国际学院",
-    logo: "bsu.png",
+    logo: "bsu.f95f039b668f.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "bsu")!.domains,
     source: "https://it.bsu.edu.cn/cjwt/xyyx/7f5daaeef3f14c5b992f5419445f102e.htm",
     partners: [
@@ -86,7 +86,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "alberta",
         name: "阿尔伯塔大学",
         region: "加拿大",
-        logo: "alberta-mark.png",
+        logo: "alberta-mark.49ab02ce46eb.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "alberta")!.domains,
         source:
           "https://universityofalberta.freshservice.com/support/solutions/articles/19000109285-Request-an-Email-Alias",
@@ -97,7 +97,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "muc",
     name: "中央民族大学",
     campus: "海南国际学院",
-    logo: "muc.png",
+    logo: "muc.d3963693ee73.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "muc")!.domains,
     source: "https://yx.muc.edu.cn/shuzixiaoyuan/dianziyouxiang/",
     partners: [
@@ -113,7 +113,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "cityu",
         name: "澳门城市大学",
         region: "中国澳门",
-        logo: "cityu.png",
+        logo: "cityu.45169f27fbf5.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "cityu")!.domains,
         source:
           "https://www.cityu.edu.mo/wp-content/uploads/2016/01/學生電子郵件使用指引Office365.pdf",
@@ -124,7 +124,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "blcu",
     name: "北京语言大学",
     campus: "海南国际学院",
-    logo: "blcu.png",
+    logo: "blcu.d98f51d83616.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "blcu")!.domains,
     source: "https://xxb.blcu.edu.cn/info/1221/3091.htm",
     partners: [
@@ -141,7 +141,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "nsu",
         name: "东北州立大学",
         region: "美国",
-        logo: "nsu.png",
+        logo: "nsu.72a3dcc7f2e3.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "nsu")!.domains,
         source: "https://offices.nsuok.edu/_resources/documents/unused-pdfs/maritalstatus1718.pdf",
       },
@@ -151,7 +151,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "tju",
     name: "天津大学",
     campus: "海南国际学院 · 雷丁大学亨利国际学院",
-    logo: "tju.png",
+    logo: "tju.b7b43bfc103c.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "tju")!.domains,
     source: "https://its.tju.edu.cn/xfw/qbfw/dzyx/dzyx.htm",
     partners: [
@@ -159,7 +159,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "reading",
         name: "雷丁大学",
         region: "英国",
-        logo: "reading.png",
+        logo: "reading.99367af43cd4.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "reading")!.domains,
         source:
           "https://www.reading.ac.uk/digital-technology-services/it-help-and-support/contact-dts",
@@ -170,7 +170,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "cupl",
     name: "中国政法大学",
     campus: "海南国际学院",
-    logo: "cupl.png",
+    logo: "cupl.848af0484206.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "cupl")!.domains,
     source: "https://yjsy.cupl.edu.cn/__local/A/FA/5A/1E712BB631849BB5B3FEA9F222B_76352B2F_B8BAA.pdf?e=.pdf",
     partners: [
@@ -178,7 +178,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "ottawa",
         name: "渥太华大学",
         region: "加拿大",
-        logo: "ottawa.png",
+        logo: "ottawa.a86527e1e3d7.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "ottawa")!.domains,
         source: "https://www.uottawa.ca/about-us/information-technology/it-for-you/it-students",
       },
@@ -188,7 +188,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "cugb",
     name: "中国地质大学（北京）",
     campus: "海南国际学院",
-    logo: "cugb.png",
+    logo: "cugb.195abc9de62f.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "cugb")!.domains,
     source: "https://www.cugb.edu.cn/yxsy",
     partners: [
@@ -196,7 +196,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "aberdeen",
         name: "阿伯丁大学",
         region: "英国",
-        logo: "aberdeen.png",
+        logo: "aberdeen.a169881f1535.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "aberdeen")!.domains,
         source: "https://www.abdn.ac.uk/toolkit/documents/uploads/myidentity-ug-pgt.pdf",
       },
@@ -204,7 +204,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "bcu",
         name: "伯明翰城市大学",
         region: "英国",
-        logo: "bcu.png",
+        logo: "bcu.cba2165bac50.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "bcu")!.domains,
         source:
           "https://www.bcu.ac.uk/student-info/learning-support/it-computer-networks-and-printing/faqs",
@@ -215,7 +215,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "nefu",
     name: "东北林业大学",
     campus: "海南国际学院 · 悉林学院等",
-    logo: "nefu.png",
+    logo: "nefu.7636fdb34e6d.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "nefu")!.domains,
     source: "https://nic.nefu.edu.cn/info/1032/1276.htm",
     partners: [
@@ -243,7 +243,7 @@ export const partnerGroups: PartnerGroup[] = [
     id: "xjtu",
     name: "西安交通大学",
     campus: "西安交通大学（海南）",
-    logo: "xjtu.png",
+    logo: "xjtu.cf3b6f5d6a28.webp",
     domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "xjtu")!.domains,
     source: "https://nic.xjtu.edu.cn/info/1683/8609.htm",
     partners: [
@@ -251,7 +251,7 @@ export const partnerGroups: PartnerGroup[] = [
         id: "ubc",
         name: "不列颠哥伦比亚大学",
         region: "加拿大",
-        logo: "ubc-shield.png",
+        logo: "ubc-shield.d32349a42940.webp",
         domains: SCHOOL_EMAIL_INSTITUTIONS.find((school) => school.id === "ubc")!.domains,
         source:
           "https://it.ubc.ca/services/email-voice-internet/ubc-student-email-service/ubc-student-email-terms-service",

@@ -1,21 +1,18 @@
 import { Suspense } from "react";
-import { getImageProps } from "next/image";
+import { getStaticImageProps } from "@/components/StaticImage";
 import { homeArtwork } from "./home-artwork";
 import { HomeArtworkPreload } from "./home-artwork-preload";
-import { getLandingPayload } from "../lib/public-server-api";
-import { getCommunityStats } from "../lib/community-stats-server";
+import { getCachedPublicData } from "../lib/public-data-cache";
+import type { PublicHomeData } from "../lib/public-home";
 import { HomePageView } from "./home-page-view";
 import styles from "./page.module.css";
 import imageReadyStyles from "./_components/ImageReadyPage.module.css";
 
-export const revalidate = 60;
+export const revalidate = 3600;
 
 async function HomeContent() {
-  const [landing, community] = await Promise.all([
-    getLandingPayload().catch(() => null),
-    getCommunityStats().catch(() => null),
-  ]);
-  return <HomePageView landing={landing} community={community} />;
+  const snapshot = await getCachedPublicData<PublicHomeData>("/public/home");
+  return <HomePageView landing={snapshot.landing} community={snapshot.community} />;
 }
 
 function PageLoading() {
@@ -25,7 +22,7 @@ function PageLoading() {
 }
 
 export default function Home() {
-  const { props } = getImageProps(homeArtwork);
+  const props = getStaticImageProps(homeArtwork);
   return <>
     <HomeArtworkPreload src={props.src} srcSet={props.srcSet} sizes={props.sizes} />
     <Suspense fallback={<PageLoading />}><HomeContent /></Suspense>

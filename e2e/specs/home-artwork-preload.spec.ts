@@ -4,9 +4,10 @@ test('homepage preloads the displayed responsive artwork and keeps the image gat
   let release!: () => void;
   const pending = new Promise<void>(resolve => { release = resolve; });
   const artworkRequests: string[] = [];
-  await page.route('**/_next/image?*', async route => {
+  await page.route('**/*', async route => {
     const imageUrl = new URL(route.request().url());
-    if (imageUrl.searchParams.get('url') !== '/images/campus-blossom-scene-anime.webp') {
+    const imagePath = imageUrl.searchParams.get('url') ?? imageUrl.pathname;
+    if (!imagePath.includes('campus-blossom-scene-anime')) {
       await route.continue();
       return;
     }
@@ -21,8 +22,9 @@ test('homepage preloads the displayed responsive artwork and keeps the image gat
     const hero = main.locator('img[data-page-image]');
     await expect(hero).toHaveCount(1);
     const imageSrcSet = await hero.getAttribute('srcset');
+    const imageSizes = await hero.getAttribute('sizes');
     const preload = page.locator('head link[rel="preload"][as="image"]');
-    const matchingPreload = await preload.evaluateAll((links, srcSet) => links.some(link => link.getAttribute('imagesrcset') === srcSet && link.getAttribute('imagesizes') === '100vw'), imageSrcSet);
+    const matchingPreload = await preload.evaluateAll((links, image) => links.some(link => link.getAttribute('imagesrcset') === image.srcSet && link.getAttribute('imagesizes') === image.sizes), { srcSet: imageSrcSet, sizes: imageSizes });
     expect(matchingPreload).toBeTruthy();
     await expect.poll(() => artworkRequests.length).toBe(1);
     await expect(main).toHaveAttribute('aria-busy', 'true');
@@ -37,10 +39,14 @@ test('homepage preloads the displayed responsive artwork and keeps the image gat
   await expect(page.getByRole('heading', { name: /让相遇这件事/ })).toBeVisible();
   await expect(page.locator('img[data-page-image]')).toHaveCount(1);
   expect(artworkRequests).toHaveLength(1);
+  expect(artworkRequests[0]).not.toContain('/_next/image');
+  const selectedArtwork = await main.locator('img[data-page-image]').evaluate((image: HTMLImageElement) => new URL(image.currentSrc).pathname);
+  expect(artworkRequests[0]).toBe(selectedArtwork);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: info.outputPath('home-artwork-ready.png') });
   await info.attach('home-artwork-requests', { contentType: 'application/json', body: JSON.stringify({
     project: info.project.name, viewport: page.viewportSize(), requests: artworkRequests,
-    assertions: { sameResponsivePreload: true, hiddenUntilArtworkReady: true, noDuplicateArtwork: true },
+    selectedArtwork,
+    assertions: { sameResponsivePreload: true, hiddenUntilArtworkReady: true, noDuplicateArtwork: true, directStaticArtwork: true },
   }, null, 2) });
 });

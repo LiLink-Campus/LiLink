@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { emptyGenderBuckets, genderKey } from '../../common/analytics/gender';
 import { publicQuestionnaireGenderJoin } from '../../common/analytics/public-questionnaire-gender';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { PublicCacheInvalidationService } from './public-cache-invalidation.service';
 
 type CommunityStats = {
   total: number;
@@ -17,7 +18,17 @@ export class CommunityStatsService {
   private epoch = 0;
   private pending: Promise<CommunityStats> | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() invalidation?: PublicCacheInvalidationService,
+  ) {
+    invalidation?.register(
+      'home',
+      'community',
+      () => this.invalidateSchoolCache(),
+      () => this.getStats(),
+    );
+  }
 
   invalidateSchoolCache() {
     this.epoch += 1;

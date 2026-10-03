@@ -2,7 +2,7 @@ import { homeArtwork } from "./home-artwork";
 import { ImageReadyPage } from "./_components/ImageReadyPage";
 import { ButtonLink } from "@/components/ui";
 import Link from "next/link";
-import Image from "next/image";
+import { StaticImage } from "@/components/StaticImage";
 import type { CommunityStatsPayload } from "../lib/community-stats";
 import type { LandingPayload } from "../lib/landing-payload";
 import {
@@ -16,19 +16,9 @@ import {
   ProfileIcon,
   UserCircleIcon,
 } from "./dashboard/_components/icons";
-import { HeroRevealCountdown } from "./hero-reveal-countdown";
-import { CommunityStats } from "./community-stats";
+import { HomeSnapshotSections, HomeJoinMessage } from "./home-snapshot-sections";
 import { FaqSection } from "./_components/FaqSection";
 import styles from "./page.module.css";
-
-function formatDateLabel(value: string | null) {
-  if (!value) return "轮次时间待配置";
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "Asia/Shanghai",
-  }).format(new Date(value));
-}
 
 const steps = [
   {
@@ -75,9 +65,6 @@ export function HomePageView({ landing, community = null }: {
   landing: LandingPayload | null;
   community?: CommunityStatsPayload | null;
 }) {
-  const matchesDelivered = landing?.stats.matchesDelivered ?? 0;
-  const matchesLabelIsNarrative = landing != null && matchesDelivered <= 0;
-
   return (
     <ImageReadyPage className={styles.homePage}>
       <section className={styles.hero}>
@@ -94,14 +81,15 @@ export function HomePageView({ landing, community = null }: {
             基于深度问卷与算法，每周认真为你寻找一个真正合拍的同学。
           </p>
           <div className={styles.heroActions}>
-            <ButtonLink href="/dashboard">开始匹配 →</ButtonLink>
-            <Link href="/about" className={styles.heroSecondary}>
+            <ButtonLink prefetch={false} href="/dashboard">开始匹配 →</ButtonLink>
+            {/* Warm the main secondary route so its artwork does not block the click. */}
+            <Link prefetch href="/about" className={styles.heroSecondary}>
               了解更多
             </Link>
           </div>
         </div>
         <div className={styles.heroIllustration} aria-hidden="true">
-          <Image
+          <StaticImage
             data-page-image
             {...homeArtwork}
             alt=""
@@ -111,50 +99,7 @@ export function HomePageView({ landing, community = null }: {
         </div>
       </section>
 
-      <section className={styles.revealSection} aria-labelledby="reveal-heading">
-        <h2 id="reveal-heading">{landing ? "下次匹配揭晓" : "轮次状态"}</h2>
-        <HeroRevealCountdown
-          offline={landing == null}
-          revealAt={landing?.currentCycle?.revealAt ?? null}
-          serverFallbackLabel={
-            landing ? formatDateLabel(landing.currentCycle?.revealAt ?? null) : "平台数据暂时不可用"
-          }
-        />
-        {landing?.currentCycle?.revealAt ? (
-          <p className={styles.revealDate}>
-            揭晓时间：
-            <time dateTime={landing.currentCycle.revealAt}>
-              {formatDateLabel(landing.currentCycle.revealAt)}
-            </time>
-            （北京时间）
-          </p>
-        ) : null}
-      </section>
-
-      <section className={styles.statsStrip} aria-label="平台数据">
-        <div>
-          <strong>{landing ? landing.stats.registeredUsers : "—"}</strong>
-          <span>注册用户</span>
-        </div>
-        <div>
-          <strong>
-            {landing ? landing.stats.completedQuestionnaires : "—"}
-          </strong>
-          <span>累计完成问卷</span>
-        </div>
-        <div>
-          <strong className={matchesLabelIsNarrative ? styles.statsStripNote : undefined}>
-            {landing == null
-              ? "—"
-              : matchesLabelIsNarrative
-                ? "正在准备首轮匹配"
-                : matchesDelivered}
-          </strong>
-          <span>已送出匹配</span>
-        </div>
-      </section>
-
-      <CommunityStats initialData={community} />
+      <HomeSnapshotSections landing={landing} community={community} />
 
       <section className={styles.section} aria-labelledby="steps-heading">
         <div className={styles.sectionHeader}>
@@ -201,8 +146,8 @@ export function HomePageView({ landing, community = null }: {
       <section className={styles.finalSection} aria-labelledby="join-heading">
         <div className={styles.finalCard}>
           <div className={styles.finalArt} aria-hidden="true">
-            <Image
-              src="/images/campus-evening-anime.webp"
+            <StaticImage
+              src="/images/campus-evening-anime.2b6f7201560b.webp"
               alt=""
               fill
               sizes="(max-width: 1200px) 100vw, 1120px"
@@ -210,12 +155,8 @@ export function HomePageView({ landing, community = null }: {
           </div>
           <div className={styles.finalContent}>
             <h2 id="join-heading">准备好了吗？</h2>
-            <p>
-              {landing?.currentCycle?.revealAt
-                ? `下一次揭晓：${formatDateLabel(landing.currentCycle.revealAt)}。`
-                : "完成匹配资料，准备下一次校园里的认真相遇。"}
-            </p>
-            <ButtonLink href="/register">立即加入</ButtonLink>
+            <HomeJoinMessage landing={landing} />
+            <ButtonLink prefetch={false} href="/register">立即加入</ButtonLink>
           </div>
         </div>
       </section>

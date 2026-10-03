@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { StaticImage } from "@/components/StaticImage";
 import Link from "next/link";
 import styles from "./page.module.css";
 
@@ -6,9 +6,9 @@ export function MemberPageView({ slug }: { slug: "yoryon" | "member-02" | "devil
   const devil = slug === "devillord6321";
   const founder = slug === "yoryon";
   return <main className={styles.page}>
-    <Link className={styles.back} href="/about#team-title">← 返回团队</Link>
+    <Link prefetch={false} className={styles.back} href="/about#team-title">← 返回团队</Link>
     <header className={styles.header}>
-      {founder ? <Image className={styles.avatar} src="/images/about/member-01.png" alt="釉蓝yoryon 的黑色轨道箭头头像" width={112} height={112} /> : <Image className={`${styles.avatar} ${styles.photo}`} src={devil ? "/images/about/devillord6321.jpg" : "/images/about/member-02.jpg"} alt={devil ? "Devillord6321 的猫咪头像" : "蟹牛堡 的头像"} width={112} height={112} />}
+      {founder ? <StaticImage className={styles.avatar} src="/images/about/member-01.486b9b138019.webp" alt="釉蓝yoryon 的黑色轨道箭头头像" width={112} height={112} /> : <StaticImage className={`${styles.avatar} ${styles.photo}`} src={devil ? "/images/about/devillord6321.016e14db36ed.webp" : "/images/about/member-02.b6fbc6031cdb.webp"} alt={devil ? "Devillord6321 的猫咪头像" : "蟹牛堡 的头像"} width={112} height={112} />}
       <div><h1>{founder ? "釉蓝yoryon" : devil ? "Devillord6321" : "蟹牛堡"}</h1><p>{founder ? "创始人 & 产品负责人" : devil ? "增长 & 运营" : "增长 & 运营负责人"}</p></div>
     </header>
     {founder && (                <div className={`${styles.socials} ${styles.founderSocials}`} aria-label="釉蓝yoryon 的社交媒体">

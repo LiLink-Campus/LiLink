@@ -78,7 +78,7 @@ export default function LoginPageClient() {
             />
           </Field>
           <div className={styles.passwordField}>
-            <Link className={styles.forgot} href="/forgot-password">忘记密码？</Link>
+            <Link prefetch={false} className={styles.forgot} href="/forgot-password">忘记密码？</Link>
           <Field label="密码">
             <Input
               required
@@ -102,7 +102,7 @@ export default function LoginPageClient() {
         </form>
         </InteractiveFields>
         <p className={authStyles.hint}>
-          还没有账号？<Link href={registerHref}>立即注册</Link>
+          还没有账号？<Link prefetch={false} href={registerHref}>立即注册</Link>
         </p>
       </Card>
     </main>

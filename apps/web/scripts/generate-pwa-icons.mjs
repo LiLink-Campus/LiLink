@@ -26,14 +26,14 @@ for (const [name, size, artwork] of [
   await sharp(Buffer.from(artwork), { density: 192 })
     .resize(size, size)
     .flatten({ background: "#faf9f3" })
-    .png()
+    .png({ compressionLevel: 9, adaptiveFiltering: false })
     .toFile(path.join(outDir, name));
 }
 const frames = await Promise.all([16, 32, 48].map(async (size) => ({
   size,
   png: await sharp(Buffer.from(source), { density: 192 })
     .resize(size, size)
-    .png()
+    .png({ compressionLevel: 9, adaptiveFiltering: false })
     .toBuffer(),
 })));
 const header = Buffer.alloc(6 + frames.length * 16);

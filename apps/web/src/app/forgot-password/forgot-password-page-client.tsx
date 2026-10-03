@@ -201,7 +201,7 @@ export default function ForgotPasswordPageClient({ initialEmail = "" }: { initia
         </InteractiveFields>
 
         <p className={authStyles.hint}>
-          {signedIn ? <Link href="/dashboard/me">← 返回用户中心</Link> : <>想起密码了？<Link href="/login">返回登录</Link></>}
+          {signedIn ? <Link prefetch={false} href="/dashboard/me">← 返回用户中心</Link> : <>想起密码了？<Link prefetch={false} href="/login">返回登录</Link></>}
         </p>
       </Card>
       <div className={authStyles.grassLine} aria-hidden="true">

@@ -5,6 +5,8 @@
   max-width: 1160px;
   margin: 0 auto;
   padding: 0 clamp(24px, 5vw, 64px) 80px;
+  /* Keep the logo backdrop inside the retained page-entry animation layer. */
+  background: var(--color-canvas);
 }
 .intro {
   text-align: center;
@@ -133,12 +135,6 @@
   align-items: center;
   min-width: 0;
 }
-.chineseSchool img {
-  width: 76px;
-  height: 76px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
 .chineseSchool h3 {
   font: 500 18px/1.6 var(--font-body);
   margin: 0;
@@ -174,15 +170,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.foreignMark img {
-  mix-blend-mode: multiply;
-  width: 100%;
-  height: 64px;
-  object-fit: contain;
-}
-.reversedMark img {
-  filter: brightness(0) saturate(100%) opacity(0.72);
 }
 .foreignSchools h4 {
   font: 500 13px/1.7 var(--font-body);
@@ -223,10 +210,6 @@
   .chineseSchool {
     gap: 16px;
   }
-  .chineseSchool img {
-    width: 62px;
-    height: 62px;
-  }
   .chineseSchool h3 {
     font-size: 16px;
   }
@@ -240,10 +223,6 @@
   }
   .foreignSchools li {
     max-width: none;
-  }
-  .foreignMark img {
-    mix-blend-mode: multiply;
-    max-width: 150px;
   }
 }
 
@@ -325,10 +304,6 @@
     flex-direction: column;
     gap: 12px;
   }
-  .chineseSchool img {
-    width: 68px;
-    height: 68px;
-  }
   .chineseSchool h3 {
     font-size: 14px;
     line-height: 1.6;
@@ -353,10 +328,6 @@
   }
   .foreignMark {
     height: 48px;
-  }
-  .foreignMark img {
-    max-width: 144px;
-    height: 44px;
   }
   .foreignSchools h4 {
     font-size: 12px;

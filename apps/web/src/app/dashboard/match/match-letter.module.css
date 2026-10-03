@@ -23,7 +23,7 @@
 .contactContent { position: relative; width: calc(100% - var(--decoration-space)); }
 .contactRow { display: grid; grid-template-columns: 24px max-content minmax(0, 1fr); align-items: start; gap: 10px; margin: 0 0 12px; }
 .contactRow svg, .wechatIcon { width: 24px; height: 24px; color: #89354f; }
-.wechatIcon { display: block; background: #89354f; mask: url('/icons/contact/wechat-filled.svg') center / contain no-repeat; }
+.wechatIcon { display: block; background: #89354f; mask: url('/icons/contact/wechat-filled.74b48b3d3153.svg') center / contain no-repeat; }
 .contactLabel { color: #79695e; font-size: 14px; line-height: 24px; white-space: nowrap; }
 .contactValue { min-width: 0; color: #43352e; font-size: 14px; line-height: 24px; overflow-wrap: anywhere; user-select: text; }
 .primary { display: block; width: 100%; min-height: 44px; padding: 10px 14px; border: 0; border-radius: 16px; background: #89354f; color: white; font: inherit; font-size: 14px; line-height: 24px; cursor: pointer; }

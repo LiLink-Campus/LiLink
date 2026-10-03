@@ -44,6 +44,8 @@ node scripts/e2e/run.mjs --project=chromium --grep @smoke --repeat-each=10
 
 ## 环境与安全边界
 
+首页构建需要可读的真实 API。`node scripts/e2e/run.mjs --build-only` 复用相同的一次性数据库、迁移、合成数据和 API，完成 shared/API 构建、Web 类型检查和生产构建后退出并清理；不启动浏览器，也不代表业务验收通过。CI 的根构建使用此入口，避免连接未启动的 localhost API 或生产数据。该模式不能与 `--api`、`--serve` 或浏览器参数混用。
+
 运行器复制当前工作区源码（包括未提交修改），排除 `.env*`、构建产物和生成客户端；在 `artifacts/e2e/<run-id>/workspace` 中构建，链接已安装依赖，不改开发环境配置。
 
 每轮启动带独立名称的 PostgreSQL 17 和 Mailpit 容器，绑定随机 loopback 端口。数据库名限定为 `lilink_e2e_<run-id>`，拒绝默认 5432 端口及远程地址。只加载显式生成的测试环境变量和临时签名密钥。数据库使用临时存储，结束或收到 SIGINT/SIGTERM 时停止本轮进程组、删除本轮容器和源码副本；不会运行全局 Docker prune。
@@ -67,12 +69,15 @@ Next.js 的 `LILINK_BUILD_WORKSPACE_ROOT` 仅用于让临时源码副本中的 T
 - 报名、刷新、取消报名；截止时间到达后拒绝旧页面提交。
 - 已发布匹配的对象、来信交互、刷新后结果；未匹配结果。
 - VIP 兑换、刷新、重复兑换幂等、无效码、到期状态。
-- 管理员登录并修改轮次状态，用户端同步变化；普通用户不能访问后台 API。
+- 管理员登录并修改轮次状态，重新加载用户页面后可见缓存收敛；普通用户不能访问后台 API。
+- 首页平台与学校统计由服务端快照呈现；停留、隐藏和恢复可见均不追加浏览器公开统计请求。
+- 事务提交后的公开缓存通知、重复 revision、30 分钟领取门限、有界故障重试与上游故障保留。
+- 同源 Vercel 静态资源加载、PWA 安装/升级、失败安装保留旧 worker，以及隔离源站不可达后的离线页面。
 - 登录、注册入口、找回密码页面和 VIP 客服弹窗的截图比较、溢出检查。
 
 普通资料测试通过真实 API 准备完整问卷，并断言返回 `SUBMITTED`；这不等于已经覆盖浏览器逐题填写整份问卷。匹配展示测试准备已发布数据，不替代现有 API 匹配算法/周期执行测试。到期测试修改隔离数据库时间字段，不修改机器时钟。
 
-浏览器项目：桌面 Chromium、移动尺寸 Chromium、桌面 WebKit、移动尺寸 WebKit。移动尺寸和 WebKit 均为模拟环境，不代表真实 iPhone 或安装版 Safari 验收。普通功能套件禁用 Service Worker，因此 PWA 安装、缓存升级和离线体验需要单独的专用套件。
+浏览器项目：桌面 Chromium、移动尺寸 Chromium、桌面 WebKit、移动尺寸 WebKit。移动尺寸和 WebKit 均为模拟环境，不代表真实 iPhone 或安装版 Safari 验收。普通功能套件禁用 Service Worker；`pwa.spec.ts` 与 `pwa-origin-failure.spec.ts` 专门启用它，验证同源安装、无凭据预缓存、旧 worker 升级、图标 503 时保留旧 worker、完整离线文档与图标。WebKit 的浏览器全局断网模拟存在已知缺陷，该模拟场景注明跳过；实际关闭每条用例的临时 HTTP 源站用于补充真实不可达验收。
 
 第三方支付、真实邮件到达率、真实用户数据均不在本套件范围内。外部图片的完整下载不作为页面就绪条件；用可见业务状态判断就绪。
 
@@ -112,23 +117,16 @@ Linux 包装器只复制源码，使用容器内独立依赖卷。报告写入 `
 node scripts/e2e/run.mjs --serve --serve-minutes=30
 ```
 
-复用相同的一次性数据库、合成数据和生产构建，服务就绪后生成 `artifacts/e2e/<run-id>/session.json`，只包含 runId、pid、webUrl、apiUrl、mailUrl、expiresAt。用其中的 webUrl 在 Codex in-app browser 查看；不访问已有开发数据库。默认和最长 30 分钟，最短 1 分钟；到期自动清理，Ctrl+C 或 SIGTERM 也会清理。API、Web、数据库或 Mailpit 提前退出会使本轮失败。结束时删除 session.json；留存 run.json 和脱敏证据。此模式只提供人工视觉检查环境，不代表自动测试通过。
+复用相同的一次性数据库、合成数据和生产构建，服务就绪后生成 `artifacts/e2e/<run-id>/session.json`，只包含 runId、pid、webUrl、apiUrl、mailUrl、expiresAt。用其中的 webUrl 在 Codex in-app browser 查看；不访问已有开发数据库。默认 30 分钟，最短 1 分钟、最长 90 分钟；到期自动清理，Ctrl+C 或 SIGTERM 也会清理。性能对照可用 `--extra-client-origin=http://127.0.0.1:<port>` 将第二个本地 Web 加入本轮 API 的 CORS 白名单，必须与 `--serve` 同用，只接受精确 loopback origin。API、Web、数据库或 Mailpit 提前退出会使本轮失败。结束时删除 session.json；留存 run.json 和脱敏证据。此模式只提供人工视觉检查环境，不代表自动测试通过。
 
-关于页背景保留原 PNG 作为无损再生成来源，实际页面只请求带内容 hash 的 WebP。复现压缩和像素等价检查（使用项目已有 sharp，不新增依赖）：
+## 静态图片复现
+
+当前测试环境只启动 Web/API/Mailpit，不启动独立静态 CDN。所有图片、JS、CSS、字体和图标按同源 Vercel 路径验证；旧候选退出说明见[静态资源托管](static-cdn.md)。
+
+压缩需使用从明确 Git 版本或保留来源恢复的原始 `public` 目录，不能对已发布的 WebP 递归重压，也不能假定旧 PNG 仍在当前工作树。使用项目已有 sharp，在独立且为空的输出目录复现：
 
 ```bash
-node --input-type=module <<'NODE'
-import sharp from 'sharp';
-import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
-const source = await readFile('apps/web/public/images/about/watercolor-atlas.png');
-const optimized = await sharp(source).webp({ lossless: true, effort: 6 }).toBuffer();
-const originalPixels = await sharp(source).ensureAlpha().raw().toBuffer();
-const optimizedPixels = await sharp(optimized).ensureAlpha().raw().toBuffer();
-if (!originalPixels.equals(optimizedPixels)) throw new Error('Pixel mismatch');
-const hash = createHash('sha256').update(optimized).digest('hex').slice(0, 12);
-const checkedIn = await readFile(`apps/web/public/images/about/watercolor-atlas.${hash}.webp`);
-if (!optimized.equals(checkedIn)) throw new Error('Artifact mismatch');
-console.log({ originalBytes: source.length, optimizedBytes: optimized.length, hash, pixelEquivalent: true });
-NODE
+node scripts/images/compress-assets.mjs --source /absolute/path/to/original-public --output artifacts/images/rebuilt
 ```
+
+命令生成带内容 hash 的 WebP、二维码预览和 `compression-report.json`，记录原始/输出字节、尺寸、压缩策略、alpha 检查及二维码无损像素断言。背景和头像允许既定有损策略，不能沿用旧候选的“所有图片像素等价”结论；视觉清晰度、二维码可用性和完整加载仍通过真实页面验收。

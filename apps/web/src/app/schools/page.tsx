@@ -1,8 +1,8 @@
 import { ButtonLink } from "@/components/ui";
-import Image from "next/image";
 import type { Metadata } from "next";
 import { SchoolDomainDirectory } from "./school-domain-directory";
 import { partnerGroups } from "./partners";
+import { SchoolLogo } from "./school-logo";
 import styles from "./schools.module.css";
 
 export const metadata: Metadata = {
@@ -35,11 +35,9 @@ export default function SchoolsPage() {
               aria-labelledby={`school-${group.id}`}
             >
               <div className={styles.chineseSchool}>
-                <Image
-                  src={`/images/schools/${group.logo}`}
-                  width={80}
-                  height={80}
-                  sizes="(max-width: 700px) 68px, 80px"
+                <SchoolLogo
+                  id={group.id}
+                  kind="chinese"
                   alt={`${group.name}校徽`}
                 />
                 <div>
@@ -53,14 +51,10 @@ export default function SchoolsPage() {
               <ul className={styles.foreignSchools}>
                 {group.partners.map((school) => (
                   <li key={school.id}>
-                    <div
-                      className={`${styles.foreignMark} ${["qmul", "glasgow", "reading", "aberdeen", "bcu"].includes(school.id) ? styles.reversedMark : ""}`}
-                    >
-                      <Image
-                        src={`/images/schools/${school.logo}`}
-                        width={160}
-                        height={68}
-                        sizes="160px"
+                    <div className={styles.foreignMark}>
+                      <SchoolLogo
+                        id={school.id}
+                        kind="foreign"
                         alt={`${school.name}标识`}
                       />
                     </div>
@@ -79,7 +73,7 @@ export default function SchoolsPage() {
           <h2>下一次相遇，从你开始。</h2>
           <p>用学校邮箱注册，开启你的 LiLink 校园故事。</p>
         </div>
-        <ButtonLink href="/register">立即加入 →</ButtonLink>
+        <ButtonLink prefetch={false} href="/register">立即加入 →</ButtonLink>
       </section>
     </main>
   );

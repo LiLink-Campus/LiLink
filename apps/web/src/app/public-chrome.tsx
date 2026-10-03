@@ -73,7 +73,7 @@ export function PublicChrome({ children }: { children: ReactNode }) {
         <div className={styles.footerInner}>
           <div className={styles.footerTop}>
             <div className={styles.footerBrand}>
-              <Link href="/" className={styles.footerLogo}>
+              <Link prefetch={false} href="/" className={styles.footerLogo}>
                 <span className={styles.footerIcon} aria-hidden="true">
                   <BrandIcon />
                 </span>
@@ -89,21 +89,21 @@ export function PublicChrome({ children }: { children: ReactNode }) {
             <nav className={styles.footerSitemap} aria-label="页脚导航">
               <div className={styles.footerColumn}>
                 <h2>探索</h2>
-                <Link href="/register">立即加入</Link>
-                <Link href="/schools">支持的学校</Link>
-                <Link href="/dashboard">我的匹配</Link>
+                <Link prefetch={false} href="/register">立即加入</Link>
+                <Link prefetch={false} href="/schools">支持的学校</Link>
+                <Link prefetch={false} href="/dashboard">我的匹配</Link>
               </div>
               <div className={styles.footerColumn}>
                 <h2>支持</h2>
                 <a href="mailto:support@lilink.top">联系邮箱</a>
                 <a href={pathname === "/" ? "#faq" : "/#faq"}>常见问题</a>
-                <Link href="/terms">用户协议</Link>
-                <Link href="/privacy">隐私政策</Link>
+                <Link prefetch={false} href="/terms">用户协议</Link>
+                <Link prefetch={false} href="/privacy">隐私政策</Link>
               </div>
               <div className={styles.footerColumn}>
                 <h2>关于</h2>
-                <Link href="/about">关于我们</Link>
-                <Link href="/updates">
+                <Link prefetch={false} href="/about">关于我们</Link>
+                <Link prefetch={false} href="/updates">
                   更新日志
                   <UpdatesNewBadge />
                 </Link>

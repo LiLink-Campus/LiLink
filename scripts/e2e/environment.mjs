@@ -16,6 +16,7 @@ export function testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, 
   Object.assign(env, {
     APP_ENV: 'test', NODE_ENV: 'production',
     DATABASE_URL: `postgresql://e2e:e2e@127.0.0.1:${dbPort}/lilink_e2e_${runId}`,
+    PUBLIC_CACHE_REVALIDATION_URL: `http://127.0.0.1:${webPort}/api/internal/public-cache/revalidate`,
     PORT: String(apiPort), CLIENT_ORIGIN: `http://127.0.0.1:${webPort}`,
     NEXT_PUBLIC_API_BASE_URL: `http://127.0.0.1:${apiPort}/v1`,
     SMTP_HOST: '127.0.0.1', SMTP_PORT: String(smtpPort), SMTP_SECURE: 'false',
@@ -25,7 +26,7 @@ export function testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, 
     E2E_API_URL: `http://127.0.0.1:${apiPort}/v1`,
     E2E_MAIL_URL: `http://127.0.0.1:${mailPort}`,
   });
-  for (const key of ['JWT_SECRET', 'ADMIN_JWT_SECRET', 'MERCHANT_JWT_SECRET', 'CRON_SECRET', 'REDEEM_TICKET_SECRET']) {
+  for (const key of ['PUBLIC_CACHE_REVALIDATION_SECRET', 'JWT_SECRET', 'ADMIN_JWT_SECRET', 'MERCHANT_JWT_SECRET', 'CRON_SECRET', 'REDEEM_TICKET_SECRET']) {
     env[key] = randomBytes(32).toString('hex');
   }
   assertTestDatabase(env.DATABASE_URL);

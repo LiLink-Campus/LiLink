@@ -1,6 +1,6 @@
 import { ImageReadyPage } from "../_components/ImageReadyPage";
 import type { Metadata } from "next";
-import Image from "next/image";
+import { StaticImage } from "@/components/StaticImage";
 import Link from "next/link";
 import styles from "./page.module.css";
 import { Registration } from "./Registration";
@@ -33,7 +33,7 @@ export default function OneToOnePage() {
       <div className={`${styles.heroCta} ${styles.contactCard}`}>
         <Registration />
       </div>
-      <div className={styles.heroArt}><Image data-page-image className={styles.heroImage} src="/images/one-to-one-minimal.webp" alt="两位同学坐在长椅上轻松交流的简约插画" width={1672} height={941} priority sizes="(max-width: 700px) 600px, 1100px" /></div>
+      <div className={styles.heroArt}><StaticImage data-page-image className={styles.heroImage} src="/images/one-to-one-minimal.6c30b4067e80.webp" alt="两位同学坐在长椅上轻松交流的简约插画" width={1672} height={941} priority sizes="(max-width: 700px) 600px, 1100px" /></div>
     </section>
 
     <section className={styles.plans} aria-label="服务方案">

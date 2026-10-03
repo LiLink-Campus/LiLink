@@ -1,0 +1,44 @@
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  mix-blend-mode: multiply;
+}
+.chinese {
+  --logo-height: 76px;
+  width: 76px;
+  height: var(--logo-height);
+}
+.foreign {
+  --logo-height: 64px;
+  width: 100%;
+  height: var(--logo-height);
+}
+.crop {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: calc(var(--logo-height) * var(--logo-ratio));
+  aspect-ratio: var(--logo-ratio);
+  overflow: hidden;
+}
+.image {
+  position: absolute;
+  display: block;
+  width: var(--atlas-width);
+  height: auto;
+  max-width: none;
+  left: var(--atlas-left);
+  top: var(--atlas-top);
+}
+@media (max-width: 640px) {
+  .chinese {
+    --logo-height: 68px;
+    width: 68px;
+  }
+  .foreign {
+    --logo-height: 44px;
+    max-width: 144px;
+  }
+}

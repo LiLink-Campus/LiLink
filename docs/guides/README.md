@@ -22,6 +22,7 @@ lang: zh
 | [新环境重建、数据迁移与域名切换](environment-migration.md) | 迁移前提、单写边界与恢复验收 |
 | [本地开发](local-development.md) | 现行说明 |
 | [生产发布与回滚](production-release.md) | 现行说明 |
+| [Vercel 静态资源生成与缓存](static-cdn.md) | 响应式图片、学校图集、内容 hash 缓存与旧地址 |
 | [隔离环境发布演练](release-rehearsal.md) | 镜像、匹配、送信与恢复验收 |
 | [VIP 卡密运营](vip-operations.md) | 现行说明 |
 | [UI 视觉验收](visual-verification.md) | 现行说明 |
