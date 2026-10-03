@@ -4,6 +4,7 @@ import { sanitizeSameOriginRelativePath } from "@lilink/shared";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { InteractiveFields } from "../../components/interactive-fields";
 import { AdminIcon, type AdminIconName } from "./admin-icon";
 import { cx } from "./admin-class-names";
 import { AdminProvider, useAdmin, type AdminIdentity } from "./admin-context";
@@ -81,51 +82,53 @@ function AdminGate({ children }: { children: React.ReactNode }) {
           </Link>
           <h1>运营后台</h1>
           <p>使用管理员账号登录。</p>
-          <form
-            className="auth-stack"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const loginSucceeded = await login(email, password);
-              if (!loginSucceeded) {
-                return;
-              }
+          <InteractiveFields>
+            <form
+              className="auth-stack"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const loginSucceeded = await login(email, password);
+                if (!loginSucceeded) {
+                  return;
+                }
 
-              const nextPath = new URLSearchParams(window.location.search).get("next");
-              const safeNext = sanitizeSameOriginRelativePath(nextPath, window.location.origin);
-              const redirectPath = safeNext && safeNext.startsWith("/admin/") ? safeNext : "/admin";
-              router.replace(redirectPath);
-            }}
-          >
-            <label>
-              <span>管理员邮箱</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="请输入管理员邮箱"
-                autoComplete="username"
-                autoFocus
-              />
-            </label>
-            <label>
-              <span>密码</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="输入管理员密码"
-                autoComplete="current-password"
-              />
-            </label>
-            {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
-            <button
-              className="ui-button ui-button--primary"
-              type="submit"
-              disabled={!email || !password}
+                const nextPath = new URLSearchParams(window.location.search).get("next");
+                const safeNext = sanitizeSameOriginRelativePath(nextPath, window.location.origin);
+                const redirectPath = safeNext && safeNext.startsWith("/admin/") ? safeNext : "/admin";
+                router.replace(redirectPath);
+              }}
             >
-              进入后台
-            </button>
-          </form>
+              <label>
+                <span>管理员邮箱</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="请输入管理员邮箱"
+                  autoComplete="username"
+                  autoFocus
+                />
+              </label>
+              <label>
+                <span>密码</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="输入管理员密码"
+                  autoComplete="current-password"
+                />
+              </label>
+              {error ? <p className="ui-form-message ui-form-message--error">{error}</p> : null}
+              <button
+                className="ui-button ui-button--primary"
+                type="submit"
+                disabled={!email || !password}
+              >
+                进入后台
+              </button>
+            </form>
+          </InteractiveFields>
         </div>
       </div>
     );

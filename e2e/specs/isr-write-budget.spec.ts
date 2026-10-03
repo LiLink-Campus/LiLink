@@ -32,6 +32,7 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
   let phase = 'setup';
   let mutationSaved = false;
   let observerStarted = false;
+  let primaryFailure = false;
   const signedCallback = async (revision: string, baseUrl = process.env.E2E_WEB_URL!, expectedStatus = 200) => {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const body = JSON.stringify({ scope: 'home', revision });
@@ -77,6 +78,14 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
   };
   const cycleData = { cycleId: cycle.id, codename: cycle.codename, status: cycle.status,
     participationDeadline: cycle.participationDeadline.toISOString(), revealAt: cycle.revealAt.toISOString() };
+  const wakeDispatcher = async (currentCycle: typeof cycleData) => {
+    const before = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
+    // Advancing the disposable DB clock cannot reschedule the worker's timer.
+    // A no-op business save invokes its real post-commit wake without a new event.
+    expect((await context.request.put(`${api}/admin/cycles`, { data: currentCycle })).ok()).toBe(true);
+    const after = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
+    expect(after.revision).toBe(before.revision);
+  };
   try {
     await visit(page, '/admin');
     await page.getByLabel('管理员邮箱', { exact: true }).fill(admin.email);
@@ -88,7 +97,7 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
     await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
       dueAt: new Date(0), lastAttemptAt: null, leaseUntil: null, lastClaimedAt: new Date(0),
     } });
-    expect((await context.request.put(`${api}/admin/cycles`, { data: cycleData })).ok()).toBe(true);
+    await wakeDispatcher(cycleData);
     await expect.poll(async () => {
       const row = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
       return row.revision <= row.acknowledgedRevision;
@@ -147,6 +156,8 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
     await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
       dueAt: new Date(0), lastAttemptAt: null, leaseUntil: null,
     } });
+    const renamedCycleData = { ...cycleData, codename: renamedCodename, revealAt: changedRevealAt.toISOString() };
+    await wakeDispatcher(renamedCycleData);
     await expect.poll(async () => {
       const row = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
       return (row.lastAttemptAt?.getTime() ?? 0) >= attemptStartedAt
@@ -170,10 +181,7 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
     await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
       dueAt: new Date(0), lastAttemptAt: null, leaseUntil: null, lastClaimedAt: new Date(0),
     } });
-    // Saving the current real cycle also invokes the existing post-commit wake.
-    expect((await context.request.put(`${api}/admin/cycles`, { data: {
-      ...cycleData, codename: renamedCodename, revealAt: changedRevealAt.toISOString(),
-    } })).ok()).toBe(true);
+    await wakeDispatcher(renamedCycleData);
     await expect.poll(async () => {
       const row = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
       return row.acknowledgedRevision >= beforeDeferral.revision && row.claimedRevision >= beforeDeferral.revision;
@@ -202,6 +210,7 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
     await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
       dueAt: new Date(0), lastAttemptAt: null, leaseUntil: null, lastClaimedAt: new Date(0),
     } });
+    await wakeDispatcher({ ...renamedCycleData, status: 'DRAFT' });
     await expect.poll(async () => {
       const row = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
       return row.acknowledgedRevision >= pending.revision && row.lastDeliveredAt !== null;
@@ -304,23 +313,38 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
       await visible.screenshot({ path: info.outputPath('homepage-after-business-change.png'), fullPage: true });
     } finally { await visible.close(); }
     assertions.browserCountdownAndJoinCtaAgreeWithCommittedChange = true;
+  } catch (error) {
+    primaryFailure = true;
+    throw error;
   } finally {
-    if (observerStarted) await evidence.stop();
-    const summary = observerStarted ? await evidence.summarize() : { observationErrors: ['Observer did not start.'] };
-    const report = { runId: process.env.E2E_RUN_ID, project: info.project.name, browser: browser.version(),
-      generatedAt: new Date().toISOString(), assertions, queue, callbacks, requests, ...summary,
-      environment: { productionBuild: true, disposableSyntheticData: true, independentStaticCdn: Boolean(process.env.E2E_CDN_URL),
-        sentryDsnEmptyInExistingRunner: !process.env.SENTRY_DSN && !process.env.NEXT_PUBLIC_SENTRY_DSN },
-      manifest: await evidence.manifestSummary() };
-    await writeFile(path.join(output, 'evidence.json'), JSON.stringify(report, null, 2));
-    await info.attach('isr-write-measurement', { contentType: 'application/json', path: path.join(output, 'evidence.json') });
-    if (mutationSaved) {
-      expect((await context.request.put(`${api}/admin/cycles`, { data: cycleData })).ok()).toBe(true);
-      await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
-        dueAt: new Date(0), lastAttemptAt: null, leaseUntil: null, lastClaimedAt: new Date(0),
-      } });
+    const finalizationErrors: unknown[] = [];
+    try {
+      if (observerStarted) await evidence.stop();
+      const summary = observerStarted ? await evidence.summarize() : { observationErrors: ['Observer did not start.'] };
+      const report = { runId: process.env.E2E_RUN_ID, project: info.project.name, browser: browser.version(),
+        generatedAt: new Date().toISOString(), assertions, queue, callbacks, requests, ...summary,
+        environment: { productionBuild: true, disposableSyntheticData: true, independentStaticCdn: Boolean(process.env.E2E_CDN_URL),
+          sentryDsnEmptyInExistingRunner: !process.env.SENTRY_DSN && !process.env.NEXT_PUBLIC_SENTRY_DSN },
+        manifest: await evidence.manifestSummary() };
+      await writeFile(path.join(output, 'evidence.json'), JSON.stringify(report, null, 2));
+      await info.attach('isr-write-measurement', { contentType: 'application/json', path: path.join(output, 'evidence.json') });
+      expect(summary.observationErrors, 'Cache observation errors invalidate a zero-write result.').toEqual([]);
+    } catch (error) { finalizationErrors.push(error); }
+    // Restore synthetic business state even when collecting evidence failed.
+    try {
+      if (mutationSaved) {
+        expect((await context.request.put(`${api}/admin/cycles`, { data: cycleData })).ok()).toBe(true);
+        await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
+          dueAt: new Date(0), lastAttemptAt: null, leaseUntil: null, lastClaimedAt: new Date(0),
+        } });
+        await wakeDispatcher(cycleData);
+      }
+    } catch (error) { finalizationErrors.push(error); }
+    if (finalizationErrors.length) {
+      if (!primaryFailure) throw finalizationErrors[0];
+      info.annotations.push({ type: 'isr-finalization-failure',
+        description: 'Finalization also failed; the original test failure is retained. See the measurement attachment and trace.' });
     }
-    expect(summary.observationErrors, 'Cache observation errors invalidate a zero-write result.').toEqual([]);
   }
 });
 

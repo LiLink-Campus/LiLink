@@ -65,6 +65,59 @@ test('school registration delivers mail and creates a usable account @smoke', as
   await login(page, { id: '', email, displayName: '' });
 });
 
+// Failure boundary: a directly opened personal registration page must not
+// accept input before handlers can retain it; the ready form must register.
+test('personal registration waits for handlers and creates a usable account @smoke', async ({ page, account, db }, info) => {
+  const email = `${randomUUID()}@personal.example.test`;
+  const referralCode = randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase();
+  const school = await db.school.findUniqueOrThrow({ where: { slug: 'e2e-school' } });
+  await db.user.update({ where: { id: account.id }, data: { referralCode } });
+  let releaseScripts!: () => void;
+  const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });
+  await page.route('**/_next/static/**/*.js', async route => {
+    await scriptsReady;
+    await route.continue();
+  });
+  try {
+    await page.goto('/register/personal', { waitUntil: 'commit' });
+    for (const label of ['邀请码', '普通邮箱', '验证码']) {
+      await expect(page.getByLabel(label, { exact: true })).toBeDisabled();
+    }
+    await expect(page.getByRole('button', { name: '发送验证码', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '下一步', exact: true })).toBeDisabled();
+    releaseScripts();
+    await page.getByLabel('邀请码', { exact: true }).fill(referralCode);
+    await page.getByLabel('普通邮箱', { exact: true }).fill(email);
+    await expect(page.getByLabel('邀请码', { exact: true })).toHaveValue(referralCode);
+    await page.getByRole('button', { name: '发送验证码', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: '验证码已发送' })).toBeVisible();
+    await expect(page.getByLabel('普通邮箱', { exact: true })).toHaveValue(email);
+    await page.getByLabel('验证码', { exact: true }).fill(await mailCode(page, email));
+    await page.getByRole('button', { name: '下一步', exact: true }).click();
+    await page.getByRole('combobox', { name: /^学校 / }).selectOption(school.id);
+    await page.getByLabel('密码', { exact: true }).fill(password);
+    await page.getByLabel('确认密码', { exact: true }).fill(password);
+    await page.getByRole('checkbox').check();
+    await page.getByRole('button', { name: '创建账号', exact: true }).click();
+    await expect(page).toHaveURL(/\/dashboard/);
+    expect((await (await page.request.get(`${api}/auth/me`)).json()).email).toBe(email);
+    const registered = await db.user.findUniqueOrThrow({ where: { email } });
+    expect(registered.referredByUserId).toBe(account.id);
+    expect(registered.schoolId).toBe(school.id);
+    await page.context().clearCookies();
+    await login(page, { id: registered.id, email, displayName: '' });
+    await info.attach('personal-registration-ready', { contentType: 'application/json', body: JSON.stringify({
+      project: info.project.name, assertions: { inputsUnavailableBeforeHandlers: true,
+        emailRetainedThroughMailDelivery: true, registrationCompleted: true,
+        schoolAndReferrerPersisted: true, createdAccountCanLogin: true },
+    }) });
+    await info.attach('personal-registration-complete', { contentType: 'image/png', body: await page.screenshot() });
+  } finally {
+    releaseScripts();
+    if (!page.isClosed()) await page.unrouteAll({ behavior: 'wait' });
+  }
+});
+
 test('password reset waits for its handlers before accepting input @smoke', async ({ page, account }, testInfo) => {
   let releaseScripts!: () => void;
   const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });

@@ -7,8 +7,11 @@ test('home accepts a fresh server snapshot after focus revalidation', async ({ p
   await page.clock.install();
   await visit(page, '/dashboard');
   await expect(page.getByRole('main')).toContainText('自动化同学');
+  // SSR text precedes the effects that initialize the focus refresh TTL.
+  await expect(page.getByLabel('距揭晓', { exact: true })).toBeVisible();
   await db.user.update({ where: { id: account.id }, data: { displayName: '重新验证后的昵称' } });
   await page.clock.fastForward(31_000);
+  await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('visible');
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.getByRole('main')).toContainText('重新验证后的昵称');
 });

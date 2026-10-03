@@ -18,7 +18,8 @@ concurrency:
 jobs:
   browser-e2e:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    # Full regression measured 32m16s before setup and the 3m12s visual build.
+    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 45 || 35 }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6

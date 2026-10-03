@@ -148,12 +148,17 @@ test('admin cycle change invalidates server snapshot through the durable dispatc
   const admin = await db.adminOperator.create({ data: { email: `cache-${account.email}`, passwordHash: user.passwordHash, displayName: '缓存验收管理员' } });
   const cycle = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
   const before = await db.publicCacheInvalidation.findUnique({ where: { scope: 'home' } });
+  const cycleData = { cycleId: cycle.id, codename: cycle.codename, status: cycle.status,
+    participationDeadline: cycle.participationDeadline.toISOString(), revealAt: cycle.revealAt.toISOString() };
+  let setupStarted = false;
+  let primaryFailure = false;
   try {
     await visit(page, '/admin');
     await page.getByLabel('管理员邮箱', { exact: true }).fill(admin.email);
     await page.getByLabel('密码', { exact: true }).fill(password);
     await page.getByRole('button', { name: '进入后台', exact: true }).click();
     await expect.poll(async () => (await context.request.get(`${api}/admin-session/me`)).status()).toBe(200);
+    setupStarted = true;
     // Recreate a worker lost after its final durable claim without changing
     // the production retry budget or stealing a live lease.
     let lostWorker: { acknowledgedRevision: bigint; claimedRevision: bigint } | undefined;
@@ -202,6 +207,9 @@ test('admin cycle change invalidates server snapshot through the durable dispatc
     await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
       dueAt: new Date(0), lastAttemptAt: null, leaseUntil: null, lastClaimedAt: new Date(0),
     } });
+    // Reschedule after advancing the DB clock, without creating another event.
+    expect((await context.request.put(`${api}/admin/cycles`, { data: { ...cycleData, status: 'DRAFT' } })).ok()).toBe(true);
+    expect((await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } })).revision).toBe(pending.revision);
     await expect.poll(async () => {
       const row = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
       return row.acknowledgedRevision >= pending.revision && row.lastDeliveredAt !== null;
@@ -228,17 +236,26 @@ test('admin cycle change invalidates server snapshot through the durable dispatc
       assertions: { adminUiSaved: true, queueCommitted: true, actualDispatcherDelivered: true,
         serverHtmlUpdated: true, browserUpdated: true, visibleJoinCtaUpdated: true },
     }, null, 2) });
+  } catch (error) {
+    primaryFailure = true;
+    throw error;
   } finally {
-    const response = await context.request.put(`${api}/admin/cycles`, { data: {
-      cycleId: cycle.id, codename: cycle.codename, status: cycle.status,
-      participationDeadline: cycle.participationDeadline.toISOString(), revealAt: cycle.revealAt.toISOString(),
-    } });
-    expect(response.ok()).toBe(true);
-    const cleanup = await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
-      dueAt: new Date(0), lastAttemptAt: null, leaseUntil: null, lastClaimedAt: new Date(0),
-    } });
-    const body = JSON.stringify({ scope: 'home', revision: cleanup.revision.toString() });
-    expect((await context.request.post(webhook, { data: body, headers: signed(body) })).ok()).toBe(true);
+    try {
+      if (setupStarted) {
+        expect((await context.request.put(`${api}/admin/cycles`, { data: cycleData })).ok()).toBe(true);
+        const cleanup = await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
+          dueAt: new Date(0), lastAttemptAt: null, leaseUntil: null, lastClaimedAt: new Date(0),
+        } });
+        expect((await context.request.put(`${api}/admin/cycles`, { data: cycleData })).ok()).toBe(true);
+        expect((await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } })).revision).toBe(cleanup.revision);
+        const body = JSON.stringify({ scope: 'home', revision: cleanup.revision.toString() });
+        expect((await context.request.post(webhook, { data: body, headers: signed(body) })).ok()).toBe(true);
+      }
+    } catch (error) {
+      if (!primaryFailure) throw error;
+      info.annotations.push({ type: 'cache-cleanup-failure',
+        description: 'Cleanup also failed; the original test failure is retained. See the trace.' });
+    }
   }
 });
 

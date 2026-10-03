@@ -53,6 +53,9 @@ test('VIP school exclusions survive reload and hash navigation selects the right
     const saved = await (await context.request.get(`${api}/me/questionnaire`)).json();
     expect(saved.answers.hard_excluded_partner_school_genders).toEqual([{ schoolId: school.id, genders: ['男'] }]);
     await page.reload({ waitUntil: 'domcontentloaded' });
+    // A second navigation must wait for the reloaded router's hydration;
+    // its initial history commit can otherwise overwrite the new fragment.
+    await expect(page.getByRole('textbox', { name: '昵称', exact: true })).toBeEditable();
     await visit(page, route);
     await expect(search).toBeVisible();
     await search.fill(school.name);

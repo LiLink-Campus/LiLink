@@ -58,8 +58,14 @@ test('profile keeps verified VIP state through transient reads and expiry remain
   await db.vipActivation.create({ data: { codeHash: `performance-${account.id}`, userId: account.id, activatedAt: new Date(Date.now() - 86_400_000), expiresAt: new Date(Date.now() + 60_000), batch: 'e2e-performance' } });
   await visit(page, '/dashboard/profile');
   await expect(page.getByText('全部修改已保存', { exact: true }).filter({ visible: true })).toBeVisible();
+  // The SSR save notice is visible before the profile can handle focus events.
+  await expect(page.getByRole('textbox', { name: '昵称', exact: true })).toBeEditable();
+  const directory = page.getByRole('button', { name: '题目目录', exact: true });
+  if (await directory.isVisible()) await directory.click();
+  await page.getByRole('button', { name: /第 \d+ 题：希望对方的身高范围$/ }).filter({ visible: true }).click();
   const activeBenefits = page.getByText('高级筛选 · VIP 已启用', { exact: true });
-  await expect(activeBenefits).not.toHaveCount(0);
+  await expect(activeBenefits.filter({ visible: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('visible');
   let requests = 0;
   await page.route('**/v1/me/vip', async route => {
     requests++;
@@ -68,7 +74,7 @@ test('profile keeps verified VIP state through transient reads and expiry remain
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect.poll(() => requests).toBe(1);
   await expect(page.getByText('权益状态暂时无法更新，稍后会自动重试。')).toBeVisible();
-  await expect(activeBenefits).not.toHaveCount(0);
+  await expect(activeBenefits.filter({ visible: true })).toBeVisible();
   await db.vipActivation.updateMany({ where: { userId: account.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
   await page.unroute('**/v1/me/vip');
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
