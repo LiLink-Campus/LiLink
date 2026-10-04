@@ -23,10 +23,24 @@ Failure modes to verify through the existing browser E2E and resource ledger:
   remain intact. Portraits retain their current CSS aspect ratio.
 - First-screen artwork is eager, and its preload and rendered image share the
   same `srcset` and `sizes`; a preload must not trigger a duplicate image fetch.
-- Images marked `data-page-image` still gate `ImageReadyPage` until decoded;
-  failed or stalled images retain the existing bounded reveal fallback.
+- The homepage renders its hero without a client reveal gate. Its 96-pixel WebP
+  preview is generated from the same published source, embedded once in page CSS,
+  and uses the same cover crop as the eager responsive image. Image or script
+  failure must leave the preview, heading and links visible. No runtime image
+  processor, extra image request or per-frame product script is introduced.
+- About renders three complete inline atlas previews with its initial HTML and
+  keeps the existing CSS entrance animation. The three original HD crops retain
+  their URL, dimensions, masking and placement, share one atlas request, and
+  replace previews without a client reveal gate. The primary `data-page-image`
+  remains mandatory for strict HD readiness; image or script failures must leave
+  the previews, text and native links visible.
+- On one-to-one, images marked `data-page-image` still gate `ImageReadyPage`
+  until decoded; its existing bounded fallback is unchanged.
 - Below-fold images remain lazy, and the inactive dashboard carousel slide
   retains its existing lazy policy.
+- Fixed SVG branding and pre-generated QR previews use native images, retaining
+  their dimensions, alt text, lazy loading and original-image links. They must
+  remain visible before hydration and never introduce optimizer requests.
 
 The generator changes static files and image markup only. It does not change
 route revalidation intervals, data-cache keys, cache tags, or API invalidation.

@@ -3,7 +3,7 @@ export function installObservers() {
   const data = { paints: [], lcp: [], shifts: [], longTasks: [], clicks: [], imageDecodes: [], errors: [] };
   const cleanUrl = value => {
     if (!value) return '';
-    try { const url = new URL(value, location.href); return `${url.origin}${url.pathname}`; }
+    try { const url = new URL(value, location.href); return /^https?:$/.test(url.protocol) ? `${url.origin}${url.pathname}` : 'inline-image'; }
     catch { return ''; }
   };
   const observe = (type, consume) => {
@@ -31,7 +31,12 @@ export function installObservers() {
   };
   document.addEventListener('click', event => {
     const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
-    if (link && event.isTrusted) data.clicks.push({ time: performance.now(), path: new URL(link.href).pathname });
+    if (link && event.isTrusted) {
+      const click = { time: performance.now(), path: new URL(link.href).pathname, timeOrigin: performance.timeOrigin };
+      data.clicks.push(click);
+      // The binding retains trusted source timing when native navigation replaces this document.
+      window.__lilinkPerfTrustedClick?.(click).catch(() => {});
+    }
   }, true);
   document.fonts.ready.then(() => { data.fontsReadyAt = performance.now(); });
   window.__lilinkPerf = data;
@@ -108,6 +113,8 @@ export function collectMetrics() {
   }
   const nav = performance.getEntriesByType('navigation')[0];
   return { observedUntilMs: performance.now(), timeOrigin: performance.timeOrigin,
+    previewVisibleMs: data.firstScreen?.previewVisible?.at ?? null,
+    heroHdReadyMs: data.firstScreen?.heroHdReady?.at ?? null,
     fcpMs: data.paints.find(entry => entry.name === 'first-contentful-paint')?.startTime ?? null,
     lcpMs: data.lcp.at(-1)?.startTime ?? null, cls,
     ttfbMs: nav ? nav.responseStart - nav.startTime : null,

@@ -24,7 +24,7 @@ export async function readOptions(argv) {
   }
   const allowed = ['before-session', 'after-session', 'before-url', 'after-url', 'before-label', 'after-label',
     'before-api-url', 'after-api-url', 'before-cdn-url', 'after-cdn-url', 'rounds', 'profile', 'output',
-    'viewports', 'routes', 'observation-ms', 'motion', 'smoke', 'resume'];
+    'viewports', 'routes', 'observation-ms', 'motion', 'smoke', 'resume', 'click-readiness'];
   for (const key of Object.keys(options)) if (!allowed.includes(key)) throw new Error(`Unknown option --${key}`);
   const config = { rounds: Number(options.rounds ?? 5), profile: options.profile ?? 'unthrottled',
     output: path.resolve(options.output ?? `artifacts/performance/${Date.now()}`),
@@ -32,6 +32,8 @@ export async function readOptions(argv) {
     routes: (options.routes ?? Object.keys(routes).join(',')).split(','),
     observationMs: Number(options['observation-ms'] ?? 5000), motion: options.motion ?? 'no-preference',
     smoke: !!options.smoke, resume: !!options.resume, variants: {} };
+  config.clickReadiness = options['click-readiness'] ?? 'preview';
+  if (!['preview', 'complete'].includes(config.clickReadiness)) throw new Error('Use --click-readiness preview or complete.');
   if (!Number.isInteger(config.rounds) || config.rounds < (config.smoke ? 1 : 5)) throw new Error('At least five paired rounds are required (or explicit --smoke).');
   if (!profiles[config.profile]) throw new Error('Use --profile unthrottled or mobile-pressure.');
   if (config.viewports.some(value => !['desktop', 'mobile'].includes(value))) throw new Error('Unknown viewport.');

@@ -2,6 +2,7 @@ import { MemberPageView } from "@/app/about/team/[slug]/member-page-view";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, waitFor, userEvent, within } from "storybook/test";
 import { HomePageView } from "@/app/home-page-view";
+import { HomeSnapshotSections, HomeJoinMessage } from "@/app/home-snapshot-sections";
 import About from "@/app/about/page";
 import Schools from "@/app/schools/page";
 import Terms from "@/app/terms/page";
@@ -25,20 +26,50 @@ const meta = {
 } satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;
+function HomeStory({ hasCycle = true }: { hasCycle?: boolean }) {
+  const snapshot = { landing: hasCycle ? landing : null, community: null };
+  return <HomePageView
+    snapshotSections={<HomeSnapshotSections {...snapshot} />}
+    joinMessage={<HomeJoinMessage landing={snapshot.landing} />}
+  />;
+}
 export const Home: Story = {
   parameters: route("/"),
-  render: () => <HomePageView landing={landing} />,
+  render: () => <HomeStory />,
   play: visible("每周一次"),
 };
 export const HomeNoCycle: Story = {
   parameters: route("/"),
-  render: () => <HomePageView landing={null} />,
+  render: () => <HomeStory hasCycle={false} />,
   play: visible("每周一次"),
+};
+export const HomePreviewFallback: Story = {
+  tags: ["smoke"],
+  parameters: {
+    ...route("/"),
+    docs: { description: { story: "高清图仍在加载或加载失败时，共用完整构图预览。这里只隐藏高清层；真实网络故障由首页 E2E 验证。" } },
+  },
+  render: () => <div data-story-home-preview>
+    <style>{"[data-story-home-preview] [data-home-preview] > img { visibility: hidden; }"}</style>
+    <HomeStory />
+  </div>,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("heading", { name: /让相遇这件事/ })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "开始匹配 →" })).toHaveAttribute("href", "/dashboard");
+    await expect(canvas.getByRole("link", { name: "了解更多" })).toHaveAttribute("href", "/about");
+    const preview = canvasElement.querySelector("[data-home-preview]")!;
+    await expect(preview).toBeVisible();
+    await expect(getComputedStyle(preview).backgroundImage).toMatch(/url\(["']?data:image\//);
+    await expect(preview.querySelector("img")).not.toBeVisible();
+  },
 };
 export const AboutPage: Story = {
   parameters: route("/about"),
   render: () => <About />,
-  play: visible(/关于/),
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(within(canvasElement).getByRole("heading", { name: "关于 LiLink" })).toBeVisible(), { timeout: 10_000 });
+  },
 };
 export const SchoolsPage: Story = {
   parameters: route("/schools"),

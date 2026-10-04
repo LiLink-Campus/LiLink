@@ -54,7 +54,7 @@
 }
 
 .toggle {
-  display: none;
+  display: inline-flex;
   width: 2.5rem;
   height: 2.5rem;
   border: 1px solid var(--color-border);
@@ -65,6 +65,30 @@
   flex-direction: column;
   gap: 0.22rem;
   box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  list-style: none;
+}
+
+.toggle::-webkit-details-marker {
+  display: none;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 3px;
+}
+
+@media (min-width: 761px) {
+  @supports selector(details::details-content) {
+    .shell::details-content {
+      display: contents;
+      content-visibility: visible;
+    }
+
+    .toggle {
+      display: none;
+    }
+  }
 }
 
 .toggle span {
@@ -77,15 +101,15 @@
     opacity 0.18s;
 }
 
-.shell.open .toggle span:nth-child(1) {
+.shell[open] .toggle span:nth-child(1) {
   transform: translateY(0.28rem) rotate(45deg);
 }
 
-.shell.open .toggle span:nth-child(2) {
+.shell[open] .toggle span:nth-child(2) {
   opacity: 0;
 }
 
-.shell.open .toggle span:nth-child(3) {
+.shell[open] .toggle span:nth-child(3) {
   transform: translateY(-0.31rem) rotate(-45deg);
 }
 
@@ -117,7 +141,7 @@
     visibility: hidden;
   }
 
-  .shell.open .nav {
+  .shell[open] .nav {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0);

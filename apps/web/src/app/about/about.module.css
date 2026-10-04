@@ -31,13 +31,25 @@
   text-wrap: pretty;
 }
 .campusArt, .botanicalArt, .petalsArt {
-  background-image: url('/images/about/watercolor-atlas.618382ffbabd.webp');
+  position: relative;
+  overflow: hidden;
   background-size: 300% 100%;
   background-repeat: no-repeat;
   pointer-events: none;
   mix-blend-mode: multiply;
   mask-image: radial-gradient(ellipse at center, #000 45%, transparent 73%);
 }
+.atlas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300%;
+  height: 100%;
+  max-width: none;
+  object-fit: fill;
+}
+.botanicalArt .atlas { left: -100%; }
+.petalsArt .atlas { left: -200%; }
 .campusArt {
   grid-area: art;
   width: 100%;

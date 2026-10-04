@@ -1,14 +1,13 @@
-import { ImageReadyPage } from "../_components/ImageReadyPage";
+import { AboutArtwork } from "./about-artwork";
 import TeamMembers from "./team-members";
 import styles from "./about.module.css";
 
 export default function AboutPage() {
   return (
-    <ImageReadyPage className={styles.page} background="/images/about/watercolor-atlas.618382ffbabd.webp">
-      <link rel="preload" as="image" href="/images/about/watercolor-atlas.618382ffbabd.webp" fetchPriority="high" />
+    <main className={styles.page}>
       <div className={styles.inner}>
-        <header className={styles.masthead}>
-          <div className={styles.campusArt} aria-hidden="true" />
+        <header className={styles.masthead} data-about-hero>
+          <AboutArtwork className={styles.campusArt} priority />
           <div className={styles.intro}>
             <h1>关于 LiLink</h1>
             <p className={styles.meta}>
@@ -29,7 +28,7 @@ export default function AboutPage() {
           <div className={styles.storyLayout}>
             <div className={styles.storyVisual}>
               <blockquote className={styles.storyQuote}>与其无数次擦肩，<br />不如一次认真的匹配。</blockquote>
-              <div className={styles.botanicalArt} aria-hidden="true" />
+              <AboutArtwork className={styles.botanicalArt} />
             </div>
             <div className={styles.prose}>
             <p>
@@ -55,7 +54,7 @@ export default function AboutPage() {
         </section>
 
         <section className={`${styles.section} ${styles.contactSection}`} aria-labelledby="contact-title">
-          <div className={styles.petalsArt} aria-hidden="true" />
+          <AboutArtwork className={styles.petalsArt} />
           <h2 id="contact-title">联系我们</h2>
           <div className={styles.prose}>
             <p>
@@ -70,6 +69,6 @@ export default function AboutPage() {
           </dl>
         </section>
       </div>
-    </ImageReadyPage>
+    </main>
   );
 }

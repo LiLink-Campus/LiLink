@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRef } from "react";
 import { ButtonLink } from "@/components/ui";
 import { useAuthSession } from "./auth-session";
 import styles from "./site-nav.module.css";
@@ -15,42 +15,37 @@ const PUBLIC_NAV_ITEMS = [
 export function SiteNav() {
   const pathname = usePathname();
   const { user } = useAuthSession();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const menu = useRef<HTMLDetailsElement>(null);
   const onAdminPath = pathname.startsWith("/admin");
   const onDashboardPath = pathname.startsWith("/dashboard");
   const authenticatedUser = onAdminPath ? null : user;
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [menuOpen]);
 
   if (onAdminPath || onDashboardPath) {
     return null;
   }
 
   function closeMenu() {
-    setMenuOpen(false);
+    if (menu.current) menu.current.open = false;
   }
 
   return (
-    <div className={menuOpen ? `${styles.shell} ${styles.open}` : styles.shell}>
-      <button
-        type="button"
+    // Native toggles may change `open` before React hydrates this element.
+    <details ref={menu} className={styles.shell} suppressHydrationWarning onKeyDown={event => {
+      if (event.key === "Escape" && menu.current?.open) {
+        closeMenu();
+        menu.current.querySelector("summary")?.focus();
+      }
+    }}>
+      <summary
+        role="button"
         className={styles.toggle}
-        aria-expanded={menuOpen}
         aria-controls="public-site-nav"
-        aria-label={menuOpen ? "关闭导航菜单" : "打开导航菜单"}
-        onClick={() => setMenuOpen((current) => !current)}
+        aria-label="导航菜单"
       >
-        <span />
-        <span />
-        <span />
-      </button>
+        <span aria-hidden="true" />
+        <span aria-hidden="true" />
+        <span aria-hidden="true" />
+      </summary>
       <nav id="public-site-nav" className={styles.nav} aria-label="主导航">
         {PUBLIC_NAV_ITEMS.map((item) => (
           <Link prefetch={false}
@@ -72,6 +67,6 @@ export function SiteNav() {
           </ButtonLink>
         </div>
       </nav>
-    </div>
+    </details>
   );
 }

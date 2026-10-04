@@ -1,10 +1,8 @@
 import { homeArtwork } from "./home-artwork";
-import { ImageReadyPage } from "./_components/ImageReadyPage";
+import type { ReactNode } from "react";
 import { ButtonLink } from "@/components/ui";
 import Link from "next/link";
 import { StaticImage } from "@/components/StaticImage";
-import type { CommunityStatsPayload } from "../lib/community-stats";
-import type { LandingDisplayPayload } from "../lib/landing-payload";
 import {
   CampusLineart,
   CoffeeCupsIllustration,
@@ -16,9 +14,9 @@ import {
   ProfileIcon,
   UserCircleIcon,
 } from "./dashboard/_components/icons";
-import { HomeSnapshotSections, HomeJoinMessage } from "./home-snapshot-sections";
 import { FaqSection } from "./_components/FaqSection";
 import styles from "./page.module.css";
+import previewStyles from "./home-preview.generated.module.css";
 
 const steps = [
   {
@@ -61,13 +59,13 @@ const features = [
   },
 ];
 
-export function HomePageView({ landing, community = null }: {
-  landing: LandingDisplayPayload | null;
-  community?: CommunityStatsPayload | null;
+export function HomePageView({ snapshotSections, joinMessage }: {
+  snapshotSections: ReactNode;
+  joinMessage: ReactNode;
 }) {
   return (
-    <ImageReadyPage className={styles.homePage}>
-      <section className={styles.hero}>
+    <main className={styles.homePage}>
+      <section className={styles.hero} data-home-hero>
         <div className={styles.heroContent}>
           <p className={styles.heroEyebrow}>LiLink · 校园里的，认真相遇</p>
           <h1>
@@ -88,7 +86,7 @@ export function HomePageView({ landing, community = null }: {
             </Link>
           </div>
         </div>
-        <div className={styles.heroIllustration} aria-hidden="true">
+        <div className={`${styles.heroIllustration} ${previewStyles.preview}`} data-home-preview aria-hidden="true">
           <StaticImage
             data-page-image
             {...homeArtwork}
@@ -99,7 +97,7 @@ export function HomePageView({ landing, community = null }: {
         </div>
       </section>
 
-      <HomeSnapshotSections landing={landing} community={community} />
+      {snapshotSections}
 
       <section className={styles.section} aria-labelledby="steps-heading">
         <div className={styles.sectionHeader}>
@@ -155,11 +153,11 @@ export function HomePageView({ landing, community = null }: {
           </div>
           <div className={styles.finalContent}>
             <h2 id="join-heading">准备好了吗？</h2>
-            <HomeJoinMessage landing={landing} />
+            {joinMessage}
             <ButtonLink prefetch={false} href="/register">立即加入</ButtonLink>
           </div>
         </div>
       </section>
-    </ImageReadyPage>
+    </main>
   );
 }

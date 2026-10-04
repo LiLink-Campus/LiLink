@@ -1,34 +1,36 @@
 import { Suspense } from "react";
 import { createHash } from "node:crypto";
-import { getStaticImageProps } from "@/components/StaticImage";
-import { homeArtwork } from "./home-artwork";
-import { HomeArtworkPreload } from "./home-artwork-preload";
 import { getCachedPublicData } from "../lib/public-data-cache";
 import type { PublicHomeData } from "../lib/public-home";
 import { HomePageView } from "./home-page-view";
+import { HomeSnapshotSections, HomeJoinMessage } from "./home-snapshot-sections";
 import styles from "./page.module.css";
-import imageReadyStyles from "./_components/ImageReadyPage.module.css";
 
 export const revalidate = 3600;
 
-async function HomeContent() {
-  const snapshot = await getCachedPublicData<PublicHomeData>("/public/home");
+async function SnapshotSections({ data }: { data: Promise<PublicHomeData> }) {
+  const snapshot = await data;
   const fingerprint = createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
   return <div style={{ display: "contents" }} data-lilink-home-fingerprint={`v1:${fingerprint}`}>
-    <HomePageView landing={snapshot.landing} community={snapshot.community} />
+    <HomeSnapshotSections landing={snapshot.landing} community={snapshot.community} />
   </div>;
 }
 
-function PageLoading() {
-  return <main className={`${styles.homePage} ${styles.homeLoading}`} aria-busy="true">
-    <span className={imageReadyStyles.loading} role="status">正在加载页面…</span>
-  </main>;
+async function JoinMessage({ data }: { data: Promise<PublicHomeData> }) {
+  return <HomeJoinMessage landing={(await data).landing} />;
 }
 
 export default function Home() {
-  const props = getStaticImageProps(homeArtwork);
-  return <>
-    <HomeArtworkPreload src={props.src} srcSet={props.srcSet} sizes={props.sizes} />
-    <Suspense fallback={<PageLoading />}><HomeContent /></Suspense>
-  </>;
+  // Only data-dependent slots suspend; the artwork and navigation are initial HTML.
+  const data = getCachedPublicData<PublicHomeData>("/public/home");
+  // Preserve the existing layout boundary so the shared main entrance animation
+  // cannot delay an otherwise ready homepage.
+  return <div style={{ display: "contents" }}><HomePageView
+    snapshotSections={<Suspense fallback={<div className={styles.snapshotLoading} role="status">正在加载平台数据…</div>}>
+      <SnapshotSections data={data} />
+    </Suspense>}
+    joinMessage={<Suspense fallback={<HomeJoinMessage landing={null} />}>
+      <JoinMessage data={data} />
+    </Suspense>}
+  /></div>;
 }

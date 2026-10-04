@@ -2,11 +2,13 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { chromium, devices } from '@playwright/test';
-import { readDisposableSession, readComparisonSession } from '../performance/local-session.mjs';
+import { readDisposableSession, readComparisonSession, repositoryRoot } from '../performance/local-session.mjs';
 
 const [sessionPath, outputPath] = process.argv.slice(2);
 const pwaOnly = process.argv.includes('--pwa-only');
 const publicMatrix = process.argv.includes('--public-matrix');
+const homeJourneys = process.argv.includes('--home-journeys');
+if ([pwaOnly, publicMatrix, homeJourneys].filter(Boolean).length > 1) throw new Error('Choose exactly one browser capture mode.');
 const beforeIndex = process.argv.indexOf('--before');
 if (!sessionPath || !outputPath) throw new Error('Usage: node scripts/usage/capture-browser.mjs artifacts/e2e/<run>/session.json <output-directory>');
 const session = await readDisposableSession(sessionPath);
@@ -15,6 +17,10 @@ if (baseline && baseline.session.runId !== session.runId) throw new Error('Basel
 const origin = new URL(baseline?.comparison.beforeUrl ?? session.webUrl).origin;
 const apiOrigin = new URL(session.apiUrl).origin;
 const cdnOrigin = session.cdnUrl ? new URL(session.cdnUrl).origin : null;
+const workspace = baseline ? path.join(repositoryRoot, 'artifacts/performance', `baseline-${session.runId}`, 'workspace')
+  : path.join(repositoryRoot, 'artifacts/e2e', session.runId, 'workspace');
+const buildId = await readFile(path.join(workspace, 'apps/web/.next/BUILD_ID'), 'utf8')
+  .then(value => value.trim(), error => { if (error.code === 'ENOENT') return null; throw error; });
 await mkdir(outputPath, { recursive: true });
 const samples = [];
 const excludedUnassignedRequests = [];
@@ -51,7 +57,8 @@ const classify = value => {
 
 try {
   for (const mode of pwaOnly ? [] : ['desktop', 'mobile']) {
-    for (const journey of publicMatrix ? ['home', 'about', 'schools', 'register', 'register-school']
+    for (const journey of homeJourneys ? ['home-stay', 'home-leave', 'home-full']
+      : publicMatrix ? ['home', 'about', 'schools', 'register', 'register-school']
       : ['home-chain', 'cold-about', 'cold-schools', 'cold-register']) {
     const context = await browser.newContext({
       ...(mode === 'mobile' ? devices['Pixel 7'] : { viewport: { width: 1280, height: 800 } }),
@@ -81,13 +88,14 @@ try {
       });
       const row = { path: safePath(event.request.url), category: classify(event.request.url),
         scenario: loaderScopes.get(event.loaderId) ?? null, loaderId: event.loaderId,
-        attribution: publicMatrix ? 'document-loader-id' : 'document-loader-id-with-spa-phase',
+        attribution: homeJourneys ? 'document-loader-id-within-finite-journey'
+          : publicMatrix ? 'document-loader-id' : 'document-loader-id-with-spa-phase',
         method: event.request.method, requestStartedAt: event.timestamp,
         resourceType: event.type, requestHeaderBytes: headerBytes(event.request.headers),
         requestBodyBytes: Buffer.byteLength(event.request.postData ?? ''), status: 0,
         fromDiskCache: false, fromMemoryCache: false, fromServiceWorker: false, encodedTransferBytes: 0,
         decodedBodyBytes: 0, gzipBodyBytes: 0, responseHeaderBytes: 0, partialEncodedDataBytes: 0, completion: 'incomplete' };
-      if (!publicMatrix && event.type !== 'Document' && row.scenario) row.scenario = activeScenario;
+      if (!publicMatrix && !homeJourneys && event.type !== 'Document' && row.scenario) row.scenario = activeScenario;
       requests.set(event.requestId, row);
       resourceLedger.push(row);
     });
@@ -128,26 +136,65 @@ try {
       const row = requests.get(event.requestId);
       if (row) Object.assign(row, { failure: event.errorText, completion: 'failed' });
     });
-    const sample = async (scenario, navigate) => {
+    const sample = async (scenario, navigate, boundary = 'full-scroll') => {
       activeScenario = scenario;
       const started = Date.now();
       await navigate();
       await page.locator('main').first().waitFor({ state: 'visible' });
-      if (new URL(page.url()).pathname === '/') {
+      if (new URL(page.url()).pathname === '/' && boundary === 'full-scroll') {
         await page.getByRole('heading', { name: '让相遇这件事 值得被认真对待' }).waitFor({ state: 'visible' });
         await page.getByRole('list', { name: '各学校已加入人数' }).waitFor({ state: 'visible' });
       }
-      await page.evaluate(async () => {
+      let journeyObservation;
+      if (boundary !== 'full-scroll') {
+        await page.getByRole('heading', { name: '让相遇这件事 值得被认真对待' }).waitFor({ state: 'visible' });
+        await page.getByRole('link', { name: '了解更多', exact: true }).waitFor({ state: 'visible' });
+        await page.waitForFunction(() => {
+          const hero = document.querySelector('[data-home-hero]');
+          const image = (hero ?? document.querySelector('main'))?.querySelector('img[fetchpriority="high"]');
+          const visible = node => {
+            if (!node || !node.getBoundingClientRect().width || !node.getBoundingClientRect().height) return false;
+            for (let current = node; current; current = current.parentElement) {
+              const style = getComputedStyle(current);
+              if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) return false;
+            }
+            return true;
+          };
+          const previewElement = document.querySelector('[data-home-preview]') ?? hero;
+          const preview = previewElement && visible(previewElement)
+            && [getComputedStyle(previewElement), getComputedStyle(previewElement, '::before')]
+            .some(style => style.backgroundImage !== 'none');
+          const primaryLink = document.querySelector('main a[href="/dashboard"], main a[href="/register"]');
+          return visible(primaryLink) && visible(hero ?? image) && (preview || (image?.complete && image.naturalWidth > 0));
+        });
+        const heroVisibleMs = Date.now() - started;
+        if (boundary === 'early-leave') {
+          await page.getByRole('link', { name: '了解更多', exact: true }).click();
+          await page.waitForURL('**/about');
+          await page.getByRole('heading', { name: '关于 LiLink', exact: true }).waitFor({ state: 'visible' });
+        }
+        await page.waitForTimeout(3000);
+        journeyObservation = { boundary, heroVisibleMs, dwellMs: 3000,
+          destination: new URL(page.url()).pathname, scrollY: await page.evaluate(() => scrollY) };
+      } else await page.evaluate(async () => {
         for (let y = 0; y < document.documentElement.scrollHeight; y += innerHeight * 0.8) {
           scrollTo(0, y);
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         }
       });
       let networkSettled = true;
-      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => { networkSettled = false; });
-      await page.waitForFunction(() => [...document.images].filter(img => img.getBoundingClientRect().width > 0 && (img.loading !== 'lazy' || img.getBoundingClientRect().top < innerHeight)).every(img => img.complete && img.naturalWidth > 0), undefined, { timeout: 15_000 });
-      await page.evaluate(() => scrollTo(0, 0));
-      await page.screenshot({ path: path.join(outputPath, `${mode}-${scenario}.png`), fullPage: true });
+      if (boundary === 'full-scroll') {
+        await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => { networkSettled = false; });
+        await page.waitForFunction(() => [...document.images].filter(img => img.getBoundingClientRect().width > 0 && (img.loading !== 'lazy' || img.getBoundingClientRect().top < innerHeight)).every(img => img.complete && img.naturalWidth > 0), undefined, { timeout: 15_000 });
+        await page.evaluate(() => scrollTo(0, 0));
+      } else networkSettled = null;
+      const screenshotPath = path.join(outputPath, `${mode}-${scenario}.png`);
+      if (boundary === 'full-scroll') await page.screenshot({ path: screenshotPath, fullPage: true });
+      else {
+        // Playwright's font readiness wait can outlive the finite journey.
+        const screenshot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+        await writeFile(screenshotPath, Buffer.from(screenshot.data, 'base64'));
+      }
       await Promise.allSettled(pending);
       const resources = resourceLedger.filter(row => row.scenario === scenario);
       const web = resources.filter(row => !['direct-api', 'external', 'static-cdn'].includes(row.category));
@@ -157,7 +204,7 @@ try {
         result[row.category] = (result[row.category] ?? 0) + 1; return result;
       }, {});
       const cdn = resources.filter(row => row.category === 'static-cdn' && !row.fromDiskCache && !row.fromMemoryCache);
-      const record = { networkSettled, viewport: mode, size: page.viewportSize(), scenario, durationMs: Date.now() - started,
+      const record = { networkSettled, journeyObservation, viewport: mode, size: page.viewportSize(), scenario, durationMs: Date.now() - started,
         countsByCategory, webRequestCount: web.length, webNetworkRequestCount: networkWeb.length,
         apiRequestCount: resources.filter(row => row.category === 'direct-api').length,
         cdnNetworkRequestCount: cdn.length, cdnTransferBytes: sum(cdn, 'encodedTransferBytes'),
@@ -171,20 +218,25 @@ try {
         imageBodiesMissing: networkWeb.filter(row => row.category === 'image-optimization'
           && (row.bodyUnavailable || row.completion !== 'finished')).map(row => row.path),
         imageTransformationKeys: [...new Set(web.filter(row => row.category === 'image-optimization').map(row => row.path))],
-        resources };
+        resources: structuredClone(resources) };
       samples.push(record);
       console.log(JSON.stringify({ viewport: mode, scenario, webRequestCount: record.webRequestCount,
         webNetworkRequestCount: record.webNetworkRequestCount, webTransferBytes: record.webTransferBytes,
         webBodyGzipEstimate: record.webBodyGzipEstimate, countsByCategory }));
       await writeFile(path.join(outputPath, 'browser-usage.json'), JSON.stringify({
-        createdAt: new Date().toISOString(), runId: session.runId, browser: browser.version(), cacheOutputs,
-        variant: baseline ? 'before' : 'after', publicMatrix,
-        methodology: 'Isolated Chromium, unthrottled loopback, synthetic data, identical cold/warm full-page scrolling, service workers blocked. Full-document samples are owned by CDP loader ID; prior-document requests remain with the prior sample. CDP transfer includes local response headers; gzip bodies and optimizer read units are envelopes, not Vercel billing. Browser disk/memory/SW cache excluded from network requests. 304s remain requests; incomplete bodies remain explicit. SPA phase attribution is weaker and excluded from full-matrix comparisons. No long dwell polling is included.',
+        createdAt: new Date().toISOString(), runId: session.runId, buildId, browser: browser.version(), cacheOutputs,
+        variant: baseline ? 'before' : 'after', publicMatrix, homeJourneys,
+        journeyBoundaryRevision: homeJourneys ? 'visible-hero-finite-journeys-v1' : null,
+        methodology: `${homeJourneys ? 'Finite homepage paths: visible hero then 3s no-scroll dwell; visible hero then immediate About navigation and 3s destination dwell; full-scroll visit and same-context full-scroll revisit. Finite paths do not await high-resolution decoding or network idle.' : 'Identical cold/warm full-page scrolling.'} Isolated Chromium, unthrottled loopback, synthetic data, service workers blocked. Full-document samples are owned by CDP loader ID; prior-document requests remain with the prior sample. CDP transfer includes local response headers; gzip bodies and optimizer read units are envelopes, not Vercel billing. Browser disk/memory/SW cache excluded from network requests. 304s remain requests; incomplete bodies remain explicit. SPA phase attribution is weaker and excluded from full-matrix comparisons. No long dwell polling is included.`,
         excludedUnassignedRequests: [...excludedUnassignedRequests,
           ...resourceLedger.filter(row => !row.scenario).map(row => ({ viewport: mode, journey, ...row }))], samples,
       }, null, 2));
     };
-    if (publicMatrix) {
+    if (homeJourneys) {
+      const boundary = journey === 'home-stay' ? 'stay' : journey === 'home-leave' ? 'early-leave' : 'full-scroll';
+      await sample(`cold-${journey}`, () => page.goto('/', { waitUntil: 'commit' }), boundary);
+      if (journey === 'home-full') await sample('warm-home-revisit', () => page.goto('/', { waitUntil: 'domcontentloaded' }));
+    } else if (publicMatrix) {
       const route = { home: '/', about: '/about', schools: '/schools', register: '/register', 'register-school': '/register/school' }[journey];
       await sample(`cold-${journey}`, () => page.goto(route, { waitUntil: 'domcontentloaded' }));
       await sample(`warm-${journey}`, () => page.goto(route, { waitUntil: 'domcontentloaded' }));

@@ -11,6 +11,7 @@ export async function observeNetwork(cdp, page, variant) {
   cdp.on('Network.requestWillBeSent', event => {
     if (!/^https?:/.test(event.request.url)) return;
     const row = { ...classify(event.request.url), type: event.type, method: event.request.method,
+      loaderId: event.loaderId,
       timestamp: event.timestamp, wallTimeMs: event.wallTime * 1000,
       status: null, transferBytes: 0, fromDiskCache: false, fromMemoryCache: false };
     if (event.redirectResponse) {
@@ -39,7 +40,8 @@ export async function observeNetwork(cdp, page, variant) {
   });
   cdp.on('Network.loadingFailed', event => {
     const row = rows.get(event.requestId);
-    if (row) { row.failure = event.errorText; row.canceled = !!event.canceled; }
+    if (row) { row.failure = event.errorText; row.canceled = !!event.canceled;
+      row.failureWallTimeMs = row.wallTimeMs + (event.timestamp - row.timestamp) * 1000; }
   });
   page.on('pageerror', error => pageErrors.push({ name: error.name,
     message: error.message.replace(/https?:\/\/[^\s)]+/g, value => {

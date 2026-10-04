@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readOptions } from './options.mjs';
 import { createSampleBrowser } from './sample.mjs';
-import { readReadiness } from './browser-observers.mjs';
+import { sampleEarlyClick } from './early-click-sample.mjs';
 import { summarize } from './summarize.mjs';
 import { readDisposableSession, readComparisonSession } from './local-session.mjs';
 
@@ -27,62 +27,20 @@ const sourceRoot = path.dirname(fileURLToPath(import.meta.url));
 const snapshot = path.join(config.output, 'harness-source');
 await mkdir(snapshot, { recursive: true });
 const files = [];
-for (const file of ['early-click.mjs', 'local-session.mjs', 'browser-observers.mjs', 'network.mjs', 'options.mjs', 'sample.mjs', 'summarize.mjs']) {
+for (const file of ['early-click.mjs', 'early-click-sample.mjs', 'local-session.mjs', 'browser-observers.mjs', 'first-screen-observer.mjs', 'network.mjs', 'options.mjs', 'sample.mjs', 'summarize.mjs']) {
   const body = await readFile(path.join(sourceRoot, file));
   await writeFile(path.join(snapshot, file), body);
   files.push({ file, sha256: createHash('sha256').update(body).digest('hex') });
 }
 const digest = createHash('sha256').update(JSON.stringify(files)).digest('hex');
 await writeFile(path.join(snapshot, 'manifest.json'), JSON.stringify({ digest, files }, null, 2));
-const raw = { schemaVersion: 2, measurementRevision: 'immediate-click-after-source-ready-v1',
+const raw = { schemaVersion: 3, measurementRevision: `immediate-click-${config.clickReadiness}-native-navigation-v2`,
   startedAt: new Date().toISOString(), harnessDigest: digest, config,
-  methodology: 'Fresh browser per journey; strict source readiness then necessary link scroll and trusted click immediately. No five-second observation or dwell. Only custom click-to-target-ready is compared; no FCP/LCP/INP conclusion.', samples: [] };
+  methodology: `Fresh browser per journey; ${config.clickReadiness === 'preview' ? 'document-start preview-visible milestone without waiting for DCL, fonts or HD' : 'strict source readiness'} then necessary link scroll and trusted click immediately. Native document and client navigation are both valid. No five-second observation or dwell. Only custom click-to-target-ready is compared; no FCP/LCP/INP conclusion.`, samples: [] };
 const save = async () => {
   raw.updatedAt = new Date().toISOString();
   await writeFile(`${rawPath}.tmp`, JSON.stringify(raw, null, 2)); await rename(`${rawPath}.tmp`, rawPath);
 };
-const waitReady = async (page, route) => {
-  const handle = await page.waitForFunction(readReadiness, route, { polling: 'raf', timeout: 30_000 });
-  const value = await handle.jsonValue(); await handle.dispose(); return value;
-};
-const observation = page => page.evaluate(() => ({ timeOrigin: performance.timeOrigin, at: performance.now(),
-  visibility: document.visibilityState, imageDecodes: structuredClone(window.__lilinkPerf.imageDecodes),
-  trustedClicks: structuredClone(window.__lilinkPerf.clicks) }));
-
-async function sample(harness, identity, target) {
-  const { page, network } = harness;
-  network.reset();
-  const result = { ...identity, kind: 'click', route: target, browserVersion: harness.browserVersion,
-    proxyEnvironmentNamesRemoved: harness.proxyEnvironmentNamesRemoved, failures: [], metrics: null };
-  try {
-    const response = await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    if (!response?.ok()) throw new Error(`Source document status ${response?.status()}`);
-    result.sourceReady = await waitReady(page, '/');
-    result.sourceObservation = await observation(page);
-    const link = page.locator(`main a[href="${target}"]`).first();
-    await link.scrollIntoViewIfNeeded();
-    result.preClickNetwork = network.snapshot();
-    await link.click();
-    result.ready = await waitReady(page, target);
-    result.targetObservation = await observation(page);
-    const click = result.targetObservation.trustedClicks.filter(value => value.path === target).at(-1);
-    if (!click || result.sourceObservation.timeOrigin !== result.targetObservation.timeOrigin) {
-      throw new Error('Expected a trusted click and target readiness in the same document.');
-    }
-    result.click = click;
-    result.sourceReadyToClickMs = click.time - result.sourceReady.at;
-    result.metrics = { clickToContentReadyMs: result.ready.at - click.time };
-    result.clickNetwork = network.snapshot({ sinceWallTimeMs: result.sourceObservation.timeOrigin + click.time });
-    if (identity.round === 1) {
-      result.screenshot = `${identity.variant}-${identity.viewport}-${identity.scenario}.png`;
-      await page.screenshot({ path: path.join(config.output, result.screenshot) });
-    }
-  } catch (error) { result.failures.push(error.message.split('\n')[0].slice(0, 250)); }
-  result.validationNetwork = network.snapshot();
-  if (result.validationNetwork.pageErrors.length) result.failures.push('javascript-errors');
-  if (result.validationNetwork.resourceErrors.some(resource => resource.critical)) result.failures.push('critical-resource-errors');
-  return result;
-}
 
 async function saveSummary() {
   const full = summarize(raw);
@@ -121,8 +79,8 @@ try {
       if (definition.expiresAt && Date.parse(definition.expiresAt) < Date.now()) throw new Error('Runner session expired.');
       active = await createSampleBrowser(config, definition, viewport);
       try {
-        const result = await sample(active, { round, variant, viewport,
-          scenario: `immediate-home-${target.slice(1)}`, order: order.join('-') }, target);
+        const result = await sampleEarlyClick(active, config, { round, variant, viewport,
+          scenario: `immediate-${config.clickReadiness}-home-${target.slice(1)}`, order: order.join('-') }, target);
         raw.samples.push(result); await save();
         console.log(JSON.stringify({ round, variant, viewport, target, metrics: result.metrics,
           sourceReadyToClickMs: result.sourceReadyToClickMs, failures: result.failures, samples: raw.samples.length }));

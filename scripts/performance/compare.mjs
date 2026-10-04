@@ -1,6 +1,8 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { readOptions, routes, profiles } from './options.mjs';
 import { createSampleBrowser, sampleDocument, sampleClick } from './sample.mjs';
 import { writeSummary } from './summarize.mjs';
@@ -8,7 +10,8 @@ import { writeSummary } from './summarize.mjs';
 const config = await readOptions(process.argv.slice(2));
 await mkdir(config.output, { recursive: true });
 const rawPath = path.join(config.output, 'raw.json');
-let raw = { schemaVersion: 2, measurementRevision: 'decode-readiness-complete-journey-v2', startedAt: new Date().toISOString(), config,
+const measurementRevision = 'independent-first-screen-complete-journey-v3';
+let raw = { schemaVersion: 3, measurementRevision, startedAt: new Date().toISOString(), config,
   environment: { platform: os.platform(), arch: os.arch(), cpuModel: os.cpus()[0]?.model,
     logicalCpuCount: os.cpus().length, nodeVersion: process.version,
     chromiumArguments: ['--no-proxy-server'], profile: profiles[config.profile],
@@ -16,12 +19,33 @@ let raw = { schemaVersion: 2, measurementRevision: 'decode-readiness-complete-jo
   samples: [] };
 if (config.resume) {
   raw = JSON.parse(await readFile(rawPath, 'utf8'));
+  if (raw.measurementRevision !== measurementRevision) throw new Error('Cannot resume evidence with a different measurement contract.');
   for (const key of ['rounds', 'profile', 'viewports', 'routes', 'observationMs', 'motion', 'variants']) {
     if (JSON.stringify(raw.config[key]) !== JSON.stringify(config[key])) throw new Error(`Resume config mismatch: ${key}`);
   }
 } else {
   try { await readFile(rawPath); throw new Error('Output already contains raw.json; use a new directory or --resume.'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
+if (!config.resume) {
+  const sourceRoot = path.dirname(fileURLToPath(import.meta.url));
+  const snapshot = path.join(config.output, 'harness-source');
+  await mkdir(snapshot, { recursive: true });
+  const files = [];
+  for (const file of ['compare.mjs', 'browser-observers.mjs', 'first-screen-observer.mjs', 'network.mjs', 'options.mjs', 'sample.mjs', 'summarize.mjs']) {
+    const body = await readFile(path.join(sourceRoot, file));
+    await writeFile(path.join(snapshot, file), body);
+    files.push({ file, sha256: createHash('sha256').update(body).digest('hex') });
+  }
+  raw.harnessDigest = createHash('sha256').update(JSON.stringify(files)).digest('hex');
+  await writeFile(path.join(snapshot, 'manifest.json'), JSON.stringify({ digest: raw.harnessDigest, files }, null, 2));
+} else {
+  const manifest = JSON.parse(await readFile(path.join(config.output, 'harness-source/manifest.json'), 'utf8'));
+  if (manifest.digest !== raw.harnessDigest) throw new Error('Archived harness digest differs from the raw evidence.');
+  for (const file of manifest.files) {
+    const body = await readFile(path.join(path.dirname(fileURLToPath(import.meta.url)), file.file));
+    if (createHash('sha256').update(body).digest('hex') !== file.sha256) throw new Error(`Resume harness changed: ${file.file}`);
+  }
 }
 const save = async () => {
   raw.updatedAt = new Date().toISOString();
@@ -74,6 +98,7 @@ try {
   await active?.browser.close();
   raw.finishedAt = new Date().toISOString(); raw.interrupted = stopping;
   await save();
+  await writeSummary(raw, config.output);
 }
 const summary = await writeSummary(raw, config.output);
 console.log(JSON.stringify({ output: config.output, status: summary.status, samples: raw.samples.length }));

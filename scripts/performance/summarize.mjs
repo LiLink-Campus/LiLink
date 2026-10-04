@@ -33,7 +33,10 @@ export function summarize(raw) {
     const kind = samples[0].kind;
     const metrics = kind === 'click' ? ['clickToContentReadyMs']
       : ['fcpMs', 'lcpMs', 'ttfbMs', 'contentReadyMs', 'cls'];
-    if (samples[0].viewport === 'mobile') metrics.push('menuFeedbackMs');
+    if (kind === 'document' && samples[0].route === '/' && raw.measurementRevision === 'independent-first-screen-complete-journey-v3') {
+      metrics.push('previewVisibleMs', 'heroHdReadyMs');
+    }
+    if (samples[0].viewport === 'mobile' && !raw.measurementRevision?.startsWith('immediate-click-')) metrics.push('menuFeedbackMs');
     if (samples[0].route === '/register/school') metrics.push('emailFeedbackMs');
     for (const metric of metrics) {
       const pairs = [];
@@ -68,14 +71,24 @@ export function summarize(raw) {
   }
   const plannedSamples = raw.config.rounds * raw.config.viewports.length * 2 * (raw.config.routes.length * 2 + 2);
   const complete = raw.samples.length === plannedSamples;
-  const status = cells.some(cell => cell.status === 'FAIL') ? 'FAIL'
-    : complete && cells.length && cells.every(cell => cell.status === 'PASS') ? 'PASS' : 'INCONCLUSIVE';
+  const absoluteGates = raw.measurementRevision !== 'independent-first-screen-complete-journey-v3' ? []
+    : cells.filter(cell => /\/(cold|warm)-home$/.test(cell.cell) && ['previewVisibleMs', 'lcpMs'].includes(cell.metric))
+      .map(cell => {
+        const limitMs = cell.metric === 'previewVisibleMs' ? 2000 : 2500;
+        const sufficient = !raw.config.smoke && cell.pairs >= 10 && cell.pairs === raw.config.rounds;
+        return { cell: cell.cell, metric: cell.metric, pairs: cell.pairs, limitMs, beforeP75Ms: cell.before.p75,
+          afterP75Ms: cell.after.p75, status: cell.failures.length ? 'FAIL' : !sufficient ? 'INCONCLUSIVE'
+            : cell.after.p75 <= limitMs ? 'PASS' : 'FAIL' };
+      });
+  const verdicts = [...cells, ...absoluteGates];
+  const status = verdicts.some(cell => cell.status === 'FAIL') ? 'FAIL'
+    : complete && !raw.fatalError && !raw.interrupted && verdicts.length && verdicts.every(cell => cell.status === 'PASS') ? 'PASS' : 'INCONCLUSIVE';
   return { createdAt: new Date().toISOString(), status, complete, actualSamples: raw.samples.length, plannedSamples,
     interpretation: 'PASS means no regression detected beyond the declared lab tolerance, not unchanged speed or production/mainland performance. INCONCLUSIVE is not PASS.',
     methodology: { profile: raw.config.profile, rounds: raw.config.rounds, motion: raw.config.motion,
       serviceWorkers: 'blocked', pairing: 'Same round/viewport/scenario, alternating before-after order',
       bootstrap: '5000 deterministic resamples of pairs; 95% percentile intervals for difference of medians and p75s',
-      baseline: raw.config.variants.before.label, candidate: raw.config.variants.after.label }, cells };
+      baseline: raw.config.variants.before.label, candidate: raw.config.variants.after.label }, cells, absoluteGates };
 }
 
 export async function writeSummary(raw, output) {
@@ -87,6 +100,13 @@ export async function writeSummary(raw, output) {
     '| Cell | Metric | Pairs | Before median / p75 | After median / p75 | Median difference 95% CI | p75 difference 95% CI | Tolerance | Result |',
     '| --- | --- | ---: | ---: | ---: | --- | --- | ---: | --- |'];
   for (const cell of result.cells) lines.push(`| ${cell.cell} | ${cell.metric} | ${cell.pairs} | ${fmt(cell.before.median)} / ${fmt(cell.before.p75)} | ${fmt(cell.after.median)} / ${fmt(cell.after.p75)} | ${cell.ci95MedianDifference.map(fmt).join(' … ')} | ${cell.ci95P75Difference.map(fmt).join(' … ')} | ${cell.tolerance} | ${cell.status} |`);
+  if (result.absoluteGates.length) {
+    lines.push('', '## Independent homepage absolute gates', '',
+      'Relative non-regression does not establish these targets. Each gate requires ten complete pairs and no functional failures.', '',
+      '| Cell | Metric | Pairs | Before p75 (ms) | After p75 (ms) | Limit (ms) | Result |',
+      '| --- | --- | ---: | ---: | ---: | ---: | --- |');
+    for (const gate of result.absoluteGates) lines.push(`| ${gate.cell} | ${gate.metric} | ${gate.pairs} | ${fmt(gate.beforeP75Ms)} | ${fmt(gate.afterP75Ms)} | ${gate.limitMs} | ${gate.status} |`);
+  }
   const failedSamples = raw.samples.filter(sample => sample.failures.length);
   if (failedSamples.length) {
     lines.push('', '## Functional or measurement failures', '');

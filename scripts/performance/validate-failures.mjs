@@ -5,10 +5,11 @@ import sharp from 'sharp';
 import { createSampleBrowser, sampleDocument, sampleClick } from './sample.mjs';
 import { readDisposableSession } from './local-session.mjs';
 import { readReadiness } from './browser-observers.mjs';
+import { validateFirstScreen } from './validate-first-screen.mjs';
 
 const [sessionPath, outputPath, mode] = process.argv.slice(2);
-if (!sessionPath || !outputPath || (mode && mode !== '--clip-only') || process.argv.length > 5) {
-  throw new Error('Usage: node scripts/performance/validate-failures.mjs <runner-session.json> <output-directory> [--clip-only]');
+if (!sessionPath || !outputPath || (mode && !['--clip-only', '--first-screen-only'].includes(mode)) || process.argv.length > 5) {
+  throw new Error('Usage: node scripts/performance/validate-failures.mjs <runner-session.json> <output-directory> [--clip-only|--first-screen-only]');
 }
 const session = await readDisposableSession(sessionPath);
 const output = path.resolve(outputPath);
@@ -18,7 +19,7 @@ const variant = { webUrl: new URL(session.webUrl).origin, apiOrigin: new URL(ses
 const config = { profile: 'unthrottled', motion: 'no-preference', observationMs: 5000,
   output, variants: { after: variant } };
 const identity = scenario => ({ round: 0, variant: 'after', viewport: 'desktop', scenario });
-const results = { runId: session.runId, mode: mode ? 'clip-only' : 'all-contracts',
+const results = { runId: session.runId, mode: mode?.slice(2) ?? 'all-contracts',
   createdAt: new Date().toISOString(), cases: [] };
 
 async function clippedArtwork() {
@@ -129,10 +130,8 @@ async function pendingArtwork() {
     await route.abort('failed').catch(() => {});
   });
   try {
-    const fallback = (async () => {
+    const preview = (async () => {
       await page.waitForURL('**/about', { waitUntil: 'domcontentloaded' });
-      await page.waitForFunction(() => document.querySelector('main')?.getAttribute('data-image-ready') === 'true',
-        undefined, { timeout: 15_000 });
       await page.getByRole('heading', { name: '关于 LiLink', exact: true }).waitFor({ state: 'visible' });
       await page.waitForFunction(() => {
         const heading = document.querySelector('main h1');
@@ -143,28 +142,50 @@ async function pendingArtwork() {
         }
         return true;
       });
-      const state = await page.evaluate(() => ({ at: performance.now(),
-        imageReady: document.querySelector('main')?.getAttribute('data-image-ready'),
-        pending: window.__lilinkPerf.imageDecodes.filter(entry => entry.status === 'pending') }));
+      const state = await page.evaluate(async () => {
+        const previews = [...document.querySelectorAll('[data-about-preview]')];
+        const decoded = await Promise.all(previews.map(async element => {
+          const source = getComputedStyle(element).backgroundImage.match(/url\(["']?(data:image\/[^"')]+)["']?\)/)?.[1];
+          if (!source) return false;
+          const image = new Image();
+          image.src = source;
+          await image.decode();
+          const box = element.getBoundingClientRect();
+          return box.width > 0 && box.height > 0 && getComputedStyle(element).visibility === 'visible';
+        }));
+        const artwork = document.querySelector('img[data-page-image]');
+        // Observe the genuine held decoder without replacing its source or image.
+        void artwork.decode().catch(() => {});
+        return { at: performance.now(), previewCount: previews.length, previewsDecoded: decoded.every(Boolean),
+          highDefinition: { complete: artwork.complete, naturalWidth: artwork.naturalWidth,
+            path: new URL(artwork.currentSrc || artwork.src).pathname },
+          pending: window.__lilinkPerf.imageDecodes.filter(entry => entry.status === 'pending') };
+      });
       // Capture the compositor directly: Playwright waits for fonts that this held preload can block.
       const screenshot = await harness.cdp.send('Page.captureScreenshot', { format: 'png' });
-      await writeFile(path.join(output, 'pending-artwork-product-fallback.png'), Buffer.from(screenshot.data, 'base64'));
+      await writeFile(path.join(output, 'pending-artwork-visible-preview.png'), Buffer.from(screenshot.data, 'base64'));
       return state;
     })();
     // Attach a rejection handler immediately while the independent sample awaits its deadline.
-    const observedFallback = fallback.then(value => ({ value }), error => ({ error: error.message.split('\n')[0] }));
+    const observedPreview = preview.then(value => ({ value }), error => ({ error: error.message.split('\n')[0] }));
     const sample = await sampleDocument(harness, config, identity('pending-artwork'), '/about');
-    const observation = await observedFallback;
+    const observation = await observedPreview;
     const evidence = { name: 'pending-artwork', passed: false, heldRequests,
-      fallback: observation.value ?? null, observationError: observation.error, sample };
+      preview: observation.value ?? null, observationError: observation.error, sample };
     results.cases.push(evidence);
     assert(heldRequests > 0, 'The actual artwork request must be intercepted.');
     assert(!observation.error, observation.error);
-    assert(observation.value.at >= 7500, 'The actual product fallback must run, without faking time.');
-    assert(observation.value.pending.length > 0, 'Background decode must remain pending when the product reveals.');
+    assert(observation.value.at < 7500, 'The preview must appear before the former eight-second fallback while HD remains held.');
+    assert.equal(observation.value.previewCount, 3, 'All three actual atlas crops must have a preview.');
+    assert(observation.value.previewsDecoded, 'Every inline atlas preview must genuinely decode.');
+    assert.equal(observation.value.highDefinition.complete, false, 'The actual HD atlas must remain incomplete.');
+    assert(observation.value.highDefinition.path.includes('/images/about/watercolor-atlas'), 'The held image must be the original HD atlas.');
+    assert(observation.value.pending.some(entry => entry.url.includes('/images/about/watercolor-atlas')),
+      'The original HD decoder must remain pending while the preview is visible.');
     assert.equal(sample.metrics, null, 'Pending artwork must never produce a successful timing sample.');
     assert(sample.failures.some(message => /Timeout|timeout/.test(message)), 'Collector must reject readiness by its deadline.');
-    assert(sample.partialObservation.entries.imageDecodes.some(entry => entry.status === 'pending'));
+    assert(sample.partialObservation.entries.imageDecodes.some(entry => entry.status === 'pending'
+      && entry.url.includes('/images/about/watercolor-atlas')));
     evidence.passed = true;
   } finally { release(); await harness.browser.close(); }
 }
@@ -218,13 +239,15 @@ try {
     await writeFile(path.join(output, 'failure-contracts.json'), JSON.stringify(results, null, 2));
     await latePrefetchFailure();
   }
-  await clippedArtwork();
+  if (mode !== '--first-screen-only') await clippedArtwork();
+  if (mode !== '--clip-only') results.cases.push(await validateFirstScreen(config, variant, output));
 } catch (error) {
   results.error = error.message;
   process.exitCode = 1;
 } finally {
   results.finishedAt = new Date().toISOString();
-  results.passed = results.cases.length === (mode ? 1 : 3) && results.cases.every(result => result.passed) && !results.error;
+  results.passed = results.cases.length === (mode ? 1 : 4) && results.cases.every(result => result.passed) && !results.error;
+  if (!results.passed) process.exitCode = 1;
   await writeFile(path.join(output, 'failure-contracts.json'), JSON.stringify(results, null, 2));
   console.log(JSON.stringify({ passed: results.passed, cases: results.cases.map(result => result.name), error: results.error }));
 }

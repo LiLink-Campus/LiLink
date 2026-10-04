@@ -50,7 +50,7 @@ const raw = { schemaVersion: 1, measurementRevision: 'single-site-public-context
 const source = path.dirname(fileURLToPath(import.meta.url));
 const manifest = {};
 await mkdir(path.join(config.output, 'harness-source'));
-for (const name of ['observe-site.mjs', 'observe-site-contract.md', 'sample.mjs', 'browser-observers.mjs', 'network.mjs', 'options.mjs']) {
+for (const name of ['observe-site.mjs', 'observe-site-contract.md', 'sample.mjs', 'browser-observers.mjs', 'first-screen-observer.mjs', 'network.mjs', 'options.mjs']) {
   const body = await readFile(path.join(source, name));
   manifest[name] = createHash('sha256').update(body).digest('hex');
   await writeFile(path.join(config.output, 'harness-source', name), body);

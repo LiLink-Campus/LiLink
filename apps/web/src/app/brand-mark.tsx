@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import styles from "./brand-mark.module.css";
 import { shellAssets } from "../lib/shell-assets.generated";
 
@@ -11,7 +10,9 @@ type BrandMarkProps = {
 
 export function BrandIcon() {
   return (
-    <Image src={shellAssets["icons/icon.svg"]} alt="" width={52} height={52} unoptimized className={styles.art} />
+    // Fixed SVG artwork needs no client image optimizer or loader.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={shellAssets["icons/icon.svg"]} alt="" width={52} height={52} loading="lazy" decoding="async" className={styles.art} />
   );
 }
 

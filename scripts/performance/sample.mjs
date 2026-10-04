@@ -3,6 +3,7 @@ import { chromium, devices } from '@playwright/test';
 import { installObservers, readReadiness, collectMetrics } from './browser-observers.mjs';
 import { observeNetwork } from './network.mjs';
 import { browserEnvironment, profiles } from './options.mjs';
+import { installFirstScreenObserver } from './first-screen-observer.mjs';
 
 export async function createSampleBrowser(config, variant, viewport) {
   const { env, removed } = browserEnvironment();
@@ -14,17 +15,22 @@ export async function createSampleBrowser(config, variant, viewport) {
     baseURL: variant.webUrl, locale: 'zh-CN', reducedMotion: config.motion, serviceWorkers: 'block',
   });
   const page = await context.newPage();
+  const trustedClicks = [];
+  await page.exposeBinding('__lilinkPerfTrustedClick', (_, click) => { trustedClicks.push(click); });
   page.setDefaultTimeout(30_000);
   const cdp = await context.newCDPSession(page);
   await cdp.send('Page.enable');
-  await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `(${installObservers.toString()})();` });
+  await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `(${installObservers.toString()})();(${installFirstScreenObserver.toString()})();`,
+  });
   const network = await observeNetwork(cdp, page, variant);
   const profile = profiles[config.profile];
   await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: profile.latencyMs,
     downloadThroughput: profile.downloadMbps ? profile.downloadMbps * 1e6 / 8 : -1,
     uploadThroughput: profile.uploadMbps ? profile.uploadMbps * 1e6 / 8 : -1, connectionType: 'wifi' });
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: profile.cpuRate });
-  return { browser, context, page, cdp, network, browserVersion: browser.version(), proxyEnvironmentNamesRemoved: removed };
+  return { browser, context, page, cdp, network, trustedClicks,
+    browserVersion: browser.version(), proxyEnvironmentNamesRemoved: removed };
 }
 
 const errorText = error => String(error?.message ?? error).split('\n')[0].slice(0, 250);
@@ -56,14 +62,18 @@ async function interactionCheck(page, route, viewport, variant, readOnlyPublic =
     await field.fill('');
   }
   if (viewport === 'mobile') {
-    const menu = page.getByRole('button', { name: '打开导航菜单', exact: true });
+    const nativeMenu = page.locator('summary[aria-label="导航菜单"]');
+    const usesDetails = await nativeMenu.count() > 0;
+    const menu = usesDetails ? nativeMenu : page.getByRole('button', { name: '打开导航菜单', exact: true });
     await menu.evaluate(element => element.addEventListener('click', event => {
       if (event.isTrusted) window.__lilinkMenuClickAt = performance.now();
     }, { once: true }));
     await menu.click();
-    const close = page.getByRole('button', { name: '关闭导航菜单', exact: true });
+    const close = usesDetails ? nativeMenu : page.getByRole('button', { name: '关闭导航菜单', exact: true });
     await close.waitFor({ state: 'visible' });
-    result.menuOpened = await close.getAttribute('aria-expanded') === 'true';
+    result.menuOpened = usesDetails ? await close.evaluate(element => element.closest('details')?.open === true)
+      : await close.getAttribute('aria-expanded') === 'true';
+    if (!result.menuOpened) throw new Error('Mobile navigation did not open.');
     const feedback = await page.waitForFunction(() => {
       const nav = document.querySelector('#public-site-nav');
       if (!nav) return null;
@@ -89,10 +99,14 @@ export async function sampleDocument(harness, config, identity, route) {
     result.documentStatus = response?.status();
     if (!response?.ok()) result.failures.push(`document-status-${response?.status()}`);
     const ready = await waitReady(page, route);
+    if (route === '/') await page.waitForFunction(() => window.__lilinkPerf.firstScreen?.previewVisible
+      && window.__lilinkPerf.firstScreen.heroHdReady, undefined, { polling: 'raf', timeout: 30_000 });
     await waitObservation(page, config, ready);
     const native = await page.evaluate(collectMetrics);
     result.metrics = { fcpMs: native.fcpMs, lcpMs: native.lcpMs, cls: native.cls, ttfbMs: native.ttfbMs,
       contentReadyMs: ready.at };
+    if (route === '/') Object.assign(result.metrics, { previewVisibleMs: native.previewVisibleMs,
+      heroHdReadyMs: native.heroHdReadyMs });
     result.observation = native; result.ready = ready;
     if (native.visibilityState !== 'visible') result.failures.push('background-tab');
     if (native.fcpMs === null || native.lcpMs === null) result.failures.push('missing-native-paint');
