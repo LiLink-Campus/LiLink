@@ -12,6 +12,7 @@ export * from "./coupon-totp";
 export * from "./human-code";
 export * from "./merchant";
 export * from "./referral";
+export * from "./public-home-snapshot";
 
 export { expandSchoolEmailDomains, normalizeSchoolEmailDomains } from "./school-email-domain";
 

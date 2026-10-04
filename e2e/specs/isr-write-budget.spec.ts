@@ -113,7 +113,7 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
       const cached = JSON.parse(await readFile(path.join(output, latest.artifact), 'utf8'));
       const payload = JSON.parse(cached.data.body);
       return payload.landing.stats.registeredUsers === upstream.landing.stats.registeredUsers
-        && payload.landing.currentCycle?.codename === upstream.landing.currentCycle?.codename;
+        && payload.landing.currentCycle?.revealAt === upstream.landing.currentCycle?.revealAt;
     }, { timeout: 15_000, intervals: [100, 250, 500] }).toBe(true);
     await expect.poll(async () => (await getHome()).cache).toBe('HIT');
     await evidence.quiet();
@@ -255,6 +255,8 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
     assertions.sameAndOlderRevisionCallbacksDidNotRewriteCache = true;
 
     await setPhase('concurrent-twenty-callbacks');
+    const unchangedBefore = await getHome();
+    const rscBefore = await readFile(path.join(evidence.nextRoot, 'server/app/index.rsc'));
     // Advance only this disposable queue, reserving the production interval for
     // budget verification and excluding the real dispatcher from this claim race.
     const concurrent = await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
@@ -267,6 +269,20 @@ test('measure homepage cache writes around real and duplicate invalidations @smo
     await Promise.all(Array.from({ length: 20 }, () => getHome()));
     await expect.poll(async () => (await getHome()).cache, { timeout: 20_000, intervals: [100, 250, 500] }).toBe('HIT');
     await evidence.quiet();
+    const unchangedAfter = await getHome();
+    expect(unchangedAfter.sha256).toBe(unchangedBefore.sha256);
+    expect(sha256(await readFile(path.join(evidence.nextRoot, 'server/app/index.rsc')))).toBe(sha256(rscBefore));
+    expect(unchangedAfter.html).not.toMatch(/name="(?:sentry-trace|baggage)"/);
+    assertions.unchangedRegenerationProducedIdenticalHtmlAndRsc = true;
+    if (process.env.E2E_SENTRY_TRACING === '1') {
+      await expect.poll(async () => {
+        const response = await request.get(`${process.env.E2E_SENTRY_URL}/events`);
+        const events = await response.json();
+        return events.some((event: { type: string; op?: string; transaction?: string }) =>
+          event.type === 'transaction' && event.op === 'http.server' && event.transaction === 'GET /');
+      }, { timeout: 15_000, intervals: [250, 500] }).toBe(true);
+      assertions.serverHomepageTracingRemainsEnabled = true;
+    }
     assertions.twentyConcurrentCallbacksReceivedOneDurableClaim = true;
 
     await setPhase('budget-defers-new-revision');

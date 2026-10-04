@@ -7,6 +7,8 @@ lang: zh
 
 > 文档归属：[设计决策](README.md)。日期：2026-10-03；2026-10-04 按 Vercel 现有拓扑收敛。状态：本地实现，发布待授权与生产验收。
 
+> 内容身份、实际发布核验及 Sentry 元数据边界由[后续决策](2026-10-04-content-addressed-public-cache.md)覆盖；小时 TTL 与通知门限继续保留。
+
 ## 背景与目标
 
 首页此前组合 60 秒 landing 与 30 秒 community 的 Next Data Cache，实际整页 ISR 最短周期是 30 秒。浏览器又通过 Vercel 同源接口每 30 秒获取社区数据。人数展示、SEO 首屏和整页重生耦合，频繁写入带来 Hobby 额度压力。去掉不展示的 generatedAt 能减少一种变化，却不能在保留 Sentry 追踪时保证整页字节不变。

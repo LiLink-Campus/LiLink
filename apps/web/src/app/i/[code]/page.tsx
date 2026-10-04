@@ -1,4 +1,8 @@
+import { generateDynamicSentryMetadata } from "../../../lib/sentry-request-metadata";
+
 import { ReferralLandingClient } from "./landing-client";
+
+export const generateMetadata = generateDynamicSentryMetadata;
 
 export default async function ReferralLandingPage({
   params,

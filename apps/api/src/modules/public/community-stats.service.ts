@@ -90,7 +90,10 @@ export class CommunityStatsService {
       total,
       genders,
       schools: [...schools.values()].sort(
-        (a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-CN'),
+        (a, b) =>
+          b.count - a.count ||
+          a.name.localeCompare(b.name, 'zh-CN') ||
+          (a.id ?? '').localeCompare(b.id ?? '', 'en'),
       ),
       generatedAt: new Date().toISOString(),
     };

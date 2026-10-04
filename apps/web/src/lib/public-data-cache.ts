@@ -65,7 +65,7 @@ const refreshSeconds: Record<PublicDataPath, number> = {
 
 export async function getCachedPublicData<T>(path: PublicDataPath): Promise<T> {
   // Only allowlisted anonymous data belongs in this shared cache.
-  const cached = unstable_cache(loadPublicData, ["public-data-v2"], {
+  const cached = unstable_cache(loadPublicData, ["public-data-v3"], {
     revalidate: refreshSeconds[path],
     tags: [path === "/public/home" ? "public-home" : "public-schools"],
   });

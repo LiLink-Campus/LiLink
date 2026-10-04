@@ -8,6 +8,11 @@ import {
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { env } from '../../config/env';
+import { normalizePublicHomeSnapshot } from '@lilink/shared';
+import {
+  readHomePublication,
+  readInvalidationAcknowledgment,
+} from './public-cache-publication';
 
 type Scope = 'home' | 'schools';
 type Pending = {
@@ -46,6 +51,30 @@ export class PublicCacheInvalidationService
       ...(this.sources.get(scope) ?? []),
       { key, invalidate, read },
     ]);
+  }
+
+  async snapshotHash(scope: Scope): Promise<string> {
+    const sources = [...(this.sources.get(scope) ?? [])].sort((a, b) =>
+      a.key.localeCompare(b.key),
+    );
+    if (!sources.length) throw new Error('Missing public cache source.');
+    for (const source of sources) source.invalidate();
+    const values = await Promise.all(sources.map((source) => source.read()));
+    const snapshot =
+      scope === 'home'
+        ? normalizePublicHomeSnapshot(
+            Object.fromEntries(
+              sources.map((source, index) => [source.key, values[index]]),
+            ),
+          )
+        : values;
+    return createHash('sha256')
+      .update(
+        JSON.stringify(snapshot, (key, value: unknown) =>
+          key === 'generatedAt' ? undefined : value,
+        ),
+      )
+      .digest('hex');
   }
 
   onApplicationBootstrap() {
@@ -194,24 +223,21 @@ export class PublicCacheInvalidationService
 
     const scope = row.scope as Scope;
     try {
-      const sources = [...(this.sources.get(scope) ?? [])].sort((a, b) =>
-        a.key.localeCompare(b.key),
-      );
-      if (!sources.length) throw new Error('Missing public cache source.');
-      for (const source of sources) source.invalidate();
-      const snapshot = await Promise.all(
-        sources.map((source) => source.read()),
-      );
-      const hash = createHash('sha256')
-        .update(
-          JSON.stringify(snapshot, (key, value: unknown) =>
-            key === 'generatedAt' ? undefined : value,
-          ),
-        )
-        .digest('hex');
-      if (hash === row.deliveredHash) {
+      const hash = await this.snapshotHash(scope);
+      // Historical verifiedHash alone is insufficient after an A -> B -> A
+      // transition. Equal source content needs a fresh read of the served page.
+      const equalPublication =
+        scope !== 'home' || hash !== row.deliveredHash
+          ? null
+          : await readHomePublication();
+      if (
+        hash === row.deliveredHash &&
+        (scope !== 'home' ||
+          (equalPublication?.kind === 'published' &&
+            equalPublication.hash === hash))
+      ) {
         await this.prisma.publicCacheInvalidation.updateMany({
-          where: { scope, leaseToken: token },
+          where: { scope, leaseToken: token, leaseUntil: { gt: new Date() } },
           data: {
             acknowledgedRevision: row.revision,
             leaseToken: null,
@@ -249,15 +275,15 @@ export class PublicCacheInvalidationService
         body,
         signal: AbortSignal.timeout(5_000),
       });
-      await response.body?.cancel();
       if (response.status === 429) {
+        await response.body?.cancel();
         const seconds = Number(response.headers.get('retry-after'));
         if (!Number.isInteger(seconds) || seconds < 1 || seconds > 1800) {
           throw new Error('Invalid revalidation deferral.');
         }
         const retryAt = new Date(Date.now() + Math.max(60, seconds) * 1000);
         await this.prisma.publicCacheInvalidation.updateMany({
-          where: { scope, leaseToken: token },
+          where: { scope, leaseToken: token, leaseUntil: { gt: new Date() } },
           data: {
             leaseToken: null,
             leaseUntil: null,
@@ -268,16 +294,22 @@ export class PublicCacheInvalidationService
         this.schedule(retryAt);
         return;
       }
-      if (!response.ok) throw new Error('Revalidation rejected.');
+      if (!response.ok) {
+        await response.body?.cancel();
+        throw new Error('Revalidation rejected.');
+      }
+      await readInvalidationAcknowledgment(response);
       // A concurrent mutation must keep its newer revision pending.
-      await this.prisma.$executeRaw`
+      const acknowledged = await this.prisma.$executeRaw`
         UPDATE "PublicCacheInvalidation"
         SET "acknowledgedRevision" = ${row.revision}, "lastDeliveredAt" = NOW(), "deliveredHash" = ${hash},
           "leaseToken" = NULL, "leaseUntil" = NULL, "attempts" = 0,
           "urgent" = CASE WHEN "revision" = ${row.revision} THEN false ELSE "urgent" END,
           "dueAt" = GREATEST("dueAt", NOW() + INTERVAL '30 minutes')
-        WHERE "scope" = ${scope} AND "leaseToken" = ${token}
+        WHERE "scope" = ${scope} AND "leaseToken" = ${token} AND "leaseUntil" > NOW()
       `;
+      if (acknowledged !== 1)
+        throw new Error('Public cache delivery lease expired.');
       this.logger.log(
         `Public cache notification acknowledged: scope=${scope}, revision=${row.revision}.`,
       );
@@ -288,7 +320,7 @@ export class PublicCacheInvalidationService
         Date.now() + Math.min(900, 60 * 2 ** (attempts - 1)) * 1_000,
       );
       await this.prisma.publicCacheInvalidation.updateMany({
-        where: { scope, leaseToken: token },
+        where: { scope, leaseToken: token, leaseUntil: { gt: new Date() } },
         data: {
           leaseToken: null,
           leaseUntil: null,

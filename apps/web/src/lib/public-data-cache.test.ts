@@ -17,7 +17,7 @@ describe("anonymous public data cache", () => {
     const request = vi.fn().mockImplementation(async () => Response.json({ total: 42 }));
     vi.stubGlobal("fetch", request);
     await expect(getCachedPublicData("/public/schools")).resolves.toEqual({ total: 42 });
-    expect(unstable_cache).toHaveBeenLastCalledWith(expect.any(Function), ["public-data-v2"], { revalidate: 60, tags: ["public-schools"] });
+    expect(unstable_cache).toHaveBeenLastCalledWith(expect.any(Function), ["public-data-v3"], { revalidate: 60, tags: ["public-schools"] });
     for (const [, options] of request.mock.calls) {
       expect(options.headers).toEqual({ Accept: "application/json" });
       expect(options).not.toHaveProperty("credentials");

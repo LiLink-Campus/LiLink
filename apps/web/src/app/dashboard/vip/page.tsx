@@ -1,7 +1,11 @@
+import { generateDynamicSentryMetadata } from "../../../lib/sentry-request-metadata";
+
 import { fetchUserApiServer, ServerApiError } from "../../../lib/server-api";
 import { ensureDashboardSession } from "../_lib/bootstrap";
 import { VipClient, type VipStatus } from "./vip-client";
 import { redirect } from "next/navigation";
+
+export const generateMetadata = generateDynamicSentryMetadata;
 
 export default async function VipPage() {
   await ensureDashboardSession();

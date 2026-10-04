@@ -1,5 +1,9 @@
+import { generateDynamicSentryMetadata } from "../../lib/sentry-request-metadata";
+
 import { loadDashboardHome } from "./_lib/bootstrap";
 import { HomeBootstrap } from "./home-bootstrap";
+
+export const generateMetadata = generateDynamicSentryMetadata;
 
 export default async function DashboardHubPage() {
   // Share the same render-time clock between server HTML and hydration.

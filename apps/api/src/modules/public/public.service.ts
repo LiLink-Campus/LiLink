@@ -205,7 +205,7 @@ export class PublicService {
         }),
         this.prisma.matchCycle.findFirst({
           where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
-          orderBy: { revealAt: 'asc' },
+          orderBy: [{ revealAt: 'asc' }, { id: 'asc' }],
         }),
       ]);
 
@@ -253,7 +253,7 @@ export class PublicService {
           orderBy: { domain: 'asc' },
         },
       },
-      orderBy: { name: 'asc' },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
     });
 
     const eligibleSchools: EligibleSchool[] = schools

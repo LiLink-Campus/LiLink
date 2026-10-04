@@ -1,6 +1,10 @@
+import { generateDynamicSentryMetadata } from "../../../lib/sentry-request-metadata";
+
 import { redirectAuthenticatedUser } from "../../../lib/server-api";
 import RegisterSchoolClient from "../register-school-client";
 import { firstSearchParam } from "../utils";
+
+export const generateMetadata = generateDynamicSentryMetadata;
 
 type RegisterSchoolPageProps = {
   searchParams: Promise<{ next?: string | string[] }>;

@@ -8,11 +8,16 @@ import {
   parseDevlogUpdatesPage,
 } from "@/lib/devlog-feed";
 import { UpdatesPageView } from "./updates-page-view";
+import { generateDynamicSentryMetadata } from "../../lib/sentry-request-metadata";
 
-export const metadata: Metadata = {
+const pageMetadata: Metadata = {
   title: "产品更新 · LiLink",
   description: "LiLink 的每一次迭代：我们解决了哪些问题，体验有了什么变化。",
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  return { ...pageMetadata, ...await generateDynamicSentryMetadata() };
+}
 
 type UpdatesPageProps = {
   searchParams: Promise<{ page?: string | string[] }>;

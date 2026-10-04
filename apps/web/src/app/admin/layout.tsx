@@ -1,9 +1,13 @@
+import { generateDynamicSentryMetadata } from "../../lib/sentry-request-metadata";
+
 import {
   fetchAdminApiServer,
   hasAdminSessionCookie,
 } from "../../lib/server-api";
 import AdminLayoutShell from "./admin-layout-shell";
 import type { AdminIdentity } from "./admin-context";
+
+export const generateMetadata = generateDynamicSentryMetadata;
 
 async function getInitialAdmin() {
   const hasSessionCookie = await hasAdminSessionCookie();

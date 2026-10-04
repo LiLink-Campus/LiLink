@@ -16,6 +16,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  cache-tracing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Install tracing acceptance engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Verify cached and request tracing with synthetic telemetry
+        run: node scripts/e2e/run.mjs sentry-cache-tracing.spec.ts --sentry-tracing --project=chromium --project=mobile-webkit
+      - name: Preserve sanitized tracing evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-tracing-${{ github.sha }}
+          path: |
+            artifacts/e2e/**/report/**
+            artifacts/e2e/**/results/**
+            artifacts/e2e/**/results.json
+            artifacts/e2e/**/*.log
+            artifacts/e2e/**/run.json
+            artifacts/e2e/**/sentry-events.jsonl
+          retention-days: 7
+          if-no-files-found: ignore
   browser-e2e:
     runs-on: ubuntu-24.04
     # Full regression measured 32m16s before setup and the 3m12s visual build.

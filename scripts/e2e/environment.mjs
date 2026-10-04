@@ -8,7 +8,7 @@ export function assertTestDatabase(raw) {
   }
 }
 
-export function testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId }) {
+export function testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId, sentryPort }) {
   const env = {};
   for (const key of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'SystemRoot', 'CI', 'PLAYWRIGHT_BROWSERS_PATH']) {
     if (process.env[key]) env[key] = process.env[key];
@@ -30,5 +30,16 @@ export function testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, 
     env[key] = randomBytes(32).toString('hex');
   }
   assertTestDatabase(env.DATABASE_URL);
+  if (sentryPort !== undefined) {
+    if (!Number.isInteger(sentryPort) || sentryPort < 1024 || sentryPort > 65535 ||
+        [dbPort, smtpPort, mailPort, apiPort, webPort].includes(sentryPort)) {
+      throw new Error('Sentry tracing requires its own disposable loopback collector port.');
+    }
+    env.NEXT_PUBLIC_SENTRY_DSN = `http://public@127.0.0.1:${sentryPort}/1`;
+    env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE = '1';
+    env.NEXT_PUBLIC_SENTRY_SEND_DEFAULT_PII = 'false';
+    env.E2E_SENTRY_TRACING = '1';
+    env.E2E_SENTRY_URL = `http://127.0.0.1:${sentryPort}`;
+  }
   return env;
 }

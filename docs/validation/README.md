@@ -15,6 +15,8 @@ lang: zh
 
 ## 目录
 
+- [展示投影、实际发布核验与 Sentry 缓存稳定性验收](2026-10-04-stable-isr-publication.md)。
+
 - [Vercel 静态资源、学校图集与背景融合验收](2026-10-04-vercel-resource-optimization.md)。
 - [保留 Vercel 的 ISR 控制与验收](2026-10-04-vercel-only-isr.md)。
 - [On-demand Revalidation 的 ISR Writes 专项验收](2026-10-04-isr-write-budget.md)。

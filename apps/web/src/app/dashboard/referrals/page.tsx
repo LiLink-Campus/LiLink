@@ -1,7 +1,11 @@
+import { generateDynamicSentryMetadata } from "../../../lib/sentry-request-metadata";
+
 import { ensureDashboardSession } from "../_lib/bootstrap";
 import { fetchUserApiServer } from "../../../lib/server-api";
 import type { MyReferralOverview } from "../../../lib/api";
 import { ReferralsClient } from "./referrals-client";
+
+export const generateMetadata = generateDynamicSentryMetadata;
 
 export default async function DashboardReferralsPage() {
   await ensureDashboardSession();

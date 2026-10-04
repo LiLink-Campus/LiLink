@@ -11,6 +11,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const apiOnly = process.argv.includes('--api');
 const buildOnly = process.argv.includes('--build-only');
 const serve = process.argv.includes('--serve');
+const sentryTracing = process.argv.includes('--sentry-tracing');
 const serveMinutesArg = process.argv.find(arg => arg.startsWith('--serve-minutes='));
 const serveMinutes = Number(serveMinutesArg?.split('=')[1] ?? 30);
 const extraOriginArgs = process.argv.filter(arg => arg.startsWith('--extra-client-origin='));
@@ -25,10 +26,10 @@ if (extraOrigin) {
     throw new Error('--extra-client-origin requires --serve and an exact loopback HTTP origin.');
   }
 }
-if ((serve && apiOnly) || (buildOnly && (serve || apiOnly)) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 90) {
+if ((serve && apiOnly) || (sentryTracing && apiOnly) || (buildOnly && (serve || apiOnly)) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 90) {
   throw new Error('--serve is browser-only; --serve-minutes must be between 1 and 90.');
 }
-const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin='));
+const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only', '--sentry-tracing'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin='));
 if (buildOnly && playwrightArgs.length) throw new Error('--build-only does not accept browser test arguments.');
 const startedAt = Date.now();
 const runId = randomBytes(6).toString('hex');
@@ -102,9 +103,9 @@ async function cleanup() {
   await rm(workspace, { recursive: true, force: true });
 }
 const ports = [];
-while (ports.length < 5) { const port = await freePort(); if (!ports.includes(port) && port !== 5432) ports.push(port); }
-const [dbPort, smtpPort, mailPort, apiPort, webPort] = ports;
-const env = testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId });
+while (ports.length < (sentryTracing ? 6 : 5)) { const port = await freePort(); if (!ports.includes(port) && port !== 5432) ports.push(port); }
+const [dbPort, smtpPort, mailPort, apiPort, webPort, sentryPort] = ports;
+const env = testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId, sentryPort });
 if (extraOrigin) env.CLIENT_ORIGIN += `,${extraOrigin}`;
 if (apiOnly) env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_e2e_', '/lilink_vip_test_');
 Object.assign(env, { E2E_SOURCE_ROOT: root, E2E_OUTPUT: output, E2E_WORKSPACE: workspace, LILINK_BUILD_WORKSPACE_ROOT: root });
@@ -127,6 +128,11 @@ try {
   }
   await linkDependencies(path.join(root, 'node_modules'), path.join(workspace, 'node_modules'), true);
   for (const name of ['api', 'web']) await linkDependencies(path.join(root, 'apps', name, 'node_modules'), path.join(workspace, 'apps', name, 'node_modules'));
+  if (sentryTracing) {
+    const collector = command('node', ['scripts/e2e/sentry-collector.mjs', String(sentryPort), env.E2E_WEB_URL,
+      path.join(output, 'sentry-events.jsonl')], { background: true, label: 'sentry' });
+    await waitFor(`${env.E2E_SENTRY_URL}/health`, collector);
+  }
   const dbName = `lilink-e2e-db-${runId}`;
   containers.push(dbName);
   await command('docker', ['run', '-d', '--name', dbName, '--label', `lilink.e2e=${runId}`, '-p', `127.0.0.1:${dbPort}:5432`, '-e', `POSTGRES_DB=${apiOnly ? 'lilink_vip_test' : 'lilink_e2e'}_${runId}`, '-e', 'POSTGRES_USER=e2e', '-e', 'POSTGRES_PASSWORD=e2e', '--tmpfs', '/var/lib/postgresql/data:rw', 'postgres:17-alpine'], { label: 'infra' });
@@ -156,6 +162,7 @@ try {
   ]);
   if (!buildOnly) {
   const web = command('npm', ['run', 'start', '--workspace', 'web', '--', '--hostname', '127.0.0.1', '--port', String(webPort)], { background: true, label: 'web' });
+  env.E2E_WEB_PID = String(web.pid);
   await Promise.all([waitFor(`${env.E2E_API_URL}/health`, api), waitFor(`${env.E2E_WEB_URL}/login`, web), waitFor(`${env.E2E_MAIL_URL}/api/v1/messages`, api)]);
   const services = [api, web, ...containers.map(name => command('docker', ['wait', name], { background: true, label: 'service-watch' }))];
   const serviceFailure = Promise.race(services.map(child => child.done.then(() => { throw new Error('An isolated service exited unexpectedly.'); })));

@@ -1,3 +1,7 @@
+import type { PublicHomeDisplayData } from "@lilink/shared";
+
+export type LandingDisplayPayload = PublicHomeDisplayData["landing"];
+
 export type LandingPayload = {
   brand: string;
   tagline: string;

@@ -2,6 +2,7 @@ import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { normalizePublicHomeSnapshot } from '@lilink/shared';
 import { test, expect, api, password, visit } from '../support/fixtures';
 import { IsrWriteEvidence } from '../support/isr-write-evidence';
 
@@ -92,7 +93,7 @@ test('live API reads leave the long cached homepage unchanged @smoke', async ({ 
       expect(live.ok()).toBe(true);
       const payload = await live.json();
       settledGeneratedAt = payload.community.generatedAt;
-      const expected = JSON.parse(JSON.stringify(payload, (key, value) => key === 'generatedAt' ? undefined : value));
+      const expected = normalizePublicHomeSnapshot(payload);
       const response = await page.request.get('/');
       expect(response.ok()).toBe(true);
       first = await response.text();

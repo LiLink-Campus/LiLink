@@ -62,7 +62,7 @@ function createNextConfig(phase: string): NextConfig {
   };
 }
 
-export default withSentryConfig(createNextConfig, {
+const sentryNextConfig = withSentryConfig(createNextConfig, {
   org: "sed-i",
   project: "lilink",
   authToken: process.env.SENTRY_AUTH_TOKEN,
@@ -76,3 +76,16 @@ export default withSentryConfig(createNextConfig, {
     },
   },
 });
+
+export default function nextConfig(phase: string): NextConfig {
+  const config = sentryNextConfig(phase);
+  // Sentry injects these globally. Cached HTML must not carry a regeneration's
+  // random trace; existing dynamic routes explicitly export request metadata.
+  config.experimental = {
+    ...config.experimental,
+    clientTraceMetadata: config.experimental?.clientTraceMetadata?.filter(
+      (name) => name !== "sentry-trace" && name !== "baggage",
+    ),
+  };
+  return config;
+}

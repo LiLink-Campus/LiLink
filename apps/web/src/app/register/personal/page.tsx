@@ -1,6 +1,10 @@
+import { generateDynamicSentryMetadata } from "../../../lib/sentry-request-metadata";
+
 import { redirectAuthenticatedUser } from "../../../lib/server-api";
 import RegisterPersonalClient from "../register-personal-client";
 import { firstSearchParam } from "../utils";
+
+export const generateMetadata = generateDynamicSentryMetadata;
 
 type RegisterPersonalPageProps = {
   searchParams: Promise<{ next?: string | string[] }>;

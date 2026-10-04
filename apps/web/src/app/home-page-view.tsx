@@ -4,7 +4,7 @@ import { ButtonLink } from "@/components/ui";
 import Link from "next/link";
 import { StaticImage } from "@/components/StaticImage";
 import type { CommunityStatsPayload } from "../lib/community-stats";
-import type { LandingPayload } from "../lib/landing-payload";
+import type { LandingDisplayPayload } from "../lib/landing-payload";
 import {
   CampusLineart,
   CoffeeCupsIllustration,
@@ -62,7 +62,7 @@ const features = [
 ];
 
 export function HomePageView({ landing, community = null }: {
-  landing: LandingPayload | null;
+  landing: LandingDisplayPayload | null;
   community?: CommunityStatsPayload | null;
 }) {
   return (

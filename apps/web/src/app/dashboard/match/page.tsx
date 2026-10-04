@@ -1,5 +1,9 @@
+import { generateDynamicSentryMetadata } from "../../../lib/sentry-request-metadata";
+
 import { loadDashboardCore } from "../_lib/bootstrap";
 import { MatchClient } from "./match-client";
+
+export const generateMetadata = generateDynamicSentryMetadata;
 
 export default async function DashboardMatchPage() {
   // Freeze the render-time clock so participation lock state stays

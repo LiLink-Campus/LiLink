@@ -1,8 +1,12 @@
+import { generateDynamicSentryMetadata } from "../../../lib/sentry-request-metadata";
+
 import { redirect } from "next/navigation";
 import { ensureDashboardSession } from "../_lib/bootstrap";
 import { fetchUserApiServer, ServerApiError } from "../../../lib/server-api";
 import type { AuthMePayload, CouponOverview } from "../../../lib/api";
 import { CouponsClient } from "./coupons-client";
+
+export const generateMetadata = generateDynamicSentryMetadata;
 
 export default async function DashboardCouponsPage() {
   await ensureDashboardSession();

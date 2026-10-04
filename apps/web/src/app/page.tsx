@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { createHash } from "node:crypto";
 import { getStaticImageProps } from "@/components/StaticImage";
 import { homeArtwork } from "./home-artwork";
 import { HomeArtworkPreload } from "./home-artwork-preload";
@@ -12,7 +13,10 @@ export const revalidate = 3600;
 
 async function HomeContent() {
   const snapshot = await getCachedPublicData<PublicHomeData>("/public/home");
-  return <HomePageView landing={snapshot.landing} community={snapshot.community} />;
+  const fingerprint = createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
+  return <div style={{ display: "contents" }} data-lilink-home-fingerprint={`v1:${fingerprint}`}>
+    <HomePageView landing={snapshot.landing} community={snapshot.community} />
+  </div>;
 }
 
 function PageLoading() {
