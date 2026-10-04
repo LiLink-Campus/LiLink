@@ -46,8 +46,9 @@ jobs:
           if-no-files-found: ignore
   browser-e2e:
     runs-on: ubuntu-24.04
-    # Full regression measured 32m16s before setup and the 3m12s visual build.
-    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 45 || 35 }}
+    # Run 37217861229 used 41m39s for full regression plus 1m36s of setup.
+    # Allow 60m for full runs, roughly 4m of visual checks, and evidence uploads.
+    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 60 || 35 }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
