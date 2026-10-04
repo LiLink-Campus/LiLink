@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../lib/sentry-request-metadata", () => ({
+  generateDynamicSentryMetadata: vi.fn(),
+}));
 vi.mock("../../lib/server-api", () => ({
   fetchUserApiServer: vi.fn(),
   hasUserSessionCookie: vi.fn(async () => true),

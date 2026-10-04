@@ -39,6 +39,8 @@ node scripts/e2e/run.mjs sentry-cache-tracing.spec.ts isr-write-budget.spec.ts -
 
 共享包原有 110 项测试、API public/community 原有九项行为测试和 Web 缓存原有六项测试通过。API/Web 类型检查、root lint、隔离 runner 两项环境检查、脚本语法、Git diff 检查及 API production Dockerfile 构建通过；本机 Docker 构建不上传 source maps，生产构建仍必须上传。多 Agent 独立反复审核并修复 ABA 等价判断、过期 lease 确认、回执协议、有界核验预算、故障附件误报及发布脚本外部漂移保护。
 
+精确提交 CI 首轮发现既有 `session-failure.test.ts` 直接导入动态页面时，新增 Next 服务端 metadata 边界在 Node 测试环境触发 `server-only`。修复仅补齐该既有测试的边界 mock；原会话错误与重定向断言保持，八项原断言重新通过，生产 `server-only` 和追踪实现不变。最终提交须重新读取全部 CI。
+
 Codex 应用内浏览器检查首页及学校目录的桌面 1280×800、移动 390×844，首页文字换行、图表、学校目录及真实移动菜单导航可读且无横向溢出；截图保存在本机 `artifacts/isr-stable-release-20261004/iab/`。完整浏览器业务回归、Storybook 和精确提交 CI 使用仓库现有 GitHub Actions；应单独读取最终提交的结果。
 
 文档稳定检查无诊断。preview 的一条 EVD001 位于历史性能记录 `2026-10-03-public-performance.md` 第 108 行，经人工核对不属于本轮新增契约。
