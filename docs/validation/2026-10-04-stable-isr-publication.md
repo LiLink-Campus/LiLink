@@ -41,6 +41,8 @@ node scripts/e2e/run.mjs sentry-cache-tracing.spec.ts isr-write-budget.spec.ts -
 
 精确提交 CI 首轮发现既有 `session-failure.test.ts` 直接导入动态页面时，新增 Next 服务端 metadata 边界在 Node 测试环境触发 `server-only`。修复仅补齐该既有测试的边界 mock；原会话错误与重定向断言保持，八项原断言重新通过，生产 `server-only` 和追踪实现不变。最终提交须重新读取全部 CI。
 
+后续 CI 暴露启动通知与首次缓存读取的竞态：完整 HTML 已相同，但第二次读取仍为 STALE。修复仅强化 Sentry 验收前提：隔离数据库中以 revision 和有效 lease 为边界提前测试时钟，由真实 dispatcher 完成确认；公开页连续一秒 HIT 且完整字节稳定，首页指纹还须匹配实时匿名 API。保留两次随机 trace 请求的 HIT 与完整字节断言。`node scripts/e2e/run.mjs sentry-cache-tracing.spec.ts --project=chromium --project=mobile-webkit --sentry-tracing` 的 runner `d0536da84124` 六项首轮通过，零重试、零 flaky。
+
 Codex 应用内浏览器检查首页及学校目录的桌面 1280×800、移动 390×844，首页文字换行、图表、学校目录及真实移动菜单导航可读且无横向溢出；截图保存在本机 `artifacts/isr-stable-release-20261004/iab/`。完整浏览器业务回归、Storybook 和精确提交 CI 使用仓库现有 GitHub Actions；应单独读取最终提交的结果。
 
 文档稳定检查无诊断。preview 的一条 EVD001 位于历史性能记录 `2026-10-03-public-performance.md` 第 108 行，经人工核对不属于本轮新增契约。
@@ -48,6 +50,8 @@ Codex 应用内浏览器检查首页及学校目录的桌面 1280×800、移动 
 ## 性能与生产证据边界
 
 性能对照采用同一合成 API、两份生产模式 Web、十个配对轮次、桌面及移动、150 ms/10 Mbps/2 Mbps/4× CPU 压力配置，测量首页与学校页冷暖加载，以及首页到关于/注册入口的真实点击。两侧 DSN 均关闭；Sentry 行为由独立采集验收。原始采样及可重生成汇总位于 `artifacts/performance/isr-stability-20261004/`，最终结论须读取完整原始数据，不因前几轮无失败而提前判定。
+
+完整性能采样 240/240、指标 50/50 通过预先声明的容差，无缺失样本或关键流程失败，CLS 为零。首页 LCP 中位数在桌面冷暖加载分别增加 28/22 ms，移动端增加 18/24 ms，上侧 95% 置信界为 37–57 ms，低于原定 100 ms/10% 门限；内容就绪时间改善约 244–247 ms，学校页 LCP 变化 0–2 ms。该结果证明本机对照未超过性能门限，不能宣称每项计时零增量或真实大陆网络无回退。
 
 本机压缩输出：HTML 63,975 bytes / gzip 14,608；RSC 29,173 / gzip 7,653。删除必要 SVG 或框架序列化会影响视觉或 hydration；未发现满足不增加请求、脚本和性能负担的高价值缩减项，因此本轮保留组件结构。这些文件大小和本地新版本写入不能换算为 Vercel 精确 ISR 计费。
 

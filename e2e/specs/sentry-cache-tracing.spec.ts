@@ -2,16 +2,23 @@ import { createHash, randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import type { APIRequestContext } from '@playwright/test';
+import { normalizePublicHomeSnapshot } from '@lilink/shared';
 import { test, expect, api, password } from '../support/fixtures';
 
 // Observable failures: random metadata leaks into cached HTML; cached visits share
 // a trace; dynamic SSR loses its request parent; browser requests/errors/Replay stop.
+// Startup notifications and SWR must finish before comparing random trace headers;
+// two identical stale bodies do not prove the current business snapshot is cached.
 // Only the disposable runner's loopback collector enables these sampled flows.
 test.skip(process.env.E2E_SENTRY_TRACING !== '1', 'Use the isolated --sentry-tracing runner.');
 
 type Event = {
   type: string; traceId?: string; parentSpanId?: string; op?: string;
   transaction?: string; syntheticError?: boolean;
+};
+type QueueState = {
+  scope: string; revision: bigint; acknowledgedRevision: bigint;
+  leaseUntil: Date | null; exhaustedAt: Date | null;
 };
 
 async function events(request: APIRequestContext): Promise<Event[]> {
@@ -20,19 +27,59 @@ async function events(request: APIRequestContext): Promise<Event[]> {
   return response.json();
 }
 
-test('cached HTML omits trace metadata and separate visits create separate traces @sentry', async ({ page, request }, info) => {
-  test.setTimeout(90_000);
-  const reads: { route: string; cache?: string; sha256: string }[] = [];
+test('cached HTML omits trace metadata and separate visits create separate traces @sentry', async ({ page, request, db }, info) => {
+  test.setTimeout(180_000);
+  const advanced = new Set<string>();
+  // Reuse the isolated cache tests' clock-only CAS. Never discard revisions or
+  // steal a live lease; the real dispatcher still delivers and acknowledges.
+  await expect.poll(async () => {
+    const rows: QueueState[] = await db.publicCacheInvalidation.findMany({ where: { scope: { in: ['home', 'schools'] } } });
+    for (const row of rows) {
+      if (row.revision <= row.acknowledgedRevision) continue;
+      const key = `${row.scope}:${row.revision}`;
+      if (advanced.has(key) || (row.leaseUntil && row.leaseUntil.getTime() > Date.now())) continue;
+      expect(row.exhaustedAt, 'Synthetic startup delivery must not be exhausted.').toBeNull();
+      const result = await db.publicCacheInvalidation.updateMany({ where: {
+        scope: row.scope, revision: row.revision, acknowledgedRevision: { lt: row.revision },
+        OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }],
+      }, data: { dueAt: new Date(0), lastAttemptAt: null, lastClaimedAt: new Date(0) } });
+      if (result.count === 1) advanced.add(key);
+    }
+    return rows.every(row => row.revision <= row.acknowledgedRevision && row.leaseUntil === null);
+  }, { timeout: 75_000, intervals: [250, 500, 1000] }).toBe(true);
+  const reads: { route: string; cache?: string; sha256: string; fingerprint?: string; quietMilliseconds: number }[] = [];
   for (const route of ['/', '/schools', '/about', '/faq', '/privacy', '/terms', '/one-to-one', '/merchant/login']) {
+    let settledSha256 = '', settledFingerprint: string | undefined, stableSince = 0;
+    // Require serial HITs with identical full bytes for a quiet window. The home
+    // marker must also match live anonymous API data after delivery has settled.
+    await expect.poll(async () => {
+      const response = await request.get(route);
+      expect(response.ok()).toBeTruthy();
+      const body = await response.body();
+      const hash = createHash('sha256').update(body).digest('hex');
+      let current = response.headers()['x-nextjs-cache'] === 'HIT';
+      if (route === '/') {
+        const live = await request.get(`${api}/public/home`);
+        expect(live.ok()).toBeTruthy();
+        settledFingerprint = `v1:${createHash('sha256').update(JSON.stringify(normalizePublicHomeSnapshot(await live.json()))).digest('hex')}`;
+        current &&= body.toString().includes(`data-lilink-home-fingerprint="${settledFingerprint}"`);
+      }
+      if (!current || settledSha256 !== hash) stableSince = Date.now();
+      settledSha256 = hash;
+      return current && Date.now() - stableSince >= 1000;
+    }, { timeout: 25_000, intervals: [250, 500] }).toBe(true);
     const response = await request.get(route, { headers: { 'sentry-trace': `${randomBytes(16).toString('hex')}-${randomBytes(8).toString('hex')}-1` } });
     expect(response.ok()).toBeTruthy();
     const body = await response.body();
+    expect(response.headers()['x-nextjs-cache']).toBe('HIT');
     expect(body.toString()).not.toMatch(/name="(?:sentry-trace|baggage)"/);
     const sha256 = createHash('sha256').update(body).digest('hex');
+    expect(sha256).toBe(settledSha256);
+    if (settledFingerprint) expect(body.toString()).toContain(`data-lilink-home-fingerprint="${settledFingerprint}"`);
     const second = await request.get(route, { headers: { 'sentry-trace': `${randomBytes(16).toString('hex')}-${randomBytes(8).toString('hex')}-1` } });
     expect(createHash('sha256').update(await second.body()).digest('hex')).toBe(sha256);
     expect(second.headers()['x-nextjs-cache']).toBe('HIT');
-    reads.push({ route, cache: second.headers()['x-nextjs-cache'], sha256 });
+    reads.push({ route, cache: second.headers()['x-nextjs-cache'], sha256, fingerprint: settledFingerprint, quietMilliseconds: 1000 });
   }
   const previousIds = new Set((await events(request)).filter(event => event.op === 'pageload').map(event => event.traceId));
   const browserApiHeaders: string[] = [];
@@ -54,7 +101,9 @@ test('cached HTML omits trace metadata and separate visits create separate trace
   expect(traces.every(event => !event.parentSpanId)).toBeTruthy();
   expect(browserApiHeaders.length).toBeGreaterThanOrEqual(2);
   expect(new Set(browserApiHeaders.map(header => header.split('-')[0])).size).toBe(2);
-  await info.attach('cached-html-and-independent-traces', { body: JSON.stringify({ reads, traces, browserApiHeaders }, null, 2), contentType: 'application/json' });
+  const settledQueue: QueueState[] = await db.publicCacheInvalidation.findMany({ where: { scope: { in: ['home', 'schools'] } } });
+  expect(settledQueue.every(row => row.revision <= row.acknowledgedRevision && row.leaseUntil === null)).toBe(true);
+  await info.attach('cached-html-and-independent-traces', { body: JSON.stringify({ startupRevisionsDrained: [...advanced], reads, traces, browserApiHeaders }, null, 2), contentType: 'application/json' });
 });
 
 test('dynamic SSR keeps each request trace and browser continues it @sentry', async ({ page, request }, info) => {
