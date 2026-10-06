@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import {
   applyReportSuccessToDashboard,
 } from "../src/app/dashboard/_lib/dashboard-mutations";
-import type { DashboardPayload } from "../src/app/dashboard/_lib/types";
+import type { DashboardPayload } from "@lilink/shared";
 
 const apiBaseUrl = "http://localhost:4000/v1";
 

@@ -1,9 +1,5 @@
 // Public asset URLs remain reachable for old pages and saved links.
 // Keep immutable files byte-identical; new pages use the compressed hashes.
-export const retainedImmutableImages = [
-  "images/about/watercolor-atlas.09032dbdfd5e.webp"
-];
-
 export const legacyImageRedirects = [
   {
     "source": "/images/about/devillord6321.jpg",

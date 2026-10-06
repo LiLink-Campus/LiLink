@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { HARD_MATCH_KEYS } from "@lilink/shared";
 import type { ValuePickerOption } from "../_components/ValuePicker";
 import {
@@ -6,7 +6,7 @@ import {
   profileAttentionKeyFromHash,
   profileAttentionTabForKey,
 } from "../_lib/profile-attention";
-import type { Question, SavedQuestionnairePayload } from "../_lib/types";
+import type { Question, SavedQuestionnairePayload } from "@lilink/shared";
 import { PROFILE_TABS, type ProfileTab } from "./profile-field-state";
 import type { ProfileFieldRegistry } from "./use-profile-field-registry";
 import styles from "./profile-redesign.module.css";
@@ -84,8 +84,11 @@ export function useProfileReader({
   >([]);
   const [questionIndex, setQuestionIndex] = useState(0);
   const previousReaderSelection = useRef<string | null>(null);
-  const moduleItems = readerItems.filter((item) => item.tab === activeTab);
+  // The collection is immutable; its DOM handles are intentionally updated in effects.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  const moduleItems = useMemo(() => readerItems.filter((item) => item.tab === activeTab), [readerItems, activeTab]);
   const currentIndex = Math.min(questionIndex, Math.max(0, moduleItems.length - 1));
+  const currentItem = moduleItems[currentIndex];
   const previousReaderModule =
     PROFILE_TABS[PROFILE_TABS.findIndex((tab) => tab.id === activeTab) - 1];
   const nextReaderModule = PROFILE_TABS[PROFILE_TABS.findIndex((tab) => tab.id === activeTab) + 1];
@@ -122,19 +125,20 @@ export function useProfileReader({
   }, [vipActive, questions, cancelQuestionTransition]);
   useLayoutEffect(() => {
     for (const item of readerItems) {
-      item.node.setAttribute("data-reader-hidden", String(item !== moduleItems[currentIndex]));
+      const hidden = String(item !== currentItem);
+      if (item.node.getAttribute("data-reader-hidden") !== hidden) item.node.setAttribute("data-reader-hidden", hidden);
     }
-    if (!moduleItems[currentIndex]) return;
+    if (!currentItem) return;
     const selection = `${activeTab}:${currentIndex}`;
     if (previousReaderSelection.current !== selection && readerRef.current) {
       readerRef.current.scrollTop = 0;
     }
     previousReaderSelection.current = selection;
-  }, [readerItems, moduleItems, currentIndex, activeTab]);
+  }, [readerItems, currentItem, currentIndex, activeTab]);
   useEffect(() => cancelQuestionTransition, [cancelQuestionTransition]);
   function openQuestion(tab: ProfileTab, index: number, animate = false) {
     cancelQuestionTransition();
-    const leaving = moduleItems[currentIndex]?.node;
+    const leaving = currentItem?.node;
     const arriving = readerItems.filter((item) => item.tab === tab)[index]?.node;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (leaving && arriving && leaving !== arriving && animate && !reduced) {
@@ -170,7 +174,7 @@ export function useProfileReader({
     if (!animate && readerRef.current) readerRef.current.scrollTop = 0;
   }
   function questionOptions(fieldId: string, options: ValuePickerOption[], value: string) {
-    if (moduleItems[currentIndex]?.elementIds.has(fieldId)) return options;
+    if (currentItem?.elementIds.has(fieldId)) return options;
     return options.filter((option) => option.value === value);
   }
   function itemIncomplete(item: (typeof readerItems)[number]) {

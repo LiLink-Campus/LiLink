@@ -1,17 +1,10 @@
 import { redirect } from "next/navigation";
-import type { VipStatus } from "../vip/vip-client";
-import type { computeQuestionnaireProgress, QuestionnaireAttentionPayload } from "@lilink/shared";
+import type { HomePageData, ProfilePageData, CenterPageData, DashboardBootstrapPayload } from "@lilink/shared";
 import {
   fetchUserApiServer,
   hasUserSessionCookie,
   ServerApiError,
 } from "../../../lib/server-api";
-import type {
-  ContactPreferencesPayload,
-  DashboardBootstrapPayload,
-  QuestionnairePayload,
-  SavedQuestionnairePayload,
-} from "./types";
 
 /**
  * Guard each `/dashboard/*` server page with the same login redirect rule.
@@ -39,24 +32,6 @@ export async function loadDashboardCore() {
     throw error;
   }
 }
-
-type QuestionnairePageData = {
-  user: DashboardBootstrapPayload["user"];
-  questionnaire: QuestionnairePayload;
-  savedQuestionnaire: SavedQuestionnairePayload;
-  contactPreferences: ContactPreferencesPayload;
-};
-
-export type HomePageData = DashboardBootstrapPayload & {
-  questionnaireProgress: ReturnType<typeof computeQuestionnaireProgress>;
-  questionnaireAttention: QuestionnaireAttentionPayload | null;
-  contactPreferences: ContactPreferencesPayload;
-};
-export type ProfilePageData = QuestionnairePageData & {
-  dashboard: Pick<DashboardBootstrapPayload["dashboard"], "questionnaireSubmittedAt">;
-  vip: VipStatus | null;
-};
-export type CenterPageData = { user: DashboardBootstrapPayload["user"]; vip: VipStatus | null };
 
 async function loadPage<T>(page: "home" | "profile" | "center") {
   await ensureDashboardSession();

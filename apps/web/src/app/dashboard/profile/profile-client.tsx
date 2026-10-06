@@ -9,7 +9,7 @@ import {
   hardMatchFormFromAnswers,
   type HardMatchSchoolOption,
 } from "@lilink/shared";
-import type { VipStatus } from "../vip/vip-client";
+import type { VipStatus } from "@lilink/shared";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { keepCurrentQuestionAnswers } from "@lilink/shared";
 import { dcx } from "../_lib/dashboard-class-names";
@@ -18,7 +18,7 @@ import type {
   DashboardPayload,
   Question,
   SavedQuestionnairePayload,
-} from "../_lib/types";
+} from "@lilink/shared";
 import type { ContactSaveStatus } from "./contact-editor";
 import { incompleteProfileTargets } from "./profile-field-state";
 import { useProfileFieldRegistry } from "./use-profile-field-registry";
@@ -26,7 +26,7 @@ import { useProfileAttention } from "./use-profile-attention";
 import { useProfileAutosave } from "./use-profile-autosave";
 import { initialProfileTab, useProfileReader } from "./use-profile-reader";
 import { ProfileVipDialog } from "./profile-vip-access";
-import { useVipStatus } from "./use-vip-status";
+import { useVipStatus } from "../_lib/use-vip-status";
 import { ProfileSelfSection } from "./profile-self-section";
 import { ProfilePartnerSection } from "./profile-partner-section";
 import { ProfileValuesSection } from "./profile-values-section";
@@ -50,10 +50,12 @@ export function ProfileClient({
   initialSavedQuestionnaire,
   initialContactPreferences,
   initialVip = null,
+  vipBootstrap = initialUser,
   initialQuestionnaireVersionId,
 }: {
   initialQuestionnaireVersionId?: string;
   initialVip?: VipStatus | null;
+  vipBootstrap?: object;
   initialContactPreferences: ContactPreferencesPayload;
   initialUser: AuthMePayload;
   initialDashboard: Pick<DashboardPayload, "questionnaireSubmittedAt">;
@@ -62,7 +64,7 @@ export function ProfileClient({
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
   useDashboardSessionSeed(initialUser);
-  const { vip, error: vipError } = useVipStatus(initialVip);
+  const { vip, error: vipError } = useVipStatus(initialUser.id, initialVip, vipBootstrap);
   const vipActive = Boolean(vip?.active);
   const vipDialogRef = useRef<HTMLDialogElement>(null);
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;

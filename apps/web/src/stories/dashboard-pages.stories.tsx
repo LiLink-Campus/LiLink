@@ -1,4 +1,4 @@
-import { LIFESTYLE_QUESTIONS } from "@lilink/shared";
+import { LIFESTYLE_QUESTIONS, type VipStatus } from "@lilink/shared";
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fireEvent, userEvent, within, waitFor } from "storybook/test";
@@ -386,7 +386,8 @@ export const ProfileLongChoicesBottom: Story = {
   },
 };
 
-const profileVip = { active: true, activatedAt: now, expiresAt: "2099-01-01T00:00:00.000Z", durationDays: 30, priceYuan: "29.90", advancedFiltersAvailable: true };
+const profileVip: VipStatus = { active: true, activatedAt: now, expiresAt: "2099-01-01T00:00:00.000Z", durationDays: 30, priceYuan: "29.90", advancedFiltersAvailable: true };
+const profileInactiveVip: VipStatus = { ...profileVip, active: false, activatedAt: null, expiresAt: null };
 export const ProfilePremiumLocked: Story = {
   parameters: route("/dashboard/profile"),
   render: () => <ProfileClient {...profileProps} />,
@@ -834,12 +835,13 @@ export const ProfileInterruptHash: Story = {
 let activateVipDuringReaderRefresh = false;
 export const ProfileInterruptReaderRefresh: Story = {
   ...transitionStory,
+  render: () => <ProfileBootstrap initialData={{ ...profilePageData, vip: profileInactiveVip }} />,
   beforeEach: () => {
     activateVipDuringReaderRefresh = false;
     return setReaderReducedMotion(false);
   },
   parameters: { ...route("/dashboard/profile"), msw: { handlers: { site: [
-    http.get(`${api}/me/vip`, () => HttpResponse.json(activateVipDuringReaderRefresh ? profileVip : { active: false, expiresAt: null })),
+    http.get(`${api}/me/vip`, () => HttpResponse.json(activateVipDuringReaderRefresh ? profileVip : profileInactiveVip)),
     http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
     ...siteHandlers,
   ] } } },

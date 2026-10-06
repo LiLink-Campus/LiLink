@@ -15,6 +15,11 @@ lang: zh
 
 ## 目录
 
+- [资料页、用户中心 VIP 读取与问卷阅读器验收](2026-10-06-vip-reader-refresh.md)。
+- [Vercel CDN 请求与缓存规则专项验收](2026-10-06-cdn-usage.md)。
+- [后台与轮次职责拆分](2026-10-06-admin-responsibilities.md)。
+- [邮件 outbox 跨窗恢复验收](mail-outbox-recovery-2026-10-06.md)。
+
 - [展示投影、实际发布核验与 Sentry 缓存稳定性验收](2026-10-04-stable-isr-publication.md)。
 
 - [Vercel 静态资源、学校图集与背景融合验收](2026-10-04-vercel-resource-optimization.md)。

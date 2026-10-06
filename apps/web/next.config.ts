@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 import { PHASE_PRODUCTION_BUILD } from "next/constants";
-import { legacyImageRedirects, retainedImmutableImages } from "../../scripts/images/legacy-public-paths.mjs";
+import { legacyImageRedirects } from "../../scripts/images/legacy-public-paths.mjs";
 import { immutablePublicAssetHeaders } from "../../scripts/images/immutable-headers.mjs";
 import { resolveConfiguredLanApiHostname } from "./src/lib/api-base-url";
 
@@ -40,10 +40,7 @@ function createNextConfig(phase: string): NextConfig {
       return [{
         source: "/images/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" }],
-      }, ...retainedImmutableImages.map(file => ({
-        source: `/${file}`,
-        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
-      })), ...await immutablePublicAssetHeaders(path.join(currentDirectory, "public"))];
+      }, ...await immutablePublicAssetHeaders(path.join(currentDirectory, "public"))];
     },
     allowedDevOrigins: resolveAllowedDevOrigins(),
     transpilePackages: ["@lilink/shared"],

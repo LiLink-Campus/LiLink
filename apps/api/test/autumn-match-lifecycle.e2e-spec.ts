@@ -1,3 +1,4 @@
+import { createCycleTestServices } from './fixtures/cycle-services';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
@@ -18,10 +19,10 @@ import { AccountProfileService } from '../src/modules/account/account-profile.se
 import { AccountQuestionnaireService } from '../src/modules/account/account-questionnaire.service';
 import { AccountController } from '../src/modules/account/account.controller';
 import { ContactPreferencesService } from '../src/modules/account/contact-preferences.service';
-import { DashboardResponseDto } from '../src/modules/account/dto';
+import type { DashboardPayload } from '@lilink/shared';
 import { MatchEstimateService } from '../src/modules/account/match-estimate.service';
 import { MatchReportService } from '../src/modules/account/match-report.service';
-import { AdminService } from '../src/modules/admin/admin.service';
+import { createAdminTestHarness } from './fixtures/admin-services';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { CyclesService } from '../src/modules/cycles/cycles.service';
 import { PublicService } from '../src/modules/public/public.service';
@@ -59,7 +60,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     snapshots = new DashboardSnapshotService(prisma as PrismaService);
     mail = new MailService(prisma as PrismaService);
     jest.spyOn(mail, 'flushQueuedEmails').mockResolvedValue(undefined);
-    cycles = new CyclesService(prisma as PrismaService, snapshots, mail);
+    cycles = createCycleTestServices(prisma as PrismaService, snapshots, mail);
     deletion = new AccountDeletionService(
       prisma as PrismaService,
       snapshots,
@@ -218,7 +219,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
   }
 
   const cookie = (id: string, email: string) =>
-    `${env.COOKIE_NAME}=${jwt.sign({ sub: id, email })}`;
+    `${env.COOKIE_NAME}=${jwt.sign({ sub: id, email, sessionVersion: 0 })}`;
   const server = () => app.getHttpServer() as Parameters<typeof request>[0];
 
   it('updates only historical display names and preserves redacted cards', async () => {
@@ -777,7 +778,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
         .get('/v1/me/dashboard')
         .set('Cookie', cookie(right.id, right.email))
         .expect(200);
-      const dashboard = response.body as DashboardResponseDto;
+      const dashboard = response.body as DashboardPayload;
       const history = dashboard.recentMatchHistory.find(
         (item) => item.cycleId === cycle.id,
       );
@@ -864,9 +865,9 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
       .get('/v1/me/dashboard')
       .set('Cookie', cookie(left.id, left.email))
       .expect(200);
-    expect((restored.body as DashboardResponseDto).latestMatch).toBeNull();
+    expect((restored.body as DashboardPayload).latestMatch).toBeNull();
     expect(
-      (restored.body as DashboardResponseDto).recentMatchHistory.find(
+      (restored.body as DashboardPayload).recentMatchHistory.find(
         (item) => item.cycleId === cycle.id,
       ),
     ).toMatchObject({ result: 'UNMATCHED', match: null });
@@ -893,7 +894,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
       .get('/v1/me/dashboard')
       .set('Cookie', cookie(right.id, right.email))
       .expect(200);
-    const dashboard = response.body as DashboardResponseDto;
+    const dashboard = response.body as DashboardPayload;
     const history = dashboard.recentMatchHistory.find(
       (item) => item.cycleId === cycle.id,
     );
@@ -913,7 +914,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
   it('leaves the next cycle empty until users explicitly opt in', async () => {
     const { cycle } = await seedPair();
     await cycles.runRevealCycle({ cycleId: cycle.id });
-    const admin = new AdminService(
+    const admin = createAdminTestHarness(
       prisma as PrismaService,
       cycles,
       { write: jest.fn() } as never,
@@ -1130,7 +1131,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     expect(afterStats.stats.matchesDelivered).toBe(
       beforeStats.stats.matchesDelivered - 1,
     );
-    const admin = new AdminService(
+    const admin = createAdminTestHarness(
       prisma as PrismaService,
       cycles,
       { write: jest.fn() } as never,

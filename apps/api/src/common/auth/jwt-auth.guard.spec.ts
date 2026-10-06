@@ -37,6 +37,7 @@ describe('JwtAuthGuard', () => {
     const jwtService = {
       verifyAsync: jest.fn().mockResolvedValue({
         sub: 'user-1',
+        sessionVersion: 0,
         email: 'user@example.com',
       }),
     };
@@ -44,6 +45,7 @@ describe('JwtAuthGuard', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'user-1',
+          sessionVersion: 0,
           email: 'user@example.com',
           status: 'SUSPENDED',
           lastActiveAt: null,
@@ -73,6 +75,7 @@ describe('JwtAuthGuard', () => {
     const jwtService = {
       verifyAsync: jest.fn().mockResolvedValue({
         sub: 'user-1',
+        sessionVersion: 0,
         email: 'token@example.com',
       }),
     };
@@ -80,6 +83,7 @@ describe('JwtAuthGuard', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'user-1',
+          sessionVersion: 0,
           email: 'active@example.com',
           displayName: 'Active User',
           status: 'ACTIVE',
@@ -118,6 +122,7 @@ describe('JwtAuthGuard', () => {
     const jwtService = {
       verifyAsync: jest.fn().mockResolvedValue({
         sub: 'user-1',
+        sessionVersion: 0,
         email: 'token@example.com',
       }),
     };
@@ -126,6 +131,7 @@ describe('JwtAuthGuard', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'user-1',
+          sessionVersion: 0,
           email: 'active@example.com',
           displayName: 'Active User',
           status: 'ACTIVE',
@@ -169,6 +175,7 @@ describe('JwtAuthGuard', () => {
     const jwtService = {
       verifyAsync: jest.fn().mockResolvedValue({
         sub: 'user-1',
+        sessionVersion: 0,
         email: 'token@example.com',
       }),
     };
@@ -177,6 +184,7 @@ describe('JwtAuthGuard', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'user-1',
+          sessionVersion: 0,
           email: 'active@example.com',
           displayName: 'Active User',
           status: 'ACTIVE',
@@ -208,6 +216,7 @@ describe('JwtAuthGuard', () => {
     const jwtService = {
       verifyAsync: jest.fn().mockResolvedValue({
         sub: 'user-1',
+        sessionVersion: 0,
         email: 'token@example.com',
       }),
     };
@@ -215,6 +224,7 @@ describe('JwtAuthGuard', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'user-1',
+          sessionVersion: 0,
           email: 'active@example.com',
           displayName: 'Active User',
           status: 'ACTIVE',
@@ -244,11 +254,12 @@ describe('JwtAuthGuard', () => {
     warnSpy.mockRestore();
   });
 
-  it('deduplicates concurrent active-user lookups without caching status', async () => {
+  it('loads current user state separately for every request', async () => {
     const recentActiveAt = new Date();
     const jwtService = {
       verifyAsync: jest.fn().mockResolvedValue({
         sub: 'user-1',
+        sessionVersion: 0,
         email: 'token@example.com',
       }),
     };
@@ -256,6 +267,7 @@ describe('JwtAuthGuard', () => {
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'user-1',
+          sessionVersion: 0,
           email: 'active@example.com',
           displayName: 'Active User',
           status: 'ACTIVE',
@@ -297,7 +309,7 @@ describe('JwtAuthGuard', () => {
     const third = createContext();
     await expect(guard.canActivate(third.context as never)).resolves.toBe(true);
 
-    expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(3);
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
     expect(first.request.user).toEqual(second.request.user);
     expect(third.request.user).toEqual(first.request.user);
@@ -308,6 +320,7 @@ describe('JwtAuthGuard', () => {
     const jwtService = {
       verifyAsync: jest.fn().mockResolvedValue({
         sub: 'user-1',
+        sessionVersion: 0,
         email: 'token@example.com',
       }),
     };
@@ -317,6 +330,7 @@ describe('JwtAuthGuard', () => {
           .fn()
           .mockResolvedValueOnce({
             id: 'user-1',
+            sessionVersion: 0,
             email: 'active@example.com',
             displayName: 'Active User',
             status: 'ACTIVE',
@@ -324,6 +338,7 @@ describe('JwtAuthGuard', () => {
           })
           .mockResolvedValueOnce({
             id: 'user-1',
+            sessionVersion: 0,
             email: 'active@example.com',
             displayName: 'Active User',
             status: 'SUSPENDED',

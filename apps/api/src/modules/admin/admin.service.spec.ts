@@ -7,7 +7,7 @@ jest.mock('../../config/env', () => ({
   env: mockEnv,
 }));
 
-import { AdminService } from './admin.service';
+import { createAdminTestHarness } from '../../../test/fixtures/admin-services';
 import {
   BadRequestException,
   ForbiddenException,
@@ -26,7 +26,7 @@ describe('AdminService', () => {
     };
     const cycles = { previewCycle: jest.fn().mockResolvedValue(preview) };
     const audit = { write: jest.fn().mockResolvedValue(undefined) };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       {} as never,
       cycles as never,
       audit as never,
@@ -56,7 +56,7 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn(),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       cyclesService as never,
       adminAuditService as never,
@@ -98,7 +98,7 @@ describe('AdminService', () => {
         count: jest.fn().mockResolvedValue(18),
       },
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -182,7 +182,7 @@ describe('AdminService', () => {
         .mockResolvedValue([{ id: 'log-1' }]),
       write: jest.fn(),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -283,7 +283,7 @@ describe('AdminService', () => {
       runRevealCycle: jest.fn(),
       invalidateAutomationSchedule: jest.fn(),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       cyclesService as never,
       adminAuditService as never,
@@ -316,7 +316,7 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -353,7 +353,7 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -390,7 +390,7 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -428,7 +428,7 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -471,7 +471,7 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -525,7 +525,7 @@ describe('AdminService', () => {
           update: jest.fn(),
         },
       };
-      const service = new AdminService(
+      const service = createAdminTestHarness(
         prisma as never,
         {
           runRevealCycle: jest.fn(),
@@ -601,7 +601,7 @@ describe('AdminService', () => {
       runRevealCycle: jest.fn(),
       invalidateAutomationSchedule: jest.fn(),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       cyclesService as never,
       adminAuditService as never,
@@ -671,7 +671,7 @@ describe('AdminService', () => {
       runRevealCycle: jest.fn(),
       invalidateAutomationSchedule: jest.fn(),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       cyclesService as never,
       adminAuditService as never,
@@ -742,7 +742,7 @@ describe('AdminService', () => {
         count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(2),
       },
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -812,7 +812,7 @@ describe('AdminService', () => {
         count: jest.fn().mockResolvedValue(1),
       },
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -852,7 +852,7 @@ describe('AdminService', () => {
         count,
       },
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -946,7 +946,7 @@ describe('AdminService', () => {
   });
 
   it('rejects a multi-select limit that is larger than the option count', async () => {
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       {
         questionnaireVersion: {
           findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
@@ -1052,7 +1052,7 @@ describe('AdminService', () => {
     const questionnaireCache = {
       invalidateCurrentQuestionnaireCache: jest.fn(),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -1165,7 +1165,7 @@ describe('AdminService', () => {
       },
       $transaction: jest.fn(),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -1187,7 +1187,7 @@ describe('AdminService', () => {
   });
 
   it('rejects setting a selection limit on a non-multi-select question', async () => {
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       {
         questionnaireVersion: {
           findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
@@ -1226,7 +1226,7 @@ describe('AdminService', () => {
   });
 
   it('returns questionnaire answers with the canonical school id', async () => {
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       {
         user: {
           findUnique: jest.fn().mockResolvedValue({
@@ -1327,7 +1327,7 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn(),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -1397,7 +1397,7 @@ describe('AdminService', () => {
           callback({ user }),
       };
       const audit = { write: jest.fn() };
-      const service = new AdminService(
+      const service = createAdminTestHarness(
         prisma as never,
         {} as never,
         audit as never,
@@ -1447,7 +1447,7 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn().mockResolvedValue(undefined),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -1543,7 +1543,7 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn().mockResolvedValue(undefined),
     };
-    const service = new AdminService(
+    const service = createAdminTestHarness(
       prisma as never,
       {
         runRevealCycle: jest.fn(),
@@ -1613,7 +1613,7 @@ describe('AdminService', () => {
 
     it('rejects deleteAllTestUsers when APP_ENV is production', async () => {
       mockEnv.APP_ENV = 'production';
-      const service = new AdminService(
+      const service = createAdminTestHarness(
         {} as never,
         {} as never,
         {} as never,
@@ -1627,7 +1627,7 @@ describe('AdminService', () => {
 
     it('rejects seedTestUsers when APP_ENV is production', async () => {
       mockEnv.APP_ENV = 'production';
-      const service = new AdminService(
+      const service = createAdminTestHarness(
         {} as never,
         {} as never,
         {} as never,
@@ -1657,7 +1657,7 @@ describe('AdminService', () => {
           update: overrides.update ?? jest.fn(),
         },
       };
-      const service = new AdminService(
+      const service = createAdminTestHarness(
         prisma as never,
         {} as never,
         adminAuditService as never,
@@ -1693,7 +1693,7 @@ describe('AdminService', () => {
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
         data: { nonEduReferralLimit: 10 },
-        omit: { passwordHash: true },
+        omit: { passwordHash: true, sessionVersion: true },
       });
       expect(adminAuditService.write).toHaveBeenCalledWith(
         'admin-1',

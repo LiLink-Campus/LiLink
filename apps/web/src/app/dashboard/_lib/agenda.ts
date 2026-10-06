@@ -9,7 +9,7 @@ import type {
   ContactPreferencesPayload,
   DashboardPayload,
   QuestionnaireAttentionPayload,
-} from "./types";
+} from "@lilink/shared";
 
 type AgendaPriority = "high" | "medium" | "low";
 

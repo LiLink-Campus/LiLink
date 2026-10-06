@@ -4,7 +4,7 @@ import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AdminAnalyticsService } from '../src/modules/admin-analytics/admin-analytics.service';
 import { AdminAuditService } from '../src/modules/admin/admin-audit.service';
-import { AdminService } from '../src/modules/admin/admin.service';
+import { createAdminTestHarness } from './fixtures/admin-services';
 
 const tag = `cycle-workbench-${randomUUID()}`;
 describe('Cycle workbench scope and audit (PostgreSQL)', () => {
@@ -133,7 +133,7 @@ describe('Cycle workbench scope and audit (PostgreSQL)', () => {
   });
 
   it('records the preview actor and timestamp and filters both searched and unsearched audit pages', async () => {
-    const admin = new AdminService(
+    const admin = createAdminTestHarness(
       prisma as PrismaService,
       {
         previewCycle: () =>

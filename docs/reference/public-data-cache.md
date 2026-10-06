@@ -19,11 +19,13 @@ canonical: true
 | 首页 HTML/RSC、`/public/home` Data Cache | 3600 秒兜底，tag `public-home`；获准的业务通知以 `revalidateTag(tag, 'max')` 标记过期，保留旧值并后台刷新 |
 | 打开的首页 | 使用服务端快照，不追加浏览器统计请求；揭晓倒计时只依据已知时间在本地计时 |
 | 注册学校及邮箱后缀 | 同源 `/api/public/schools`；Data Cache、浏览器/Vercel 缓存 60 秒，tag `public-schools` |
-| 更新日志 | 沿用 1 小时缓存 |
+| 更新日志 | [服务端 feed](../../apps/web/src/lib/devlog-feed.ts) 缓存 1 小时；`/updates` 提供列表、分页与文章跳转，浏览器不请求未读状态 |
 | 登录状态、问卷答案、报名、VIP/支付、匹配结果、后台管理 | 原有私有/no-store 读取与写后刷新 |
 | JS/CSS、字体、图片和图标 | 留在 Vercel；固定公开图片使用构建期响应式资源与同源 `public`，其余图片沿用 Next Image，无独立静态 CDN |
 
 `HomeSnapshotSections` 与底部轮次提示直接消费服务端传入的 landing/community。页面再次加载时获取当时可用的快照；按需失效采用 stale-while-revalidate，因此首次访问仍可能看到旧值，随后读取才收敛。不承诺后台变更立即出现在已经打开的页面。
+
+更新日志不再读取或写入旧的 `lilink.devlog.lastSeen`，也不监听或派发其通知事件。旧浏览器存储残留无需迁移；已打开的旧版本和保留的旧 deployment 仍可能请求原接口，新 deployment 上 `/api/devlog/latest` 为无长期缓存的 404。接口删除不承诺发布瞬间旧客户端流量归零。Sentry 的浏览器 trace 传播通过注册表单原有的同源学校请求验证，首页独立 trace、公开 ISR 输出和动态 SSR 请求 metadata 的契约保持不变。
 
 服务端只缓存 allowlist 中的 `/public/home`、`/public/schools`，不转发 Cookie、认证头或用户标识。API origin 和 path 参与缓存键；上游连接与响应体合计每次限时 4 秒，网络错误/5xx 最多重试一次，429 不立即重试。共享 `normalizePublicHomeSnapshot` 校验首页展示投影，只保留统计、社区人数及揭晓时间；品牌、标语、轮次代号、报名截止时间和生成时间不参与首页内容身份。原有公开 API 保留外部字段。Web 使用 `public-data-v3` 缓存键，避免复用旧投影。
 
@@ -72,6 +74,7 @@ Web 验证 `HMAC-SHA256(secret, timestamp + '.' + rawBody)`：时间戳头 `x-li
 
 - `node scripts/e2e/run.mjs community.spec.ts home-cache-stability.spec.ts isr-write-budget.spec.ts public-home-projection.spec.ts public-cache-publication.spec.ts sentry-cache-tracing.spec.ts vercel-assets.spec.ts pwa.spec.ts pwa-origin-failure.spec.ts --sentry-tracing --project=chromium --project=mobile-chromium --project=webkit --project=mobile-webkit`
 - `npm run test:storybook:web -- --run apps/web/src/app/community-stats.stories.tsx apps/web/src/stories/public-pages.stories.tsx`
+- `node scripts/e2e/run.mjs --devlog-fixture=items updates-feed.spec.ts --project=chromium --project=mobile-chromium --project=webkit --project=mobile-webkit`；另分别以 `empty`、`failure`、`malformed` 模式重复，用独立上游和构建避免 feed 缓存互相污染。
 
 需要 Node 24、npm 11、Docker、已安装依赖和 Playwright 浏览器。runner 使用 disposable PostgreSQL/Mailpit、合成账号、临时签名密钥与同源 loopback 服务。验收覆盖服务端首屏统计、停留与隐藏恢复不追加浏览器统计请求、故障保留与恢复、旧 30 秒窗口之后首页仍 HIT、管理员轮次修改后真实通知使重载页面及底部收敛、拒绝非法通知、事务回滚和合并、重复领取与门限、同源静态资源及 PWA 故障边界。
 

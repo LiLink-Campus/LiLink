@@ -62,7 +62,6 @@ export const readState = {
 export const siteHandlers = [
   json("/me/vip", { active: false, activatedAt: null, expiresAt: null, durationDays: 30, priceYuan: "29.90", advancedFiltersAvailable: true }),
   schoolHandler,
-  http.get(/\/api\/devlog\/latest$/, () => HttpResponse.json({ latestPublishedAt: null })),
   json("/me/dashboard", matchDashboardFixtures.waitingNoResult),
   json("/me/contact-preferences", contacts),
   json("/me/referral", referralFixtures.eduWithFullQuota),

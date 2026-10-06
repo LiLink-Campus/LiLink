@@ -1,20 +1,11 @@
 import {
   DASHBOARD_COUPON_READ_TARGET,
   DASHBOARD_COUPON_READ_VERSION,
+  type CouponAgendaReadState,
 } from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 export const DASHBOARD_COUPON_HREF = '/dashboard/coupons' as const;
-
-export interface DashboardCouponAgendaResponse {
-  target: string;
-  version: string;
-  availableCount: number;
-  unreadAvailableCount: number;
-  read: boolean;
-  readAt: string | null;
-  href: typeof DASHBOARD_COUPON_HREF;
-}
 
 type CouponReadStatePrisma = Pick<PrismaService, 'coupon' | 'couponReadState'>;
 
@@ -40,7 +31,7 @@ function availableCouponWhere(userId: string, now: Date) {
 function toDashboardCouponAgenda(input: {
   availableCount: number;
   readState: { readAt: Date } | null;
-}): DashboardCouponAgendaResponse {
+}): CouponAgendaReadState {
   const read = input.readState != null;
 
   return {
@@ -58,7 +49,7 @@ export async function getDashboardCouponAgenda(
   prisma: CouponReadStatePrisma,
   userId: string,
   now = new Date(),
-): Promise<DashboardCouponAgendaResponse> {
+): Promise<CouponAgendaReadState> {
   const [availableCount, readState] = await Promise.all([
     prisma.coupon.count({ where: availableCouponWhere(userId, now) }),
     prisma.couponReadState.findUnique({
@@ -74,7 +65,7 @@ export async function markDashboardCouponAgendaRead(
   prisma: CouponReadStatePrisma,
   userId: string,
   now = new Date(),
-): Promise<DashboardCouponAgendaResponse> {
+): Promise<CouponAgendaReadState> {
   const availableCount = await prisma.coupon.count({
     where: availableCouponWhere(userId, now),
   });

@@ -1,9 +1,9 @@
+import { createCycleTestServices } from '../../../test/fixtures/cycle-services';
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { AdminService } from '../admin/admin.service';
+import { createAdminTestHarness } from '../../../test/fixtures/admin-services';
 import { PublicModule } from '../public/public.module';
 import { PublicService } from '../public/public.service';
 import { CyclesModule } from './cycles.module';
-import { CyclesService } from './cycles.service';
 import { WeeklyCycleService } from './weekly-cycle.service';
 
 const upcomingCycle = {
@@ -31,14 +31,14 @@ function createServices() {
   const snapshots = {
     syncCycleSnapshots: jest.fn().mockResolvedValue(undefined),
   };
-  const cycles = new CyclesService(
+  const cycles = createCycleTestServices(
     prisma as never,
     snapshots as never,
     {} as never,
     publicService,
   );
   const audit = { write: jest.fn().mockResolvedValue(undefined) };
-  const admin = new AdminService(
+  const admin = createAdminTestHarness(
     prisma as never,
     cycles,
     audit as never,

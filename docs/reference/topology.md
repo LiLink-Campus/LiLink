@@ -61,6 +61,8 @@ Meetup、MatchFeedback、ProductEvent 等历史模型仍可能存在，但 AppMo
 
 API 全局前缀为 `/v1`。普通用户、运营与商家使用各自 Cookie 和 JWT 签名配置，默认 Cookie 名依次为 `lilink_token`、`lilink_admin_token`、`lilink_merchant_token`，有效期默认 14 天；Cookie 为 HttpOnly、SameSite=Lax，生产启用 Secure。生产跨子域访问还须同时满足 Cookie domain、请求 credentials 与 `CLIENT_ORIGIN` 配置。
 
+API 新生成的邮件页脚与个人邀请链接使用可选 `PUBLIC_WEB_URL`；未配置时取 `CLIENT_ORIGIN` 的首项。该设置只接受无凭据、路径、query 或 hash 的 HTTP(S) origin，用于公开 Web 入口，不改变 CORS、Cookie、认证或 SEO。只有精确的正式 HTTPS apex origin 会规范化为 `https://www.lilink.top`，localhost、preview、其他子域和前端当前 origin 保持原值，邀请 path/query 与链接上的 fragment 保持原语义；邮件地址不属于站点 URL。已有邮件和数据库 outbox 的原始载荷不重写，旧 apex 兼容沿用现有站点域名策略。`public-entry-links.spec.ts` 在 disposable API/Mailpit 下验证配置边界、文本/HTML 邮件链接与邀请入口到注册表单的真实点击。
+
 | 路径族 | 访问边界 |
 | --- | --- |
 | `/v1/health`、`/v1/public/*`、`/v1/questionnaire/current` | 公开读取；不返回个人资料或联系方式 |

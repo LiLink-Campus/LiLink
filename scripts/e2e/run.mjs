@@ -6,11 +6,22 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { testEnvironment } from './environment.mjs';
+import { startContractProxy } from './contract-proxy.mjs';
+import { startDevlogFixture } from './devlog-fixture.mjs';
+import { saveBuildRouteSummary } from './build-route-summary.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const apiOnly = process.argv.includes('--api');
 const buildOnly = process.argv.includes('--build-only');
 const serve = process.argv.includes('--serve');
+const contractProxy = process.argv.includes('--contract-proxy');
+let proxy;
+let devlog;
+const devlogModeArg = process.argv.find(arg => arg.startsWith('--devlog-fixture='));
+const devlogMode = devlogModeArg?.slice('--devlog-fixture='.length);
+if (devlogModeArg && (!['items', 'empty', 'failure', 'malformed'].includes(devlogMode) || apiOnly)) {
+  throw new Error('--devlog-fixture requires browser mode and items, empty, failure or malformed.');
+}
 const sentryTracing = process.argv.includes('--sentry-tracing');
 const serveMinutesArg = process.argv.find(arg => arg.startsWith('--serve-minutes='));
 const serveMinutes = Number(serveMinutesArg?.split('=')[1] ?? 30);
@@ -26,10 +37,10 @@ if (extraOrigin) {
     throw new Error('--extra-client-origin requires --serve and an exact loopback HTTP origin.');
   }
 }
-if ((serve && apiOnly) || (sentryTracing && apiOnly) || (buildOnly && (serve || apiOnly)) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 90) {
+if ((contractProxy && (apiOnly || buildOnly)) || (serve && apiOnly) || (sentryTracing && apiOnly) || (buildOnly && (serve || apiOnly)) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 90) {
   throw new Error('--serve is browser-only; --serve-minutes must be between 1 and 90.');
 }
-const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only', '--sentry-tracing'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin='));
+const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only', '--sentry-tracing', '--contract-proxy'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin=') && !arg.startsWith('--devlog-fixture='));
 if (buildOnly && playwrightArgs.length) throw new Error('--build-only does not accept browser test arguments.');
 const startedAt = Date.now();
 const runId = randomBytes(6).toString('hex');
@@ -91,6 +102,8 @@ async function linkDependencies(source, target, rootModules = false) {
 async function cleanup() {
   if (stopping) return;
   stopping = true;
+  await proxy?.close();
+  await devlog?.close();
   const live = [...children];
   for (const child of live) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} }
   await Promise.race([Promise.allSettled(live.map(child => child.done)), new Promise(resolve => setTimeout(resolve, 3000))]);
@@ -118,6 +131,11 @@ for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
 
 try {
   console.log(`E2E run ${runId}; reports: ${output}`);
+  if (devlogMode) {
+    devlog = await startDevlogFixture(devlogMode);
+    env.DEVLOG_BASE_URL = devlog.url;
+    env.E2E_DEVLOG_MODE = devlogMode;
+  }
   await command('docker', ['info', '--format', '{{.ServerVersion}}'], { label: 'infra' });
   const excluded = new Set(['node_modules', '.next', 'dist', 'coverage', 'storybook-static', '.git', 'generated']);
   for (const entry of ['package.json', 'package-lock.json', 'apps', 'packages', 'scripts', 'e2e', 'playwright.config.ts']) {
@@ -143,6 +161,13 @@ try {
     try { await command('docker', ['exec', dbName, 'pg_isready', '-U', 'e2e'], { label: 'infra' }); break; }
     catch (error) { if (attempt === 30) throw error; await new Promise(resolve => setTimeout(resolve, 500)); }
   }
+  if (contractProxy) {
+    const proxyPort = await freePort();
+    proxy = await startContractProxy(proxyPort, env.E2E_API_URL);
+    env.NEXT_PUBLIC_API_BASE_URL = `http://127.0.0.1:${proxyPort}/v1`;
+    env.E2E_CONTRACT_PROXY_URL = `http://127.0.0.1:${proxyPort}`;
+    env.E2E_API_URL = env.NEXT_PUBLIC_API_BASE_URL;
+  }
   await command('npm', ['run', 'build:shared'], { label: 'build' });
   await command('npm', ['run', 'db:migrate:deploy'], { label: 'migrate' });
   await command('npm', ['run', 'build:api'], { label: 'build' });
@@ -160,6 +185,7 @@ try {
     command('npm', ['run', 'build:web'], { label: 'build' }),
     api.done.then(() => { throw new Error('The isolated API exited during the web build.'); }),
   ]);
+  await saveBuildRouteSummary(workspace, output);
   if (!buildOnly) {
   const web = command('npm', ['run', 'start', '--workspace', 'web', '--', '--hostname', '127.0.0.1', '--port', String(webPort)], { background: true, label: 'web' });
   env.E2E_WEB_PID = String(web.pid);

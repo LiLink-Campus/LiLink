@@ -1,5 +1,5 @@
 import { LIFESTYLE_QUESTIONS } from "@lilink/shared";
-import type { HomePageData, ProfilePageData } from "@/app/dashboard/_lib/bootstrap";
+import type { HomePageData, ProfilePageData } from "@lilink/shared";
 import { matchDashboardFixtures as dashboards, matchStoryUser as user } from "@/app/dashboard/match/match.fixtures";
 import { contacts, questions, schools, now } from "./site-fixtures";
 

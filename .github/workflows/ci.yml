@@ -160,6 +160,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: api-e2e-${{ github.sha }}
-          path: artifacts/api-e2e/public-cache-concurrency.json
+          path: |
+            artifacts/api-e2e/public-cache-concurrency.json
+            artifacts/api-e2e/session-version-assertions.json
+            artifacts/api-e2e/mail-outbox-recovery.json
           retention-days: 7
           if-no-files-found: ignore

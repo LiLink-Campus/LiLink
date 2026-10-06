@@ -1,3 +1,4 @@
+import { createCycleTestServices } from './fixtures/cycle-services';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import {
@@ -5,15 +6,17 @@ import {
   WEEKLY_CYCLE_SETTING_KEY,
 } from '../src/modules/cycles/weekly-cycle.service';
 import { env } from '../src/config/env';
-import { CyclesService } from '../src/modules/cycles/cycles.service';
 import { CyclesAutomationService } from '../src/modules/cycles/cycles-automation.service';
-import { AdminService } from '../src/modules/admin/admin.service';
+import {
+  createAdminTestHarness,
+  type AdminTestHarness,
+} from './fixtures/admin-services';
 
 const now = new Date('2030-04-10T06:00:00Z');
 describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
   let prisma: PrismaClient;
   let weekly: WeeklyCycleService;
-  let admin: AdminService;
+  let admin: AdminTestHarness;
   let actor: string;
   const suiteStarted = new Date();
   const ownedNames = [
@@ -40,7 +43,7 @@ describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
       }),
     ).toBeNull();
     weekly = new WeeklyCycleService(prisma as PrismaService);
-    admin = new AdminService(
+    admin = createAdminTestHarness(
       prisma as PrismaService,
       { invalidateAutomationSchedule: jest.fn() } as never,
       {} as never,
@@ -271,7 +274,7 @@ describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
       data: { revealAt },
     });
     await enable();
-    const cycles = new CyclesService(
+    const cycles = createCycleTestServices(
       prisma as PrismaService,
       {} as never,
       {} as never,
@@ -294,7 +297,7 @@ describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
       data: { title: 'Weekly fixture', isCurrent: true },
     });
     await enable();
-    const cycles = new CyclesService(
+    const cycles = createCycleTestServices(
       prisma as PrismaService,
       { syncCycleSnapshots: jest.fn() } as never,
       { flushPendingEmails: jest.fn() } as never,

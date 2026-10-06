@@ -51,7 +51,7 @@ describe("server API diagnostics", () => {
       .mockResolvedValueOnce(new Response("Gateway failure", { status: 520 }))
       .mockResolvedValueOnce(Response.json({ recovered: true }));
     vi.stubGlobal("fetch", request);
-    expect(await fetchUserApiServer("/me/bootstrap")).toEqual({ recovered: true });
+    expect(await fetchUserApiServer("/me/questionnaire")).toEqual({ recovered: true });
     expect(request).toHaveBeenCalledTimes(2);
   });
 

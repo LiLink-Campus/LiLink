@@ -10,11 +10,10 @@ import {
   contactChannelLabel,
   type ContactChannelType,
   type WeeklyIntent,
-} from '@lilink/shared';
-import {
+  type DashboardMatch,
   DashboardHistoryVisibility,
-  type DashboardMatchResponseDto,
-} from '../../modules/account/dto';
+  parseDashboardMatch,
+} from '@lilink/shared';
 import {
   type SnapshotCycle,
   type SnapshotParticipation,
@@ -166,7 +165,7 @@ export function buildSnapshotPayload(input: {
     visibility,
     limitedReason,
     matchId: input.match.id,
-    matchPayload: matchPayload as unknown as Prisma.InputJsonValue,
+    matchPayload,
   };
 }
 
@@ -175,7 +174,7 @@ export function buildMatchPayload(input: {
   hideSensitiveFields: boolean;
   reportStatus: ReportStatus | null;
   intentByUserId: Map<string, WeeklyIntent | null>;
-}): DashboardMatchResponseDto {
+}): DashboardMatch {
   return {
     id: input.match.id,
     score: input.match.score,
@@ -302,30 +301,30 @@ export function readDashboardMatchPayload(
     return null;
   }
 
-  const payload = rawPayload as unknown as DashboardMatchResponseDto;
-  // Legacy snapshots must not expose a pair that never completed introduction.
-  if (!payload.introducedAt) return null;
-  return {
-    id: payload.id,
-    score: payload.score,
-    introducedAt: payload.introducedAt,
-    reportStatus: payload.reportStatus ?? null,
-
-    participants: Array.isArray(payload.participants)
-      ? payload.participants.map((participant) => ({
-          userId: participant.userId,
-          displayName: participant.displayName,
-          introLine: participant.introLine,
-          // Cached payloads may predate the introduction eligibility gate.
-          email: payload.introducedAt ? participant.email : null,
-          contact: payload.introducedAt ? participant.contact : null,
-          schoolName: participant.schoolName,
-          gender: participant.gender ?? null,
-          partnerGenders: Array.isArray(participant.partnerGenders)
-            ? participant.partnerGenders
-            : [],
-          weeklyIntent: participant.weeklyIntent ?? null,
-        }))
-      : [],
-  };
+  // Only known historical omissions are normalized before validating the transport.
+  if (!rawPayload.introducedAt) return null;
+  return parseDashboardMatch({
+    id: rawPayload.id,
+    score: rawPayload.score,
+    introducedAt: rawPayload.introducedAt,
+    reportStatus: rawPayload.reportStatus ?? null,
+    participants: Array.isArray(rawPayload.participants)
+      ? rawPayload.participants.map((participant) => {
+          if (!isRecord(participant)) return participant;
+          return {
+            userId: participant.userId,
+            displayName: participant.displayName,
+            introLine: participant.introLine,
+            email: participant.email,
+            contact: participant.contact,
+            schoolName: participant.schoolName,
+            gender: participant.gender ?? null,
+            partnerGenders: participant.partnerGenders ?? [],
+            weeklyIntent: participant.weeklyIntent ?? null,
+          };
+        })
+      : rawPayload.participants === undefined
+        ? []
+        : rawPayload.participants,
+  });
 }

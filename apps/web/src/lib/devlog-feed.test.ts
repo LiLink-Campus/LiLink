@@ -143,24 +143,3 @@ describe("getDevlogUpdates", () => {
     ]);
   });
 });
-
-describe("getLatestDevlogPublishedAt", () => {
-  it("returns the feed's latestPublishedAt", async () => {
-    stubFetch(() =>
-      Promise.resolve(
-        jsonResponse({
-          latestPublishedAt: "2026-07-04",
-          items: [validItem],
-        }),
-      ),
-    );
-    const { getLatestDevlogPublishedAt } = await loadModule();
-    expect(await getLatestDevlogPublishedAt()).toBe("2026-07-04");
-  });
-
-  it("returns null when the feed is unavailable", async () => {
-    stubFetch(() => Promise.reject(new Error("network down")));
-    const { getLatestDevlogPublishedAt } = await loadModule();
-    expect(await getLatestDevlogPublishedAt()).toBeNull();
-  });
-});

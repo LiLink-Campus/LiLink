@@ -74,7 +74,10 @@ describe('Account-linked manual registration (PostgreSQL)', () => {
       ids.push(user.id);
       const jwt = module
         .get(JwtService)
-        .sign({ sub: user.id, email: user.email }, { secret: env.JWT_SECRET });
+        .sign(
+          { sub: user.id, email: user.email, sessionVersion: 0 },
+          { secret: env.JWT_SECRET },
+        );
       const cookie = `${env.COOKIE_NAME}=${jwt}`;
       await request(server)
         .post('/me/match-leads')

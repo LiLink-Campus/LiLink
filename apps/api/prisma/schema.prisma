@@ -182,6 +182,7 @@ model User {
   deactivatedAt              DateTime?
   deactivatedEmail           String?
   passwordHash               String
+  sessionVersion             Int                          @default(0)
   status                     UserStatus                   @default(PENDING)
   schoolId                   String?
   school                     School?                      @relation(fields: [schoolId], references: [id])

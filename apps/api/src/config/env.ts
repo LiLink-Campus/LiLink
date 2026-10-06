@@ -38,6 +38,22 @@ const envSchema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(z.string().url()).min(1)),
+  // Web entry for generated mail/share links; independent from browser CORS.
+  PUBLIC_WEB_URL: z
+    .union([z.literal(''), z.url()])
+    .default('')
+    .refine((value) => {
+      if (!value) return true;
+      const url = new URL(value);
+      return (
+        ['http:', 'https:'].includes(url.protocol) &&
+        !url.username &&
+        !url.password &&
+        url.pathname === '/' &&
+        !url.search &&
+        !url.hash
+      );
+    }, 'PUBLIC_WEB_URL must be an HTTP(S) origin without credentials, path, query or fragment.'),
   SENTRY_DSN: z
     .string()
     .default('')
@@ -130,7 +146,7 @@ const envSchema = z.object({
     .max(600_000)
     .default(10_000),
   SMTP_SEND_CONCURRENCY: z.coerce.number().int().min(1).max(100).default(10),
-  // Max emails claimed per scheduled flush (every 30s). Bounded by
+  // Max candidates per scheduled flush (every minute). Bounded by
   // SMTP_SEND_CONCURRENCY for the actual parallel send fan-out.
   OUTBOUND_EMAIL_FLUSH_BATCH_SIZE: z.coerce
     .number()
@@ -138,6 +154,36 @@ const envSchema = z.object({
     .min(1)
     .max(500)
     .default(50),
+  OUTBOUND_EMAIL_IDLE_POLL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(3_600_000)
+    .default(900_000),
+  OUTBOUND_EMAIL_SCAN_BACKOFF_MAX_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(900_000)
+    .default(300_000),
+  OUTBOUND_EMAIL_DB_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(30_000)
+    .default(10_000),
+  OUTBOUND_EMAIL_SMTP_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(120_000)
+    .default(30_000),
+  OUTBOUND_EMAIL_SEND_WAIT_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .max(120_000)
+    .default(30_000),
   ADMIN_BOOTSTRAP_EMAIL: z.email().optional(),
   ADMIN_BOOTSTRAP_PASSWORD: z
     .string()

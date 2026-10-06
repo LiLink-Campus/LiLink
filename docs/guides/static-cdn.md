@@ -37,13 +37,17 @@ node scripts/images/version-shell-assets.mjs
 
 ## 浏览器缓存
 
-Next 配置通过 `immutablePublicAssetHeaders()` 遍历 `public/images`、`public/icons` 与 `public/fonts`。只有扩展名受支持且文件名中的 12 位 hash 与文件 SHA-256 前缀一致的资源才获得 `public, max-age=31536000, immutable`；hash 不一致或符号链接会使配置失败。保留旧未版本化地址的现有策略，不对页面、接口或整个目录设置一年缓存。
+Next 配置通过 `immutablePublicAssetHeaders()` 先遍历 `public/images`、`public/icons` 与 `public/fonts`，逐文件校验支持的图片/字体扩展名和 12 位 SHA-256 前缀；hash 不一致或符号链接会使配置失败。校验完成后，每个目录仅输出一条限定扩展名与 hash 的 immutable 规则，另保留普通图片的一小时缓存规则。保留资源与新资源共用规则，旧 immutable 文件字节不变，不重复输出逐文件声明；页面、接口、普通图标/字体和不存在资源不能获得一年共享缓存。
+
+`build-route-summary.json` 保存 Next 生产构建的 header、redirect 与 prerender 摘要。声明数和本地 manifest 不是 Vercel 编译后的全部路由，也不是 CDN CPU 指标；减少规则后仍需用相同项目、环境和观测窗口的 Vercel 用量验证 CPU。
 
 长期浏览器缓存可以避免重复访问的网络请求；Vercel 边缘命中仍属于资源交付。固定图直接交付减少对应动态图片优化读取，但静态图片的请求和流量仍要核算。此流程不改变页面 ISR TTL、缓存 tag 或 API 按需失效频率；图片 URL 与响应式标记改变可能改变 HTML/RSC 字节，不能据此承诺 ISR Writes 完全不变。
 
 ## 验收
 
 通过统一 disposable E2E runner 验证真实导航、同源 JS/CSS/字体加载、可见图片解码、图片预加载与就绪状态、全部学校 logo、旧地址、immutable 响应头和 PWA 安装/升级/源站故障。使用同一隔离 session 的改动前冻结源码与最终候选，按相同路由、桌面/移动端视口、冷/暖浏览器和完整滚动方式比较资源请求；PWA 安装与已安装重访单独采集，不能将每个 PV 当一次安装。
+
+`vercel-assets.spec.ts` 对全部已发布 hash 资源发起真实请求，校验响应字节、SHA 与缓存头，同时覆盖普通资源、伪 hash/缺失资源、旧 URL、页面和私有 API。`node --test scripts/images/immutable-assets.test.mjs` 在临时目录验证错误摘要和符号链接阻止配置加载，不能把构建守卫测试解释为已启动服务的 HTTP 成功。
 
 浏览器项目与工件要求见[浏览器自动化测试](browser-e2e.md)。本地网络请求和优化图片响应的 8 KiB 读取包络不是 Vercel 账单；实际图片共享缓存命中、遥测、安装次数、私有业务和团队其他项目必须单独核实。中国大陆访问性能还需对照当前生产版本独立采样；本地同源验收不能代表大陆网络性能。
 

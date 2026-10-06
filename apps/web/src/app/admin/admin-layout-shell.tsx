@@ -157,6 +157,7 @@ function AdminSidebar() {
   const pathname = usePathname();
   const { admin, logout } = useAdmin();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [intentHref, setIntentHref] = useState<string | null>(null);
   const activeLabel = useMemo(() => getActiveNavLabel(pathname), [pathname]);
 
   useEffect(() => {
@@ -241,6 +242,10 @@ function AdminSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={intentHref === item.href ? null : false}
+                onMouseEnter={() => setIntentHref(item.href)}
+                onFocus={() => setIntentHref(item.href)}
+                onTouchStart={() => setIntentHref(item.href)}
                 aria-current={isNavActive(pathname, item.href) ? "page" : undefined}
                 className={cx(shellStyles, isNavActive(pathname, item.href) && "admin-nav-active")}
                 onClick={() => setMobileNavOpen(false)}

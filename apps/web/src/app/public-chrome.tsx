@@ -7,7 +7,6 @@ import { BrandIcon, BrandMark } from "./brand-mark";
 import { SocialQr, socialChannels } from "./_components/SocialQr";
 import { SocialFloater } from "./_components/SocialFloater";
 import { SiteNav } from "./site-nav";
-import { UpdatesNewBadge } from "./updates-new-badge";
 import { useAuthSession } from "./auth-session";
 import { fetchApi } from "../lib/api";
 import styles from "./public-chrome.module.css";
@@ -105,7 +104,6 @@ export function PublicChrome({ children }: { children: ReactNode }) {
                 <Link prefetch={false} href="/about">关于我们</Link>
                 <Link prefetch={false} href="/updates">
                   更新日志
-                  <UpdatesNewBadge />
                 </Link>
                 {user ? (
                   <button disabled={loggingOut} onClick={() => void handleLogout()}>

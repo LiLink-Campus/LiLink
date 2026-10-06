@@ -1,6 +1,6 @@
 "use client";
 
-import type { ProfilePageData } from "../_lib/bootstrap";
+import type { ProfilePageData } from "@lilink/shared";
 import { useProfileReadBootstrap } from "../_lib/use-profile-read-bootstrap";
 import { ProfileReadPending } from "../_components/ProfileReadPending";
 import { ProfileWriteOwner } from "../_lib/profile-write-owner";
@@ -11,6 +11,7 @@ export function ProfileBootstrap({ initialData }: { initialData: ProfilePageData
   if (!data) return <ProfileReadPending error={error} onRetry={retry} />;
   return <ProfileWriteOwner.Provider value={owner}><ProfileClient
     initialVip={data.vip}
+    vipBootstrap={data}
     initialContactPreferences={data.contactPreferences}
     initialUser={data.user}
     initialDashboard={data.dashboard}

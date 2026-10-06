@@ -9,7 +9,7 @@ import {
   type HardMatchFormState,
 } from "@lilink/shared";
 import type { ValuePickerOption } from "../_components/ValuePicker";
-import type { Question } from "../_lib/types";
+import type { Question } from "@lilink/shared";
 import { softQuestionAnswerIsComplete } from "@lilink/shared";
 
 function numericOptions(

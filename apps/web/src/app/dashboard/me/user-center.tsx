@@ -1,30 +1,29 @@
 "use client";
 import { PwaInstallEntry } from "../../_components/PwaInstall";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuthSession } from "../../auth-session";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
-import { fetchApi, type AuthMePayload } from "../../../lib/api";
-import type { VipStatus } from "../vip/vip-client";
+import type { AuthMePayload } from "../../../lib/api";
+import { useVipStatus } from "../_lib/use-vip-status";
+import type { VipStatus } from "@lilink/shared";
 import { UserCircleIcon } from "../_components/icons";
 import { FiltersIcon, PriorityIcon, VipCrown, VipOrbits } from "../vip/vip-art";
 import { DeleteAccount } from "./delete-account";
 import styles from "./user-center.module.css";
 
-export function UserCenter({ initialStatus, initialUser }: { initialStatus: VipStatus | null; initialUser: AuthMePayload }) {
+export function UserCenter({ initialStatus, initialUser, vipBootstrap = initialUser }: { initialStatus: VipStatus | null; initialUser: AuthMePayload; vipBootstrap?: object }) {
   useDashboardSessionSeed(initialUser);
   const { user } = useAuthSession();
-  const [status, setStatus] = useState(initialStatus);
-  useEffect(() => {
-    let alive = true;
-    async function refresh() {
-      try { const next = await fetchApi<VipStatus>("/me/vip"); if (alive) setStatus(next); }
-      catch { if (alive) setStatus(null); }
-    }
-    window.addEventListener("focus", refresh);
-    const timer = window.setInterval(refresh, 30000);
-    return () => { alive = false; window.removeEventListener("focus", refresh); window.clearInterval(timer); };
-  }, []);
+  const { vip, error } = useVipStatus(initialUser.id, initialStatus, vipBootstrap);
+  const status = error ? null : vip;
+  const [intentHref, setIntentHref] = useState<string | null>(null);
+  const auxiliaryLink = (href: string) => ({
+    prefetch: intentHref === href ? null : false,
+    onMouseEnter: () => setIntentHref(href),
+    onFocus: () => setIntentHref(href),
+    onTouchStart: () => setIntentHref(href),
+  });
   const account = user ?? initialUser;
   const name = account.displayName || "未命名同学";
   const active = status?.active && (!status.expiresAt || Date.parse(status.expiresAt) > Date.now());
@@ -47,15 +46,15 @@ export function UserCenter({ initialStatus, initialUser }: { initialStatus: VipS
     <section className={styles.benefitsSection} aria-labelledby="center-benefits"><h2 id="center-benefits" className={styles.sectionTitle}>我的权益</h2>
       <div className={styles.entryGroup}>
       <div className={styles.benefits}>
-        <Link href="/dashboard/referrals"><UserCircleIcon /><div><strong>我的邀请</strong><span>邀请朋友加入</span></div></Link>
-        <Link href="/dashboard/coupons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4Z"/><path d="M14 5v3m0 3v2m0 3v3"/></svg><div><strong>我的优惠券</strong><span>查看可用优惠</span></div></Link>
+        <Link href="/dashboard/referrals" {...auxiliaryLink("/dashboard/referrals")}><UserCircleIcon /><div><strong>我的邀请</strong><span>邀请朋友加入</span></div></Link>
+        <Link href="/dashboard/coupons" {...auxiliaryLink("/dashboard/coupons")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4Z"/><path d="M14 5v3m0 3v2m0 3v3"/></svg><div><strong>我的优惠券</strong><span>查看可用优惠</span></div></Link>
       </div>
       <PwaInstallEntry />
       </div>
     </section>
     <section className={styles.securitySection} aria-labelledby="center-security"><h2 id="center-security" className={styles.sectionTitle}>账号安全</h2>
       <div className={styles.security}>
-        <Link href="/forgot-password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg><span>修改密码</span><span aria-hidden="true">›</span></Link>
+        <Link href="/forgot-password" {...auxiliaryLink("/forgot-password")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg><span>修改密码</span><span aria-hidden="true">›</span></Link>
         <DeleteAccount className={styles.delete} />
       </div>
     </section>
