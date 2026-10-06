@@ -67,6 +67,8 @@ jobs:
       - name: PR core regression
         if: github.event_name == 'pull_request' || github.event_name == 'push'
         run: node scripts/e2e/run.mjs --project=chromium --project=mobile-webkit --grep @smoke
+      - name: Private protocol and SSR failure regression
+        run: node scripts/e2e/run.mjs --contract-proxy private-contracts.spec.ts --project=chromium --project=mobile-webkit
       - name: Full regression
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run test:e2e:web:full
