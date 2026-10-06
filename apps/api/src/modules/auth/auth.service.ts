@@ -181,6 +181,7 @@ export class AuthService {
       user.id,
       user.email,
       user.displayName,
+      user.sessionVersion,
       user.preferredLocale,
       localeCookie,
     );
@@ -249,6 +250,7 @@ export class AuthService {
         where: { id: transactionalUser.id },
         data: {
           passwordHash: newPasswordHash,
+          sessionVersion: { increment: 1 },
           lastLoginAt: now,
           lastActiveAt: now,
         },
@@ -259,6 +261,7 @@ export class AuthService {
       user.id,
       user.email,
       user.displayName,
+      user.sessionVersion,
       user.preferredLocale,
       localeCookie,
     );
@@ -293,10 +296,12 @@ export class AuthService {
       select: { id: true },
     });
 
+    // Keep the version from the password snapshot across concurrent resets.
     return this.issueAuthPayload(
       user.id,
       user.email,
       user.displayName,
+      user.sessionVersion,
       user.preferredLocale,
       localeCookie,
     );
@@ -305,7 +310,11 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      omit: { passwordHash: true, meetupExpirationWeeks: true },
+      omit: {
+        passwordHash: true,
+        meetupExpirationWeeks: true,
+        sessionVersion: true,
+      },
       include: {
         school: true,
         profile: true,
@@ -636,12 +645,14 @@ export class AuthService {
     userId: string,
     email: string,
     displayName: string | null,
+    sessionVersion: number,
     preferredLocale: unknown = DEFAULT_LOCALE,
     localeCookie?: SupportedLocale | null,
   ) {
     const token = this.jwtService.sign({
       sub: userId,
       email,
+      sessionVersion,
       jti: randomUUID(),
     });
 

@@ -1697,7 +1697,7 @@ export class AdminService {
         data: {
           status: input.status,
         },
-        omit: { passwordHash: true },
+        omit: { passwordHash: true, sessionVersion: true },
       })
       .catch((error: unknown) => {
         if (isRecordNotFoundError(error)) {
@@ -1785,7 +1785,7 @@ export class AdminService {
                 }
               : {}),
           },
-          omit: { passwordHash: true },
+          omit: { passwordHash: true, sessionVersion: true },
         })
         .catch((error: unknown) => {
           if (isRecordNotFoundError(error)) {
@@ -1874,7 +1874,7 @@ export class AdminService {
       data: {
         nonEduReferralLimit: input.nonEduReferralLimit,
       },
-      omit: { passwordHash: true },
+      omit: { passwordHash: true, sessionVersion: true },
     });
 
     await this.adminAuditService.write(
