@@ -19,7 +19,7 @@ import { AccountProfileService } from '../src/modules/account/account-profile.se
 import { AccountQuestionnaireService } from '../src/modules/account/account-questionnaire.service';
 import { AccountController } from '../src/modules/account/account.controller';
 import { ContactPreferencesService } from '../src/modules/account/contact-preferences.service';
-import { DashboardResponseDto } from '../src/modules/account/dto';
+import type { DashboardPayload } from '@lilink/shared';
 import { MatchEstimateService } from '../src/modules/account/match-estimate.service';
 import { MatchReportService } from '../src/modules/account/match-report.service';
 import { createAdminTestHarness } from './fixtures/admin-services';
@@ -778,7 +778,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
         .get('/v1/me/dashboard')
         .set('Cookie', cookie(right.id, right.email))
         .expect(200);
-      const dashboard = response.body as DashboardResponseDto;
+      const dashboard = response.body as DashboardPayload;
       const history = dashboard.recentMatchHistory.find(
         (item) => item.cycleId === cycle.id,
       );
@@ -865,9 +865,9 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
       .get('/v1/me/dashboard')
       .set('Cookie', cookie(left.id, left.email))
       .expect(200);
-    expect((restored.body as DashboardResponseDto).latestMatch).toBeNull();
+    expect((restored.body as DashboardPayload).latestMatch).toBeNull();
     expect(
-      (restored.body as DashboardResponseDto).recentMatchHistory.find(
+      (restored.body as DashboardPayload).recentMatchHistory.find(
         (item) => item.cycleId === cycle.id,
       ),
     ).toMatchObject({ result: 'UNMATCHED', match: null });
@@ -894,7 +894,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
       .get('/v1/me/dashboard')
       .set('Cookie', cookie(right.id, right.email))
       .expect(200);
-    const dashboard = response.body as DashboardResponseDto;
+    const dashboard = response.body as DashboardPayload;
     const history = dashboard.recentMatchHistory.find(
       (item) => item.cycleId === cycle.id,
     );

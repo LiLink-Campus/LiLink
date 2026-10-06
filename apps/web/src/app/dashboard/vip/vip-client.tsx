@@ -11,14 +11,7 @@ import { FiltersIcon, PriorityIcon, VipCrown, VipOrbits } from "./vip-art";
 import styles from "./vip.module.css";
 import faqStyles from "../../faq/faq.module.css";
 
-export type VipStatus = {
-  active: boolean;
-  activatedAt: string | null;
-  expiresAt: string | null;
-  durationDays: number;
-  priceYuan: string;
-  advancedFiltersAvailable: boolean;
-};
+import type { VipStatus } from "@lilink/shared";
 
 type ActivationResponse = VipStatus & {
   activationOutcome?: "ACTIVATED" | "EXTENDED" | "REACTIVATED" | "ALREADY_REDEEMED";

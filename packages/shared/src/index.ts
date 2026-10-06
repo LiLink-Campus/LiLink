@@ -24,3 +24,6 @@ export * from "./hard-match-form";
 export * from "./questionnaire-types";
 export * from "./questionnaire-answers";
 export * from "./questionnaire-progress";
+
+export * from "./private-page-contracts";
+export * from "./private-page-parsers";

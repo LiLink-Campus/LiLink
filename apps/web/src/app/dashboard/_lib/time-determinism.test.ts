@@ -7,7 +7,7 @@ import type {
   ContactPreferencesPayload,
   DashboardCurrentCycle,
   DashboardPayload,
-} from "./types";
+} from "@lilink/shared";
 
 // Regression guard for the /dashboard hydration mismatch (issue #75): the
 // render path must derive time-dependent UI from an injected `nowMs`, never
@@ -91,6 +91,8 @@ describe("describeDaysUntilLabel", () => {
 describe("resolveAgenda participation item", () => {
   function makeInputs(nowMs: number): AgendaInputs {
     const dashboard: DashboardPayload = {
+      profile: null,
+      couponAgenda: { target: "coupons", version: "empty", availableCount: 0, unreadAvailableCount: 0, read: true, readAt: null, href: "/dashboard/coupons" },
       questionnaireSubmittedAt: null,
       currentCycle: makeCycle(),
       lastRevealedRound: null,

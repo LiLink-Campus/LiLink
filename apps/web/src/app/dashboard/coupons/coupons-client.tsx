@@ -1,9 +1,11 @@
 "use client";
 
+import type { CouponAgendaReadState } from "@lilink/shared";
+
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { dcx } from "../_lib/dashboard-class-names";
 import { ClipboardIcon } from "../_components/icons";
-import { fetchCouponAgendaReadState, type AuthMePayload, type CouponAgendaReadState, type CouponOverview, type MyCoupon } from "@/lib/api";
+import { fetchCouponAgendaReadState, type AuthMePayload, type CouponOverview, type MyCoupon } from "@/lib/api";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { cacheDashboardCouponAgendaRead } from "../_lib/coupon-agenda-read-cache";
 import { useCouponReadVisibility } from "./useCouponReadVisibility";

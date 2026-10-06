@@ -21,7 +21,7 @@ import {
   reportHandlingChipLabel,
 } from "../_lib/format";
 import { useClientNow } from "../_lib/use-client-now";
-import type { DashboardPayload } from "../_lib/types";
+import type { DashboardPayload } from "@lilink/shared";
 
 export function MatchClient({
   initialNowMs,

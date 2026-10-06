@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { beginProfileWrite } from "../_lib/profile-read-revision";
 import { useProfileWriteOwner } from "../_lib/profile-write-owner";
 import { fetchApi, isApiRequestError } from "../../../lib/api";
-import type { ContactPreferencesPayload } from "../_lib/types";
+import type { ContactPreferencesPayload } from "@lilink/shared";
 import { phoneDraftForInput, phoneDraftFromValue, phoneDraftValue, prepareContactSave, type PhoneDraft } from "./contact-save";
 import styles from "./profile-redesign.module.css";
 

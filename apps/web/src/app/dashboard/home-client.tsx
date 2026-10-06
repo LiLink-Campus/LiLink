@@ -27,7 +27,7 @@ import type {
   ContactPreferencesPayload,
   DashboardPayload,
   QuestionnaireAttentionPayload,
-} from "./_lib/types";
+} from "@lilink/shared";
 import styles from "./home-client.module.css";
 
 const HOME_VISIBLE_REFRESH_TTL_MS = 30_000;

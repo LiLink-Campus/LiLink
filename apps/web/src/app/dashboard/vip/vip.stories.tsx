@@ -1,7 +1,8 @@
+import type { VipStatus } from "@lilink/shared";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { http, HttpResponse } from "msw";
 import { expect, userEvent, waitFor, within } from "storybook/test";
-import { VipClient, type VipStatus } from "./vip-client";
+import { VipClient } from "./vip-client";
 import { api, dashboardShell, route } from "@/stories/site-support";
 
 const empty: VipStatus = { active: false, activatedAt: null, expiresAt: null, durationDays: 30, priceYuan: '29.90', advancedFiltersAvailable: true };

@@ -1,4 +1,4 @@
-import type { DashboardPayload } from "./types";
+import type { DashboardPayload } from "@lilink/shared";
 
 // Old client snapshots use the same public result as a round without a pair.
 export function normalizeMatchResults(dashboard: DashboardPayload): DashboardPayload {

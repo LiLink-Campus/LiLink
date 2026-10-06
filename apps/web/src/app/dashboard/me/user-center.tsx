@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuthSession } from "../../auth-session";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { fetchApi, type AuthMePayload } from "../../../lib/api";
-import type { VipStatus } from "../vip/vip-client";
+import type { VipStatus } from "@lilink/shared";
 import { UserCircleIcon } from "../_components/icons";
 import { FiltersIcon, PriorityIcon, VipCrown, VipOrbits } from "../vip/vip-art";
 import { DeleteAccount } from "./delete-account";

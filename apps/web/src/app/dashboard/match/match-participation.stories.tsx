@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import { expect, userEvent, within } from "storybook/test";
 import { MatchClientView } from "./match-client";
 import { matchDashboardFixtures, matchStoryUser } from "./match.fixtures";
-import type { DashboardPayload } from "../_lib/types";
+import type { DashboardPayload } from "@lilink/shared";
 
 const initial = { ...matchDashboardFixtures.introducedContactCompleted,
   currentCycle: { ...matchDashboardFixtures.waitingNoResult.currentCycle!, status: "OPEN" as const, participationStatus: "OPTED_OUT" as const, intent: null },

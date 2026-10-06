@@ -4,7 +4,7 @@ import type {
   DashboardHistoryItem,
   DashboardMatch,
   DashboardPayload,
-} from "../_lib/types";
+} from "@lilink/shared";
 
 const storyUserId = "story-user-001";
 const storyCounterpartId = "story-user-002";
@@ -112,7 +112,7 @@ function makeDashboard(
   overrides: Partial<DashboardPayload> = {},
 ): DashboardPayload {
   return {
-    user: matchStoryUser,
+    profile: null,
     questionnaireSubmittedAt: "2029-09-01T09:00:00.000Z",
     currentCycle: baseCurrentCycle,
     lastRevealedRound: baseMatchedRound,
@@ -120,7 +120,7 @@ function makeDashboard(
     latestMatchVisibility: null,
     latestMatchLimitedReason: null,
     recentMatchHistory: waitingHistory,
-    couponAgenda: null,
+    couponAgenda: { target: "coupons", version: "empty", availableCount: 0, unreadAvailableCount: 0, read: true, readAt: null, href: "/dashboard/coupons" },
     ...overrides,
   };
 }

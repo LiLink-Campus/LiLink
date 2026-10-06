@@ -1,6 +1,6 @@
 "use client";
 
-import type { HomePageData } from "./_lib/bootstrap";
+import type { HomePageData } from "@lilink/shared";
 import { useProfileReadBootstrap } from "./_lib/use-profile-read-bootstrap";
 import { ProfileReadPending } from "./_components/ProfileReadPending";
 import { HomeClient } from "./home-client";

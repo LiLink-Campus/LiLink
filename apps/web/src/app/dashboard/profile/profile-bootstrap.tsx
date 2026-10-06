@@ -1,6 +1,6 @@
 "use client";
 
-import type { ProfilePageData } from "../_lib/bootstrap";
+import type { ProfilePageData } from "@lilink/shared";
 import { useProfileReadBootstrap } from "../_lib/use-profile-read-bootstrap";
 import { ProfileReadPending } from "../_components/ProfileReadPending";
 import { ProfileWriteOwner } from "../_lib/profile-write-owner";

@@ -7,7 +7,7 @@ import {
   applyReportSuccessToDashboard,
 } from "../_lib/dashboard-mutations";
 import { DEFAULT_REPORT_REASON } from "../_lib/format";
-import type { DashboardPayload } from "../_lib/types";
+import type { DashboardPayload } from "@lilink/shared";
 
 type SavingKey = null | "report";
 
