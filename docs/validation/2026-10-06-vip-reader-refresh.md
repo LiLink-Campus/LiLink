@@ -18,7 +18,7 @@ Issue #147 以 `b75ed0fdb76fff87bd611a4a9ba42e191c2cb0ae` 为实现前基线。�
 
 ## 环境、数据与实施前失败
 
-Node 24.20.0、npm 11.19.0、Playwright 1.60.0；隔离 runner 构建 production-mode Web/API，创建带专属 run 标签的 loopback PostgreSQL/Mailpit 和合成账户。每个 E2E 使用独立账户；不加载开发或生产数据库。身份、口令、验证码、Cookie 与问卷正文不进入验收摘要；新增 E2E 与测量工具的用户中心截图遮罩邮箱。
+Node 24.20.0、npm 11.19.0、Playwright 1.60.0；Chromium/WebKit 各桌面/移动视口，共四个浏览器项目、两种 engine。隔离 runner 构建 production-mode Web/API，创建带专属 run 标签的 loopback PostgreSQL/Mailpit 和合成账户。每个 E2E 使用独立账户；不加载开发或生产数据库。身份、口令、验证码、Cookie 与问卷正文不进入验收摘要；新增 E2E 与测量工具的用户中心截图遮罩邮箱。
 
 新增行为场景和测量门禁在实现前明确。基线 `artifacts/e2e/5c2f914d23e5` 的四个浏览器场景全部按预期失败：资料页快速恢复重复请求、用户中心隐藏继续轮询、两个页面 null bootstrap 不立即读取。相同实例的新 bootstrap、延迟成功/401/503、清错误、换号和退出再登录另外以实际 bootstrap 组件的浏览器 Storybook 场景隔离验证；基线 `artifacts/issue-147-red/lifecycle.json` 为 10/10 失败。后者是组件生命周期行为证据，不声称完整页面 E2E。
 
@@ -44,9 +44,9 @@ npm run test:shared
 
 | 实际运行 | 结果 | 解释 |
 | --- | --- | --- |
-| 广覆盖四引擎 `ae74b2285da0` | 300/308 通过 | 两个中心隐藏副本定位、五个 SSR 可见即人工 focus 的前提错误；一个既有学校注册在 hydration 前输入丢失 |
-| VIP、reader、auth 四引擎 `8f60f4812023` | 139/144 通过 | VIP 80/80、auth 28/28；收紧后的 reader 五处定位/导航夹具错误 |
-| 最终 reader 四引擎 `8e9d44d4cd61` | 24/24 通过 | 普通和减少动画、取消/权益界面已应用、保存/重载闭合 |
+| 广覆盖四浏览器项目 `ae74b2285da0` | 300/308 通过 | 两个中心隐藏副本定位、五个 SSR 可见即人工 focus 的前提错误；一个既有学校注册在 hydration 前输入丢失 |
+| VIP、reader、auth 四浏览器项目 `8f60f4812023` | 139/144 通过 | VIP 80/80、auth 28/28；收紧后的 reader 五处定位/导航夹具错误 |
+| 最终 reader 四浏览器项目 `8e9d44d4cd61` | 24/24 通过 | 普通和减少动画、取消/权益界面已应用、保存/重载闭合 |
 | 生命周期浏览器 Storybook | 10/10 通过 | 同实例 bootstrap、null→null、换号、退出再登录与晚到成功/401/503 |
 | Shared 现有套件 | 110/110 通过 | 运行既有套件，没有新增单元测试 |
 | Web、Storybook、E2E 类型检查；Web/Shared lint | 通过 | Web lint 仅五条既有警告 |
@@ -111,4 +111,4 @@ PR #149 首次提交 `eee9739f2f73389e4b933d394a871971aff39457` 的 [Storybook �
 npm run test:storybook:web -- --run apps/web/src/stories/dashboard-pages.stories.tsx --reporter=json --outputFile=artifacts/issue-147-storybook-fixture.json
 ```
 
-主任务另用 Codex IAB 在 1280×800 和 390×844 实查两页。中心显示有效会员徽章及合成的 2099 到期时间；手机资料昵称和简介输入后显示草稿已自动保存，目录可跳到第二题，桌面目录、当前题块和保存反馈一致。四张本机截图及断言为 `artifacts/issue-147-review/iab/{acceptance.json,center-desktop.jpg,center-mobile.jpg,profile-desktop.jpg,profile-mobile.jpg}`。该范围是本地 IAB 定向视觉与操作证据；四引擎生命周期另按上述 E2E 记录。真实 iOS、大陆网络与生产账单仍 UNKNOWN。本次未部署。
+主任务另用 Codex IAB 在 1280×800 和 390×844 实查两页。中心显示有效会员徽章及合成的 2099 到期时间；手机资料昵称和简介输入后显示草稿已自动保存，目录可跳到第二题，桌面目录、当前题块和保存反馈一致。四张本机截图及断言为 `artifacts/issue-147-review/iab/{acceptance.json,center-desktop.jpg,center-mobile.jpg,profile-desktop.jpg,profile-mobile.jpg}`。该范围是本地 IAB 定向视觉与操作证据；四浏览器项目生命周期另按上述 E2E 记录。真实 iOS、大陆网络与生产账单仍 UNKNOWN。本次未部署。

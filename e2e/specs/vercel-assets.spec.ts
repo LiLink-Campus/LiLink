@@ -1,4 +1,7 @@
-import { test, expect, visit } from '../support/fixtures';
+import { createHash } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { test, expect, visit, api } from '../support/fixtures';
 
 // Failure boundaries: scripts, fonts, CSS and visible images must load from
 // the Web origin, decode and hydrate; static images must bypass the optimizer,
@@ -104,5 +107,59 @@ test('public navigation loads complete assets from the Vercel Web origin @smoke'
     assertions: { noMissingAssets: true, noJavascriptErrors: true, sameOriginAssets: true,
       allVisibleImagesDecoded: true, scriptsHydrated: true, immutableChunkHeaders: true,
       directResponsiveStaticImages: true, immutableImageHeaders: true, oldUrlsResolvable: true, allSchoolMarksVisibleAndNamed: true },
+  }, null, 2) });
+});
+
+// Cache boundaries are checked against real HTTP bodies, including every
+// published content address, mutable paths, missing lookalikes and user data.
+test('asset caching preserves content digests and excludes mutable or private responses @smoke', async ({ request, context, signedIn }, info) => {
+  void signedIn;
+  const publicRoot = path.join(process.env.E2E_WORKSPACE!, 'apps/web/public');
+  const checks: { path: string; status: number; cache: string; sha256?: string }[] = [];
+  async function verify(directory: string) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) { await verify(file); continue; }
+      const match = entry.name.match(/\.([a-f0-9]{12})\.(?:webp|png|jpe?g|svg|woff2|ico)$/);
+      if (!match) continue;
+      const route = `/${path.relative(publicRoot, file).split(path.sep).join('/')}`;
+      const response = await request.get(route);
+      expect(response.status(), route).toBe(200);
+      const body = await response.body();
+      const sha256 = createHash('sha256').update(body).digest('hex');
+      expect(sha256.slice(0, 12), route).toBe(match[1]);
+      expect(body.equals(await readFile(file)), route).toBe(true);
+      const cache = response.headers()['cache-control'] ?? '';
+      expect(cache, route).toContain('max-age=31536000');
+      expect(cache, route).toContain('immutable');
+      checks.push({ path: route, status: response.status(), cache, sha256 });
+    }
+  }
+  for (const directory of ['images', 'icons', 'fonts']) await verify(path.join(publicRoot, directory));
+  for (const route of ['/images/letter-sprig.svg', '/icons/contact/mail.svg', '/fonts/long-cang.woff2',
+    '/images/missing.000000000000.webp', '/icons/missing.000000000000.svg', '/fonts/missing.000000000000.woff2',
+    '/images/missing.fakehash.webp', '/images/letter-sprig.000000000000.svg', '/images/missing.000000000000.txt', '/', '/login']) {
+    const response = await request.get(route);
+    const cache = response.headers()['cache-control'] ?? '';
+    const missing = route.includes('missing') || route.includes('letter-sprig.000');
+    expect(response.status(), route).toBe(missing ? 404 : 200);
+    expect(cache, route).not.toContain('immutable');
+    expect(cache, route).not.toContain('max-age=31536000');
+    if (missing || route === '/login') expect(cache, route).toContain('no-store');
+    if (route === '/images/letter-sprig.svg') expect(cache).toContain('max-age=3600');
+    checks.push({ path: route, status: response.status(), cache });
+  }
+  for (const route of ['/me/vip', '/me/referral']) {
+    const response = await context.request.get(`${api}${route}`);
+    expect(response.status(), route).toBe(200);
+    const cache = response.headers()['cache-control'] ?? '';
+    expect(cache, route).not.toContain('public');
+    expect(cache, route).not.toMatch(/immutable|(?:s-maxage|max-age)=\d*[1-9]/);
+    checks.push({ path: route, status: response.status(), cache });
+  }
+  await info.attach('content-address-and-cache-boundaries', { contentType: 'application/json', body: JSON.stringify({
+    project: info.project.name, checks,
+    assertions: { publishedBytesAndDigestsPreserved: true, allPublishedHashesImmutable: true,
+      mutableAndMissingAssetsNeverImmutable: true, pagesAndPrivateApisExcluded: true },
   }, null, 2) });
 });

@@ -1,4 +1,5 @@
 import { OutboundEmailMessageCategory } from '../prisma/client';
+import { publicWebOrigin } from '../public-web-url';
 import {
   WEEKLY_INTENT_LABELS,
   type ContactChannelType,
@@ -91,6 +92,7 @@ function renderHtmlDocument(input: { title: string; body: string }) {
 
 export class MailContent {
   buildVerificationCodeEmail(input: VerificationCodeEmailInput) {
+    const siteUrl = publicWebOrigin();
     const subject = `LiLink 验证码 ${input.code}`;
     const text = [
       '你好，',
@@ -103,7 +105,7 @@ export class MailContent {
       '此邮件由 LiLink 系统自动发送，请勿直接回复。',
       '',
       '— LiLink 团队',
-      'https://lilink.top',
+      siteUrl,
     ].join('\n');
     const html = renderHtmlDocument({
       title: subject,
@@ -116,7 +118,7 @@ export class MailContent {
         '<p class="note">如果这不是你本人的操作，请忽略本邮件，无需任何操作。</p>',
         '<p class="footer">此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
         '<hr>',
-        '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
+        `<p class="footer">— LiLink 团队 · <a href="${escapeHtml(siteUrl)}">${escapeHtml(siteUrl.replace(/^https?:\/\//, ''))}</a></p>`,
       ].join(''),
     });
 
@@ -155,6 +157,7 @@ export class MailContent {
     leadingSentence: string;
   }) {
     const subject = `LiLink 已为你引荐 ${input.otherPartyDisplayName}`;
+    const siteUrl = publicWebOrigin();
     const otherContact = input.otherParty.publicContact ?? {
       type: 'EMAIL' as const,
       label: '邮箱',
@@ -193,7 +196,7 @@ export class MailContent {
       '此邮件由 LiLink 系统自动发送，请勿直接回复。',
       '',
       '— LiLink 团队',
-      'https://lilink.top',
+      siteUrl,
     ].join('\n');
 
     const infoHtml = infoLines
@@ -212,7 +215,7 @@ export class MailContent {
         infoHtml,
         '<p class="footer">此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
         '<hr>',
-        '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
+        `<p class="footer">— LiLink 团队 · <a href="${escapeHtml(siteUrl)}">${escapeHtml(siteUrl.replace(/^https?:\/\//, ''))}</a></p>`,
       ].join(''),
     });
 

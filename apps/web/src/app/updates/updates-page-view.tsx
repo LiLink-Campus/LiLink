@@ -7,7 +7,6 @@ import { DEVLOG_UPDATES_PAGE_SIZE } from "@/lib/devlog-constants";
 import { PublicNarrowPageHero } from "../_components/PublicNarrowPageHero";
 import { ProductUpdatesIllustration } from "../dashboard/_components/illustrations";
 import styles from "./updates.module.css";
-import { MarkUpdatesSeen } from "./mark-seen";
 import { UpdatesPagination } from "./updates-pagination";
 
 function formatDate(iso: string): string {
@@ -32,7 +31,6 @@ export function UpdatesPageView({
   const showArchiveLink = isDevlogFeedTruncated(feed);
   return (
     <main>
-      <MarkUpdatesSeen latestPublishedAt={feed.latestPublishedAt} />
       <PublicNarrowPageHero
         eyebrow="Product updates"
         title="产品更新"

@@ -82,12 +82,6 @@ test('cached HTML omits trace metadata and separate visits create separate trace
     reads.push({ route, cache: second.headers()['x-nextjs-cache'], sha256, fingerprint: settledFingerprint, quietMilliseconds: 1000 });
   }
   const previousIds = new Set((await events(request)).filter(event => event.op === 'pageload').map(event => event.traceId));
-  const browserApiHeaders: string[] = [];
-  page.on('request', request => {
-    if (request.url().includes('/api/devlog/latest') && request.headers()['sentry-trace']) {
-      browserApiHeaders.push(request.headers()['sentry-trace']);
-    }
-  });
   for (let visit = 0; visit < 2; visit++) {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -99,11 +93,32 @@ test('cached HTML omits trace metadata and separate visits create separate trace
   const traces = (await events(request)).filter(event => event.op === 'pageload' && event.transaction === '/' && !previousIds.has(event.traceId));
   expect(new Set(traces.map(event => event.traceId)).size).toBe(2);
   expect(traces.every(event => !event.parentSpanId)).toBeTruthy();
-  expect(browserApiHeaders.length).toBeGreaterThanOrEqual(2);
-  expect(new Set(browserApiHeaders.map(header => header.split('-')[0])).size).toBe(2);
+  // The registration form uses the existing same-origin school query. Preserve
+  // propagation without keeping a retired endpoint or adding a synthetic fetch.
+  const browserApiHeaders: string[] = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/api/public/schools') {
+      const header = request.headers()['sentry-trace'];
+      if (header) browserApiHeaders.push(header);
+    }
+  });
+  const propagation = [];
+  for (let visit = 0; visit < 2; visit++) {
+    const start = browserApiHeaders.length;
+    await page.goto('/register/school');
+    await expect(page.getByLabel('学校邮箱', { exact: true })).toBeVisible();
+    await expect.poll(() => browserApiHeaders.length).toBeGreaterThan(start);
+    const header = browserApiHeaders[start];
+    const traceId = header.split('-')[0];
+    await expect.poll(async () => (await events(request)).some(event =>
+      event.op === 'pageload' && event.transaction === '/register/school' && event.traceId === traceId),
+    { timeout: 30_000 }).toBe(true);
+    propagation.push({ businessRoute: '/api/public/schools', pageRoute: '/register/school', traceId });
+  }
+  expect(new Set(propagation.map(sample => sample.traceId)).size).toBe(2);
   const settledQueue: QueueState[] = await db.publicCacheInvalidation.findMany({ where: { scope: { in: ['home', 'schools'] } } });
   expect(settledQueue.every(row => row.revision <= row.acknowledgedRevision && row.leaseUntil === null)).toBe(true);
-  await info.attach('cached-html-and-independent-traces', { body: JSON.stringify({ startupRevisionsDrained: [...advanced], reads, traces, browserApiHeaders }, null, 2), contentType: 'application/json' });
+  await info.attach('cached-html-and-independent-traces', { body: JSON.stringify({ startupRevisionsDrained: [...advanced], reads, traces, propagation }, null, 2), contentType: 'application/json' });
 });
 
 test('dynamic SSR keeps each request trace and browser continues it @sentry', async ({ page, request }, info) => {

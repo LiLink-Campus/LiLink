@@ -7,10 +7,11 @@ import {
   readReferralChannel,
   type ReferralChannel,
 } from '@lilink/shared';
-import { env, isLocalDevRuntime } from '../../config/env';
+import { isLocalDevRuntime } from '../../config/env';
 import { PrismaClient } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { isUniqueConstraintError } from '../../common/prisma/errors';
+import { publicWebOrigin } from '../../common/public-web-url';
 
 // Accepts either the base client or a transaction client, so attribution can be
 // resolved and frozen inside the registration transaction.
@@ -293,7 +294,7 @@ export class ReferralService {
         nonEduReferralUses: true,
       },
     });
-    const origin = env.CLIENT_ORIGIN[0]?.replace(/\/+$/, '') ?? '';
+    const origin = publicWebOrigin();
     const links = referralCode
       ? REFERRAL_CHANNELS.map((channel) => ({
           channel,

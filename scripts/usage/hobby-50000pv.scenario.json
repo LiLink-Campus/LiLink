@@ -5,6 +5,7 @@
   "targetUtilization": 0.8,
   "uncertaintyMultiplier": 1.2,
   "notes": [
+    "Frozen 2026-10-04 budget scenario: devlog/latest observations and reserve references describe the measured source at that date, not the current browser contract. Issue 148 removes the unread endpoint chain in new builds. Historical inputs and arithmetic remain unchanged until a new paired resource ledger and production usage calibrate the forecast; no request or CPU saving is assumed from removal alone.",
     "Current scope keeps every static asset and image on Vercel. Previous independent-CDN input and conclusions are retired from this current forecast.",
     "50,000 monthly page views, 31 days, target 80% of each quota, and 1.2 uncertainty multiplier. Project arithmetic is conditional, not verified billing.",
     "After public envelope comes from final row-split atlas same-session resource comparison f3c47b950f08, candidate source digest 91a044cf209bdb844e2a879bb758af75b4b530085f391d14d199edd96021e075:20 public route/viewport/cold-warm samples,29 cold outgoing requests and854316 request+response planning bytes;5 warm requests and9510 bytes. These are isolated public-route browser observations, not production route mix, private flows or bills.",
