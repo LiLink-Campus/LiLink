@@ -1693,7 +1693,7 @@ describe('AdminService', () => {
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
         data: { nonEduReferralLimit: 10 },
-        omit: { passwordHash: true },
+        omit: { passwordHash: true, sessionVersion: true },
       });
       expect(adminAuditService.write).toHaveBeenCalledWith(
         'admin-1',
