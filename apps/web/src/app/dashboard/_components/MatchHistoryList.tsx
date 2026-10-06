@@ -10,7 +10,7 @@ import {
   reportHandlingChipLabel,
 } from "../_lib/format";
 import { CounterpartInfo } from "./CounterpartInfo";
-import type { DashboardHistoryItem } from "../_lib/types";
+import type { DashboardHistoryItem } from "@lilink/shared";
 
 type MatchHistoryListProps = {
   desktopCards?: boolean;

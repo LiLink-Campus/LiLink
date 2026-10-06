@@ -10,7 +10,7 @@ import type {
   Question,
   QuestionnaireAttentionItem,
   SavedQuestionnairePayload,
-} from "../_lib/types";
+} from "@lilink/shared";
 import { hardMatchFieldIsComplete, type ProfileTab } from "./profile-field-state";
 import type { ProfileFieldRegistry } from "./use-profile-field-registry";
 import type { QuestionnaireSavedEvent } from "./use-profile-autosave";

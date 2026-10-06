@@ -29,7 +29,7 @@ import {
   buildDayOptions,
 } from "@lilink/shared";
 import { ContactEditor, type ContactSaveStatus } from "./contact-editor";
-import type { Question, ContactPreferencesPayload } from "../_lib/types";
+import type { Question, ContactPreferencesPayload } from "@lilink/shared";
 import {
   HEIGHT_VALUE_OPTIONS,
   WEIGHT_VALUE_OPTIONS,

@@ -1,6 +1,8 @@
 import {
   EDITABLE_CONTACT_CHANNEL_TYPES,
   type ContactChannelType,
+  type ContactMethodPayload,
+  type ContactPreferencesPayload,
   type EditableContactChannelType,
 } from '@lilink/shared';
 import {
@@ -17,10 +19,6 @@ import { UpdateContactPreferencesDto } from './dto';
 const EDITABLE_CONTACT_CHANNEL_SET = new Set<ContactChannelType>(
   EDITABLE_CONTACT_CHANNEL_TYPES,
 );
-type ContactMethodSummary = {
-  type: EditableContactChannelType;
-  value: string;
-};
 function isEditableContactChannel(
   type: ContactChannelType | PrismaContactChannelType,
 ): type is EditableContactChannelType {
@@ -97,7 +95,9 @@ function normalizeContactPreferencesInput(input: UpdateContactPreferencesDto) {
 @Injectable()
 export class ContactPreferencesService {
   constructor(private readonly prisma: PrismaService) {}
-  async getContactPreferences(userId: string) {
+  async getContactPreferences(
+    userId: string,
+  ): Promise<ContactPreferencesPayload> {
     // One statement keeps the revision and methods in the same MVCC snapshot.
     const [user] = await this.prisma.$queryRaw<
       Array<{
@@ -129,7 +129,7 @@ export class ContactPreferencesService {
       revision: user.contactPreferencesRevision,
       preferredContactChannel: user.preferredContactChannel,
       methods: user.contactMethods
-        .filter((method): method is ContactMethodSummary =>
+        .filter((method): method is ContactMethodPayload =>
           isEditableContactChannel(method.type),
         )
         .map((method) => ({
@@ -141,7 +141,7 @@ export class ContactPreferencesService {
   async updateContactPreferences(
     userId: string,
     input: UpdateContactPreferencesDto,
-  ) {
+  ): Promise<ContactPreferencesPayload> {
     const methods = normalizeContactPreferencesInput(input);
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
@@ -220,7 +220,7 @@ export class ContactPreferencesService {
       revision: input.revision + 1,
       preferredContactChannel: input.preferredContactChannel,
       methods: savedMethods
-        .filter((method): method is ContactMethodSummary =>
+        .filter((method): method is ContactMethodPayload =>
           isEditableContactChannel(method.type),
         )
         .map((method) => ({

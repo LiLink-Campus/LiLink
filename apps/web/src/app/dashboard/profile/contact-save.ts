@@ -1,6 +1,6 @@
 import { EDITABLE_CONTACT_CHANNEL_TYPES, type ContactChannelType } from "@lilink/shared";
 import { getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
-import type { ContactPreferencesPayload } from "../_lib/types";
+import type { ContactPreferencesPayload } from "@lilink/shared";
 
 type Methods = ContactPreferencesPayload["methods"];
 export type PhoneDraft = { country: CountryCode; number: string };

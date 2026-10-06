@@ -1,7 +1,7 @@
 import type { LandingPayload } from "@/lib/landing-payload";
 import type { DevlogFeed } from "@/lib/devlog-feed-utils";
 import type { EligibleSchoolsPayload } from "@/lib/eligible-schools";
-import type { ContactPreferencesPayload, Question } from "@/app/dashboard/_lib/types";
+import type { ContactPreferencesPayload, Question } from "@lilink/shared";
 import type { MyCoupon, PrepareRedeemOk, MerchantSessionUser } from "@/lib/api";
 import { matchStoryUser } from "@/app/dashboard/match/match.fixtures";
 

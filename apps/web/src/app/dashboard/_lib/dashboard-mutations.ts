@@ -2,7 +2,7 @@ import type {
   DashboardHistoryItem,
   DashboardMatch,
   DashboardPayload,
-} from "./types";
+} from "@lilink/shared";
 
 export function applyReportSuccessToDashboard(
   current: DashboardPayload | null,

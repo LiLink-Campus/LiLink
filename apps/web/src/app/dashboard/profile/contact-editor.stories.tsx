@@ -4,7 +4,7 @@ import { expect, fn, waitFor } from "storybook/test";
 import { http, HttpResponse } from "msw";
 import { ContactEditor } from "./contact-editor";
 import styles from "./profile-redesign.module.css";
-import type { ContactPreferencesPayload } from "../_lib/types";
+import type { ContactPreferencesPayload } from "@lilink/shared";
 
 const email = "contact-story@example.test";
 const userId = "contact-story-user";

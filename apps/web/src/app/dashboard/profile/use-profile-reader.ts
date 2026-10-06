@@ -6,7 +6,7 @@ import {
   profileAttentionKeyFromHash,
   profileAttentionTabForKey,
 } from "../_lib/profile-attention";
-import type { Question, SavedQuestionnairePayload } from "../_lib/types";
+import type { Question, SavedQuestionnairePayload } from "@lilink/shared";
 import { PROFILE_TABS, type ProfileTab } from "./profile-field-state";
 import type { ProfileFieldRegistry } from "./use-profile-field-registry";
 import styles from "./profile-redesign.module.css";

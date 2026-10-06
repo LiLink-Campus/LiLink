@@ -1,5 +1,5 @@
-import type { CouponAgendaReadState } from "../../../lib/api";
-import type { DashboardPayload } from "./types";
+import type { CouponAgendaReadState } from "@lilink/shared";
+import type { DashboardPayload } from "@lilink/shared";
 
 const READ_CACHE_KEY = "lilink:dashboard-coupon-agenda-read-cache";
 const REFRESH_REQUEST_KEY = "lilink:dashboard-refresh-needed";

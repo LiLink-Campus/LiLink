@@ -3,6 +3,10 @@ import {
   LOCALE_COOKIE_NAME,
   parseSupportedLocale,
   computeQuestionnaireProgress,
+  type HomePageData,
+  type ProfilePageData,
+  type CenterPageData,
+  type VipStatus,
 } from '@lilink/shared';
 import type { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
@@ -40,6 +44,18 @@ export class PageBootstrapController {
     };
   }
 
+  private vipSummary(
+    status: Awaited<ReturnType<VipService['getStatus']>> | null,
+  ): VipStatus | null {
+    return status
+      ? {
+          ...status,
+          activatedAt: status.activatedAt?.toISOString() ?? null,
+          expiresAt: status.expiresAt?.toISOString() ?? null,
+        }
+      : null;
+  }
+
   private async questionnaireData(userId: string) {
     const [questionnaire, savedQuestionnaire, contactPreferences] =
       await Promise.all([
@@ -52,7 +68,7 @@ export class PageBootstrapController {
 
   @Get('home')
   @Header('Cache-Control', 'private, no-store')
-  async home(@Req() request: AuthenticatedRequest) {
+  async home(@Req() request: AuthenticatedRequest): Promise<HomePageData> {
     const user = this.user(request);
     const [dashboard, data] = await Promise.all([
       this.accountDashboardService.getDashboard(request.user!.sub),
@@ -74,7 +90,9 @@ export class PageBootstrapController {
 
   @Get('profile')
   @Header('Cache-Control', 'private, no-store')
-  async profile(@Req() request: AuthenticatedRequest) {
+  async profile(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ProfilePageData> {
     // Editing a profile does not require loading or repairing match history.
     const user = this.user(request);
     const [data, vip] = await Promise.all([
@@ -84,7 +102,7 @@ export class PageBootstrapController {
     return {
       user,
       ...data,
-      vip,
+      vip: this.vipSummary(vip),
       dashboard: {
         questionnaireSubmittedAt: data.savedQuestionnaire?.submittedAt ?? null,
       },
@@ -93,11 +111,11 @@ export class PageBootstrapController {
 
   @Get('center')
   @Header('Cache-Control', 'private, no-store')
-  async center(@Req() request: AuthenticatedRequest) {
+  async center(@Req() request: AuthenticatedRequest): Promise<CenterPageData> {
     const user = this.user(request);
     const vip = await this.vipService
       .getStatus(request.user!.sub)
       .catch(() => null);
-    return { user, vip };
+    return { user, vip: this.vipSummary(vip) };
   }
 }

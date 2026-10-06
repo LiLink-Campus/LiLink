@@ -27,6 +27,8 @@ import {
   WEEKLY_INTENTS,
   type MatchEstimateBand,
   type ContactChannelType,
+  type ContactMethodPayload,
+  type ContactPreferencesPayload,
   type EditableContactChannelType,
   type SupportedLocale,
   type WeeklyIntent,
@@ -217,7 +219,7 @@ export class UpdateLocaleDto {
   locale!: SupportedLocale;
 }
 
-export class ContactMethodDto {
+export class ContactMethodDto implements ContactMethodPayload {
   @IsIn(EDITABLE_CONTACT_CHANNEL_TYPES)
   type!: EditableContactChannelType;
 
@@ -226,7 +228,10 @@ export class ContactMethodDto {
   value!: string;
 }
 
-export class UpdateContactPreferencesDto {
+export class UpdateContactPreferencesDto implements Omit<
+  ContactPreferencesPayload,
+  'email'
+> {
   @IsInt()
   @Min(0)
   @Max(2147483646)
@@ -240,17 +245,6 @@ export class UpdateContactPreferencesDto {
   @ValidateNested({ each: true })
   @Type(() => ContactMethodDto)
   methods!: ContactMethodDto[];
-}
-
-export class DashboardPublicContactResponseDto {
-  @ApiProperty({ enum: CONTACT_CHANNEL_TYPES as unknown as string[] })
-  type!: ContactChannelType;
-
-  @ApiProperty()
-  label!: string;
-
-  @ApiProperty()
-  value!: string;
 }
 
 export class ReportMatchDto {
@@ -271,216 +265,4 @@ export class ReportMatchDto {
   @MinLength(2)
   @MaxLength(REPORT_DETAILS_MAX_LENGTH)
   details?: string;
-}
-
-export enum DashboardHistoryResult {
-  MATCHED = 'MATCHED',
-  UNMATCHED = 'UNMATCHED',
-  NOT_PARTICIPATED = 'NOT_PARTICIPATED',
-}
-
-export enum DashboardHistoryVisibility {
-  VISIBLE = 'VISIBLE',
-  LIMITED = 'LIMITED',
-  NOT_APPLICABLE = 'NOT_APPLICABLE',
-}
-
-export enum DashboardHistoryLimitedReason {
-  REPORTED = 'REPORTED',
-  BLOCKED = 'BLOCKED',
-  ACCOUNT_DEACTIVATED = 'ACCOUNT_DEACTIVATED',
-}
-
-export class DashboardMatchParticipantResponseDto {
-  @ApiProperty()
-  userId!: string;
-
-  @ApiProperty({ nullable: true })
-  displayName!: string | null;
-
-  @ApiProperty({ nullable: true })
-  introLine!: string | null;
-
-  @ApiProperty({ nullable: true })
-  email!: string | null;
-
-  @ApiProperty({
-    type: () => DashboardPublicContactResponseDto,
-    nullable: true,
-  })
-  contact!: DashboardPublicContactResponseDto | null;
-
-  @ApiProperty({ nullable: true })
-  schoolName!: string | null;
-
-  @ApiProperty({ nullable: true })
-  gender!: string | null;
-
-  @ApiProperty({ type: String, isArray: true })
-  partnerGenders!: string[];
-
-  @ApiProperty({ enum: ['FRIEND', 'DATE', 'BOTH'], nullable: true })
-  weeklyIntent!: WeeklyIntent | null;
-}
-
-export class DashboardMatchResponseDto {
-  @ApiProperty()
-  id!: string;
-
-  @ApiProperty()
-  score!: number;
-
-  @ApiProperty({ nullable: true, format: 'date-time' })
-  introducedAt!: string | null;
-
-  @ApiPropertyOptional({
-    enum: ['OPEN', 'RESOLVED', 'DISMISSED'],
-    nullable: true,
-  })
-  reportStatus!: string | null;
-
-  @ApiProperty({
-    type: () => DashboardMatchParticipantResponseDto,
-    isArray: true,
-  })
-  participants!: DashboardMatchParticipantResponseDto[];
-}
-
-export class DashboardHistoryItemResponseDto {
-  @ApiProperty()
-  cycleId!: string;
-
-  @ApiProperty()
-  codename!: string;
-
-  @ApiProperty({ format: 'date-time' })
-  revealAt!: string;
-
-  @ApiProperty({ enum: ['OPTED_IN', 'OPTED_OUT'] })
-  participationStatus!: 'OPTED_IN' | 'OPTED_OUT';
-
-  @ApiProperty({ enum: DashboardHistoryResult })
-  result!: DashboardHistoryResult;
-
-  @ApiProperty({ enum: DashboardHistoryVisibility })
-  visibility!: DashboardHistoryVisibility;
-
-  @ApiPropertyOptional({ enum: DashboardHistoryLimitedReason, nullable: true })
-  limitedReason!: DashboardHistoryLimitedReason | null;
-
-  @ApiProperty({ type: () => DashboardMatchResponseDto, nullable: true })
-  match!: DashboardMatchResponseDto | null;
-}
-
-export class DashboardCurrentCycleResponseDto {
-  @ApiProperty()
-  id!: string;
-
-  @ApiProperty()
-  codename!: string;
-
-  @ApiProperty({ format: 'date-time' })
-  revealAt!: string;
-
-  @ApiProperty({ format: 'date-time' })
-  participationDeadline!: string;
-
-  @ApiProperty({
-    enum: ['DRAFT', 'OPEN', 'PREPARING', 'REVEAL_READY', 'REVEALED'],
-  })
-  status!: 'DRAFT' | 'OPEN' | 'PREPARING' | 'REVEAL_READY' | 'REVEALED';
-
-  @ApiProperty({ enum: ['OPTED_IN', 'OPTED_OUT'] })
-  participationStatus!: 'OPTED_IN' | 'OPTED_OUT';
-
-  @ApiPropertyOptional({
-    enum: WEEKLY_INTENTS as unknown as string[],
-    nullable: true,
-    description:
-      'Weekly matching intent (FRIEND/DATE/BOTH), explicitly confirmed for each cycle. Null means this participation lacks a usable intent and will be excluded from matching.',
-  })
-  intent!: WeeklyIntent | null;
-}
-
-export class DashboardLastRevealedRoundResponseDto {
-  @ApiProperty()
-  cycleId!: string;
-
-  @ApiProperty()
-  codename!: string;
-
-  @ApiProperty({ format: 'date-time' })
-  revealAt!: string;
-
-  @ApiProperty({ enum: ['OPTED_IN', 'OPTED_OUT'] })
-  participationStatus!: 'OPTED_IN' | 'OPTED_OUT';
-
-  @ApiProperty()
-  matched!: boolean;
-}
-
-export class DashboardCouponAgendaResponseDto {
-  @ApiProperty()
-  target!: string;
-
-  @ApiProperty()
-  version!: string;
-
-  @ApiProperty()
-  availableCount!: number;
-
-  @ApiProperty()
-  unreadAvailableCount!: number;
-
-  @ApiProperty()
-  read!: boolean;
-
-  @ApiProperty({ nullable: true, format: 'date-time' })
-  readAt!: string | null;
-
-  @ApiProperty({ example: '/dashboard/coupons' })
-  href!: '/dashboard/coupons';
-}
-
-export class DashboardResponseDto {
-  @ApiProperty({
-    type: Object,
-    nullable: true,
-    additionalProperties: true,
-  })
-  profile!: Record<string, unknown> | null;
-
-  @ApiProperty({ nullable: true, format: 'date-time' })
-  questionnaireSubmittedAt!: string | null;
-
-  @ApiProperty({ type: () => DashboardCurrentCycleResponseDto, nullable: true })
-  currentCycle!: DashboardCurrentCycleResponseDto | null;
-
-  @ApiProperty({
-    type: () => DashboardLastRevealedRoundResponseDto,
-    nullable: true,
-  })
-  lastRevealedRound!: DashboardLastRevealedRoundResponseDto | null;
-
-  @ApiProperty({ type: () => DashboardMatchResponseDto, nullable: true })
-  latestMatch!: DashboardMatchResponseDto | null;
-
-  @ApiPropertyOptional({
-    enum: DashboardHistoryVisibility,
-    nullable: true,
-    description: 'LIMITED hides participant details for unavailable matches.',
-  })
-  latestMatchVisibility!: DashboardHistoryVisibility | null;
-
-  @ApiPropertyOptional({ enum: DashboardHistoryLimitedReason, nullable: true })
-  latestMatchLimitedReason!: DashboardHistoryLimitedReason | null;
-
-  @ApiProperty({
-    type: () => DashboardHistoryItemResponseDto,
-    isArray: true,
-  })
-  recentMatchHistory!: DashboardHistoryItemResponseDto[];
-
-  @ApiProperty({ type: () => DashboardCouponAgendaResponseDto })
-  couponAgenda!: DashboardCouponAgendaResponseDto;
 }

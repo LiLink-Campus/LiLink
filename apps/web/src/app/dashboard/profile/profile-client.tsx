@@ -9,7 +9,7 @@ import {
   hardMatchFormFromAnswers,
   type HardMatchSchoolOption,
 } from "@lilink/shared";
-import type { VipStatus } from "../vip/vip-client";
+import type { VipStatus } from "@lilink/shared";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { keepCurrentQuestionAnswers } from "@lilink/shared";
 import { dcx } from "../_lib/dashboard-class-names";
@@ -18,7 +18,7 @@ import type {
   DashboardPayload,
   Question,
   SavedQuestionnairePayload,
-} from "../_lib/types";
+} from "@lilink/shared";
 import type { ContactSaveStatus } from "./contact-editor";
 import { incompleteProfileTargets } from "./profile-field-state";
 import { useProfileFieldRegistry } from "./use-profile-field-registry";

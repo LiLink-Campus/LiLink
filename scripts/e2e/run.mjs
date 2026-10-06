@@ -6,11 +6,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { testEnvironment } from './environment.mjs';
+import { startContractProxy } from './contract-proxy.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const apiOnly = process.argv.includes('--api');
 const buildOnly = process.argv.includes('--build-only');
 const serve = process.argv.includes('--serve');
+const contractProxy = process.argv.includes('--contract-proxy');
+let proxy;
 const sentryTracing = process.argv.includes('--sentry-tracing');
 const serveMinutesArg = process.argv.find(arg => arg.startsWith('--serve-minutes='));
 const serveMinutes = Number(serveMinutesArg?.split('=')[1] ?? 30);
@@ -26,10 +29,10 @@ if (extraOrigin) {
     throw new Error('--extra-client-origin requires --serve and an exact loopback HTTP origin.');
   }
 }
-if ((serve && apiOnly) || (sentryTracing && apiOnly) || (buildOnly && (serve || apiOnly)) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 90) {
+if ((contractProxy && (apiOnly || buildOnly)) || (serve && apiOnly) || (sentryTracing && apiOnly) || (buildOnly && (serve || apiOnly)) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 90) {
   throw new Error('--serve is browser-only; --serve-minutes must be between 1 and 90.');
 }
-const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only', '--sentry-tracing'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin='));
+const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only', '--sentry-tracing', '--contract-proxy'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin='));
 if (buildOnly && playwrightArgs.length) throw new Error('--build-only does not accept browser test arguments.');
 const startedAt = Date.now();
 const runId = randomBytes(6).toString('hex');
@@ -91,6 +94,7 @@ async function linkDependencies(source, target, rootModules = false) {
 async function cleanup() {
   if (stopping) return;
   stopping = true;
+  await proxy?.close();
   const live = [...children];
   for (const child of live) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} }
   await Promise.race([Promise.allSettled(live.map(child => child.done)), new Promise(resolve => setTimeout(resolve, 3000))]);
@@ -142,6 +146,13 @@ try {
   for (let attempt = 0; ; attempt++) {
     try { await command('docker', ['exec', dbName, 'pg_isready', '-U', 'e2e'], { label: 'infra' }); break; }
     catch (error) { if (attempt === 30) throw error; await new Promise(resolve => setTimeout(resolve, 500)); }
+  }
+  if (contractProxy) {
+    const proxyPort = await freePort();
+    proxy = await startContractProxy(proxyPort, env.E2E_API_URL);
+    env.NEXT_PUBLIC_API_BASE_URL = `http://127.0.0.1:${proxyPort}/v1`;
+    env.E2E_CONTRACT_PROXY_URL = `http://127.0.0.1:${proxyPort}`;
+    env.E2E_API_URL = env.NEXT_PUBLIC_API_BASE_URL;
   }
   await command('npm', ['run', 'build:shared'], { label: 'build' });
   await command('npm', ['run', 'db:migrate:deploy'], { label: 'migrate' });

@@ -1,4 +1,4 @@
-import { normalizeLocale } from '@lilink/shared';
+import { normalizeLocale, type DashboardUser } from '@lilink/shared';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -11,7 +11,7 @@ export class AccountProfileService {
     private readonly prisma: PrismaService,
     private readonly dashboardSnapshotService: DashboardSnapshotService,
   ) {}
-  async getUserSummary(userId: string) {
+  async getUserSummary(userId: string): Promise<DashboardUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {

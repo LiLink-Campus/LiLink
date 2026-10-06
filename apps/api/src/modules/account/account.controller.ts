@@ -1,3 +1,4 @@
+import type { DashboardBootstrapPayload } from '@lilink/shared';
 import { LOCALE_COOKIE_NAME, parseSupportedLocale } from '@lilink/shared';
 import {
   BadRequestException,
@@ -25,9 +26,9 @@ import { AccountParticipationService } from './account-participation.service';
 import { AccountProfileService } from './account-profile.service';
 import { AccountQuestionnaireService } from './account-questionnaire.service';
 import { ContactPreferencesService } from './contact-preferences.service';
+import { DashboardResponseDto } from './dashboard-response.dto';
 import {
   AcknowledgeQuestionnaireItemsDto,
-  DashboardResponseDto,
   DeleteAccountDto,
   MatchEstimateRequestDto,
   MatchEstimateResponseDto,
@@ -80,7 +81,9 @@ export class AccountController {
   }
 
   @Get('bootstrap')
-  async getDashboardBootstrap(@Req() request: AuthenticatedRequest) {
+  async getDashboardBootstrap(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<DashboardBootstrapPayload> {
     const userId = request.user!.sub;
     const [dashboard, user] = await Promise.all([
       this.accountDashboardService.getDashboard(userId),
