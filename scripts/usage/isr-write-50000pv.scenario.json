@@ -110,6 +110,7 @@
     }
   ],
   "assumptions": [
+    "Frozen 2026-10-04 budget scenario: devlog/latest observations and reserve references describe the measured source at that date, not the current browser contract. Issue 148 removes the unread endpoint chain in new builds. Historical inputs and arithmetic remain unchanged until a new paired resource ledger and production usage calibrate the forecast; no request or CPU saving is assumed from removal alone.",
     "Topology remains Vercel for Web, images, JavaScript, CSS, fonts, and icons. No separate static CDN is included.",
     "31-day window and persistent per-scope 1800-second gate permit at most 1489 accepted invalidation claims including a window-boundary allowance. Stats and urgent changes share the same gate.",
     "The API database stores monotonic receiver claims before Web invalidation. Duplicate and old revisions cannot claim again across Web instances; six successful transport deliveries do not mean six invalidations.",

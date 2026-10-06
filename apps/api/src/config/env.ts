@@ -38,6 +38,22 @@ const envSchema = z.object({
         .filter(Boolean),
     )
     .pipe(z.array(z.string().url()).min(1)),
+  // Web entry for generated mail/share links; independent from browser CORS.
+  PUBLIC_WEB_URL: z
+    .union([z.literal(''), z.url()])
+    .default('')
+    .refine((value) => {
+      if (!value) return true;
+      const url = new URL(value);
+      return (
+        ['http:', 'https:'].includes(url.protocol) &&
+        !url.username &&
+        !url.password &&
+        url.pathname === '/' &&
+        !url.search &&
+        !url.hash
+      );
+    }, 'PUBLIC_WEB_URL must be an HTTP(S) origin without credentials, path, query or fragment.'),
   SENTRY_DSN: z
     .string()
     .default('')

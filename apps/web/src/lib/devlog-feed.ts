@@ -109,13 +109,3 @@ export async function getDevlogUpdates(limit?: number): Promise<DevlogUpdate[]> 
   }
   return feed.items.slice(0, limit);
 }
-
-/**
- * The most recent update's publish date, or null when unavailable. Derived from
- * the single feed source of truth so the nav NEW badge (via /api/devlog/latest)
- * and the /updates mark-seen write always compare the exact same value.
- */
-export async function getLatestDevlogPublishedAt(): Promise<string | null> {
-  const feed = await getDevlogFeed();
-  return feed.latestPublishedAt;
-}
