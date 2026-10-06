@@ -105,7 +105,7 @@ describe('Retired meetup routes (PostgreSQL)', () => {
     });
     await app.get(AccountDeletionService).deleteAccount(users[0].id, password);
     const token = await new JwtService().signAsync(
-      { sub: users[1].id, email: users[1].email },
+      { sub: users[1].id, email: users[1].email, sessionVersion: 0 },
       { secret: env.JWT_SECRET },
     );
     const authCookie = `${env.COOKIE_NAME}=${token}`;

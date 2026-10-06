@@ -58,6 +58,12 @@ canonical: true
 
 可重复的 SSR 故障注入使用 `node scripts/e2e/run.mjs --contract-proxy private-contracts.spec.ts --project=chromium --project=mobile-webkit`。该选项只在 runner 的临时 loopback 代理中修改真实 API 响应，按一次性合成会话选择规则；测试证明 Web 服务端到 API 的命中次数，再验证重试后的可见页面。代理不写入生产应用，工件主动保存脱敏字段矩阵和 UI 截图，关闭该 spec 的 trace/video/自动截图。Node 24、npm 11、Docker 和隔离浏览器为前提，数据库、邮件与账号由 runner 一次性建立并销毁。
 
+## 普通用户会话撤销
+
+用户 JWT 必须携带非负整数 `sessionVersion`，Guard 逐请求查询账号版本并严格比对，同时拒绝停用和注销账号。密码重置事务同时消费验证码、更新密码并原子递增版本，新会话使用事务返回的版本。重置成功响应后的新请求使用旧 Cookie 时返回 401；已通过 Guard 的在途请求仍可以完成。
+
+登录密码哈希与签发版本来自同一次账号读取，避免把并发旧密码登录升级成重置后的有效会话。`sessionVersion` 属于内部状态，不进入注册、登录、重置、`/auth/me` 或后台用户更新响应。采用策略 A：所有不带版本的旧用户 JWT 均须重新登录，无宽限期或版本 0 兼容放行。设计、切流边界与安全回滚见[会话撤销决策](../decisions/2026-10-06-user-session-revocation.md)。
+
 ## 问卷与报名
 
 定义由 [QuestionnaireService](../../apps/api/src/modules/questionnaire/questionnaire.service.ts) 管理；已提交答案、草稿和当前修订的关注状态具有不同效力。[page-bootstrap controller](../../apps/api/src/modules/account/page-bootstrap.controller.ts) 提供页面聚合；首页进度不等于完整定义或答案。

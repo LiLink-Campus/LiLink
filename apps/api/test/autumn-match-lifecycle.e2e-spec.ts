@@ -218,7 +218,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
   }
 
   const cookie = (id: string, email: string) =>
-    `${env.COOKIE_NAME}=${jwt.sign({ sub: id, email })}`;
+    `${env.COOKIE_NAME}=${jwt.sign({ sub: id, email, sessionVersion: 0 })}`;
   const server = () => app.getHttpServer() as Parameters<typeof request>[0];
 
   it('updates only historical display names and preserves redacted cards', async () => {
