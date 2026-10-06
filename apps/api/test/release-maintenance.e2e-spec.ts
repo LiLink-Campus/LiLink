@@ -150,7 +150,7 @@ it('pauses real scheduled writes and mail, then resumes them against disposable 
     );
   } finally {
     Object.assign(env, original);
-    (mail as unknown as { transporter: { close(): void } }).transporter.close();
+    mail.onModuleDestroy();
     await db.outboundEmail.deleteMany({ where: { id: tag } });
     await db.productEvent.deleteMany({ where: { id: tag } });
     await db.productEventOutbox.deleteMany({ where: { id: tag } });

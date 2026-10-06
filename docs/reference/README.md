@@ -19,6 +19,7 @@ lang: zh
 | [账户、资料与问卷边界](account.md) | 现行说明 |
 | [运营统计与退役产品事件](analytics.md) | 现行说明 |
 | [活动优惠券与核销契约](coupons.md) | 现行说明 |
+| [邮件投递与跨窗恢复](mail-delivery.md) | 现行说明 |
 | [匹配资格、计算与优先级](matching.md) | 现行说明 |
 | [公开页面缓存策略](public-data-cache.md) | 现行说明 |
 | [服务端 API 连接路由](server-api-routing.md) | 现行说明 |
