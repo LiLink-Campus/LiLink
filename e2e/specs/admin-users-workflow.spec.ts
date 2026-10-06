@@ -35,7 +35,7 @@ test('admin user management preserves visible and persisted results @smoke', asy
   await dialog.getByRole('button', { name: '保存修改', exact: true }).click();
   await expect(dialog.getByRole('alert')).toHaveText('合成保存故障');
   await expect(headline).toHaveValue('合成运营编辑验收');
-  await dialog.getByRole('alert').scrollIntoViewIfNeeded();
+  await dialog.getByRole('alert').evaluate(element => element.scrollIntoView({ block: 'center' }));
   await info.attach('admin-edit-failure-error', { contentType: 'image/png', body: await page.screenshot({ animations: 'disabled' }) });
   await headline.scrollIntoViewIfNeeded();
   await info.attach('admin-edit-failure-retains-draft', { contentType: 'image/png', body: await page.screenshot({ animations: 'disabled' }) });
