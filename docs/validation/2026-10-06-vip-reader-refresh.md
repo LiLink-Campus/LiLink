@@ -103,4 +103,12 @@ node scripts/performance/dashboard-compare.mjs --summarize artifacts/performance
 
 两名独立代理复核生命周期、账户隔离、协议校验和 reader；审查发现的测量隔离与动画断言缺口已收紧。远端 PR、精确提交 CI 和合并结果由主任务继续记录。
 
+PR #149 首次提交 `eee9739f2f73389e4b933d394a871971aff39457` 的 [Storybook 工作流](https://github.com/LiLink-Campus/LiLink/actions/runs/37471385883) 为 311/312 通过，唯一失败为既有 `ProfileInterruptReaderRefresh`：未开通 `/me/vip` 夹具只有 active/expiresAt，严格协议拒绝它；同时 null bootstrap 的立即初读与随即人工 focus 会被正常去重，在 Storybook 固定 Date 下不会因真实等待而成为独立事件。该场景意图是已知未开通页面在阅读中变更权益，修正为带完整未开通 VIP 的 bootstrap，并复用带 `VipStatus` 类型的完整响应；保留其动画中刷新、取消和可见结果断言，不改变产品协议或去重门禁。
+
+修正后以下整文件浏览器复验为 59/59 通过，包含原失败场景。JSON `artifacts/issue-147-storybook-fixture.json` 遮罩邮箱，保留逐行为结果；Web/Storybook 类型检查和 Web lint 重新通过，产品源码未变，两名独立代理复审夹具无阻断项。既有 dashboard 故事文件原为 953 行，本次最小夹具修正为 955 行；没有为单个前提扩展全套故事拆分。修正提交的完整 CI 待主任务继续记录。
+
+```sh
+npm run test:storybook:web -- --run apps/web/src/stories/dashboard-pages.stories.tsx --reporter=json --outputFile=artifacts/issue-147-storybook-fixture.json
+```
+
 主任务另用 Codex IAB 在 1280×800 和 390×844 实查两页。中心显示有效会员徽章及合成的 2099 到期时间；手机资料昵称和简介输入后显示草稿已自动保存，目录可跳到第二题，桌面目录、当前题块和保存反馈一致。四张本机截图及断言为 `artifacts/issue-147-review/iab/{acceptance.json,center-desktop.jpg,center-mobile.jpg,profile-desktop.jpg,profile-mobile.jpg}`。该范围是本地 IAB 定向视觉与操作证据；四引擎生命周期另按上述 E2E 记录。真实 iOS、大陆网络与生产账单仍 UNKNOWN。本次未部署。
