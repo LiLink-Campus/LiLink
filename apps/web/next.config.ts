@@ -60,8 +60,8 @@ function createNextConfig(phase: string): NextConfig {
 }
 
 const sentryNextConfig = withSentryConfig(createNextConfig, {
-  org: "sed-i",
-  project: "lilink",
+  org: "lilink-campus",
+  project: "javascript-nextjs",
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
   widenClientFileUpload: true,
