@@ -8,5 +8,5 @@ import { UserCenter } from "./user-center";
 export function CenterBootstrap({ initialData }: { initialData: CenterPageData }) {
   const { data, error, retry } = useProfileReadBootstrap("center", initialData);
   if (!data) return <ProfileReadPending error={error} onRetry={retry} />;
-  return <UserCenter initialUser={data.user} initialStatus={data.vip} />;
+  return <UserCenter initialUser={data.user} initialStatus={data.vip} vipBootstrap={data} />;
 }

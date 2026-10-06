@@ -14,6 +14,7 @@ import type {
   HomePageData,
   ProfilePageData,
   CenterPageData,
+  VipStatus,
 } from "./private-page-contracts";
 import {
   isObject,
@@ -173,6 +174,10 @@ function isVip(value: unknown) {
     isString(value.priceYuan)
   );
 }
+function parseVipStatus(value: unknown): VipStatus {
+  if (!isVip(value)) throw new PrivateResponseContractError();
+  return value as VipStatus;
+}
 function isProgress(value: unknown) {
   return (
     isObject(value) &&
@@ -235,6 +240,8 @@ export function parsePrivateApiResponse(path: string, value: unknown): unknown {
       return parseDashboardBootstrap(value);
     case "/me/contact-preferences":
       return parseContactPreferences(value);
+    case "/me/vip":
+      return parseVipStatus(value);
     case "/me/page-bootstrap/home":
       return parseHomePage(value);
     case "/me/page-bootstrap/profile":
@@ -256,6 +263,7 @@ export function parsePrivateApiBody(path: string, body: string): unknown {
         "/me/dashboard",
         "/me/bootstrap",
         "/me/contact-preferences",
+        "/me/vip",
         "/me/page-bootstrap/home",
         "/me/page-bootstrap/profile",
         "/me/page-bootstrap/center",

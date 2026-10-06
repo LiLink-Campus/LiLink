@@ -15,6 +15,7 @@ lang: zh
 
 ## 目录
 
+- [资料页、用户中心 VIP 读取与问卷阅读器验收](2026-10-06-vip-reader-refresh.md)。
 - [后台与轮次职责拆分](2026-10-06-admin-responsibilities.md)。
 - [邮件 outbox 跨窗恢复验收](mail-outbox-recovery-2026-10-06.md)。
 

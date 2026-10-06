@@ -26,7 +26,7 @@ import { useProfileAttention } from "./use-profile-attention";
 import { useProfileAutosave } from "./use-profile-autosave";
 import { initialProfileTab, useProfileReader } from "./use-profile-reader";
 import { ProfileVipDialog } from "./profile-vip-access";
-import { useVipStatus } from "./use-vip-status";
+import { useVipStatus } from "../_lib/use-vip-status";
 import { ProfileSelfSection } from "./profile-self-section";
 import { ProfilePartnerSection } from "./profile-partner-section";
 import { ProfileValuesSection } from "./profile-values-section";
@@ -50,10 +50,12 @@ export function ProfileClient({
   initialSavedQuestionnaire,
   initialContactPreferences,
   initialVip = null,
+  vipBootstrap = initialUser,
   initialQuestionnaireVersionId,
 }: {
   initialQuestionnaireVersionId?: string;
   initialVip?: VipStatus | null;
+  vipBootstrap?: object;
   initialContactPreferences: ContactPreferencesPayload;
   initialUser: AuthMePayload;
   initialDashboard: Pick<DashboardPayload, "questionnaireSubmittedAt">;
@@ -62,7 +64,7 @@ export function ProfileClient({
   initialSavedQuestionnaire: SavedQuestionnairePayload;
 }) {
   useDashboardSessionSeed(initialUser);
-  const { vip, error: vipError } = useVipStatus(initialVip);
+  const { vip, error: vipError } = useVipStatus(initialUser.id, initialVip, vipBootstrap);
   const vipActive = Boolean(vip?.active);
   const vipDialogRef = useRef<HTMLDialogElement>(null);
   const initialDraft = initialSavedQuestionnaire?.draft ?? null;
