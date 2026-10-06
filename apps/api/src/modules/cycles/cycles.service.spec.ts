@@ -1,9 +1,10 @@
+import { createCycleTestServices } from '../../../test/fixtures/cycle-services';
 import { MatchingEngine } from './matching.engine';
 import { BadRequestException } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { QuestionType } from '../../common/prisma/client';
 import { DashboardSnapshotModule } from '../../common/dashboard/dashboard-snapshot.module';
-import { CyclesService, CYCLE_PROCESSING_INCLUDE } from './cycles.service';
+import { CYCLE_PROCESSING_INCLUDE } from './cycle-processing';
 import { CyclesModule } from './cycles.module';
 
 type EligibleParticipantStub = {
@@ -242,7 +243,7 @@ function createCyclesService(
   prisma: unknown,
   dashboardSnapshotService = createDashboardSnapshotServiceMock(),
 ) {
-  return new CyclesService(
+  return createCycleTestServices(
     {
       school: {
         findMany: jest
@@ -1145,7 +1146,7 @@ describe('CyclesService', () => {
           callback({ cycleParticipation }),
       ),
     };
-    const service = new CyclesService(
+    const service = createCycleTestServices(
       {
         school: {
           findMany: jest
@@ -1243,7 +1244,7 @@ describe('CyclesService', () => {
           }),
       ),
     };
-    const service = new CyclesService(
+    const service = createCycleTestServices(
       {
         school: {
           findMany: jest
@@ -1342,7 +1343,7 @@ describe('CyclesService', () => {
           }),
       ),
     };
-    const service = new CyclesService(
+    const service = createCycleTestServices(
       {
         school: {
           findMany: jest
@@ -1411,7 +1412,7 @@ describe('CyclesService', () => {
         count: jest.fn().mockResolvedValue(0),
       },
     };
-    const service = new CyclesService(
+    const service = createCycleTestServices(
       {
         school: {
           findMany: jest

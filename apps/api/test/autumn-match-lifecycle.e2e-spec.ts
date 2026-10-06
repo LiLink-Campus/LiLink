@@ -1,3 +1,4 @@
+import { createCycleTestServices } from './fixtures/cycle-services';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
@@ -21,7 +22,7 @@ import { ContactPreferencesService } from '../src/modules/account/contact-prefer
 import type { DashboardPayload } from '@lilink/shared';
 import { MatchEstimateService } from '../src/modules/account/match-estimate.service';
 import { MatchReportService } from '../src/modules/account/match-report.service';
-import { AdminService } from '../src/modules/admin/admin.service';
+import { createAdminTestHarness } from './fixtures/admin-services';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { CyclesService } from '../src/modules/cycles/cycles.service';
 import { PublicService } from '../src/modules/public/public.service';
@@ -59,7 +60,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     snapshots = new DashboardSnapshotService(prisma as PrismaService);
     mail = new MailService(prisma as PrismaService);
     jest.spyOn(mail, 'flushQueuedEmails').mockResolvedValue(undefined);
-    cycles = new CyclesService(prisma as PrismaService, snapshots, mail);
+    cycles = createCycleTestServices(prisma as PrismaService, snapshots, mail);
     deletion = new AccountDeletionService(
       prisma as PrismaService,
       snapshots,
@@ -913,7 +914,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
   it('leaves the next cycle empty until users explicitly opt in', async () => {
     const { cycle } = await seedPair();
     await cycles.runRevealCycle({ cycleId: cycle.id });
-    const admin = new AdminService(
+    const admin = createAdminTestHarness(
       prisma as PrismaService,
       cycles,
       { write: jest.fn() } as never,
@@ -1130,7 +1131,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     expect(afterStats.stats.matchesDelivered).toBe(
       beforeStats.stats.matchesDelivered - 1,
     );
-    const admin = new AdminService(
+    const admin = createAdminTestHarness(
       prisma as PrismaService,
       cycles,
       { write: jest.fn() } as never,

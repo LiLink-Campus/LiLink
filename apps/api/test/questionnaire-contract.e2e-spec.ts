@@ -10,7 +10,10 @@ import {
 } from '@lilink/shared';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
-import { AdminService } from '../src/modules/admin/admin.service';
+import {
+  createAdminTestHarness,
+  type AdminTestHarness,
+} from './fixtures/admin-services';
 import { UpsertQuestionDto } from '../src/modules/admin/dto';
 import { QuestionnaireService } from '../src/modules/questionnaire/questionnaire.service';
 import { PublicService } from '../src/modules/public/public.service';
@@ -35,7 +38,7 @@ const base = {
 
 describe('Questionnaire configuration contracts (isolated PostgreSQL)', () => {
   let prisma: PrismaClient;
-  let admin: AdminService;
+  let admin: AdminTestHarness;
   let originalCurrent: string[];
   beforeAll(async () => {
     const target = new URL(process.env.DATABASE_URL!);
@@ -58,7 +61,7 @@ describe('Questionnaire configuration contracts (isolated PostgreSQL)', () => {
     await prisma.questionnaireVersion.create({
       data: { title: tag, isCurrent: true },
     });
-    admin = new AdminService(
+    admin = createAdminTestHarness(
       prisma as PrismaService,
       {} as never,
       { write: jest.fn() } as never,

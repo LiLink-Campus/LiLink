@@ -9,7 +9,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { env } from '../src/config/env';
-import { AdminService } from '../src/modules/admin/admin.service';
+import { AdminUserWriteService } from '../src/modules/admin/admin-user-write.service';
 import {
   barrier,
   within,
@@ -345,11 +345,9 @@ describe('User session revocation (HTTP + PostgreSQL)', () => {
   });
 
   it('keeps the existing admin user update response shape without internal revocation state', async () => {
-    const admin = new AdminService(
+    const admin = new AdminUserWriteService(
       prisma as never,
-      {} as never,
       { write: () => Promise.resolve() } as never,
-      {} as never,
       { syncUserMatchSnapshots: () => Promise.resolve() } as never,
     );
     for (const result of [

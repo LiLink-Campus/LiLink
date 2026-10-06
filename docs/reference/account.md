@@ -68,7 +68,7 @@ canonical: true
 
 定义由 [QuestionnaireService](../../apps/api/src/modules/questionnaire/questionnaire.service.ts) 管理；已提交答案、草稿和当前修订的关注状态具有不同效力。[page-bootstrap controller](../../apps/api/src/modules/account/page-bootstrap.controller.ts) 提供页面聚合；首页进度不等于完整定义或答案。
 
-题目支持 SCALE、SINGLE_SELECT 和 MULTI_SELECT、权重、必填及选项数量约束。后台修改题目通过 [AdminService](../../apps/api/src/modules/admin/admin.service.ts) 创建新 revision 并切换当前版本；用户答案保留其版本与关注状态。当前学校从账号关系注入硬条件，不以旧答案里的学校值替代。学校合并与删除还需通过 [AdminSchoolService](../../apps/api/src/modules/admin/admin-school.service.ts) 同步引用、问卷与缓存，不能只改一张表。
+题目支持 SCALE、SINGLE_SELECT 和 MULTI_SELECT、权重、必填及选项数量约束。后台修改题目通过 [AdminQuestionnaireService](../../apps/api/src/modules/admin/admin-questionnaire.service.ts) 创建新 revision 并切换当前版本；用户答案保留其版本与关注状态。当前学校从账号关系注入硬条件，不以旧答案里的学校值替代。学校合并与删除还需通过 [AdminSchoolService](../../apps/api/src/modules/admin/admin-school.service.ts) 同步引用、问卷与缓存，不能只改一张表。
 
 [AccountParticipationService](../../apps/api/src/modules/account/account-participation.service.ts) 在 OPEN 且截止前允许修改本轮状态，报名要求 ACTIVE 账号、明确的 FRIEND/DATE/BOTH 意向，以及当前问卷版本的完整已提交答案。服务端还校验当前学校、必填硬条件和一句话介绍；存在未处理的 `draftAnswers` 时不能报名，须完成或丢弃草稿。取消报名不要求重新通过问卷门槛。匹配资格及优先级见 [匹配参考](matching.md)。
 

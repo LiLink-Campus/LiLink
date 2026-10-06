@@ -1,9 +1,9 @@
+import { createCycleTestServices } from './fixtures/cycle-services';
 import { randomUUID } from 'node:crypto';
 import { createPrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snapshot.service';
 import { MailService } from '../src/common/mail/mail.service';
-import { CyclesService } from '../src/modules/cycles/cycles.service';
 import { CyclesAutomationService } from '../src/modules/cycles/cycles-automation.service';
 import { WeeklyCycleService } from '../src/modules/cycles/weekly-cycle.service';
 import { RetiredProductEventsService } from '../src/modules/retired-product-events/retired-product-events.service';
@@ -29,7 +29,7 @@ it('pauses real scheduled writes and mail, then resumes them against disposable 
   const db = createPrismaClient();
   const mail = new MailService(db as PrismaService);
   const automation = new CyclesAutomationService(
-    new CyclesService(
+    createCycleTestServices(
       db as PrismaService,
       new DashboardSnapshotService(db as PrismaService),
       mail,

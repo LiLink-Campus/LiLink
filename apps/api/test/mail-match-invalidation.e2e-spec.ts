@@ -1,3 +1,4 @@
+import { createCycleTestServices } from './fixtures/cycle-services';
 const sendMail = jest.fn();
 jest.mock('nodemailer', () => ({
   __esModule: true,
@@ -12,7 +13,6 @@ import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { env } from '../src/config/env';
 import { MatchReportService } from '../src/modules/account/match-report.service';
-import { CyclesService } from '../src/modules/cycles/cycles.service';
 
 function deferred() {
   let resolve!: () => void;
@@ -47,7 +47,11 @@ describe('Match email invalidation (PostgreSQL)', () => {
     mail = new MailService(prisma as PrismaService);
     const snapshots = new DashboardSnapshotService(prisma as PrismaService);
     account = new MatchReportService(prisma as PrismaService, snapshots);
-    const cycles = new CyclesService(prisma as PrismaService, snapshots, mail);
+    const cycles = createCycleTestServices(
+      prisma as PrismaService,
+      snapshots,
+      mail,
+    );
     reset = (id) =>
       (
         cycles as unknown as {

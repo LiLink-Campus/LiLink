@@ -15,6 +15,7 @@ lang: zh
 
 ## 目录
 
+- [后台与轮次职责拆分](2026-10-06-admin-responsibilities.md)。
 - [邮件 outbox 跨窗恢复验收](mail-outbox-recovery-2026-10-06.md)。
 
 - [展示投影、实际发布核验与 Sentry 缓存稳定性验收](2026-10-04-stable-isr-publication.md)。

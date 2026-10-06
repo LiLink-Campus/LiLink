@@ -1,3 +1,4 @@
+import { createCycleTestServices } from './fixtures/cycle-services';
 import { HARD_MATCH_KEYS as K, LIFESTYLE_QUESTIONS } from '@lilink/shared';
 import { randomUUID } from 'node:crypto';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
@@ -91,7 +92,7 @@ describe('VIP profile persistence and actual matching eligibility (PostgreSQL)',
       new QuestionnaireService(prisma as PrismaService),
       snapshot as never,
     );
-    cycles = new CyclesService(
+    cycles = createCycleTestServices(
       prisma as PrismaService,
       snapshot as never,
       {} as never,
