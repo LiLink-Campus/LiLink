@@ -18,9 +18,10 @@ for (const entry of [
   { endpoint: 'profile', route: '/dashboard/profile', text: '我的资料' },
   { endpoint: 'center', route: '/dashboard/me', text: '账号安全' },
 ]) {
-  test(`SSR ${entry.endpoint} rejects actual upstream invalid JSON and recovers`, async ({ page, context, signedIn }, info) => {
+  test(`SSR ${entry.endpoint} rejects actual upstream invalid JSON and recovers`, async ({ page, context, db, signedIn }, info) => {
     void signedIn;
     test.skip(!process.env.E2E_CONTRACT_PROXY_URL, 'Run with --contract-proxy to inject the Web server to API path.');
+    if (entry.endpoint === 'profile') await completeProfile(context, db);
     await contractRule(context, `/me/page-bootstrap/${entry.endpoint}`, 'invalid');
     try {
       await visit(page, entry.route);
@@ -30,6 +31,11 @@ for (const entry of [
       expect(proxy.hits).toBeGreaterThan(0);
       await info.attach('SSR-upstream-proof', { body: JSON.stringify({ endpoint: entry.endpoint, upstreamInjectionHits: proxy.hits }), contentType: 'application/json' });
       await contractRule(context, `/me/page-bootstrap/${entry.endpoint}`, 'compatible');
+      if (entry.endpoint === 'profile') {
+        const compatible = await (await context.request.get(`${api}/me/page-bootstrap/profile`)).json();
+        expect(compatible.savedQuestionnaire).not.toBeNull();
+        expect(compatible.savedQuestionnaire).not.toHaveProperty('vipFiltersActive');
+      }
       await page.getByRole('button', { name: '重新加载', exact: true }).click();
       await expect(page.getByRole('main')).toContainText(entry.text);
       await expect(page.getByRole('heading', { name: '暂时无法加载', exact: true })).toHaveCount(0);
