@@ -2,6 +2,8 @@
 
 Additional behavioral contracts: [collector failure detection](failure-contracts.md), [immediate-click comparison](early-click-contract.md), and [single-site public-network observation](observe-site-contract.md).
 
+For authenticated dashboard input, question navigation and foreground/background request ledgers, use the separate [dashboard paired measurement contract](dashboard-contract.md).
+
 ## Failure boundaries fixed before implementation
 
 - A page may return 200 while its artwork, fonts, hydration or visible content is still unavailable. Strict `contentReadyMs` requires a visible heading, completed first-screen images, loaded fonts, completed image-reveal state and usable route controls. Homepage `previewVisibleMs` and `heroHdReadyMs` are independent document-start measurements: preview needs heading, both hero links and decoded visible artwork, while HD needs the current responsive image decoded and visible. They do not wait for DCL, application scripts or fonts. Baselines without inline preview use the visible HD artwork for preview readiness. Image failures remain failures even when an eight-second product fallback reveals content.

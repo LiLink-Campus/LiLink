@@ -11,6 +11,7 @@ export function ProfileBootstrap({ initialData }: { initialData: ProfilePageData
   if (!data) return <ProfileReadPending error={error} onRetry={retry} />;
   return <ProfileWriteOwner.Provider value={owner}><ProfileClient
     initialVip={data.vip}
+    vipBootstrap={data}
     initialContactPreferences={data.contactPreferences}
     initialUser={data.user}
     initialDashboard={data.dashboard}

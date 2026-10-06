@@ -1,30 +1,21 @@
 "use client";
 import { PwaInstallEntry } from "../../_components/PwaInstall";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useAuthSession } from "../../auth-session";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
-import { fetchApi, type AuthMePayload } from "../../../lib/api";
+import type { AuthMePayload } from "../../../lib/api";
+import { useVipStatus } from "../_lib/use-vip-status";
 import type { VipStatus } from "@lilink/shared";
 import { UserCircleIcon } from "../_components/icons";
 import { FiltersIcon, PriorityIcon, VipCrown, VipOrbits } from "../vip/vip-art";
 import { DeleteAccount } from "./delete-account";
 import styles from "./user-center.module.css";
 
-export function UserCenter({ initialStatus, initialUser }: { initialStatus: VipStatus | null; initialUser: AuthMePayload }) {
+export function UserCenter({ initialStatus, initialUser, vipBootstrap = initialUser }: { initialStatus: VipStatus | null; initialUser: AuthMePayload; vipBootstrap?: object }) {
   useDashboardSessionSeed(initialUser);
   const { user } = useAuthSession();
-  const [status, setStatus] = useState(initialStatus);
-  useEffect(() => {
-    let alive = true;
-    async function refresh() {
-      try { const next = await fetchApi<VipStatus>("/me/vip"); if (alive) setStatus(next); }
-      catch { if (alive) setStatus(null); }
-    }
-    window.addEventListener("focus", refresh);
-    const timer = window.setInterval(refresh, 30000);
-    return () => { alive = false; window.removeEventListener("focus", refresh); window.clearInterval(timer); };
-  }, []);
+  const { vip, error } = useVipStatus(initialUser.id, initialStatus, vipBootstrap);
+  const status = error ? null : vip;
   const account = user ?? initialUser;
   const name = account.displayName || "未命名同学";
   const active = status?.active && (!status.expiresAt || Date.parse(status.expiresAt) > Date.now());

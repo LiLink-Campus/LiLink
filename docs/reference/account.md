@@ -29,6 +29,7 @@ canonical: true
 | `GET /me/dashboard` | `profile` 对象或 null；`questionnaireSubmittedAt` 日期或 null；`currentCycle`、`lastRevealedRound`、`latestMatch` 对象或 null；`latestMatchVisibility`、`latestMatchLimitedReason` 枚举或 null；`recentMatchHistory` 数组；`couponAgenda` 对象；无 `user` | [Dashboard service](../../apps/api/src/modules/account/account-dashboard.service.ts) |
 | `GET /me/bootstrap` | `user`、`dashboard` 对象 | [Account controller](../../apps/api/src/modules/account/account.controller.ts) |
 | `GET/PUT /me/contact-preferences` | `revision` 非负整数；`email` 字符串；`preferredContactChannel`；`methods` 数组 | [联系方式 service](../../apps/api/src/modules/account/contact-preferences.service.ts) |
+| `GET /me/vip` | VIP 对象；字段与日期规则同下表 | [VIP service](../../apps/api/src/modules/vip/vip.service.ts) |
 | `GET /me/page-bootstrap/home` | `user`、`dashboard`、`questionnaireProgress`、`contactPreferences` 对象；`questionnaireAttention` 对象或 null；无完整问卷 | [页面 controller](../../apps/api/src/modules/account/page-bootstrap.controller.ts) |
 | `GET /me/page-bootstrap/profile` | `user`、`questionnaire`、`contactPreferences` 对象；`savedQuestionnaire`、`vip` 对象或 null；`dashboard` 仅含 `questionnaireSubmittedAt` 日期或 null | 同上；不读取或修复匹配历史 |
 | `GET /me/page-bootstrap/center` | `user` 对象；`vip` 对象或 null | 同上 |
@@ -50,7 +51,7 @@ canonical: true
 | questionnaire progress | percent/confirmedPercent/unconfirmedPercent 为 0–100 整数；unconfirmedCount 非负整数；submitted/profileReady/missingOneLinerIntro/eligibleToOptIn/hasIncompleteDraft 布尔 |
 | questionnaire / saved / attention | 复用 [既有问卷协议](../../packages/shared/src/questionnaire-types.ts)：题目 required、selectionLimit、options 与 saved.vipFiltersActive 可缺失；currentVersionId/submittedAt/draft/attention 的既有 null 含义不变；attention 的 key 数组与 item 布尔字段均必填 |
 
-[轻量 parser](../../packages/shared/src/private-page-parsers.ts) 接入浏览器和 SSR 的上述六条读取/保存路径。未知附加字段保留；允许缺失仅限协议声明的可选问卷字段，null 仅限对应 nullable 字段。非法结构和非法 JSON 进入已有可见错误/重试状态，诊断不记录响应正文；既有 HTTP 错误状态保持。其余 endpoint 不参与该注册表。
+[轻量 parser](../../packages/shared/src/private-page-parsers.ts) 接入浏览器和 SSR 的上述七条读取/保存路径。未知附加字段保留；允许缺失仅限协议声明的可选问卷字段，null 仅限对应 nullable 字段。非法结构和非法 JSON 进入已有可见错误/重试状态，诊断不记录响应正文；既有 HTTP 错误状态保持。其余 endpoint 不参与该注册表。
 
 持久快照先按 [历史兼容规则](../../apps/api/src/common/dashboard/dashboard-snapshot.payload.ts) 补齐缺失的 gender=null、partnerGenders=[]、weeklyIntent=null、reportStatus=null，再验证输出；未完成 introduction 的历史配对保持隐藏。LIMITED 与举报、屏蔽、注销的权限裁剪继续由快照产生路径负责，不新增迁移。合法历史缺失不等同于损坏值。
 
@@ -71,6 +72,8 @@ canonical: true
 题目支持 SCALE、SINGLE_SELECT 和 MULTI_SELECT、权重、必填及选项数量约束。后台修改题目通过 [AdminQuestionnaireService](../../apps/api/src/modules/admin/admin-questionnaire.service.ts) 创建新 revision 并切换当前版本；用户答案保留其版本与关注状态。当前学校从账号关系注入硬条件，不以旧答案里的学校值替代。学校合并与删除还需通过 [AdminSchoolService](../../apps/api/src/modules/admin/admin-school.service.ts) 同步引用、问卷与缓存，不能只改一张表。
 
 [AccountParticipationService](../../apps/api/src/modules/account/account-participation.service.ts) 在 OPEN 且截止前允许修改本轮状态，报名要求 ACTIVE 账号、明确的 FRIEND/DATE/BOTH 意向，以及当前问卷版本的完整已提交答案。服务端还校验当前学校、必填硬条件和一句话介绍；存在未处理的 `draftAnswers` 时不能报名，须完成或丢弃草稿。取消报名不要求重新通过问卷门槛。匹配资格及优先级见 [匹配参考](matching.md)。
+
+[资料 reader](../../apps/web/src/app/dashboard/profile/use-profile-reader.ts) 保留完整题目 DOM，按稳定的题目集合和当前选择同步显示，仅在属性值变化时写入 `data-reader-hidden`。普通输入和保存状态变化不重写全题目显示属性；题目集合、VIP 权益或选择改变仍在布局 effect 内同步。导航、自动下一题、目录、未完成定位与输入保存保持；快速导航或题目集合变化取消过时动画，正常及减少动画偏好分别验收。
 
 ## 注销与历史
 

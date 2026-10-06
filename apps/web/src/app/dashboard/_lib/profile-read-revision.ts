@@ -5,6 +5,7 @@ let session = 0;
 const pending = new Map<symbol, symbol>();
 type WriteEvent = { owner: symbol; settled: boolean };
 const listeners = new Set<(event: WriteEvent) => void>();
+const accountListeners = new Set<() => void>();
 
 export function setProfileReadAccount(userId: string | null) {
   if (accountId === userId) return;
@@ -12,6 +13,12 @@ export function setProfileReadAccount(userId: string | null) {
   revision = 0;
   session += 1;
   pending.clear();
+  accountListeners.forEach(listener => listener());
+}
+
+export function subscribeProfileReadAccount(listener: () => void) {
+  accountListeners.add(listener);
+  return () => { accountListeners.delete(listener); };
 }
 
 export function beginProfileWrite(userId: string, owner: symbol) {

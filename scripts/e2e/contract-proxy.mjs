@@ -12,7 +12,7 @@ export async function startContractProxy(port, apiUrl) {
       if (request.url === '/__e2e_contract') {
         if (request.method === 'POST') {
           const rule = JSON.parse(body.toString());
-          if (typeof rule.cookie !== 'string' || typeof rule.path !== 'string' || !['invalid', 'compatible', 'off'].includes(rule.mode)) {
+          if (typeof rule.cookie !== 'string' || typeof rule.path !== 'string' || !['invalid', 'compatible', 'vip-null', 'off'].includes(rule.mode)) {
             response.writeHead(400).end(); return;
           }
           rules.set(`${rule.cookie}:${rule.path}`, { mode: rule.mode, hits: 0 });
@@ -33,6 +33,7 @@ export async function startContractProxy(port, apiUrl) {
       if (result.ok && rule && rule.mode !== 'off') {
         const payload = JSON.parse(output);
         if (rule.mode === 'invalid') payload.user = { id: 42 };
+        else if (rule.mode === 'vip-null') payload.vip = null;
         else {
           payload.futureContractField = { permitted: true };
           if (payload.savedQuestionnaire) delete payload.savedQuestionnaire.vipFiltersActive;
