@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { delay, http, HttpResponse } from "msw";
 import { ProfileClient } from "@/app/dashboard/profile/profile-client";
-import type { Question } from "@/app/dashboard/_lib/types";
+import type { Question } from "@lilink/shared";
 import { matchDashboardFixtures, matchStoryUser } from "@/app/dashboard/match/match.fixtures";
 import { hardMatchFormFromAnswers } from "@lilink/shared";
 import questionnaire from "../../../api/prisma/fixtures/autumn-20260920-questionnaire.json";

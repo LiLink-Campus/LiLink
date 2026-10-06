@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchApi, isApiRequestError } from "@/lib/api";
-import type { VipStatus } from "../vip/vip-client";
+import type { VipStatus } from "@lilink/shared";
 
 function withCurrentExpiry(value: VipStatus | null) {
   return value?.active && value.expiresAt && Date.parse(value.expiresAt) <= Date.now()

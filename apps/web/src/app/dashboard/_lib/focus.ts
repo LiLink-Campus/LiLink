@@ -3,7 +3,7 @@ import { profileAttentionHashForKey } from "./profile-attention";
 import type {
   ContactPreferencesPayload,
   QuestionnaireAttentionPayload,
-} from "./types";
+} from "@lilink/shared";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

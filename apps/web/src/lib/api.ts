@@ -1,11 +1,13 @@
 import { withReadDeadline } from "./read-deadline";
 import { getClientApiBaseUrl } from "./api-base-url";
+import { parsePrivateApiBody } from "@lilink/shared";
 import type {
   HardMatchSchoolGenderExclusion,
   MatchEstimateResult,
   MerchantPromotionBlock,
   RedemptionResult,
-  SupportedLocale,
+  DashboardUser,
+  CouponAgendaReadState,
 } from "@lilink/shared";
 
 const API_ERROR_EN_TO_ZH: Record<string, string> = {
@@ -119,20 +121,14 @@ export async function fetchApi<T>(
     if (!response.ok) {
       throw new ApiRequestError(parseFailedResponseBody(text, response.status), response.status);
     }
-    if (!text) return null as unknown as T;
-    return JSON.parse(text) as T;
+    return parsePrivateApiBody(path, text) as T;
   };
   return (init?.method ?? "GET").toUpperCase() === "GET"
     ? withReadDeadline(init?.signal, read)
     : read(init?.signal);
 }
 
-export type AuthMePayload = {
-  id: string;
-  email: string;
-  displayName: string | null;
-  preferredLocale: SupportedLocale;
-};
+export type AuthMePayload = DashboardUser;
 
 let authMeInflight: Promise<AuthMePayload | null> | null = null;
 
@@ -248,16 +244,6 @@ export function fetchCouponOverview(signal?: AbortSignal) {
 export function fetchCouponPage(status: CouponGroup, cursor: string, signal?: AbortSignal) {
   return fetchApi<CouponPage>(`/me/coupons/page?${new URLSearchParams({ status, cursor })}`, { signal });
 }
-
-export type CouponAgendaReadState = {
-  target: string;
-  version: string;
-  availableCount: number;
-  unreadAvailableCount: number;
-  read: boolean;
-  readAt: string | null;
-  href: "/dashboard/coupons";
-};
 
 export function fetchCouponAgendaReadState() {
   return fetchApi<CouponAgendaReadState>("/me/coupons/read-state");

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { sanitizeSameOriginRelativePath } from "@lilink/shared";
+import { parsePrivateApiBody, sanitizeSameOriginRelativePath } from "@lilink/shared";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerApiBaseUrl } from "./api-base-url";
@@ -129,7 +129,7 @@ async function fetchApiServer<T>(
   }
 
   // Nest returns an empty successful body for a missing optional questionnaire.
-  return (body.trim() ? JSON.parse(body) : null) as T;
+  return parsePrivateApiBody(path, body) as T;
 }
 
 export function hasUserSessionCookie() {

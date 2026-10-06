@@ -1,6 +1,6 @@
 "use client";
 
-import type { CenterPageData } from "../_lib/bootstrap";
+import type { CenterPageData } from "@lilink/shared";
 import { useProfileReadBootstrap } from "../_lib/use-profile-read-bootstrap";
 import { ProfileReadPending } from "../_components/ProfileReadPending";
 import { UserCenter } from "./user-center";

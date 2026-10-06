@@ -6,7 +6,7 @@ import { fetchApi } from "../../../lib/api";
 import { WEEKLY_INTENT_LABELS, type WeeklyIntent } from "../../../lib/weekly-intent";
 import { IntentSheet } from "../_components/IntentSheet";
 import { canEditCurrentCycleParticipation } from "../_lib/format";
-import type { DashboardCurrentCycle } from "../_lib/types";
+import type { DashboardCurrentCycle } from "@lilink/shared";
 import css from "./match-desktop.module.css";
 
 export function ParticipationStrip({ cycle, submitted, nowMs, onRefresh }: {

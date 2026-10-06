@@ -1,4 +1,4 @@
-import type { DashboardCurrentCycle, DashboardPayload } from "./types";
+import type { DashboardCurrentCycle, DashboardPayload } from "@lilink/shared";
 
 export function formatCycleRevealAt(iso: string): string {
   return new Intl.DateTimeFormat("zh-CN", {

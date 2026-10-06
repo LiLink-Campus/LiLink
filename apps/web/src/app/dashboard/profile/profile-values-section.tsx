@@ -5,7 +5,7 @@ import {
   ChoiceOption,
   QuestionChoices,
 } from "./question-components";
-import type { Question } from "../_lib/types";
+import type { Question } from "@lilink/shared";
 import { profileAttentionElementId } from "../_lib/profile-attention";
 import { buildDashboardFieldId } from "../_lib/format";
 import { dcx } from "../_lib/dashboard-class-names";

@@ -1,3 +1,4 @@
+import type { DashboardPayload, DashboardHistoryItem } from '@lilink/shared';
 import { Injectable } from '@nestjs/common';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import {
@@ -8,12 +9,10 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { getDashboardCouponAgenda } from '../coupon/coupon-read-state';
 import { readDashboardCycles } from './dashboard-cycles';
 import {
-  DashboardHistoryItemResponseDto,
   DashboardHistoryLimitedReason,
   DashboardHistoryResult,
   DashboardHistoryVisibility,
-  DashboardResponseDto,
-} from './dto';
+} from '@lilink/shared';
 const DASHBOARD_HISTORY_LIMIT = 3;
 type DashboardCycleSummary = Prisma.MatchCycleGetPayload<{
   select: {
@@ -34,7 +33,7 @@ export class AccountDashboardService {
     private readonly prisma: PrismaService,
     private readonly dashboardSnapshotService: DashboardSnapshotService,
   ) {}
-  async getDashboard(userId: string): Promise<DashboardResponseDto> {
+  async getDashboard(userId: string): Promise<DashboardPayload> {
     const snapshotStore = (
       this.prisma as PrismaService & {
         userCycleDashboardSnapshot?: DashboardSnapshotStore;
@@ -161,7 +160,13 @@ export class AccountDashboardService {
         ? this.toDashboardHistoryLimitedReason(latestSnapshot?.limitedReason)
         : null;
     return {
-      profile,
+      profile: profile
+        ? {
+            ...profile,
+            createdAt: profile.createdAt.toISOString(),
+            updatedAt: profile.updatedAt.toISOString(),
+          }
+        : null,
       questionnaireSubmittedAt: this.toIsoString(questionnaire?.submittedAt),
       currentCycle: cycle
         ? {
@@ -184,7 +189,7 @@ export class AccountDashboardService {
   }
   private buildDefaultDashboardHistoryItem(
     cycle: DashboardCycleSummary,
-  ): DashboardHistoryItemResponseDto {
+  ): DashboardHistoryItem {
     return {
       cycleId: cycle.id,
       codename: cycle.codename,
@@ -198,7 +203,7 @@ export class AccountDashboardService {
   }
   private buildDashboardHistoryItemFromSnapshot(
     snapshot: DashboardSnapshotRecord,
-  ): DashboardHistoryItemResponseDto {
+  ): DashboardHistoryItem {
     const match = this.readLatestDashboardMatch(snapshot);
     return {
       cycleId: snapshot.cycleId,

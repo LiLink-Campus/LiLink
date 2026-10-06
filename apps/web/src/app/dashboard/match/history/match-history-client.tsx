@@ -8,7 +8,7 @@ import { useDashboardSessionSeed } from "../../_components/DashboardSessionSeed"
 import { MatchHistoryList } from "../../_components/MatchHistoryList";
 import { ReportForm } from "../../_components/ReportForm";
 import { useMatchActions } from "../../_components/useMatchActions";
-import type { DashboardPayload } from "../../_lib/types";
+import type { DashboardPayload } from "@lilink/shared";
 
 export function MatchHistoryClient({
   initialUser,

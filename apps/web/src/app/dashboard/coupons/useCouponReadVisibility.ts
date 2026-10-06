@@ -1,10 +1,9 @@
 "use client";
 
+import type { CouponAgendaReadState } from "@lilink/shared";
+
 import { useCallback, useEffect, useRef } from "react";
-import {
-  markCouponAgendaRead,
-  type CouponAgendaReadState,
-} from "../../../lib/api";
+import { markCouponAgendaRead } from "../../../lib/api";
 
 type UseCouponReadVisibilityOptions = {
   enabled: boolean;
