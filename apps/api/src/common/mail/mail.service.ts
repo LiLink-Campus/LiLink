@@ -1,775 +1,200 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { OutboundEmailMessageCategory } from '../prisma/client';
-import nodemailer from 'nodemailer';
-import { env, isLocalDevRuntime } from '../../config/env';
+import { env } from '../../config/env';
+import { performance } from 'node:perf_hooks';
+import type { PrismaService } from '../prisma/prisma.service';
+import { MailContent } from './mail-content';
 import {
-  cancelMatchEmails,
-  canSendMatchEmail,
-  matchIdFromEmailKey,
-} from './match-mail';
-import { PrismaService } from '../prisma/prisma.service';
-import {
-  WEEKLY_INTENT_LABELS,
-  type ContactChannelType,
-  type WeeklyIntent,
-} from '@lilink/shared';
-
-function escapeHtml(value: string | null | undefined) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
-type IntroductionEmailParty = {
-  email: string;
-  displayName: string | null;
-  schoolName?: string | null;
-  introLine?: string | null;
-  publicContact?: PublicContactInput;
-  gender?: string | null;
-  partnerGenders?: string[];
-  weeklyIntent?: WeeklyIntent | null;
-};
-
-type IntroductionEmailInput = {
-  matchId: string;
-  requester: IntroductionEmailParty;
-  recipient: IntroductionEmailParty;
-};
-
-type PublicContactInput = {
-  type: ContactChannelType;
-  label: string;
-  value: string;
-};
-
-type VerificationCodeEmailInput = {
-  dedupeKey: string;
-  recipientEmail: string;
-  code: string;
-};
-
-type OutboundEmailRecord = {
-  id: string;
-  dedupeKey: string;
-  recipientEmail: string;
-  subject: string;
-  html: string;
-  text: string | null;
-  messageCategory: OutboundEmailMessageCategory;
-  status: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'EXHAUSTED';
-  attempts: number;
-  maxAttempts: number;
-  lastAttemptAt: Date | null;
-  nextAttemptAt: Date | null;
-};
-
-// Headers applied to every outbound message. They mark the mail as
-// auto-generated transactional traffic so receiving anti-spam systems are
-// less likely to bucket it with bulk/marketing or reply with auto-responses.
-const TRANSACTIONAL_EMAIL_HEADERS = {
-  'Auto-Submitted': 'auto-generated',
-  'X-Auto-Response-Suppress': 'All',
-  'X-Entity-Ref-ID': 'lilink-transactional',
-} as const;
-
-function resolveSmtpFromForCategory(
-  category: OutboundEmailMessageCategory,
-): string {
-  if (category === OutboundEmailMessageCategory.BULK) {
-    return env.SMTP_FROM_BULK.trim() || env.SMTP_FROM;
-  }
-  return env.SMTP_FROM_TRANSACTIONAL.trim() || env.SMTP_FROM;
-}
-
-function buildSendHeaders(
-  category: OutboundEmailMessageCategory,
-): Record<string, string> {
-  if (category === OutboundEmailMessageCategory.BULK) {
-    const headers: Record<string, string> = {
-      'Content-Language': 'zh-CN',
-      'X-Entity-Ref-ID': 'lilink-bulk',
-    };
-    if (env.MAIL_LIST_UNSUBSCRIBE_URL.length > 0) {
-      headers['List-Unsubscribe'] = `<${env.MAIL_LIST_UNSUBSCRIBE_URL}>`;
-    }
-    return headers;
-  }
-  return {
-    ...TRANSACTIONAL_EMAIL_HEADERS,
-    'Content-Language': 'zh-CN',
-  };
-}
-
-const HTML_DOCUMENT_STYLES = `
-  body{margin:0;padding:24px;background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;line-height:1.6;}
-  .card{max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;}
-  .brand{margin:0 0 16px;font-size:14px;color:#6e6e73;letter-spacing:1px;}
-  h1{margin:0 0 24px;font-size:18px;color:#1d1d1f;}
-  p{margin:0 0 16px;font-size:15px;color:#1d1d1f;}
-  .code{margin:0 0 24px;font-size:28px;font-weight:600;letter-spacing:6px;color:#1d1d1f;text-align:center;padding:16px;background:#f5f5f7;border-radius:8px;}
-  .note{font-size:14px;color:#3a3a3c;}
-  hr{margin:24px 0;border:none;border-top:1px solid #e5e5ea;}
-  .footer{margin:0;font-size:12px;color:#86868b;}
-  .footer a{color:#0071e3;text-decoration:none;}
-  ul{padding-left:20px;}
-`.replace(/\s+/g, ' ');
-
-function renderHtmlDocument(input: { title: string; body: string }) {
-  return [
-    '<!doctype html>',
-    '<html lang="zh-CN">',
-    '<head>',
-    '<meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width,initial-scale=1">',
-    `<title>${escapeHtml(input.title)}</title>`,
-    `<style>${HTML_DOCUMENT_STYLES}</style>`,
-    '</head>',
-    '<body>',
-    `<div class="card">${input.body}</div>`,
-    '</body>',
-    '</html>',
-  ].join('');
-}
-
-const OUTBOUND_EMAIL_STALE_PROCESSING_MS = 10 * 60 * 1000;
-// Backstop flush window. The outbound-email cron only sweeps the DB while
-// Date.now() <= flushPollUntil; enqueue/inline-delivery and FAILED retries push
-// this window forward, so an idle cron tick skips the query entirely and lets
-// Neon's compute scale to zero. The grace keeps a few post-activity ticks
-// sweeping to catch rows whose inline delivery threw before claiming them.
-const OUTBOUND_EMAIL_FLUSH_GRACE_MS = 15 * 60 * 1000;
-const OUTBOUND_EMAIL_SYNC_WAIT_TIMEOUT_MS = 15_000;
-const OUTBOUND_EMAIL_SYNC_WAIT_INTERVAL_MS = 50;
-
-class AsyncConcurrencyGate {
-  private activeCount = 0;
-  private readonly waitQueue: Array<() => void> = [];
-
-  constructor(private readonly maxConcurrency: number) {}
-
-  async run<T>(work: () => Promise<T>) {
-    await this.acquire();
-
-    try {
-      return await work();
-    } finally {
-      this.release();
-    }
-  }
-
-  private acquire() {
-    if (this.activeCount < this.maxConcurrency) {
-      this.activeCount += 1;
-      return Promise.resolve();
-    }
-
-    return new Promise<void>((resolve) => {
-      this.waitQueue.push(() => {
-        this.activeCount += 1;
-        resolve();
-      });
-    });
-  }
-
-  private release() {
-    this.activeCount -= 1;
-
-    const next = this.waitQueue.shift();
-    if (next) {
-      next();
-    }
-  }
-}
+  MailDelivery,
+  FLUSH_GRACE_MS,
+  STALE_PROCESSING_MS,
+} from './mail-delivery';
+import { MAIL_DATABASE } from './mail-database';
 
 @Injectable()
-export class MailService {
+export class MailService extends MailContent {
   private readonly logger = new Logger(MailService.name);
   private isFlushing = false;
-  // Sweep until this epoch-ms; starts open so the first ticks after boot rescue
-  // any rows orphaned by a restart, then lapses to let Neon sleep when idle.
-  private flushPollUntil = Date.now() + OUTBOUND_EMAIL_FLUSH_GRACE_MS;
-  private readonly sendGate = new AsyncConcurrencyGate(
-    env.SMTP_SEND_CONCURRENCY,
-  );
+  private flushPollUntil = Date.now() + FLUSH_GRACE_MS;
+  private nextFallbackAt = Date.now() + env.OUTBOUND_EMAIL_IDLE_POLL_MS;
+  private nextScanRetryAt = 0;
+  private consecutiveFailures = 0;
+  private firstScanFailureAt: number | null = null;
+  private lastSuccessfulScanAt: number | null = null;
+  private backlogSample: {
+    sampledAt: number;
+    candidateCount: number;
+    oldestCandidateAgeMs: number | null;
+    truncated: boolean;
+  } | null = null;
+  private readonly delivery: MailDelivery;
 
-  constructor(private readonly prisma: PrismaService) {}
-  private readonly transporter = nodemailer.createTransport({
-    pool: true,
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE || env.SMTP_PORT === 465,
-    maxConnections: env.SMTP_MAX_CONNECTIONS,
-    maxMessages: env.SMTP_MAX_MESSAGES,
-    connectionTimeout: env.SMTP_CONNECTION_TIMEOUT_MS,
-    greetingTimeout: env.SMTP_GREETING_TIMEOUT_MS,
-    socketTimeout: env.SMTP_SOCKET_TIMEOUT_MS,
-    auth:
-      env.SMTP_USER && env.SMTP_PASS
-        ? {
-            user: env.SMTP_USER,
-            pass: env.SMTP_PASS,
-          }
-        : undefined,
-  });
-
-  buildVerificationCodeEmail(input: VerificationCodeEmailInput) {
-    const subject = `LiLink 验证码 ${input.code}`;
-    const text = [
-      '你好，',
-      '',
-      `你正在使用 LiLink，本次操作的验证码是：${input.code}`,
-      '',
-      '验证码有效期 10 分钟，请勿向任何人透露。',
-      '如果这不是你本人的操作，请忽略本邮件，无需任何操作。',
-      '',
-      '此邮件由 LiLink 系统自动发送，请勿直接回复。',
-      '',
-      '— LiLink 团队',
-      'https://lilink.top',
-    ].join('\n');
-    const html = renderHtmlDocument({
-      title: subject,
-      body: [
-        '<p class="brand">LiLink</p>',
-        '<h1>你的验证码</h1>',
-        '<p>你正在使用 LiLink，本次操作的验证码是：</p>',
-        `<p class="code">${escapeHtml(input.code)}</p>`,
-        '<p class="note">验证码有效期 10 分钟，请勿向任何人透露。</p>',
-        '<p class="note">如果这不是你本人的操作，请忽略本邮件，无需任何操作。</p>',
-        '<p class="footer">此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
-        '<hr>',
-        '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
-      ].join(''),
-    });
-
-    return {
-      dedupeKey: input.dedupeKey,
-      recipientEmail: input.recipientEmail,
-      subject,
-      html,
-      text,
-      messageCategory: OutboundEmailMessageCategory.TRANSACTIONAL,
-      // Total retry budget ~3 min (60s + 120s back-off), well below the 10-min
-      // verification-code TTL. Buffers transient SMTP/upstream hiccups.
-      maxAttempts: 3,
-    };
-  }
-
-  buildMatchRevealEmails(input: IntroductionEmailInput) {
-    return [input.requester, input.recipient].map((party, index) => {
-      const otherParty = index === 0 ? input.recipient : input.requester;
-      const name = otherParty.displayName ?? 'LiLink 用户';
-      return this.buildIntroductionEmail({
-        dedupeKey: `match-reveal:${input.matchId}:${index}`,
-        recipientEmail: party.email,
-        otherParty,
-        otherPartyDisplayName: name,
-        leadingSentence: `本轮匹配结果已公布，你与 ${name} 匹配成功。可以直接通过以下方式联系对方，也可以登录 LiLink 查看这封来信。`,
-      });
-    });
-  }
-
-  private buildIntroductionEmail(input: {
-    dedupeKey: string;
-    recipientEmail: string;
-    otherParty: IntroductionEmailParty;
-    otherPartyDisplayName: string;
-    leadingSentence: string;
-  }) {
-    const subject = `LiLink 已为你引荐 ${input.otherPartyDisplayName}`;
-    const otherContact = input.otherParty.publicContact ?? {
-      type: 'EMAIL' as const,
-      label: '邮箱',
-      value: input.otherParty.email,
-    };
-    const otherContactText = `${otherContact.label} ${otherContact.value}`;
-    const otherSchool = input.otherParty.schoolName ?? '未填写';
-    const otherIntro = input.otherParty.introLine ?? '暂无';
-    const otherGender = input.otherParty.gender?.trim() || null;
-    const otherPartnerGenders = (input.otherParty.partnerGenders ?? []).filter(
-      (gender) => gender.trim().length > 0,
+  constructor(@Inject(MAIL_DATABASE) private readonly prisma: PrismaService) {
+    super();
+    this.delivery = new MailDelivery(prisma, (until) =>
+      this.extendFlushWindow(until),
     );
-    const otherWeeklyIntentLabel = input.otherParty.weeklyIntent
-      ? WEEKLY_INTENT_LABELS[input.otherParty.weeklyIntent].subtitle
-      : null;
+  }
 
-    const infoLines: string[] = [];
-    if (otherGender) {
-      infoLines.push(`对方性别：${otherGender}`);
-    }
-    if (otherPartnerGenders.length > 0) {
-      infoLines.push(`对方期望对象性别：${otherPartnerGenders.join('、')}`);
-    }
-    if (otherWeeklyIntentLabel) {
-      infoLines.push(`对方本周意向：${otherWeeklyIntentLabel}`);
-    }
+  onModuleDestroy() {
+    this.delivery.close();
+  }
 
-    const text = [
-      input.leadingSentence,
-      '',
-      `对方联系方式：${otherContactText}`,
-      `对方学校：${otherSchool}`,
-      `对方一句话介绍：${otherIntro}`,
-      ...infoLines,
-      '',
-      '此邮件由 LiLink 系统自动发送，请勿直接回复。',
-      '',
-      '— LiLink 团队',
-      'https://lilink.top',
-    ].join('\n');
-
-    const infoHtml = infoLines
-      .map((line) => `<p class="note">${escapeHtml(line)}</p>`)
-      .join('');
-
-    const html = renderHtmlDocument({
-      title: subject,
-      body: [
-        '<p class="brand">LiLink</p>',
-        `<h1>${escapeHtml(subject)}</h1>`,
-        `<p>${escapeHtml(input.leadingSentence)}</p>`,
-        `<p class="note">对方联系方式：<strong>${escapeHtml(otherContactText)}</strong></p>`,
-        `<p class="note">对方学校：${escapeHtml(otherSchool)}</p>`,
-        `<p class="note">对方一句话介绍：${escapeHtml(otherIntro)}</p>`,
-        infoHtml,
-        '<p class="footer">此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
-        '<hr>',
-        '<p class="footer">— LiLink 团队 · <a href="https://lilink.top">lilink.top</a></p>',
-      ].join(''),
-    });
-
+  // Diagnostic state reuses the bounded candidate scan. A failed scan clears
+  // the sample to UNKNOWN rather than reporting an empty queue.
+  getQueueHealth() {
     return {
-      dedupeKey: input.dedupeKey,
-      recipientEmail: input.recipientEmail,
-      subject,
-      html,
-      text,
-      messageCategory: OutboundEmailMessageCategory.TRANSACTIONAL,
+      flushPollUntil: this.flushPollUntil,
+      consecutiveFailures: this.consecutiveFailures,
+      firstScanFailureAt: this.firstScanFailureAt,
+      lastSuccessfulScanAt: this.lastSuccessfulScanAt,
+      nextFallbackAt: this.nextFallbackAt,
+      nextScanRetryAt: this.nextScanRetryAt,
+      backlogSample: this.backlogSample,
     };
   }
 
-  /**
-   * Queue payload for optional / marketing / list mail. Use a separate From
-   * (SMTP_FROM_BULK) when configured so transactional reputation stays isolated.
-   * Set MAIL_LIST_UNSUBSCRIBE_URL for List-Unsubscribe on bulk sends.
-   */
-  buildBulkEmail(input: {
-    dedupeKey: string;
-    recipientEmail: string;
-    subject: string;
-    html: string;
-    text: string | null;
-    maxAttempts?: number;
-  }) {
-    return {
-      dedupeKey: input.dedupeKey,
-      recipientEmail: input.recipientEmail,
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-      messageCategory: OutboundEmailMessageCategory.BULK,
-      maxAttempts: input.maxAttempts ?? 5,
-    };
-  }
-
-  // Runs every minute but only touches the DB while the flush window is open
-  // (recent enqueue / inline-delivery attempt / pending FAILED retry). Idle
-  // ticks return without querying so Neon's compute can scale to zero — the
-  // in-memory window gate (not the cron cadence) is what lets the DB sleep, so
-  // keeping a 1-min cadence costs nothing while idle yet preserves the
-  // verification-code retry budget (~3 min) inside its 10-min TTL when SMTP is
-  // flaky. Inline delivery still handles latency-sensitive mail immediately;
-  // this is the retry/rescue backstop.
   @Cron(CronExpression.EVERY_MINUTE, {
     name: 'outbound-email-flush',
     waitForCompletion: true,
   })
   async handleEmailQueue() {
-    if (!env.BACKGROUND_JOBS_ENABLED || env.RELEASE_MAINTENANCE) return;
-    if (Date.now() > this.flushPollUntil) {
+    if (
+      !env.BACKGROUND_JOBS_ENABLED ||
+      !env.MAIL_DELIVERY_ENABLED ||
+      env.RELEASE_MAINTENANCE
+    )
       return;
+    const now = Date.now();
+    if (
+      now < this.nextScanRetryAt ||
+      (now > this.flushPollUntil && now < this.nextFallbackAt)
+    )
+      return;
+    try {
+      const scanned = await this.flushQueuedEmails();
+      if (scanned && now >= this.nextFallbackAt)
+        this.nextFallbackAt = now + env.OUTBOUND_EMAIL_IDLE_POLL_MS;
+    } catch {
+      this.consecutiveFailures++;
+      this.firstScanFailureAt ??= now;
+      this.backlogSample = null;
+      this.nextScanRetryAt =
+        Date.now() +
+        Math.min(
+          env.OUTBOUND_EMAIL_SCAN_BACKOFF_MAX_MS,
+          60_000 * 2 ** Math.min(this.consecutiveFailures - 1, 20),
+        );
+      this.logger.warn({
+        message: 'Outbound email scan failed.',
+        ...this.getQueueHealth(),
+        failureDurationMs: Date.now() - this.firstScanFailureAt,
+      });
     }
-    await this.flushQueuedEmails();
   }
 
   private extendFlushWindow(until: number) {
-    if (until > this.flushPollUntil) {
-      this.flushPollUntil = until;
-    }
+    this.flushPollUntil = Math.max(until, this.flushPollUntil);
   }
 
   async flushQueuedEmails(
     options: { dedupeKeys?: string[]; limit?: number } = {},
-  ) {
+  ): Promise<boolean | undefined> {
     if (!env.MAIL_DELIVERY_ENABLED || env.RELEASE_MAINTENANCE) return;
-    // A targeted (inline) flush means a caller just enqueued mail; keep the
-    // backstop window open so the cron re-sweeps even if this call no-ops on
-    // the isFlushing lock or its delivery throws before claiming the row.
-    if (options.dedupeKeys && options.dedupeKeys.length > 0) {
-      this.extendFlushWindow(Date.now() + OUTBOUND_EMAIL_FLUSH_GRACE_MS);
-    }
-
-    if (this.isFlushing) {
-      return;
-    }
-
+    if (options.dedupeKeys?.length)
+      this.extendFlushWindow(Date.now() + FLUSH_GRACE_MS);
+    if (this.isFlushing) return;
     this.isFlushing = true;
-
     try {
-      const now = new Date();
-      const staleProcessingThreshold = new Date(
-        now.getTime() - OUTBOUND_EMAIL_STALE_PROCESSING_MS,
+      const now = new Date(Date.now());
+      const limit = Math.min(
+        options.dedupeKeys?.length ??
+          options.limit ??
+          env.OUTBOUND_EMAIL_FLUSH_BATCH_SIZE,
+        env.OUTBOUND_EMAIL_FLUSH_BATCH_SIZE,
       );
-      const queuedEmails = await this.prisma.outboundEmail.findMany({
+      const queued = await this.prisma.outboundEmail.findMany({
         where: {
           ...(options.dedupeKeys
-            ? {
-                dedupeKey: {
-                  in: options.dedupeKeys,
-                },
-              }
+            ? { dedupeKey: { in: options.dedupeKeys } }
             : {}),
           OR: [
             { status: 'PENDING' },
-            {
-              status: 'FAILED',
-              nextAttemptAt: { lte: now },
-            },
+            { status: 'FAILED', nextAttemptAt: { lte: now } },
             {
               status: 'PROCESSING',
-              lastAttemptAt: { lt: staleProcessingThreshold },
+              lastAttemptAt: {
+                lt: new Date(now.getTime() - STALE_PROCESSING_MS),
+              },
             },
           ],
         },
-        // messageCategory ascending puts TRANSACTIONAL (verification codes,
-        // introductions) ahead of BULK so latency-sensitive mail is not starved
-        // behind older bulk sends; createdAt keeps FIFO within each category.
         orderBy: [{ messageCategory: 'asc' }, { createdAt: 'asc' }],
-        take:
-          options.dedupeKeys?.length ??
-          options.limit ??
-          env.OUTBOUND_EMAIL_FLUSH_BATCH_SIZE,
+        take: limit,
       });
-
-      await Promise.all(
-        queuedEmails.map((queuedEmail) =>
-          this.processOutboundEmail(queuedEmail),
-        ),
+      if (queued.length) this.extendFlushWindow(Date.now() + FLUSH_GRACE_MS);
+      this.lastSuccessfulScanAt = Date.now();
+      this.consecutiveFailures = 0;
+      this.firstScanFailureAt = null;
+      this.nextScanRetryAt = 0;
+      this.backlogSample = {
+        sampledAt: Date.now(),
+        candidateCount: queued.length,
+        oldestCandidateAgeMs: queued.length
+          ? Math.max(
+              ...queued.map((row) =>
+                Math.max(0, now.getTime() - row.createdAt.getTime()),
+              ),
+            )
+          : null,
+        truncated: queued.length === limit,
+      };
+      // Keep ownership until all workers release their bounded slots, including
+      // rejection paths; Promise.all would unlock on the first rejected worker.
+      const results = await Promise.allSettled(
+        queued.map((email) => this.delivery.process(email)),
       );
+      const failed = results.find((result) => result.status === 'rejected');
+      if (failed?.status === 'rejected') {
+        this.logger.warn(
+          'An outbound email worker failed after the successful candidate scan; a later scan will recover it.',
+        );
+      }
+      this.logger.log({
+        message: 'Outbound email scan completed.',
+        ...this.getQueueHealth(),
+      });
+      return true;
     } finally {
       this.isFlushing = false;
     }
   }
 
   async deliverQueuedEmailNow(dedupeKey: string) {
-    // Inline delivery path; keep the backstop window open so the cron retries
-    // if this attempt fails or leaves the row PENDING.
-    this.extendFlushWindow(Date.now() + OUTBOUND_EMAIL_FLUSH_GRACE_MS);
-
+    this.extendFlushWindow(Date.now() + FLUSH_GRACE_MS);
     const email = await this.prisma.outboundEmail.findUnique({
       where: { dedupeKey },
     });
-
-    if (!email) {
-      return null;
-    }
-
-    if (email.status === 'SENT' || email.status === 'EXHAUSTED') {
+    if (!email || email.status === 'SENT' || email.status === 'EXHAUSTED')
       return email;
-    }
-
-    const result = await this.processOutboundEmail(email);
-    if (result === 'claimed-by-another-worker') {
-      return this.waitForOutboundEmailCompletion(dedupeKey);
-    }
-
-    return this.prisma.outboundEmail.findUnique({
-      where: { dedupeKey },
-    });
+    if ((await this.delivery.process(email)) === 'claimed-by-another-worker')
+      return this.waitForCompletion(dedupeKey);
+    return this.prisma.outboundEmail.findUnique({ where: { dedupeKey } });
   }
 
-  private async processOutboundEmail(
-    email: OutboundEmailRecord,
-  ): Promise<'processed' | 'claimed-by-another-worker' | 'not-eligible'> {
-    // Keep waiting mail revocable until a send slot is available. No database
-    // transaction or connection is held while waiting for the slot or SMTP.
-    return this.sendGate.run(() => this.processOutboundEmailWithSlot(email));
-  }
-
-  private async processOutboundEmailWithSlot(
-    email: OutboundEmailRecord,
-  ): Promise<'processed' | 'claimed-by-another-worker' | 'not-eligible'> {
-    if (!env.MAIL_DELIVERY_ENABLED || env.RELEASE_MAINTENANCE) {
-      return 'not-eligible';
-    }
-    // Retired reminders can still exist in old queues or stale worker snapshots.
-    if (email.dedupeKey.startsWith('meetup-reminder:')) {
-      await this.prisma.outboundEmail.updateMany({
-        where: {
-          id: email.id,
-          status: { in: ['PENDING', 'FAILED', 'PROCESSING'] },
-        },
-        data: {
-          status: 'EXHAUSTED',
-          nextAttemptAt: null,
-          errorMessage: 'Meetup workflow retired before delivery.',
-        },
-      });
-      return 'not-eligible';
-    }
-
-    const claimedAt = new Date();
-    const claimWhere = this.buildClaimWhere(email, claimedAt);
-    if (!claimWhere) {
-      return 'not-eligible';
-    }
-
-    const claimArgs = {
-      where: claimWhere,
-      data: {
-        status: 'PROCESSING' as const,
-        attempts: { increment: 1 },
-        lastAttemptAt: claimedAt,
-        errorMessage: null,
-      },
-    };
-    const matchId = matchIdFromEmailKey(email.dedupeKey);
-    const claimResult = matchId
-      ? await this.prisma.$transaction(
-          async (tx) => {
-            await tx.$queryRaw`SELECT "id" FROM "Match" WHERE "id" = ${matchId} FOR UPDATE`;
-            if (!(await canSendMatchEmail(tx, matchId, email.recipientEmail))) {
-              await cancelMatchEmails(
-                tx,
-                [matchId],
-                'Match unavailable before delivery.',
-              );
-              return null;
-            }
-            return tx.outboundEmail.updateMany(claimArgs);
-          },
-          { timeout: 30_000 },
-        )
-      : await this.prisma.outboundEmail.updateMany(claimArgs);
-
-    if (!claimResult) return 'not-eligible';
-
-    if (claimResult.count === 0) {
-      return 'claimed-by-another-worker';
-    }
-
-    // The row is now PROCESSING. If both the SENT and the FAILED writes below
-    // throw (a transient DB blip spanning both), it is left stuck PROCESSING
-    // with no other window extension and is only reclaimable at lastAttemptAt +
-    // stale threshold. Hold the backstop window open past that reclaim point so
-    // the gated cron re-sweeps it instead of stranding it until the next restart.
-    this.extendFlushWindow(
-      claimedAt.getTime() +
-        OUTBOUND_EMAIL_STALE_PROCESSING_MS +
-        OUTBOUND_EMAIL_FLUSH_GRACE_MS,
-    );
-
-    try {
-      if (
-        email.messageCategory === OutboundEmailMessageCategory.BULK &&
-        env.MAIL_LIST_UNSUBSCRIBE_URL.length === 0
-      ) {
-        this.logger.warn(
-          `Bulk email ${email.dedupeKey} has no MAIL_LIST_UNSUBSCRIBE_URL; add one for better list compliance.`,
-        );
-      }
-      // Claiming is the dispatch boundary; SMTP cannot be recalled. Later
-      // cancellation still prevents retries and stale completion writes.
-      const sentAt = new Date();
-      const from = resolveSmtpFromForCategory(email.messageCategory);
-      await this.transporter.sendMail({
-        from,
-        to: email.recipientEmail,
-        subject: email.subject,
-        html: email.html,
-        text: email.text ?? undefined,
-        headers: buildSendHeaders(email.messageCategory),
-      });
-
-      const completed = await this.prisma.outboundEmail.updateMany({
-        where: { id: email.id, status: 'PROCESSING', lastAttemptAt: claimedAt },
-        data: {
-          status: 'SENT',
-          sentAt,
-          nextAttemptAt: null,
-          errorMessage: null,
-        },
-      });
-
-      if (completed.count === 0) return 'processed';
-
-      await this.syncVerificationCodeStatus(email.dedupeKey, {
-        deliveryStatus: 'SENT',
-        sentAt,
-      });
-    } catch (error) {
-      const nextAttemptNumber = email.attempts + 1;
-      const exhausted = nextAttemptNumber >= email.maxAttempts;
-      const nextAttemptAt = exhausted
-        ? null
-        : new Date(Date.now() + nextAttemptNumber * 60 * 1000);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Unknown email delivery error.';
-
-      const completed = await this.prisma.outboundEmail.updateMany({
-        where: { id: email.id, status: 'PROCESSING', lastAttemptAt: claimedAt },
-        data: {
-          status: exhausted ? 'EXHAUSTED' : 'FAILED',
-          nextAttemptAt,
-          errorMessage,
-        },
-      });
-
-      // A cancellation or a newer lease owns the row now; never revive it.
-      if (completed.count === 0) return 'processed';
-
-      // Keep the backstop window open through the scheduled retry so the cron
-      // picks it up even if the process is otherwise idle.
-      if (nextAttemptAt) {
-        this.extendFlushWindow(
-          nextAttemptAt.getTime() + OUTBOUND_EMAIL_FLUSH_GRACE_MS,
-        );
-      }
-
-      const localDevFallbackPrinted =
-        this.printLocalDevVerificationCodeFallback(email);
-
-      await this.syncVerificationCodeStatus(email.dedupeKey, {
-        deliveryStatus: localDevFallbackPrinted
-          ? 'SENT'
-          : exhausted
-            ? 'EXHAUSTED'
-            : 'FAILED',
-        sentAt: localDevFallbackPrinted ? new Date() : undefined,
-      });
-
-      this.logger.warn(
-        `Email delivery failed for ${email.dedupeKey}: ${errorMessage}`,
-      );
-    }
-
-    return 'processed';
-  }
-
-  private printLocalDevVerificationCodeFallback(email: OutboundEmailRecord) {
-    // Local-dev-only escape hatch: print the code and mark it SENT so a failed
-    // SMTP delivery does not block local registration. isLocalDevRuntime() keeps
-    // it off in CI (APP_ENV=test) and on any staging/prod host.
-    if (!isLocalDevRuntime()) {
-      return false;
-    }
-
-    if (!email.dedupeKey.startsWith('verification-code:')) {
-      return false;
-    }
-
-    const code = this.extractVerificationCode(email);
-    const lines = [
-      '┌────────────────────────────────────────────────────────┐',
-      '│  [LOCAL DEV OVERRIDE] 验证码发送失败，本地控制台打印:  │',
-      `│  邮箱: ${email.recipientEmail.padEnd(47, ' ')}│`,
-      `│  验证码: ${(code ?? '未能从邮件内容解析').padEnd(43, ' ')}│`,
-      '└────────────────────────────────────────────────────────┘',
-    ];
-
-    process.stdout.write(`${lines.join('\n')}\n`);
-    return code !== null;
-  }
-
-  private extractVerificationCode(email: OutboundEmailRecord) {
-    const candidates = [email.subject, email.text ?? '', email.html];
-    for (const candidate of candidates) {
-      const match = candidate.match(/\b\d{6}\b/);
-      if (match) {
-        return match[0];
-      }
-    }
-    return null;
-  }
-
-  private async syncVerificationCodeStatus(
-    dedupeKey: string,
-    data: {
-      deliveryStatus: 'SENT' | 'FAILED' | 'EXHAUSTED';
-      sentAt?: Date | null;
-    },
-  ) {
-    if (!dedupeKey.startsWith('verification-code:')) {
-      return;
-    }
-
-    await this.prisma.emailCode.updateMany({
-      where: {
-        deliveryDedupeKey: dedupeKey,
-      },
-      data,
-    });
-  }
-
-  private buildClaimWhere(email: OutboundEmailRecord, now: Date) {
-    if (email.status === 'PENDING') {
-      return {
-        id: email.id,
-        status: 'PENDING' as const,
-      };
-    }
-
-    if (email.status === 'FAILED') {
-      return {
-        id: email.id,
-        status: 'FAILED' as const,
-        nextAttemptAt: { lte: now },
-      };
-    }
-
-    if (email.status === 'PROCESSING') {
-      return {
-        id: email.id,
-        status: 'PROCESSING' as const,
-        lastAttemptAt: {
-          lt: new Date(now.getTime() - OUTBOUND_EMAIL_STALE_PROCESSING_MS),
-        },
-      };
-    }
-
-    return null;
-  }
-
-  private async waitForOutboundEmailCompletion(dedupeKey: string) {
-    const deadline = Date.now() + OUTBOUND_EMAIL_SYNC_WAIT_TIMEOUT_MS;
-
-    while (true) {
+  private async waitForCompletion(dedupeKey: string) {
+    const deadline = performance.now() + 15_000;
+    for (;;) {
       const email = await this.prisma.outboundEmail.findUnique({
         where: { dedupeKey },
       });
-
-      if (!email) {
-        return null;
-      }
-
-      if (email.status !== 'PROCESSING' || Date.now() >= deadline) {
+      if (
+        !email ||
+        email.status !== 'PROCESSING' ||
+        performance.now() >= deadline
+      )
         return email;
-      }
-
-      await this.sleep(OUTBOUND_EMAIL_SYNC_WAIT_INTERVAL_MS);
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
-  }
-
-  private sleep(durationMs: number) {
-    return new Promise((resolve) => {
-      setTimeout(resolve, durationMs);
-    });
   }
 }
