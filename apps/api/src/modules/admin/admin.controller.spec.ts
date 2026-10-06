@@ -2,7 +2,7 @@ import { AdminController } from './admin.controller';
 
 const adminRequest = { admin: { id: 'admin-actor-1' } } as never;
 
-function createAdminServiceMock() {
+function createAdminDomainMocks() {
   return {
     getDashboard: jest.fn().mockResolvedValue({ metrics: {} }),
     getAuditLogs: jest.fn().mockResolvedValue({ items: [], total: 0 }),
@@ -41,9 +41,27 @@ function createAdminServiceMock() {
 }
 
 describe('AdminController', () => {
-  it('forwards read-only admin routes to AdminService with the same arguments', async () => {
-    const adminService = createAdminServiceMock();
-    const controller = new AdminController(adminService as never);
+  it('forwards read-only admin routes to the responsible domain service with the same arguments', async () => {
+    const adminService = createAdminDomainMocks();
+    const controller = new AdminController(
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      {
+        list: adminService.getSchools,
+        create: adminService.createSchool,
+        update: adminService.updateSchool,
+        delete: adminService.deleteSchool,
+        merge: adminService.mergeSchools,
+      } as never,
+      { listAuditLogs: adminService.getAuditLogs } as never,
+    );
 
     await expect(controller.getDashboard()).resolves.toEqual({ metrics: {} });
     expect(adminService.getDashboard).toHaveBeenCalledWith();
@@ -112,8 +130,26 @@ describe('AdminController', () => {
   });
 
   it('forwards mutating admin routes and passes the authenticated admin actor id', async () => {
-    const adminService = createAdminServiceMock();
-    const controller = new AdminController(adminService as never);
+    const adminService = createAdminDomainMocks();
+    const controller = new AdminController(
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      adminService as never,
+      {
+        list: adminService.getSchools,
+        create: adminService.createSchool,
+        update: adminService.updateSchool,
+        delete: adminService.deleteSchool,
+        merge: adminService.mergeSchools,
+      } as never,
+      { listAuditLogs: adminService.getAuditLogs } as never,
+    );
 
     const schoolBody = { name: 'School' } as never;
     await controller.createSchool(adminRequest, schoolBody);

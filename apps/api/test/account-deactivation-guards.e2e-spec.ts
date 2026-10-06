@@ -10,7 +10,7 @@ import { PrismaService } from '../src/common/prisma/prisma.service';
 import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snapshot.service';
 import { MailService } from '../src/common/mail/mail.service';
 import { AccountDeletionService } from '../src/modules/account/account-deletion.service';
-import { AdminService } from '../src/modules/admin/admin.service';
+import { createAdminTestHarness } from './fixtures/admin-services';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { PublicService } from '../src/modules/public/public.service';
 import { env } from '../src/config/env';
@@ -160,7 +160,7 @@ describe('Account deactivation access guards (PostgreSQL)', () => {
         },
       });
       const audit = { write: jest.fn() };
-      const admin = new AdminService(
+      const admin = createAdminTestHarness(
         adminPrisma as PrismaService,
         {} as never,
         audit as never,

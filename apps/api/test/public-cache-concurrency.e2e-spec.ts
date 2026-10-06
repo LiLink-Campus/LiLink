@@ -1,3 +1,4 @@
+import { createCycleTestServices } from './fixtures/cycle-services';
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -7,7 +8,6 @@ import { MailService } from '../src/common/mail/mail.service';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AccountDeletionService } from '../src/modules/account/account-deletion.service';
-import { CyclesService } from '../src/modules/cycles/cycles.service';
 import { PublicService } from '../src/modules/public/public.service';
 
 // Failure boundary: account deletion holds a match while reveal changes the
@@ -144,7 +144,7 @@ describe('Public cache business concurrency (isolated PostgreSQL)', () => {
       snapshots,
       new PublicService(prisma as PrismaService),
     );
-    const cycles = new CyclesService(
+    const cycles = createCycleTestServices(
       revealingClient as unknown as PrismaService,
       snapshots,
       new MailService(prisma as PrismaService),

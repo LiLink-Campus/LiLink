@@ -37,26 +37,48 @@ import {
   UpdateWeeklyCycleSettingsDto,
   DeleteCycleDto,
 } from './dto';
-import { AdminService } from './admin.service';
+import { AdminDashboardService } from './admin-dashboard.service';
+import { AdminUserReadService } from './admin-user-read.service';
+import { AdminUserWriteService } from './admin-user-write.service';
+import { AdminCycleReadService } from './admin-cycle-read.service';
+import { AdminCycleManagementService } from './admin-cycle-management.service';
+import { AdminQuestionnaireService } from './admin-questionnaire.service';
+import { AdminReportReadService } from './admin-report-read.service';
+import { AdminReportReviewService } from './admin-report-review.service';
+import { AdminTestDataService } from './admin-test-data.service';
+import { AdminSchoolService } from './admin-school.service';
+import { AdminAuditService } from './admin-audit.service';
 
 @Controller('admin')
 @UseGuards(AdminGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly dashboard: AdminDashboardService,
+    private readonly users: AdminUserReadService,
+    private readonly userWrites: AdminUserWriteService,
+    private readonly cycleReads: AdminCycleReadService,
+    private readonly cycleManagement: AdminCycleManagementService,
+    private readonly questions: AdminQuestionnaireService,
+    private readonly reports: AdminReportReadService,
+    private readonly reportReviews: AdminReportReviewService,
+    private readonly testData: AdminTestDataService,
+    private readonly schools: AdminSchoolService,
+    private readonly audit: AdminAuditService,
+  ) {}
 
   @Get('dashboard')
   getDashboard() {
-    return this.adminService.getDashboard();
+    return this.dashboard.getDashboard();
   }
 
   @Get('audit-logs')
   getAuditLogs(@Query() query: ListAuditLogsQueryDto) {
-    return this.adminService.getAuditLogs(query);
+    return this.audit.listAuditLogs(query);
   }
 
   @Get('schools')
   getSchools(@Query() query: ListSchoolsQueryDto) {
-    return this.adminService.getSchools(query);
+    return this.schools.list(query);
   }
 
   @Post('schools')
@@ -64,7 +86,7 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Body() body: CreateSchoolDto,
   ) {
-    return this.adminService.createSchool(body, request.admin!.id);
+    return this.schools.create(body, request.admin!.id);
   }
 
   @Put('schools/:schoolId')
@@ -73,7 +95,7 @@ export class AdminController {
     @Param('schoolId') schoolId: string,
     @Body() body: UpdateSchoolDto,
   ) {
-    return this.adminService.updateSchool(schoolId, body, request.admin!.id);
+    return this.schools.update(schoolId, body, request.admin!.id);
   }
 
   @Delete('schools/:schoolId')
@@ -81,7 +103,7 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Param('schoolId') schoolId: string,
   ) {
-    return this.adminService.deleteSchool(schoolId, request.admin!.id);
+    return this.schools.delete(schoolId, request.admin!.id);
   }
 
   @Post('schools/:sourceId/merge-into/:targetId')
@@ -90,11 +112,7 @@ export class AdminController {
     @Param('sourceId') sourceId: string,
     @Param('targetId') targetId: string,
   ) {
-    return this.adminService.mergeSchools(
-      sourceId,
-      targetId,
-      request.admin!.id,
-    );
+    return this.schools.merge(sourceId, targetId, request.admin!.id);
   }
 
   @Put('cycles')
@@ -102,22 +120,22 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Body() body: UpsertCycleDto,
   ) {
-    return this.adminService.upsertCycle(body, request.admin!.id);
+    return this.cycleManagement.upsertCycle(body, request.admin!.id);
   }
 
   @Get('cycles')
   getCycles(@Query() query: ListCyclesQueryDto) {
-    return this.adminService.getCycles(query);
+    return this.cycleReads.getCycles(query);
   }
 
   @Get('cycles/:cycleId')
   getCycleDetail(@Param('cycleId') cycleId: string) {
-    return this.adminService.getCycleDetail(cycleId);
+    return this.cycleReads.getCycleDetail(cycleId);
   }
 
   @Get('weekly-cycle-settings')
   getWeeklyCycleSettings() {
-    return this.adminService.getWeeklyCycleSettings();
+    return this.cycleManagement.getWeeklyCycleSettings();
   }
 
   @Put('weekly-cycle-settings')
@@ -125,7 +143,10 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Body() body: UpdateWeeklyCycleSettingsDto,
   ) {
-    return this.adminService.updateWeeklyCycleSettings(body, request.admin!.id);
+    return this.cycleManagement.updateWeeklyCycleSettings(
+      body,
+      request.admin!.id,
+    );
   }
 
   @Delete('cycles/:cycleId')
@@ -134,7 +155,7 @@ export class AdminController {
     @Param('cycleId') cycleId: string,
     @Body() body: DeleteCycleDto,
   ) {
-    return this.adminService.deleteCycle(
+    return this.cycleManagement.deleteCycle(
       cycleId,
       request.admin!.id,
       body?.expectedParticipationCount,
@@ -146,7 +167,7 @@ export class AdminController {
     @Param('cycleId') cycleId: string,
     @Query() query: ListCycleParticipantsQueryDto,
   ) {
-    return this.adminService.getCycleParticipants(cycleId, query);
+    return this.cycleReads.getCycleParticipants(cycleId, query);
   }
 
   @Get('cycles/:cycleId/matches')
@@ -154,7 +175,7 @@ export class AdminController {
     @Param('cycleId') cycleId: string,
     @Query() query: ListCycleMatchesQueryDto,
   ) {
-    return this.adminService.getCycleMatches(cycleId, query);
+    return this.cycleReads.getCycleMatches(cycleId, query);
   }
 
   @Get('cycles/:cycleId/preview')
@@ -162,7 +183,7 @@ export class AdminController {
     @Param('cycleId') cycleId: string,
     @Req() request: AdminAuthenticatedRequest,
   ) {
-    return this.adminService.previewCycle(cycleId, request.admin!.id);
+    return this.cycleManagement.previewCycle(cycleId, request.admin!.id);
   }
 
   @Post('cycles/:cycleId/duplicate')
@@ -170,7 +191,7 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Param('cycleId') cycleId: string,
   ) {
-    return this.adminService.duplicateCycle(cycleId, request.admin!.id);
+    return this.cycleManagement.duplicateCycle(cycleId, request.admin!.id);
   }
 
   @Post('cycles/run')
@@ -178,17 +199,17 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Body() body: RunCycleDto,
   ) {
-    return this.adminService.runCycle(body, request.admin!.id);
+    return this.cycleManagement.runCycle(body, request.admin!.id);
   }
 
   @Get('questionnaire')
   getQuestions() {
-    return this.adminService.getQuestions();
+    return this.questions.getQuestions();
   }
 
   @Get('reports')
   getReports(@Query() query: ListReportsQueryDto) {
-    return this.adminService.getReports(query);
+    return this.reports.getReports(query);
   }
 
   @Put('questionnaire/questions')
@@ -196,7 +217,7 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Body() body: UpsertQuestionDto,
   ) {
-    return this.adminService.upsertQuestion(body, request.admin!.id);
+    return this.questions.upsertQuestion(body, request.admin!.id);
   }
 
   @Post('questionnaire/questions/reorder')
@@ -204,7 +225,7 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Body() body: ReorderQuestionsDto,
   ) {
-    return this.adminService.reorderQuestions(body, request.admin!.id);
+    return this.questions.reorderQuestions(body, request.admin!.id);
   }
 
   @Delete('questionnaire/questions/:questionId')
@@ -212,7 +233,7 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Param('questionId') questionId: string,
   ) {
-    return this.adminService.deleteQuestion(questionId, request.admin!.id);
+    return this.questions.deleteQuestion(questionId, request.admin!.id);
   }
 
   @Put('reports/:reportId')
@@ -221,7 +242,7 @@ export class AdminController {
     @Param('reportId') reportId: string,
     @Body() body: ReviewReportDto,
   ) {
-    return this.adminService.reviewReport(reportId, body, request.admin!.id);
+    return this.reportReviews.reviewReport(reportId, body, request.admin!.id);
   }
 
   @Post('reports/batch-review')
@@ -229,12 +250,12 @@ export class AdminController {
     @Req() request: AdminAuthenticatedRequest,
     @Body() body: BatchReviewReportsDto,
   ) {
-    return this.adminService.batchReviewReports(body, request.admin!.id);
+    return this.reportReviews.batchReviewReports(body, request.admin!.id);
   }
 
   @Get('reports/:reportId')
   getReportContext(@Param('reportId') reportId: string) {
-    return this.adminService.getReportContext(reportId);
+    return this.reports.getReportContext(reportId);
   }
 
   @Put('users/:userId/status')
@@ -243,7 +264,7 @@ export class AdminController {
     @Param('userId') userId: string,
     @Body() body: UpdateUserStatusDto,
   ) {
-    return this.adminService.updateUserStatus(userId, body, request.admin!.id);
+    return this.userWrites.updateUserStatus(userId, body, request.admin!.id);
   }
 
   @Patch('users/:userId')
@@ -252,7 +273,7 @@ export class AdminController {
     @Param('userId') userId: string,
     @Body() body: AdminUpdateUserDto,
   ) {
-    return this.adminService.updateUser(userId, body, request.admin!.id);
+    return this.userWrites.updateUser(userId, body, request.admin!.id);
   }
 
   @Patch('users/:userId/referral-limit')
@@ -261,7 +282,7 @@ export class AdminController {
     @Param('userId') userId: string,
     @Body() body: UpdateUserReferralLimitDto,
   ) {
-    return this.adminService.updateUserReferralLimit(
+    return this.userWrites.updateUserReferralLimit(
       userId,
       body,
       request.admin!.id,
@@ -274,36 +295,32 @@ export class AdminController {
     @Param('userId') userId: string,
     @Body() body: ToggleTestFlagDto,
   ) {
-    return this.adminService.setTestFlag(
-      userId,
-      body.isTest,
-      request.admin!.id,
-    );
+    return this.testData.setTestFlag(userId, body.isTest, request.admin!.id);
   }
 
   @Post('seed-test-users')
   seedTestUsers(@Req() request: AdminAuthenticatedRequest) {
-    return this.adminService.seedTestUsers(request.admin!.id);
+    return this.testData.seedTestUsers(request.admin!.id);
   }
 
   @Delete('users/test-users')
   deleteTestUsers(@Req() request: AdminAuthenticatedRequest) {
-    return this.adminService.deleteAllTestUsers(request.admin!.id);
+    return this.testData.deleteAllTestUsers(request.admin!.id);
   }
 
   @Get('users')
   getUsers(@Query() query: ListUsersQueryDto) {
-    return this.adminService.getUsers(query);
+    return this.users.getUsers(query);
   }
 
   @Get('users/:userId')
   getUserById(@Param('userId') userId: string) {
-    return this.adminService.getUserById(userId);
+    return this.users.getUserById(userId);
   }
 
   @Get('users/:userId/questionnaire')
   getUserQuestionnaire(@Param('userId') userId: string) {
-    return this.adminService.getUserQuestionnaire(userId);
+    return this.users.getUserQuestionnaire(userId);
   }
 
   @Get('users/:userId/participations')
@@ -311,6 +328,6 @@ export class AdminController {
     @Param('userId') userId: string,
     @Query() query: ListUserParticipationsQueryDto,
   ) {
-    return this.adminService.getUserParticipations(userId, query);
+    return this.users.getUserParticipations(userId, query);
   }
 }
