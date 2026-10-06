@@ -103,6 +103,10 @@ Linux 包装器只复制源码，使用容器内独立依赖卷。报告写入 `
 
 `.github/workflows/browser-e2e.yml` 在 PR 和 main push 运行 Chromium + 移动 WebKit 核心流程；手动和夜间运行四项目全量功能测试。另执行视觉比较。CI 重试一次供排障，但 `failOnFlakyTests` 会让重试才通过的用例仍使任务失败。
 
+需要特殊上游的场景有独立 CI 路由：代理模式保留全部私有协议测试，并执行资料页/用户中心在可见/隐藏状态下的 VIP `null bootstrap` 恢复；更新日志以 `items`、`empty`、`failure`、`malformed` 四个独立 job 验证每种存储状态。两条路线在 PR/main push 覆盖 Chromium + 移动 WebKit，手动和夜间覆盖四个项目；每个 job 都使用独立数据库、邮件、构建和缓存。普通模式中因缺少特殊上游而跳过的场景，必须在对应路线中实际通过，不能将跳过计作验收。
+
+复跑代理路线使用 `node scripts/e2e/run.mjs --contract-proxy private-contracts.spec.ts vip-refresh.spec.ts --grep 'private-contracts\.spec\.ts|null bootstrap'`；更新日志使用 `node scripts/e2e/run.mjs updates-feed.spec.ts --devlog-fixture=items`，分别替换为其余三个模式。需要复现 PR 范围时追加 `--project=chromium --project=mobile-webkit`。核对每条路线的 `results.json` 中项目、用例与实际执行结果，特殊模式不应有 skip 或 flaky。
+
 每轮输出 `artifacts/e2e/<run-id>/`：HTML 报告、JSON 结果、服务日志、失败截图/视频/trace、运行耗时信息。`latest.json` 供报告命令找到最近一次运行。CI 即使失败也上传证据并保留 7 天。文件均在 Git 忽略目录，不提交运行产物；已审核基准图除外。
 
 运行器、测试或业务变更后，先跑受影响用例；通过后再跑对应浏览器项目。不要依赖截图、HTTP 200 或构建成功单独判断业务完成。CI 工作流只有提交推送后才会实际触发，本地通过不代表远程 CI 已通过。

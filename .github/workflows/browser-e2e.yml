@@ -16,6 +16,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  updates-feed:
+    name: Updates feed (${{ matrix.mode }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [items, empty, failure, malformed]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Install update-feed acceptance engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Verify feed navigation, storage independence and fallback
+        run: >-
+          node scripts/e2e/run.mjs updates-feed.spec.ts
+          --devlog-fixture=${{ matrix.mode }}
+          ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '--project=chromium --project=mobile-chromium --project=webkit --project=mobile-webkit' || '--project=chromium --project=mobile-webkit' }}
+      - name: Preserve update-feed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: updates-feed-${{ matrix.mode }}-${{ github.sha }}
+          path: |
+            artifacts/e2e/**/report/**
+            artifacts/e2e/**/results/**
+            artifacts/e2e/**/results.json
+            artifacts/e2e/**/*.log
+            artifacts/e2e/**/run.json
+          retention-days: 7
+          if-no-files-found: error
+
   cache-tracing:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -68,7 +104,13 @@ jobs:
         if: github.event_name == 'pull_request' || github.event_name == 'push'
         run: node scripts/e2e/run.mjs --project=chromium --project=mobile-webkit --grep @smoke
       - name: Private protocol and SSR failure regression
-        run: node scripts/e2e/run.mjs --contract-proxy private-contracts.spec.ts --project=chromium --project=mobile-webkit
+        # Playwright grep includes the file name; retain every private contract
+        # and add only VIP cases that require the SSR fault-injection proxy.
+        run: >-
+          node scripts/e2e/run.mjs --contract-proxy
+          private-contracts.spec.ts vip-refresh.spec.ts
+          --grep 'private-contracts\.spec\.ts|null bootstrap'
+          ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '--project=chromium --project=mobile-chromium --project=webkit --project=mobile-webkit' || '--project=chromium --project=mobile-webkit' }}
       - name: Full regression
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run test:e2e:web:full

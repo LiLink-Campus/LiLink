@@ -39,6 +39,12 @@ jobs:
       - name: Run shared package tests
         run: npm run test:shared
 
+      - name: Test Git hook contracts
+        run: npm run test:hooks
+
+      - name: Test immutable asset integrity guards
+        run: node --test scripts/images/immutable-assets.test.mjs
+
       - name: Test isolated release guards
         run: node --test scripts/release/*.test.mjs
 
