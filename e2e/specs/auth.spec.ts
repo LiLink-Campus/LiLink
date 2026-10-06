@@ -186,6 +186,8 @@ test('password reset revokes a second browser session and keeps the replacement 
     await previousPage.goto('/dashboard/me', { waitUntil: 'domcontentloaded' });
     await expect(previousPage).toHaveURL(/\/login/);
     await expect(previousPage.getByRole('button', { name: '登录', exact: true })).toBeVisible();
+    await expect(previousPage.getByLabel('邮箱', { exact: true })).toBeEnabled();
+    await expect(previousPage.locator('main .animate-in')).toHaveCSS('opacity', '1');
     await testInfo.attach('revoked-session-login-state', {
       body: await previousPage.screenshot({ fullPage: true }),
       contentType: 'image/png',

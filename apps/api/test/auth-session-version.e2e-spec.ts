@@ -21,11 +21,17 @@ import {
 } from './fixtures/auth-session';
 
 const database = new URL(env.DATABASE_URL);
+const disposableRun = /^\/lilink_vip_test_[a-f0-9]+$/.test(database.pathname);
+const disposableCi =
+  process.env.CI === 'true' &&
+  database.port === '55432' &&
+  database.pathname === '/lilink_vip_test_ci';
 if (
+  database.protocol !== 'postgresql:' ||
   database.hostname !== '127.0.0.1' ||
   !database.port ||
   database.port === '5432' ||
-  !/^\/lilink_vip_test_[a-f0-9]+$/.test(database.pathname) ||
+  (!disposableRun && !disposableCi) ||
   !process.env.E2E_OUTPUT
 ) {
   throw new Error('Session acceptance requires the disposable API E2E runner.');
