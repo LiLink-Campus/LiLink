@@ -46,7 +46,7 @@ export class AdminUserWriteService {
         data: {
           status: input.status,
         },
-        omit: { passwordHash: true },
+        omit: { passwordHash: true, sessionVersion: true },
       })
       .catch((error: unknown) => {
         if (isRecordNotFoundError(error)) {
@@ -134,7 +134,7 @@ export class AdminUserWriteService {
                 }
               : {}),
           },
-          omit: { passwordHash: true },
+          omit: { passwordHash: true, sessionVersion: true },
         })
         .catch((error: unknown) => {
           if (isRecordNotFoundError(error)) {
@@ -223,7 +223,7 @@ export class AdminUserWriteService {
       data: {
         nonEduReferralLimit: input.nonEduReferralLimit,
       },
-      omit: { passwordHash: true },
+      omit: { passwordHash: true, sessionVersion: true },
     });
 
     await this.adminAuditService.write(

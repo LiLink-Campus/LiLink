@@ -31,10 +31,6 @@ const USER_ACTIVITY_UPDATE_THROTTLE_MS = 60 * 60 * 1000;
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   private readonly logger = new Logger(JwtAuthGuard.name);
-  private readonly pendingUserLoads = new Map<
-    string,
-    Promise<ActiveAuthenticatedUser>
-  >();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -54,14 +50,14 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     let payload: {
-      sub: string;
-      email: string;
+      sub?: unknown;
+      sessionVersion?: unknown;
     };
 
     try {
       payload = await this.jwtService.verifyAsync<{
-        sub: string;
-        email: string;
+        sub?: unknown;
+        sessionVersion?: unknown;
       }>(token, {
         secret: env.JWT_SECRET,
       });
@@ -69,7 +65,17 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Authentication token is invalid.');
     }
 
-    const user = await this.loadActiveUser(payload.sub);
+    if (
+      !payload ||
+      typeof payload.sub !== 'string' ||
+      typeof payload.sessionVersion !== 'number' ||
+      !Number.isSafeInteger(payload.sessionVersion) ||
+      payload.sessionVersion < 0
+    ) {
+      throw new UnauthorizedException('Authentication token is invalid.');
+    }
+
+    const user = await this.findActiveUser(payload.sub, payload.sessionVersion);
     request.user = {
       sub: user.sub,
       email: user.email,
@@ -86,22 +92,9 @@ export class JwtAuthGuard implements CanActivate {
     return true;
   }
 
-  private async loadActiveUser(userId: string) {
-    const pendingLoad = this.pendingUserLoads.get(userId);
-    if (pendingLoad) {
-      return pendingLoad;
-    }
-
-    const nextLoad = this.findActiveUser(userId).finally(() => {
-      this.pendingUserLoads.delete(userId);
-    });
-    this.pendingUserLoads.set(userId, nextLoad);
-
-    return nextLoad;
-  }
-
   private async findActiveUser(
     userId: string,
+    sessionVersion: number,
   ): Promise<ActiveAuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -113,6 +106,7 @@ export class JwtAuthGuard implements CanActivate {
         status: true,
         deactivatedAt: true,
         lastActiveAt: true,
+        sessionVersion: true,
       },
     });
 
@@ -122,6 +116,10 @@ export class JwtAuthGuard implements CanActivate {
 
     if (user.deactivatedAt || user.status !== 'ACTIVE') {
       throw new UnauthorizedException('Account is not active.');
+    }
+
+    if (user.sessionVersion !== sessionVersion) {
+      throw new UnauthorizedException('Authentication token is invalid.');
     }
 
     return {

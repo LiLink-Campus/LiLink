@@ -15,6 +15,7 @@ lang: zh
 
 | 文档 | 用途 |
 | --- | --- |
+| [密码重置撤销账号旧会话](2026-10-06-user-session-revocation.md) | 会话版本、旧令牌策略 A、切流与安全回滚 |
 | [首页快照与业务驱动失效](2026-10-03-public-home-snapshot.md) | 缓存职责、事务通知、故障与发布顺序 |
 | [展示内容核验与稳定追踪](2026-10-04-content-addressed-public-cache.md) | 展示投影、实际发布核验、ISR 与动态 SSR 追踪边界 |
 | [秋季设计决策](autumn-2026/README.md) | 注册、资料、匹配偏好与历史访问的决策及撤回 |
