@@ -262,27 +262,47 @@ test('admin cycle change invalidates server snapshot through the durable dispatc
 
 // Failure boundaries: rollback must also roll back the pending event; bursts of
 // ordinary writes increase the revision while retaining their original due time.
+// A previous dispatch must finish before comparing the queue's due time; its
+// receiver claim legitimately moves the next permitted publication window.
 test('transactional cache notifications roll back and coalesce membership bursts @smoke', async ({ db }, info) => {
   const school = await db.school.findUniqueOrThrow({ where: { slug: 'e2e-school' } });
   const data = () => ({ email: `${randomUUID()}@school.example.test`, passwordHash: 'synthetic-unused',
     displayName: '事务验收同学', status: 'ACTIVE', schoolId: school.id, isTest: false, acceptedTermsAt: new Date() });
-  const before = await db.publicCacheInvalidation.findUnique({ where: { scope: 'home' } });
-  await expect(db.$transaction(async (tx: any) => {
-    await tx.user.create({ data: data() });
-    throw new Error('synthetic-rollback');
-  })).rejects.toThrow('synthetic-rollback');
-  const rolledBack = await db.publicCacheInvalidation.findUnique({ where: { scope: 'home' } });
-  expect(rolledBack?.revision).toBe(before?.revision);
-  const first = await db.user.create({ data: data() });
-  const pending = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
-  const second = await db.user.create({ data: data() });
-  const coalesced = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
-  expect(coalesced.revision).toBe(pending.revision + 1n);
-  expect(coalesced.dueAt.toISOString()).toBe(pending.dueAt.toISOString());
-  await db.user.deleteMany({ where: { id: { in: [first.id, second.id] } } });
-  await info.attach('transactional-coalescing', { contentType: 'application/json', body: JSON.stringify({
-    project: info.project.name, assertions: { rollbackPreservesRevision: true, membershipBurstCoalesced: true },
-  }, null, 2) });
+  let originalDueAt: Date | undefined;
+  const users: string[] = [];
+  // Defer only this disposable queue's clock. Keep its revisions and existing
+  // lease owner intact; an earlier dispatcher snapshot cannot claim a future row.
+  await expect.poll(async () => {
+    const row = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
+    const deferred = await db.publicCacheInvalidation.updateMany({ where: {
+      scope: 'home', revision: row.revision,
+      OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }],
+    }, data: { dueAt: new Date(Date.now() + 3_600_000) } });
+    if (deferred.count === 1) originalDueAt = row.dueAt;
+    return deferred.count;
+  }, { timeout: 35_000, intervals: [100, 250, 500] }).toBe(1);
+  try {
+    const before = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
+    await expect(db.$transaction(async (tx: any) => {
+      await tx.user.create({ data: data() });
+      throw new Error('synthetic-rollback');
+    })).rejects.toThrow('synthetic-rollback');
+    const rolledBack = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
+    expect(rolledBack.revision).toBe(before.revision);
+    users.push((await db.user.create({ data: data() })).id);
+    const pending = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
+    users.push((await db.user.create({ data: data() })).id);
+    const coalesced = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
+    expect(coalesced.revision).toBe(pending.revision + 1n);
+    expect(coalesced.dueAt.toISOString()).toBe(pending.dueAt.toISOString());
+    await info.attach('transactional-coalescing', { contentType: 'application/json', body: JSON.stringify({
+      project: info.project.name, pendingDueAt: pending.dueAt, coalescedDueAt: coalesced.dueAt,
+      assertions: { previousDispatcherSettled: true, rollbackPreservesRevision: true, membershipBurstCoalesced: true },
+    }, null, 2) });
+  } finally {
+    await db.user.deleteMany({ where: { id: { in: users } } });
+    await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: { dueAt: originalDueAt } });
+  }
 });
 
 // Failure boundary: a legitimate invalidation during a real upstream outage must
