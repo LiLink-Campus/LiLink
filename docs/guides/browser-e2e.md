@@ -54,7 +54,7 @@ Next.js 的 `LILINK_BUILD_WORKSPACE_ROOT` 仅用于让临时源码副本中的 T
 
 每条用例通过本地受信代理头使用独立的合成客户端 IP，避免多用户场景误共享 IP 限流桶；另有同一客户端第六次激活返回 429 的用例验证限流仍然生效。
 
-全局匹配周期测试会在 `finally` 恢复状态。目前每个运行器固定一个 worker，避免共享周期的用例相互污染；独立运行器可以并行，因为端口、容器、数据库和构建输出互不共用。
+全局匹配周期测试会在 `finally` 恢复状态。每个运行器固定一个 worker，避免共享周期的用例相互污染；独立运行器可以并行，因为端口、容器、数据库和构建输出互不共用。全量命令为每个浏览器项目创建独立运行器，本地最多同时运行两个，CI 使用四个独立 job。这样保留全部用例，并避免大量内嵌截图超过单个 JSON 报告的字符串限制。任一项目失败或缺失 JSON 工件均使全量验收失败；本地汇总保存在 `artifacts/e2e-full/<run-id>/summary.json`。
 
 若进程被 SIGKILL 或机器断电，正常清理无法执行。先按日志中的 run-id 检查 `docker ps -a --filter label=lilink.e2e=<run-id>`，仅清理确认属于该次测试的容器和 workspace。
 
@@ -101,7 +101,18 @@ Linux 包装器只复制源码，使用容器内独立依赖卷。报告写入 `
 
 ## CI 与证据
 
-`.github/workflows/browser-e2e.yml` 在 PR 和 main push 运行 Chromium + 移动 WebKit 核心流程；手动和夜间运行四项目全量功能测试。另执行视觉比较。CI 重试一次供排障，但 `failOnFlakyTests` 会让重试才通过的用例仍使任务失败。
+`.github/workflows/browser-e2e.yml` 在 PR 和 main push 运行 Chromium + 移动 WebKit 核心流程；手动和夜间运行四项目全量功能测试。另执行视觉比较。独立矩阵在四个浏览器项目补跑 SSR 故障、VIP 未知初值和更新列表的四种上游响应；这些用例在普通运行中因缺少专用环境而跳过。CI 重试一次供排障，但 `failOnFlakyTests` 会让重试才通过的用例仍使任务失败。
+
+本地完整验收还需运行专用场景：
+
+```bash
+node scripts/e2e/run.mjs --contract-proxy private-contracts.spec.ts vip-refresh.spec.ts --grep 'private-contracts\.spec\.ts|null bootstrap'
+node scripts/e2e/run.mjs --devlog-fixture=items updates-feed.spec.ts
+node scripts/e2e/run.mjs --devlog-fixture=empty updates-feed.spec.ts
+node scripts/e2e/run.mjs --devlog-fixture=failure updates-feed.spec.ts
+node scripts/e2e/run.mjs --devlog-fixture=malformed updates-feed.spec.ts
+node scripts/e2e/run.mjs sentry-cache-tracing.spec.ts --sentry-tracing
+```
 
 每轮输出 `artifacts/e2e/<run-id>/`：HTML 报告、JSON 结果、服务日志、失败截图/视频/trace、运行耗时信息。`latest.json` 供报告命令找到最近一次运行。CI 即使失败也上传证据并保留 7 天。文件均在 Git 忽略目录，不提交运行产物；已审核基准图除外。
 

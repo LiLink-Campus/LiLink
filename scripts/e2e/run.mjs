@@ -205,6 +205,8 @@ try {
     } finally { clearTimeout(expiry); }
   } else {
     await Promise.race([command('npx', ['playwright', 'test', ...playwrightArgs], { label: 'tests' }), serviceFailure]);
+    // Reporter errors may leave Playwright's exit code at zero.
+    await access(path.join(output, 'results.json'));
   }
   }
   }

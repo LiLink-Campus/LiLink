@@ -54,6 +54,7 @@ test('home summary retains eligibility and account isolation without full questi
 });
 
 test('profile keeps verified VIP state through transient reads and expiry remains authoritative', async ({ page, context, db, account }) => {
+  await page.clock.install();
   await completeProfile(context, db);
   await db.vipActivation.create({ data: { codeHash: `performance-${account.id}`, userId: account.id, activatedAt: new Date(Date.now() - 86_400_000), expiresAt: new Date(Date.now() + 60_000), batch: 'e2e-performance' } });
   await visit(page, '/dashboard/profile');
@@ -77,6 +78,8 @@ test('profile keeps verified VIP state through transient reads and expiry remain
   await expect(activeBenefits.filter({ visible: true })).toBeVisible();
   await db.vipActivation.updateMany({ where: { userId: account.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
   await page.unroute('**/v1/me/vip');
+  // A later foreground event is independent of the coalesced focus burst.
+  await page.clock.runFor(1000);
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.getByText('权益状态暂时无法更新，稍后会自动重试。')).toHaveCount(0);
   await expect(activeBenefits).toHaveCount(0);

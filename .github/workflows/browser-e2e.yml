@@ -16,6 +16,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  special-scenarios:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: private-contracts
+            arguments: >-
+              --contract-proxy private-contracts.spec.ts vip-refresh.spec.ts
+              --grep 'private-contracts\.spec\.ts|null bootstrap'
+          - name: updates-items
+            arguments: --devlog-fixture=items updates-feed.spec.ts
+          - name: updates-empty
+            arguments: --devlog-fixture=empty updates-feed.spec.ts
+          - name: updates-failure
+            arguments: --devlog-fixture=failure updates-feed.spec.ts
+          - name: updates-malformed
+            arguments: --devlog-fixture=malformed updates-feed.spec.ts
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Verify fixture-dependent user paths in all four browser projects
+        run: node scripts/e2e/run.mjs ${{ matrix.arguments }}
+      - name: Preserve scenario evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-special-${{ matrix.name }}-${{ github.sha }}
+          path: |
+            artifacts/e2e/**/report/**
+            artifacts/e2e/**/results/**
+            artifacts/e2e/**/results.json
+            artifacts/e2e/**/*.log
+            artifacts/e2e/**/run.json
+          retention-days: 7
+          if-no-files-found: warn
   cache-tracing:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -46,9 +88,11 @@ jobs:
           if-no-files-found: ignore
   browser-e2e:
     runs-on: ubuntu-24.04
-    # Run 37217861229 used 41m39s for full regression plus 1m36s of setup.
-    # Allow 60m for full runs, roughly 4m of visual checks, and evidence uploads.
-    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 60 || 35 }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && fromJSON('["chromium","mobile-chromium","webkit","mobile-webkit"]') || fromJSON('["core"]') }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -67,18 +111,17 @@ jobs:
       - name: PR core regression
         if: github.event_name == 'pull_request' || github.event_name == 'push'
         run: node scripts/e2e/run.mjs --project=chromium --project=mobile-webkit --grep @smoke
-      - name: Private protocol and SSR failure regression
-        run: node scripts/e2e/run.mjs --contract-proxy private-contracts.spec.ts --project=chromium --project=mobile-webkit
       - name: Full regression
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        run: npm run test:e2e:web:full
+        run: node scripts/e2e/run.mjs --grep-invert @visual --project=${{ matrix.project }}
       - name: Visual regression
+        if: matrix.project == 'core' || matrix.project == 'chromium'
         run: npm run test:e2e:web:linux -- --grep @visual
       - name: Preserve evidence even on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-e2e-${{ github.sha }}
+          name: browser-e2e-${{ matrix.project }}-${{ github.sha }}
           path: |
             artifacts/e2e/**/report/**
             artifacts/e2e/**/results/**
