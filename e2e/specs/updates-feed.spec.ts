@@ -75,13 +75,17 @@ for (const storage of ['absent', 'old', 'recent', 'blocked']) {
     const retired = await context.request.get('/api/devlog/latest');
     expect(retired.status()).toBe(404);
     expect(retired.headers()['cache-control']).not.toContain('immutable');
-    await page.evaluate(async () => {
-      scrollTo({ top: 0, behavior: 'instant' });
-      await Promise.all(document.getAnimations().filter(animation => {
+    await page.bringToFront();
+    await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('visible');
+    await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+    // History restoration can replace animation promises; inspect the live set.
+    await expect.poll(() => page.evaluate(() =>
+      document.getAnimations().filter(animation => {
         const duration = animation.effect?.getComputedTiming().endTime;
-        return typeof duration === 'number' && Number.isFinite(duration) && duration <= 5000;
-      }).map(animation => animation.finished.catch(() => {})));
-    });
+        return typeof duration === 'number' && Number.isFinite(duration) && duration <= 5000
+          && animation.playState !== 'finished' && animation.playState !== 'idle';
+      }).length,
+    )).toBe(0);
     await page.screenshot({ path: info.outputPath(`updates-${storage}.png`), fullPage: true });
     await info.attach('updates-feed-acceptance', { contentType: 'application/json', body: JSON.stringify({
       project: info.project.name, browser: browser.version(), viewport: page.viewportSize(),
