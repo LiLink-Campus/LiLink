@@ -88,9 +88,11 @@ jobs:
           if-no-files-found: ignore
   browser-e2e:
     runs-on: ubuntu-24.04
-    # Run 37217861229 used 41m39s for full regression plus 1m36s of setup.
-    # Allow 60m for full runs, roughly 4m of visual checks, and evidence uploads.
-    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 60 || 35 }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && fromJSON('["chromium","mobile-chromium","webkit","mobile-webkit"]') || fromJSON('["core"]') }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -111,14 +113,15 @@ jobs:
         run: node scripts/e2e/run.mjs --project=chromium --project=mobile-webkit --grep @smoke
       - name: Full regression
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        run: npm run test:e2e:web:full
+        run: node scripts/e2e/run.mjs --grep-invert @visual --project=${{ matrix.project }}
       - name: Visual regression
+        if: matrix.project == 'core' || matrix.project == 'chromium'
         run: npm run test:e2e:web:linux -- --grep @visual
       - name: Preserve evidence even on failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-e2e-${{ github.sha }}
+          name: browser-e2e-${{ matrix.project }}-${{ github.sha }}
           path: |
             artifacts/e2e/**/report/**
             artifacts/e2e/**/results/**

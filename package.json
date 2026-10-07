@@ -83,7 +83,7 @@
     "audit:storybook:web": "node scripts/audit-storybook-coverage.mjs",
     "test:e2e:infra": "node --test scripts/e2e/environment.test.mjs",
     "test:e2e:web": "node scripts/e2e/run.mjs --project=chromium --grep @smoke",
-    "test:e2e:web:full": "node scripts/e2e/run.mjs --grep-invert @visual",
+    "test:e2e:web:full": "node scripts/e2e/full.mjs",
     "test:e2e:web:ui": "node scripts/e2e/run.mjs --ui",
     "test:e2e:web:visual": "node scripts/e2e/run.mjs --grep @visual",
     "test:e2e:web:report": "node scripts/e2e/report.mjs",
