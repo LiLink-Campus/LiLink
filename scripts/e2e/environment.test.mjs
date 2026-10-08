@@ -65,7 +65,7 @@ test('API test bootstrap refuses unowned workspaces before importing database cl
     const api = path.join(root, 'apps/api');
     await mkdir(api, { recursive: true });
     await symlink(path.resolve('node_modules'), path.join(root, 'node_modules'));
-    await copyFile('apps/api/test/jest.setup.ts', path.join(api, 'jest.setup.ts'));
+    await copyFile('apps/api/test/jest.database.setup.ts', path.join(api, 'jest.setup.ts'));
     const invoke = overrides => execFileSync(process.execPath, ['jest.setup.ts'], {
       cwd: api, stdio: ['ignore', 'pipe', 'pipe'],
       env: { PATH: process.env.PATH, E2E_WORKSPACE: root,

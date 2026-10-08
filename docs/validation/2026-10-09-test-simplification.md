@@ -30,7 +30,7 @@ Shell 传播非零状态；Jest/Vitest/Playwright 原生报告检查非空、无
 | 类别 | 文件数 | 行数前→后 | 新增 / 删除 / 净变化 |
 | --- | --- | --- | --- |
 | 测试和Story | 228→209 | 45212→43993 | +4411 / -5630 / **-1219** |
-| Fixture/runner/config/辅助 | 38→32 | 3374→2539 | +268 / -1103 / **-835** |
+| Fixture/runner/config/辅助 | 38→33 | 3374→2548 | +277 / -1103 / **-826** |
 | 日常CI Workflow | 5→1 | 508→57 | +33 / -484 / **-451** |
 | 手动演练含其Workflow | 15→10 | 998→724 | +243 / -517 / **-274** |
 
@@ -100,7 +100,7 @@ API 删除16个重复unit声明：draft相同昵称、四节点评分、name-col
 | Playwright空选集 | No tests found、exit1并清理（985dcf0af287），不算业务故障检出。 |
 | 代理在途取消 | 真实HTTP黑洞使旧close超过2s失败；修复后2ms退出，原有15s请求deadline不变。 |
 
-实施期失败保留：fixture旧聚合owner/TDZ、历史schema相对路径、问卷fixture含非法key均已定位修正并重跑；Story合并后的ACTIVE filter/accessible name/动画中间态、factory标签静态展开漏选已修正，206条的早期绿灯未当作完整216条；浏览器注册只读邀请码/可见VIP expiry断言已修正。全套入口初期暴露Git中文路径转义、遗漏`.env.example`、API格式检查，已修复。两次npm `ECONNRESET` 为依赖下载失败，不能记业务通过，也未提高重试次数。首次k6 JWT缺少sessionVersion造成401，修正真实合成会话并在发压前检查身份。
+实施期失败保留：fixture旧聚合owner/TDZ、历史schema相对路径、问卷fixture含非法key均已定位修正并重跑；Story合并后的ACTIVE filter/accessible name/动画中间态、factory标签静态展开漏选已修正，206条的早期绿灯未当作完整216条；浏览器注册只读邀请码/可见VIP expiry断言已修正。首个GitHub候选09658b3的CI因数据库guard误挂到unit共享setup失败（[37841513186](https://github.com/LiLink-Campus/LiLink/actions/runs/37841513186)），Story216通过；guard已独立挂在E2E的第一setup，unit624及真实注册PG9条重新通过，未绕过隔离检查。全套入口初期暴露Git中文路径转义、遗漏`.env.example`、API格式检查，已修复。两次npm `ECONNRESET` 为依赖下载失败，不能记业务通过，也未提高重试次数。首次k6 JWT缺少sessionVersion造成401，修正真实合成会话并在发压前检查身份。
 
 取消集成 c81127b04976：暂停真实API（SIGSTOP），保持代理请求pending，再SIGTERM runner；exit130、3.558s、零当次容器、工作目录删除。API Jest启动文件也拒绝非任务工作目录、本地dotenv和无效目标，在任何数据库client导入之前失败；实际配置子进程探针先复现缺少拒绝，再修复并4/4通过。
 
