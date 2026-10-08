@@ -13,6 +13,10 @@ const env = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: os.de
 for (const name of Object.keys(env))
   if (name.startsWith("GIT_") && !["GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL"].includes(name))
     delete env[name];
+// The container bind mount retains the host runner UID; trust only this source root.
+env.GIT_CONFIG_COUNT = "1";
+env.GIT_CONFIG_KEY_0 = "safe.directory";
+env.GIT_CONFIG_VALUE_0 = root;
 const sourceCommit = run(root, "git", ["rev-parse", "HEAD"]).stdout.trim();
 const sourceBytes = run(root, "git", ["show", `${sourceCommit}:README.md`], {
   encoding: null,
