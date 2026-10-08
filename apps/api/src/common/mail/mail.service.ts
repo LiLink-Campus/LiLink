@@ -10,13 +10,18 @@ import {
   STALE_PROCESSING_MS,
 } from './mail-delivery';
 import { MAIL_DATABASE } from './mail-database';
+import { nextIdleDeadline } from '../idle-deadline';
 
 @Injectable()
 export class MailService extends MailContent {
   private readonly logger = new Logger(MailService.name);
   private isFlushing = false;
+  private stopped = false;
   private flushPollUntil = Date.now() + FLUSH_GRACE_MS;
-  private nextFallbackAt = Date.now() + env.OUTBOUND_EMAIL_IDLE_POLL_MS;
+  private nextFallbackAt = nextIdleDeadline(
+    Date.now(),
+    env.OUTBOUND_EMAIL_IDLE_POLL_MS,
+  );
   private nextScanRetryAt = 0;
   private consecutiveFailures = 0;
   private firstScanFailureAt: number | null = null;
@@ -37,6 +42,7 @@ export class MailService extends MailContent {
   }
 
   onModuleDestroy() {
+    this.stopped = true;
     this.delivery.close();
   }
 
@@ -60,6 +66,7 @@ export class MailService extends MailContent {
   })
   async handleEmailQueue() {
     if (
+      this.stopped ||
       !env.BACKGROUND_JOBS_ENABLED ||
       !env.MAIL_DELIVERY_ENABLED ||
       env.RELEASE_MAINTENANCE
@@ -74,7 +81,10 @@ export class MailService extends MailContent {
     try {
       const scanned = await this.flushQueuedEmails();
       if (scanned && now >= this.nextFallbackAt)
-        this.nextFallbackAt = now + env.OUTBOUND_EMAIL_IDLE_POLL_MS;
+        this.nextFallbackAt = nextIdleDeadline(
+          now,
+          env.OUTBOUND_EMAIL_IDLE_POLL_MS,
+        );
     } catch {
       this.consecutiveFailures++;
       this.firstScanFailureAt ??= now;
@@ -100,7 +110,8 @@ export class MailService extends MailContent {
   async flushQueuedEmails(
     options: { dedupeKeys?: string[]; limit?: number } = {},
   ): Promise<boolean | undefined> {
-    if (!env.MAIL_DELIVERY_ENABLED || env.RELEASE_MAINTENANCE) return;
+    if (this.stopped || !env.MAIL_DELIVERY_ENABLED || env.RELEASE_MAINTENANCE)
+      return;
     if (options.dedupeKeys?.length)
       this.extendFlushWindow(Date.now() + FLUSH_GRACE_MS);
     if (this.isFlushing) return;

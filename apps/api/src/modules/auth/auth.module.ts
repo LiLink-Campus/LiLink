@@ -1,3 +1,4 @@
+import { PublicModule } from '../public/public.module';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
@@ -8,6 +9,7 @@ import { ReferralModule } from '../referral/referral.module';
 
 @Module({
   imports: [
+    PublicModule,
     JwtModule.register({
       global: true,
       secret: env.JWT_SECRET,

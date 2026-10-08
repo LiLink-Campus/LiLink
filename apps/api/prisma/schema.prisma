@@ -556,6 +556,8 @@ model PublicCacheInvalidation {
   lastDeliveredAt      DateTime?
   deliveredHash        String?
   verifiedHash         String?
+  verificationCompletedRevision BigInt?
+  verificationOutcome String?
   lastVerificationAt   DateTime?
   verificationTargetHash String?
   verificationFailures Int       @default(0)
