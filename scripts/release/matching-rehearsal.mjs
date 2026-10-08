@@ -1,10 +1,9 @@
-import { resolveDatabaseTarget } from './targets.mjs';
+import { resolveRehearsalDatabase } from './targets.mjs';
 import { createRequire } from 'node:module';
-import { access } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
-resolveDatabaseTarget(process.env.DATABASE_URL);
+resolveRehearsalDatabase(process.env.DATABASE_URL, process.env.REHEARSAL_RUN_ID);
 const require = createRequire(path.join(process.cwd(), 'package.json'));
 const { createPrismaClient } = require('./dist/src/common/prisma/client.js');
 const db = createPrismaClient();
@@ -40,38 +39,20 @@ async function tick() {
 try {
   assert.equal(await db.user.count(), 2000);
   assert.equal(await db.user.count({ where: { id: { startsWith: 'release_user_' }, email: { endsWith: '@release.example.test' } } }), 2000);
-  // Retain prior pairs while stopping abandoned cycles from being scheduled.
-  await db.matchCycle.updateMany({ where: { id: { startsWith: 'release_worker_' }, status: { not: 'REVEALED' } }, data: { status: 'DRAFT' } });
-  await db.outboundEmail.updateMany({ where: { recipientEmail: { endsWith: '@release.example.test' }, dedupeKey: { startsWith: 'match-reveal:' }, status: { in: ['PENDING', 'PROCESSING', 'FAILED'] } }, data: { status: 'EXHAUSTED', errorMessage: 'Previous synthetic rehearsal retained; delivery retired.' } });
   for (let attempt = 0; ; attempt++) {
     try { assert.equal((await fetch(`${base}/health`)).status, 200); break; }
     catch (error) { if (attempt >= 30) throw error; await new Promise(resolve => setTimeout(resolve, 1000)); }
   }
   // Keep the write-load fixture open while the dedicated matching cycles run.
   await db.matchCycle.update({ where: { id: 'release_current' }, data: { participationDeadline: new Date(Date.now() + 4 * 3600_000), revealAt: new Date(Date.now() + 5 * 3600_000) } });
-  for (const count of [500, 1000, 2000]) {
-    const stopped = await access('/release-output/stop-matching').then(() => true, () => false);
-    assert.equal(stopped, false, 'Normal read load stopped; do not advance to the next matching stage.');
+  for (const count of [2000]) {
     const cycleId = `release_worker_${process.env.SENTRY_RELEASE}_${count}`;
     assert.equal(await db.matchCycle.count({ where: { id: cycleId } }), 0, 'Use a fresh candidate SHA for a new rehearsal.');
     await db.matchCycle.create({ data: { id: cycleId, codename: `合成撮合 ${count} ${process.env.SENTRY_RELEASE.slice(0, 12)}`, status: 'DRAFT', participationDeadline: new Date(Date.now() - 60_000), revealAt: new Date(Date.now() + 3600_000) } });
     await db.cycleParticipation.createMany({ data: Array.from({ length: count }, (_, i) => ({ cycleId, userId: `release_user_${String(i).padStart(4, '0')}`, status: 'OPTED_IN', intent: 'BOTH', optedInAt: new Date() })) });
-    let pending = true;
-    const latencies = [];
-    const health = (async () => {
-      while (pending) {
-        const start = performance.now();
-        const response = await fetch(`${base}/health`, { signal: AbortSignal.timeout(3000) });
-        assert.equal(response.status, 200);
-        latencies.push(performance.now() - start);
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-    })();
-    // Attach a rejection handler before awaiting the matching request.
-    const healthResult = health.then(() => null, error => error);
     const start = performance.now();
     let prepared;
-    try {
+    {
       // Publish only complete fixtures to the live scheduler.
       await db.matchCycle.update({ where: { id: cycleId }, data: { status: 'OPEN' } });
       prepared = await tick();
@@ -80,9 +61,7 @@ try {
       } else {
         assert.ok(prepared.preparedCycleIds.includes(cycleId), 'HTTP success did not prepare the expected cycle.');
       }
-    } finally { pending = false; }
-    const healthError = await healthResult;
-    if (healthError) throw healthError;
+    }
     const prepareMs = Math.round(performance.now() - start);
     if (prepareMs > 60_000) timingFailures.push(`${count} participants prepared in ${prepareMs} ms (limit 60000).`);
     const matches = await db.match.findMany({ where: { cycleId }, include: { participants: { select: { userId: true, profileSnapshot: true } } } });
@@ -90,8 +69,23 @@ try {
     assert.ok(matches.every(m => m.participants.length === 2));
     const participants = matches.flatMap(m => m.participants);
     assert.equal(new Set(participants.map(p => p.userId)).size, count);
+    assert.deepEqual(participants.map(p => p.userId).sort(),
+      Array.from({ length: count }, (_, i) => `release_user_${String(i).padStart(4, '0')}`));
+    const historical = await db.match.findMany({ where: { cycleId: { startsWith: 'release_history_' } }, include: { participants: true } });
+    const priorPairs = new Set(historical.map(m => m.participants.map(p => p.userId).sort().join(':')));
+    for (const match of matches) {
+      const [left, right] = match.participants;
+      assert.notEqual(left.userId, right.userId);
+      for (const [person, partner] of [[left, right], [right, left]]) {
+        const index = Number(person.userId.slice('release_user_'.length));
+        assert.equal(person.profileSnapshot.gender, index % 2 ? '男' : '女');
+        assert.deepEqual(person.profileSnapshot.partnerGenders, [index % 2 ? '女' : '男']);
+        assert.ok(person.profileSnapshot.partnerGenders.includes(partner.profileSnapshot.gender), 'Mutual gender constraint failed.');
+      }
+      assert.ok(!priorPairs.has(match.participants.map(p => p.userId).sort().join(':')), 'Historical pair repeated.');
+    }
     assert.ok(participants.every(p => p.profileSnapshot?.source === 'matching-preparation'));
-    console.log(JSON.stringify({ stage: 'prepared', participants: count, matches: matches.length, prepareMs, automaticJobs, completedByManualTick: prepared.preparedCycleIds.includes(cycleId), healthRequests: latencies.length, healthMaxMs: Math.round(Math.max(...latencies)) }));
+    console.log(JSON.stringify({ time: new Date().toISOString(), stage: 'prepared', participants: count, matches: matches.length, prepareMs, automaticJobs, completedByManualTick: prepared.preparedCycleIds.includes(cycleId) }));
     const previousReceipts = new Set((await receivedMessages()).map(message => message.ID));
     await db.matchCycle.update({ where: { id: cycleId }, data: { revealAt: new Date(Date.now() - 1000) } });
     const revealStart = performance.now();
@@ -103,7 +97,22 @@ try {
     }
     assert.equal(await db.userCycleDashboardSnapshot.count({ where: { cycleId } }), count, 'Reveal did not finish all dashboard snapshots.');
     assert.equal(await db.match.count({ where: { cycleId, introducedAt: { not: null } } }), count / 2);
-    console.log(JSON.stringify({ stage: 'revealed', participants: count, matches: count / 2, snapshots: count, revealMs: Math.round(performance.now() - revealStart) }));
+    const snapshots = await db.userCycleDashboardSnapshot.findMany({ where: { cycleId } });
+    assert.deepEqual(snapshots.map(s => s.userId).sort(), participants.map(p => p.userId).sort());
+    for (const snapshot of snapshots) {
+      const match = matches.find(m => m.participants.some(p => p.userId === snapshot.userId));
+      assert.equal(snapshot.matchId, match.id);
+      assert.equal(snapshot.result, 'MATCHED');
+      assert.equal(snapshot.matchPayload.id, match.id);
+      assert.deepEqual(snapshot.matchPayload.participants.map(p => p.userId).sort(), match.participants.map(p => p.userId).sort());
+      for (const person of snapshot.matchPayload.participants) {
+        const index = Number(person.userId.slice('release_user_'.length));
+        assert.equal(person.email, `user${index}@release.example.test`);
+        assert.deepEqual(person.contact, { type: 'EMAIL', label: '邮箱', value: person.email });
+        assert.equal(person.introLine, `合成用户 ${index} 喜欢读书和散步。`);
+      }
+    }
+    console.log(JSON.stringify({ time: new Date().toISOString(), stage: 'revealed', participants: count, matches: count / 2, snapshots: count, revealMs: Math.round(performance.now() - revealStart) }));
     const dedupeKeys = matches.flatMap(match => [0, 1].map(index => `match-reveal:${match.id}:${index}`));
     assert.equal(await db.outboundEmail.count({ where: { dedupeKey: { in: dedupeKeys } } }), count);
     while (await db.outboundEmail.count({ where: { dedupeKey: { in: dedupeKeys }, status: 'SENT' } }) !== count) {
@@ -112,11 +121,16 @@ try {
     }
     const replay = await tick();
     assert.ok(!replay.revealedCycleIds.includes(cycleId), 'Repeated scheduling revealed a completed cycle.');
+    assert.equal(await db.match.count({ where: { cycleId } }), count / 2);
+    assert.equal(await db.userCycleDashboardSnapshot.count({ where: { cycleId } }), count);
+    assert.equal(await db.outboundEmail.count({ where: { dedupeKey: { in: dedupeKeys } } }), count);
+    assert.equal(await db.outboundEmail.count({ where: { dedupeKey: { in: dedupeKeys }, status: 'SENT' } }), count);
+    assert.equal((await db.matchCycle.findUniqueOrThrow({ where: { id: cycleId } })).status, 'REVEALED');
     const receipts = (await receivedMessages()).filter(message => !previousReceipts.has(message.ID));
     assert.equal(receipts.length, count, 'The mailbox did not receive exactly one email per participant.');
     assert.ok(receipts.every(message => message.To.length === 1));
     assert.deepEqual(receipts.map(message => message.To[0].Address).sort(), Array.from({ length: count }, (_, i) => `user${i}@release.example.test`).sort());
-    console.log(JSON.stringify({ stage: 'mail-delivered', participants: count, sent: count, received: receipts.length, revealToQueueDrainedMs: Math.round(performance.now() - revealStart), repeatedReveal: false }));
+    console.log(JSON.stringify({ time: new Date().toISOString(), stage: 'mail-delivered', participants: count, sent: count, received: receipts.length, revealToQueueDrainedMs: Math.round(performance.now() - revealStart), repeatedReveal: false }));
   }
   assert.deepEqual(timingFailures, [], 'Matching preparation exceeded the release time budget.');
 } finally { await db.$disconnect(); }

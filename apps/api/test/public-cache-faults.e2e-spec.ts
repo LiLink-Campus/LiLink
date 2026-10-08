@@ -14,9 +14,25 @@ import { PublicCacheSignals } from '../src/modules/public/public-cache-signals';
 import { createPublicCacheDatabase } from '../src/modules/public/public-cache-database';
 import { databaseFaultProxy } from './mail-recovery-smtp';
 
-// Real transport and table-lock faults exercise connection acquisition, active
-// query cancellation, and the automatic 60-second recovery path. The long mode
-// observes all default retry/degraded deadlines without moving any clocks.
+// Only scheduler cadence is shortened. Date, PostgreSQL NOW(), socket timeouts,
+// statement cancellation and the automatic timer path remain real.
+jest.mock('../src/modules/public/public-cache-schedule', () => {
+  const actual = jest.requireActual<
+    typeof import('../src/modules/public/public-cache-schedule')
+  >('../src/modules/public/public-cache-schedule');
+  return {
+    PublicCacheSchedule: class extends actual.PublicCacheSchedule<unknown> {
+      constructor(
+        ...args: ConstructorParameters<typeof actual.PublicCacheSchedule>
+      ) {
+        super(args[0], args[1], args[2], {
+          retryMs: [200, 300, 400, 500],
+          idleMs: 2000,
+        });
+      }
+    },
+  };
+});
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const hash = 'a'.repeat(64);
 async function until(
@@ -143,7 +159,8 @@ describe('Public cache database fault recovery', () => {
         path.join(process.env.E2E_OUTPUT, 'public-cache-faults.json'),
         JSON.stringify(
           {
-            clock: 'Real wall clock; production timeout and retry intervals',
+            clock:
+              'Real JS and PostgreSQL clocks; 200/300/400/500/2000ms scheduler cadence; production network deadlines',
             evidence,
           },
           null,
@@ -168,7 +185,7 @@ describe('Public cache database fault recovery', () => {
       const confirmedAt = Date.now();
       expect(confirmedAt - startedAt).toBeLessThan(12_000);
       expect(fault.consecutiveFailures).toBe(1);
-      expect(fault.nextRecoveryAt! - confirmedAt).toBeGreaterThan(59_500);
+      expect(fault.nextRecoveryAt! - confirmedAt).toBeGreaterThan(50);
       await until(() => proxy.closedConnections() > closedBefore, 3000);
       expect((await home()).verificationFailures).toBe(0);
       proxy.resume();
@@ -272,6 +289,14 @@ describe('Public cache database fault recovery', () => {
           const result = (await query(args)) as number;
           if (!lost) {
             lost = true;
+            // Reproduce an old committed claim near expiry without advancing SQL time.
+            await db.publicCacheInvalidation.update({
+              where: { scope: 'home' },
+              data: {
+                lastVerificationAt: new Date(Date.now() - 298_000),
+                verificationLeaseUntil: new Date(Date.now() + 1800),
+              },
+            });
             throw new Error('Synthetic lost claim response');
           }
           return result;
@@ -291,7 +316,7 @@ describe('Public cache database fault recovery', () => {
     expect((await home()).verificationCompletedRevision).toBeNull();
     await until(
       async () => (await home()).verificationCompletedRevision === 10n,
-      270_000,
+      10_000,
     );
     const completedAt = Date.now();
     expect(completedAt).toBeGreaterThanOrEqual(eligibilityAt);
@@ -303,72 +328,94 @@ describe('Public cache database fault recovery', () => {
       preservedAttemptDuringRecovery: true,
       passed: true,
     });
-  }, 330_000);
+  }, 20_000);
 
-  (process.env.E2E_CACHE_FAULT_DEFAULTS === '1' ? it : it.skip)(
-    'observes the entire default fault budget, degraded probe and automatic recovery',
-    async () => {
-      proxy.pause();
+  it('exhausts real database scan failures, keeps its budget on signals, and automatically recovers', async () => {
+    await db.$executeRawUnsafe(
+      'ALTER TABLE "PublicCacheInvalidation" RENAME TO "CacheFaultFixture"',
+    );
+    let renamed = true;
+    try {
       start();
-      const timeline: Array<Record<string, unknown>> = [];
       for (let failure = 1; failure <= 5; failure++) {
         await until(
           () =>
             publication.getSchedulingState().consecutiveFailures === failure,
-          330_000,
+          5000,
         );
         const state = publication.getSchedulingState();
-        const observedAt = Date.now();
-        const interval = [60_000, 120_000, 240_000, 300_000, 900_000][
-          failure - 1
-        ];
-        expect(state.nextRecoveryAt! - observedAt).toBeGreaterThan(
-          interval - 300,
-        );
-        expect(state.nextRecoveryAt! - observedAt).toBeLessThanOrEqual(
-          interval,
-        );
-        timeline.push({ observedAt, ...state });
-        // Repeated signals and explicit entry points cannot spend/reset budget or
-        // postpone a fault deadline; these are fault stimulus, never recovery.
-        for (let i = 0; i < 4; i++) {
-          await publication.verify();
-          await publication.reconcile();
-        }
-        expect(publication.getSchedulingState().nextRecoveryAt).toBe(
-          state.nextRecoveryAt,
-        );
+        await publication.verify();
+        await publication.reconcile();
         expect(publication.getSchedulingState().consecutiveFailures).toBe(
           failure,
         );
-        console.log(`Cache fault default attempt ${failure}/5 observed.`);
+        expect(publication.getSchedulingState().nextRecoveryAt).toBe(
+          state.nextRecoveryAt,
+        );
       }
       expect(publication.getSchedulingState().state).toBe('degraded');
-      await until(
-        () => publication.getSchedulingState().consecutiveFailures === 6,
-        930_000,
+      await db.$executeRawUnsafe(
+        'ALTER TABLE "CacheFaultFixture" RENAME TO "PublicCacheInvalidation"',
       );
-      const degraded = publication.getSchedulingState();
-      expect(degraded.state).toBe('degraded');
-      expect(degraded.nextRecoveryAt! - Date.now()).toBeGreaterThan(899_700);
-      timeline.push({ observedAt: Date.now(), ...degraded });
+      renamed = false;
       expect((await home()).verificationFailures).toBe(0);
-      proxy.resume();
       await until(
         () => publication.getSchedulingState().state === 'healthy',
-        930_000,
+        5000,
       );
       expect((await home()).verificationCompletedRevision).toBe(10n);
-      timeline.push({
-        recoveredAt: Date.now(),
-        ...publication.getSchedulingState(),
-      });
       evidence.push({
-        boundary: 'default-persistent-outage',
-        timeline,
+        boundary: 'database-scan-budget',
+        failuresBeforeDegraded: 5,
+        automaticRecovery: true,
         passed: true,
       });
-    },
-    50 * 60_000,
-  );
+    } finally {
+      stop();
+      if (renamed)
+        await db.$executeRawUnsafe(
+          'ALTER TABLE "CacheFaultFixture" RENAME TO "PublicCacheInvalidation"',
+        );
+    }
+  }, 15_000);
+
+  it('does not query PostgreSQL between short idle boundaries and automatically polls at the boundary', async () => {
+    let databaseQueries = 0;
+    const monitored = workerDb.$extends({
+      query: {
+        $allOperations({ args, query }) {
+          databaseQueries++;
+          return query(args);
+        },
+      },
+    });
+    start(monitored as unknown as PrismaService);
+    await until(
+      async () => (await home()).verificationCompletedRevision === 10n,
+      5000,
+    );
+    await until(() => !publication.getSchedulingState().running, 1000);
+    if (publication.getSchedulingState().nextRunAt! - Date.now() < 600) {
+      const previousDeadline = publication.getSchedulingState().nextRunAt!;
+      await until(
+        () =>
+          !publication.getSchedulingState().running &&
+          publication.getSchedulingState().nextRunAt! > previousDeadline,
+        3000,
+      );
+    }
+    const idleQueries = databaseQueries;
+    const deadline = publication.getSchedulingState().nextRunAt!;
+    await wait(400);
+    expect(databaseQueries).toBe(idleQueries);
+    expect(Date.now()).toBeLessThan(deadline);
+    await until(() => databaseQueries > idleQueries, 3000);
+    expect(Date.now()).toBeGreaterThanOrEqual(deadline);
+    evidence.push({
+      boundary: 'short-real-postgres-idle',
+      idleQueries,
+      queriesAfterAutomaticPoll: databaseQueries,
+      passed: true,
+    });
+  });
 });

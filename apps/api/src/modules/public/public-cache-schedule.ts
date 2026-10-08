@@ -23,6 +23,10 @@ export class PublicCacheSchedule<T> {
     name: string,
     private readonly enabled: () => boolean,
     private readonly scan: () => Promise<ScanResult<T>>,
+    private readonly cadence: { retryMs: readonly number[]; idleMs: number } = {
+      retryMs: RETRY_MS,
+      idleMs: IDLE_POLL_MS,
+    },
   ) {
     this.logger = new Logger(name);
   }
@@ -85,7 +89,7 @@ export class PublicCacheSchedule<T> {
       this.state = 'healthy';
       const nextAt = Math.min(
         result.nextAt ?? Infinity,
-        nextIdleDeadline(Date.now()),
+        nextIdleDeadline(Date.now(), this.cadence.idleMs),
       );
       this.arm(this.rerun ? Date.now() : nextAt);
       return result.value;
@@ -94,7 +98,8 @@ export class PublicCacheSchedule<T> {
       this.firstFailureAt ??= Date.now();
       this.state = this.failures >= 5 ? 'degraded' : 'unknown';
       this.recoveryAt =
-        Date.now() + (RETRY_MS[this.failures - 1] ?? IDLE_POLL_MS);
+        Date.now() +
+        (this.cadence.retryMs[this.failures - 1] ?? this.cadence.idleMs);
       // Neither exception text nor unknown queue length is emitted.
       this.logger.warn({
         message: 'Public cache database scan failed.',

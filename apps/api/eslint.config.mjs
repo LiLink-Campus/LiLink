@@ -8,6 +8,15 @@ export default tseslint.config(
   {
     ignores: ['eslint.config.mjs', 'src/generated/**'],
   },
+  {
+    files: ['**/*.spec.ts', '**/*.e2e-spec.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', {
+        selector: "MemberExpression[object.name=/^(test|it|describe)$/][property.name=/^(only|skip|todo)$/]",
+        message: 'The fixed regression collection must not focus or skip tests.',
+      }],
+    },
+  },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   eslintPluginPrettierRecommended,

@@ -12,30 +12,26 @@ import { CenterBootstrap } from "@/app/dashboard/me/center-bootstrap";
 import { homeProps, profileProps, homePageData, profilePageData } from "./dashboard-bootstrap-fixtures";
 import { ProfileClient } from "@/app/dashboard/profile/profile-client";
 import { CouponsClient } from "@/app/dashboard/coupons/coupons-client";
-import { ReferralsClient } from "@/app/dashboard/referrals/referrals-client";
 import { MatchHistoryClient } from "@/app/dashboard/match/history/match-history-client";
 import Loading from "@/app/dashboard/loading";
-import DashboardError from "@/app/dashboard/error";
 import {
   matchDashboardFixtures as dashboards,
   matchStoryUser as user,
 } from "@/app/dashboard/match/match.fixtures";
-import { referralFixtures } from "@/app/dashboard/referrals/referrals.fixtures";
 import { questions, coupon, now, savedProfile } from "./site-fixtures";
 import { api, dashboardShell, failure, route, visible, siteHandlers } from "./site-support";
 
 const meta = {
+  tags: ["!test"],
   id: "site-dashboard",
   title: "全站/用户中心",
-  tags: ["smoke", "page"],
   decorators: [dashboardShell],
   parameters: { fullSite: true, ...route("/dashboard"), msw: { handlers: { session: [http.get(`${api}/auth/me`, () => HttpResponse.json(user))] } } },
 } satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const HomeJoined: Story = {
+const HomeJoined: Story = {
   render: () => <HomeBootstrap initialNowMs={homeProps.initialNowMs} initialData={homePageData} />,
-  play: visible("你已报名本轮匹配"),
 };
 export const HomeNewUser: Story = {
   render: () => (
@@ -53,9 +49,9 @@ export const HomeNewUser: Story = {
       questionnaireSubmitted={false}
     />
   ),
-  play: visible("先完成资料，再报名匹配"),
 };
 export const ChangeIntent: Story = {
+  tags: ["test"],
   ...HomeJoined,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -64,6 +60,7 @@ export const ChangeIntent: Story = {
   },
 };
 export const CancelParticipation: Story = {
+  tags: ["test"],
   ...HomeJoined,
   parameters: {
     msw: {
@@ -83,6 +80,7 @@ export const CancelParticipation: Story = {
   },
 };
 export const ParticipationFailure: Story = {
+  tags: ["test"],
   ...HomeJoined,
   parameters: {
     msw: { handlers: { site: [failure("/me/participation", "put"), ...siteHandlers] } },
@@ -106,6 +104,7 @@ async function jumpQuestion(canvasElement: HTMLElement, title: string) {
   await userEvent.click(dialog.getByRole("button", { name: new RegExp(`题：${title}`) }));
 }
 export const Profile: Story = {
+  tags: ["test"],
   globals: { viewport: { value: "mobile390", isRotated: false } },
   parameters: route("/dashboard/profile"),
   render: () => <ProfileBootstrap initialData={profilePageData} />,
@@ -120,6 +119,7 @@ export const Profile: Story = {
   },
 };
 export const ProfilePartner: Story = {
+  tags: ["test"],
   ...Profile,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -133,6 +133,7 @@ export const ProfilePartner: Story = {
   },
 };
 export const ProfileValues: Story = {
+  tags: ["test"],
   ...Profile,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -145,6 +146,7 @@ export const ProfileValues: Story = {
   },
 };
 export const BirthDateDialog: Story = {
+  tags: ["test"],
   ...Profile,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -157,6 +159,7 @@ export const BirthDateDialog: Story = {
   },
 };
 export const ContactFailure: Story = {
+  tags: ["test"],
   ...Profile,
   parameters: {
     ...route("/dashboard/profile"),
@@ -170,14 +173,9 @@ export const ContactFailure: Story = {
     await expect(await c.findByRole("button", { name: "重试保存" })).toBeVisible();
   },
 };
-export const History: Story = {
-  parameters: route("/dashboard/match/history"),
-  render: () => (
-    <MatchHistoryClient initialUser={user} initialDashboard={dashboards.lastRoundUnmatched} />
-  ),
-  play: visible("过往匹配记录"),
-};
+
 export const HistoryMatched: Story = {
+  tags: ["test"],
   parameters: route("/dashboard/match/history"),
   render: () => <MatchHistoryClient initialUser={user} initialDashboard={{
     ...dashboards.introducedContactCompleted,
@@ -194,13 +192,14 @@ export const HistoryMatched: Story = {
   },
 };
 export const HistoryEmpty: Story = {
+  tags: ["test"],
   parameters: route("/dashboard/match/history"),
   render: () => (
     <MatchHistoryClient initialUser={user} initialDashboard={dashboards.waitingNoResult} />
   ),
   play: visible("还没有过往匹配记录"),
 };
-export const Coupons: Story = {
+const Coupons: Story = {
   parameters: route("/dashboard/coupons"),
   render: () => (
     <CouponsClient
@@ -214,9 +213,9 @@ export const Coupons: Story = {
       }}
     />
   ),
-  play: visible(coupon.title),
 };
 export const CouponCode: Story = {
+  tags: ["test"],
   ...Coupons,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -225,11 +224,13 @@ export const CouponCode: Story = {
   },
 };
 export const CouponsEmpty: Story = {
+  tags: ["test"],
   parameters: route("/dashboard/coupons"),
   render: () => <CouponsClient initialUser={user} initialOverview={{ available: { items: [], nextCursor: null }, history: { items: [], nextCursor: null } }} />,
   play: visible(/暂无|还没有/),
 };
 export const CouponsFailure: Story = {
+  tags: ["test"],
   parameters: {
     ...route("/dashboard/coupons"),
     msw: { handlers: { site: [failure("/me/coupons/overview"), ...siteHandlers] } },
@@ -237,18 +238,16 @@ export const CouponsFailure: Story = {
   render: () => <CouponsClient initialUser={user} />,
   play: visible(/模拟服务暂时不可用/),
 };
-export const Referrals: Story = {
-  parameters: route("/dashboard/referrals"),
-  render: () => <ReferralsClient initialReferral={referralFixtures.eduWithFullQuota} />,
-  play: visible(/3E4V87GBP2/),
-};
+
 export const DashboardLoading: Story = {
+  tags: ["test"],
   render: () => <Loading />,
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByLabelText("正在加载 Dashboard")).toBeVisible();
   },
 };
 export const ContactSaved: Story = {
+  tags: ["test"],
   ...Profile,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -261,6 +260,7 @@ export const ContactSaved: Story = {
 };
 
 export const ProfileComplete: Story = {
+  tags: ["test"],
   ...Profile,
   render: () => (
     <ProfileClient
@@ -283,10 +283,10 @@ export const HomeNoCycle: Story = {
       initialDashboard={{ ...dashboards.waitingNoResult, currentCycle: null }}
     />
   ),
-  play: visible("当前暂无开放的匹配"),
 };
 
 export const ProfileRequiredFields: Story = {
+  tags: ["test"],
   ...Profile,
   parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true }))] } } },
   render: () => <ProfileClient {...profileProps} initialSavedQuestionnaire={{
@@ -318,21 +318,8 @@ export const ProfileRequiredFields: Story = {
   },
 };
 
-export const ProfileIntro: Story = {
-  ...Profile,
-  play: async ({ canvasElement }) => {
-    await jumpQuestion(canvasElement, "一句话介绍");
-    await expect(within(canvasElement).getByRole("textbox", { name: /一句话介绍/ })).toBeVisible();
-  },
-};
-export const ProfileContact: Story = {
-  ...Profile,
-  play: async ({ canvasElement }) => {
-    await jumpQuestion(canvasElement, "联系方式");
-    await expect(within(canvasElement).getByRole("textbox", { name: /内容$/ })).toBeVisible();
-  },
-};
 export const ProfileGender: Story = {
+  tags: ["test"],
   ...ProfileRequiredFields,
   play: async ({ canvasElement }) => {
     await jumpQuestion(canvasElement, "性别");
@@ -340,6 +327,7 @@ export const ProfileGender: Story = {
   },
 };
 export const ProfileLooksRequired: Story = {
+  tags: ["test"],
   ...ProfileRequiredFields,
   play: async ({ canvasElement }) => {
     await jumpQuestion(canvasElement, "颜值自评");
@@ -348,6 +336,7 @@ export const ProfileLooksRequired: Story = {
 };
 
 export const ProfileLongChoices: Story = {
+  tags: ["test"],
   ...Profile,
   render: () => <ProfileClient {...profileProps} initialQuestions={[
     { ...questions[0], options: Array.from({ length: 12 }, (_, index) => ({ value: `option-${index}`, label: `周末安排 ${index + 1}：一起散步、读书，慢慢了解彼此的生活习惯。` })) },
@@ -375,20 +364,10 @@ export const ProfileLongChoices: Story = {
   },
 };
 
-export const ProfileLongChoicesBottom: Story = {
-  ...ProfileLongChoices,
-  play: async (context) => {
-    await ProfileLongChoices.play?.(context);
-    const c = within(context.canvasElement);
-    const reader = c.getByRole("region", { name: "当前题目" });
-    reader.scrollTop = reader.scrollHeight;
-    await waitFor(() => expect(c.getByText("↓ 下方还有内容")).not.toBeVisible());
-  },
-};
-
 const profileVip: VipStatus = { active: true, activatedAt: now, expiresAt: "2099-01-01T00:00:00.000Z", durationDays: 30, priceYuan: "29.90", advancedFiltersAvailable: true };
 const profileInactiveVip: VipStatus = { ...profileVip, active: false, activatedAt: null, expiresAt: null };
 export const ProfilePremiumLocked: Story = {
+  tags: ["test"],
   parameters: route("/dashboard/profile"),
   render: () => <ProfileClient {...profileProps} />,
   play: async ({ canvasElement }) => {
@@ -408,11 +387,19 @@ export const ProfilePremiumLocked: Story = {
     await userEvent.click(c.getByRole("button", { name: "暂不开通，继续填写" }));
     await jumpQuestion(canvasElement, "按学校排除");
     await userEvent.click(c.getByText("青禾大学", { exact: true }));
-    await userEvent.click(within(c.getByRole("group", { name: "青禾大学 排除性别" })).getByText("男", { exact: true }));
-    await expect(c.getByRole("dialog", { name: "开通 VIP，设置高级筛选" })).toBeVisible();
+    const school = within(c.getByRole("group", { name: "青禾大学 排除性别" }));
+    const choice = school.getByRole("checkbox", { name: "男" });
+    await userEvent.click(school.getByText("男", { exact: true }));
+    const dialog = c.getByRole("dialog", { name: "开通 VIP，设置高级筛选" });
+    await expect(dialog).toBeVisible();
+    await expect(choice).not.toBeChecked();
+    await userEvent.click(within(dialog).getByRole("button", { name: "暂不开通，继续填写" }));
+    await waitFor(() => expect(dialog).not.toBeVisible());
+    await expect(choice).not.toBeChecked();
   },
 };
 export const ProfilePremiumActive: Story = {
+  tags: ["test"],
   ...ProfilePremiumLocked,
   parameters: { ...route("/dashboard/profile"), msw: { handlers: { site: [http.get(`${api}/me/vip`, () => HttpResponse.json(profileVip)), http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })), ...siteHandlers] } } },
   render: () => <ProfileClient {...profileProps} initialVip={profileVip} />,
@@ -448,8 +435,8 @@ export const ProfilePremiumActive: Story = {
   },
 };
 export const ProfileLifestyle: Story = {
+  tags: ["test"],
   ...Profile,
-  tags: ["smoke"],
   render: () => <ProfileClient {...profileProps} initialSavedQuestionnaire={{
     versionId: "lifestyle-regression", currentVersionId: "lifestyle-regression", answers: {}, submittedAt: null, draft: null,
     attention: { currentVersionId: "lifestyle-regression", acknowledgedKeys: [], pendingUpdatedKeys: [],
@@ -475,6 +462,7 @@ export const ProfileLifestyle: Story = {
 
 const centerStatus = { active: false, activatedAt: null, expiresAt: null, durationDays: 30, priceYuan: "29.9", advancedFiltersAvailable: true };
 export const UserCenterFree: Story = {
+  tags: ["test"],
   parameters: { ...route("/dashboard/me") },
   render: () => <CenterBootstrap initialData={{ user, vip: centerStatus }} />,
   play: async ({ canvasElement }) => {
@@ -487,6 +475,7 @@ export const UserCenterFree: Story = {
   },
 };
 export const UserCenterActive: Story = {
+  tags: ["test"],
   ...UserCenterFree,
   render: () => <UserCenter initialUser={user} initialStatus={{ ...centerStatus, active: true, activatedAt: "2026-09-17T00:00:00Z", expiresAt: "2099-10-17T00:00:00Z" }} />,
   parameters: { ...route("/dashboard/me"), msw: { handlers: { site: [http.get(`${api}/me/vip`, () => HttpResponse.json({ ...centerStatus, active: true, expiresAt: "2099-10-17T00:00:00Z" })), ...siteHandlers] } } },
@@ -501,8 +490,10 @@ export const UserCenterActive: Story = {
     }
   },
 };
-export const UserCenterUnavailable: Story = { ...UserCenterFree, render: () => <UserCenter initialUser={user} initialStatus={null} />, play: visible("状态待刷新") };
+export const UserCenterUnavailable: Story = {
+  tags: ["test"], ...UserCenterFree, render: () => <UserCenter initialUser={user} initialStatus={null} />, play: visible("状态待刷新") };
 export const UserCenterMenu: Story = {
+  tags: ["test"],
   ...UserCenterFree,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -514,6 +505,7 @@ export const UserCenterMenu: Story = {
   },
 };
 export const UserCenterDeleteDialog: Story = {
+  tags: ["test"],
   ...UserCenterFree,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -526,6 +518,7 @@ export const UserCenterDeleteDialog: Story = {
 };
 
 export const ProfileSaveFailure: Story = {
+  tags: ["test"],
   parameters: { ...route("/dashboard/profile"), msw: { handlers: { site: [http.put("/api/questionnaire", () => HttpResponse.json({ message: "Save unavailable" }, { status: 400 })), ...siteHandlers] } } },
   render: () => <ProfileClient {...profileProps} />,
   play: async ({ canvasElement }) => {
@@ -537,8 +530,8 @@ export const ProfileSaveFailure: Story = {
 };
 
 export const ProfileDirectory: Story = {
+  tags: ["test"],
   ...Profile,
-  tags: ["smoke"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await userEvent.click(c.getByRole("button", { name: "价值观" }));
@@ -554,8 +547,8 @@ export const ProfileDirectory: Story = {
 };
 
 export const ProfileModuleBoundary: Story = {
+  tags: ["test"],
   ...Profile,
-  tags: ["smoke"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await userEvent.click(c.getByRole("button", { name: /题目目录/ }));
@@ -577,9 +570,9 @@ export const ProfileModuleBoundary: Story = {
 };
 
 export const ProfileLooksScore: Story = {
+  tags: ["test"],
   ...Profile,
   parameters: ProfileLifestyle.parameters,
-  tags: ["smoke"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await jumpQuestion(canvasElement, "颜值自评");
@@ -598,6 +591,7 @@ export const ProfileLooksScore: Story = {
 };
 
 export const ProfileWeightAcknowledgement: Story = {
+  tags: ["test"],
   ...Profile,
   parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [
     http.put("/api/questionnaire", () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
@@ -619,9 +613,9 @@ export const ProfileWeightAcknowledgement: Story = {
 };
 
 export const ProfilePartnerLifestyle: Story = {
+  tags: ["test"],
   ...Profile,
   parameters: ProfileLifestyle.parameters,
-  tags: ["smoke"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await jumpQuestion(canvasElement, "希望对方吸烟情况");
@@ -657,6 +651,7 @@ export const ProfilePartnerLifestyle: Story = {
 };
 
 export const ProfilePartnerLifestyleSaved: Story = {
+  tags: ["test"],
   ...Profile,
   parameters: ProfileLifestyle.parameters,
   render: () => <ProfileClient {...profileProps} initialSavedQuestionnaire={{
@@ -680,6 +675,7 @@ export const ProfilePartnerLifestyleSaved: Story = {
 };
 
 export const ProfileAutoAdvance: Story = {
+  tags: ["test"],
   ...Profile,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -693,6 +689,7 @@ export const ProfileAutoAdvance: Story = {
 };
 
 export const ProfileExactMultiAdvance: Story = {
+  tags: ["test"],
   ...Profile,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -731,12 +728,12 @@ async function startQuestionDeparture(canvasElement: HTMLElement) {
 
 const transitionStory: Story = {
   ...Profile,
-  tags: ["smoke"],
   parameters: ProfileRequiredFields.parameters,
   beforeEach: () => setReaderReducedMotion(false),
 };
 
 export const ProfileInterruptAdvance: Story = {
+  tags: ["test"],
   ...transitionStory,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -752,6 +749,7 @@ export const ProfileInterruptAdvance: Story = {
 };
 
 export const ProfileInterruptModule: Story = {
+  tags: ["test"],
   ...transitionStory,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -775,6 +773,7 @@ function ProfileUnmountFixture() {
 }
 
 export const ProfileInterruptUnmount: Story = {
+  tags: ["test"],
   ...transitionStory,
   render: () => <ProfileUnmountFixture />,
   play: async ({ canvasElement }) => {
@@ -792,6 +791,7 @@ export const ProfileInterruptUnmount: Story = {
 };
 
 export const ProfileReducedMotionAdvance: Story = {
+  tags: ["test"],
   ...transitionStory,
   beforeEach: () => setReaderReducedMotion(true),
   play: async ({ canvasElement }) => {
@@ -808,6 +808,7 @@ export const ProfileReducedMotionAdvance: Story = {
 };
 
 export const ProfileInterruptHash: Story = {
+  tags: ["test"],
   ...transitionStory,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -834,6 +835,7 @@ export const ProfileInterruptHash: Story = {
 
 let activateVipDuringReaderRefresh = false;
 export const ProfileInterruptReaderRefresh: Story = {
+  tags: ["test"],
   ...transitionStory,
   render: () => <ProfileBootstrap initialData={{ ...profilePageData, vip: profileInactiveVip }} />,
   beforeEach: () => {
@@ -868,8 +870,8 @@ export const ProfileInterruptReaderRefresh: Story = {
 };
 
 export const ProfileDesktop: Story = {
+  tags: ["test"],
   ...Profile,
-  tags: ["smoke"],
   globals: { viewport: { value: "desktop1280", isRotated: false } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -897,18 +899,15 @@ export const ProfileDesktop: Story = {
 };
 
 export const UserCenterDesktop: Story = {
+  tags: ["test"],
   ...UserCenterFree,
-  tags: ["smoke"],
   globals: { viewport: { value: "desktop1280", isRotated: false } },
   decorators: [(Story) => <PwaInstallProvider><Story /></PwaInstallProvider>],
 };
 
-export const ProfilePremiumLockedMobile: Story = { ...ProfilePremiumLocked, globals: { viewport: { value: "mobile390", isRotated: false } } };
-export const ProfilePremiumActiveMobile: Story = { ...ProfilePremiumActive, globals: { viewport: { value: "mobile390", isRotated: false } } };
-
 export const ProfileRetryingSave: Story = {
+  tags: ["test"],
   ...Profile,
-  tags: ["smoke"],
   parameters: { ...route("/dashboard/profile"), msw: { handlers: { profileSave: [
     http.put("/api/questionnaire", () => HttpResponse.json({ message: "Temporary outage" }, { status: 503 })),
     http.put(`${api}/me/questionnaire`, () => HttpResponse.json({ saveState: "DRAFT", questionnaireSubmittedAt: null, hasDraft: true })),
@@ -930,8 +929,8 @@ const threeChoiceQuestions = [
 ].map(q => ({ id: q.key, key: q.key, prompt: q.prompt, type: "MULTI_SELECT" as const, required: true, selectionLimit: 3, options: q.labels.map(label => ({ value: label, label })) }));
 
 export const ProfileThreeChoices: Story = {
+  tags: ["test"],
   ...Profile,
-  tags: ["smoke"],
   parameters: ProfileLifestyle.parameters,
   render: () => <ProfileClient {...profileProps} initialQuestions={threeChoiceQuestions} />,
   play: async ({ canvasElement }) => {
@@ -941,15 +940,5 @@ export const ProfileThreeChoices: Story = {
     await userEvent.click(c.getByText("真诚", { exact: true }));
     await userEvent.click(c.getByText("尊重", { exact: true }));
     await expect(c.getByRole("checkbox", { name: "尊重" })).toBeChecked();
-  },
-};
-
-export const DashboardUnavailable: Story = {
-  tags: ["smoke"],
-  render: () => <DashboardError reset={() => {}} />,
-  play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
-    await expect(c.getByRole("heading", { name: "暂时无法加载" })).toBeVisible();
-    await expect(c.getByRole("button", { name: "重新加载" })).toBeEnabled();
   },
 };

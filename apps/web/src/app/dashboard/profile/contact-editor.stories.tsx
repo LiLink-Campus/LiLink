@@ -19,9 +19,9 @@ const successHandler = http.put(apiUrl, async ({ request }) => {
 });
 
 const meta = {
+  tags: ["!test"],
   title: "Dashboard/Profile/ContactEditor",
   component: ContactEditor,
-  tags: ["smoke"],
   args: { initial, userId, email, onStatus: fn() },
   decorators: [(Story) => <div className={styles.page} style={{ padding: 16 }}><div className={styles.selfFlat}><Story /></div></div>],
   parameters: { msw: { handlers: { contact: [http.get(apiUrl, () => HttpResponse.json(initial)), successHandler], site: [] } } },
@@ -31,6 +31,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const NavigationSaveFailure: Story = {
+  tags: ["test"],
   render: (args) => <><ContactEditor {...args} /><a href="/dashboard">返回首页</a></>,
   parameters: { msw: { handlers: { contact: [http.put(apiUrl, () => HttpResponse.json({ message: "联系方式保存失败，请重试。" }, { status: 503 }))], site: [] } } },
   play: async ({ canvas, userEvent }) => {
@@ -44,6 +45,7 @@ export const NavigationSaveFailure: Story = {
 };
 
 export const RestoredDraftConflict: Story = {
+  tags: ["test"],
   beforeEach: () => {
     sessionStorage.setItem(`lilink:contact-draft:v2:${userId}`, JSON.stringify({ revision: 99, preferredContactChannel: "WECHAT", methods: [{ type: "WECHAT", value: "restored_unsaved_draft" }] }));
   },
@@ -58,6 +60,7 @@ export const RestoredDraftConflict: Story = {
 };
 
 export const ReusedEmailDraftIsolation: Story = {
+  tags: ["test"],
   beforeEach: () => {
     const draft = JSON.stringify({ revision: 0, preferredContactChannel: "WECHAT", methods: [{ type: "WECHAT", value: "retired_account_private_contact" }] });
     sessionStorage.setItem(`lilink:contact-draft:${email}`, draft);
@@ -77,6 +80,7 @@ export const ReusedEmailDraftIsolation: Story = {
 };
 
 export const ChinaPhoneAutosave: Story = {
+  tags: ["test"],
   play: async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("radio", { name: "电话" }));
     await expect(canvas.queryByRole("button", { name: /电话区号/ })).not.toBeInTheDocument();
@@ -88,17 +92,12 @@ export const ChinaPhoneAutosave: Story = {
   },
 };
 
-export const SavedChinaPhone: Story = {
-  args: { initial: savedPhone },
-  play: async ({ canvas }) => {
-    await expect(canvas.getByLabelText("电话内容")).toHaveValue("13800138000");
-    await expect(canvas.queryByRole("button", { name: /电话区号/ })).not.toBeInTheDocument();
-  },
-};
-
 export const InvalidHiddenPhone: Story = {
+  tags: ["test"],
   args: { initial: savedPhone },
   play: async ({ canvas, userEvent }) => {
+    await expect(canvas.getByLabelText("电话内容")).toHaveValue("13800138000");
+    await expect(canvas.queryByRole("button", { name: /电话区号/ })).not.toBeInTheDocument();
     await userEvent.clear(canvas.getByLabelText("电话内容"));
     await userEvent.type(canvas.getByLabelText("电话内容"), "123");
     await expect(canvas.getByText("请填写有效的中国电话号码（+86）。")).toBeVisible();
@@ -112,6 +111,7 @@ export const InvalidHiddenPhone: Story = {
 };
 
 export const ServerValidationAndRetry: Story = {
+  tags: ["test"],
   parameters: { msw: { handlers: { contact: [
     http.put(apiUrl, () => HttpResponse.json({ message: "Phone number must use international format." }, { status: 400 }), { once: true }),
     http.get(apiUrl, () => HttpResponse.json(initial)),
@@ -126,8 +126,8 @@ export const ServerValidationAndRetry: Story = {
   },
 };
 
-
 export const ConflictingPageAndRetry: Story = {
+  tags: ["test"],
   parameters: { msw: { handlers: { contact: [
     http.put(apiUrl, () => HttpResponse.json({ message: "Contact preferences have changed. Reload before saving again." }, { status: 409 }), { once: true }),
     http.get(apiUrl, () => HttpResponse.json({ ...initial, revision: 7 })),
@@ -158,6 +158,7 @@ function RemountContactEditor() {
 }
 
 export const RemountWhileSaving: Story = {
+  tags: ["test"],
   render: () => <RemountContactEditor />,
   beforeEach: () => {
     staleSaveStarted = false;
@@ -232,6 +233,7 @@ const lostResponseServer = conflictingServer(initialWechat, true);
 const conflictMessage = "联系方式已在其他页面更新。当前填写内容已保留；点击“重试保存”可用当前内容覆盖。";
 
 export const ConflictThenRestoreOriginalValue: Story = {
+  tags: ["test"],
   args: { initial: initialWechat },
   beforeEach: restoreValueServer.reset,
   parameters: { msw: { handlers: { contact: restoreValueServer.handlers, site: [] } } },
@@ -254,6 +256,7 @@ export const ConflictThenRestoreOriginalValue: Story = {
 };
 
 export const ConflictThenRestoreEmail: Story = {
+  tags: ["test"],
   beforeEach: restoreEmailServer.reset,
   parameters: { msw: { handlers: { contact: restoreEmailServer.handlers, site: [] } } },
   play: async ({ canvas, userEvent }) => {
@@ -273,6 +276,7 @@ export const ConflictThenRestoreEmail: Story = {
 };
 
 export const CommittedSaveWithLostResponse: Story = {
+  tags: ["test"],
   args: { initial: initialWechat },
   beforeEach: lostResponseServer.reset,
   parameters: { msw: { handlers: { contact: lostResponseServer.handlers, site: [] } } },
@@ -293,11 +297,11 @@ export const CommittedSaveWithLostResponse: Story = {
   },
 };
 
-
 let releaseLateConflict = () => {};
 const lateConflictServer = conflictingServer(initialWechat, false, () => new Promise<void>((resolve) => { releaseLateConflict = resolve; }));
 
 export const RestoreBeforeConflictResponse: Story = {
+  tags: ["test"],
   args: { initial: initialWechat },
   beforeEach: () => { lateConflictServer.reset(); return () => releaseLateConflict(); },
   parameters: { msw: { handlers: { contact: lateConflictServer.handlers, site: [] } } },

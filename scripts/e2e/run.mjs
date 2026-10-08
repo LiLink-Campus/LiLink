@@ -1,6 +1,6 @@
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { cp, mkdir, readdir, symlink, writeFile, rm, access } from 'node:fs/promises';
+import { cp, mkdir, readdir, symlink, writeFile, readFile, rm, access } from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,22 +11,20 @@ import { startDevlogFixture } from './devlog-fixture.mjs';
 import { saveBuildRouteSummary } from './build-route-summary.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const ci = process.argv.includes('--ci');
 const apiOnly = process.argv.includes('--api');
-const cacheFaultDefaults = process.argv.includes('--cache-fault-defaults');
-if (cacheFaultDefaults && !apiOnly) throw new Error('--cache-fault-defaults requires --api.');
-const backgroundEvidence = process.argv.includes('--background-evidence');
 const buildOnly = process.argv.includes('--build-only');
 const serve = process.argv.includes('--serve');
-const contractProxy = process.argv.includes('--contract-proxy');
+const contractProxy = !apiOnly && !process.argv.includes('--build-only');
 let proxy;
 let devlog;
 const devlogModeArg = process.argv.find(arg => arg.startsWith('--devlog-fixture='));
-const devlogMode = devlogModeArg?.slice('--devlog-fixture='.length);
+const devlogMode = devlogModeArg?.slice('--devlog-fixture='.length) ?? (apiOnly ? undefined : 'items');
 if (devlogModeArg && (!['items', 'empty', 'failure', 'malformed'].includes(devlogMode) || apiOnly)) {
   throw new Error('--devlog-fixture requires browser mode and items, empty, failure or malformed.');
 }
-if (backgroundEvidence && (apiOnly || buildOnly)) throw new Error('--background-evidence requires browser mode.');
 const sentryTracing = process.argv.includes('--sentry-tracing');
+const reuseApiBuild = ci || process.argv.includes('--reuse-api-build');
 const serveMinutesArg = process.argv.find(arg => arg.startsWith('--serve-minutes='));
 const serveMinutes = Number(serveMinutesArg?.split('=')[1] ?? 30);
 const extraOriginArgs = process.argv.filter(arg => arg.startsWith('--extra-client-origin='));
@@ -44,15 +42,16 @@ if (extraOrigin) {
 if ((contractProxy && (apiOnly || buildOnly)) || (serve && apiOnly) || (sentryTracing && apiOnly) || (buildOnly && (serve || apiOnly)) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 90) {
   throw new Error('--serve is browser-only; --serve-minutes must be between 1 and 90.');
 }
-const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only', '--sentry-tracing', '--contract-proxy', '--background-evidence'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin=') && !arg.startsWith('--devlog-fixture='));
+const playwrightArgs = process.argv.slice(2).filter(arg => !['--reuse-api-build', '--ci', '--serve', '--build-only', '--sentry-tracing', '--contract-proxy'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin=') && !arg.startsWith('--devlog-fixture='));
 if (buildOnly && playwrightArgs.length) throw new Error('--build-only does not accept browser test arguments.');
+const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 const startedAt = Date.now();
 const runId = randomBytes(6).toString('hex');
 const output = path.join(root, 'artifacts/e2e', runId);
 const workspace = path.join(output, 'workspace');
 const children = new Set();
 const containers = [];
-let stopping = false;
+let cleanupPromise;
 let interrupted = false;
 let releaseSession;
 const interruptedSession = new Promise(resolve => { releaseSession = resolve; });
@@ -103,9 +102,11 @@ async function linkDependencies(source, target, rootModules = false) {
     for (const name of ['api', 'web']) await symlink(path.join(workspace, 'apps', name), path.join(target, name));
   }
 }
-async function cleanup() {
-  if (stopping) return;
-  stopping = true;
+function cleanup() {
+  cleanupPromise ??= releaseResources();
+  return cleanupPromise;
+}
+async function releaseResources() {
   await proxy?.close();
   await devlog?.close();
   const live = [...children];
@@ -123,16 +124,14 @@ const ports = [];
 while (ports.length < (sentryTracing ? 6 : 5)) { const port = await freePort(); if (!ports.includes(port) && port !== 5432) ports.push(port); }
 const [dbPort, smtpPort, mailPort, apiPort, webPort, sentryPort] = ports;
 const env = testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId, sentryPort });
-if (cacheFaultDefaults) env.E2E_CACHE_FAULT_DEFAULTS = '1';
-if (backgroundEvidence) env.E2E_BACKGROUND_EVIDENCE = '1';
 if (extraOrigin) env.CLIENT_ORIGIN += `,${extraOrigin}`;
-if (apiOnly) env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_e2e_', '/lilink_vip_test_');
+if (apiOnly || ci) env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_e2e_', '/lilink_vip_test_');
 Object.assign(env, { E2E_SOURCE_ROOT: root, E2E_OUTPUT: output, E2E_WORKSPACE: workspace, LILINK_BUILD_WORKSPACE_ROOT: root });
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
   interrupted = true;
   process.exitCode = 130;
   releaseSession();
-  for (const child of children) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} }
+  void cleanup().catch(error => { console.error(error.message); process.exitCode = 1; });
 });
 
 try {
@@ -141,6 +140,7 @@ try {
     devlog = await startDevlogFixture(devlogMode);
     env.DEVLOG_BASE_URL = devlog.url;
     env.E2E_DEVLOG_MODE = devlogMode;
+    env.E2E_DEVLOG_FIXTURE_URL = devlog.url;
   }
   await command('docker', ['info', '--format', '{{.ServerVersion}}'], { label: 'infra' });
   const excluded = new Set(['node_modules', '.next', 'dist', 'coverage', 'storybook-static', '.git', 'generated']);
@@ -159,7 +159,7 @@ try {
   }
   const dbName = `lilink-e2e-db-${runId}`;
   containers.push(dbName);
-  await command('docker', ['run', '-d', '--name', dbName, '--label', `lilink.e2e=${runId}`, '-p', `127.0.0.1:${dbPort}:5432`, '-e', `POSTGRES_DB=${apiOnly ? 'lilink_vip_test' : 'lilink_e2e'}_${runId}`, '-e', 'POSTGRES_USER=e2e', '-e', 'POSTGRES_PASSWORD=e2e', '--tmpfs', '/var/lib/postgresql/data:rw', 'postgres:17-alpine'], { label: 'infra' });
+  await command('docker', ['run', '-d', '--name', dbName, '--label', `lilink.e2e=${runId}`, '-p', `127.0.0.1:${dbPort}:5432`, '-e', `POSTGRES_DB=${apiOnly || ci ? 'lilink_vip_test' : 'lilink_e2e'}_${runId}`, '-e', 'POSTGRES_USER=e2e', '-e', 'POSTGRES_PASSWORD=e2e', '--tmpfs', '/var/lib/postgresql/data:rw', 'postgres:17-alpine'], { label: 'infra' });
   const mailName = `lilink-e2e-mail-${runId}`;
   containers.push(mailName);
   await command('docker', ['run', '-d', '--name', mailName, '--label', `lilink.e2e=${runId}`, '-p', `127.0.0.1:${smtpPort}:1025`, '-p', `127.0.0.1:${mailPort}:8025`, 'ghcr.io/axllent/mailpit:v1.20'], { label: 'infra' });
@@ -174,16 +174,29 @@ try {
     env.E2E_CONTRACT_PROXY_URL = `http://127.0.0.1:${proxyPort}`;
     env.E2E_API_URL = env.NEXT_PUBLIC_API_BASE_URL;
   }
-  await command('npm', ['run', 'build:shared'], { label: 'build' });
+  if (reuseApiBuild) {
+    for (const entry of ['packages/shared/dist', 'apps/api/dist', 'apps/api/src/generated']) {
+      await cp(path.join(root, entry), path.join(workspace, entry), { recursive: true });
+    }
+  } else await command('npm', ['run', 'build:shared'], { label: 'build' });
   await command('npm', ['run', 'db:migrate:deploy'], { label: 'migrate' });
-  await command('npm', ['run', 'build:api'], { label: 'build' });
-  if (apiOnly) {
-    await command('npm', ['run', 'test:e2e', '--workspace', 'api', '--', '--runInBand', ...process.argv.slice(2).filter(arg => !['--api', '--cache-fault-defaults'].includes(arg))], { label: 'tests' });
-  } else {
+  if (!reuseApiBuild) await command('npm', ['run', 'build:api'], { label: 'build' });
+  if (apiOnly || ci) {
+    await command('npx', ['jest', '--config', './test/jest-e2e.json', '--runInBand', '--json', `--outputFile=${path.join(output, 'api-results.json')}`, ...process.argv.slice(2).filter(arg => !['--ci', '--api'].includes(arg))], { cwd: path.join(workspace, 'apps/api'), env: { ...env, NODE_OPTIONS: '--experimental-vm-modules' }, label: 'tests' });
+    const result = JSON.parse(await readFile(path.join(output, 'api-results.json'), 'utf8'));
+    if (!result.success || result.numPassedTests === 0 || result.numPendingTests || result.numTodoTests) {
+      throw new Error('API regression must execute a nonempty collection without skipped tests.');
+    }
+  }
+  if (ci) {
+    env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_vip_test_', '/lilink_e2e_');
+    await command('docker', ['exec', dbName, 'createdb', '-U', 'e2e', `lilink_e2e_${runId}`], { label: 'infra' });
+    await command('npm', ['run', 'db:migrate:deploy'], { label: 'migrate' });
+  }
+  if (!apiOnly) {
   await command('node', ['apps/api/scripts/seed-defaults.mjs'], { label: 'seed' });
   await command('node', ['e2e/support/seed.mjs'], { label: 'seed' });
-  const api = command('node', ['apps/api/dist/src/main.js'], { background: true, label: 'api',
-    ...(backgroundEvidence ? { env: { ...env, NODE_OPTIONS: `--require=${path.join(workspace, 'scripts/e2e/query-observer.cjs')}` } } : {}) });
+  const api = command('node', ['apps/api/dist/src/main.js'], { background: true, label: 'api' });
   env.E2E_API_PID = String(api.pid);
   // Public prerendering must read the seeded API, not cache a connection failure.
   await waitFor(`${env.E2E_API_URL}/health`, api);
@@ -213,7 +226,10 @@ try {
   } else {
     await Promise.race([command('npx', ['playwright', 'test', ...playwrightArgs], { label: 'tests' }), serviceFailure]);
     // Reporter errors may leave Playwright's exit code at zero.
-    await access(path.join(output, 'results.json'));
+    const result = JSON.parse(await readFile(path.join(output, 'results.json'), 'utf8'));
+    if (!result.stats?.expected || result.stats.skipped || result.stats.flaky || result.stats.unexpected || result.errors?.length) {
+      throw new Error('Browser regression must execute a nonempty collection without skipped or flaky tests.');
+    }
   }
   }
   }
@@ -222,6 +238,6 @@ try {
   process.exitCode = interrupted ? 130 : 1;
 } finally {
   await cleanup();
-  await writeFile(path.join(output, 'run.json'), JSON.stringify({ runId, startedAt: new Date(startedAt).toISOString(), durationMs: Date.now() - startedAt, exitCode: process.exitCode || 0, arguments: process.argv.slice(2), platform: process.platform, arch: process.arch }, null, 2));
+  await writeFile(path.join(output, 'run.json'), JSON.stringify({ sourceSha, runId, startedAt: new Date(startedAt).toISOString(), durationMs: Date.now() - startedAt, exitCode: process.exitCode || 0, arguments: process.argv.slice(2), platform: process.platform, arch: process.arch }, null, 2));
   console.log(`E2E artifacts: ${output}`);
 }

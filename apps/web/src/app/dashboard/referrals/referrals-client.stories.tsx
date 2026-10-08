@@ -12,8 +12,8 @@ const referralStoryHandlers = [
 ];
 
 const meta = {
+  tags: ["!test"],
   title: "Dashboard/Referrals/Page States",
-  tags: ["smoke"],
   component: ReferralsClient,
   globals: {
     viewport: {
@@ -55,24 +55,34 @@ function fixtureStory(fixtureName: ReferralFixtureName, name: string) {
     args: {
       initialReferral: referralFixtures[fixtureName],
     },
-    play: async ({ canvasElement }) => {
-      const canvas = within(canvasElement);
-      await expect(canvas.getByRole("heading", { name: "我的邀请" })).toBeVisible();
-      await expect(
-        canvas.getByText(referralFixtures[fixtureName].referralCode ?? "尚未生成")
-      ).toBeVisible();
-    },
   } satisfies Story;
 }
 
-export const NonEduUser = fixtureStory("nonEduUser", "普通邮箱 / 仅可分享链接");
+export const EduQuotaExhausted: Story = {
+  tags: ["test"],
+  ...fixtureStory("eduQuotaExhausted", "学校邮箱 / 名额已用完"),
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(c.getByRole("heading", { name: "我的邀请" })).toBeVisible();
+    await expect(c.getByText(referralFixtures.eduQuotaExhausted.referralCode!)).toBeVisible();
+    await expect(c.getByText("名额已用完", { exact: true })).toBeVisible();
+    await expect(c.getByRole("button", { name: "邀请同学" })).toBeEnabled();
+  },
+};
 
-export const EduWithFullQuota = fixtureStory("eduWithFullQuota", "学校邮箱 / 名额充足");
+export const NoReferralCode: Story = {
+  tags: ["test"],
+  ...fixtureStory("noReferralCode", "邀请码尚未生成"),
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(c.getByText("尚未生成")).toBeVisible();
+    await expect(c.queryByRole("button", { name: "复制邀请码" })).not.toBeInTheDocument();
+    await expect(c.getByRole("button", { name: "邀请同学" })).toBeDisabled();
+  },
+};
 
-export const EduPartialQuota = fixtureStory("eduPartialQuota", "学校邮箱 / 已用部分名额");
-
-export const EduQuotaExhausted = fixtureStory("eduQuotaExhausted", "学校邮箱 / 名额已用完");
-
-export const WithInvitedFriends = fixtureStory("withInvitedFriends", "已有邀请记录");
-
-export const NoReferralCode = fixtureStory("noReferralCode", "邀请码尚未生成");
+export const Gallery: Story = {
+  render: () => <div style={{ display: "grid", gap: 24 }}>
+    {[referralFixtures.nonEduUser, referralFixtures.eduPartialQuota, referralFixtures.withInvitedFriends].map((initialReferral, index) => <ReferralsClient key={index} initialReferral={initialReferral} />)}
+  </div>,
+};

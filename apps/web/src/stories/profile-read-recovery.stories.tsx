@@ -9,9 +9,9 @@ import { api, dashboardShell, route, siteHandlers } from "./site-support";
 let reads = 0;
 const refreshed = { ...profilePageData, user: { ...profilePageData.user, displayName: "重新读取的昵称" } };
 const meta = {
+  tags: ["!test"],
   title: "全站/资料同步",
   component: ProfileBootstrap,
-  tags: ["smoke", "page"],
   decorators: [dashboardShell],
   parameters: {
     fullSite: true,
@@ -37,6 +37,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const RetryLatestProfile: Story = {
+  tags: ["test"],
   args: { initialData: profilePageData },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

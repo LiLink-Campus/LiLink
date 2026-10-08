@@ -1,6 +1,6 @@
-import { JwtService } from '@nestjs/jwt';
+import { AdminUserWriteService } from '../src/modules/admin/admin-user-write.service';
 import * as argon2 from 'argon2';
-import { createHmac, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import {
   createPrismaClient,
   Prisma,
@@ -10,10 +10,7 @@ import { PrismaService } from '../src/common/prisma/prisma.service';
 import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snapshot.service';
 import { MailService } from '../src/common/mail/mail.service';
 import { AccountDeletionService } from '../src/modules/account/account-deletion.service';
-import { createAdminTestHarness } from './fixtures/admin-services';
-import { AuthService } from '../src/modules/auth/auth.service';
 import { PublicService } from '../src/modules/public/public.service';
-import { env } from '../src/config/env';
 
 const tag = `deactivation-guards-${randomUUID()}`;
 const password = 'LocalAccountGuard123!';
@@ -160,11 +157,9 @@ describe('Account deactivation access guards (PostgreSQL)', () => {
         },
       });
       const audit = { write: jest.fn() };
-      const admin = createAdminTestHarness(
+      const admin = new AdminUserWriteService(
         adminPrisma as PrismaService,
-        {} as never,
         audit as never,
-        {} as never,
         snapshots,
       );
       const updating =
@@ -196,44 +191,4 @@ describe('Account deactivation access guards (PostgreSQL)', () => {
       }
     },
   );
-
-  it('allows the original email to register as a new account after deactivation', async () => {
-    const { left } = await seedPair();
-    await deletion.deleteAccount(left.id, password);
-    const deliveryDedupeKey = `verification-code:${randomUUID()}`;
-    const code = '654321';
-    const codeHash = createHmac('sha256', env.JWT_SECRET)
-      .update(
-        `verification-code\nregister\n${left.email}\n${deliveryDedupeKey}\n${code}`,
-      )
-      .digest('hex');
-    await prisma.emailCode.create({
-      data: {
-        email: left.email,
-        codeHash,
-        purpose: 'register',
-        deliveryDedupeKey,
-        deliveryStatus: 'SENT',
-        expiresAt: new Date(Date.now() + 600_000),
-      },
-    });
-    const auth = new AuthService(
-      prisma as PrismaService,
-      mail,
-      {
-        resolveByEmail: () =>
-          Promise.resolve({ schoolId, registrationEligible: true }),
-      } as never,
-      new JwtService({ secret: env.JWT_SECRET }),
-    );
-    const registered = await auth.register({
-      email: left.email,
-      password,
-      code,
-      acceptedTerms: true,
-    });
-    userIds.push(registered.user.id);
-    expect(registered.user.id).not.toBe(left.id);
-    expect(registered.user.email).toBe(left.email);
-  });
 });

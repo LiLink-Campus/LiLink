@@ -1,4 +1,5 @@
-import { createCycleTestServices } from './fixtures/cycle-services';
+import { AdminCycleManagementService } from '../src/modules/admin/admin-cycle-management.service';
+import { createCycleServices } from './fixtures/cycles';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import {
@@ -7,16 +8,12 @@ import {
 } from '../src/modules/cycles/weekly-cycle.service';
 import { env } from '../src/config/env';
 import { CyclesAutomationService } from '../src/modules/cycles/cycles-automation.service';
-import {
-  createAdminTestHarness,
-  type AdminTestHarness,
-} from './fixtures/admin-services';
 
 const now = new Date('2030-04-10T06:00:00Z');
 describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
   let prisma: PrismaClient;
   let weekly: WeeklyCycleService;
-  let admin: AdminTestHarness;
+  let admin: AdminCycleManagementService;
   let actor: string;
   const suiteStarted = new Date();
   const ownedNames = [
@@ -43,13 +40,11 @@ describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
       }),
     ).toBeNull();
     weekly = new WeeklyCycleService(prisma as PrismaService);
-    admin = createAdminTestHarness(
+    admin = new AdminCycleManagementService(
       prisma as PrismaService,
       { invalidateAutomationSchedule: jest.fn() } as never,
+      { invalidateAutomationSchedule: jest.fn() } as never,
       {} as never,
-      {} as never,
-      undefined,
-      undefined,
       weekly,
     );
     actor = (
@@ -274,11 +269,11 @@ describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
       data: { revealAt },
     });
     await enable();
-    const cycles = createCycleTestServices(
+    const cycles = createCycleServices(
       prisma as PrismaService,
       {} as never,
       {} as never,
-    );
+    ).cycles;
     await cycles.refreshAutomationSchedule(now);
     expect(cycles.isAutomationDue(now)).toBe(false);
     expect(cycles.isAutomationDue(new Date(revealAt.getTime() - 1))).toBe(
@@ -291,17 +286,17 @@ describe('weekly cycles and draft deletion (isolated PostgreSQL)', () => {
       status: 'OPEN',
     });
   });
-  it('the real scheduler reveals an empty due cycle and opens one successor', async () => {
+  it('a scheduler tick reveals an empty due cycle and opens one successor', async () => {
     const cycle = await seed('OPEN');
     const version = await prisma.questionnaireVersion.create({
       data: { title: 'Weekly fixture', isCurrent: true },
     });
     await enable();
-    const cycles = createCycleTestServices(
+    const cycles = createCycleServices(
       prisma as PrismaService,
       { syncCycleSnapshots: jest.fn() } as never,
       { flushPendingEmails: jest.fn() } as never,
-    );
+    ).cycles;
     const automation = new CyclesAutomationService(cycles, weekly);
     const previousEnabled = env.BACKGROUND_JOBS_ENABLED;
     env.BACKGROUND_JOBS_ENABLED = true;

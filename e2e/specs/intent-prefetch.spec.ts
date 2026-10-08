@@ -6,7 +6,7 @@ for (const surface of ['center', 'admin'] as const) {
   for (const intent of ['pointer', 'keyboard', 'touch', 'immediate'] as const) {
     test.describe(`${surface}/${intent}`, () => {
       if (intent === 'touch') test.use({ hasTouch: true });
-      test(`${surface} auxiliary navigation preserves ${intent} intent @smoke`, async ({ page, signedIn, account, context, db }, info) => {
+      test(`${surface} auxiliary navigation preserves ${intent} intent @smoke ${intent === 'touch' ? '@mobile' : ''}`, async ({ page, signedIn, account, context, db }, info) => {
         void signedIn;
         if (surface === 'admin') {
           const user = await db.user.findUniqueOrThrow({ where: { id: account.id } });
@@ -33,7 +33,8 @@ for (const surface of ['center', 'admin'] as const) {
         const targetPath = surface === 'center' ? '/dashboard/referrals' : '/admin/merchants';
         const link = page.locator(`a[href="${targetPath}"]`).filter({ visible: true }).first();
         await link.scrollIntoViewIfNeeded();
-        await page.waitForTimeout(1500);
+        await page.clock.install();
+        await page.clock.runFor(1500);
         const idle = requests.slice();
         expect(idle.filter(row => row.path === targetPath)).toHaveLength(0);
         if (surface === 'center') expect(idle.filter(row => row.path === '/dashboard/coupons')).toHaveLength(0);
@@ -53,7 +54,7 @@ for (const surface of ['center', 'admin'] as const) {
           project: info.project.name, viewport: page.viewportSize(), surface, intent, idle, requests, clickReadyMs,
           assertions: { auxiliaryIdleRequestAbsent: true, actualDestinationVisible: true },
         }) });
-        await info.attach('intent-destination', { contentType: 'image/png', body: await page.screenshot() });
+
         await page.goBack();
         await expect(page.getByRole('heading', { name: surface === 'center' ? '用户中心' : '运营概览', exact: true })).toBeVisible();
       });

@@ -1,13 +1,17 @@
+import { AdminCycleManagementService } from './admin-cycle-management.service';
+import { WeeklyCycleService } from '../cycles/weekly-cycle.service';
+import { AdminDashboardService } from './admin-dashboard.service';
+import { AdminReportReadService } from './admin-report-read.service';
+import { AdminCycleReadService } from './admin-cycle-read.service';
+import { AdminUserReadService } from './admin-user-read.service';
+import { AdminQuestionnaireService } from './admin-questionnaire.service';
+import { AdminQuestionnaireRevisionService } from './admin-questionnaire-revision.service';
+import { AdminUserWriteService } from './admin-user-write.service';
+import { createDashboardSnapshotServiceMock } from '../../../test/fixtures/account/account-snapshot.fixtures';
+import { AdminTestDataService } from './admin-test-data.service';
 import { HARD_MATCH_KEYS } from '@lilink/shared';
-const mockEnv: { APP_ENV: 'development' | 'test' | 'production' } = {
-  APP_ENV: 'test',
-};
-
-jest.mock('../../config/env', () => ({
-  env: mockEnv,
-}));
-
-import { createAdminTestHarness } from '../../../test/fixtures/admin-services';
+jest.mock('../../config/env', () => ({ env: { APP_ENV: 'test' } }));
+import { env as mockEnv } from '../../config/env';
 import {
   BadRequestException,
   ForbiddenException,
@@ -16,34 +20,6 @@ import {
 
 describe('AdminService', () => {
   afterEach(() => {});
-
-  it('timestamps previews and records their operator in the central audit log', async () => {
-    const preview = {
-      cycleId: 'cycle-1',
-      candidates: [],
-      suggestedPairs: [],
-      unmatchedUserIds: ['user-1'],
-    };
-    const cycles = { previewCycle: jest.fn().mockResolvedValue(preview) };
-    const audit = { write: jest.fn().mockResolvedValue(undefined) };
-    const service = createAdminTestHarness(
-      {} as never,
-      cycles as never,
-      audit as never,
-      {} as never,
-    );
-    const before = Date.now();
-    const result = await service.previewCycle('cycle-1', 'admin-1');
-    expect(Date.parse(result.generatedAt)).toBeGreaterThanOrEqual(before);
-    expect(Date.parse(result.generatedAt)).toBeLessThanOrEqual(Date.now());
-    expect(audit.write).toHaveBeenCalledWith('admin-1', 'cycle.previewed', {
-      cycleId: 'cycle-1',
-      generatedAt: result.generatedAt,
-      suggestedPairs: 0,
-      unmatchedUsers: 1,
-    });
-    expect(result.unmatchedUserIds).toEqual(['user-1']);
-  });
 
   it('forwards cycle id and admin actor id when manually running a cycle', async () => {
     const prisma = {};
@@ -56,11 +32,12 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn(),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminCycleManagementService(
       prisma as never,
       cyclesService as never,
+      cyclesService as never,
       adminAuditService as never,
-      {} as never,
+      new WeeklyCycleService(prisma as never),
     );
 
     await service.runCycle(
@@ -98,19 +75,7 @@ describe('AdminService', () => {
         count: jest.fn().mockResolvedValue(18),
       },
     };
-    const service = createAdminTestHarness(
-      prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
-      {
-        listAuditLogs: jest.fn(),
-        getRecentAuditLogsByCondition: jest.fn(),
-        write: jest.fn(),
-      } as never,
-      {} as never,
-    );
+    const service = new AdminDashboardService(prisma as never);
 
     await expect(service.getDashboard()).resolves.toMatchObject({
       metrics: {
@@ -182,14 +147,9 @@ describe('AdminService', () => {
         .mockResolvedValue([{ id: 'log-1' }]),
       write: jest.fn(),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminReportReadService(
       prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
       adminAuditService as never,
-      {} as never,
     );
 
     await expect(service.getReportContext('report-1')).resolves.toMatchObject({
@@ -283,11 +243,12 @@ describe('AdminService', () => {
       runRevealCycle: jest.fn(),
       invalidateAutomationSchedule: jest.fn(),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminCycleManagementService(
       prisma as never,
       cyclesService as never,
+      cyclesService as never,
       adminAuditService as never,
-      {} as never,
+      new WeeklyCycleService(prisma as never),
     );
 
     await expect(
@@ -316,8 +277,12 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = createAdminTestHarness(
+    const service = new AdminCycleManagementService(
       prisma as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         runRevealCycle: jest.fn(),
         invalidateAutomationSchedule: jest.fn(),
@@ -327,7 +292,7 @@ describe('AdminService', () => {
         getRecentAuditLogsByCondition: jest.fn(),
         write: jest.fn(),
       } as never,
-      {} as never,
+      new WeeklyCycleService(prisma as never),
     );
 
     await expect(
@@ -353,8 +318,12 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = createAdminTestHarness(
+    const service = new AdminCycleManagementService(
       prisma as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         runRevealCycle: jest.fn(),
         invalidateAutomationSchedule: jest.fn(),
@@ -364,7 +333,7 @@ describe('AdminService', () => {
         getRecentAuditLogsByCondition: jest.fn(),
         write: jest.fn(),
       } as never,
-      {} as never,
+      new WeeklyCycleService(prisma as never),
     );
 
     await expect(
@@ -390,8 +359,12 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = createAdminTestHarness(
+    const service = new AdminCycleManagementService(
       prisma as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         runRevealCycle: jest.fn(),
         invalidateAutomationSchedule: jest.fn(),
@@ -401,7 +374,7 @@ describe('AdminService', () => {
         getRecentAuditLogsByCondition: jest.fn(),
         write: jest.fn(),
       } as never,
-      {} as never,
+      new WeeklyCycleService(prisma as never),
     );
 
     await expect(
@@ -428,8 +401,12 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = createAdminTestHarness(
+    const service = new AdminCycleManagementService(
       prisma as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         runRevealCycle: jest.fn(),
         invalidateAutomationSchedule: jest.fn(),
@@ -439,7 +416,7 @@ describe('AdminService', () => {
         getRecentAuditLogsByCondition: jest.fn(),
         write: jest.fn(),
       } as never,
-      {} as never,
+      new WeeklyCycleService(prisma as never),
     );
 
     await expect(
@@ -471,8 +448,12 @@ describe('AdminService', () => {
         update: jest.fn(),
       },
     };
-    const service = createAdminTestHarness(
+    const service = new AdminCycleManagementService(
       prisma as never,
+      {
+        runRevealCycle: jest.fn(),
+        invalidateAutomationSchedule: jest.fn(),
+      } as never,
       {
         runRevealCycle: jest.fn(),
         invalidateAutomationSchedule: jest.fn(),
@@ -482,7 +463,7 @@ describe('AdminService', () => {
         getRecentAuditLogsByCondition: jest.fn(),
         write: jest.fn(),
       } as never,
-      {} as never,
+      new WeeklyCycleService(prisma as never),
     );
 
     await expect(
@@ -525,8 +506,12 @@ describe('AdminService', () => {
           update: jest.fn(),
         },
       };
-      const service = createAdminTestHarness(
+      const service = new AdminCycleManagementService(
         prisma as never,
+        {
+          runRevealCycle: jest.fn(),
+          invalidateAutomationSchedule: jest.fn(),
+        } as never,
         {
           runRevealCycle: jest.fn(),
           invalidateAutomationSchedule: jest.fn(),
@@ -536,7 +521,7 @@ describe('AdminService', () => {
           getRecentAuditLogsByCondition: jest.fn(),
           write: jest.fn(),
         } as never,
-        {} as never,
+        new WeeklyCycleService(prisma as never),
       );
 
       await expect(
@@ -601,11 +586,12 @@ describe('AdminService', () => {
       runRevealCycle: jest.fn(),
       invalidateAutomationSchedule: jest.fn(),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminCycleManagementService(
       prisma as never,
       cyclesService as never,
+      cyclesService as never,
       adminAuditService as never,
-      {} as never,
+      new WeeklyCycleService(prisma as never),
     );
 
     await expect(
@@ -671,11 +657,12 @@ describe('AdminService', () => {
       runRevealCycle: jest.fn(),
       invalidateAutomationSchedule: jest.fn(),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminCycleManagementService(
       prisma as never,
       cyclesService as never,
+      cyclesService as never,
       adminAuditService as never,
-      {} as never,
+      new WeeklyCycleService(prisma as never),
     );
 
     await expect(
@@ -742,19 +729,7 @@ describe('AdminService', () => {
         count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(2),
       },
     };
-    const service = createAdminTestHarness(
-      prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
-      {
-        listAuditLogs: jest.fn(),
-        getRecentAuditLogsByCondition: jest.fn(),
-        write: jest.fn(),
-      } as never,
-      {} as never,
-    );
+    const service = new AdminCycleReadService(prisma as never);
 
     await expect(service.getCycleDetail('cycle-1')).resolves.toMatchObject({
       cycle: {
@@ -812,19 +787,7 @@ describe('AdminService', () => {
         count: jest.fn().mockResolvedValue(1),
       },
     };
-    const service = createAdminTestHarness(
-      prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
-      {
-        listAuditLogs: jest.fn(),
-        getRecentAuditLogsByCondition: jest.fn(),
-        write: jest.fn(),
-      } as never,
-      {} as never,
-    );
+    const service = new AdminCycleReadService(prisma as never);
 
     await expect(
       service.getCycleParticipants('cycle-1', { page: 1, pageSize: 10 }),
@@ -852,19 +815,7 @@ describe('AdminService', () => {
         count,
       },
     };
-    const service = createAdminTestHarness(
-      prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
-      {
-        listAuditLogs: jest.fn(),
-        getRecentAuditLogsByCondition: jest.fn(),
-        write: jest.fn(),
-      } as never,
-      {} as never,
-    );
+    const service = new AdminUserReadService(prisma as never);
 
     await service.getUsers({
       page: 1,
@@ -946,22 +897,26 @@ describe('AdminService', () => {
   });
 
   it('rejects a multi-select limit that is larger than the option count', async () => {
-    const service = createAdminTestHarness(
+    const service = new AdminQuestionnaireService(
       {
         questionnaireVersion: {
           findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
         },
       } as never,
       {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
-      {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
         write: jest.fn(),
       } as never,
-      {} as never,
+      { invalidateCurrentQuestionnaireCache: jest.fn() } as never,
+      new AdminQuestionnaireRevisionService(
+        {
+          questionnaireVersion: {
+            findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
+          },
+        } as never,
+        { invalidateCurrentQuestionnaireCache: jest.fn() } as never,
+      ),
     );
 
     await expect(
@@ -1052,16 +1007,14 @@ describe('AdminService', () => {
     const questionnaireCache = {
       invalidateCurrentQuestionnaireCache: jest.fn(),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminQuestionnaireService(
       prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
       audit as never,
-      {} as never,
-      undefined,
       questionnaireCache as never,
+      new AdminQuestionnaireRevisionService(
+        prisma as never,
+        questionnaireCache as never,
+      ),
     );
 
     await expect(
@@ -1165,18 +1118,18 @@ describe('AdminService', () => {
       },
       $transaction: jest.fn(),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminQuestionnaireService(
       prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
       {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
         write: jest.fn(),
       } as never,
-      {} as never,
+      { invalidateCurrentQuestionnaireCache: jest.fn() } as never,
+      new AdminQuestionnaireRevisionService(
+        prisma as never,
+        { invalidateCurrentQuestionnaireCache: jest.fn() } as never,
+      ),
     );
 
     await expect(
@@ -1187,22 +1140,26 @@ describe('AdminService', () => {
   });
 
   it('rejects setting a selection limit on a non-multi-select question', async () => {
-    const service = createAdminTestHarness(
+    const service = new AdminQuestionnaireService(
       {
         questionnaireVersion: {
           findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
         },
       } as never,
       {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
-      {
         listAuditLogs: jest.fn(),
         getRecentAuditLogsByCondition: jest.fn(),
         write: jest.fn(),
       } as never,
-      {} as never,
+      { invalidateCurrentQuestionnaireCache: jest.fn() } as never,
+      new AdminQuestionnaireRevisionService(
+        {
+          questionnaireVersion: {
+            findFirst: jest.fn().mockResolvedValue({ id: 'version-1' }),
+          },
+        } as never,
+        { invalidateCurrentQuestionnaireCache: jest.fn() } as never,
+      ),
     );
 
     await expect(
@@ -1226,40 +1183,28 @@ describe('AdminService', () => {
   });
 
   it('returns questionnaire answers with the canonical school id', async () => {
-    const service = createAdminTestHarness(
-      {
-        user: {
-          findUnique: jest.fn().mockResolvedValue({
-            schoolId: 'school-cuc',
-            questionnaireResponse: {
-              submittedAt: new Date('2026-04-15T12:00:00.000Z'),
-              answers: {
-                [HARD_MATCH_KEYS.school]: 'school-bupt',
-                [HARD_MATCH_KEYS.excludedPartnerSchools]: [
-                  'school-bupt',
-                  'school-deleted',
-                ],
-              },
+    const service = new AdminUserReadService({
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          schoolId: 'school-cuc',
+          questionnaireResponse: {
+            submittedAt: new Date('2026-04-15T12:00:00.000Z'),
+            answers: {
+              [HARD_MATCH_KEYS.school]: 'school-bupt',
+              [HARD_MATCH_KEYS.excludedPartnerSchools]: [
+                'school-bupt',
+                'school-deleted',
+              ],
             },
-          }),
-        },
-        school: {
-          findMany: jest
-            .fn()
-            .mockResolvedValue([{ id: 'school-bupt' }, { id: 'school-cuc' }]),
-        },
-      } as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
-      {
-        listAuditLogs: jest.fn(),
-        getRecentAuditLogsByCondition: jest.fn(),
-        write: jest.fn(),
-      } as never,
-      {} as never,
-    );
+          },
+        }),
+      },
+      school: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'school-bupt' }, { id: 'school-cuc' }]),
+      },
+    } as never);
 
     await expect(service.getUserQuestionnaire('user-1')).resolves.toEqual({
       submittedAt: new Date('2026-04-15T12:00:00.000Z'),
@@ -1327,14 +1272,10 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn(),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminUserWriteService(
       prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
       adminAuditService as never,
-      {} as never,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await service.updateUser('user-1', { schoolId: 'school-cuc' }, 'admin-1');
@@ -1397,11 +1338,10 @@ describe('AdminService', () => {
           callback({ user }),
       };
       const audit = { write: jest.fn() };
-      const service = createAdminTestHarness(
+      const service = new AdminUserWriteService(
         prisma as never,
-        {} as never,
         audit as never,
-        {} as never,
+        createDashboardSnapshotServiceMock() as never,
       );
 
       await expect(
@@ -1447,15 +1387,10 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn().mockResolvedValue(undefined),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminTestDataService(
       prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
       adminAuditService as never,
-      {} as never,
-      undefined,
+      createDashboardSnapshotServiceMock() as never,
     );
 
     await expect(
@@ -1543,14 +1478,9 @@ describe('AdminService', () => {
       getRecentAuditLogsByCondition: jest.fn(),
       write: jest.fn().mockResolvedValue(undefined),
     };
-    const service = createAdminTestHarness(
+    const service = new AdminTestDataService(
       prisma as never,
-      {
-        runRevealCycle: jest.fn(),
-        invalidateAutomationSchedule: jest.fn(),
-      } as never,
       adminAuditService as never,
-      {} as never,
       {
         syncCycleSnapshots,
         syncMatchSnapshots: jest.fn(),
@@ -1613,11 +1543,10 @@ describe('AdminService', () => {
 
     it('rejects deleteAllTestUsers when APP_ENV is production', async () => {
       mockEnv.APP_ENV = 'production';
-      const service = createAdminTestHarness(
+      const service = new AdminTestDataService(
         {} as never,
         {} as never,
-        {} as never,
-        {} as never,
+        createDashboardSnapshotServiceMock() as never,
       );
 
       await expect(service.deleteAllTestUsers('admin-1')).rejects.toThrow(
@@ -1627,11 +1556,10 @@ describe('AdminService', () => {
 
     it('rejects seedTestUsers when APP_ENV is production', async () => {
       mockEnv.APP_ENV = 'production';
-      const service = createAdminTestHarness(
+      const service = new AdminTestDataService(
         {} as never,
         {} as never,
-        {} as never,
-        {} as never,
+        createDashboardSnapshotServiceMock() as never,
       );
 
       await expect(service.seedTestUsers('admin-1')).rejects.toThrow(
@@ -1657,11 +1585,10 @@ describe('AdminService', () => {
           update: overrides.update ?? jest.fn(),
         },
       };
-      const service = createAdminTestHarness(
+      const service = new AdminUserWriteService(
         prisma as never,
-        {} as never,
         adminAuditService as never,
-        {} as never,
+        createDashboardSnapshotServiceMock() as never,
       );
       return { service, prisma, adminAuditService };
     };

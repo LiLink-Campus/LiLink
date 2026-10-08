@@ -4,7 +4,7 @@ import { test, expect, api, password, visit, login, mailCode } from '../support/
 // Authentication recordings can contain passwords, cookies or mail codes.
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
-test('login waits for its handlers before accepting input @smoke', async ({ page, account }) => {
+test('login waits for handlers, logs out and protects private navigation @smoke @mobile', async ({ page, account }) => {
   let releaseScripts!: () => void;
   const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });
   await page.route('**/_next/static/**/*.js', async route => {
@@ -23,10 +23,6 @@ test('login waits for its handlers before accepting input @smoke', async ({ page
   await page.getByLabel('密码', { exact: true }).fill(password);
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard/);
-});
-
-test('login, logout, and protected route @smoke', async ({ page, account }) => {
-  await login(page, account);
   await visit(page, '/dashboard/me');
   await expect(page.getByRole('heading', { name: '用户中心', exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^账号菜单：/ }).click();
@@ -37,23 +33,14 @@ test('login, logout, and protected route @smoke', async ({ page, account }) => {
   expect((await page.request.get(`${api}/auth/me`)).status()).toBe(401);
 });
 
-test('login respects reduced motion while focusing form fields @smoke', async ({ page, account }, testInfo) => {
-  await visit(page, '/login');
-  await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'auto');
-  await page.getByLabel('邮箱', { exact: true }).fill(account.email);
-  await page.getByLabel('密码', { exact: true }).fill(password);
-  await page.screenshot({ path: testInfo.outputPath('login-reduced-motion.png'), fullPage: true });
-  const response = page.waitForResponse(response => response.url() === `${api}/auth/login` && response.request().method() === 'POST');
-  await page.getByRole('button', { name: '登录', exact: true }).click();
-  expect((await response).ok()).toBeTruthy();
-  await expect(page).toHaveURL(/\/dashboard/);
-  await expect(page.getByRole('button', { name: /^账号菜单：/ })).toBeVisible();
-});
-
 test('school registration delivers mail and creates a usable account @smoke', async ({ page }) => {
   const email = `${randomUUID()}@school.example.test`;
+  const schools = await page.request.get('/api/public/schools');
+  expect(schools.headers()['cache-control']).toContain('s-maxage=');
+  expect((await schools.json()).schools.some((school: { domains: string[] }) => school.domains.includes('school.example.test'))).toBe(true);
   await visit(page, '/register/school');
   await page.getByLabel('学校邮箱', { exact: true }).fill(email);
+  await expect(page.getByRole('status').filter({ hasText: '✓' })).toBeVisible();
   await page.getByRole('button', { name: '发送验证码', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: '验证码已发送' })).toBeVisible();
   await page.getByLabel('验证码', { exact: true }).fill(await mailCode(page, email));
@@ -66,6 +53,14 @@ test('school registration delivers mail and creates a usable account @smoke', as
   expect((await (await page.request.get(`${api}/auth/me`)).json()).email).toBe(email);
   await page.context().clearCookies();
   await login(page, { id: '', email, displayName: '' });
+  const received = await (await page.request.get(`${process.env.E2E_MAIL_URL}/api/v1/search`, { params: { query: `to:${email}` } })).json();
+  const mail = await (await page.request.get(`${process.env.E2E_MAIL_URL}/api/v1/message/${received.messages[0].ID}`)).json();
+  const actualHref = mail.HTML.match(/<a href="([^"]+)"/)?.[1];
+  expect(actualHref).toBe(process.env.E2E_WEB_URL);
+  await page.setContent(mail.HTML);
+  await page.locator(`a[href="${actualHref}"]`).click();
+  await expect(page).toHaveURL(process.env.E2E_WEB_URL + '/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 });
 
 // Failure boundary: a directly opened personal registration page must not
@@ -75,6 +70,11 @@ test('personal registration waits for handlers and creates a usable account @smo
   const referralCode = randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase();
   const school = await db.school.findUniqueOrThrow({ where: { slug: 'e2e-school' } });
   await db.user.update({ where: { id: account.id }, data: { referralCode } });
+  await visit(page, `/i/${referralCode}?ch=LINK&from=mail#entry`);
+  expect(new URL(page.url()).searchParams.get('from')).toBe('mail');
+  expect(new URL(page.url()).hash).toBe('#entry');
+  await page.getByRole('link', { name: '没有自动跳转？点此注册', exact: true }).click();
+  await expect(page).toHaveURL(/\/register\/personal/);
   let releaseScripts!: () => void;
   const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });
   await page.route('**/_next/static/**/*.js', async route => {
@@ -89,9 +89,11 @@ test('personal registration waits for handlers and creates a usable account @smo
     await expect(page.getByRole('button', { name: '发送验证码', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: '下一步', exact: true })).toBeDisabled();
     releaseScripts();
-    await page.getByLabel('邀请码', { exact: true }).fill(referralCode);
+    const invitedCode = page.getByRole('textbox', { name: /^邀请码/ });
+    await expect(invitedCode).toBeEnabled();
+    await expect(invitedCode).toHaveValue(referralCode);
+    await expect(invitedCode).toHaveAttribute('readonly', '');
     await page.getByLabel('普通邮箱', { exact: true }).fill(email);
-    await expect(page.getByLabel('邀请码', { exact: true })).toHaveValue(referralCode);
     await page.getByRole('button', { name: '发送验证码', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: '验证码已发送' })).toBeVisible();
     await expect(page.getByLabel('普通邮箱', { exact: true })).toHaveValue(email);
@@ -114,7 +116,7 @@ test('personal registration waits for handlers and creates a usable account @smo
         emailRetainedThroughMailDelivery: true, registrationCompleted: true,
         schoolAndReferrerPersisted: true, createdAccountCanLogin: true },
     }) });
-    await info.attach('personal-registration-complete', { contentType: 'image/png', body: await page.screenshot() });
+
   } finally {
     releaseScripts();
     if (!page.isClosed()) await page.unrouteAll({ behavior: 'wait' });
@@ -141,7 +143,7 @@ test('password reset waits for its handlers before accepting input @smoke', asyn
   await page.getByRole('button', { name: '发送验证码', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: '验证码已发送' })).toBeVisible();
   expect(await mailCode(page, account.email)).toMatch(/^\d{6}$/);
-  await testInfo.attach('password-reset-email', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+
 });
 
 test('password reset revokes a second browser session and keeps the replacement session usable', async ({
@@ -188,14 +190,7 @@ test('password reset revokes a second browser session and keeps the replacement 
     await expect(previousPage.getByRole('button', { name: '登录', exact: true })).toBeVisible();
     await expect(previousPage.getByLabel('邮箱', { exact: true })).toBeEnabled();
     await expect(previousPage.locator('main .animate-in')).toHaveCSS('opacity', '1');
-    await testInfo.attach('revoked-session-login-state', {
-      body: await previousPage.screenshot({ fullPage: true }),
-      contentType: 'image/png',
-    });
-    await testInfo.attach('replacement-session-dashboard', {
-      body: await page.screenshot({ fullPage: true }),
-      contentType: 'image/png',
-    });
+
     await page.context().clearCookies();
     const oldLogin = await page.request.post(`${api}/auth/login`, {
       data: { email: account.email, password },
@@ -221,4 +216,26 @@ test('password reset revokes a second browser session and keeps the replacement 
   } finally {
     await previousContext.close();
   }
+});
+
+test('first school read times out and manual retry recovers', async ({ page }, info) => {
+  await page.clock.install();
+  let release!: () => void;
+  const stalled = new Promise<void>(resolve => { release = resolve; });
+  let attempts = 0;
+  await page.route('**/api/public/schools', async route => {
+    if (++attempts === 1) { await stalled; await route.abort(); }
+    else await route.continue();
+  });
+  try {
+    await visit(page, '/register/school');
+    await page.getByLabel('学校邮箱', { exact: true }).fill('deadline@school.example.test');
+    await expect.poll(() => attempts).toBe(1);
+    await page.clock.fastForward(15_100);
+    await expect(page.getByText('暂时无法核对邮箱后缀', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '重试加载学校列表', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: '✓' })).toBeVisible();
+    expect(attempts).toBe(2);
+
+  } finally { release(); }
 });

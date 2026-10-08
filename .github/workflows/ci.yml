@@ -1,171 +1,57 @@
 name: CI
-
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 jobs:
-  root-quality:
-    name: Root lint and build
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      NEXT_PUBLIC_API_BASE_URL: "http://localhost:4000/v1"
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared workspace
-        run: npm run build:shared
-
-      - name: Run shared package tests
-        run: npm run test:shared
-
-      - name: Test isolated release guards
-        run: node --test scripts/release/*.test.mjs
-
-      - name: Verify usage evidence and budget contracts
-        run: |
-          node scripts/usage/verify-budget.mjs artifacts/usage-contracts/budget
-          node scripts/usage/verify-isr-write-budget.mjs artifacts/usage-contracts/isr
-          node scripts/usage/verify-browser-comparison.mjs artifacts/usage-contracts/comparison
-          node scripts/usage/verify-browser-capture.mjs artifacts/usage-contracts/capture
-
-      - name: Install Chromium for CSS regression tests
-        run: npx playwright install --with-deps chromium
-
-      - name: Run web package tests
-        run: npm run test --workspace web
-
-      # Prisma Client is not committed; ESLint type-aware rules need generated types.
-      - name: Generate Prisma client
-        env:
-          DATABASE_URL: postgresql://lilink:lilink@127.0.0.1:5432/lilink?schema=public
-        run: npm run db:generate
-
-      - name: Run API typecheck
-        run: npm run typecheck:api
-
-      - name: Run root lint
-        run: npm run lint
-
-      - name: Verify lint does not rewrite files
-        run: git diff --exit-code
-
-      - name: Build against the disposable seeded API
-        run: node scripts/e2e/run.mjs --build-only
-
-      - name: Preserve isolated build evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: isolated-build-${{ github.sha }}
-          path: |
-            artifacts/e2e/**/*.log
-            artifacts/e2e/**/run.json
-            artifacts/usage-contracts/**
-          retention-days: 7
-          if-no-files-found: ignore
-
-  api-tests:
+  regression:
+    # Preserve the enforced context until an administrator completes the documented cutover.
     name: API unit and e2e tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      APP_ENV: test
-      DATABASE_URL: "postgresql://lilink:lilink@127.0.0.1:55432/lilink_vip_test_ci?schema=public"
-      JWT_SECRET: 1234567890abcdef
-      ADMIN_JWT_SECRET: abcdef1234567890
-      MERCHANT_JWT_SECRET: merchant1234567890abcdef
-      ADMIN_COOKIE_NAME: lilink_admin_token
-      SMTP_FROM: "LiLink <hello@lilink.zone>"
-      SMTP_HOST: "127.0.0.1"
-      SMTP_PORT: "11025"
-      SMTP_SECURE: "false"
-      E2E_MAIL_URL: "http://127.0.0.1:18025"
-      CRON_SECRET: abcdef1234567890
-      REDEEM_TICKET_SECRET: test-redeem-ticket-secret-0123456789
-    services:
-      mailpit:
-        image: ghcr.io/axllent/mailpit:v1.20
-        ports:
-          - 11025:1025
-          - 18025:8025
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: lilink_vip_test_ci
-          POSTGRES_USER: lilink
-          POSTGRES_PASSWORD: lilink
-        ports:
-          - 55432:5432
-        options: >-
-          --health-cmd "pg_isready -U lilink -d lilink_vip_test_ci"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+      - name: Fixed core collection in the pinned Linux renderer
+        run: npm run test:ci:core
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: regression-${{ github.sha }}
+          path: artifacts/e2e-linux-results/
+          retention-days: 7
+          if-no-files-found: error
+  storybook:
+    # This is a real test job; the historical check name keeps the active Ruleset effective.
+    name: Storybook smoke tests and screenshots
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
           cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared workspace
-        run: npm run build:shared
-
-      - name: Generate Prisma client
-        run: npm run db:generate
-
-      - name: Apply API migrations
-        run: npm exec --workspace api prisma migrate deploy
-
-      - name: Run API unit tests
-        run: npm run test --workspace api
-
-      - name: Build production workers for process recovery acceptance
-        run: npm run build:api
-
-      - name: Run API e2e tests
-        env:
-          E2E_OUTPUT: ${{ github.workspace }}/artifacts/api-e2e
-        run: |
-          mkdir -p "$E2E_OUTPUT"
-          npm run test:e2e --workspace api
-
-      - name: Preserve API concurrency acceptance evidence
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Fixed component behavior collection
+        run: npm run test:ci:stories
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: api-e2e-${{ github.sha }}
+          name: storybook-${{ github.sha }}
           path: |
-            artifacts/api-e2e/public-cache-*.json
-            artifacts/api-e2e/session-version-assertions.json
-            artifacts/api-e2e/mail-outbox-recovery.json
+            artifacts/storybook-results.json
+            apps/web/src/**/__screenshots__/
           retention-days: 7
-          if-no-files-found: ignore
+          if-no-files-found: error

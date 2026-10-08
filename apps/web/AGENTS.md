@@ -4,9 +4,9 @@ These rules extend the root `AGENTS.md` for the Next.js application.
 
 ## UI Evidence
 
-- For every user-visible frontend change, verify all affected elements and states in the Codex in-app browser at desktop and mobile viewport sizes, with isolated Playwright WebKit checks for Safari-engine compatibility. Include text wrapping, element widths, overflow, icons, dialogs, expanded states, interactions, and breakpoint boundaries; retain visual evidence for the in-app browser and WebKit checks. Changes to shared components must cover their affected consuming pages. Add or update Storybook stories when practical and tag representative regression states with `tags: ["smoke"]`.
+- For every user-visible frontend change, verify all affected elements and states in the Codex in-app browser at desktop and mobile viewport sizes, with isolated Playwright WebKit checks for Safari-engine compatibility. Include text wrapping, element widths, overflow, icons, dialogs, expanded states, interactions, and breakpoint boundaries; retain visual evidence for the in-app browser and WebKit checks. Changes to shared components must cover their affected consuming pages. Add or update Storybook stories when practical and tag independently useful regression states with `tags: ["test"]`.
 - When reproducing a reference website, inspect its publicly loaded HTML, CSS, JavaScript, and relevant assets or requests before coding. Use confirmed implementation details where available; identify visual inferences when resources cannot be obtained.
-- Keep checks and captures scoped to affected states. Follow [visual verification](../../docs/guides/visual-verification.md) for commands; use the full smoke suite when the change warrants it.
+- Keep checks and captures scoped to affected states. Follow [visual verification](../../docs/guides/visual-verification.md) for commands; use the fixed regression collection for final acceptance.
 - Post screenshots to a PR only when the task authorizes updating that PR. Otherwise, keep evidence local for review.
 - Use synthetic fixtures. Keep real user data, email addresses, secrets, production URLs, and private records out of Storybook. Keep generated screenshots and `storybook-static` out of application commits.
 

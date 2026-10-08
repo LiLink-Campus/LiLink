@@ -14,21 +14,15 @@ const fixture = {
   ],
 };
 const meta = {
-  title: "Marketing/CommunityStats", component: CommunityStats, tags: ["smoke"],
-  args: { initialData: fixture },
+  tags: ["!test"],
+  title: "Marketing/CommunityStats", component: CommunityStats, args: { initialData: fixture },
   parameters: { layout: "fullscreen", msw: { handlers: [session] } },
 } satisfies Meta<typeof CommunityStats>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Overview: Story = {
-  play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
-    await expect(await c.findByRole("list", { name: "各学校已加入人数" })).toBeVisible();
-    await expect(c.getByText("非二元", { exact: true })).toBeVisible();
-    await expect(c.getByRole("img", { name: /男 18 人/ })).toBeVisible();
-  },
-};
+
 export const AllSchools: Story = {
+  tags: ["test"],
   args: { initialData: {
     ...fixture,
     schools: Array.from({ length: 11 }, (_, index) => ({
@@ -38,15 +32,19 @@ export const AllSchools: Story = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     const list = await c.findByRole("list", { name: "各学校已加入人数" });
+    await expect(c.getByText("非二元", { exact: true })).toBeVisible();
+    await expect(c.getByRole("img", { name: /男 18 人/ })).toBeVisible();
     await expect(within(list).getAllByRole("listitem")).toHaveLength(11);
     await expect(c.getByText("示例大学 11", { exact: false })).toBeVisible();
   },
 };
 export const Empty: Story = {
+  tags: ["test"],
   args: { initialData: { ...fixture, total: 0, genders: { male: 0, female: 0, nonBinary: 0, unknown: 0 }, schools: [] } },
   play: async ({ canvasElement }) => { await expect(await within(canvasElement).findByText("暂无同学加入")).toBeVisible(); },
 };
 export const Unavailable: Story = {
+  tags: ["test"],
   args: { initialData: null },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).queryByRole("region", { name: "在这里，遇见同学" })).not.toBeInTheDocument();

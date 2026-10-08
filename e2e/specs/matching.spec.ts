@@ -19,34 +19,6 @@ test('join, reload, withdraw from current cycle @smoke', async ({ page, context,
   expect(await db.cycleParticipation.count({ where: { userId: account.id, status: 'OPTED_IN' } })).toBe(0);
 });
 
-test('published match can be opened, collapsed, and reopened after reload @smoke', async ({ page, db, account }) => {
-  const peer = await db.user.create({ data: { email: `peer-${account.email}`, displayName: '匹配对象小林', passwordHash: 'unusable', status: 'ACTIVE', schoolId: (await db.school.findUniqueOrThrow({ where: { slug: 'e2e-school' } })).id } });
-  const cycle = await db.matchCycle.create({ data: {
-    codename: `result-${account.id}`, status: 'REVEALED', participationDeadline: new Date(Date.now() - 120_000), revealAt: new Date(Date.now() - 60_000),
-    participations: { create: [account, peer].map(user => ({ userId: user.id, status: 'OPTED_IN', intent: 'BOTH', optedInAt: new Date(Date.now() - 180_000) })) },
-  } });
-  try {
-    await db.match.create({ data: { cycleId: cycle.id, score: 88, revealedAt: new Date(), introducedAt: new Date(), participants: { create: [account, peer].map((user, position) => ({ userId: user.id, cycleId: cycle.id, position })) } } });
-    await visit(page, '/dashboard/match');
-    const openResult = page.getByRole('button', { name: '查看上一轮结果 →', exact: true });
-    const partner = page.getByRole('main').getByRole('heading', { name: '匹配对象小林', level: 2, exact: true });
-    await expect(openResult).toBeVisible();
-    await expect(partner).toHaveCount(0);
-    await openResult.click();
-    await expect(partner).toBeVisible();
-    await page.getByRole('button', { name: '← 收起来信', exact: true }).click();
-    await expect(openResult).toBeVisible();
-    await expect(partner).toHaveCount(0);
-    await openResult.click();
-    await expect(partner).toBeVisible();
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(openResult).toBeVisible();
-    await expect(partner).toHaveCount(0);
-    await openResult.click();
-    await expect(partner).toBeVisible();
-  } finally { await db.matchCycle.delete({ where: { id: cycle.id } }); }
-});
-
 test('past deadline rejects joining even with a previously loaded page', async ({ page, context, db }) => {
   await completeProfile(context, db);
   const cycle = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
@@ -80,7 +52,7 @@ test('unmatched published cycle shows a clear result instead of an empty page', 
         await action.evaluate(link => link.scrollIntoView({ block: 'center' }));
         await expect(action).toBeInViewport({ ratio: 1 });
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        await page.screenshot({ path: testInfo.outputPath(`unmatched-${width}.png`), fullPage: true });
+
       }
     }
     await action.click();

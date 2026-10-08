@@ -5,6 +5,7 @@ export async function startDevlogFixture(mode) {
   const server = http.createServer((request, response) => {
     const pathname = new URL(request.url, 'http://127.0.0.1').pathname;
     response.setHeader('Cache-Control', 'no-store');
+    if (pathname === '/failure/updates.json') { response.writeHead(503).end('{}'); return; }
     if (pathname === '/updates.json') {
       response.setHeader('Content-Type', 'application/json');
       if (mode === 'failure') { response.writeHead(503); response.end('{}'); return; }
@@ -23,5 +24,8 @@ export async function startDevlogFixture(mode) {
     response.end(`<main><h1>合成文章 ${pathname.split('/').at(-1)}</h1><p>已打开完整产品更新。</p></main>`);
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
-  return { url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise(resolve => server.close(resolve)) };
+  return { url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise(resolve => {
+    server.close(resolve);
+    server.closeAllConnections();
+  }) };
 }

@@ -1,10 +1,11 @@
+import { AdminCycleManagementService } from '../src/modules/admin/admin-cycle-management.service';
+import { WeeklyCycleService } from '../src/modules/cycles/weekly-cycle.service';
 import { randomUUID } from 'crypto';
 import { HARD_MATCH_KEYS } from '@lilink/shared';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AdminAnalyticsService } from '../src/modules/admin-analytics/admin-analytics.service';
 import { AdminAuditService } from '../src/modules/admin/admin-audit.service';
-import { createAdminTestHarness } from './fixtures/admin-services';
 
 const tag = `cycle-workbench-${randomUUID()}`;
 describe('Cycle workbench scope and audit (PostgreSQL)', () => {
@@ -133,22 +134,28 @@ describe('Cycle workbench scope and audit (PostgreSQL)', () => {
   });
 
   it('records the preview actor and timestamp and filters both searched and unsearched audit pages', async () => {
-    const admin = createAdminTestHarness(
+    const admin = new AdminCycleManagementService(
       prisma as PrismaService,
+      {} as never,
       {
         previewCycle: () =>
           Promise.resolve({
             cycleId,
             candidates: [],
             suggestedPairs: [],
-            unmatchedUserIds: [],
+            unmatchedUserIds: ['synthetic-unmatched'],
           }),
       } as never,
       audit,
-      {} as never,
+      new WeeklyCycleService(prisma as PrismaService),
     );
+    const beforePreview = Date.now();
     const preview = await admin.previewCycle(cycleId, adminId);
-    expect(Number.isNaN(Date.parse(preview.generatedAt))).toBe(false);
+    expect(Date.parse(preview.generatedAt)).toBeGreaterThanOrEqual(
+      beforePreview,
+    );
+    expect(Date.parse(preview.generatedAt)).toBeLessThanOrEqual(Date.now());
+    expect(preview.unmatchedUserIds).toEqual(['synthetic-unmatched']);
     await prisma.auditLog.createMany({
       data: [
         { action: 'cycle.prepared', metadata: { cycleId } },
@@ -166,6 +173,7 @@ describe('Cycle workbench scope and audit (PostgreSQL)', () => {
       cycleId,
       generatedAt: preview.generatedAt,
       suggestedPairs: 0,
+      unmatchedUsers: 1,
     });
     const searched = await audit.listAuditLogs({
       cycleId,

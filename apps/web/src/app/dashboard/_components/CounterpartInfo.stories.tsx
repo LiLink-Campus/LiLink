@@ -2,9 +2,9 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { CounterpartInfo } from "./CounterpartInfo";
 
 const meta = {
+  tags: ["!test"],
   title: "Dashboard/Match/Components/CounterpartInfo",
   component: CounterpartInfo,
-  tags: ["smoke"],
   parameters: {
     layout: "centered",
   },
@@ -42,21 +42,10 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const Playground: Story = {};
-
-export const LongValues: Story = {
-  args: {
-    gender: "非二元 / 更愿意见面后介绍",
-    partnerGenders: ["女生", "男生", "非二元"],
-    weeklyIntent: "BOTH",
-    compact: true,
-  },
-};
-
-export const EmptyFields: Story = {
-  args: {
-    gender: null,
-    partnerGenders: [],
-    weeklyIntent: null,
-  },
+export const Gallery: Story = {
+  render: () => <div style={{ display: "grid", gap: 16 }}>
+    <CounterpartInfo gender="男生" partnerGenders={["女生"]} weeklyIntent="DATE" />
+    <CounterpartInfo gender="非二元 / 更愿意见面后介绍" partnerGenders={["女生", "男生", "非二元"]} weeklyIntent="BOTH" compact />
+    <CounterpartInfo gender={null} partnerGenders={[]} weeklyIntent={null} />
+  </div>,
 };

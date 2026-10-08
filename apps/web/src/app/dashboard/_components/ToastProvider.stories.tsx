@@ -10,9 +10,9 @@ function ToastTrigger({ message }: { message: string }) {
 }
 
 const meta = {
+  tags: ["!test"],
   title: "Dashboard/Foundation/ToastProvider",
   component: ToastProvider,
-  tags: ["smoke"],
   parameters: {
     layout: "centered",
   },
@@ -23,6 +23,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const ToastAppears: Story = {
+  tags: ["test"],
   args: {
     children: <ToastTrigger message="资料已保存" />,
   },

@@ -16,7 +16,8 @@ const active = { active: true, activatedAt: "2026-01-01T00:00:00.000Z", expiresA
   durationDays: 30, priceYuan: "29.90", advancedFiltersAvailable: true };
 const inactive = { ...active, active: false, activatedAt: null, expiresAt: null };
 const meta = {
-  title: "全站/VIP 生命周期", tags: ["smoke"], decorators: [dashboardShell],
+  tags: ["!test"],
+  title: "全站/VIP 生命周期", decorators: [dashboardShell],
   parameters: { ...route("/dashboard/me"), msw: { handlers: { site: siteHandlers } } },
 } satisfies Meta;
 export default meta;
@@ -80,14 +81,15 @@ function lateRead(profile: boolean, response: "success" | "401" | "503"): Story 
   };
 }
 
-export const CenterOldSuccess = lateRead(false, "success");
-export const CenterOldUnauthorized = lateRead(false, "401");
-export const CenterOldFailure = lateRead(false, "503");
-export const ProfileOldSuccess = lateRead(true, "success");
-export const ProfileOldUnauthorized = lateRead(true, "401");
-export const ProfileOldFailure = lateRead(true, "503");
+export const CenterOldSuccess = { ...lateRead(false, "success"), tags: ["test"] } satisfies Story;
+export const CenterOldUnauthorized = { ...lateRead(false, "401"), tags: ["test"] } satisfies Story;
+export const CenterOldFailure = { ...lateRead(false, "503"), tags: ["test"] } satisfies Story;
+export const ProfileOldSuccess = { ...lateRead(true, "success"), tags: ["test"] } satisfies Story;
+export const ProfileOldUnauthorized = { ...lateRead(true, "401"), tags: ["test"] } satisfies Story;
+export const ProfileOldFailure = { ...lateRead(true, "503"), tags: ["test"] } satisfies Story;
 
 export const NewBootstrapClearsRefreshError: Story = {
+  tags: ["test"],
   parameters: { msw: { handlers: { site: [http.get(`${api}/me/vip`, () => HttpResponse.json({ message: "Synthetic outage" }, { status: 503 })), ...siteHandlers] } } },
   render: () => <Lifecycle />,
   play: async ({ canvasElement }) => {
@@ -101,6 +103,7 @@ export const NewBootstrapClearsRefreshError: Story = {
 };
 
 export const UnknownBootstrapReplacesUnknownRead: Story = {
+  tags: ["test"],
   ...NewBootstrapClearsRefreshError,
   parameters: unknownHandlers(),
   render: () => <Lifecycle unknown />,
@@ -122,6 +125,7 @@ function unknownHandlers() {
 }
 
 export const AccountSwitchIgnoresOldSuccess: Story = {
+  tags: ["test"],
   parameters: { msw: { handlers: { site: [http.get(`${api}/me/vip`, async () => {
     await new Promise(resolve => window.setTimeout(resolve, 300));
     return HttpResponse.json(active);
@@ -139,6 +143,7 @@ export const AccountSwitchIgnoresOldSuccess: Story = {
 };
 
 export const LogoutAndSameAccountLogin: Story = {
+  tags: ["test"],
   parameters: { msw: { handlers: { site: [http.get(`${api}/me/vip`, async () => {
     await new Promise(resolve => window.setTimeout(resolve, 300));
     return HttpResponse.json(active);

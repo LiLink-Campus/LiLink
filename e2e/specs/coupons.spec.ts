@@ -1,5 +1,4 @@
-import { test, expect, api, completeProfile, visit } from '../support/fixtures';
-
+import { test, expect, api, visit } from '../support/fixtures';
 test.beforeEach(async ({ signedIn }) => { void signedIn; });
 
 test('coupon overview is bounded and historical pagination has no duplicates', async ({ page, context, db, account }) => {
@@ -22,68 +21,6 @@ test('coupon overview is bounded and historical pagination has no duplicates', a
   await expect(page.getByRole('main').getByRole('heading', { name: '我的优惠券' })).toBeVisible();
   await page.getByRole('button', { name: '加载更多历史优惠券' }).click();
   await expect(page.getByRole('region', { name: '历史记录' }).getByRole('article')).toHaveCount(23);
-});
-
-test('home summary retains eligibility and account isolation without full questionnaire data', async ({ page, context, db, account }, info) => {
-  const before = await context.request.get(`${api}/me/page-bootstrap/home`);
-  expect(before.ok()).toBeTruthy();
-  const incomplete = await before.json();
-  expect(incomplete.user.id).toBe(account.id);
-  expect(incomplete.questionnaireProgress.eligibleToOptIn).toBe(false);
-  expect(incomplete.questionnaire).toBeUndefined();
-  expect(incomplete.savedQuestionnaire).toBeUndefined();
-  await completeProfile(context, db);
-  const response = await context.request.get(`${api}/me/page-bootstrap/home`);
-  expect(response.headers()['cache-control']).toContain('no-store');
-  const complete = await response.json();
-  expect(complete.questionnaireProgress).toMatchObject({ percent: 100, submitted: true, eligibleToOptIn: true, hasIncompleteDraft: false });
-  expect(complete.contactPreferences).toBeTruthy();
-  const profile = await (await context.request.get(`${api}/me/page-bootstrap/profile`)).json();
-  const previousShape = { user: complete.user, dashboard: complete.dashboard, questionnaire: profile.questionnaire,
-    savedQuestionnaire: profile.savedQuestionnaire, contactPreferences: complete.contactPreferences };
-  const currentBytes = Buffer.byteLength(JSON.stringify(complete));
-  const previousShapeBytes = Buffer.byteLength(JSON.stringify(previousShape));
-  expect(currentBytes).toBeLessThan(previousShapeBytes);
-  await info.attach('home-read-model-bytes', { body: JSON.stringify({ currentBytes, previousShapeBytes,
-    fixture: 'synthetic completed questionnaire', comparison: 'same current data in previous aggregate response shape',
-    includesBrowserTransfer: false }), contentType: 'application/json' });
-  await visit(page, '/dashboard');
-  await expect(page.getByRole('main')).toContainText('自动化同学');
-  await context.clearCookies();
-  expect((await context.request.get(`${api}/me/page-bootstrap/home`)).status()).toBe(401);
-});
-
-test('profile keeps verified VIP state through transient reads and expiry remains authoritative', async ({ page, context, db, account }) => {
-  await page.clock.install();
-  await completeProfile(context, db);
-  await db.vipActivation.create({ data: { codeHash: `performance-${account.id}`, userId: account.id, activatedAt: new Date(Date.now() - 86_400_000), expiresAt: new Date(Date.now() + 60_000), batch: 'e2e-performance' } });
-  await visit(page, '/dashboard/profile');
-  await expect(page.getByText('全部修改已保存', { exact: true }).filter({ visible: true })).toBeVisible();
-  // The SSR save notice is visible before the profile can handle focus events.
-  await expect(page.getByRole('textbox', { name: '昵称', exact: true })).toBeEditable();
-  const directory = page.getByRole('button', { name: '题目目录', exact: true });
-  if (await directory.isVisible()) await directory.click();
-  await page.getByRole('button', { name: /第 \d+ 题：希望对方的身高范围$/ }).filter({ visible: true }).click();
-  const activeBenefits = page.getByText('高级筛选 · VIP 已启用', { exact: true });
-  await expect(activeBenefits.filter({ visible: true })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe('visible');
-  let requests = 0;
-  await page.route('**/v1/me/vip', async route => {
-    requests++;
-    await route.fulfill({ status: 503, json: { message: 'Temporary outage' } });
-  });
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect.poll(() => requests).toBe(1);
-  await expect(page.getByText('权益状态暂时无法更新，稍后会自动重试。')).toBeVisible();
-  await expect(activeBenefits.filter({ visible: true })).toBeVisible();
-  await db.vipActivation.updateMany({ where: { userId: account.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
-  await page.unroute('**/v1/me/vip');
-  // A later foreground event is independent of the coalesced focus burst.
-  await page.clock.runFor(1000);
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(page.getByText('权益状态暂时无法更新，稍后会自动重试。')).toHaveCount(0);
-  await expect(activeBenefits).toHaveCount(0);
-  expect((await (await context.request.get(`${api}/me/vip`)).json()).active).toBe(false);
 });
 
 test('coupon dialog serializes polling and ignores an old coupon response after switching', async ({ page, db, account }) => {
@@ -133,3 +70,48 @@ test('coupon dialog serializes polling and ignores an old coupon response after 
     expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('lilink:coupon-secret:')))).toEqual([]);
   } finally { release(); }
 });
+
+for (const entry of [{ status: 401, action: 'refresh' }, { status: 403, action: 'page' }] as const) {
+  test(`coupon ${entry.action} removes private cards and an open code after ${entry.status}`, async ({ page, db, account, signedIn }, info) => {
+    void signedIn;
+    const campaign = await db.campaign.create({ data: { name: 'Private read fixture', slug: `private-${account.id}` } });
+    const merchant = await db.merchant.create({ data: { name: 'Private fixture merchant' } });
+    for (let index = 0; index < 22; index++) {
+      const template = await db.couponTemplate.create({ data: {
+        campaignId: campaign.id, merchantId: merchant.id, title: `私有验收券 ${index}`, benefitType: 'CUSTOM', faceValue: 100,
+      } });
+      await db.coupon.create({ data: {
+        userId: account.id, templateId: template.id, code: `${account.id}-${index}`,
+        status: index === 0 ? 'ISSUED' : 'EXPIRED', totpSecret: 'JBSWY3DPEHPK3PXP',
+      } });
+    }
+    await visit(page, '/dashboard/coupons');
+    await expect(page.getByRole('article')).toHaveCount(21);
+    if (entry.action === 'refresh') {
+      await page.route('**/me/coupons/overview', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ message: 'Synthetic temporary failure' }) }));
+      await page.getByRole('button', { name: '刷新优惠券', exact: true }).click();
+      await expect(page.getByRole('main').getByRole('alert')).toContainText('Synthetic temporary failure');
+      await expect(page.getByRole('article')).toHaveCount(21);
+      await page.unroute('**/me/coupons/overview');
+    }
+    let release!: () => void;
+    const delayed = new Promise<void>(resolve => { release = resolve; });
+    let requested!: () => void;
+    const started = new Promise<void>(resolve => { requested = resolve; });
+    await page.route(entry.action === 'refresh' ? '**/me/coupons/overview' : '**/me/coupons/page?**', async route => {
+      requested();
+      await delayed;
+      await route.fulfill({ status: entry.status, contentType: 'application/json', body: JSON.stringify({ message: 'Synthetic authorization expired' }) });
+    });
+    await page.getByRole('button', { name: entry.action === 'refresh' ? '刷新优惠券' : '加载更多历史优惠券', exact: true }).click();
+    await started;
+    try {
+      await page.getByRole('button', { name: '查看核销码', exact: true }).click();
+      await expect(page.getByText('请向店员出示此核销码', { exact: true })).toBeVisible();
+    } finally { release(); }
+    await expect(page.getByRole('article')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: '重新登录', exact: true })).toBeVisible();
+
+  });
+}

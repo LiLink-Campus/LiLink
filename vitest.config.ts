@@ -8,6 +8,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
+    allowOnly: false,
     projects: [
       {
         extends: true,
@@ -19,7 +20,7 @@ export default defineConfig({
             configDir: path.join(dirname, "apps/web/.storybook"),
             storybookScript: "npm run storybook:web -- --ci --no-open",
             tags: {
-              include: ["smoke"],
+              include: ["test"],
               exclude: [],
               skip: [],
             },

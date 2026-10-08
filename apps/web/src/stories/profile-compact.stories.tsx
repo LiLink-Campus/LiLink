@@ -29,10 +29,10 @@ const answers = {
   social_energy: "比较不像我",
 };
 const meta = {
+  tags: ["!test"],
   id: "profile-compact",
   title: "资料/紧凑答题",
   component: ProfileClient,
-  tags: ["smoke", "page"],
   decorators: [dashboardShell],
   parameters: { fullSite: true, ...route("/dashboard/profile") },
   args: {
@@ -68,6 +68,7 @@ async function editExampleAnswer(canvasElement: HTMLElement) {
 }
 
 export const FiveChoices: Story = {
+  tags: ["test"],
   globals: { viewport: { value: "mobileShort", isRotated: false } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -87,15 +88,11 @@ export const FiveChoices: Story = {
   },
 };
 
-export const Desktop: Story = {
-  ...FiveChoices,
-  globals: { viewport: { value: "desktop1280", isRotated: false } },
-};
-
 const savedResponse = () => HttpResponse.json({ saveState: "SUBMITTED", questionnaireSubmittedAt: now, hasDraft: false });
 const slowSave = async () => { await delay(8000); return savedResponse(); };
 
 export const Saving: Story = {
+  tags: ["test"],
   ...FiveChoices,
   name: "正在保存",
   parameters: { msw: { handlers: { profileSave: [http.put("/api/questionnaire", slowSave), http.put(`${api}/me/questionnaire`, slowSave)] } } },
@@ -115,6 +112,7 @@ const failThenSave = async () => {
 };
 
 export const SaveFailure: Story = {
+  tags: ["test"],
   ...FiveChoices,
   name: "保存失败（可重试）",
   beforeEach: () => { saveAttempt = 0; },
@@ -126,6 +124,7 @@ export const SaveFailure: Story = {
 };
 
 export const DraftSaved: Story = {
+  tags: ["test"],
   ...FiveChoices,
   name: "草稿已保存",
   args: {

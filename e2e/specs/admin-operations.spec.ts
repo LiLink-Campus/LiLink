@@ -1,4 +1,5 @@
-import { test, expect, api, password, visit } from '../support/fixtures';
+import type { BrowserContext } from '@playwright/test';
+import { test, expect, api, password, visit, completeProfile } from '../support/fixtures';
 
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
@@ -46,7 +47,7 @@ test('admin publishes a questionnaire revision and reviews a report @smoke', asy
       assertions: { newQuestionnaireRevision: true, publicCacheUpdated: true, publishedPageReloads: true,
         reportResolved: true, reviewNotesPersist: true, finalReportVisible: true, auditEvents: 2 },
     }) });
-    await info.attach('admin-report-resolved', { contentType: 'image/png', body: await page.screenshot({ animations: 'disabled' }) });
+
   } finally {
     const current = await db.questionnaireVersion.findFirstOrThrow({ where: { isCurrent: true }, include: { questions: true } });
     const activeQuestion = current.questions.find((q: any) => q.key === question.key);
@@ -92,4 +93,139 @@ test('bulk test-user removal leaves ordinary users intact and admin routes rejec
   await info.attach('admin-test-data-contract', { contentType: 'application/json', body: JSON.stringify({
     assertions: { syntheticRemoved: true, ordinaryPreserved: true, unauthenticatedUserAndMerchantDenied: true, auditWritten: true },
   }) });
+});
+
+test('admin closes registration and user sees the updated state', async ({ page, signedIn, account, context, db }) => {
+  void signedIn;
+  await completeProfile(context, db);
+  const user = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  const admin = await db.adminOperator.create({ data: { email: `admin-${account.email}`, passwordHash: user.passwordHash, displayName: '自动化管理员' } });
+  const cycle = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
+  try {
+    const landingBefore = await context.request.get(`${api}/public/landing`);
+    expect((await landingBefore.json()).currentCycle?.codename).toBe(cycle.codename);
+    await visit(page, '/admin');
+    await page.getByLabel('管理员邮箱', { exact: true }).fill(admin.email);
+    await page.getByLabel('密码', { exact: true }).fill(password);
+    await page.getByRole('button', { name: '进入后台', exact: true }).click();
+    await expect.poll(async () => (await context.request.get(`${api}/admin-session/me`)).status()).toBe(200);
+    await visit(page, '/admin/cycles');
+    await page.getByRole('button', { name: '编辑轮次', exact: true }).click();
+    await page.getByRole('combobox', { name: '状态', exact: true }).selectOption('DRAFT');
+    await page.getByRole('button', { name: '保存轮次', exact: true }).click();
+    await expect.poll(async () => (await db.matchCycle.findUniqueOrThrow({ where: { id: cycle.id } })).status).toBe('DRAFT');
+    const landingAfter = await context.request.get(`${api}/public/landing`);
+    expect((await landingAfter.json()).currentCycle).toBeNull();
+    await visit(page, '/dashboard');
+    await expect(page.getByRole('region').getByText('报名未开放', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '选择意向并报名', exact: true })).toHaveCount(0);
+  } finally {
+    if ((await db.matchCycle.findUniqueOrThrow({ where: { id: cycle.id } })).status !== cycle.status) {
+      const restored = await context.request.put(`${api}/admin/cycles`, { data: {
+        cycleId: cycle.id, codename: cycle.codename, status: cycle.status,
+        participationDeadline: cycle.participationDeadline.toISOString(), revealAt: cycle.revealAt.toISOString(),
+      } });
+      expect(restored.ok()).toBe(true);
+      expect((await (await context.request.get(`${api}/public/landing`)).json()).currentCycle?.codename).toBe(cycle.codename);
+    }
+  }
+});
+
+async function loginAdmin(context: BrowserContext, db: any, accountId: string) {
+  const user = await db.user.findUniqueOrThrow({ where: { id: accountId } });
+  const admin = await db.adminOperator.create({ data: { email: `weekly-admin-${user.email}`, passwordHash: user.passwordHash } });
+  const response = await context.request.post(`${api}/admin-session/login`, { data: { email: admin.email, password } });
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
+test('@smoke admin enables weekly cycles, sees the new cycle, and pauses durably', async ({ page, context, db, account }, info) => {
+  await loginAdmin(context, db, account.id);
+  const prior = await db.matchCycle.findMany({ select: { id: true, status: true } });
+  const priorSetting = await db.systemSetting.findUnique({ where: { key: 'weekly-cycle-schedule' } });
+  let createdId: string | undefined;
+  try {
+    await db.matchCycle.updateMany({ data: { status: 'DRAFT' } });
+    await db.systemSetting.deleteMany({ where: { key: 'weekly-cycle-schedule' } });
+    await visit(page, '/admin/cycles');
+    await page.getByRole('checkbox', { name: '启用自动续轮' }).check();
+    await page.getByRole('button', { name: '保存自动轮次设置' }).click();
+    await expect(page.getByRole('region', { name: '每周自动续轮' }).getByRole('status')).toContainText('已创建并开放报名');
+    const created = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
+    createdId = created.id;
+    expect(created.codename).toMatch(/^第\d+周$/);
+    expect(created.revealAt.getUTCDay()).toBe(2);
+    expect(created.revealAt.getUTCHours()).toBe(13);
+    expect(created.revealAt.getTime() - created.participationDeadline.getTime()).toBe(2 * 3600000);
+    await page.reload();
+    await expect(page.getByRole('checkbox', { name: '启用自动续轮' })).toBeChecked();
+    await expect(page.getByRole('button', { name: new RegExp(created.codename) })).toBeVisible();
+    await page.getByRole('checkbox', { name: '启用自动续轮' }).uncheck();
+    await page.getByRole('button', { name: '保存自动轮次设置' }).click();
+    await expect(page.getByRole('region', { name: '每周自动续轮' }).getByRole('status')).toContainText('自动续轮已暂停');
+    await page.reload();
+    await expect(page.getByRole('checkbox', { name: '启用自动续轮' })).not.toBeChecked();
+    expect((await db.matchCycle.findUniqueOrThrow({ where: { id: created.id } })).status).toBe('OPEN');
+  } finally {
+    if (createdId) await db.matchCycle.delete({ where: { id: createdId } });
+    for (const cycle of prior) await db.matchCycle.update({ where: { id: cycle.id }, data: { status: cycle.status } });
+    await db.systemSetting.deleteMany({ where: { key: 'weekly-cycle-schedule' } });
+    if (priorSetting) await db.systemSetting.create({ data: priorSetting });
+  }
+});
+
+test('@smoke admin cancels then deletes an empty draft with final list and audit proof', async ({ page, context, db, account }, info) => {
+  await loginAdmin(context, db, account.id);
+  const name = `空白草稿-${account.id}`;
+  const cycle = await db.matchCycle.create({ data: { codename: name, status: 'DRAFT', participationDeadline: new Date('2035-01-01'), revealAt: new Date('2035-01-02') } });
+  await visit(page, '/admin/cycles');
+  await page.getByRole('button', { name: new RegExp(name) }).click();
+  await page.getByRole('button', { name: '删除草稿', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '删除草稿轮次' });
+  await expect(dialog).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  expect(await db.matchCycle.findUnique({ where: { id: cycle.id } })).not.toBeNull();
+  await page.getByRole('button', { name: '删除草稿', exact: true }).click();
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('button', { name: new RegExp(name) })).toHaveCount(0);
+  expect(await db.matchCycle.findUnique({ where: { id: cycle.id } })).toBeNull();
+  expect(await db.auditLog.count({ where: { action: 'cycle.deleted', metadata: { path: ['cycleId'], equals: cycle.id } } })).toBe(1);
+});
+
+test('admin confirms participation deletion while active and matched cycles remain protected', async ({ page, context, db, account }, info) => {
+  await loginAdmin(context, db, account.id);
+  const active = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
+  expect((await context.request.delete(`${api}/admin/cycles/${active.id}`)).status()).toBe(409);
+  const cycle = await db.matchCycle.create({ data: { codename: `已有参与-${account.id}`, status: 'DRAFT', participationDeadline: new Date('2035-01-01'), revealAt: new Date('2035-01-02'), participations: { create: { userId: account.id, status: 'OPTED_OUT' } } } });
+  await visit(page, '/admin/cycles');
+  await page.getByRole('button', { name: new RegExp(cycle.codename) }).click();
+  expect((await context.request.delete(`${api}/admin/cycles/${cycle.id}`)).status()).toBe(409);
+  expect(await db.matchCycle.findUnique({ where: { id: cycle.id } })).not.toBeNull();
+  await page.getByRole('button', { name: '删除草稿', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '删除草稿轮次' });
+  await expect(dialog).toContainText('1 条参与记录');
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('button', { name: new RegExp(cycle.codename) })).toHaveCount(0);
+  expect(await db.cycleParticipation.count({ where: { cycleId: cycle.id } })).toBe(0);
+  expect(await db.user.findUnique({ where: { id: account.id } })).not.toBeNull();
+  const matched = await db.matchCycle.create({ data: { codename: `已有匹配-${account.id}`, status: 'DRAFT', participationDeadline: new Date('2035-01-01'), revealAt: new Date('2035-01-02'), matches: { create: { score: 0 } } } });
+  await page.reload();
+  await page.getByRole('button', { name: new RegExp(matched.codename) }).click();
+  await expect(page.getByRole('button', { name: '删除草稿', exact: true })).toBeDisabled();
+  expect((await context.request.delete(`${api}/admin/cycles/${matched.id}`)).status()).toBe(409);
+  expect(await db.matchCycle.findUnique({ where: { id: matched.id } })).not.toBeNull();
+  await db.matchCycle.delete({ where: { id: matched.id } });
+});
+
+test('ordinary users cannot change the cycle schedule or delete cycles', async ({ context, signedIn }) => {
+  void signedIn;
+  expect((await context.request.get(`${api}/admin/weekly-cycle-settings`)).status()).toBe(401);
+  expect((await context.request.put(`${api}/admin/weekly-cycle-settings`, { data: { enabled: true, deadlineHours: 2 } })).status()).toBe(401);
+  expect((await context.request.delete(`${api}/admin/cycles/unused`)).status()).toBe(401);
 });

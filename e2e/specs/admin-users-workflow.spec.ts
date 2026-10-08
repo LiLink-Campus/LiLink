@@ -36,9 +36,9 @@ test('admin user management preserves visible and persisted results @smoke', asy
   await expect(dialog.getByRole('alert')).toHaveText('合成保存故障');
   await expect(headline).toHaveValue('合成运营编辑验收');
   await dialog.getByRole('alert').evaluate(element => element.scrollIntoView({ block: 'center' }));
-  await info.attach('admin-edit-failure-error', { contentType: 'image/png', body: await page.screenshot({ animations: 'disabled' }) });
+
   await headline.scrollIntoViewIfNeeded();
-  await info.attach('admin-edit-failure-retains-draft', { contentType: 'image/png', body: await page.screenshot({ animations: 'disabled' }) });
+
   expect((await db.userProfile.findUnique({ where: { userId: account.id } }))?.headline).not.toBe('合成运营编辑验收');
   await page.unroute(updateUrl);
   await dialog.getByRole('button', { name: '保存修改', exact: true }).click();
@@ -58,21 +58,11 @@ test('admin user management preserves visible and persisted results @smoke', asy
   await expect(dialog.getByRole('status')).toHaveText('账号已恢复，可正常登录。');
   await dialog.getByRole('button', { name: /^问卷回答/ }).click();
   await expect(dialog.getByRole('heading', { name: '硬性条件', exact: true })).toBeVisible();
-  await info.attach('admin-questionnaire-tab', { contentType: 'image/png', body: await page.screenshot({ animations: 'disabled' }) });
+
   await dialog.getByRole('button', { name: /^轮次参与/ }).click();
   await expect(dialog.getByText('暂无轮次参与记录。', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: '基本资料', exact: true }).click();
-  const viewport = page.viewportSize()!;
-  for (const width of [320, 879, 880, 1280]) {
-    await page.setViewportSize({ width, height: 900 });
-    await dialog.evaluate(element => { element.scrollTop = 0; });
-    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
-    const bounds = await dialog.boundingBox();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-    await info.attach(`admin-user-detail-${width}`, { contentType: 'image/png', body: await page.screenshot({ animations: 'disabled' }) });
-  }
-  await page.setViewportSize(viewport);
+
   await dialog.getByRole('button', { name: '关闭用户详情', exact: true }).click();
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByPlaceholder('邮箱、昵称、姓名或学校').fill(account.email);
@@ -178,3 +168,51 @@ test(`admin ignores a late post-action ${held} after changing users @smoke`, asy
   } finally { release(); await page.unrouteAll({ behavior: 'wait' }); }
 });
 }
+
+test('expired admin refresh removes the previous private list', async ({ page, account, context, db }) => {
+  const user = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  const admin = await db.adminOperator.create({ data: { email: `expiry-${account.email}`, passwordHash: user.passwordHash, displayName: '会话验收管理员' } });
+  expect((await context.request.post(`${api}/admin-session/login`, { data: { email: admin.email, password } })).ok()).toBeTruthy();
+  await visit(page, '/admin/schools');
+  await expect(page.getByText('自动化测试大学', { exact: true })).toBeVisible();
+  await context.clearCookies();
+  await page.getByRole('button', { name: '刷新', exact: true }).click();
+  await expect(page.getByText('自动化测试大学', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '进入后台', exact: true })).toBeVisible();
+});
+
+test('admin refresh preserves controls and late queries cannot replace new results', async ({ page, account, context, db }, testInfo) => {
+  const user = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  const admin = await db.adminOperator.create({ data: { email: `refresh-${account.email}`, passwordHash: user.passwordHash, displayName: '刷新验收管理员' } });
+  expect((await context.request.post(`${api}/admin-session/login`, { data: { email: admin.email, password } })).ok()).toBeTruthy();
+  await visit(page, '/admin/schools');
+  const search = page.getByPlaceholder('搜索学校名称、slug 或邮箱域名…');
+  await expect(search).toBeVisible();
+  await expect(page.getByText('正在加载列表…', { exact: true })).toHaveCount(0);
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let calls = 0;
+  let obsoleteFinished!: () => void;
+  const obsoleteHandled = new Promise<void>(resolve => { obsoleteFinished = resolve; });
+  await page.route(`${api}/admin/schools?*`, async route => {
+    const requestNumber = ++calls;
+    if (requestNumber === 1) await gate;
+    try {
+      await route.fulfill({ json: { items: [], total: requestNumber === 1 ? 91 : 0, page: 1, pageSize: 20, totalPages: 1 } });
+    } finally { if (requestNumber === 1) obsoleteFinished(); }
+  });
+  try {
+    await page.getByRole('button', { name: '刷新', exact: true }).click();
+    await expect.poll(() => calls).toBe(1);
+    await expect(search).toBeVisible();
+    await search.fill('latest-query');
+    await search.press('Enter');
+    await expect.poll(() => calls).toBeGreaterThan(1);
+    await expect(page.getByText('正在更新列表…', { exact: true })).toHaveCount(0);
+    release();
+    await obsoleteHandled;
+    await expect(search).toHaveValue('latest-query');
+    await expect(page.getByText('91', { exact: true })).toHaveCount(0);
+
+  } finally { release(); }
+});

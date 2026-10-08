@@ -5,8 +5,8 @@ import { getInstallState, INSTALL_READY_WAIT_MS, type InstallEvent } from "../..
 import { PwaInstallProvider, PwaInstallEntry, PwaInstallCard } from "./PwaInstall";
 
 const meta = {
+  tags: ["!test"],
   title: "PWA/Install",
-  tags: ["smoke"],
   component: PwaInstallProvider,
   args: { children: null },
   beforeEach: () => {
@@ -18,6 +18,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Guide: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     const buttons = await c.findAllByRole("button", { name: /添加到桌面/ });
@@ -32,20 +33,6 @@ export const Guide: Story = {
     await expect(Number(localStorage.getItem("lilink-install-dismissed"))).toBeGreaterThan(Date.now() - 10000);
   },
 };
-export const NativeInstall: Story = {
-  play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
-    await c.findByRole("complementary");
-    let prompted = false;
-    const event = new Event("beforeinstallprompt", { cancelable: true });
-    Object.assign(event, { prompt: async () => { prompted = true; }, userChoice: Promise.resolve({ outcome: "accepted" }) });
-    window.dispatchEvent(event);
-    await userEvent.click(c.getAllByRole("button", { name: /添加到桌面/ })[0]);
-    await waitFor(() => expect(c.queryByRole("complementary")).toBeNull());
-    await expect(prompted).toBe(true);
-    await expect(event.defaultPrevented).toBe(true);
-  },
-};
 
 function installEvent(prompt: () => Promise<unknown>, outcome: "accepted" | "dismissed" = "accepted") {
   return Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
@@ -55,6 +42,7 @@ function installEvent(prompt: () => Promise<unknown>, outcome: "accepted" | "dis
 }
 
 export const DelayedInstallReady: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await userEvent.click((await c.findAllByRole("button", { name: /添加到桌面/ }))[0]);
@@ -71,6 +59,7 @@ export const DelayedInstallReady: Story = {
 };
 
 export const GuideBecomesInstall: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await userEvent.click((await c.findAllByRole("button", { name: /添加到桌面/ }))[0]);
@@ -85,6 +74,7 @@ export const GuideBecomesInstall: Story = {
 };
 
 export const CancelThenInstall: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     const entry = (await c.findAllByRole("button", { name: /添加到桌面/ }))[0];
@@ -105,6 +95,7 @@ export const CancelThenInstall: Story = {
 };
 
 export const PromptFailureCanRecover: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     const entry = (await c.findAllByRole("button", { name: /添加到桌面/ }))[0];
@@ -119,12 +110,15 @@ export const PromptFailureCanRecover: Story = {
 };
 
 export const PreventDuplicatePrompt: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     const buttons = await c.findAllByRole("button", { name: /添加到桌面/ });
     let finish!: () => void;
     let calls = 0;
-    window.dispatchEvent(installEvent(() => { calls++; return new Promise<void>((resolve) => { finish = resolve; }); }));
+    const event = installEvent(() => { calls++; return new Promise<void>((resolve) => { finish = resolve; }); });
+    window.dispatchEvent(event);
+    await expect(event.defaultPrevented).toBe(true);
     await userEvent.click(buttons[0]);
     await expect(buttons[0]).toBeDisabled();
     await expect(buttons[1]).toBeDisabled();
@@ -141,6 +135,7 @@ function RemountFixture() {
 }
 
 export const RetainAcrossRemount: Story = {
+  tags: ["test"],
   render: () => <RemountFixture />,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -164,6 +159,7 @@ function withUserAgent(userAgent: string) {
 }
 
 export const IPhoneGuide: Story = {
+  tags: ["test"],
   beforeEach: () => withUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1"),
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -176,6 +172,7 @@ export const IPhoneGuide: Story = {
 };
 
 export const EmbeddedGuide: Story = {
+  tags: ["test"],
   beforeEach: () => withUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 MicroMessenger/8.0"),
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);

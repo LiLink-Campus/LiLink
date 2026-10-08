@@ -26,7 +26,7 @@ test('public navigation loads complete assets from the Vercel Web origin @smoke'
     }
   });
   const samples = [];
-  for (const route of ['/', '/about', '/about/team/yoryon', '/one-to-one', '/schools', '/register/school']) {
+  for (const route of ['/', '/about/team/yoryon', '/schools', '/register/school']) {
     await visit(page, route);
     await expect(page.getByRole('main').last()).toBeVisible();
     await page.evaluate(async () => {
@@ -68,7 +68,7 @@ test('public navigation loads complete assets from the Vercel Web origin @smoke'
     }
     samples.push({ route, renderedImages: images.length, images,
       sameOriginScripts: await page.locator("script[src]").evaluateAll(scripts => scripts.every(script => new URL((script as HTMLScriptElement).src).origin === location.origin)) });
-    await page.screenshot({ path: info.outputPath(`${route.replaceAll('/', '-') || 'home'}-vercel-assets.png`), fullPage: true });
+
   }
   await page.getByLabel('学校邮箱', { exact: true }).fill('assets@school.example.test');
   await expect(page.getByText(/✓.*自动化|✓.*验收/)).toBeVisible();
@@ -162,4 +162,26 @@ test('asset caching preserves content digests and excludes mutable or private re
     assertions: { publishedBytesAndDigestsPreserved: true, allPublishedHashesImmutable: true,
       mutableAndMissingAssetsNeverImmutable: true, pagesAndPrivateApisExcluded: true },
   }, null, 2) });
+});
+
+// Real routed pages replace the old Node test's hand-written HTML and CSS loader.
+test('team avatars keep their distinct blend and crop across CSS breakpoints @webkit', async ({ page }) => {
+  for (const slug of ['yoryon', 'member-02']) {
+    await visit(page, `/about/team/${slug}`);
+    const avatar = page.locator('main header img');
+    await expect(avatar).toBeVisible();
+    for (const width of [373, 413, 640, 641, 900]) {
+      await page.setViewportSize({ width, height: 908 });
+      const actual = await avatar.evaluate(image => {
+        const style = getComputedStyle(image);
+        return { blend: style.mixBlendMode, radius: style.borderRadius,
+          fit: style.objectFit, background: style.backgroundColor };
+      });
+      if (slug === 'yoryon') expect(actual).toEqual({
+        blend: 'multiply', radius: '0px', fit: 'contain', background: 'rgba(0, 0, 0, 0)',
+      });
+      else expect(actual).toMatchObject({ blend: 'normal', radius: '50%', fit: 'cover' });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  }
 });

@@ -1,4 +1,4 @@
-import { createCycleTestServices } from './fixtures/cycle-services';
+import { createCycleServices } from './fixtures/cycles';
 const sendMail = jest.fn();
 jest.mock('nodemailer', () => ({
   __esModule: true,
@@ -47,11 +47,11 @@ describe('Match email invalidation (PostgreSQL)', () => {
     mail = new MailService(prisma as PrismaService);
     const snapshots = new DashboardSnapshotService(prisma as PrismaService);
     account = new MatchReportService(prisma as PrismaService, snapshots);
-    const cycles = createCycleTestServices(
+    const cycles = createCycleServices(
       prisma as PrismaService,
       snapshots,
       mail,
-    );
+    ).reveal;
     reset = (id) =>
       (
         cycles as unknown as {

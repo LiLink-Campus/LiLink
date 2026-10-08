@@ -22,21 +22,9 @@ test('a reused email cannot restore another account contact draft', async ({ pag
   await expect(page.getByRole('radio', { name: '邮箱', exact: true })).toBeChecked();
   const contact = page.getByRole('region', { name: '联系方式', exact: true });
   await expect(contact.getByText('已自动保存 · 匹配成功后向对方展示', { exact: true })).toBeVisible();
-  await contact.screenshot({ path: testInfo.outputPath('contact-account-isolation.png') });
+
   const contacts = await (await context.request.get(`${api}/me/contact-preferences`)).json();
   expect(contacts).toMatchObject({ preferredContactChannel: 'EMAIL', revision: 0, methods: [] });
-});
-
-test('contact is saved before immediate navigation @smoke', async ({ page, context, db }) => {
-  await completeProfile(context, db);
-  await visit(page, '/dashboard/profile');
-  await openContact(page);
-  await page.getByRole('radio', { name: '微信', exact: true }).check();
-  await page.getByRole('textbox', { name: '微信内容', exact: true }).fill('saved_before_navigation');
-  await page.getByRole('link', { name: '首页', exact: true }).first().click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  const result = await (await context.request.get(`${api}/me/contact-preferences`)).json();
-  expect(result.methods.find((method: { type: string }) => method.type === 'WECHAT').value).toBe('saved_before_navigation');
 });
 
 test('failed contact save blocks navigation, preserves draft across reload and retries', async ({ page, context, db }, testInfo) => {
@@ -54,7 +42,7 @@ test('failed contact save blocks navigation, preserves draft across reload and r
   await expect(page).toHaveURL(/\/dashboard\/profile$/);
   await expect(input).toHaveValue('retained_contact_draft');
   await page.getByRole('button', { name: '重试保存', exact: true }).scrollIntoViewIfNeeded();
-  await page.screenshot({ path: testInfo.outputPath('contact-navigation-error.png'), fullPage: true });
+
   page.on('dialog', dialog => dialog.accept());
   await page.reload({ waitUntil: 'domcontentloaded' });
   await openContact(page);
@@ -64,7 +52,37 @@ test('failed contact save blocks navigation, preserves draft across reload and r
   await page.getByRole('button', { name: '重试保存', exact: true }).click();
   await expect(page.getByText('已自动保存 · 匹配成功后向对方展示', { exact: true })).toBeVisible();
   await page.getByText('已自动保存 · 匹配成功后向对方展示', { exact: true }).scrollIntoViewIfNeeded();
-  await page.screenshot({ path: testInfo.outputPath('contact-navigation-saved.png'), fullPage: true });
+
   const result = await (await context.request.get(`${api}/me/contact-preferences`)).json();
   expect(result.methods.find((method: { type: string }) => method.type === 'WECHAT').value).toBe('retained_contact_draft');
+  await input.fill('saved_before_navigation');
+  await page.getByRole('link', { name: '首页', exact: true }).first().click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await visit(page, '/dashboard/profile');
+  await openContact(page);
+  await expect(input).toHaveValue('saved_before_navigation');
+});
+
+test('invalid contact save response keeps draft and can retry with server revision', async ({ page, context, db, signedIn }, info) => {
+  void signedIn;
+  await completeProfile(context, db);
+  await visit(page, '/dashboard/profile');
+  await page.getByRole('button', { name: '下一题 →', exact: true }).click();
+  await page.getByRole('button', { name: '下一题 →', exact: true }).click();
+  await page.route('**/v1/me/contact-preferences', async route => {
+    const response = await route.fetch();
+    if (route.request().method() === 'PUT') await route.fulfill({ response, json: { ...(await response.json()), revision: 'invalid' } });
+    else await route.fulfill({ response });
+  });
+  await page.getByRole('radio', { name: '微信', exact: true }).check();
+  const input = page.getByRole('textbox', { name: '微信内容', exact: true });
+  await input.fill('synthetic_contract_contact');
+  await expect(page.getByRole('button', { name: '重试保存', exact: true })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: '服务返回的数据格式异常，请重试。' })).toBeVisible();
+  await expect(input).toHaveValue('synthetic_contract_contact');
+
+  await page.unroute('**/v1/me/contact-preferences');
+  await page.getByRole('button', { name: '重试保存', exact: true }).click();
+  await expect(page.getByText('已自动保存 · 匹配成功后向对方展示', { exact: true })).toBeVisible();
+  expect((await (await context.request.get(`${api}/me/contact-preferences`)).json()).revision).toBe(2);
 });

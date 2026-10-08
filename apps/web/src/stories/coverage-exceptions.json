@@ -1,5 +1,0 @@
-{
-  "app/r/[code]/layout.tsx": "无独立 UI 的透传 layout，仅提供请求级 Sentry metadata；子页面由兑换页 story 覆盖，动态 trace metadata 由 sentry-cache-tracing 浏览器 E2E 验证。",
-  "app/_components/ServiceWorkerRegistrar.tsx": "无 UI 的生产 Service Worker 注册器；在 Storybook 挂载会接管 MSW。离线页面由真实 /offline.html story 覆盖，注册流程需在正式应用集成验证。",
-  "app/usage-analytics.tsx": "无 UI 的 Vercel 遥测采样入口；在 Storybook 挂载会发送合成浏览事件。采样配置由用量预算记录，真实事件接收与计费需在 Vercel 生产观测中验证。"
-}

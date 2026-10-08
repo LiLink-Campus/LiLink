@@ -12,19 +12,16 @@ import { UserCenter } from "@/app/dashboard/me/user-center";
 import { useDashboardSessionSeed } from "@/app/dashboard/_components/DashboardSessionSeed";
 import { matchStoryUser } from "@/app/dashboard/match/match.fixtures";
 import { now } from "./site-fixtures";
-import { visible, route } from "./site-support";
-import SchoolsGenderChart from "@/app/admin/analytics/SchoolsGenderChart";
-import WeeklyOptinChart from "@/app/admin/analytics/WeeklyOptinChart";
-import { schoolGender, weekly } from "./admin-fixtures";
+import { route } from "./site-support";
 const meta = {
+  tags: ["!test"],
   id: "site-components",
   title: "全站/共享组件",
-  tags: ["smoke"],
   parameters: { fullSite: true, fixedNow: now, layout: "padded" },
 } satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Brand: Story = { render: () => <BrandMark href="/" />, play: visible("LiLink") };
+export const Brand: Story = { render: () => <BrandMark href="/" /> };
 export const IconGallery: Story = {
   render: () => (
     <div
@@ -44,7 +41,6 @@ export const IconGallery: Story = {
       ))}
     </div>
   ),
-  play: visible("HomeIcon"),
 };
 export const IllustrationGallery: Story = {
   render: () => (
@@ -65,9 +61,9 @@ export const IllustrationGallery: Story = {
       ))}
     </div>
   ),
-  play: visible("CoffeeCupsIllustration"),
 };
 export const Qr: Story = {
+  tags: ["test"],
   render: () => <QrCode value="https://example.test/i/STORYCODE" />,
   play: async ({ canvasElement }) => {
     await expect(canvasElement.querySelector("canvas")).toBeVisible();
@@ -78,6 +74,7 @@ function DateControl() {
   return <BirthDatePicker value={value} minYear={1930} maxYear={2012} onChange={setValue} />;
 }
 export const BirthDate: Story = {
+  tags: ["test"],
   render: () => <DateControl />,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -88,6 +85,7 @@ export const BirthDate: Story = {
   },
 };
 export const NativeValuePicker: Story = {
+  tags: ["test"],
   render: () => (
     <ValuePicker
       value="170"
@@ -113,6 +111,7 @@ function Shell() {
   );
 }
 export const AccountMenu: Story = {
+  tags: ["test"],
   parameters: route("/dashboard"),
   render: () => <Shell />,
   play: async ({ canvasElement }) => {
@@ -122,6 +121,7 @@ export const AccountMenu: Story = {
   },
 };
 export const DeactivateDialog: Story = {
+  tags: ["test"],
   parameters: route("/dashboard/me"),
   render: () => <UserCenter initialUser={matchStoryUser} initialStatus={null} />,
   play: async ({ canvasElement }) => {
@@ -130,12 +130,4 @@ export const DeactivateDialog: Story = {
     await expect(c.getByRole("dialog", { name: "注销账号" })).toBeVisible();
     await expect(c.getByRole("button", { name: "确认注销账号" })).toBeDisabled();
   },
-};
-export const SchoolGenderChart: Story = {
-  render: () => <SchoolsGenderChart data={schoolGender} loading={false} />,
-  play: visible("本轮学校与性别"),
-};
-export const WeeklyChart: Story = {
-  render: () => <WeeklyOptinChart data={weekly} loading={false} />,
-  play: visible(/每周|每轮|报名/),
 };

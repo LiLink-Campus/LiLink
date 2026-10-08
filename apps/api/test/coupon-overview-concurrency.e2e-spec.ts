@@ -35,6 +35,8 @@ describe('Coupon overview consistency (isolated PostgreSQL)', () => {
   let writer: PrismaClient;
   let templateId: string;
   let merchantId: string;
+  let campaignId: string;
+  const ownedUsers: string[] = [];
 
   beforeAll(async () => {
     const database = new URL(process.env.DATABASE_URL!);
@@ -63,11 +65,17 @@ describe('Coupon overview consistency (isolated PostgreSQL)', () => {
     });
     templateId = template.id;
     merchantId = template.merchantId;
+    campaignId = template.campaignId;
   });
 
   afterAll(async () => {
+    await prisma.redemption.deleteMany({ where: { merchantId } });
+    await prisma.coupon.deleteMany({ where: { templateId } });
+    await prisma.user.deleteMany({ where: { id: { in: ownedUsers } } });
+    await prisma.couponTemplate.deleteMany({ where: { id: templateId } });
+    await prisma.campaign.deleteMany({ where: { id: campaignId } });
+    await prisma.merchant.deleteMany({ where: { id: merchantId } });
     await Promise.all([prisma?.$disconnect(), writer?.$disconnect()]);
-    // The runner destroys the entire disposable database after this suite.
   });
 
   it.each(['available', 'history'] as const)(
@@ -84,6 +92,7 @@ describe('Coupon overview consistency (isolated PostgreSQL)', () => {
       const coupon = await prisma.coupon.create({
         data: { userId: user.id, templateId, code: randomUUID() },
       });
+      ownedUsers.push(user.id);
       const firstRead = gate();
       const committed = gate();
       const order: string[] = [];

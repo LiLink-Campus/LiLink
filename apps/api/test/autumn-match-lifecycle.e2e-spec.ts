@@ -1,4 +1,7 @@
-import { createCycleTestServices } from './fixtures/cycle-services';
+import { AdminCycleManagementService } from '../src/modules/admin/admin-cycle-management.service';
+import { WeeklyCycleService } from '../src/modules/cycles/weekly-cycle.service';
+import { AdminUserWriteService } from '../src/modules/admin/admin-user-write.service';
+import { createCycleServices } from './fixtures/cycles';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
@@ -22,7 +25,6 @@ import { ContactPreferencesService } from '../src/modules/account/contact-prefer
 import type { DashboardPayload } from '@lilink/shared';
 import { MatchEstimateService } from '../src/modules/account/match-estimate.service';
 import { MatchReportService } from '../src/modules/account/match-report.service';
-import { createAdminTestHarness } from './fixtures/admin-services';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { CyclesService } from '../src/modules/cycles/cycles.service';
 import { PublicService } from '../src/modules/public/public.service';
@@ -60,7 +62,11 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     snapshots = new DashboardSnapshotService(prisma as PrismaService);
     mail = new MailService(prisma as PrismaService);
     jest.spyOn(mail, 'flushQueuedEmails').mockResolvedValue(undefined);
-    cycles = createCycleTestServices(prisma as PrismaService, snapshots, mail);
+    cycles = createCycleServices(
+      prisma as PrismaService,
+      snapshots,
+      mail,
+    ).cycles;
     deletion = new AccountDeletionService(
       prisma as PrismaService,
       snapshots,
@@ -745,6 +751,21 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     expect(
       await prisma.match.findUnique({ where: { id: match.id } }),
     ).toMatchObject({ revealedAt: null, introducedAt: null });
+    expect(
+      await prisma.outboundEmail.count({
+        where: { dedupeKey: { startsWith: `match-reveal:${match.id}:` } },
+      }),
+    ).toBe(0);
+    const contacts = await prisma.matchParticipant.findMany({
+      where: { matchId: match.id },
+    });
+    expect(
+      contacts.every(
+        (participant) =>
+          participant.introducedContactType === null &&
+          participant.introducedContactValue === null,
+      ),
+    ).toBe(true);
     build.mockRestore();
     await cycles.runRevealCycle({ cycleId: cycle.id });
     expect(
@@ -914,12 +935,12 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
   it('leaves the next cycle empty until users explicitly opt in', async () => {
     const { cycle } = await seedPair();
     await cycles.runRevealCycle({ cycleId: cycle.id });
-    const admin = createAdminTestHarness(
+    const admin = new AdminCycleManagementService(
       prisma as PrismaService,
       cycles,
+      cycles,
       { write: jest.fn() } as never,
-      {} as never,
-      snapshots,
+      new WeeklyCycleService(prisma as PrismaService),
     );
     const next = await admin.upsertCycle(
       {
@@ -1131,11 +1152,9 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     expect(afterStats.stats.matchesDelivered).toBe(
       beforeStats.stats.matchesDelivered - 1,
     );
-    const admin = createAdminTestHarness(
+    const admin = new AdminUserWriteService(
       prisma as PrismaService,
-      cycles,
       { write: jest.fn() } as never,
-      {} as never,
       snapshots,
     );
     await expect(
@@ -1175,6 +1194,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
     });
     userIds.push(registered.user.id);
     expect(registered.user.id).not.toBe(left.id);
+    expect(registered.user.email).toBe(left.email);
     expect(
       await prisma.cycleParticipation.count({
         where: { userId: registered.user.id },

@@ -1,4 +1,4 @@
-import { createCycleTestServices } from './fixtures/cycle-services';
+import { createCycleServices } from './fixtures/cycles';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -139,11 +139,11 @@ describe('Atomic matching batch (PostgreSQL)', () => {
     });
     const mail = new MailService(db as PrismaService);
     jest.spyOn(mail, 'flushQueuedEmails').mockResolvedValue(undefined);
-    cycles = createCycleTestServices(
+    cycles = createCycleServices(
       db as PrismaService,
       new DashboardSnapshotService(db as PrismaService),
       mail,
-    );
+    ).cycles;
   }, 30_000);
 
   afterAll(async () => {

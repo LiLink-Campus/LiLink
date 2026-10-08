@@ -1,17 +1,17 @@
-import { createCycleTestServices } from './fixtures/cycle-services';
+import { createCycleServices } from './fixtures/cycles';
 import { HARD_MATCH_KEYS as K, LIFESTYLE_QUESTIONS } from '@lilink/shared';
 import { randomUUID } from 'node:crypto';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AccountQuestionnaireService } from '../src/modules/account/account-questionnaire.service';
-import { CyclesService } from '../src/modules/cycles/cycles.service';
+import { CycleMatchingInputService } from '../src/modules/cycles/cycle-matching-input.service';
 import { QuestionnaireService } from '../src/modules/questionnaire/questionnaire.service';
 
 const fixture = `vip-profile-${randomUUID()}`;
 describe('VIP profile persistence and actual matching eligibility (PostgreSQL)', () => {
   let prisma: PrismaClient;
   let account: AccountQuestionnaireService;
-  let cycles: CyclesService;
+  let cycles: CycleMatchingInputService;
   let userId: string;
   let schoolId: string;
   let versionId: string;
@@ -92,11 +92,11 @@ describe('VIP profile persistence and actual matching eligibility (PostgreSQL)',
       new QuestionnaireService(prisma as PrismaService),
       snapshot as never,
     );
-    cycles = createCycleTestServices(
+    cycles = createCycleServices(
       prisma as PrismaService,
       snapshot as never,
       {} as never,
-    );
+    ).input;
   });
   afterAll(async () => {
     if (!prisma) return;

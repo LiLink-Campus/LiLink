@@ -334,30 +334,51 @@ describe('Registration (e2e)', () => {
         .catch(() => undefined);
     });
 
-    it('consumes exactly one quota unit and starts the new non-edu user at limit 0', async () => {
-      const referrer = await createReferrer({ limit: 2, uses: 0 });
-      const email = `joiner-${randomUUID().slice(0, 8)}@${NON_EDU_DOMAIN}`;
-      await seedNonEduCode(email, '654321');
-
-      const result = await authService.register({
-        email,
-        code: '654321',
-        password: 'Password123',
-        displayName: 'Joiner',
-        acceptedTerms: true,
-        referralCode: referrer.referralCode!,
-        manualSchoolId,
+    it('commits only one registration in the last referral slot and preserves the losing verification code', async () => {
+      const referrer = await createReferrer({ limit: 1, uses: 0 });
+      const emails = ['first', 'second'].map(
+        (name) => `${name}-${randomUUID().slice(0, 8)}@${NON_EDU_DOMAIN}`,
+      );
+      await Promise.all(emails.map((email) => seedNonEduCode(email, '654321')));
+      const results = await Promise.allSettled(
+        emails.map((email) =>
+          authService.register({
+            email,
+            code: '654321',
+            password: 'Password123',
+            displayName: 'Joiner',
+            acceptedTerms: true,
+            referralCode: referrer.referralCode!,
+            manualSchoolId,
+          }),
+        ),
+      );
+      expect(
+        results.filter((result) => result.status === 'fulfilled'),
+      ).toHaveLength(1);
+      const rejected = results.find((result) => result.status === 'rejected');
+      expect(rejected).toMatchObject({
+        reason: { message: expect.stringContaining('exhausted') as unknown },
       });
-
-      expect(result.user.email).toBe(email);
-      const persisted = await prisma.user.findUniqueOrThrow({
-        where: { email },
-      });
-      expect(persisted.schoolId).toBe(manualSchoolId);
-      expect(persisted.referredByUserId).toBe(referrer.id);
-      // A non-edu registrant cannot itself invite other non-edu users.
-      expect(persisted.nonEduReferralLimit).toBe(0);
-
+      for (const [index, result] of results.entries()) {
+        const email = emails[index];
+        const persisted = await prisma.user.findUnique({ where: { email } });
+        const code = await prisma.emailCode.findFirstOrThrow({
+          where: { email },
+        });
+        if (result.status === 'fulfilled') {
+          expect(result.value.user.email).toBe(email);
+          expect(persisted).toMatchObject({
+            schoolId: manualSchoolId,
+            referredByUserId: referrer.id,
+            nonEduReferralLimit: 0,
+          });
+          expect(code.consumedAt).toBeInstanceOf(Date);
+        } else {
+          expect(persisted).toBeNull();
+          expect(code.consumedAt).toBeNull();
+        }
+      }
       const refreshedReferrer = await prisma.user.findUniqueOrThrow({
         where: { id: referrer.id },
       });
@@ -390,6 +411,10 @@ describe('Registration (e2e)', () => {
       await expect(
         prisma.user.findUnique({ where: { email } }),
       ).resolves.toBeNull();
+      expect(
+        (await prisma.emailCode.findFirstOrThrow({ where: { email } }))
+          .consumedAt,
+      ).toBeNull();
     });
 
     it('rejects a code from a non-ACTIVE referrer without consuming quota', async () => {

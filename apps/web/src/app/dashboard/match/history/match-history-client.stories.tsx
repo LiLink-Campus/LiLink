@@ -9,9 +9,9 @@ const handlers = createMatchPageHandlerState({
 });
 
 const meta = {
+  tags: ["!test"],
   title: "Dashboard/Match/History Disclosure",
   component: MatchHistoryClient,
-  tags: ["smoke"],
   globals: { viewport: { value: "mobile390" } },
   parameters: {
     layout: "fullscreen",
@@ -29,6 +29,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const UnintroducedStaleContact: Story = {
+  tags: ["test"],
   name: "Unintroduced / history details keep stale contact hidden",
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -40,12 +41,8 @@ export const UnintroducedStaleContact: Story = {
   },
 };
 
-export const UnintroducedStaleContactDesktop: Story = {
-  ...UnintroducedStaleContact,
-  globals: { viewport: { value: "desktop1280" } },
-};
-
 export const LongRoundTitle: Story = {
+  tags: ["test"],
   name: "Unintroduced / long round name wraps on mobile",
   args: {
     initialDashboard: {

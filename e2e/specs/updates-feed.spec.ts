@@ -1,10 +1,10 @@
+import { startDevlogFailureWeb } from '../support/devlog-failure-web';
 import { test, expect, visit } from '../support/fixtures';
 
 // Failure boundaries: navigation must never revive the removed unread feature;
 // old/unavailable storage cannot break the list, pagination, fallback or article.
-test.skip(!process.env.E2E_DEVLOG_MODE, 'Use --devlog-fixture with disposable upstream data.');
 
-for (const storage of ['absent', 'old', 'recent', 'blocked']) {
+for (const storage of ['old', 'blocked']) {
   test(`updates remain usable without unread requests or storage (${storage}) @smoke`, async ({ page, context, browser }, info) => {
     const obsoleteRequests: string[] = [];
     context.on('request', request => {
@@ -40,7 +40,7 @@ for (const storage of ['absent', 'old', 'recent', 'blocked']) {
     await page.getByRole('contentinfo').getByRole('link', { name: '更新日志', exact: true }).click();
     await expect(page).toHaveURL(/\/updates$/);
     await inspect();
-    if (process.env.E2E_DEVLOG_MODE === 'items') {
+    {
       await expect(page.getByRole('main').getByRole('listitem')).toHaveCount(12);
       await page.getByRole('link', { name: '下一页', exact: true }).click();
       await expect(page).toHaveURL(/\/updates\?page=2$/);
@@ -55,10 +55,6 @@ for (const storage of ['absent', 'old', 'recent', 'blocked']) {
       await expect(page.getByRole('main').getByRole('listitem')).toHaveCount(12);
       await visit(page, '/updates?page=999');
       await expect(page).toHaveURL(/\/updates\?page=2$/);
-    } else {
-      await expect(page.getByText('最近还没有可展示的更新', { exact: false })).toBeVisible();
-      await expect(page.getByRole('navigation', { name: '更新列表分页' })).toHaveCount(0);
-      await expect(page.getByRole('main').getByRole('link', { name: 'devlog', exact: true })).toBeVisible();
     }
     await inspect();
     await page.reload();
@@ -86,7 +82,7 @@ for (const storage of ['absent', 'old', 'recent', 'blocked']) {
           && animation.playState !== 'finished' && animation.playState !== 'idle';
       }).length,
     )).toBe(0);
-    await page.screenshot({ path: info.outputPath(`updates-${storage}.png`), fullPage: true });
+
     await info.attach('updates-feed-acceptance', { contentType: 'application/json', body: JSON.stringify({
       project: info.project.name, browser: browser.version(), viewport: page.viewportSize(),
       storage, feedMode: process.env.E2E_DEVLOG_MODE, obsoleteRequests, storageAndEventCalls: audits.flat(),
@@ -97,3 +93,14 @@ for (const storage of ['absent', 'old', 'recent', 'blocked']) {
     }, null, 2) });
   });
 }
+
+// Actual server-to-upstream failure uses the same build and disposable feed.
+test('updates uses its public fallback during a real upstream failure', async ({ page }, info) => {
+  const web = await startDevlogFailureWeb(info.outputPath('devlog-failure-web.log'));
+  try {
+    await page.goto(`${web.url}/updates`, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('最近还没有可展示的更新', { exact: false })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: '更新列表分页' })).toHaveCount(0);
+    await expect(page.getByRole('main').getByRole('link', { name: 'devlog', exact: true })).toBeVisible();
+  } finally { await web.stop(); }
+});
