@@ -1,3 +1,4 @@
+import { fork } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -307,6 +308,76 @@ describe('Public cache automatic scheduling with PostgreSQL and HTTP', () => {
       passed: true,
     });
   });
+
+  it('recovers after the real worker process exits between acknowledgment and wake', async () => {
+    await db.publicCacheInvalidation.update({
+      where: { scope: 'home' },
+      data: {
+        revision: 11n,
+        acknowledgedRevision: 10n,
+        deliveredHash: null,
+        dueAt: new Date(0),
+        lastAttemptAt: null,
+      },
+    });
+    const script = path.join(__dirname, 'public-cache-crash-worker.cjs');
+    const environment = {
+      ...process.env,
+      PUBLIC_CACHE_REVALIDATION_URL: env.PUBLIC_CACHE_REVALIDATION_URL,
+      PUBLIC_CACHE_REVALIDATION_SECRET: env.PUBLIC_CACHE_REVALIDATION_SECRET,
+    };
+    const child = fork(script, ['crash-after-ack'], {
+      env: environment,
+      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      execArgv: [],
+    });
+    child.on('message', (message: unknown) => {
+      if (
+        message &&
+        typeof message === 'object' &&
+        'hash' in message &&
+        typeof message.hash === 'string'
+      )
+        served = message.hash;
+    });
+    const exit = new Promise<number | null>((resolve) =>
+      child.once('exit', resolve),
+    );
+    try {
+      await eventually(() => Promise.resolve(child.exitCode !== null));
+      expect(await exit).toBe(0);
+      const acknowledged = await row();
+      expect(acknowledged.acknowledgedRevision).toBe(11n);
+      expect(acknowledged.verificationCompletedRevision).toBeNull();
+      const restarted = fork(script, ['recover'], {
+        env: environment,
+        stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+        execArgv: [],
+      });
+      const restartedExit = new Promise((resolve) =>
+        restarted.once('exit', resolve),
+      );
+      try {
+        await eventually(
+          async () => (await row()).verificationCompletedRevision === 11n,
+        );
+        expect((await row()).verificationOutcome).toBe('verified');
+        evidence.push({
+          boundary: 'real-process-exit-after-ack',
+          restartedAndVerified: true,
+          passed: true,
+        });
+      } finally {
+        restarted.kill('SIGTERM');
+        await restartedExit;
+      }
+    } finally {
+      if (child.exitCode === null) {
+        child.kill('SIGTERM');
+        await exit;
+      }
+    }
+  }, 20_000);
 
   it('does not query after disable, maintenance, or shutdown', async () => {
     for (const mode of ['disabled', 'maintenance', 'shutdown']) {
