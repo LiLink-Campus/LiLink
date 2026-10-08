@@ -51,12 +51,11 @@ const output = path.join(root, 'artifacts/e2e', runId);
 const workspace = path.join(output, 'workspace');
 const children = new Set();
 const containers = [];
-let cleanupPromise;
+let stopPromise;
+let env;
 let interrupted = false;
 let releaseSession;
 const interruptedSession = new Promise(resolve => { releaseSession = resolve; });
-await mkdir(workspace, { recursive: true });
-await writeFile(path.join(root, 'artifacts/e2e/latest.json'), JSON.stringify({ runId, output }, null, 2));
 
 function command(exe, args, options = {}) {
   const { background = false, label, ...spawnOptions } = options;
@@ -102,17 +101,24 @@ async function linkDependencies(source, target, rootModules = false) {
     for (const name of ['api', 'web']) await symlink(path.join(workspace, 'apps', name), path.join(target, name));
   }
 }
-function cleanup() {
-  cleanupPromise ??= releaseResources();
-  return cleanupPromise;
+function stopChildren() {
+  stopPromise ??= terminateChildren();
+  return stopPromise;
 }
-async function releaseResources() {
-  await proxy?.close();
-  await devlog?.close();
+async function terminateChildren() {
   const live = [...children];
   for (const child of live) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} }
-  await Promise.race([Promise.allSettled(live.map(child => child.done)), new Promise(resolve => setTimeout(resolve, 3000))]);
+  let deadline;
+  try {
+    await Promise.race([Promise.allSettled(live.map(child => child.done)), new Promise(resolve => { deadline = setTimeout(resolve, 3000); })]);
+  } finally { clearTimeout(deadline); }
   for (const child of live) { try { process.kill(-child.pid, 'SIGKILL'); } catch {} }
+  await Promise.allSettled(live.map(child => child.done));
+}
+async function cleanup() {
+  await stopChildren();
+  await proxy?.close();
+  await devlog?.close();
   for (const name of containers.reverse()) {
     try { await command('docker', ['rm', '-fv', name], { label: 'cleanup' }); }
     catch (error) { console.error(`Cleanup failed for ${name}: ${error.message}`); process.exitCode = 1; }
@@ -120,21 +126,24 @@ async function releaseResources() {
   await rm(path.join(output, 'session.json'), { force: true });
   await rm(workspace, { recursive: true, force: true });
 }
-const ports = [];
-while (ports.length < (sentryTracing ? 6 : 5)) { const port = await freePort(); if (!ports.includes(port) && port !== 5432) ports.push(port); }
-const [dbPort, smtpPort, mailPort, apiPort, webPort, sentryPort] = ports;
-const env = testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId, sentryPort });
-if (extraOrigin) env.CLIENT_ORIGIN += `,${extraOrigin}`;
-if (apiOnly || ci) env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_e2e_', '/lilink_vip_test_');
-Object.assign(env, { E2E_SOURCE_ROOT: root, E2E_OUTPUT: output, E2E_WORKSPACE: workspace, LILINK_BUILD_WORKSPACE_ROOT: root });
 for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
   interrupted = true;
   process.exitCode = 130;
   releaseSession();
-  void cleanup().catch(error => { console.error(error.message); process.exitCode = 1; });
+  // Finish asynchronous initialization before removing its resources in finally.
+  void stopChildren();
 });
 
 try {
+  await mkdir(workspace, { recursive: true });
+  await writeFile(path.join(root, 'artifacts/e2e/latest.json'), JSON.stringify({ runId, output }, null, 2));
+  const ports = [];
+  while (ports.length < (sentryTracing ? 6 : 5)) { const port = await freePort(); if (!ports.includes(port) && port !== 5432) ports.push(port); }
+  const [dbPort, smtpPort, mailPort, apiPort, webPort, sentryPort] = ports;
+  env = testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId, sentryPort });
+  if (extraOrigin) env.CLIENT_ORIGIN += `,${extraOrigin}`;
+  if (apiOnly || ci) env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_e2e_', '/lilink_vip_test_');
+  Object.assign(env, { E2E_SOURCE_ROOT: root, E2E_OUTPUT: output, E2E_WORKSPACE: workspace, LILINK_BUILD_WORKSPACE_ROOT: root });
   console.log(`E2E run ${runId}; reports: ${output}`);
   if (devlogMode) {
     devlog = await startDevlogFixture(devlogMode);
@@ -149,6 +158,7 @@ try {
       recursive: true,
       filter: source => !excluded.has(path.basename(source)) && !path.basename(source).startsWith('.env') && !source.endsWith('.tsbuildinfo'),
     });
+    if (interrupted) throw new Error('Run interrupted.');
   }
   await linkDependencies(path.join(root, 'node_modules'), path.join(workspace, 'node_modules'), true);
   for (const name of ['api', 'web']) await linkDependencies(path.join(root, 'apps', name, 'node_modules'), path.join(workspace, 'apps', name, 'node_modules'));
