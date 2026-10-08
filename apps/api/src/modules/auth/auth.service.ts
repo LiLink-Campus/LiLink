@@ -1,6 +1,8 @@
+import { PublicService } from '../public/public.service';
 import {
   BadRequestException,
   Injectable,
+  Optional,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -55,6 +57,7 @@ export class AuthService {
     // personal referral code generation and the frozen campaign attribution
     // recorded on the new user.
     private readonly referralService?: ReferralService,
+    @Optional() private readonly publicService?: PublicService,
   ) {}
 
   async requestCode(email: string, referralCode?: string | null) {
@@ -170,6 +173,8 @@ export class AuthService {
         throw error;
       }
     });
+
+    this.publicService?.invalidateLandingCache();
 
     // Assign a personal referral code after the user exists. Idempotent and
     // self-contained (never throws); the referral page can re-trigger it.

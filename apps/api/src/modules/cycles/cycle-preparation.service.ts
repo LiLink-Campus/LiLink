@@ -1,7 +1,9 @@
+import { PublicService } from '../public/public.service';
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
+  Optional,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -22,6 +24,7 @@ export class CyclePreparationService {
     private readonly input: CycleMatchingInputService,
     private readonly matching: CycleMatchingService,
     private readonly state: CyclePreparationStateService,
+    @Optional() private readonly publicService?: PublicService,
   ) {}
   async prepareCycle(options: {
     cycleId: string;
@@ -232,6 +235,7 @@ export class CyclePreparationService {
         },
         { timeout: 30_000 },
       );
+      this.publicService?.invalidateLandingCache();
 
       if (selectedPairs.length === 0) {
         return {

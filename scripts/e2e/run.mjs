@@ -12,6 +12,9 @@ import { saveBuildRouteSummary } from './build-route-summary.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const apiOnly = process.argv.includes('--api');
+const cacheFaultDefaults = process.argv.includes('--cache-fault-defaults');
+if (cacheFaultDefaults && !apiOnly) throw new Error('--cache-fault-defaults requires --api.');
+const backgroundEvidence = process.argv.includes('--background-evidence');
 const buildOnly = process.argv.includes('--build-only');
 const serve = process.argv.includes('--serve');
 const contractProxy = process.argv.includes('--contract-proxy');
@@ -22,6 +25,7 @@ const devlogMode = devlogModeArg?.slice('--devlog-fixture='.length);
 if (devlogModeArg && (!['items', 'empty', 'failure', 'malformed'].includes(devlogMode) || apiOnly)) {
   throw new Error('--devlog-fixture requires browser mode and items, empty, failure or malformed.');
 }
+if (backgroundEvidence && (apiOnly || buildOnly)) throw new Error('--background-evidence requires browser mode.');
 const sentryTracing = process.argv.includes('--sentry-tracing');
 const serveMinutesArg = process.argv.find(arg => arg.startsWith('--serve-minutes='));
 const serveMinutes = Number(serveMinutesArg?.split('=')[1] ?? 30);
@@ -40,7 +44,7 @@ if (extraOrigin) {
 if ((contractProxy && (apiOnly || buildOnly)) || (serve && apiOnly) || (sentryTracing && apiOnly) || (buildOnly && (serve || apiOnly)) || (serveMinutesArg && !serve) || !Number.isInteger(serveMinutes) || serveMinutes < 1 || serveMinutes > 90) {
   throw new Error('--serve is browser-only; --serve-minutes must be between 1 and 90.');
 }
-const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only', '--sentry-tracing', '--contract-proxy'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin=') && !arg.startsWith('--devlog-fixture='));
+const playwrightArgs = process.argv.slice(2).filter(arg => !['--serve', '--build-only', '--sentry-tracing', '--contract-proxy', '--background-evidence'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin=') && !arg.startsWith('--devlog-fixture='));
 if (buildOnly && playwrightArgs.length) throw new Error('--build-only does not accept browser test arguments.');
 const startedAt = Date.now();
 const runId = randomBytes(6).toString('hex');
@@ -119,6 +123,8 @@ const ports = [];
 while (ports.length < (sentryTracing ? 6 : 5)) { const port = await freePort(); if (!ports.includes(port) && port !== 5432) ports.push(port); }
 const [dbPort, smtpPort, mailPort, apiPort, webPort, sentryPort] = ports;
 const env = testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, runId, sentryPort });
+if (cacheFaultDefaults) env.E2E_CACHE_FAULT_DEFAULTS = '1';
+if (backgroundEvidence) env.E2E_BACKGROUND_EVIDENCE = '1';
 if (extraOrigin) env.CLIENT_ORIGIN += `,${extraOrigin}`;
 if (apiOnly) env.DATABASE_URL = env.DATABASE_URL.replace('/lilink_e2e_', '/lilink_vip_test_');
 Object.assign(env, { E2E_SOURCE_ROOT: root, E2E_OUTPUT: output, E2E_WORKSPACE: workspace, LILINK_BUILD_WORKSPACE_ROOT: root });
@@ -172,11 +178,12 @@ try {
   await command('npm', ['run', 'db:migrate:deploy'], { label: 'migrate' });
   await command('npm', ['run', 'build:api'], { label: 'build' });
   if (apiOnly) {
-    await command('npm', ['run', 'test:e2e', '--workspace', 'api', '--', '--runInBand', ...process.argv.slice(2).filter(arg => arg !== '--api')], { label: 'tests' });
+    await command('npm', ['run', 'test:e2e', '--workspace', 'api', '--', '--runInBand', ...process.argv.slice(2).filter(arg => !['--api', '--cache-fault-defaults'].includes(arg))], { label: 'tests' });
   } else {
   await command('node', ['apps/api/scripts/seed-defaults.mjs'], { label: 'seed' });
   await command('node', ['e2e/support/seed.mjs'], { label: 'seed' });
-  const api = command('node', ['apps/api/dist/src/main.js'], { background: true, label: 'api' });
+  const api = command('node', ['apps/api/dist/src/main.js'], { background: true, label: 'api',
+    ...(backgroundEvidence ? { env: { ...env, NODE_OPTIONS: `--require=${path.join(workspace, 'scripts/e2e/query-observer.cjs')}` } } : {}) });
   env.E2E_API_PID = String(api.pid);
   // Public prerendering must read the seeded API, not cache a connection failure.
   await waitFor(`${env.E2E_API_URL}/health`, api);

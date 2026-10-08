@@ -148,6 +148,9 @@ jobs:
       - name: Run API unit tests
         run: npm run test --workspace api
 
+      - name: Build production workers for process recovery acceptance
+        run: npm run build:api
+
       - name: Run API e2e tests
         env:
           E2E_OUTPUT: ${{ github.workspace }}/artifacts/api-e2e
@@ -161,7 +164,7 @@ jobs:
         with:
           name: api-e2e-${{ github.sha }}
           path: |
-            artifacts/api-e2e/public-cache-concurrency.json
+            artifacts/api-e2e/public-cache-*.json
             artifacts/api-e2e/session-version-assertions.json
             artifacts/api-e2e/mail-outbox-recovery.json
           retention-days: 7

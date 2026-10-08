@@ -184,12 +184,12 @@ export class AdminSchoolService {
       },
     });
 
+    this.invalidateSchoolCaches();
     await this.adminAuditService.write(adminActorId, 'school.created', {
       schoolId: school.id,
       slug: school.slug,
       registrationEligible: school.registrationEligible,
     });
-    this.invalidateSchoolCaches();
 
     return school;
   }
@@ -228,12 +228,12 @@ export class AdminSchoolService {
       });
     });
 
+    this.invalidateSchoolCaches();
     await this.adminAuditService.write(adminActorId, 'school.updated', {
       schoolId: updatedSchool.id,
       slug: updatedSchool.slug,
       registrationEligible: updatedSchool.registrationEligible,
     });
-    this.invalidateSchoolCaches();
 
     await this.syncSnapshotsForSchoolUsers(updatedSchool.id);
 
@@ -292,6 +292,7 @@ export class AdminSchoolService {
       await tx.school.delete({ where: { id: sourceSchoolId } });
     });
 
+    this.invalidateSchoolCaches();
     await this.adminAuditService.write(adminActorId, 'school.merged', {
       sourceSchoolId,
       sourceSchoolName: source.name,
@@ -300,7 +301,6 @@ export class AdminSchoolService {
       movedUserCount: source._count.users,
       movedDomainCount: source.domains.length,
     });
-    this.invalidateSchoolCaches();
 
     await this.syncSnapshotsForUserIds(affectedUserIds);
 
@@ -337,11 +337,11 @@ export class AdminSchoolService {
       await tx.school.delete({ where: { id: schoolId } });
     });
 
+    this.invalidateSchoolCaches();
     await this.adminAuditService.write(adminActorId, 'school.deleted', {
       schoolId,
       slug: school.slug,
     });
-    this.invalidateSchoolCaches();
     await this.syncSnapshotsForUserIds(affectedUserIds);
     return { ok: true };
   }

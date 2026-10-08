@@ -1,6 +1,8 @@
+import { PublicService } from '../public/public.service';
 import {
   BadRequestException,
   Injectable,
+  Optional,
   NotFoundException,
 } from '@nestjs/common';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
@@ -20,6 +22,7 @@ export class AdminUserWriteService {
     private readonly prisma: PrismaService,
     private readonly adminAuditService: AdminAuditService,
     private readonly dashboardSnapshotService: DashboardSnapshotService,
+    @Optional() private readonly publicService?: PublicService,
   ) {}
 
   async updateUserStatus(
@@ -57,6 +60,8 @@ export class AdminUserWriteService {
         throw error;
       });
 
+    if (user.status !== updatedUser.status)
+      this.publicService?.invalidateLandingCache();
     await this.adminAuditService.write(adminActorId, 'user.status_updated', {
       userId,
       status: input.status,
@@ -183,6 +188,11 @@ export class AdminUserWriteService {
       return nextUser;
     });
 
+    if (
+      user.status !== updatedUser.status ||
+      user.schoolId !== updatedUser.schoolId
+    )
+      this.publicService?.invalidateLandingCache();
     await this.adminAuditService.write(adminActorId, 'user.updated', {
       userId,
       fields: updatedFields,

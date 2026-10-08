@@ -1,3 +1,4 @@
+import { PublicService } from '../public/public.service';
 import {
   currentHardMatchConfirmSignature,
   HARD_MATCH_WEIGHT_ACK,
@@ -47,6 +48,7 @@ export class AccountQuestionnaireService {
     private readonly dashboardSnapshotService: DashboardSnapshotService,
     @Optional() private readonly matchEstimateService?: MatchEstimateService,
     @Optional() private readonly activationService?: ActivationService,
+    @Optional() private readonly publicService?: PublicService,
   ) {}
   async saveQuestionnaire(userId: string, input: SaveQuestionnaireDto) {
     const [questionnaire, user] = await Promise.all([
@@ -183,6 +185,7 @@ export class AccountQuestionnaireService {
       );
 
       await this.prisma.$transaction(submittedOperations);
+      this.publicService?.invalidateLandingCache();
 
       this.matchEstimateService?.invalidatePrecomputedCycle();
       // Questionnaire fields are frozen on each match; only an account-name change affects old cards.

@@ -1,7 +1,9 @@
+import { PublicService } from '../public/public.service';
 import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Optional,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, UserStatus } from '../../common/prisma/client';
@@ -24,6 +26,7 @@ export class AdminTestDataService {
     private readonly prisma: PrismaService,
     private readonly adminAuditService: AdminAuditService,
     private readonly dashboardSnapshotService: DashboardSnapshotService,
+    @Optional() private readonly publicService?: PublicService,
   ) {}
 
   private assertTestUserBulkOpsAllowed() {
@@ -50,6 +53,7 @@ export class AdminTestDataService {
       }
     });
 
+    if (user.isTest !== isTest) this.publicService?.invalidateLandingCache();
     await this.adminAuditService.write(adminActorId, 'user.test_flag', {
       userId,
       isTest,
@@ -159,6 +163,7 @@ export class AdminTestDataService {
       this.prisma.user.deleteMany({ where: { id: { in: userIds } } }),
     ]);
 
+    this.publicService?.invalidateLandingCache();
     for (const cycleId of affectedCycleIds) {
       await this.dashboardSnapshotService.syncCycleSnapshots(cycleId);
     }
@@ -345,6 +350,7 @@ export class AdminTestDataService {
       });
     }
 
+    this.publicService?.invalidateLandingCache();
     await this.adminAuditService.write(adminActorId, 'users.test_seeded', {
       count: createdCount,
       cycleId: cycle.id,

@@ -1,3 +1,8 @@
+import { PublicCacheSignals } from './public-cache-signals';
+import {
+  createPublicCacheDatabase,
+  PUBLIC_CACHE_DATABASE,
+} from './public-cache-database';
 import { Module } from '@nestjs/common';
 import { PublicController } from './public.controller';
 import { CommunityStatsService } from './community-stats.service';
@@ -14,6 +19,8 @@ import { PublicCachePublicationController } from './public-cache-publication.con
     PublicCachePublicationController,
   ],
   providers: [
+    { provide: PUBLIC_CACHE_DATABASE, useFactory: createPublicCacheDatabase },
+    PublicCacheSignals,
     PublicService,
     CommunityStatsService,
     PublicCacheInvalidationService,

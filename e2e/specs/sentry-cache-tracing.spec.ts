@@ -27,13 +27,21 @@ async function events(request: APIRequestContext): Promise<Event[]> {
   return response.json();
 }
 
-test('cached HTML omits trace metadata and separate visits create separate traces @sentry', async ({ page, request, db }, info) => {
+test('cached HTML omits trace metadata and separate visits create separate traces @sentry', async ({ page, request, db, account }, info) => {
   test.setTimeout(180_000);
   const advanced = new Set<string>();
+  const user = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  const operator = await db.adminOperator.create({ data: { email: `tracing-${account.email}`,
+    passwordHash: user.passwordHash, displayName: '追踪验收管理员' } });
+  expect((await request.post(`${api}/admin-session/login`, { data: { email: operator.email, password } })).ok()).toBe(true);
+  const cycle = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
+  const unchangedCycle = { cycleId: cycle.id, codename: cycle.codename, status: cycle.status,
+    revealAt: cycle.revealAt.toISOString(), participationDeadline: cycle.participationDeadline.toISOString() };
   // Reuse the isolated cache tests' clock-only CAS. Never discard revisions or
   // steal a live lease; the real dispatcher still delivers and acknowledges.
   await expect.poll(async () => {
     const rows: QueueState[] = await db.publicCacheInvalidation.findMany({ where: { scope: { in: ['home', 'schools'] } } });
+    let reschedule = false;
     for (const row of rows) {
       if (row.revision <= row.acknowledgedRevision) continue;
       const key = `${row.scope}:${row.revision}`;
@@ -43,8 +51,11 @@ test('cached HTML omits trace metadata and separate visits create separate trace
         scope: row.scope, revision: row.revision, acknowledgedRevision: { lt: row.revision },
         OR: [{ leaseUntil: null }, { leaseUntil: { lte: new Date() } }],
       }, data: { dueAt: new Date(0), lastAttemptAt: null, lastClaimedAt: new Date(0) } });
-      if (result.count === 1) advanced.add(key);
+      if (result.count === 1) { advanced.add(key); reschedule = true; }
     }
+    // Advancing a synthetic DB deadline cannot move an existing in-memory timer.
+    // A no-op business save invokes the real post-commit wake without a new revision.
+    if (reschedule) expect((await request.put(`${api}/admin/cycles`, { data: unchangedCycle })).ok()).toBe(true);
     return rows.every(row => row.revision <= row.acknowledgedRevision && row.leaseUntil === null);
   }, { timeout: 75_000, intervals: [250, 500, 1000] }).toBe(true);
   const reads: { route: string; cache?: string; sha256: string; fingerprint?: string; quietMilliseconds: number }[] = [];

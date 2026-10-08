@@ -79,13 +79,14 @@ export class PublicService {
       'home',
       'landing',
       () => this.clearLandingCache(),
-      () => this.getLandingPayload(),
+      (prisma) => this.loadLandingPayload(this.landingCacheEpoch, prisma),
     );
     invalidation?.register(
       'schools',
       'schools',
       () => this.clearEligibleSchoolsCache(),
-      () => this.getEligibleSchools(),
+      (prisma) =>
+        this.loadEligibleSchools(this.eligibleSchoolsCacheEpoch, prisma),
     );
   }
 
@@ -179,35 +180,47 @@ export class PublicService {
     return this.cachedEligibleSchools.value;
   }
 
-  private async loadLandingPayload(cacheEpoch: number) {
-    const [userCount, completedProfiles, matchCount, currentCycle] =
-      await Promise.all([
-        this.prisma.user.count({
-          where: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
-        }),
-        this.prisma.$queryRaw<{ count: number }[]>(Prisma.sql`
+  private async loadLandingPayload(cacheEpoch: number, prisma = this.prisma) {
+    const reads = await Promise.allSettled([
+      prisma.user.count({
+        where: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
+      }),
+      prisma.$queryRaw<{ count: number }[]>(Prisma.sql`
           SELECT COUNT(*)::int AS count FROM "User" u
           ${publicQuestionnaireGenderJoin}
           WHERE u."status" = 'ACTIVE' AND u."deactivatedAt" IS NULL
             AND u."isTest" = false AND public_gender.gender IS NOT NULL
         `),
-        this.prisma.match.count({
-          where: {
-            revealedAt: { not: null },
-            introducedAt: { not: null },
-            participants: {
-              some: {},
-              every: {
-                user: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
-              },
+      prisma.match.count({
+        where: {
+          revealedAt: { not: null },
+          introducedAt: { not: null },
+          participants: {
+            some: {},
+            every: {
+              user: { status: 'ACTIVE', deactivatedAt: null, isTest: false },
             },
           },
-        }),
-        this.prisma.matchCycle.findFirst({
-          where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
-          orderBy: [{ revealAt: 'asc' }, { id: 'asc' }],
-        }),
-      ]);
+        },
+      }),
+      prisma.matchCycle.findFirst({
+        where: { status: { in: ['OPEN', 'PREPARING', 'REVEAL_READY'] } },
+        orderBy: [{ revealAt: 'asc' }, { id: 'asc' }],
+      }),
+    ]);
+
+    const [usersResult, profilesResult, matchesResult, cycleResult] = reads;
+    if (
+      usersResult.status !== 'fulfilled' ||
+      profilesResult.status !== 'fulfilled' ||
+      matchesResult.status !== 'fulfilled' ||
+      cycleResult.status !== 'fulfilled'
+    )
+      throw new Error('Public landing data unavailable.');
+    const userCount = usersResult.value;
+    const completedProfiles = profilesResult.value;
+    const matchCount = matchesResult.value;
+    const currentCycle = cycleResult.value;
 
     const landingPayload = {
       brand: 'LiLink',
@@ -235,8 +248,8 @@ export class PublicService {
     return landingPayload;
   }
 
-  private async loadEligibleSchools(cacheEpoch: number) {
-    const schools = await this.prisma.school.findMany({
+  private async loadEligibleSchools(cacheEpoch: number, prisma = this.prisma) {
+    const schools = await prisma.school.findMany({
       // Only schools flagged eligible in the admin school center are offered for
       // self-registration; this is the single source of truth shared by the
       // registration recognition and manual-school dropdown.

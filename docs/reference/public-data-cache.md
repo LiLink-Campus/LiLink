@@ -37,7 +37,7 @@ canonical: true
 
 `PublicCacheInvalidation` 只有 `home`、`schools` 两个 scope。第一条迁移中的延迟约束 trigger 在提交阶段比较公开投影相关字段，取得业务行锁之后才更新队列，避免注销与轮次揭晓形成锁序环；原事务回滚时队列更新一同回滚。注册/注销/冻结、学校归属、已提交性别、问卷归档、已揭晓且已介绍的匹配、轮次及学校目录变更均覆盖；登录、普通资料名字和无关 updatedAt 不排队。第二条迁移将普通变化合并窗口改为 30 分钟，并增加持久化领取字段 `claimedRevision`、`lastClaimedAt`。连续变化不会无限延后首次 dueAt。
 
-Dispatcher 启动恢复待办，已有业务提交后主动唤醒；每 1 分钟补扫未唤醒的变更。普通变化首次等待 30 分钟；轮次/学校等 urgent 首次可在 5 秒后尝试，但该 scope 已领取过失效后，所有后续变化共同受 30 分钟门限约束，urgent 也不绕过。发送尝试还至少间隔 60 秒。扫描和通知请求不等于页面重生。
+Dispatcher 启动恢复待办，业务事务提交后主动唤醒；漏掉唤醒的变更由每十五分钟兜底找回。注册、问卷提交、管理员状态/学校归属/测试标记、注销、学校目录、轮次准备/揭晓/管理均有提交后的入口；问卷历史归档由迁移完成，重启恢复处理其持久任务。审计日志或快照同步不能挡住已提交变化的唤醒。普通变化首次等待 30 分钟；轮次/学校等 urgent 首次可在 5 秒后尝试，但该 scope 已领取过失效后，所有后续变化共同受 30 分钟门限约束，urgent 也不绕过。发送尝试还至少间隔 60 秒。扫描和通知请求不等于页面重生。
 
 worker 清理本进程 landing/community/学校缓存，读取稳定公开投影。学校 hash 去掉生成时间；首页 hash 使用共享展示投影。首页 hash 与已通知 hash 相同时，还须即时读取实际首页 fingerprint 相同才能只确认 revision，历史核验记录不能单独作为等价证明。revision + CAS lease 防止两个 worker 同时处理；发送中新增 revision 不能被旧确认吞掉。HTTP 超时 5 秒、最多 6 次故障尝试，等待 60/120/240/480/900 秒；耗尽后记录 exhaustedAt，停止自动尝试。重启恢复 pending，不重置耗尽项；最后一次领取后失联的 worker 在租约过期后也会持久化耗尽状态，不能领取第 7 次；新的相关业务变化可重新激活。人工重置必须按运维授权执行并先修复失败原因。诊断仅记录 scope、revision、attempt、是否耗尽，不打印秘密与用户数据。
 
@@ -64,13 +64,38 @@ Web 验证 `HMAC-SHA256(secret, timestamp + '.' + rawBody)`：时间戳头 `x-li
 
 ## 实际页面发布核验
 
-第三条 additive migration 保存 `verifiedHash`、核验时间、预期内容 hash、六次尝试预算及持久 lease。API 现有调度每分钟运行，核验领取间隔至少五分钟；目标首页从已校验通知 URL 推导，禁止跟随重定向。HTTP 限时五秒、完整 HTML 限 256 KiB，只接受唯一 `v1` fingerprint；旧 Web 无标识返回 unsupported，不当作等价发布，也不触发修复风暴。页面 fingerprint 随缓存 HTML 发布，不增加浏览器请求。
+第三条 additive migration 保存 `verifiedHash`、核验时间、预期内容 hash、六次尝试预算及持久 lease。核验领取间隔至少五分钟；目标首页从已校验通知 URL 推导，禁止跟随重定向。HTTP 限时五秒、完整 HTML 限 256 KiB，只接受唯一 `v1` fingerprint；旧 Web 无标识返回 unsupported，不当作等价发布，也不触发修复风暴。页面 fingerprint 随缓存 HTML 发布，不增加浏览器请求。
 
 空闲核验使用最近已通知的 `deliveredHash`，首次没有预期内容时才读取公开源，避免重复统计聚合。有效 lease 与 revision、ack、预期 hash 的 CAS 防止旧核验覆盖并发状态。不一致且不存在业务 pending、接收门限已打开、通知未耗尽时，增加修复 revision 走原发送链路；修复不绕过三十分钟门限。领取先消耗尝试，同一预期内容最多六次失败或有效修复；正常门限延后不消耗故障预算，修复 revision 不重置预算，新的已通知内容或实际核验成功才恢复。熔断仍保留小时 TTL。
+
+第四条 additive migration 增加 `verificationCompletedRevision` 和 `verificationOutcome`。通知的 `acknowledgedRevision` 与完成 revision 不同就存在待办，即使历史 `verifiedHash` 与最新目标相同也不能忽略；A → B → A 仍须重新核验。结果 `verified` 与旧 Web 的 `unsupported` 分开保存，耗尽从六次预算和目标 hash 推导。迁移不把历史 hash 推定为完成。通知确认写入本身就建立持久目标，提交后发模块内信号；确认后、信号前退出不丢待办，启动和兜底能恢复。新通知内容变化在确认时重置内容预算，同内容修复不重置。
+
+## 到期调度与数据库故障恢复
+
+通知和核验各只有一个本地执行者与一个定时器。已知通知按 dueAt、租约和六十秒发送间隔中的最晚截止运行；核验门限/租约暂缓按 `max(lastVerificationAt + 5分钟, verificationLeaseUntil)` 自动继续。并发领取失败先重读状态再安排截止；新唤醒可以提前普通定时器。正常暂缓不扣减预算，未到期回调在查库前返回。稳定核验完成后没有无条件每分钟/五分钟查询。
+
+健康状态的兜底对齐 UTC 每小时 00/15/30/45 分，通知、稳定页面核验与默认邮件兜底共用时间窗口。已知更早的业务截止优先。旧 Web、预算耗尽是独立终态，低频恢复检查不宣称页面稳定。禁用、维护和退出阻止新查询，退出取消定时器。
+
+缓存任务的连接获取和连接租用使用十秒截止：连接建立/排队失败有界；语句与事务同时受服务端超时和客户端实际 socket 释放约束，不使用只拒绝上层 Promise 的超时。通知和核验共享独立缓存数据库客户端；并行快照读取全部结束后才释放扫描执行者。API 请求池的配置和限额保持不变，邮件继续使用自己的截止。缓存池沿用 `DATABASE_CONNECTION_LIMIT`；新增池会增加进程连接容量上界，多副本规划时须计入，不能将池配置不变理解为总连接数不变。
+
+| 扫描状态 | 后续行为 |
+| --- | --- |
+| 数据库失败，状态未知 | 首次失败确认后 60/120/240/300 秒各重试一次；包含首次共最多五次 |
+| 第五次仍失败 | 保持 degraded，每十五分钟一次独立恢复；失败不重新开启快速预算 |
+| 成功读写恢复 | 重读持久状态，过期任务继续处理，未来任务安排到期，无待办才进入正常低频检查 |
+
+扫描读取、领取、确认与清理写入的错误使用此独立预算；HTTP 失败及页面不一致仍使用原业务预算。已经持久领取的尝试正常计数；单纯扫描错误不会额外扣减或清空它。结果未知的确认不会被改写为通知失败，恢复后先读事实，再遵守 lease/CAS。cron 入口、显式唤醒和旧回调共享退避截止，不能绕过或推迟它。诊断记录 UNKNOWN/degraded、连续失败数、首次失败和恢复截止，不附加 SQL，不打印原始异常，不把未知队列显示为零。
+
+健康的已知核验资格恢复后应在六十秒内启动领取，另计调度误差；持续数据库故障不满足这项健康前提。遗漏唤醒的未知任务发现延迟增加到约十五分钟，通知接收门限与最终发布延迟另计。设计取舍、回退与验收边界见[主动后台处理决策](../decisions/2026-10-08-active-background-work.md)。
 
 受 HMAC 保护的 `POST /v1/internal/public-cache/verify` 只接受 `{scope:"home"}`，签名规则与 claim 相同；它遵循同一持久领取间隔，不接受 URL、任意标签或强制绕过参数。返回脱敏 outcome 与 no-store。单次核验只证明所访问边缘的内容，不证明全球同时收敛。
 
 ## 验证入口
+
+- `node scripts/e2e/run.mjs --api public-cache-scheduling.e2e-spec.ts public-cache-faults.e2e-spec.ts public-cache-concurrency.e2e-spec.ts mail-outbox-recovery.e2e-spec.ts`
+- `node scripts/e2e/run.mjs public-cache-active.spec.ts --project=chromium --project=mobile-webkit`
+- `node scripts/e2e/run.mjs --background-evidence public-cache-idle.spec.ts --project=chromium`：默认真实时间的两个完整十五分钟空闲窗口、全部应用 SQL 时间线和自动 SWR 核验，约一小时，不通过提前修改时钟替代等待。
+- `node scripts/e2e/run.mjs --api --cache-fault-defaults public-cache-faults.e2e-spec.ts`：真实时间完整故障预算、连续 degraded 检查和自动恢复，约五十分钟；常规模式保留连接故障、查询锁阻塞及结果未知的自动六十秒恢复。
 
 - `node scripts/e2e/run.mjs community.spec.ts home-cache-stability.spec.ts isr-write-budget.spec.ts public-home-projection.spec.ts public-cache-publication.spec.ts sentry-cache-tracing.spec.ts vercel-assets.spec.ts pwa.spec.ts pwa-origin-failure.spec.ts --sentry-tracing --project=chromium --project=mobile-chromium --project=webkit --project=mobile-webkit`
 - `npm run test:storybook:web -- --run apps/web/src/app/community-stats.stories.tsx apps/web/src/stories/public-pages.stories.tsx`

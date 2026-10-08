@@ -26,7 +26,7 @@ export class CommunityStatsService {
       'home',
       'community',
       () => this.invalidateSchoolCache(),
-      () => this.getStats(),
+      (prisma) => this.load(this.epoch, prisma),
     );
   }
 
@@ -47,9 +47,12 @@ export class CommunityStatsService {
     return this.pending;
   }
 
-  private async load(epoch: number): Promise<CommunityStats> {
+  private async load(
+    epoch: number,
+    prisma = this.prisma,
+  ): Promise<CommunityStats> {
     // Aggregate in the database; no individual profile or contact data leaves it.
-    const rows = await this.prisma.$queryRaw<
+    const rows = await prisma.$queryRaw<
       {
         schoolId: string | null;
         schoolName: string | null;
@@ -66,7 +69,7 @@ export class CommunityStatsService {
       GROUP BY 1, 2, 3
     `);
     const genders = emptyGenderBuckets();
-    const eligibleSchools = await this.prisma.school.findMany({
+    const eligibleSchools = await prisma.school.findMany({
       where: { registrationEligible: true },
       select: { id: true, name: true },
     });

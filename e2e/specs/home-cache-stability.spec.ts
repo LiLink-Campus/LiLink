@@ -41,8 +41,15 @@ test('public cache invalidation rejects unauthorized and invalid requests @smoke
 // pending earlier notifications and SWR must finish before the hash baseline.
 // Setup must not discard revisions, steal active leases, or relax HIT/hash checks.
 // Unchanged pages stay HIT beyond the former 30-second expiry without changing Sentry.
-test('live API reads leave the long cached homepage unchanged @smoke', async ({ page, db }, info) => {
+test('live API reads leave the long cached homepage unchanged @smoke', async ({ page, db, account }, info) => {
   test.setTimeout(180_000);
+  const user = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  const admin = await db.adminOperator.create({ data: { email: `stable-cache-${account.email}`,
+    passwordHash: user.passwordHash } });
+  expect((await page.request.post(`${api}/admin-session/login`, { data: { email: admin.email, password } })).ok()).toBe(true);
+  const cycle = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
+  const unchangedCycle = { cycleId: cycle.id, codename: cycle.codename, status: cycle.status,
+    revealAt: cycle.revealAt.toISOString(), participationDeadline: cycle.participationDeadline.toISOString() };
   const baseline = new IsrWriteEvidence(info.outputPath('live-read-baseline-cache'));
   const baselineReads: Array<{ cache: string | undefined; htmlSha256: string }> = [];
   await baseline.start();
@@ -74,6 +81,9 @@ test('live API reads leave the long cached homepage unchanged @smoke', async ({ 
     }, { timeout: 35_000, intervals: [250, 500] }).toBe(true);
     if (revisionToDrain !== null) {
       const targetRevision = revisionToDrain;
+      // Move the worker's timer after preparing the isolated DB deadline.
+      // A no-op save wakes dispatch without creating another cache revision.
+      expect((await page.request.put(`${api}/admin/cycles`, { data: unchangedCycle })).ok()).toBe(true);
       await expect.poll(async () => {
         const row = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
         return row.acknowledgedRevision >= targetRevision && row.leaseUntil === null;

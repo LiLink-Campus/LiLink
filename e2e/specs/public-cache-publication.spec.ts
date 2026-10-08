@@ -1,13 +1,13 @@
 import { createHash, createHmac } from 'node:crypto';
 import { normalizePublicHomeSnapshot } from '@lilink/shared';
-import { test, expect, api, visit } from '../support/fixtures';
+import { test, expect, api, password, visit } from '../support/fixtures';
 
 // Failure boundaries: a successful claim can precede a lost invalidation. A
 // delivery acknowledgment is not proof of published content. Verification must
 // read the real cached HTML, preserve the rate gate, and repair an acknowledged
 // stale page. Equal published content must not enqueue work or change HTML.
 // Unauthenticated control requests cannot read or mutate publication state.
-test('publication verification repairs an acknowledged stale homepage @smoke', async ({ page, db }, info) => {
+test('publication verification repairs an acknowledged stale homepage @smoke', async ({ page, db, account }, info) => {
   test.setTimeout(180_000);
   const request = page.request;
   const body = JSON.stringify({ scope: 'home' });
@@ -34,6 +34,13 @@ test('publication verification repairs an acknowledged stale homepage @smoke', a
   expect(anonymous.status()).toBe(401);
   assertions.unsignedRejected = true;
   const cycle = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
+  const user = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  const admin = await db.adminOperator.create({ data: { email: `publication-${account.email}`,
+    passwordHash: user.passwordHash } });
+  expect((await request.post(`${api}/admin-session/login`, { data: { email: admin.email, password } })).ok()).toBe(true);
+  const unchangedCycle = { cycleId: cycle.id, codename: cycle.codename, status: cycle.status,
+    revealAt: cycle.revealAt.toISOString(), participationDeadline: cycle.participationDeadline.toISOString() };
+  const wakeDispatcher = async () => expect((await request.put(`${api}/admin/cycles`, { data: unchangedCycle })).ok()).toBe(true);
   const original = cycle.revealAt;
   const changed = new Date(original.getTime() + 7_200_000);
   let firstHash = '';
@@ -44,6 +51,8 @@ test('publication verification repairs an acknowledged stale homepage @smoke', a
     await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
       dueAt: new Date(0), lastAttemptAt: null, lastClaimedAt: new Date(0),
     } });
+    // Updating a synthetic deadline does not reschedule a production timer.
+    await wakeDispatcher();
     await expect.poll(async () => {
       await request.get('/');
       const row = await db.publicCacheInvalidation.findUniqueOrThrow({ where: { scope: 'home' } });
@@ -117,6 +126,7 @@ test('publication verification repairs an acknowledged stale homepage @smoke', a
     await db.publicCacheInvalidation.update({ where: { scope: 'home' }, data: {
       dueAt: new Date(0), lastAttemptAt: null, lastClaimedAt: new Date(0), lastVerificationAt: new Date(0),
     } });
+    await wakeDispatcher();
     await verify();
     await info.attach('publication-contract', { contentType: 'application/json', body: JSON.stringify({
       project: info.project.name, fingerprintsDiffer: firstHash !== repairedHash,

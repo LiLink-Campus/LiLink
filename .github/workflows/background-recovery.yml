@@ -1,0 +1,60 @@
+name: Background recovery evidence
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/modules/public/**'
+      - 'apps/api/src/common/mail/**'
+      - 'apps/api/src/common/prisma/deadline-pool.ts'
+      - 'apps/api/src/common/idle-deadline.ts'
+      - 'apps/api/prisma/**'
+      - 'apps/api/test/public-cache-*.ts'
+      - 'e2e/specs/public-cache-*.ts'
+      - 'scripts/e2e/**'
+      - '.github/workflows/background-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: background-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  default-periods:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: idle-and-publication
+            arguments: --background-evidence public-cache-idle.spec.ts --project=chromium
+          - name: database-fault-budget
+            arguments: --api --cache-fault-defaults public-cache-faults.e2e-spec.ts
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - if: matrix.name == 'idle-and-publication'
+        run: npx playwright install --with-deps chromium
+      - name: Observe production intervals with disposable infrastructure
+        run: node scripts/e2e/run.mjs ${{ matrix.arguments }}
+      - name: Preserve sanitized timing and user-path evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: background-${{ matrix.name }}-${{ github.sha }}
+          path: |
+            artifacts/e2e/**/public-cache-*.json
+            artifacts/e2e/**/application-sql.jsonl
+            artifacts/e2e/**/results.json
+            artifacts/e2e/**/results/**
+            artifacts/e2e/**/run.json
+            artifacts/e2e/**/*.log
+          retention-days: 7
+          if-no-files-found: error
