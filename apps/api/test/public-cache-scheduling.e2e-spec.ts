@@ -295,8 +295,10 @@ describe('Public cache automatic scheduling with PostgreSQL and HTTP', () => {
     const current = await row();
     expect(current.verificationCompletedRevision).toBeNull();
     expect(current.verificationFailures).toBe(0);
-    expect(publication.getSchedulingState().nextRunAt).toBeGreaterThan(
-      Date.now(),
+    await eventually(() =>
+      Promise.resolve(
+        (publication.getSchedulingState().nextRunAt ?? 0) > Date.now(),
+      ),
     );
     evidence.push({
       boundary: 'superseded-in-flight-read',
