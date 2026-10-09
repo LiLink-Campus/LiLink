@@ -209,7 +209,7 @@ describe('Public cache database fault recovery', () => {
     100_000,
   );
 
-  it('cancels a real blocked SQL query before scheduling recovery', async () => {
+  it('cancels a real blocked SQL query and automatically recovers after unlock', async () => {
     const lock = new Client({ connectionString: env.DATABASE_URL });
     await lock.connect();
     await lock.query('BEGIN');
@@ -219,25 +219,50 @@ describe('Public cache database fault recovery', () => {
     const startedAt = Date.now();
     try {
       start();
+      let blocked: { pid: number; queryStart: string } | undefined;
+      await until(async () => {
+        [blocked] = await db.$queryRaw<
+          Array<{ pid: number; queryStart: string }>
+        >`
+          SELECT pid, query_start::text AS "queryStart" FROM pg_stat_activity
+          WHERE application_name = 'lilink-public-cache'
+            AND state = 'active' AND wait_event_type = 'Lock'
+          ORDER BY query_start LIMIT 1
+        `;
+        return Boolean(blocked);
+      }, 3000);
       await until(
         () => publication.getSchedulingState().state === 'unknown',
         15_000,
       );
       const fault = publication.getSchedulingState();
-      const active = await db.$queryRaw<Array<{ count: number }>>`
-        SELECT COUNT(*)::int AS count FROM pg_stat_activity
-        WHERE application_name = 'lilink-public-cache' AND state = 'active'
-      `;
-      expect(active[0].count).toBe(0);
+      const failedAt = Date.now();
+      // Client timeout, server cancellation and the next retry are separate events.
+      // Observe the original statement while retaining the lock, not all retries.
+      let activeOriginalQuery = 1;
+      await until(async () => {
+        const [active] = await db.$queryRaw<Array<{ count: number }>>`
+          SELECT COUNT(*)::int AS count FROM pg_stat_activity
+          WHERE pid = ${blocked!.pid} AND query_start::text = ${blocked!.queryStart}
+            AND state = 'active'
+        `;
+        activeOriginalQuery = active.count;
+        return activeOriginalQuery === 0;
+      }, 3000);
+      expect(activeOriginalQuery).toBe(0);
+      const cancelledAt = Date.now();
       await lock.query('ROLLBACK');
       await until(() => publication.getSchedulingState().state === 'healthy');
       expect((await home()).verificationCompletedRevision).toBe(10n);
       evidence.push({
         boundary: 'blocked-query',
         startedAt,
+        failedAt,
+        cancelledAt,
+        blocked,
         recoveryDeadline: fault.nextRecoveryAt,
         recoveredAt: Date.now(),
-        activeQueriesAfterTimeout: active[0].count,
+        activeOriginalQuery,
         passed: true,
       });
     } finally {

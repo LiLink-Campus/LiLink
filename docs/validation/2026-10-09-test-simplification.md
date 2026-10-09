@@ -29,7 +29,7 @@ Shell 传播非零状态；Jest/Vitest/Playwright 原生报告检查非空、无
 
 | 类别 | 文件数 | 行数前→后 | 新增 / 删除 / 净变化 |
 | --- | --- | --- | --- |
-| 测试和Story | 228→211 | 45212→44147 | +4565 / -5630 / **-1065** |
+| 测试和Story | 228→211 | 45212→44172 | +4590 / -5630 / **-1040** |
 | Fixture/runner/config/辅助 | 38→33 | 3374→2576 | +319 / -1117 / **-798** |
 | 日常CI Workflow | 5→1 | 508→60 | +36 / -484 / **-448** |
 | 手动演练含其Workflow | 15→10 | 998→741 | +261 / -518 / **-257** |
@@ -41,6 +41,8 @@ Shell 传播非零状态；Jest/Vitest/Playwright 原生报告检查非空、无
 合并前第二轮：源码证据将 Sharp 专属输出差异记为 `generatedDirty`，不再让 x64 生成文件差异污染 `sourceDirty`；源图、生成代码、手写CSS和API源码仍严格计入源码修改，演练拒绝所选输入的任一类差异。真实临时Git仓库验证 clean、仅生成物、staged/unstaged/untracked源码及API路径范围；图片内容失效/篡改仍由原缓存行为检查承担，未以文件名分类跳过校验。
 
 MSW受控反例在现有Profile Story中执行并捕获 `fetch("/api/__unhandled_ci_probe", { method: "PUT" })` 的异常：旧全局配置日志报错但Story通过；新生命周期检查使相同场景以 `Unhandled Storybook request: PUT /api/__unhandled_ci_probe` 明确失败。命令为 `npx vitest --config vitest.config.ts --run apps/web/src/stories/dashboard-pages.stories.tsx -t 'Unhandled Request Probe'`，使用既有Chromium/MSW隔离环境，无数据库。临时故障Story随即移除，完整216行为继续验证，最终结果见PR。文件级28通过/4个开发gallery排除与216行为全部执行分别报告。
+
+合并前完整 [CI 37881112073](https://github.com/LiLink-Campus/LiLink/actions/runs/37881112073) 在真实锁取消检查失败：超时后立即统计所有活跃 worker 查询得到1，无法区分原查询的取消传播和下一轮自动扫描。保留此首失败；现检查先观测实际阻塞 SQL 的 PID/开始时间，在锁仍持有时有界等待原语句消失，再解锁并验证自动恢复与最终 revision。数据库查询和 JavaScript 时间都保持真实，未改生产10秒网络/SQL期限或默认退避；不再声称客户端报错与数据库端取消是同一瞬间。定向 `node scripts/e2e/run.mjs --api --testPathPatterns=public-cache-faults.e2e-spec.ts` 的7个故障行为通过，工件增加原语句身份、失败/取消/恢复时间；最终完整结果见PR。
 
 本地演练原先将 dirty 工作区镜像标为 HEAD，已通过实际临时 Git 仓库、真实演练 CLI 和 Docker 边界探针复现。修复后 staged、unstaged、untracked API 源码均在 Docker 前被拒绝；无关 Web 编辑不阻止构建。镜像、挂载的负载脚本和问卷 Fixture 统一使用该提交的 Git archive，构建期间编辑也不会混入，源码快照纳入失败清理。E2E 保留开发者 dirty 运行，但在复制前后检查 SHA/状态并记录 `sourceDirty`；实施期真实两例通过的工件 `ec380e11708f` 明确标记 true，不能当作旧 HEAD 的提交级结果。
 
