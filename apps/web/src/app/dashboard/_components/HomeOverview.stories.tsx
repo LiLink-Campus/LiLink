@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fireEvent, waitFor, within } from "storybook/test";
 import { HomeOverview } from "./HomeOverview";
@@ -26,8 +27,6 @@ function makeAgenda(optedIn: boolean, eligible = true) {
     questionnaire: {
       percent: 100,
 
-
-
       submitted: true,
       missingOneLinerIntro: false,
       eligibleToOptIn: eligible,
@@ -37,10 +36,10 @@ function makeAgenda(optedIn: boolean, eligible = true) {
 }
 
 const meta = {
+  tags: ["!test"],
   title: "Dashboard/Home/Overview",
   component: HomeOverview,
   decorators: [(Story) => <main className={appShellStyles.main}><Story /></main>],
-  tags: ["smoke"],
   parameters: {
     layout: "fullscreen",
     fixedNow: "2030-04-09T12:00:00Z",
@@ -62,15 +61,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const NextCycleNeedsSignup: Story = {};
-export const Joined: Story = { args: { optedIn: true, intent: "DATE", agenda: makeAgenda(true) } };
-export const Locked: Story = {
-  args: { optedIn: true, intent: "DATE", agenda: makeAgenda(true), canEdit: false },
-};
-export const ResultAvailable: Story = { args: { hasCycle: false, canEdit: false } };
-export const NeedsProfile: Story = { args: { eligible: false, agenda: makeAgenda(false, false) } };
-
 export const CarouselControlsAndSwipe: Story = {
+  tags: ["test"],
   name: "轮播 / 手机点击与滑动",
   globals: { viewport: { value: "mobile407" } },
   play: async ({ canvas, userEvent }) => {
@@ -100,30 +92,51 @@ export const CarouselControlsAndSwipe: Story = {
   },
 };
 
+let intervalClock: typeof import("vitest")["vi"] | undefined;
+async function controlIntervals() {
+  // Development previews keep real timers; the Vitest browser owns its fake clock.
+  if (!("__vitest_browser__" in globalThis)) return;
+  intervalClock = (await import("vitest")).vi;
+  intervalClock.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  return () => { intervalClock?.useRealTimers(); intervalClock = undefined; };
+}
+async function advanceIntervals(ms: number) {
+  if (intervalClock) await intervalClock.advanceTimersByTimeAsync(ms);
+  else await new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export const CarouselAutoplay: Story = {
+  tags: ["test"],
+  beforeEach: controlIntervals,
   name: "轮播 / 五秒自动播放与悬停暂停",
   globals: { viewport: { value: "desktop1280" } },
   play: async ({ canvas, userEvent }) => {
     const carousel = canvas.getByRole("complementary", { name: "活动轮播" });
     const first = within(carousel).getByRole("button", { name: "切换到LiLink 1v1 · 专人服务" });
     const second = within(carousel).getByRole("button", { name: "切换到商家合作 · 筹备中" });
-    await waitFor(() => expect(second).toHaveAttribute("aria-pressed", "true"), { timeout: 6500 });
+    await advanceIntervals(4999);
+    await expect(first).toHaveAttribute("aria-pressed", "true");
+    await advanceIntervals(1);
+    await waitFor(() => expect(second).toHaveAttribute("aria-pressed", "true"));
     await userEvent.hover(carousel);
-    await new Promise((resolve) => setTimeout(resolve, 5500));
+    await advanceIntervals(5500);
     await expect(second).toHaveAttribute("aria-pressed", "true");
     await userEvent.unhover(carousel);
-    await waitFor(() => expect(first).toHaveAttribute("aria-pressed", "true"), { timeout: 6500 });
+    await advanceIntervals(5000);
+    await waitFor(() => expect(first).toHaveAttribute("aria-pressed", "true"));
   },
 };
 
 export const CarouselFocusAndDialogPause: Story = {
+  tags: ["test"],
+  beforeEach: controlIntervals,
   name: "轮播 / 焦点与活动弹窗暂停",
   play: async ({ canvas, userEvent }) => {
     const carousel = canvas.getByRole("complementary", { name: "活动轮播" });
     const second = within(carousel).getByRole("button", { name: "切换到商家合作 · 筹备中" });
     await userEvent.click(second);
     await userEvent.unhover(carousel);
-    await new Promise((resolve) => setTimeout(resolve, 5500));
+    await advanceIntervals(5500);
     await expect(second).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(within(carousel).getByRole("button", { name: "查看活动说明 ↗" }));
     await userEvent.unhover(carousel);
@@ -131,7 +144,7 @@ export const CarouselFocusAndDialogPause: Story = {
     await expect(
       canvas.getByText("商家合作活动正在筹备，开放后会公布活动时间、优惠内容和参与方式。")
     ).toBeVisible();
-    await new Promise((resolve) => setTimeout(resolve, 5500));
+    await advanceIntervals(5500);
     await expect(second).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(canvas.getByRole("button", { name: "知道了" }));
     await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
@@ -139,11 +152,35 @@ export const CarouselFocusAndDialogPause: Story = {
 };
 
 export const CarouselParentPause: Story = {
-  name: "轮播 / 报名弹窗打开时暂停",
-  args: { activitiesPaused: true },
-  play: async ({ canvas }) => {
+  tags: ["test"],
+  name: "轮播 / 报名弹窗暂停、恢复与卸载",
+  beforeEach: controlIntervals,
+  render: (args) => <PauseFixture {...args} />,
+  play: async ({ canvas, userEvent }) => {
     const first = canvas.getByRole("button", { name: "切换到LiLink 1v1 · 专人服务" });
-    await new Promise(resolve => setTimeout(resolve, 5500));
+    await advanceIntervals(5500);
     await expect(first).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(canvas.getByRole("button", { name: "恢复轮播" }));
+    await advanceIntervals(5000);
+    await waitFor(() => expect(canvas.getByRole("button", { name: "切换到商家合作 · 筹备中" })).toHaveAttribute("aria-pressed", "true"));
+    await userEvent.click(canvas.getByRole("button", { name: "卸载轮播" }));
+    await expect(canvas.queryByRole("complementary", { name: "活动轮播" })).not.toBeInTheDocument();
+    if (intervalClock) await expect(intervalClock.getTimerCount()).toBe(0);
   },
 };
+
+export const AgendaGallery: Story = {
+  render: (args) => <div style={{ display: "grid", gap: 24 }}>
+    <HomeOverview {...args} />
+    <HomeOverview {...args} optedIn intent="DATE" agenda={makeAgenda(true)} />
+    <HomeOverview {...args} optedIn intent="DATE" agenda={makeAgenda(true)} canEdit={false} />
+    <HomeOverview {...args} hasCycle={false} canEdit={false} />
+    <HomeOverview {...args} eligible={false} agenda={makeAgenda(false, false)} />
+  </div>,
+};
+
+function PauseFixture(args: React.ComponentProps<typeof HomeOverview>) {
+  const [paused, setPaused] = useState(true);
+  const [mounted, setMounted] = useState(true);
+  return <><button onClick={() => setPaused(false)}>恢复轮播</button><button onClick={() => setMounted(false)}>卸载轮播</button>{mounted && <HomeOverview {...args} activitiesPaused={paused} />}</>;
+}

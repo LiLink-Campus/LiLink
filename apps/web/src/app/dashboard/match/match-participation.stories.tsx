@@ -11,9 +11,9 @@ const initial = { ...matchDashboardFixtures.introducedContactCompleted,
 let dashboard: DashboardPayload = structuredClone(initial);
 let requests = 0;
 const meta = {
+  tags: ["!test"],
   title: "Dashboard/Match/Current Participation",
   component: MatchClientView,
-  tags: ["smoke"],
   parameters: { layout: "fullscreen", fixedNow: "2030-04-10T04:00:00.000Z", nextjs: { appDirectory: true, navigation: { pathname: "/dashboard/match" } },
     msw: { handlers: { site: null, participation: [
       http.put("http://localhost:4000/v1/me/participation", async ({ request }) => {
@@ -31,6 +31,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const JoinKeepsPreviousResult: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await expect(c.getByRole("heading", { name: "有一位同学，想认识你" })).toBeVisible();
@@ -46,6 +47,7 @@ export const JoinKeepsPreviousResult: Story = {
   },
 };
 export const RejectedParticipation: Story = {
+  tags: ["test"],
   parameters: { msw: { handlers: { participation: [http.put("http://localhost:4000/v1/me/participation", () => HttpResponse.json({ message: "请先完善匹配资料" }, { status: 400 }))] } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -57,6 +59,7 @@ export const RejectedParticipation: Story = {
   },
 };
 export const ClosedWithPreviousResult: Story = {
+  tags: ["test"],
   args: { initialDashboard: { ...initial, currentCycle: { ...initial.currentCycle, status: "PREPARING" } } },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);

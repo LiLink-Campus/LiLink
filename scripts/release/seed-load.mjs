@@ -1,4 +1,4 @@
-import { resolveDatabaseTarget } from './targets.mjs';
+import { resolveRehearsalDatabase } from './targets.mjs';
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -7,7 +7,7 @@ const { createPrismaClient } = require('./dist/src/common/prisma/client.js');
 const { buildHardMatchAnswerRecordFromFormInput } = require('./dist/src/modules/questionnaire/hard-match.js');
 const { validateQuestionnaireAnswers } = require('./dist/src/modules/questionnaire/questionnaire.service.js');
 const argon2 = require('argon2');
-resolveDatabaseTarget(process.env.DATABASE_URL);
+resolveRehearsalDatabase(process.env.DATABASE_URL, process.env.REHEARSAL_RUN_ID);
 const db = createPrismaClient();
 const schoolIds = Array.from({ length: 8 }, (_, i) => `release_school_${i}`);
 async function ensureSchoolDomains() {
@@ -20,7 +20,6 @@ async function ensureSchoolDomains() {
 }
 try {
   const existing = await db.user.count();
-  if (existing === 2000 && await db.user.count({ where: { id: { startsWith: 'release_user_' }, email: { endsWith: '@release.example.test' } } }) === 2000) { await ensureSchoolDomains(); console.log('Reusing verified synthetic release dataset.'); await db.$disconnect(); process.exit(0); }
   if (existing || await db.questionnaireVersion.count()) throw new Error('Synthetic load database must be empty; no automatic deletion.');
   const { questions } = JSON.parse(await readFile('prisma/fixtures/autumn-20260920-questionnaire.json', 'utf8'));
   await db.school.createMany({ data: schoolIds.map((id, i) => ({ id, slug: id, name: `测试大学 ${i}` })) });
@@ -29,7 +28,7 @@ try {
   const soft = Object.fromEntries(questions.map(q => [q.key, q.type === 'MULTI_SELECT' ? q.options.slice(0, q.selectionLimit ?? 1).map(o => o.value) : q.options[0].value]));
   const passwordHash = await argon2.hash('SyntheticRelease2026!');
   const users = Array.from({ length: 2000 }, (_, i) => ({ id: `release_user_${String(i).padStart(4, '0')}`, email: `user${i}@release.example.test`, passwordHash, displayName: `演练同学 ${i}`, status: 'ACTIVE', schoolId: schoolIds[i % schoolIds.length], isTest: false, acceptedTermsAt: new Date() }));
-  const forms = users.map((user, i) => ({ birthYear: '2000', birthMonth: '1', birthDay: '1', gender: i % 2 ? '男' : '女', partnerGenders: ['男', '女'], partnerAgeMin: '18', partnerAgeMax: '40', nationality: '中国', languages: ['中文'], partnerNationalities: [], partnerLanguages: [], looks: '5', partnerLooks: ['1','2','3','4','5','6','7','8','9','10'], heightCm: '165', weightKg: '55', partnerHeightMin: '120', partnerHeightMax: '230', partnerWeightMin: '30', partnerWeightMax: '300', oneLinerIntro: `合成用户 ${i} 喜欢读书和散步。`, excludedPartnerSchools: [], excludedPartnerSchoolGenders: [] }));
+  const forms = users.map((user, i) => ({ birthYear: '2000', birthMonth: '1', birthDay: '1', gender: i % 2 ? '男' : '女', partnerGenders: [i % 2 ? '女' : '男'], partnerAgeMin: '18', partnerAgeMax: '40', nationality: '中国', languages: ['中文'], partnerNationalities: [], partnerLanguages: [], looks: '5', partnerLooks: ['1','2','3','4','5','6','7','8','9','10'], heightCm: '165', weightKg: '55', partnerHeightMin: '120', partnerHeightMax: '230', partnerWeightMin: '30', partnerWeightMax: '300', oneLinerIntro: `合成用户 ${i} 喜欢读书和散步。`, excludedPartnerSchools: [], excludedPartnerSchoolGenders: [] }));
   const responses = users.map((user, i) => {
     const answers = { ...soft, ...buildHardMatchAnswerRecordFromFormInput(forms[i], user.schoolId, schoolIds) };
     validateQuestionnaireAnswers(questions, answers, schoolIds);

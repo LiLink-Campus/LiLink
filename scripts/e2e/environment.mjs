@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 export function assertTestDatabase(raw) {
   const url = new URL(raw);
   if (url.protocol !== 'postgresql:' || url.hostname !== '127.0.0.1' ||
-      !/^\/lilink_e2e_[a-f0-9]+$/.test(url.pathname) || !url.port || url.port === '5432') {
+      !/^\/lilink_e2e_[a-f0-9]+$/.test(url.pathname) || !url.port || url.port === '5432' || url.search || url.hash || url.username !== 'e2e') {
     throw new Error('Refusing database outside the disposable E2E namespace.');
   }
 }

@@ -3,35 +3,24 @@ kind: howto
 lang: zh
 ---
 
-# 隔离环境发布演练
+# 隔离生产镜像负载演练
 
 > 文档归属：[操作指南](README.md)。
 
-默认用户路径通过 [浏览器 E2E](browser-e2e.md) 的 disposable loopback 环境验证。需要生产镜像、完整匹配与送信、迁移恢复或容量证据时，使用 `scripts/release/` 的专项工具；隔离数据库、账号、目标身份与执行范围必须先核验，旧记录不代表资源仍可使用。
+在仓库根目录执行 `node scripts/release/local-rehearsal.mjs`。需要 Node 24、Docker 和镜像下载权限；不需要线上 Secrets 或远端数据库。GitHub 的 [手动演练](../../.github/workflows/release-rehearsal.yml) 执行同一命令，不参与 PR 回归门禁。
 
-## 选择与准备
+构建前必须提交会影响 API 镜像或演练脚本的改动：检查 `.dockerignore`、根 package/lock、`apps/api`、`packages/shared`、`scripts/release` 和源码身份工具的 staged、unstaged、untracked 状态，不干净时在调用 Docker 前失败。镜像上下文、挂载的演练脚本和问卷 Fixture 都来自已检查 SHA 的 Git archive，不包含忽略的本地产物，也不会混入构建期间新增的修改；镜像标签和 `run.json` 使用该 SHA。无关 Web 或文档编辑不会阻止 API 演练。任务源码快照与临时凭据一起清理。
 
-1. 阅读 [targets.mjs](../../scripts/release/targets.mjs) 和 [演练运行器](../../scripts/release/local-rehearsal.mjs) 的实际限制。它们固定允许的合成项目、分支、数据库与 role，拒绝生产目标；新增目标须经独立身份核验和专项变更。
-2. 将连接、加密备份与目标 manifest 放入受控且 Git 忽略的本地目录，按工具要求设置绝对路径。库、镜像、API 和 Web 的候选身份应与独立审核的预期一致，不能从实际响应复制出“预期”。
-3. 准备 Docker、Mailpit 和校验过的 Caddy；版本、资源限额与目标要求查询运行器。记录宿主/容器架构、数据库资源、正常 jobs 开关和连接池设置，避免把模拟配置当成生产容量。
+运行器构建 [生产 Dockerfile](../../apps/api/Dockerfile.prod)，新建带随机任务标签的内部网络、临时 PostgreSQL 和 Mailpit。数据库 URL 必须属于当次 run-id，迁移前检查容器标签、实际数据库名、role 和空 schema。生产入口正常执行 migration 和应用启动，临时 Secret 文件单独只读挂载，运行 UID 1001 可读。没有宿主端口、公网域名、Tunnel、Caddy 或远程控制接口。
 
-该运行器保留专项演练的固定目录与目标，不接受任意数据库。`start` 要求设置 `RELEASE_CADDY_BINARY` 为 Caddy 2.11.4 的可执行路径；`RELEASE_TARGET_FILE` 与 `RELEASE_DATABASE_FILE` 可指定目标 manifest 和连接文件，默认位于 Git 忽略的 `artifacts/questionnaire-release-20260920/`。同一固定目录还必须提供受控的 `load-access-key` 和 `tunnel-token` 文件，覆盖前两个路径不会改变这两个文件的位置。候选 API/shared/release 源码、Docker 忽略规则及依赖声明必须已提交，运行器会拒绝其未提交变更。目标资源与身份未重新核验时，不执行此专项流程，使用默认浏览器 E2E 环境。
+初始化 2000 个合成用户、学校、问卷和三轮历史配对后，真实执行 prepare、reveal、用户快照、outbox 和 Mailpit 验证。检查参与者集合、配对唯一性、无自配、历史配对限制、快照对应和通知去重。重复 tick 不得重新揭晓。撮合耗时与通知排空时间分别记录；2000 人是数据规模，不代表 HTTP 并发用户数。该单点负载不能外推生产容量，硬约束和事务边界的全面回归仍由固定测试集合承担。
 
-## 运行与判定
+API 容器限制为 2 CPU、3584 MiB、数据库连接上限 20，正常后台任务开启。演练显式使用既有 `OUTBOUND_EMAIL_FLUSH_BATCH_SIZE=500` 配置，以覆盖实际批量通知；这不是默认批量 50 的送达耗时保证，也不修改生产配置。合成用户要求双向异性匹配，快照中的身份、介绍及联系方式必须与实际配对一致。
 
-从仓库根目录、按已审核的配置运行：
+需要业务 HTTP 压测时运行 `node scripts/release/local-rehearsal.mjs --api-load`。它在同一任务内部网络使用 k6 执行鉴权读取、资料保存和报名写入，保留业务结果、延迟、错误率及丢失迭代检查。默认 33 次业务迭代/秒、120 秒；结果在 `k6.json`，与撮合耗时分别解释。没有用 `/health` 延迟代表业务吞吐。
 
-```sh
-node scripts/release/local-rehearsal.mjs start
-node scripts/release/local-rehearsal.mjs matching
-node scripts/release/local-rehearsal.mjs evidence
-node scripts/release/local-rehearsal.mjs stop
-```
+资源采样仅包围实际撮合、揭晓、通知及可选 k6，保存 Docker CPU/内存和 PostgreSQL 连接状态；没有 pg 原型方法包装。失去的独有观测为客户端连接 checkout/query 延迟及 event-loop 分位数，必要诊断可按事故另行采集。负载完成后立即清理；通知仍有十分钟业务期限，不以提前退出加速。
 
-匹配阶段必须核对候选、终态、快照、引荐和 Mailpit 收件；重试不能重复揭晓或重复送信。恢复演练由 [database.mjs](../../scripts/release/database.mjs) 管理，写入前核验目标和恢复范围。
+每轮 `artifacts/release-output/<run-id>/` 保存构建和运行日志、业务断言、资源采样、耗时及清理结果。临时凭据不进入工件，结束/错误/取消都回收当次容器、网络和凭据。`--fail-after-start` 用于验证生产启动后的失败清理，预期命令非零退出。SIGKILL 或宿主断电时按工件 run-id 查找 `lilink.rehearsal=<run-id>` 标签，只清理确认归属的资源，不执行全局 prune。
 
-容量工具区分单个 API 请求、完整 API 页面入口和 SSR HTML；断言及计数口径查询 [load.js](../../scripts/release/load.js) 与 [load-ssr.js](../../scripts/release/load-ssr.js)。完整浏览器显示仍需另做用户路径验收。接入新的远端负载目标或真实数据不由本指南授权。
-
-结果保留运行命令、环境/数据前提、候选 SHA、行为断言和脱敏证据。清理仅回收本次任务拥有的进程、容器和网络，保留诊断工件；失败后按运行器记录确认资源归属再回收。
-
-[GitHub 演练](../../.github/workflows/release-rehearsal.yml) 使用手动触发。旧工具说明与具体时点观察保留在 [实施记录](../records/README.md)，生产发布另按 [发布与回滚](production-release.md)。
+旧公网 SSR、跨网关压力、压缩代理和长期空转监测已退役；本流程不证明这些能力。既有 [数据库运维工具](../../scripts/release/database.mjs) 与 [目标保护](../../scripts/release/targets.mjs) 保留独立远端隔离库边界，不在演练中自动使用。生产操作另按 [发布与回滚](production-release.md)，本指南不授权生产写入。

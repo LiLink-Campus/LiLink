@@ -243,13 +243,25 @@ describe('Archived profile basics reuse (PostgreSQL)', () => {
               versionId: version.id,
               displayName: '保留昵称',
               answers: {},
-              hardMatchForm: { gender: '女', oneLinerIntro: '编辑后的介绍' },
+              hardMatchForm: { gender: '女', oneLinerIntro: '' },
             }),
           ).toMatchObject({
             saveState: 'DRAFT',
             questionnaireSubmittedAt: null,
           });
+          const clearedAfterSave =
+            await tx.questionnaireResponse.findUniqueOrThrow({
+              where: { userId: untouched.user.id },
+            });
+          expect(clearedAfterSave.draftAnswers).toMatchObject({
+            hardMatchForm: { gender: '女', oneLinerIntro: '' },
+          });
           expect(await tx.$executeRawUnsafe(update)).toBe(0);
+          expect(
+            await tx.questionnaireResponse.findUniqueOrThrow({
+              where: { userId: untouched.user.id },
+            }),
+          ).toEqual(clearedAfterSave);
           throw rollback;
         },
         { timeout: 30_000 },

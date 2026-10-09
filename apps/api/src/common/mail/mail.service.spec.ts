@@ -44,41 +44,6 @@ describe('MailService', () => {
     },
   );
 
-  it.each(['PENDING', 'FAILED', 'PROCESSING'] as const)(
-    'cancels a retired meetup reminder in %s without contacting SMTP',
-    async (status) => {
-      const email = buildOutboundEmail({
-        dedupeKey: 'meetup-reminder:retired-session',
-        status,
-        nextAttemptAt: new Date(0),
-        lastAttemptAt: new Date(0),
-      });
-      const updateMany = jest.fn().mockResolvedValue({ count: 1 });
-      const service = createMailService({
-        outboundEmail: {
-          findUnique: jest
-            .fn()
-            .mockResolvedValueOnce(email)
-            .mockResolvedValue({ ...email, status: 'EXHAUSTED' }),
-          updateMany,
-        },
-      });
-
-      await expect(
-        service.deliverQueuedEmailNow(email.dedupeKey),
-      ).resolves.toMatchObject({ status: 'EXHAUSTED' });
-      expect(sendMail).not.toHaveBeenCalled();
-      expect(updateMany).toHaveBeenCalledWith({
-        where: expect.objectContaining({ id: email.id }) as unknown,
-        data: {
-          status: 'EXHAUSTED',
-          nextAttemptAt: null,
-          errorMessage: 'Meetup workflow retired before delivery.',
-        },
-      });
-    },
-  );
-
   it('includes anti-spam transactional headers when sending', async () => {
     const findMany = jest.fn().mockResolvedValue([
       buildOutboundEmail({

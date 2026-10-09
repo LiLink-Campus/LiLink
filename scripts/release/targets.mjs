@@ -16,17 +16,14 @@ export function resolveDatabaseTarget(connectionString) {
   return target;
 }
 
-// Expected configuration and freshly retrieved deployment identity are separate inputs.
-export function resolveSsrTarget(expected, actual, releaseSha) {
-  if (!expected || !actual || !/^[a-f0-9]{40}$/.test(releaseSha ?? '')
-    || !/^https:\/\/release-\d{8}\.lilink\.top$/.test(expected.alias ?? '')
-    || expected.alias === 'https://release-20260920.lilink.top'
-    || expected.projectId !== 'prj_bdgQbPghUNmgkWPueeJq8Z6ZAb4J'
-    || typeof expected.branch !== 'string' || !expected.branch.startsWith('codex/')
-    || typeof expected.deploymentId !== 'string' || !expected.deploymentId.startsWith('dpl_')
-    || expected.sha !== releaseSha || actual.state !== 'READY'
-    || ['alias', 'projectId', 'branch', 'deploymentId', 'sha'].some(key => actual[key] !== expected[key])) {
-    throw new Error('Refusing an unverified SSR preview identity.');
+// Kept separate from the independently authorized remote maintenance targets.
+export function resolveRehearsalDatabase(raw, runId) {
+  const url = new URL(raw);
+  if (!/^[a-f0-9]{12}$/.test(runId ?? '') || url.protocol !== 'postgresql:' ||
+      url.hostname !== 'release-db' || url.port !== '5432' ||
+      url.username !== 'rehearsal' || !url.password || url.search || url.hash ||
+      url.pathname !== `/lilink_rehearsal_${runId}`) {
+    throw new Error('Refusing database outside this temporary rehearsal task.');
   }
-  return expected.alias;
+  return url;
 }

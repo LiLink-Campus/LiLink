@@ -3,9 +3,9 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import DashboardError from "./error";
 
 const meta = {
+  tags: ["!test"],
   title: "Dashboard/ServiceError",
   component: DashboardError,
-  tags: ["smoke"],
   args: { reset: fn() },
   parameters: { layout: "padded" },
   decorators: [(Story) => <main style={{ maxWidth: 720, margin: "32px auto" }}><Story /></main>],
@@ -13,6 +13,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Recoverable: Story = {
+  tags: ["test"],
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "暂时无法加载" })).toBeVisible();

@@ -6,7 +6,7 @@ import Chooser from "@/app/register/register-chooser-client";
 import School from "@/app/register/register-school-client";
 import Personal from "@/app/register/register-personal-client";
 import Forgot from "@/app/forgot-password/forgot-password-page-client";
-import { api, failure, guest, publicShell, route, visible } from "./site-support";
+import { api, failure, guest, publicShell, route } from "./site-support";
 import { schools } from "./site-fixtures";
 
 const codes = [
@@ -16,9 +16,9 @@ const codes = [
   http.post(`${api}/auth/request-password-reset-code`, () => HttpResponse.json({ ok: true })),
 ];
 const meta = {
+  tags: ["!test"],
   id: "site-auth",
   title: "全站/账号流程",
-  tags: ["smoke", "page"],
   decorators: [publicShell],
   parameters: { fullSite: true, msw: { handlers: { session: [guest], auth: codes } } },
 } satisfies Meta;
@@ -36,12 +36,12 @@ async function verification(canvasElement: HTMLElement, label: string) {
   await userEvent.type(c.getByLabelText("验证码"), "123456");
   await userEvent.click(c.getByRole("button", { name: "下一步" }));
 }
-export const LoginPage: Story = {
+const LoginPage: Story = {
   parameters: route("/login"),
   render: () => <Login />,
-  play: visible("欢迎回来"),
 };
 export const LoginError: Story = {
+  tags: ["test"],
   ...LoginPage,
   parameters: { ...route("/login"), msw: { handlers: { auth: [failure("/auth/login", "post")] } } },
   play: async ({ canvasElement }) => {
@@ -55,21 +55,14 @@ export const LoginError: Story = {
 export const RegisterChooser: Story = {
   parameters: route("/register"),
   render: () => <Chooser />,
-  play: visible(/学校邮箱/),
 };
-export const SchoolEmail: Story = {
+const SchoolEmail: Story = {
   parameters: route("/register/school"),
   render: () => <School />,
-  play: visible("学校邮箱"),
 };
-export const SchoolPassword: Story = {
-  ...SchoolEmail,
-  play: async ({ canvasElement }) => {
-    await verification(canvasElement, "学校邮箱");
-    await expect(within(canvasElement).getByLabelText("确认密码")).toBeVisible();
-  },
-};
+
 export const SchoolCodeError: Story = {
+  tags: ["test"],
   ...SchoolEmail,
   parameters: {
     ...route("/register/school"),
@@ -82,19 +75,13 @@ export const SchoolCodeError: Story = {
     await expect(await c.findByText(/模拟服务暂时不可用/)).toHaveTextContent("模拟服务暂时不可用");
   },
 };
-export const PersonalEmail: Story = {
+const PersonalEmail: Story = {
   parameters: route("/register/personal"),
   render: () => <Personal />,
-  play: visible("普通邮箱"),
 };
-export const PersonalPassword: Story = {
-  ...PersonalEmail,
-  play: async ({ canvasElement }) => {
-    await verification(canvasElement, "普通邮箱");
-    await expect(within(canvasElement).getByLabelText("确认密码")).toBeVisible();
-  },
-};
+
 export const ResetEmail: Story = {
+  tags: ["test"],
   parameters: route("/forgot-password"),
   render: () => <Forgot />,
   play: async ({ canvasElement }) => {
@@ -105,6 +92,7 @@ export const ResetEmail: Story = {
   },
 };
 export const ResetPassword: Story = {
+  tags: ["test"],
   ...ResetEmail,
   play: async ({ canvasElement }) => {
     await verification(canvasElement, "注册邮箱");
@@ -130,16 +118,19 @@ async function legalReturn(canvasElement: HTMLElement, label: string) {
 }
 
 export const SchoolLegalReturn: Story = {
+  tags: ["test"],
   ...SchoolEmail,
   play: async ({ canvasElement }) => legalReturn(canvasElement, "学校邮箱"),
 };
 
 export const PersonalLegalReturn: Story = {
-  ...PersonalPassword,
+  tags: ["test"],
+  ...PersonalEmail,
   play: async ({ canvasElement }) => legalReturn(canvasElement, "普通邮箱"),
 };
 
 export const ResetSignedIn: Story = {
+  tags: ["test"],
   ...ResetEmail,
   render: () => <Forgot initialEmail="demo@school.example" />,
   play: async ({ canvasElement }) => {

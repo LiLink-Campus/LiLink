@@ -65,10 +65,24 @@ test('real matching preparation and reveal produce pages and Mailpit receipts @s
           message.To?.some((recipient: any) => recipient.Address === email)).length ?? 0;
       }, { timeout: 40_000 }).toBe(1);
     }
-    await visit(page, '/dashboard/match');
-    await page.getByRole('button', { name: '查看上一轮结果 →', exact: true }).click();
-    await expect(page.getByRole('heading', { name: '合成撮合对象', level: 2, exact: true })).toBeVisible();
-    await info.attach('real-matching-result', { contentType: 'image/png', body: await page.screenshot({ animations: 'disabled' }) });
+    for (const [resultPage, partnerName] of [[page, '合成撮合对象'], [peerPage, '自动化同学']] as const) {
+      await visit(resultPage, '/dashboard/match');
+      const open = resultPage.getByRole('button', { name: '查看上一轮结果 →', exact: true });
+      const partner = resultPage.getByRole('heading', { name: partnerName, level: 2, exact: true });
+      await expect(partner).toHaveCount(0);
+      await open.click();
+      await expect(partner).toBeVisible();
+      await expect(resultPage.getByRole('main')).toContainText('喜欢一起散步和读书。');
+      await resultPage.getByRole('button', { name: '← 收起来信', exact: true }).click();
+      await expect(partner).toHaveCount(0);
+      await open.click();
+      await expect(partner).toBeVisible();
+      await resultPage.reload({ waitUntil: 'domcontentloaded' });
+      await expect(partner).toHaveCount(0);
+      await open.click();
+      await expect(partner).toBeVisible();
+    }
+
     const repeated = await context.request.post(`${api}/admin/cycles/run`, { data: { cycleId: cycle.id } });
     expect((await repeated.json()).state).toBe('SKIPPED');
     expect(await db.outboundEmail.count({ where: { dedupeKey: { in: dedupeKeys } } })).toBe(2);
@@ -82,5 +96,38 @@ test('real matching preparation and reveal produce pages and Mailpit receipts @s
     await peerContext.close();
     await db.matchCycle.delete({ where: { id: cycle.id } });
     await db.matchCycle.update({ where: { id: original.id }, data: { status: original.status } });
+  }
+});
+
+test('admin login waits for its handlers before accepting input @smoke', async ({ page, account, context, db }, info) => {
+  const user = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  const admin = await db.adminOperator.create({ data: { email: `ready-${account.email}`,
+    passwordHash: user.passwordHash, displayName: '登录验收管理员' } });
+  let release!: () => void;
+  const scriptsReady = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/_next/static/**/*.js', async route => {
+    await scriptsReady;
+    await route.continue();
+  });
+  try {
+    await page.goto('/admin', { waitUntil: 'commit' });
+    await expect(page.getByLabel('管理员邮箱', { exact: true })).toBeDisabled();
+    await expect(page.getByLabel('密码', { exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '进入后台', exact: true })).toBeDisabled();
+    release();
+    await page.getByLabel('管理员邮箱', { exact: true }).fill(admin.email);
+    await page.getByLabel('密码', { exact: true }).fill(password);
+    await expect(page.getByLabel('管理员邮箱', { exact: true })).toHaveValue(admin.email);
+    await page.getByRole('button', { name: '进入后台', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '运营概览', exact: true })).toBeVisible();
+    await expect.poll(async () => (await context.request.get(`${api}/admin-session/me`)).status()).toBe(200);
+    await info.attach('admin-login-ready', { contentType: 'application/json', body: JSON.stringify({
+      project: info.project.name, assertions: { inputsUnavailableBeforeHandlers: true,
+        emailPreservedWhileEnteringPassword: true, authenticatedOverviewVisible: true, adminSessionEstablished: true },
+    }) });
+
+  } finally {
+    release();
+    if (!page.isClosed()) await page.unrouteAll({ behavior: 'wait' });
   }
 });

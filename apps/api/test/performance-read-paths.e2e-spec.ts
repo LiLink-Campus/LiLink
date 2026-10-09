@@ -55,6 +55,8 @@ describe('Bounded performance read paths (PostgreSQL)', () => {
         ).id,
       );
     }
+  });
+  beforeEach(async () => {
     campaignId = (
       await prisma.campaign.create({
         data: {
@@ -73,11 +75,19 @@ describe('Bounded performance read paths (PostgreSQL)', () => {
       })
     ).id;
   });
-  afterAll(async () => {
-    await prisma.campaign.update({
-      where: { id: campaignId },
-      data: { status: 'ENDED' },
+  afterEach(async () => {
+    await prisma.matchCycle.deleteMany({ where: { codename: tag } });
+    await prisma.coupon.deleteMany({ where: { userId: { in: users } } });
+    await prisma.campaignActivation.deleteMany({
+      where: { userId: { in: users } },
     });
+    await prisma.couponTemplate.deleteMany({ where: { campaignId } });
+    await prisma.campaign.deleteMany({ where: { id: campaignId } });
+    await prisma.merchant.deleteMany({ where: { name: tag } });
+  });
+  afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: { in: users } } });
+    await prisma.questionnaireVersion.deleteMany({ where: { id: versionId } });
     await prisma.$disconnect();
   });
 
@@ -168,28 +178,6 @@ describe('Bounded performance read paths (PostgreSQL)', () => {
       Array.from({ length: 8 }, () => coupons.getMyCoupons(users[1])),
     );
     expect(await prisma.coupon.count({ where: { userId: users[1] } })).toBe(1);
-    // A fresh activity gives both previously qualified users a new reward.
-    await prisma.campaign.update({
-      where: { id: campaignId },
-      data: { status: 'ENDED' },
-    });
-    campaignId = (
-      await prisma.campaign.create({
-        data: {
-          name: tag,
-          slug: `${tag}-next`,
-          status: 'ACTIVE',
-          couponTemplates: {
-            create: {
-              title: tag,
-              benefitType: 'CUSTOM',
-              faceValue: 100,
-              merchant: { create: { name: tag } },
-            },
-          },
-        },
-      })
-    ).id;
   });
 
   it('does not grant a first reward after a concurrent campaign end commits', async () => {
@@ -226,7 +214,7 @@ describe('Bounded performance read paths (PostgreSQL)', () => {
       await activityRead.promise;
       release.resolve();
       await holder;
-      expect((await read).items).toHaveLength(1);
+      expect((await read).items).toHaveLength(0);
     } finally {
       release.resolve();
       await holder;

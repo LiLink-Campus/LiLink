@@ -1,5 +1,6 @@
 export function createDashboardSnapshotServiceMock() {
   return {
+    syncCycleSnapshots: jest.fn().mockResolvedValue(undefined),
     ensureUserSnapshotCoverage: jest.fn().mockResolvedValue(undefined),
     readDashboardMatchPayload: jest
       .fn()

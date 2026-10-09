@@ -33,6 +33,10 @@ node scripts/images/version-shell-assets.mjs
 
 本机 `npm run build:web` 的 prebuild 会执行 `npm run images:generate` 对应的生成流程；Vercel 的显式 buildCommand 同样先运行该命令，再进入原有 `next build`。直接调用 `next build` 不触发 npm prebuild，不能依赖它自动生成新增图片或外壳地址。生产 API 环境配置继续遵循现有 Next 配置校验。
 
+Sharp 响应式图片和校徽图集只在输入、生成器、package/lock、Node/平台及 Sharp 工具链指纹相同，且全部输出路径和内容校验一致时复用。标记保存在忽略的 `apps/web/.cache/static-assets.json`；缺失、损坏或内容改变即重新生成，失败不保留有效标记。并发生成会明确失败；异常退出遗留的 `static-assets.lock` 只能在确认原进程已停止后删除。外壳图标、字体、手写 CSS、离线页和 Service Worker 的版本化仍每次执行，不能用缓存覆盖当前源码。
+
+固定 CI 在 Linux core 中生成一次，再把产物和标记复制给普通 Web 与 Sentry 的隔离构建；两个 prebuild 各自校验后复用，不共享 `.next` 或跳过构建。跨平台或工具链改变会重新生成。
+
 `legacy-public-paths.mjs` 保留明确列出的旧图片地址到压缩图的精确 308 跳转，以及曾发布的 immutable 图片；不使用图片路径通配跳转。没有迁移的旧图标和字体地址仍直接提供原资源。旧地址跳转会增加一次请求，新页面应引用生成后的最终 hash 地址。
 
 ## 浏览器缓存

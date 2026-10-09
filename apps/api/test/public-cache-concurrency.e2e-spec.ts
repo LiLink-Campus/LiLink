@@ -1,4 +1,4 @@
-import { createCycleTestServices } from './fixtures/cycle-services';
+import { createCycleServices } from './fixtures/cycles';
 import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -144,11 +144,11 @@ describe('Public cache business concurrency (isolated PostgreSQL)', () => {
       snapshots,
       new PublicService(prisma as PrismaService),
     );
-    const cycles = createCycleTestServices(
+    const cycles = createCycleServices(
       revealingClient as unknown as PrismaService,
       snapshots,
       new MailService(prisma as PrismaService),
-    );
+    ).cycles;
     const deleting = deletion.deleteAccount(users[0].id, password);
     const deletionResult = deleting.then(
       (value) => ({ status: 'fulfilled', value }),

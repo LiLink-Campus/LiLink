@@ -3,9 +3,9 @@ import { expect } from "storybook/test";
 import { Button, ButtonLink } from "./index";
 
 const meta = {
+  tags: ["!test"],
   title: "UI/Primitives/Button",
   component: Button,
-  tags: ["smoke"],
   parameters: {
     layout: "centered",
   },
@@ -48,8 +48,6 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const Playground: Story = {};
-
 export const Variants: Story = {
   parameters: {
     controls: {
@@ -76,6 +74,7 @@ export const Variants: Story = {
 };
 
 export const AsLink: Story = {
+  tags: ["test"],
   parameters: {
     controls: {
       disable: true,

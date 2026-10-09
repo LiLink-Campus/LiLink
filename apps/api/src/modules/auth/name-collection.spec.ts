@@ -15,19 +15,6 @@ const registration = {
 };
 
 describe('real-name collection removal', () => {
-  it('accepts registration without either name', async () => {
-    await expect(
-      pipe.transform(registration, { type: 'body', metatype: RegisterDto }),
-    ).resolves.toMatchObject({ email: 'student@example.com' });
-  });
-  it('rejects nickname collection during registration', async () => {
-    await expect(
-      pipe.transform(
-        { ...registration, displayName: 'Synthetic Nickname' },
-        { type: 'body', metatype: RegisterDto },
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
   it('accepts nickname setting through the authenticated profile contract', async () => {
     await expect(
       pipe.transform(

@@ -144,6 +144,7 @@ describe("normalizeFeed", () => {
         items: [
           validRaw,
           { title: "no other fields" }, // dropped
+          { ...validRaw, publishedAt: undefined },
           {
             ...validRaw,
             publishedAt: "2026-06-01",
@@ -171,15 +172,6 @@ describe("normalizeFeed", () => {
     );
     expect(feed.items).toHaveLength(1);
     expect(feed.items[0]?.url).toBe("https://devlog.lilink.top/posts/launch");
-  });
-
-  it("does not throw when an item is missing publishedAt (no poisoned sort)", () => {
-    expect(() =>
-      normalizeFeed(
-        { items: [{ ...validRaw, publishedAt: undefined }, validRaw] },
-        ALLOWED,
-      ),
-    ).not.toThrow();
   });
 
   it("derives latestPublishedAt from the newest item when absent", () => {

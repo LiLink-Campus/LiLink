@@ -14,9 +14,9 @@ function Fixture(props: ComponentProps<typeof LifestylePreferenceChoices>) {
 }
 
 const meta = {
+  tags: ["!test"],
   title: "Questionnaire/LifestylePreferences",
   component: LifestylePreferenceChoices,
-  tags: ["smoke"],
   args: { value: [], options: LIFESTYLE_QUESTIONS[1].options, onChange: fn() },
   render: args => <Fixture {...args} />,
 } satisfies Meta<typeof LifestylePreferenceChoices>;
@@ -24,6 +24,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const LegacyUnrestricted: Story = {
+  tags: ["test"],
   play: async ({ canvasElement, args }) => {
     const c = within(canvasElement);
     await expect(c.queryByRole("checkbox", { name: "不限" })).toBeNull();
@@ -38,6 +39,7 @@ export const LegacyUnrestricted: Story = {
 };
 
 export const ExistingSelection: Story = {
+  tags: ["test"],
   args: { value: ["不吸烟"] },
   play: async ({ canvasElement, args }) => {
     const c = within(canvasElement);

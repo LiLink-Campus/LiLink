@@ -14,9 +14,9 @@ const storybookTitle = "Dashboard/Match/Page States";
 const matchPageFixedNow = "2030-04-10T12:00:00+08:00";
 
 const meta = {
+  tags: ["!test"],
   title: storybookTitle,
   component: MatchClientView,
-  tags: ["smoke"],
   globals: {
     viewport: {
       value: "mobile390",
@@ -86,6 +86,7 @@ export const WaitingNoResult = {
 } satisfies Story;
 
 export const MatchedNotIntroduced = {
+  tags: ["test"],
   name: "Skipped introduction / ordinary unmatched result",
   ...fixtureStory("matchedNotIntroduced"),
   play: async ({ canvasElement }) => {
@@ -107,6 +108,7 @@ async function checkUnintroducedContact(canvasElement: HTMLElement) {
 }
 
 export const UnintroducedStaleContact = {
+  tags: ["test"],
   name: "Unintroduced / stale contact stays hidden",
   ...fixtureStory("unintroducedStaleContact"),
   play: async ({ canvasElement }) => {
@@ -116,6 +118,7 @@ export const UnintroducedStaleContact = {
 } satisfies Story;
 
 export const UnintroducedStaleEmail = {
+  tags: ["test"],
   name: "Unintroduced / stale email fallback stays hidden",
   ...fixtureStory("unintroducedStaleEmail"),
   play: async ({ canvasElement }) => checkUnintroducedContact(canvasElement),
@@ -124,6 +127,7 @@ export const UnintroducedStaleEmail = {
 const revealFixture = fixtureArgs("unintroducedStaleContact");
 const unintroducedRevealId = "match-story-unintroduced-reveal";
 export const UnintroducedReveal = {
+  tags: ["test"],
   name: "Unintroduced / no envelope is offered",
   args: {
     ...revealFixture,
@@ -141,17 +145,13 @@ export const UnintroducedReveal = {
   },
 } satisfies Story;
 
-export const UnintroducedStaleContactDesktop = {
-  ...UnintroducedStaleContact,
-  globals: { viewport: { value: "desktop1280" } },
-} satisfies Story;
-
 export const IntroducedContactCompleted = {
   name: "Introduced / contact completed",
   ...fixtureStory("introducedContactCompleted"),
 } satisfies Story;
 
 export const IntroducedEmailFallback = {
+  tags: ["test"],
   name: "Introduced / legacy email remains available",
   ...fixtureStory("introducedEmailFallback"),
   play: async ({ canvasElement }) => {
@@ -164,6 +164,7 @@ export const IntroducedEmailFallback = {
 } satisfies Story;
 
 export const IntroducedContactUnavailable = {
+  tags: ["test"],
   name: "Introduced / contact unavailable",
   ...fixtureStory("introducedContactUnavailable"),
   play: async ({ canvasElement }) => {
@@ -174,24 +175,43 @@ export const IntroducedContactUnavailable = {
   },
 } satisfies Story;
 
-export const LastRoundUnmatched = {
-  name: "Last round unmatched",
+export const LastRoundUnmatched: Story = {
+  tags: ["test"],
   ...fixtureStory("lastRoundUnmatched"),
-} satisfies Story;
+  globals: { viewport: { value: "desktop1280" } },
+  play: async ({ canvasElement }) => { await expect(within(canvasElement).getByRole("heading", { name: "合拍的人，值得再等一等" })).toBeVisible(); },
+};
 
-export const LimitedVisibility = {
-  name: "Limited visibility",
+export const LimitedVisibility: Story = {
+  tags: ["test"],
   ...fixtureStory("limitedVisibility"),
-} satisfies Story;
+  args: {
+    ...fixtureArgs("limitedVisibility"),
+    initialDashboard: { ...matchDashboardFixtures.limitedVisibility, latestMatch: matchDashboardFixtures.introducedContactCompleted.latestMatch },
+  },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(c.getByRole("heading", { name: "上一轮匹配已受限" })).toBeVisible();
+    await expect(c.getByText(/你已举报上一轮匹配对象/)).toBeVisible();
+    await expect(c.queryByText(/陈一诺|chenyinuo_29|North Campus/)).not.toBeInTheDocument();
+    await expect(c.queryByRole("button", { name: /^复制/ })).not.toBeInTheDocument();
+    await expect(c.queryByRole("button", { name: "查看上一轮结果 →" })).not.toBeInTheDocument();
+  },
+};
 
 const copyMatchId = "cm00000000000000000000006";
 const copyEvents: Array<Record<string, unknown>> = [];
 const copyFixture = fixtureArgs("introducedContactCompleted");
+const longContact = "chen-yinuo-campus-exhibition-weekend-cooking-2029";
 const copyDashboard = {
   ...copyFixture.initialDashboard,
-  latestMatch: { ...copyFixture.initialDashboard.latestMatch!, id: copyMatchId },
+  latestMatch: { ...copyFixture.initialDashboard.latestMatch!, id: copyMatchId,
+    participants: copyFixture.initialDashboard.latestMatch!.participants.map(participant => participant.userId === matchStoryUser.id
+      ? participant : { ...participant, contact: { type: "WECHAT" as const, label: "微信号", value: longContact } }),
+  },
 };
 export const CopyContact = {
+  tags: ["test"],
   name: "Copy contact without legacy analytics",
   args: { ...copyFixture, initialDashboard: copyDashboard },
   beforeEach: () => {
@@ -210,16 +230,15 @@ export const CopyContact = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await userEvent.click(c.getByRole("button", { name: "查看上一轮结果 →" }));
+    const contact = await c.findByText(longContact);
+    await expect(contact).toBeVisible();
+    await expect(canvasElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+    await expect(contact.getBoundingClientRect().right).toBeLessThanOrEqual(window.innerWidth);
     await userEvent.click(await c.findByRole("button", { name: "复制微信号" }));
     await expect(await c.findByText(/已复制|复制失败，请长按联系方式复制/)).toBeVisible();
     await expect(copyEvents).toHaveLength(0);
 
   },
-} satisfies Story;
-
-export const CopyContactDesktop = {
-  ...CopyContact,
-  globals: { viewport: { value: "desktop1280" } },
 } satisfies Story;
 
 const desktopHistoryDashboard = {
@@ -238,6 +257,7 @@ const desktopHistoryDashboard = {
 const desktopHistoryHandlers = createMatchPageHandlerState({ initialDashboard: desktopHistoryDashboard });
 
 export const DesktopWithHistory = {
+  tags: ["test"],
   args: { ...fixtureArgs("waitingNoResult"), initialDashboard: desktopHistoryDashboard },
   beforeEach: () => desktopHistoryHandlers.reset(),
   parameters: { msw: { handlers: { site: null, matchPage: desktopHistoryHandlers.handlers } } },
@@ -268,13 +288,8 @@ async function checkWaitingAction(canvasElement: HTMLElement, heading: string, l
   await expect(action).toHaveAttribute("href", href);
 }
 
-export const LastRoundUnmatchedDesktop: Story = {
-  ...fixtureStory("lastRoundUnmatched"),
-  globals: { viewport: { value: "desktop1280" } },
-  play: async ({ canvasElement }) => { await expect(within(canvasElement).getByRole("heading", { name: "合拍的人，值得再等一等" })).toBeVisible(); },
-};
-
 export const MissingIntentDesktop: Story = {
+  tags: ["test"],
   ...fixtureStory("waitingNoResult"),
   args: {
     ...fixtureArgs("waitingNoResult"),
@@ -287,12 +302,8 @@ export const MissingIntentDesktop: Story = {
   play: async ({ canvasElement }) => { await expect(within(canvasElement).getByRole("button", { name: "确认参与本轮" })).toBeVisible(); },
 };
 
-export const MissingIntentMobile: Story = {
-  ...MissingIntentDesktop,
-  globals: { viewport: { value: "mobile390" } },
-};
-
 export const IncompleteProfileDesktop: Story = {
+  tags: ["test"],
   ...fixtureStory("waitingNoResult"),
   args: {
     ...fixtureArgs("waitingNoResult"),
@@ -306,12 +317,8 @@ export const IncompleteProfileDesktop: Story = {
   play: ({ canvasElement }) => checkWaitingAction(canvasElement, "下一封来信，值得期待", "去完善匹配资料 →", "/dashboard/profile"),
 };
 
-export const IncompleteProfileMobile: Story = {
-  ...IncompleteProfileDesktop,
-  globals: { viewport: { value: "mobile390" } },
-};
-
 export const LockedMissingIntentDesktop: Story = {
+  tags: ["test"],
   ...MissingIntentDesktop,
   args: {
     ...MissingIntentDesktop.args,

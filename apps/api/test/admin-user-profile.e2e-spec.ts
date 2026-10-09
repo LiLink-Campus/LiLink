@@ -1,27 +1,22 @@
+import { AdminUserWriteService } from '../src/modules/admin/admin-user-write.service';
 import { randomUUID } from 'crypto';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
-import {
-  createAdminTestHarness,
-  type AdminTestHarness,
-} from './fixtures/admin-services';
 
 const tag = `admin-profile-${randomUUID()}`;
 
 describe('Admin profile editing (PostgreSQL)', () => {
   let prisma: PrismaClient;
-  let admin: AdminTestHarness;
+  let admin: AdminUserWriteService;
   const audit = { write: jest.fn() };
   const snapshots = { syncUserMatchSnapshots: jest.fn() };
 
   beforeAll(async () => {
     prisma = createPrismaClient();
     await prisma.$connect();
-    admin = createAdminTestHarness(
+    admin = new AdminUserWriteService(
       prisma as PrismaService,
-      {} as never,
       audit as never,
-      {} as never,
       snapshots as never,
     );
   });

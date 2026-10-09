@@ -1,4 +1,4 @@
-import { test as base, expect, type Page, type BrowserContext } from '@playwright/test';
+import { test as base, expect, type Page, type BrowserContext, type APIRequestContext } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { randomUUID, createHash } from 'node:crypto';
 import path from 'node:path';
@@ -53,7 +53,7 @@ export async function login(page: Page, account: Account, secret = password) {
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard/);
 }
-export async function completeProfile(context: BrowserContext, db: any) {
+export async function completeProfile(context: Pick<BrowserContext, 'request'>, db: any) {
   const version = await db.questionnaireVersion.findFirstOrThrow({ where: { isCurrent: true }, include: { questions: true }, orderBy: { createdAt: 'desc' } });
   const answers = Object.fromEntries(version.questions.map((q: any) => [q.key, q.type === 'MULTI_SELECT' ? q.options.slice(0, q.selectionLimit ?? 1).map((option: any) => option.value) : q.options[0].value]));
   const response = await context.request.put(`${api}/me/questionnaire`, { data: {
@@ -70,7 +70,7 @@ export async function completeProfile(context: BrowserContext, db: any) {
   expect(response.ok(), await response.text()).toBeTruthy();
   expect((await response.json()).saveState).toBe('SUBMITTED');
 }
-export async function mailCode(page: Page, email: string) {
+export async function mailCode(page: { request: APIRequestContext }, email: string) {
   let code = '';
   await expect.poll(async () => {
     const response = await page.request.get(`${process.env.E2E_MAIL_URL}/api/v1/search`, { params: { query: `to:${email}` } });

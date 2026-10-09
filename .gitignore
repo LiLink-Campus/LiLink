@@ -95,3 +95,6 @@ marketing/
 
 # Seiso local cache
 .seiso_cache/
+
+# Content-verified static image generation, local to each workspace.
+apps/web/.cache/

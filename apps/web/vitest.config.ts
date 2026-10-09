@@ -4,6 +4,7 @@ import { defineConfig } from "vitest/config";
 // Storybook browser tests live in the repo-root vitest.config.ts instead.
 export default defineConfig({
   test: {
+    allowOnly: false,
     environment: "node",
     include: ["src/**/*.test.ts"],
   },

@@ -1,4 +1,3 @@
-import { resolveLoadTarget } from './targets.mjs';
 import http from 'k6/http';
 import crypto from 'k6/crypto';
 import encoding from 'k6/encoding';
@@ -6,11 +5,10 @@ import exec from 'k6/execution';
 import { check, fail } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
 
-const target = JSON.parse(open(__ENV.TARGET_FILE));
+const target = { baseUrl: 'http://release-api:4000' };
 const secret = open(__ENV.ACCESS_FILE).trim();
 const fixture = JSON.parse(open(__ENV.QUESTION_FIXTURE));
-if (!['https://release-api-20260920.lilink.top', 'http://127.0.0.1:4080'].includes(target.baseUrl) || !__ENV.RELEASE_SHA) throw new Error('Verified isolated target and exact release SHA are required.');
-const verifiedTarget = resolveLoadTarget(target);
+if (!/^[a-f0-9]{40}$/.test(__ENV.RELEASE_SHA ?? '')) throw new Error('Exact release SHA required.');
 const rate = Number(__ENV.LOAD_RATE || 33);
 const seconds = Number(__ENV.LOAD_DURATION_SECONDS || 120);
 const mode = __ENV.MODE || 'read';
@@ -50,14 +48,16 @@ export const options = {
 };
 function jwt(userId) {
   const header = encoding.b64encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }), 'rawurl');
-  const payload = encoding.b64encode(JSON.stringify({ sub: userId, email: `${userId}@release.example.test`, exp: Math.floor(Date.now() / 1000) + 7200 }), 'rawurl');
+  const payload = encoding.b64encode(JSON.stringify({ sub: userId, sessionVersion: 0, email: `user${Number(userId.slice('release_user_'.length))}@release.example.test`, exp: Math.floor(Date.now() / 1000) + 7200 }), 'rawurl');
   return `${header}.${payload}.${crypto.hmac('sha256', secret, `${header}.${payload}`, 'base64rawurl')}`;
 }
 export function setup() {
-  const response = http.get(`${target.baseUrl}/__release`, { headers: { 'x-release-access': secret } });
-  if (response.status !== 200) fail('Release identity endpoint unavailable.');
-  const identity = response.json();
-  if (identity.branchId !== target.branchId || identity.projectId !== target.projectId || identity.release !== __ENV.RELEASE_SHA || identity.database !== verifiedTarget.database || identity.host !== verifiedTarget.directHost || identity.synthetic !== true || identity.users !== 2000) fail('Release identity mismatch.');
+  const identity = http.get(`${target.baseUrl}/v1/auth/me`, {
+    headers: { Cookie: `lilink_rehearsal_token=${jwt('release_user_0000')}` }, timeout: '10s',
+  });
+  if (identity.status !== 200 || identity.json().id !== 'release_user_0000') {
+    fail('The isolated synthetic session cannot authenticate; refusing to generate load.');
+  }
   return { answers: Object.fromEntries(fixture.questions.map(q => [q.key, q.type === 'MULTI_SELECT' ? q.options.slice(0, q.selectionLimit || 1).map(o => o.value) : q.options[0].value])) };
 }
 export default function(data) {
@@ -65,7 +65,7 @@ export default function(data) {
   const iteration = exec.scenario.iterationInTest;
   const n = iteration % 2000;
   const userId = `release_user_${String(n).padStart(4, '0')}`;
-  const headers = { 'x-release-access': secret, Cookie: `lilink_rehearsal_token=${jwt(userId)}`, 'Content-Type': 'application/json' };
+  const headers = { Cookie: `lilink_rehearsal_token=${jwt(userId)}`, 'Content-Type': 'application/json' };
   const form = { birthYear: '2000', birthMonth: '1', birthDay: '1', gender: n % 2 ? '男' : '女', partnerGenders: ['男','女'], partnerAgeMin: '18', partnerAgeMax: '40', nationality: '中国', languages: ['中文'], partnerNationalities: [], partnerLanguages: [], looks: '5', partnerLooks: ['1','2','3','4','5','6','7','8','9','10'], heightCm: '165', weightKg: '55', partnerHeightMin: '120', partnerHeightMax: '230', partnerWeightMin: '30', partnerWeightMax: '300', oneLinerIntro: `合成用户 ${n} 喜欢读书和散步。`, excludedPartnerSchools: [], excludedPartnerSchoolGenders: [] };
   let ok = true;
   const started = Date.now();
@@ -74,7 +74,7 @@ export default function(data) {
     if (res.status === 429) limited.add(1);
     let valid = false;
     try { valid = res.status >= 200 && res.status < 300 && assertion(res.json()); } catch {}
-    check(res, { 'expected business result': () => valid });
+    check(res, { [`${method} ${route}: expected business result`]: () => valid });
     if (valid) successfulRequests.add(1);
     (method === 'GET' ? reads : writes).add(res.timings.duration, { route });
     ok = ok && valid;

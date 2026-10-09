@@ -6,14 +6,17 @@ if (!process.env.E2E_WORKSPACE || !process.env.E2E_WEB_URL) {
 }
 export default defineConfig({
   testDir: './e2e/specs',
+  ...(process.env.E2E_SENTRY_TRACING
+    ? { testMatch: '**/sentry-cache-tracing.spec.ts' }
+    : { testIgnore: '**/sentry-cache-tracing.spec.ts' }),
   timeout: 45_000,
   expect: { timeout: 10_000, toHaveScreenshot: { maxDiffPixelRatio: 0.002 } },
   fullyParallel: false,
   updateSnapshots: 'none',
   workers: 1,
-  forbidOnly: !!process.env.CI,
+  forbidOnly: true,
   failOnFlakyTests: true,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   outputDir: path.join(process.env.E2E_OUTPUT!, 'results'),
   snapshotPathTemplate: `${process.env.E2E_SOURCE_ROOT}/e2e/baselines/{platform}/{projectName}/{testFilePath}/{arg}{ext}`,
   reporter: [['list'], ['html', { outputFolder: path.join(process.env.E2E_OUTPUT!, 'report'), open: 'never' }], ['json', { outputFile: path.join(process.env.E2E_OUTPUT!, 'results.json') }]],
@@ -24,8 +27,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
-    { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 800 } } },
-    { name: 'mobile-webkit', use: { ...devices['iPhone 13'] } },
+    { name: 'webkit', grep: /@webkit/, use: { ...devices['Desktop Safari'], viewport: { width: 1280, height: 800 } } },
+    { name: 'mobile-webkit', grep: /@mobile/, use: { ...devices['iPhone 13'] } },
   ],
 });

@@ -4,6 +4,7 @@ import http from 'node:http';
 export async function startContractProxy(port, apiUrl) {
   const rules = new Map();
   const upstream = new URL(apiUrl).origin;
+  const shutdown = new AbortController();
   const server = http.createServer(async (request, response) => {
     try {
       const chunks = [];
@@ -26,7 +27,7 @@ export async function startContractProxy(port, apiUrl) {
       delete headers.host;
       const result = await fetch(`${upstream}${request.url}`, {
         method: request.method, headers, body: body.length ? body : undefined,
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.any([shutdown.signal, AbortSignal.timeout(15_000)]),
       });
       let output = await result.text();
       const rule = rules.get(`${request.headers.cookie}:${request.url}`);
@@ -50,5 +51,9 @@ export async function startContractProxy(port, apiUrl) {
     }
   });
   await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
-  return { close: () => new Promise(resolve => server.close(resolve)) };
+  return { close: () => new Promise(resolve => {
+    shutdown.abort();
+    server.close(resolve);
+    server.closeAllConnections();
+  }) };
 }

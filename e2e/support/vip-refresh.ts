@@ -41,10 +41,6 @@ export async function readyCenter(page: Page) {
   await expect(page.getByRole('menu')).toHaveCount(0);
 }
 
-export async function vipScreenshot(page: Page) {
-  return page.screenshot({ mask: [page.getByRole('region', { name: '账号信息' }).locator('p')] });
-}
-
 export async function expectVip(page: Page, endpoint: string, active: boolean) {
   if (endpoint === 'center') {
     await expect(page.getByLabel('VIP 会员', { exact: true })).toHaveCount(active ? 1 : 0);

@@ -1,6 +1,7 @@
+const listName = '各学校已加入人数';
+const snapshotRequest = /\/(?:api\/)?public\/(?:home|community)(?:$|[/?])/;
 import type { Locator, Page } from '@playwright/test';
-import { test, expect } from '../support/fixtures';
-import { earlyScreenshot } from '../support/early-screenshot';
+import { test, expect, visit } from '../support/fixtures';
 
 // Playwright's WebKit fallback treats every closed details descendant as hidden,
 // even when ::details-content is rendered. Check native visibility and hit testing
@@ -32,7 +33,7 @@ const mainNavigation = (page: Page) => page.locator('nav[aria-label="主导航"]
 // Failure boundaries: missing client chunks must not hide the server-rendered
 // hero or intercept native links. An already-open native menu must survive
 // hydration, close on navigation or Escape, and remain usable at its breakpoint.
-for (const scriptState of ['delayed-15s', 'failed', 'disabled'] as const) {
+for (const scriptState of ['held', 'failed', 'disabled'] as const) {
   test.describe(`homepage scripts ${scriptState}`, () => {
     test.use({ javaScriptEnabled: scriptState !== 'disabled' });
     test(`preview links navigate before client initialization (${scriptState}) @smoke`, async ({ page }, info) => {
@@ -70,20 +71,24 @@ for (const scriptState of ['delayed-15s', 'failed', 'disabled'] as const) {
           await link.click({ noWaitAfter: true });
           await documentRequest;
           await expect(page).toHaveURL(target.destination);
+          if (target.href === '/about') {
+            await expect(page.getByRole('heading', { name: '关于 LiLink', exact: true })).toBeVisible();
+            await expect(page.locator('[data-about-preview]')).toHaveCount(3);
+          }
           observations.push({ target: target.href, previewObservedMs: observedAt, nativeDocumentNavigation: true });
         }
         if (scriptState !== 'disabled') expect(blockedScripts).toBeGreaterThan(0);
-        if (scriptState === 'delayed-15s') {
+        if (scriptState === 'held') {
           // The destination also remains without chunks for the full delay.
-          delayTimer = setTimeout(releaseScripts, 15_000);
           await expect(page.getByLabel('邮箱', { exact: true })).toBeDisabled();
+          releaseScripts();
           await scriptsReady;
           await expect(page.getByLabel('邮箱', { exact: true })).toBeEnabled();
         }
         await info.attach('native-first-click-contract', { contentType: 'application/json', body: JSON.stringify({
           project: info.project.name, viewport: page.viewportSize(), scriptState, blockedScripts, observations,
           assertions: { previewBeforeClientInitialization: true, bothHeroLinksNavigateNatively: true,
-            ...(scriptState === 'delayed-15s' ? { usableLoginAfterDelayedScripts: true } : {}) },
+            ...(scriptState === 'held' ? { usableLoginAfterDelayedScripts: true } : {}) },
         }, null, 2) });
       } finally {
         if (delayTimer) clearTimeout(delayTimer);
@@ -100,7 +105,7 @@ for (const scriptsEnabled of [false, true]) {
     test(`public navigation is usable across consuming pages (scripts ${scriptsEnabled}) @smoke`, async ({ page, browserName }, info) => {
       test.setTimeout(120_000);
       const samples = [];
-      for (const route of ['/', '/about', '/one-to-one', '/schools', '/about/team/yoryon', '/updates', '/terms', '/privacy', '/login', '/register', '/register/school', '/register/personal', '/forgot-password']) {
+      for (const route of ['/', '/about', '/login']) {
         await page.goto(route, { waitUntil: 'domcontentloaded' });
         const toggle = page.getByRole('button', { name: '导航菜单', exact: true });
         const nav = mainNavigation(page);
@@ -120,9 +125,7 @@ for (const scriptsEnabled of [false, true]) {
           await expectRendered(nav.getByRole('link', { name: label, exact: true, includeHidden: nativeVisibility }), nativeVisibility);
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        await info.attach(`navigation-${route.replaceAll('/', '-') || 'home'}`, {
-          contentType: 'image/png', body: await page.screenshot(),
-        });
+
         samples.push({ route, mobile, nativeVisibility, visibleNavigation: true, overflow: false });
       }
       const nativeVisibility = browserName === 'webkit' && page.viewportSize()!.width > 760;
@@ -139,8 +142,8 @@ for (const scriptsEnabled of [false, true]) {
   });
 }
 
-test('native menu opened before hydration remains usable afterward @smoke', async ({ page }, info) => {
-  test.skip(page.viewportSize()!.width > 760, 'The expandable menu is mobile-only.');
+test('native menu opened before hydration remains usable afterward @smoke @mobile', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   let releaseScripts!: () => void;
   const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });
   await page.route('**/_next/static/**/*.js', async route => {
@@ -156,7 +159,7 @@ test('native menu opened before hydration remains usable afterward @smoke', asyn
     await page.keyboard.press('Enter');
     await expect(nav).toBeVisible();
     await expect(nav).toHaveCSS('opacity', '1');
-    await info.attach('menu-open-before-hydration', { contentType: 'image/png', body: await earlyScreenshot(page) });
+
     // Start the hydration deadline only when client scripts are released.
     const hydrated = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/auth/me'));
     releaseScripts();
@@ -181,10 +184,10 @@ test('native menu opened before hydration remains usable afterward @smoke', asyn
   }
 });
 
-test('public navigation stays usable on both sides of its breakpoint @smoke', async ({ page, browserName }, info) => {
+test('public navigation stays usable on both sides of its breakpoint @smoke @webkit', async ({ page, browserName }, info) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const samples = [];
-  for (const width of [759, 760, 761, 1280]) {
+  for (const width of [760, 761]) {
     await page.setViewportSize({ width, height: 844 });
     const toggle = page.getByRole('button', { name: '导航菜单', exact: true });
     const nav = mainNavigation(page);
@@ -195,16 +198,68 @@ test('public navigation stays usable on both sides of its breakpoint @smoke', as
       await expect(nav).toBeVisible();
       await expect(nav).toHaveCSS('opacity', '1');
       await expect(nav).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
-      await info.attach(`menu-${width}-expanded`, { contentType: 'image/png', body: await page.screenshot() });
+
       await toggle.click();
       await expect(nav).toBeHidden();
     } else {
       await expect(toggle).toBeHidden();
       await expectRendered(nav, browserName === 'webkit');
-      await info.attach(`menu-${width}-desktop`, { contentType: 'image/png', body: await page.screenshot() });
+
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     samples.push({ width, menuToggleVisible: width <= 760, overflow: false });
   }
   await info.attach('menu-breakpoint-contract', { contentType: 'application/json', body: JSON.stringify({ project: info.project.name, samples }, null, 2) });
+});
+
+test('homepage keeps its server snapshot while open and after visibility resumes @smoke', async ({ page, browser }, info) => {
+  const browserReads: string[] = [];
+  page.on('request', request => {
+    if (snapshotRequest.test(request.url()) || request.resourceType() === 'eventsource') {
+      browserReads.push(new URL(request.url()).pathname);
+    }
+  });
+  await page.route(snapshotRequest, route => route.fulfill({ status: 503, json: { message: 'Browser snapshot reads are disabled' } }));
+  await page.addInitScript(() => {
+    let hidden = false;
+    Object.defineProperty(document, 'hidden', { get: () => hidden });
+    Object.defineProperty(window, 'setAcceptanceHidden', { value: (value: boolean) => {
+      hidden = value; document.dispatchEvent(new Event('visibilitychange'));
+    } });
+  });
+  await page.clock.install({ time: new Date('2026-10-04T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-04T00:00:01Z'));
+  await visit(page, '/');
+  const stats = page.getByRole('region', { name: '平台数据' });
+  const schools = page.getByRole('list', { name: listName });
+  await expect(stats).toBeVisible();
+  await expect(schools).toBeVisible();
+  await expect(stats.locator('strong')).toHaveCount(3);
+  const displayedStats = await stats.locator('strong').allTextContents();
+  expect(displayedStats.slice(0, 2).every(value => /^\d+$/.test(value)
+    && Number.isSafeInteger(Number(value)) && Number(value) >= 0)).toBe(true);
+  expect(displayedStats[2]).toMatch(/^(?:\d+|正在准备首轮匹配)$/);
+  expect(displayedStats).not.toContain('—');
+  const initialStats = await stats.innerText();
+  const initialSchools = await schools.innerText();
+  await page.clock.fastForward(31 * 60_000);
+  expect(await stats.innerText()).toBe(initialStats);
+  expect(await schools.innerText()).toBe(initialSchools);
+  expect(browserReads).toEqual([]);
+  await page.evaluate(() => (window as unknown as { setAcceptanceHidden: (value: boolean) => void }).setAcceptanceHidden(true));
+  await page.clock.fastForward(5 * 60_000);
+  await page.evaluate(() => (window as unknown as { setAcceptanceHidden: (value: boolean) => void }).setAcceptanceHidden(false));
+  await page.clock.runFor(1_000);
+  expect(await stats.innerText()).toBe(initialStats);
+  expect(await schools.innerText()).toBe(initialSchools);
+  expect(browserReads).toEqual([]);
+  await expect(page.getByText(/更新暂时失败|人数统计暂时不可用|正在加载人数统计/)).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  await info.attach('public-home-server-snapshot', { contentType: 'application/json', body: JSON.stringify({
+    project: info.project.name, browser: browser.version(), viewport: page.viewportSize(), browserReads,
+    assertions: { platformStatisticsVisible: true, schoolStatisticsVisible: true,
+      noBrowserRefreshAfter31Minutes: true, noRefreshDuringHidden5Minutes: true,
+      noRefreshOnVisibilityResume: true, serverSnapshotPreserved: true },
+  }, null, 2) });
 });

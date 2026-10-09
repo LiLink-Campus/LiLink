@@ -183,6 +183,7 @@ test("parseHardMatchAnswers normalizes valid records", () => {
 });
 
 test("parseHardMatchAnswers rejects out-of-range and incomplete values", () => {
+  assert.equal(parseHardMatchAnswers({ [HARD_MATCH_KEYS.birthDate]: "2000-05-10" }), null);
   assert.equal(
     parseHardMatchAnswers({
       [HARD_MATCH_KEYS.birthDate]: "2003-02-30",
@@ -266,6 +267,14 @@ test("areHardMatchAnswersCompatible checks both directions", () => {
   });
 
   assert.equal(areHardMatchAnswersCompatible(left, right), true);
+
+  // Age and looks are scoring preferences; height and mutual gender remain hard constraints.
+  assert.equal(areHardMatchAnswersCompatible(left, { ...right, birthDate: "1926-09-05" }), true);
+  assert.equal(areHardMatchAnswersCompatible({ ...left, partnerLooks: ["5"] }, { ...right, looks: "9", partnerLooks: ["9"] }), true);
+  for (const incompatible of [{ ...right, heightCm: 200 }, { ...right, partnerGenders: ["非二元"] }]) {
+    assert.equal(areHardMatchAnswersCompatible(left, incompatible), false);
+    assert.equal(areHardMatchAnswersCompatible(incompatible, left), false);
+  }
 
   const excluded = parseHardMatchAnswers({
     [HARD_MATCH_KEYS.birthDate]: "2004-03-20",

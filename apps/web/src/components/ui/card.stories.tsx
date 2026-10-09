@@ -2,9 +2,9 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { Card } from "./index";
 
 const meta = {
+  tags: ["!test"],
   title: "UI/Primitives/Card",
   component: Card,
-  tags: ["smoke"],
   parameters: {
     layout: "centered",
   },
@@ -40,28 +40,9 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const Playground: Story = {
-  render: (args) => (
-    <Card {...args}>
-      <h3 style={{ margin: 0, fontSize: "1rem" }}>资料完整度</h3>
-      <p style={{ margin: 0, color: "var(--color-text-secondary)" }}>
-        用于承载一组紧密相关的信息或操作，不作为页面大区块装饰。
-      </p>
-    </Card>
-  ),
-};
-
-export const Flush: Story = {
-  args: {
-    padding: "flush",
-    layout: "plain",
-  },
-  render: (args) => (
-    <Card {...args}>
-      <div style={{ padding: "16px", borderBottom: "1px solid var(--color-border)" }}>
-        紧凑列表头部
-      </div>
-      <div style={{ padding: "16px" }}>列表内容</div>
-    </Card>
-  ),
+export const Gallery: Story = {
+  render: () => <div style={{ display: "grid", gap: 16 }}>
+    <Card padding="md" layout="stack"><h3>资料完整度</h3><p>一组紧密相关的信息与操作。</p></Card>
+    <Card padding="flush" layout="plain"><div style={{ padding: 16 }}>紧凑列表</div></Card>
+  </div>,
 };

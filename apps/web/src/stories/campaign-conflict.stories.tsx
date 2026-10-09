@@ -27,9 +27,9 @@ const handlers = [
 ];
 
 const meta = {
+  tags: ["!test"],
   id: "campaign-conflict",
   title: "全站/运营后台/旧活动冲突",
-  tags: ["smoke", "page"],
   decorators: [adminShell],
   parameters: {
     fullSite: true,
@@ -48,24 +48,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Conflict: Story = {
+export const ResolveConflict: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await expect(await c.findByRole("heading", { name: "需要确认当前活动" })).toBeVisible();
-    await expect(c.getByRole("alert")).toHaveTextContent(
-      "检测到 2 个进行中的历史活动，新增发券已暂停"
-    );
+    await expect(c.getByRole("alert")).toHaveTextContent("检测到 2 个进行中的历史活动，新增发券已暂停");
     await userEvent.click(c.getByRole("button", { name: /待发布活动/ }));
     await expect(c.getByRole("button", { name: "请先结束当前活动" })).toBeDisabled();
     await userEvent.click(c.getByRole("button", { name: "查看待确认的活动" }));
     await expect(await c.findByRole("button", { name: "结束此活动" })).toBeVisible();
-  },
-};
-
-export const ResolveConflict: Story = {
-  play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
-    await expect(await c.findByRole("heading", { name: "需要确认当前活动" })).toBeVisible();
     await userEvent.click(c.getByRole("button", { name: /旧活动 A/ }));
     const confirm = window.confirm;
     window.confirm = () => true;
@@ -74,8 +66,10 @@ export const ResolveConflict: Story = {
       await waitFor(() =>
         expect(c.queryByRole("heading", { name: "需要确认当前活动" })).not.toBeInTheDocument()
       );
-      await expect(c.getByRole("heading", { name: "旧活动 B" })).toBeVisible();
+      for (const heading of c.getAllByRole("heading", { name: "旧活动 B" })) await expect(heading).toBeVisible();
       await expect(c.getByRole("button", { name: "结束活动" })).toBeVisible();
+      await userEvent.click(c.getByRole("button", { name: "已结束" }));
+      await userEvent.click(await c.findByRole("button", { name: /旧活动 A/ }));
       await expect(c.getByText("活动已结束，保留优惠券与核销记录。")).toBeVisible();
     } finally {
       window.confirm = confirm;

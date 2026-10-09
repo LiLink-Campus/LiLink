@@ -7,7 +7,7 @@ import { ActivationService } from '../src/modules/activation/activation.service'
 import { CouponService } from '../src/modules/coupon/coupon.service';
 import { PromotionDashboardService } from '../src/modules/promotion-dashboard/promotion-dashboard.service';
 
-const tag = `promotion-${randomUUID()}`;
+let tag: string;
 describe('Independent acquisition and global merchant activities (PostgreSQL)', () => {
   let prisma: PrismaClient;
   let campaigns: CampaignService;
@@ -22,10 +22,13 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
   let draftA: string;
   let draftB: string;
   let active: string;
-  const from = new Date(Date.now() - 86400000).toISOString();
-  const to = new Date(Date.now() + 86400000).toISOString();
+  let from: string;
+  let to: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
+    tag = `promotion-${randomUUID()}`;
+    from = new Date().toISOString();
+    to = new Date(Date.now() + 86400000).toISOString();
     prisma = createPrismaClient();
     await prisma.$connect();
     const client = prisma as PrismaService;
@@ -54,7 +57,7 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
       data: { title: tag },
     });
     const legacy = await prisma.campaign.create({
-      data: { name: 'Historical', slug: tag, status: 'ENDED' },
+      data: { name: `${tag} Historical`, slug: tag, status: 'ENDED' },
     });
     for (const kind of ['old', 'new', 'test', 'deleted']) {
       const user = await prisma.user.create({
@@ -81,9 +84,62 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
       if (kind === 'new') newUser = user.id;
     }
   });
-  afterAll(async () => {
+  afterEach(async () => {
+    const campaignIds = (
+      await prisma.campaign.findMany({
+        where: { name: { startsWith: tag } },
+        select: { id: true },
+      })
+    ).map((row) => row.id);
+    const userIds = (
+      await prisma.user.findMany({
+        where: { email: { endsWith: `${tag}@example.test` } },
+        select: { id: true },
+      })
+    ).map((row) => row.id);
+    await prisma.coupon.deleteMany({ where: { userId: { in: userIds } } });
+    await prisma.campaignActivation.deleteMany({
+      where: { userId: { in: userIds } },
+    });
+    await prisma.couponTemplate.deleteMany({
+      where: { campaignId: { in: campaignIds } },
+    });
+    await prisma.referralEvent.deleteMany({
+      where: {
+        OR: [{ referrerUserId: { in: userIds } }, { visitorHash: tag }],
+      },
+    });
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    await prisma.questionnaireVersion.deleteMany({ where: { title: tag } });
+    await prisma.campaign.deleteMany({ where: { id: { in: campaignIds } } });
+    await prisma.merchant.deleteMany({ where: { id: merchant } });
+    await prisma.auditLog.deleteMany({ where: { adminActorId: admin } });
+    await prisma.adminOperator.deleteMany({ where: { id: admin } });
     await prisma.$disconnect();
   });
+
+  async function prepareActivity() {
+    draftA = (
+      await campaigns.createCampaign({ name: `${tag} Activity A` }, admin)
+    ).id;
+    draftB = (
+      await campaigns.createCampaign({ name: `${tag} Activity B` }, admin)
+    ).id;
+    for (const id of [draftA, draftB])
+      await campaigns.createTemplate(
+        id,
+        {
+          merchantId: merchant,
+          title: 'Coffee',
+          benefitType: 'CUSTOM',
+          faceValue: 1000,
+          validDays: 30,
+        },
+        admin,
+      );
+    await campaigns.updateCampaign(draftA, { status: 'ACTIVE' }, admin);
+    active = draftA;
+  }
 
   it('tracks invitation source and events without any running merchant activity', async () => {
     expect(
@@ -134,8 +190,12 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
   });
 
   it('requires valid coupons and permits only one concurrent publication', async () => {
-    draftA = (await campaigns.createCampaign({ name: 'Activity A' }, admin)).id;
-    draftB = (await campaigns.createCampaign({ name: 'Activity B' }, admin)).id;
+    draftA = (
+      await campaigns.createCampaign({ name: `${tag} Activity A` }, admin)
+    ).id;
+    draftB = (
+      await campaigns.createCampaign({ name: `${tag} Activity B` }, admin)
+    ).id;
     await expect(
       campaigns.updateCampaign(draftA, { status: 'ACTIVE' }, admin),
     ).rejects.toThrow('优惠券');
@@ -166,6 +226,7 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
   });
 
   it('old and new users receive current coupons once, including concurrent visits', async () => {
+    await prepareActivity();
     await Promise.all([
       coupons.getMyCoupons(oldUser),
       coupons.getMyCoupons(oldUser),
@@ -194,6 +255,11 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
   });
 
   it('new activity grants again without rewriting acquisition or historical coupons', async () => {
+    await prepareActivity();
+    await Promise.all([
+      coupons.getMyCoupons(oldUser),
+      coupons.getMyCoupons(newUser),
+    ]);
     await campaigns.updateCampaign(active, { status: 'ENDED' }, admin);
     const next = active === draftA ? draftB : draftA;
     await campaigns.updateCampaign(next, { status: 'ACTIVE' }, admin);
@@ -211,6 +277,11 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
     expect((await coupons.getMyCoupons(oldUser)).items).toHaveLength(2);
   });
   it('preserves issued activity records after account deactivation', async () => {
+    await prepareActivity();
+    await Promise.all([
+      coupons.getMyCoupons(oldUser),
+      coupons.getMyCoupons(newUser),
+    ]);
     await prisma.user.update({
       where: { id: oldUser },
       data: { deactivatedAt: new Date() },
@@ -223,6 +294,9 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
   });
 
   it('pauses ambiguous legacy activities and resumes only after an operator keeps one', async () => {
+    await prepareActivity();
+    await coupons.getMyCoupons(newUser);
+    await campaigns.updateCampaign(active, { status: 'ENDED' }, admin);
     const historicalCoupons = await prisma.coupon.findMany({
       where: { userId: newUser },
       orderBy: { id: 'asc' },
@@ -230,7 +304,10 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
     const legacyIds: string[] = [];
     try {
       for (const name of ['Legacy A', 'Legacy B']) {
-        const campaign = await campaigns.createCampaign({ name }, admin);
+        const campaign = await campaigns.createCampaign(
+          { name: `${tag} ${name}` },
+          admin,
+        );
         legacyIds.push(campaign.id);
         await campaigns.createTemplate(
           campaign.id,

@@ -8,6 +8,13 @@ import { ToastProvider } from "../src/app/dashboard/_components/ToastProvider";
 import { mswHandlers } from "./msw-handlers";
 import { siteHandlers } from "../src/stories/site-support";
 
+let unhandledRequest: Error | undefined;
+function assertHandledRequests() {
+  const error = unhandledRequest;
+  unhandledRequest = undefined;
+  if (error) throw error;
+}
+
 initialize({
   quiet: true,
   onUnhandledRequest(request, print) {
@@ -19,6 +26,8 @@ initialize({
       (url.pathname.startsWith("/src/") && url.pathname.endsWith(".css")) ||
       /^\/(images|icons|fonts)\//.test(url.pathname);
     if (request.method === "GET" && url.origin === window.location.origin && localAsset) return;
+    // A component may catch MSW's rejection; the story must still fail.
+    unhandledRequest ??= new Error(`Unhandled Storybook request: ${request.method} ${url.pathname}`);
     print.error();
   },
 });
@@ -28,6 +37,7 @@ function isFixedNowParameter(value: unknown): value is string | number | Date {
 }
 
 const preview: Preview = {
+  beforeAll: () => assertHandledRequests,
   decorators: [
     (Story) => (
       <AuthSessionProvider>
@@ -98,9 +108,11 @@ const preview: Preview = {
     },
   },
   afterEach({ id }) {
+    assertHandledRequests();
     document.documentElement.dataset.storybookReady = id;
   },
   beforeEach({ parameters }) {
+    assertHandledRequests();
     delete document.documentElement.dataset.storybookReady;
     setProfileReadAccount(null);
     if (parameters.fullSite) {

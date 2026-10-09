@@ -7,24 +7,23 @@ import { api, dashboardShell, route } from "@/stories/site-support";
 
 const empty: VipStatus = { active: false, activatedAt: null, expiresAt: null, durationDays: 30, priceYuan: '29.90', advancedFiltersAvailable: true };
 const active: VipStatus = { ...empty, active: true, activatedAt: '2026-09-17T08:00:00Z', expiresAt: '2026-10-17T08:00:00Z' };
-const meta = { title: 'Dashboard/VIP', component: VipClient, decorators: [dashboardShell], parameters: route('/dashboard/vip'), tags: ['smoke'] } satisfies Meta<typeof VipClient>;
+const meta = {
+  tags: ["!test"], title: 'Dashboard/VIP', component: VipClient, decorators: [dashboardShell], parameters: route('/dashboard/vip'), } satisfies Meta<typeof VipClient>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const NotActivated: Story = { args: { initialStatus: empty } };
-export const Active: Story = { args: { initialStatus: active }, play: async ({ canvasElement }) => {
-  const c = within(canvasElement);
-  await expect(c.getByRole('link', { name: '购买激活码' })).toBeVisible();
-  await expect(c.getByLabelText('VIP 激活码')).not.toBeVisible();
-  await expect(c.getByText('已生效', { exact: true })).toBeVisible();
-} };
-export const Expired: Story = { args: { initialStatus: { ...active, active: false, expiresAt: '2026-09-01T08:00:00Z' } } };
-export const Unavailable: Story = { args: { initialStatus: null }, play: async ({ canvasElement }) => {
+
+export const Unavailable: Story = {
+  tags: ["test"], args: { initialStatus: null }, play: async ({ canvasElement }) => {
   const c = within(canvasElement);
   await expect(c.getByRole('button', { name: '使用激活码' })).toBeDisabled();
   await expect(c.queryByText('已生效', { exact: true })).toBeNull();
 } };
-export const ActivationDialog: Story = { args: { initialStatus: active }, play: async ({ canvasElement }) => {
+export const ActivationDialog: Story = {
+  tags: ["test"], args: { initialStatus: active }, play: async ({ canvasElement }) => {
   const c = within(canvasElement);
+  await expect(c.getByRole('link', { name: '购买激活码' })).toBeVisible();
+  await expect(c.getByLabelText('VIP 激活码')).not.toBeVisible();
+  await expect(c.getByText('已生效', { exact: true })).toBeVisible();
   const trigger = c.getByRole('button', { name: '使用激活码' });
   await userEvent.click(trigger);
   const dialog = c.getByRole('dialog', { name: '使用激活码' });
@@ -39,6 +38,7 @@ export const ActivationDialog: Story = { args: { initialStatus: active }, play: 
   await userEvent.click(trigger);
 } };
 export const Activate: Story = {
+  tags: ["test"],
   args: { initialStatus: empty },
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.json({ ...active, activationOutcome: 'ACTIVATED' }))] } } },
   play: async ({ canvasElement }) => {
@@ -54,6 +54,7 @@ export const Activate: Story = {
   },
 };
 export const InvalidCode: Story = {
+  tags: ["test"],
   args: { initialStatus: empty },
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.json({ message: '此激活码已被使用，请勿重复兑换。' }, { status: 409 }))] } } },
   play: async ({ canvasElement }) => {
@@ -82,11 +83,12 @@ function resultStory(outcome: string, title: string, initialStatus: VipStatus = 
     },
   };
 }
-export const Extend = resultStory('EXTENDED', 'VIP 续费成功', active, { ...active, expiresAt: '2026-11-16T08:00:00Z' });
-export const Reactivate = resultStory('REACTIVATED', 'VIP 开通成功', { ...active, active: false, expiresAt: '2026-09-01T08:00:00Z' });
-export const AlreadyRedeemed = resultStory('ALREADY_REDEEMED', '此激活码已兑换');
-export const AlreadyRedeemedExpired = resultStory('ALREADY_REDEEMED', '此激活码已兑换', empty, { ...active, active: false, expiresAt: '2026-09-01T08:00:00Z' });
+export const Extend = { ...resultStory('EXTENDED', 'VIP 续费成功', active, { ...active, expiresAt: '2026-11-16T08:00:00Z' }), tags: ["test"] } satisfies Story;
+export const Reactivate = { ...resultStory('REACTIVATED', 'VIP 开通成功', { ...active, active: false, expiresAt: '2026-09-01T08:00:00Z' }), tags: ["test"] } satisfies Story;
+export const AlreadyRedeemed = { ...resultStory('ALREADY_REDEEMED', '此激活码已兑换'), tags: ["test"] } satisfies Story;
+export const AlreadyRedeemedExpired = { ...resultStory('ALREADY_REDEEMED', '此激活码已兑换', empty, { ...active, active: false, expiresAt: '2026-09-01T08:00:00Z' }), tags: ["test"] } satisfies Story;
 export const InvalidFormat: Story = {
+  tags: ["test"],
   args: { initialStatus: empty },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -103,6 +105,7 @@ export const InvalidFormat: Story = {
   },
 };
 export const NetworkError: Story = {
+  tags: ["test"],
   args: { initialStatus: empty },
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.error())] } } },
   play: async ({ canvasElement }) => {
@@ -115,6 +118,7 @@ export const NetworkError: Story = {
   },
 };
 export const UnavailableCode: Story = {
+  tags: ["test"],
   args: { initialStatus: empty },
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.json({ message: '激活码无效或已停用，请核对订单或联系客服。' }, { status: 400 }))] } } },
   play: async ({ canvasElement }) => {
@@ -126,6 +130,7 @@ export const UnavailableCode: Story = {
   },
 };
 export const RateLimited: Story = {
+  tags: ["test"],
   args: { initialStatus: empty },
   parameters: { msw: { handlers: { vip: [http.post(`${api}/me/vip/activate`, () => HttpResponse.json({ message: 'ThrottlerException: Too Many Requests' }, { status: 429 }))] } } },
   play: async ({ canvasElement }) => {
@@ -137,6 +142,7 @@ export const RateLimited: Story = {
   },
 };
 export const Comparison: Story = {
+  tags: ["test"],
   args: { initialStatus: empty },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -165,6 +171,7 @@ export const Comparison: Story = {
 };
 
 export const ContactSupport: Story = {
+  tags: ["test"],
   args: { initialStatus: empty },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);

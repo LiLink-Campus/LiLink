@@ -93,13 +93,12 @@ Web 验证 `HMAC-SHA256(secret, timestamp + '.' + rawBody)`：时间戳头 `x-li
 ## 验证入口
 
 - `node scripts/e2e/run.mjs --api public-cache-scheduling.e2e-spec.ts public-cache-faults.e2e-spec.ts public-cache-concurrency.e2e-spec.ts mail-outbox-recovery.e2e-spec.ts`
-- `node scripts/e2e/run.mjs public-cache-active.spec.ts --project=chromium --project=mobile-webkit`
-- `node scripts/e2e/run.mjs --background-evidence public-cache-idle.spec.ts --project=chromium`：默认真实时间的两个完整十五分钟空闲窗口、全部应用 SQL 时间线和自动 SWR 核验，约一小时，不通过提前修改时钟替代等待。
-- `node scripts/e2e/run.mjs --api --cache-fault-defaults public-cache-faults.e2e-spec.ts`：真实时间完整故障预算、连续 degraded 检查和自动恢复，约五十分钟；常规模式保留连接故障、查询锁阻塞及结果未知的自动六十秒恢复。
-
-- `node scripts/e2e/run.mjs community.spec.ts home-cache-stability.spec.ts isr-write-budget.spec.ts public-home-projection.spec.ts public-cache-publication.spec.ts sentry-cache-tracing.spec.ts vercel-assets.spec.ts pwa.spec.ts pwa-origin-failure.spec.ts --sentry-tracing --project=chromium --project=mobile-chromium --project=webkit --project=mobile-webkit`
+- `node scripts/e2e/run.mjs public-cache-active.spec.ts home-cache-stability.spec.ts home-native-navigation.spec.ts vercel-assets.spec.ts pwa.spec.ts --project=chromium`
+- `node scripts/e2e/run.mjs --sentry-tracing --project=chromium`：SDK 独立编译，验证真实 tracing/Replay 与同投影 HTML/RSC 再生成稳定性。
 - `npm run test:storybook:web -- --run apps/web/src/app/community-stats.stories.tsx apps/web/src/stories/public-pages.stories.tsx`
-- `node scripts/e2e/run.mjs --devlog-fixture=items updates-feed.spec.ts --project=chromium --project=mobile-chromium --project=webkit --project=mobile-webkit`；另分别以 `empty`、`failure`、`malformed` 模式重复，用独立上游和构建避免 feed 缓存互相污染。
+- `node scripts/e2e/run.mjs updates-feed.spec.ts --project=chromium`：默认 items 上游；失败用同一构建的独立短时 Web 进程和不同 URL，避免缓存掩盖故障。
+
+完整固定集合为 `npm run test:ci`。默认调度边界通过 JS scheduler 行为测试验证；数据库资格、锁取消、网络期限和进程恢复使用真实 PostgreSQL 与短周期集成。JS fake timer 不推进 PG `NOW()`。不再自动运行默认十五分钟多进程对齐、超过五分钟真实空闲和完整长周期退避；取消保证及实测证据见 [Issue #159 验收](../validation/2026-10-09-test-simplification.md)。
 
 需要 Node 24、npm 11、Docker、已安装依赖和 Playwright 浏览器。runner 使用 disposable PostgreSQL/Mailpit、合成账号、临时签名密钥与同源 loopback 服务。验收覆盖服务端首屏统计、停留与隐藏恢复不追加浏览器统计请求、故障保留与恢复、旧 30 秒窗口之后首页仍 HIT、管理员轮次修改后真实通知使重载页面及底部收敛、拒绝非法通知、事务回滚和合并、重复领取与门限、同源静态资源及 PWA 故障边界。
 

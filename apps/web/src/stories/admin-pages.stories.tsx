@@ -16,17 +16,18 @@ import Promotion from "@/app/admin/promotion/page";
 import AdminLayoutShell from "@/app/admin/admin-layout-shell";
 import { adminShell, route, visible, json, failure, api } from "./site-support";
 import { adminHandlers, page, userAccountHandlers, cycleWorkbenchHandlers } from "./admin-handlers";
-import { overview, adminQuestions, campaign, cycle, cycleDetail, schoolGender } from "./admin-fixtures";
+import { overview, adminQuestions, campaign, cycle, cycleDetail, schoolGender, weekly } from "./admin-fixtures";
 const meta = {
+  tags: ["!test"],
   id: "site-admin",
   title: "全站/运营后台",
-  tags: ["smoke", "page"],
   decorators: [adminShell],
   parameters: { fullSite: true, ...route("/admin"), msw: { handlers: { admin: adminHandlers } } },
 } satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const OverviewPage: Story = {
+  tags: ["test"],
   render: () => <Overview initialDashboard={overview} />,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -38,12 +39,12 @@ export const OverviewPage: Story = {
     await expect(c.queryByRole("spinbutton", { name: "最大注册人数" })).not.toBeInTheDocument();
   },
 };
-export const UsersPage: Story = {
+const UsersPage: Story = {
   parameters: route("/admin/users"),
   render: () => <Users />,
-  play: visible("linhe@example.test"),
 };
 export const UsersEmpty: Story = {
+  tags: ["test"],
   ...UsersPage,
   parameters: {
     ...route("/admin/users"),
@@ -52,6 +53,7 @@ export const UsersEmpty: Story = {
   play: visible(/没有|暂无/),
 };
 export const UsersError: Story = {
+  tags: ["test"],
   ...UsersPage,
   parameters: {
     ...route("/admin/users"),
@@ -71,40 +73,8 @@ async function openUserAccount(canvasElement: HTMLElement) {
   return dialog;
 }
 
-export const UserAccountNormal: Story = {
-  ...UsersPage,
-  play: async ({ canvasElement }) => {
-    const dialog = await openUserAccount(canvasElement);
-    await expect(dialog.getByLabelText("账号状态：正常")).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "停用账号" })).toBeVisible();
-    await expect(dialog.getByText(/注册完成后即为此状态，无需额外激活/)).toBeVisible();
-  },
-};
-export const UserAccountSuspended: Story = {
-  ...UsersPage,
-  parameters: {
-    ...route("/admin/users"),
-    msw: { handlers: { admin: userAccountHandlers("SUSPENDED") } },
-  },
-  play: async ({ canvasElement }) => {
-    const dialog = await openUserAccount(canvasElement);
-    await expect(dialog.getByLabelText("账号状态：已停用")).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "恢复账号" })).toBeVisible();
-  },
-};
-export const UserAccountPending: Story = {
-  ...UsersPage,
-  parameters: {
-    ...route("/admin/users"),
-    msw: { handlers: { admin: userAccountHandlers("PENDING") } },
-  },
-  play: async ({ canvasElement }) => {
-    const dialog = await openUserAccount(canvasElement);
-    await expect(dialog.getByLabelText("账号状态：未启用")).toBeVisible();
-    await expect(dialog.getByRole("button", { name: "启用账号" })).toBeVisible();
-  },
-};
 export const UserAccountStatusUpdate: Story = {
+  tags: ["test"],
   ...UsersPage,
   parameters: {
     ...route("/admin/users"),
@@ -112,6 +82,8 @@ export const UserAccountStatusUpdate: Story = {
   },
   play: async ({ canvasElement }) => {
     const dialog = await openUserAccount(canvasElement);
+    await expect(dialog.getByLabelText("账号状态：正常")).toBeVisible();
+    await expect(dialog.getByText(/注册完成后即为此状态，无需额外激活/)).toBeVisible();
     await userEvent.click(await dialog.findByRole("button", { name: "停用账号" }));
     await expect(await dialog.findByLabelText("账号状态：已停用")).toBeVisible();
     await expect(await dialog.findByRole("status")).toHaveTextContent("账号已停用。");
@@ -121,6 +93,7 @@ export const UserAccountStatusUpdate: Story = {
   },
 };
 export const UserAccountEnable: Story = {
+  tags: ["test"],
   ...UsersPage,
   parameters: {
     ...route("/admin/users"),
@@ -128,12 +101,14 @@ export const UserAccountEnable: Story = {
   },
   play: async ({ canvasElement }) => {
     const dialog = await openUserAccount(canvasElement);
+    await expect(dialog.getByLabelText("账号状态：未启用")).toBeVisible();
     await userEvent.click(await dialog.findByRole("button", { name: "启用账号" }));
     await expect(await dialog.findByLabelText("账号状态：正常")).toBeVisible();
     await expect(await dialog.findByRole("status")).toHaveTextContent("账号已启用，可正常登录。");
   },
 };
 export const UserAccountStatusError: Story = {
+  tags: ["test"],
   ...UsersPage,
   parameters: {
     ...route("/admin/users"),
@@ -148,12 +123,12 @@ export const UserAccountStatusError: Story = {
   },
 };
 
-export const SchoolsPage: Story = {
+const SchoolsPage: Story = {
   parameters: route("/admin/schools"),
   render: () => <Schools />,
-  play: visible("青禾大学"),
 };
 export const SchoolsEmpty: Story = {
+  tags: ["test"],
   ...SchoolsPage,
   parameters: {
     ...route("/admin/schools"),
@@ -161,12 +136,12 @@ export const SchoolsEmpty: Story = {
   },
   play: visible(/没有|暂无/),
 };
-export const CyclesPage: Story = {
+const CyclesPage: Story = {
   parameters: route("/admin/cycles"),
   render: () => <Cycles />,
-  play: visible("参与者与完成度"),
 };
 export const CyclesPreviewAndFinal: Story = {
+  tags: ["test"],
   ...CyclesPage,
   parameters: { ...route("/admin/cycles"), msw: { handlers: { admin: cycleWorkbenchHandlers() } } },
   play: async ({ canvasElement }) => {
@@ -196,6 +171,7 @@ export const CyclesPreviewAndFinal: Story = {
   },
 };
 export const CyclesMultiple: Story = {
+  tags: ["test"],
   ...CyclesPage,
   parameters: { ...route("/admin/cycles"), msw: { handlers: { admin: cycleWorkbenchHandlers() } } },
   play: async ({ canvasElement }) => {
@@ -221,6 +197,7 @@ export const CyclesMultiple: Story = {
   },
 };
 export const CyclesSettings: Story = {
+  tags: ["test"],
   ...CyclesPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -232,6 +209,7 @@ export const CyclesSettings: Story = {
   },
 };
 export const CyclesEmptyCreate: Story = {
+  tags: ["test"],
   ...CyclesPage,
   parameters: {
     ...route("/admin/cycles"),
@@ -245,6 +223,7 @@ export const CyclesEmptyCreate: Story = {
   },
 };
 export const CyclesChartsOnly: Story = {
+  tags: ["test"],
   ...CyclesPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -255,6 +234,7 @@ export const CyclesChartsOnly: Story = {
   },
 };
 export const CyclesPreviewError: Story = {
+  tags: ["test"],
   ...CyclesPage,
   parameters: {
     ...route("/admin/cycles"),
@@ -270,6 +250,7 @@ export const CyclesPreviewError: Story = {
 };
 let schoolStatisticsFail = true;
 export const CyclesChartsRetry: Story = {
+  tags: ["test"],
   ...CyclesPage,
   beforeEach: () => { schoolStatisticsFail = true; },
   parameters: {
@@ -292,12 +273,12 @@ export const CyclesChartsRetry: Story = {
     await expect(c.getByRole("tab", { name: "最终" })).toBeVisible();
   },
 };
-export const ReportsPage: Story = {
+const ReportsPage: Story = {
   parameters: route("/admin/reports"),
   render: () => <Reports />,
-  play: visible("不友善言行"),
 };
 export const ReportsEmpty: Story = {
+  tags: ["test"],
   ...ReportsPage,
   parameters: {
     ...route("/admin/reports"),
@@ -305,47 +286,33 @@ export const ReportsEmpty: Story = {
   },
   play: visible(/没有|暂无/),
 };
-export const AuditPage: Story = {
-  parameters: route("/admin/audit"),
-  render: () => <Audit />,
-  play: visible("CYCLE_CREATED"),
-};
-export const QuestionnairePage: Story = {
-  parameters: route("/admin/questionnaire"),
-  render: () => <Questionnaire initialQuestions={adminQuestions} />,
-  play: visible(adminQuestions[0].prompt),
-};
-export const MerchantsPage: Story = {
+
+
+const MerchantsPage: Story = {
   parameters: route("/admin/merchants"),
   render: () => <Merchants />,
-  play: visible("青禾咖啡"),
 };
-export const CampaignsPage: Story = {
+const CampaignsPage: Story = {
   parameters: route("/admin/campaigns"),
   render: () => <Campaigns />,
-  play: visible("活动列表"),
 };
-export const PromotionPage: Story = {
+const PromotionPage: Story = {
   parameters: route("/admin/promotion"),
   render: () => <Promotion />,
-  play: visible("注册来源"),
 };
-export const PromotionLeaderboard: Story = {
-  ...PromotionPage,
-  play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
-    await expect(await c.findByText("林和")).toBeVisible();
-  },
-};
+
 export const CampaignResults: Story = {
+  tags: ["test"],
   ...CampaignsPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
+    await expect((await c.findAllByText("双人咖啡券"))[0]).toBeVisible();
     await userEvent.click(await c.findByRole("button", { name: "发放与核销" }));
     await expect(await c.findAllByText("青禾咖啡")).not.toHaveLength(0);
   },
 };
 export const LoginGate: Story = {
+  tags: ["test"],
   parameters: { adminChrome: false },
   render: () => (
     <AdminLayoutShell initialAdmin={null} authChecked>
@@ -355,6 +322,7 @@ export const LoginGate: Story = {
   play: visible("管理员邮箱"),
 };
 export const MerchantAccounts: Story = {
+  tags: ["test"],
   ...MerchantsPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -362,14 +330,9 @@ export const MerchantAccounts: Story = {
     await expect(await c.findByText("clerk@example.test")).toBeVisible();
   },
 };
-export const CampaignTemplates: Story = {
-  ...CampaignsPage,
-  play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
-    await expect((await c.findAllByText("双人咖啡券"))[0]).toBeVisible();
-  },
-};
+
 export const UserDetails: Story = {
+  tags: ["test"],
   ...UsersPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -388,6 +351,7 @@ export const UserDetails: Story = {
   },
 };
 export const SchoolEditor: Story = {
+  tags: ["test"],
   ...SchoolsPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -397,6 +361,7 @@ export const SchoolEditor: Story = {
 };
 
 export const OverviewEmpty: Story = {
+  tags: ["test"],
   render: () => (
     <Overview
       initialDashboard={{
@@ -409,12 +374,14 @@ export const OverviewEmpty: Story = {
   play: visible("暂无进行中的轮次"),
 };
 export const OverviewError: Story = {
+  tags: ["test"],
   parameters: { msw: { handlers: { admin: [failure("/admin/dashboard"), ...adminHandlers] } } },
   render: () => <Overview initialDashboard={null} />,
   play: visible(/模拟服务暂时不可用/),
 };
 
 export const MatchLeadsEmpty: Story = {
+  tags: ["test"],
   parameters: {
     ...route("/admin/match-leads"),
     msw: { handlers: { admin: [json("/admin/match-leads", []), ...adminHandlers] } },
@@ -423,6 +390,7 @@ export const MatchLeadsEmpty: Story = {
   play: visible("暂无登记"),
 };
 export const MatchLeadsError: Story = {
+  tags: ["test"],
   ...MatchLeadsEmpty,
   parameters: {
     ...route("/admin/match-leads"),
@@ -434,29 +402,7 @@ export const MatchLeadsError: Story = {
     await expect(c.getByRole("button", { name: "刷新" })).toBeEnabled();
   },
 };
-export const MatchLeadsContacted: Story = {
-  render: () => <MatchLeads />,
-  parameters: {
-    ...route("/admin/match-leads"),
-    msw: {
-      handlers: {
-        admin: [
-          json("/admin/match-leads", [
-            {
-              id: "lead-story",
-              phone: "+6590000000",
-              realName: "测试同学", school: "测试大学", major: "计算机科学", contact: "test_wechat", user: { id: "synthetic-user", email: "test@example.test", displayName: "测试同学" },
-              contacted: true,
-              createdAt: "2026-09-15T08:00:00Z",
-            },
-          ]),
-          ...adminHandlers,
-        ],
-      },
-    },
-  },
-  play: visible("标为待联系"),
-};
+
 function leadUpdateHandlers() {
   let contacted = false;
   return [
@@ -475,6 +421,7 @@ function leadUpdateHandlers() {
   ];
 }
 export const MatchLeadsUpdate: Story = {
+  tags: ["test"],
   render: () => <MatchLeads />,
   parameters: {
     ...route("/admin/match-leads"),
@@ -491,11 +438,13 @@ export const MatchLeadsUpdate: Story = {
 };
 
 export const PromotionEmpty: Story = {
+  tags: ["test"],
   ...PromotionPage,
   parameters: { ...route("/admin/promotion"), msw: { handlers: { admin: [json("/admin/promotion/acquisition", { shares: 0, visits: 0, registrations: 0, invitedRegistrations: 0, qualified: 0, channels: [], referrers: [] }), ...adminHandlers] } } },
   play: visible("暂无邀请注册记录。"),
 };
 export const CampaignCreate: Story = {
+  tags: ["test"],
   ...CampaignsPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -507,6 +456,7 @@ export const CampaignCreate: Story = {
   },
 };
 export const MerchantCreate: Story = {
+  tags: ["test"],
   ...MerchantsPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -516,6 +466,7 @@ export const MerchantCreate: Story = {
 };
 
 export const CampaignDraft: Story = {
+  tags: ["test"],
   ...CampaignsPage,
   parameters: {
     ...route("/admin/campaigns"),
@@ -535,6 +486,7 @@ const smokingQuestion = {
   options: LIFESTYLE_QUESTIONS[1].options.map(value => ({ value, label: value })),
 };
 export const LifestyleQuestionContract: Story = {
+  tags: ["test"],
   parameters: {
     ...route("/admin/questionnaire"),
     msw: { handlers: { admin: [
@@ -568,6 +520,7 @@ export const LifestyleQuestionContract: Story = {
 };
 const exactQuestion = { ...adminQuestions[0], id: "exact-contract", type: "MULTI_SELECT" as const, order: 1, selectionLimit: 2 };
 export const ExactSelectionContract: Story = {
+  tags: ["test"],
   parameters: { ...route("/admin/questionnaire"), msw: { handlers: { admin: [json("/admin/questionnaire", { id: "contract", questions: [exactQuestion] }), ...adminHandlers] } } },
   render: () => <Questionnaire initialQuestions={[exactQuestion]} />,
   play: async ({ canvasElement }) => {
@@ -579,13 +532,8 @@ export const ExactSelectionContract: Story = {
   },
 };
 
-export const LifestyleQuestionEditor: Story = {
-  ...LifestyleQuestionContract,
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByTitle("编辑"));
-  },
-};
 export const NewLifestyleQuestion: Story = {
+  tags: ["test"],
   parameters: { ...route("/admin/questionnaire"), msw: { handlers: { admin: [json("/admin/questionnaire", { id: "contract", questions: [] }), ...adminHandlers] } } },
   render: () => <Questionnaire initialQuestions={[]} />,
   play: async ({ canvasElement }) => {
@@ -601,6 +549,7 @@ export const NewLifestyleQuestion: Story = {
 };
 
 export const CyclesAutomation: Story = {
+  tags: ["test"],
   ...CyclesPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
@@ -611,6 +560,7 @@ export const CyclesAutomation: Story = {
   },
 };
 export const CyclesAutomationError: Story = {
+  tags: ["test"],
   ...CyclesPage,
   parameters: { ...route("/admin/cycles"), msw: { handlers: { admin: [
     http.put(`${api}/admin/weekly-cycle-settings`, () => HttpResponse.json({ message: "自动轮次设置保存失败。" }, { status: 503 })),
@@ -625,6 +575,7 @@ export const CyclesAutomationError: Story = {
   },
 };
 export const CyclesDeleteDraft: Story = {
+  tags: ["test"],
   ...CyclesPage,
   parameters: { ...route("/admin/cycles"), msw: { handlers: { admin: [
     json("/admin/cycles", page([{ ...cycle, status: "DRAFT", codename: "待清理草稿" }])),
@@ -639,5 +590,39 @@ export const CyclesDeleteDraft: Story = {
     const dialog = within(await c.findByRole("dialog", { name: "删除草稿轮次" }));
     await expect(dialog.getByText(/确认删除“待清理草稿”？将同时删除本轮的 1 条参与记录/)).toBeVisible();
     await expect(dialog.getByRole("button", { name: "确认删除" })).toBeEnabled();
+  },
+};
+
+export const AuditGallery: Story = { parameters: route("/admin/audit"), render: () => <Audit /> };
+
+export const PromotionLeaderboard: Story = {
+  tags: ["test"],
+  ...PromotionPage,
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(await c.findByText("林和")).toBeVisible();
+  },
+};
+
+let trendFail = true;
+export const CyclesTrendRetry: Story = {
+  tags: ["test"],
+  ...CyclesPage,
+  beforeEach: () => { trendFail = true; },
+  parameters: { ...route("/admin/cycles"), msw: { handlers: { admin: [
+    http.get(`${api}/admin/analytics/weekly-optin`, () => trendFail
+      ? HttpResponse.json({ message: "报名趋势暂时不可用" }, { status: 503 })
+      : HttpResponse.json(weekly)), ...adminHandlers,
+  ] } } },
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    await expect(await c.findByRole("img", { name: /问卷完成率 92%/ })).toBeVisible();
+    await expect(c.getByRole("heading", { name: "本轮学校与性别" })).toBeVisible();
+    const retry = await c.findByRole("button", { name: "重试报名趋势" });
+    await expect(retry).toBeEnabled();
+    trendFail = false;
+    await userEvent.click(retry);
+    await expect(await c.findByRole("heading", { name: "最近轮次报名趋势" })).toBeVisible();
+    await expect(c.queryByRole("button", { name: "重试报名趋势" })).not.toBeInTheDocument();
   },
 };

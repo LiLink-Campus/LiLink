@@ -1,4 +1,4 @@
-import { createCycleTestServices } from './fixtures/cycle-services';
+import { createCycleServices } from './fixtures/cycles';
 import { randomUUID } from 'node:crypto';
 import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snapshot.service';
 import { MailService } from '../src/common/mail/mail.service';
@@ -101,7 +101,7 @@ describe('matching priority through reveal and dashboard (PostgreSQL)', () => {
     const snapshots = new DashboardSnapshotService(prisma);
     const mail = new MailService(prisma);
     jest.spyOn(mail, 'flushQueuedEmails').mockResolvedValue(undefined);
-    cycles = createCycleTestServices(prisma, snapshots, mail);
+    cycles = createCycleServices(prisma, snapshots, mail).cycles;
     account = new AccountDashboardService(prisma, snapshots);
   });
 

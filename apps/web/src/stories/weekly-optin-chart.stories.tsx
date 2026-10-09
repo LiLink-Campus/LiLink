@@ -5,10 +5,10 @@ import type { WeeklyOptinResponse } from "@/app/admin/analytics/types";
 import { adminShell, route } from "./site-support";
 
 const meta = {
+  tags: ["!test"],
   id: "admin-weekly-optins",
   title: "管理后台/轮次报名趋势",
   component: WeeklyOptinChart,
-  tags: ["smoke"],
   decorators: [adminShell],
   parameters: { fullSite: true, layout: "fullscreen", ...route("/admin/cycles") },
   args: { loading: false },
@@ -32,6 +32,7 @@ const history: WeeklyOptinResponse = {
 };
 
 export const RepresentativeMixed: Story = {
+  tags: ["test"],
   args: {
     data: {
       ...history,
@@ -56,6 +57,7 @@ export const RepresentativeMixed: Story = {
 };
 
 export const HistoryWithUnknown: Story = {
+  tags: ["test"],
   args: { data: history },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -80,6 +82,7 @@ export const HistoryWithUnknown: Story = {
 };
 
 export const AllUnknown: Story = {
+  tags: ["test"],
   args: {
     data: {
       ...history,
@@ -102,6 +105,7 @@ export const AllUnknown: Story = {
 };
 
 export const ZeroOptins: Story = {
+  tags: ["test"],
   args: { data: { ...history, cycles: [history.cycles[7]] } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -112,6 +116,7 @@ export const ZeroOptins: Story = {
 };
 
 export const Empty: Story = {
+  tags: ["test"],
   args: { data: { includeTest: false, cycles: [] } },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText("暂无每周报名趋势数据。")).toBeVisible();
@@ -119,6 +124,7 @@ export const Empty: Story = {
 };
 
 export const Loading: Story = {
+  tags: ["test"],
   args: { data: null, loading: true },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText("正在加载每周报名…")).toBeVisible();

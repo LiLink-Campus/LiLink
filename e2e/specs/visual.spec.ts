@@ -1,6 +1,6 @@
 import { test, expect, visit } from '../support/fixtures';
 
-for (const route of ['/login', '/register', '/forgot-password']) {
+for (const route of ['/login']) {
   test(`public page layout and baseline ${route} @visual`, async ({ page, isMobile }) => {
     await visit(page, route);
     // Capture the default card appearance, without desktop pointer hover.

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
-import { delay, http, HttpResponse } from "msw";
+import { http, HttpResponse } from "msw";
 import School from "@/app/register/register-school-client";
 import Personal from "@/app/register/register-personal-client";
 import type { EligibleSchoolsPayload } from "@/lib/eligible-schools";
@@ -32,9 +32,9 @@ const schoolHandler = http.get("*/api/public/schools", () => {
 });
 
 const meta = {
+  tags: ["!test"],
   id: "registration-schools",
   title: "全站/注册学校列表",
-  tags: ["smoke", "page"],
   decorators: [publicShell],
   render: () => <School />,
   parameters: {
@@ -62,6 +62,7 @@ async function openDialog(canvasElement: HTMLElement) {
 }
 
 export const RefreshOnReopen: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("学校邮箱"), "student@qinghe.example.edu");
@@ -103,6 +104,7 @@ export const RefreshOnReopen: Story = {
 };
 
 export const FailureWithRetry: Story = {
+  tags: ["test"],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("学校邮箱"), "student@qinghe.example.edu");
@@ -115,17 +117,20 @@ export const FailureWithRetry: Story = {
     await userEvent.type(dialog.getByRole("searchbox"), "qinghe.example.edu");
     await expect(dialog.getByText(schools.schools[0].name)).toBeVisible();
     await expect(dialog.queryByText(schools.schools[1].name)).not.toBeInTheDocument();
-    await userEvent.clear(dialog.getByRole("searchbox"));
     shouldFail = false;
     currentSchools = updatedSchools;
     const retry = dialog.getByRole("button", { name: "重试加载学校列表" });
     retry.focus();
     await userEvent.keyboard("{Enter}");
+    await expect(dialog.getByRole("searchbox")).toHaveValue("qinghe.example.edu");
+    await expect(await dialog.findByText(/没有找到相关学校/)).toBeVisible();
+    await userEvent.clear(dialog.getByRole("searchbox"));
     await expect(await dialog.findByText("新桥大学")).toBeVisible();
   },
 };
 
 export const InitialFailure: Story = {
+  tags: ["test"],
   beforeEach: () => {
     shouldFail = true;
   },
@@ -138,31 +143,8 @@ export const InitialFailure: Story = {
   },
 };
 
-export const Loading: Story = {
-  parameters: {
-    msw: {
-      handlers: {
-        site: [
-          http.get("*/api/public/schools", async () => {
-            await delay("infinite");
-            return HttpResponse.json(schools);
-          }),
-          ...siteHandlers,
-        ],
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await userEvent.type(canvas.getByLabelText("学校邮箱"), "student@qinghe.example.edu");
-    await expect(canvas.queryByText("暂不支持此邮箱后缀")).not.toBeInTheDocument();
-    const dialog = await openDialog(canvasElement);
-    await expect(dialog.getByText("正在加载最新学校列表…")).toBeVisible();
-    await expect(dialog.queryByText(/没有找到相关学校/)).not.toBeInTheDocument();
-  },
-};
-
 export const Empty: Story = {
+  tags: ["test"],
   beforeEach: () => {
     currentSchools = { ...updatedSchools, schools: [], totalDomainCount: 0, totalSchoolCount: 0 };
   },
@@ -176,6 +158,7 @@ export const Empty: Story = {
 };
 
 export const SharedPendingRequest: Story = {
+  tags: ["test"],
   parameters: {
     msw: {
       handlers: {
@@ -197,7 +180,10 @@ export const SharedPendingRequest: Story = {
     try {
       await waitFor(() => expect(requestCount).toBe(1));
       const canvas = within(canvasElement);
+      await userEvent.type(canvas.getByLabelText("学校邮箱"), "student@qinghe.example.edu");
+      await expect(canvas.queryByText("暂不支持此邮箱后缀")).not.toBeInTheDocument();
       let dialog = await openDialog(canvasElement);
+      await expect(dialog.queryByText(/没有找到相关学校/)).not.toBeInTheDocument();
       await expect(dialog.getByText("正在加载最新学校列表…")).toBeVisible();
       await expect(requestCount).toBe(1);
       await userEvent.click(dialog.getByRole("button", { name: "关闭学校列表" }));
@@ -220,6 +206,7 @@ export const SharedPendingRequest: Story = {
 };
 
 export const PersonalSchoolRefresh: Story = {
+  tags: ["test"],
   render: () => <Personal />,
   parameters: {
     ...route("/register/personal"),

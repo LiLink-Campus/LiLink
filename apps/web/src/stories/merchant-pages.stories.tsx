@@ -8,14 +8,15 @@ import { RedeemConfirm } from "@/app/merchant/_components/RedeemConfirm";
 import { api, failure, route, visible, siteHandlers, publicShell } from "./site-support";
 import { prepare } from "./site-fixtures";
 const meta = {
+  tags: ["!test"],
   id: "site-merchant",
   title: "全站/商家核销",
-  tags: ["smoke", "page"],
   parameters: { fullSite: true },
 } satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const LoginPage: Story = {
+  tags: ["test"],
   decorators: [publicShell],
   parameters: route("/merchant/login"),
   render: () => <Login />,
@@ -25,7 +26,6 @@ export const ManualEntry: Story = {
   decorators: [publicShell],
   parameters: route("/merchant/redeem"),
   render: () => <Redeem />,
-  play: visible(/店员小禾|青禾咖啡/),
 };
 async function enterCode(canvasElement: HTMLElement) {
   const c = within(canvasElement);
@@ -35,24 +35,21 @@ async function enterCode(canvasElement: HTMLElement) {
   );
   await userEvent.click(c.getByRole("button", { name: /查询|下一步|核验/ }));
 }
-export const ManualConfirm: Story = {
-  ...ManualEntry,
-  play: async ({ canvasElement }) => {
-    await enterCode(canvasElement);
-    await expect(await within(canvasElement).findByPlaceholderText("消费金额（元）")).toBeVisible();
-  },
-};
+
 export const ManualSuccess: Story = {
+  tags: ["test"],
   ...ManualEntry,
   play: async ({ canvasElement }) => {
-    await enterCode(canvasElement);
     const c = within(canvasElement);
+    await expect(await c.findByText(/店员小禾|青禾咖啡/)).toBeVisible();
+    await enterCode(canvasElement);
     await userEvent.type(await c.findByPlaceholderText("消费金额（元）"), "60");
     await userEvent.click(c.getByRole("button", { name: "确认核销" }));
     await expect(await c.findByText("✓ 核销成功")).toBeVisible();
   },
 };
 export const InvalidCode: Story = {
+  tags: ["test"],
   ...ManualEntry,
   parameters: {
     ...route("/merchant/redeem"),
@@ -75,6 +72,7 @@ export const InvalidCode: Story = {
   },
 };
 export const ScanMissingToken: Story = {
+  tags: ["test"],
   decorators: [publicShell],
   parameters: {
     ...route("/r/AB23CD"),
@@ -87,6 +85,7 @@ export const ScanMissingToken: Story = {
   play: visible("请重新出示二维码"),
 };
 export const ConfirmGift: Story = {
+  tags: ["test"],
   render: () => (
     <RedeemConfirm
       prepare={{
@@ -99,6 +98,7 @@ export const ConfirmGift: Story = {
   play: visible("双人甜品赠送券"),
 };
 export const RedeemError: Story = {
+  tags: ["test"],
   parameters: {
     msw: { handlers: { site: [failure("/merchant/redeem", "post"), ...siteHandlers] } },
   },
@@ -110,19 +110,14 @@ export const RedeemError: Story = {
   },
 };
 
-export const ScanConfirm: Story = {
+export const ScanSuccess: Story = {
+  tags: ["test"],
   ...ScanMissingToken,
   beforeEach: () => {
     const url = window.location.href;
     window.history.replaceState(null, "", `${url.split("#")[0]}#t=123456`);
     return () => window.history.replaceState(null, "", url);
   },
-  play: async ({ canvasElement }) => {
-    await expect(await within(canvasElement).findByPlaceholderText("消费金额（元）")).toBeVisible();
-  },
-};
-export const ScanSuccess: Story = {
-  ...ScanConfirm,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await userEvent.type(await c.findByPlaceholderText("消费金额（元）"), "60");
