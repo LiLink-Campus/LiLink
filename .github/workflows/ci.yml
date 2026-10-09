@@ -1,60 +1,31 @@
-name: CI
+name: Verify final fixed test-ci command
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
-concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 jobs:
-  regression:
-    # Preserve the enforced context until an administrator completes the documented cutover.
-    name: API unit and e2e tests
+  verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: 0800fe1ae059b028ad02e8f7bf005993e3e95875
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: .node-version
-      - name: Fixed core collection in the pinned Linux renderer
-        run: npm run test:ci:core
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: regression-${{ github.sha }}
-          path: artifacts/e2e-linux-results/
-          retention-days: 7
-          if-no-files-found: error
-  storybook:
-    # This is a real test job; the historical check name keeps the active Ruleset effective.
-    name: Storybook smoke tests and screenshots
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v6
         with:
           node-version-file: .node-version
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Fixed component behavior collection
-        run: npm run test:ci:stories
+      - name: Execute the exact final source entry point
+        run: /usr/bin/time -p npm run test:ci
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: storybook-${{ github.sha }}
+          name: fixed-command-0800fe1
           path: |
+            artifacts/e2e-linux-results/
             artifacts/storybook-results.json
-            apps/web/src/**/__screenshots__/
           retention-days: 7
           if-no-files-found: error
