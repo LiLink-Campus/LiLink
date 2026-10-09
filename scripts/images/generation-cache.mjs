@@ -2,15 +2,12 @@ import { createHash } from 'node:crypto';
 import { lstat, mkdir, open, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import { generatedImagePaths as outputs } from './generated-paths.mjs';
 
 const inputs = ['package.json', 'package-lock.json', 'apps/web/package.json',
-  'scripts/images/generate-static-assets.mjs', 'scripts/images/generation-cache.mjs',
+  'scripts/images/generate-static-assets.mjs', 'scripts/images/generation-cache.mjs', 'scripts/images/generated-paths.mjs',
   'scripts/images/generate-responsive.mjs', 'scripts/images/school-atlases.mjs',
   'apps/web/src/app/schools/partners.ts', 'apps/web/public/images'];
-const outputs = ['apps/web/public/images/responsive', 'apps/web/public/images/school-atlases',
-  'apps/web/src/lib/static-image-manifest.ts', 'apps/web/src/app/home-preview.generated.module.css',
-  'apps/web/src/app/about/about-preview.generated.module.css', 'apps/web/src/app/schools/school-atlases.generated.ts',
-  'apps/web/src/app/schools/school-atlas-positions.module.css'];
 const hash = value => createHash('sha256').update(value).digest('hex');
 async function fingerprint(root, files, excluded = []) {
   const entries = [];

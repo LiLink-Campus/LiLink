@@ -10,8 +10,8 @@ const args = process.argv.slice(2);
 assert.ok(args.every(arg => ['--api-load', '--fail-after-start'].includes(arg)), 'Use --api-load or --fail-after-start.');
 const root = process.cwd();
 const buildInputs = ['.dockerignore', 'package.json', 'package-lock.json', 'apps/api', 'packages/shared'];
-const source = sourceState(root, [...buildInputs, 'scripts/release', 'scripts/source-state.mjs']);
-assert.ok(!source.sourceDirty, 'Uncommitted build or rehearsal inputs: commit them before running the rehearsal.');
+const source = sourceState(root, [...buildInputs, 'scripts/release', 'scripts/source-state.mjs', 'scripts/images/generated-paths.mjs']);
+assert.ok(!source.sourceDirty && !source.generatedDirty, 'Uncommitted build or rehearsal inputs: commit them before running the rehearsal.');
 const sha = source.sourceSha;
 // Archive the checked commit so edits made during the build cannot change its identity.
 const buildContext = execFileSync('git', ['archive', sha, ...buildInputs, 'scripts/release'], { cwd: root, maxBuffer: 32 * 1024 * 1024 });

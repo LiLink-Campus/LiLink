@@ -4,6 +4,37 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { sourceState } from './source-state.mjs';
+
+// Generated output differences must stay visible without classifying them as
+// authored source changes; inputs, handwritten CSS and scoped release guards remain strict.
+test('source evidence separates generated images from staged, unstaged and new source files', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'lilink-source-evidence-'));
+  const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' }).toString().trim();
+  const write = async (file, content) => {
+    await mkdir(path.dirname(path.join(root, file)), { recursive: true });
+    await writeFile(path.join(root, file), content);
+  };
+  try {
+    await write('apps/api/src/main.ts', 'source');
+    await write('apps/web/src/lib/static-image-manifest.ts', 'generated');
+    git('init', '-q'); git('add', '.'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', 'commit', '-qm', 'fixture');
+    const sha = git('rev-parse', 'HEAD');
+    assert.deepEqual(sourceState(root), { sourceSha: sha, sourceDirty: false, generatedDirty: false });
+    await write('apps/web/src/lib/static-image-manifest.ts', 'platform-specific output');
+    await write('apps/web/public/images/responsive/new.webp', 'generated output');
+    git('add', 'apps/web/src/lib/static-image-manifest.ts');
+    assert.deepEqual(sourceState(root), { sourceSha: sha, sourceDirty: false, generatedDirty: true });
+    assert.deepEqual(sourceState(root, ['apps/api']), { sourceSha: sha, sourceDirty: false, generatedDirty: false });
+    for (const file of ['apps/api/src/main.ts', 'apps/web/src/app/globals.css', 'apps/web/public/images/source.webp']) {
+      await write(file, 'authored change');
+      assert.equal(sourceState(root).sourceDirty, true, file);
+      git('add', file);
+      assert.equal(sourceState(root).sourceDirty, true, `staged ${file}`);
+      git('reset', '--hard', '-q', 'HEAD');
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 const script = path.resolve('scripts/release/local-rehearsal.mjs');
 // Wrong commit attribution must fail before Docker: unstaged, staged and new

@@ -21,6 +21,8 @@ npm run test:ci
 
 核心集合由 [Linux 包装器](../../scripts/e2e/linux.mjs) 在 Node 24.20.0 / Debian Bookworm / Playwright 1.60.0 中执行 [固定命令](../../scripts/test-ci.sh)。宿主不预先执行整套，容器不递归调用 `test:ci`。质量检查、Shared/API/Web 行为、工具与文档检查后，复用 Shared/API 构建运行真 PG 集成和浏览器。Storybook 使用 Vitest/Vite，执行有 `test` tag 的独立行为，不消费静态 Storybook。
 
+Storybook 的非静态资源未匹配请求会在原生生命周期检查中使测试失败，即使组件捕获了请求异常。预期401、503或网络失败必须使用显式 MSW handler，并断言对应界面行为。开发展示文件未进入固定集合时，报告中的文件 skipped 不代表216个必要行为用例被跳过。
+
 ## 隔离与证据
 
 [运行器](../../scripts/e2e/run.mjs) 生成随机 run-id、loopback 端口和业务密钥，只允许当次 PostgreSQL 测试命名空间。Prisma 在迁移前检查最终生效目标，测试环境不加载本地 `.env`，裸 API `test:e2e` 也委托隔离运行器。禁止连接开发、已有用户或生产数据库。
@@ -31,7 +33,9 @@ Chromium 执行固定主集合；`@mobile` 指定 mobile WebKit 的真实移动�
 
 Linux 工件位于 `artifacts/e2e-linux-results/<run-id>/`，内部 E2E 子目录包含原生 JSON/HTML 报告、失败证据、服务日志和 `run.json`。普通成功测试不批量截图；涉及凭据路径按隐私边界关闭敏感 trace。报告 selected/executed/skipped/retried，skip 不计通过。只使用合成账号和邮件，不上传环境文件。
 
-`run.json` 同时记录启动时的 `sourceSha` 和 `sourceDirty`，复制源码后再复核状态，期间观察到修改或 HEAD 变化也标记为 dirty。本地允许未提交修改；`sourceDirty: true` 表示该 SHA 只是工作区基点，不能把结果视为该提交的验证。提交级证据需要复制期间保持干净 checkout、完整固定集合和对应的实际 Checks；单例调试使用 `--reuse-api-build` 时，调用者还必须保证已有 API dist 与当前源码一致。
+`run.json` 记录启动时的 `sourceSha`、`sourceDirty` 和 `generatedDirty`，复制源码后再复核。`sourceDirty` 排除 [Sharp专属输出路径](../../scripts/images/generated-paths.mjs)，仍包含手写CSS、源图片、生成器与其他源码的 staged/unstaged/untracked 修改；`generatedDirty` 单独记录这些生成路径的Git差异。后者只是差异分类，不证明产物有效；固定构建仍校验生成输入、工具链及完整输出内容，缺失或篡改就重新生成。跨平台生成差异不再冒充手写源码变动。
+
+本地允许未提交修改，但 `sourceDirty: true` 表示 SHA 只是工作区基点；复制期间观察到 HEAD 改变也标记为 sourceDirty。提交级证据仍需要复制期间保持源码干净、完整固定集合和对应的实际 Checks，不能单靠两个布尔值证明。单例调试使用 `--reuse-api-build` 时，调用者还必须保证已有 API dist 与当前源码一致。
 
 正常结束、失败与 SIGINT/SIGTERM 删除当次进程、容器和临时源码；Linux 包装器保留工件。SIGKILL/断电后用 `docker ps -a --filter label=lilink.e2e=<run-id>` 核对归属，再清理该次残留，不执行全局 prune。
 

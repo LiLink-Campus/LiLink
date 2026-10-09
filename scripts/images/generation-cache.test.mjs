@@ -21,7 +21,7 @@ test('static generation reuses only complete content-verified output', async () 
   try {
     for (const file of ['package.json', 'package-lock.json', 'apps/web/package.json',
       'scripts/images/generate-static-assets.mjs', 'scripts/images/generate-responsive.mjs',
-      'scripts/images/school-atlases.mjs', 'scripts/images/generation-cache.mjs',
+      'scripts/images/school-atlases.mjs', 'scripts/images/generation-cache.mjs', 'scripts/images/generated-paths.mjs',
       'apps/web/src/app/schools/partners.ts', 'apps/web/public/images/source.webp']) await write(file, 'source');
     assert.equal(await withStaticImageCache(root, generate), 'generated');
     assert.equal(await withStaticImageCache(root, generate), 'reused');

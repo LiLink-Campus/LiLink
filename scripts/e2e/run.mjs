@@ -163,6 +163,7 @@ try {
   }
   const copiedSource = sourceState(root);
   source.sourceDirty ||= copiedSource.sourceDirty || copiedSource.sourceSha !== source.sourceSha;
+  source.generatedDirty ||= copiedSource.generatedDirty;
   await linkDependencies(path.join(root, 'node_modules'), path.join(workspace, 'node_modules'), true);
   for (const name of ['api', 'web']) await linkDependencies(path.join(root, 'apps', name, 'node_modules'), path.join(workspace, 'apps', name, 'node_modules'));
   if (sentryTracing) {
