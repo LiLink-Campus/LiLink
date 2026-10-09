@@ -21,6 +21,7 @@ test('each business write wakes durable cache delivery before idle fallback', as
     const untilFallback = 900_000 - Date.now() % 900_000;
     if (untilFallback < 25_000) await new Promise(resolve => setTimeout(resolve, untilFallback + 1000));
     await new Promise(resolve => setTimeout(resolve, 1100));
+    const fallbackDeadline = (Math.floor(Date.now() / 900_000) + 1) * 900_000;
     await db.$executeRaw`UPDATE "PublicCacheInvalidation" SET "revision" = "revision" + 1,
       "dueAt" = NOW() + INTERVAL '2 seconds', "lastAttemptAt" = NULL, "lastClaimedAt" = NULL,
       "leaseToken" = NULL, "leaseUntil" = NULL, "exhaustedAt" = NULL, "attempts" = 0 WHERE "scope" = 'home'`;
@@ -32,8 +33,9 @@ test('each business write wakes durable cache delivery before idle fallback', as
     await expect.poll(async () => (await row()).acknowledgedRevision >= target.revision,
       { timeout: 18_000, intervals: [100, 250] }).toBe(true);
     const acknowledgedAt = Date.now();
+    expect(acknowledgedAt, `${name} must be acknowledged before the idle fallback`).toBeLessThan(fallbackDeadline);
     evidence.push({ name, startedAt, acknowledgedAt, activeLatencyMs: acknowledgedAt - startedAt,
-      beforeIdleFallback: acknowledgedAt < startedAt + untilFallback, durableDeliveryAcknowledged: true });
+      fallbackDeadline, beforeIdleFallback: acknowledgedAt < fallbackDeadline, durableDeliveryAcknowledged: true });
   }
   // Drain synthetic setup through an existing real business entry point.
   await db.publicCacheInvalidation.updateMany({ data: { dueAt: new Date(0), lastClaimedAt: null, lastAttemptAt: null } });

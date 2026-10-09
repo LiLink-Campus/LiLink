@@ -9,6 +9,8 @@ lang: zh
 
 在仓库根目录执行 `node scripts/release/local-rehearsal.mjs`。需要 Node 24、Docker 和镜像下载权限；不需要线上 Secrets 或远端数据库。GitHub 的 [手动演练](../../.github/workflows/release-rehearsal.yml) 执行同一命令，不参与 PR 回归门禁。
 
+构建前必须提交会影响 API 镜像或演练脚本的改动：检查 `.dockerignore`、根 package/lock、`apps/api`、`packages/shared`、`scripts/release` 和源码身份工具的 staged、unstaged、untracked 状态，不干净时在调用 Docker 前失败。镜像上下文、挂载的演练脚本和问卷 Fixture 都来自已检查 SHA 的 Git archive，不包含忽略的本地产物，也不会混入构建期间新增的修改；镜像标签和 `run.json` 使用该 SHA。无关 Web 或文档编辑不会阻止 API 演练。任务源码快照与临时凭据一起清理。
+
 运行器构建 [生产 Dockerfile](../../apps/api/Dockerfile.prod)，新建带随机任务标签的内部网络、临时 PostgreSQL 和 Mailpit。数据库 URL 必须属于当次 run-id，迁移前检查容器标签、实际数据库名、role 和空 schema。生产入口正常执行 migration 和应用启动，临时 Secret 文件单独只读挂载，运行 UID 1001 可读。没有宿主端口、公网域名、Tunnel、Caddy 或远程控制接口。
 
 初始化 2000 个合成用户、学校、问卷和三轮历史配对后，真实执行 prepare、reveal、用户快照、outbox 和 Mailpit 验证。检查参与者集合、配对唯一性、无自配、历史配对限制、快照对应和通知去重。重复 tick 不得重新揭晓。撮合耗时与通知排空时间分别记录；2000 人是数据规模，不代表 HTTP 并发用户数。该单点负载不能外推生产容量，硬约束和事务边界的全面回归仍由固定测试集合承担。

@@ -1,4 +1,4 @@
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
 import { cp, mkdir, readdir, symlink, writeFile, readFile, rm, access } from 'node:fs/promises';
 import net from 'node:net';
@@ -9,6 +9,7 @@ import { testEnvironment } from './environment.mjs';
 import { startContractProxy } from './contract-proxy.mjs';
 import { startDevlogFixture } from './devlog-fixture.mjs';
 import { saveBuildRouteSummary } from './build-route-summary.mjs';
+import { sourceState } from '../source-state.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ci = process.argv.includes('--ci');
@@ -44,7 +45,7 @@ if ((contractProxy && (apiOnly || buildOnly)) || (serve && apiOnly) || (sentryTr
 }
 const playwrightArgs = process.argv.slice(2).filter(arg => !['--reuse-api-build', '--ci', '--serve', '--build-only', '--sentry-tracing', '--contract-proxy'].includes(arg) && !arg.startsWith('--serve-minutes=') && !arg.startsWith('--extra-client-origin=') && !arg.startsWith('--devlog-fixture='));
 if (buildOnly && playwrightArgs.length) throw new Error('--build-only does not accept browser test arguments.');
-const sourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+const source = sourceState(root);
 const startedAt = Date.now();
 const runId = randomBytes(6).toString('hex');
 const output = path.join(root, 'artifacts/e2e', runId);
@@ -152,7 +153,7 @@ try {
     env.E2E_DEVLOG_FIXTURE_URL = devlog.url;
   }
   await command('docker', ['info', '--format', '{{.ServerVersion}}'], { label: 'infra' });
-  const excluded = new Set(['node_modules', '.next', 'dist', 'coverage', 'storybook-static', '.git', 'generated']);
+  const excluded = new Set(['node_modules', '.next', 'dist', 'coverage', 'storybook-static', '.git', 'generated', 'static-assets.lock']);
   for (const entry of ['package.json', 'package-lock.json', 'apps', 'packages', 'scripts', 'e2e', 'playwright.config.ts']) {
     await cp(path.join(root, entry), path.join(workspace, entry), {
       recursive: true,
@@ -160,6 +161,8 @@ try {
     });
     if (interrupted) throw new Error('Run interrupted.');
   }
+  const copiedSource = sourceState(root);
+  source.sourceDirty ||= copiedSource.sourceDirty || copiedSource.sourceSha !== source.sourceSha;
   await linkDependencies(path.join(root, 'node_modules'), path.join(workspace, 'node_modules'), true);
   for (const name of ['api', 'web']) await linkDependencies(path.join(root, 'apps', name, 'node_modules'), path.join(workspace, 'apps', name, 'node_modules'));
   if (sentryTracing) {
@@ -248,6 +251,6 @@ try {
   process.exitCode = interrupted ? 130 : 1;
 } finally {
   await cleanup();
-  await writeFile(path.join(output, 'run.json'), JSON.stringify({ sourceSha, runId, startedAt: new Date(startedAt).toISOString(), durationMs: Date.now() - startedAt, exitCode: process.exitCode || 0, arguments: process.argv.slice(2), platform: process.platform, arch: process.arch }, null, 2));
+  await writeFile(path.join(output, 'run.json'), JSON.stringify({ ...source, runId, startedAt: new Date(startedAt).toISOString(), durationMs: Date.now() - startedAt, exitCode: process.exitCode || 0, arguments: process.argv.slice(2), platform: process.platform, arch: process.arch }, null, 2));
   console.log(`E2E artifacts: ${output}`);
 }

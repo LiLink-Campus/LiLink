@@ -677,6 +677,7 @@ export const ProfilePartnerLifestyleSaved: Story = {
 export const ProfileAutoAdvance: Story = {
   tags: ["test"],
   ...Profile,
+  parameters: ProfileRequiredFields.parameters,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await userEvent.click(c.getByRole("button", { name: /价值观/ }));
@@ -685,12 +686,14 @@ export const ProfileAutoAdvance: Story = {
     await waitFor(() => expect(c.getByRole("group", { name: questions[1].prompt })).toBeVisible());
     await userEvent.click(c.getByRole("button", { name: "← 上一题" }));
     await expect(within(c.getByRole("group", { name: questions[0].prompt })).getAllByRole("radio")[0]).toBeChecked();
+    await waitFor(() => expect(c.getByLabelText("问卷保存状态")).toHaveTextContent("草稿已自动保存"));
   },
 };
 
 export const ProfileExactMultiAdvance: Story = {
   tags: ["test"],
   ...Profile,
+  parameters: ProfileRequiredFields.parameters,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await userEvent.click(c.getByRole("button", { name: /价值观/ }));
@@ -701,6 +704,10 @@ export const ProfileExactMultiAdvance: Story = {
     await expect(group).toBeVisible();
     await userEvent.click(within(group).getByText("徒步", { exact: true }));
     await waitFor(() => expect(c.getByRole("group", { name: questions[2].prompt })).toBeVisible());
+    await userEvent.click(c.getByRole("button", { name: "← 上一题" }));
+    await expect(within(c.getByRole("group", { name: questions[1].prompt })).getByRole("checkbox", { name: "阅读" })).toBeChecked();
+    await expect(within(c.getByRole("group", { name: questions[1].prompt })).getByRole("checkbox", { name: "徒步" })).toBeChecked();
+    await waitFor(() => expect(c.getByLabelText("问卷保存状态")).toHaveTextContent("草稿已自动保存"));
   },
 };
 

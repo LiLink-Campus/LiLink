@@ -45,9 +45,9 @@ try {
   await mkdir(stage, { recursive: true });
   await mkdir(output, { recursive: true });
   await mkdir(baseline, { recursive: true });
-  const excluded = new Set(['node_modules', '.next', 'dist', 'generated', 'coverage', 'storybook-static', 'artifacts']);
+  const excluded = new Set(['node_modules', '.next', 'dist', 'generated', 'coverage', 'storybook-static', 'artifacts', 'static-assets.lock']);
   const trackedRoots = [...new Set(execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean).map(file => file.split('/')[0])), '.git'];
-  for (const entry of ci ? trackedRoots : ['package.json', 'package-lock.json', 'apps', 'packages', 'scripts', 'e2e', 'playwright.config.ts']) {
+  for (const entry of trackedRoots) {
     if (excluded.has(entry) || entry.startsWith('.env')) continue;
     await cp(path.join(root, entry), path.join(stage, entry), { recursive: true,
       filter: source => !excluded.has(path.basename(source)) && (!path.basename(source).startsWith('.env') || path.basename(source) === '.env.example') && !source.endsWith('.tsbuildinfo'),
@@ -61,6 +61,6 @@ try {
     '-v', `${output}:/work/artifacts`, '-v', `${baseline}:/work/e2e/baselines`,
     'lilink-e2e-runner:1.60.0', ci
       ? 'git config --global --add safe.directory /work && npm ci --no-audit --no-fund && exec bash scripts/test-ci.sh'
-      : 'npm ci --no-audit --no-fund && exec node scripts/e2e/run.mjs "$@"', 'e2e', ...(ci ? [] : process.argv.slice(2))]);
+      : 'git config --global --add safe.directory /work && npm ci --no-audit --no-fund && exec node scripts/e2e/run.mjs "$@"', 'e2e', ...(ci ? [] : process.argv.slice(2))]);
 } catch (error) { console.error(error.message); process.exitCode = 1; }
 finally { await cleanupStage(); }

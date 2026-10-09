@@ -31,6 +31,8 @@ Chromium 执行固定主集合；`@mobile` 指定 mobile WebKit 的真实移动�
 
 Linux 工件位于 `artifacts/e2e-linux-results/<run-id>/`，内部 E2E 子目录包含原生 JSON/HTML 报告、失败证据、服务日志和 `run.json`。普通成功测试不批量截图；涉及凭据路径按隐私边界关闭敏感 trace。报告 selected/executed/skipped/retried，skip 不计通过。只使用合成账号和邮件，不上传环境文件。
 
+`run.json` 同时记录启动时的 `sourceSha` 和 `sourceDirty`，复制源码后再复核状态，期间观察到修改或 HEAD 变化也标记为 dirty。本地允许未提交修改；`sourceDirty: true` 表示该 SHA 只是工作区基点，不能把结果视为该提交的验证。提交级证据需要复制期间保持干净 checkout、完整固定集合和对应的实际 Checks；单例调试使用 `--reuse-api-build` 时，调用者还必须保证已有 API dist 与当前源码一致。
+
 正常结束、失败与 SIGINT/SIGTERM 删除当次进程、容器和临时源码；Linux 包装器保留工件。SIGKILL/断电后用 `docker ps -a --filter label=lilink.e2e=<run-id>` 核对归属，再清理该次残留，不执行全局 prune。
 
 ## 单例调试与视觉基准

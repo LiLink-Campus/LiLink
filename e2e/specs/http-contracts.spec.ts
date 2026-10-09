@@ -121,7 +121,7 @@ async function freePort() {
   return port;
 }
 
-test('new text, HTML and share entries honor the public Web origin @smoke', async ({ request, account, signedIn }, info) => {
+test('new text, HTML and share entries honor the public Web origin @smoke', async ({ request, signedIn }, info) => {
   test.setTimeout(180_000);
   void signedIn;
   const samples = [];
@@ -134,20 +134,19 @@ test('new text, HTML and share entries honor the public Web origin @smoke', asyn
     { configured: 'http://localhost:3000', clients: webOrigin, expected: 'http://localhost:3000' },
     { configured: 'https://api.example.test', clients: webOrigin, expected: 'https://api.example.test' },
   ]) {
-    const port = await freePort();
-    const child = spawn(process.execPath, ['apps/api/dist/src/main.js'], {
+    const useMainApi = variant.configured === undefined && variant.clients === webOrigin;
+    const port = useMainApi ? undefined : await freePort();
+    const child = useMainApi ? undefined : spawn(process.execPath, ['apps/api/dist/src/main.js'], {
       cwd: process.env.E2E_WORKSPACE, stdio: 'ignore',
       env: { ...process.env, PORT: String(port), CLIENT_ORIGIN: variant.clients,
         PUBLIC_WEB_URL: variant.configured ?? '', SENTRY_DSN: '', BACKGROUND_JOBS_ENABLED: 'false' },
     });
-    const childApi = `http://127.0.0.1:${port}/v1`;
+    const childApi = useMainApi ? api : `http://127.0.0.1:${port}/v1`;
     try {
       await expect.poll(async () => {
-        expect(child.exitCode, 'The isolated API must remain live.').toBeNull();
+        if (child) expect(child.exitCode, 'The isolated API must remain live.').toBeNull();
         try { return (await request.get(`${childApi}/health`, { timeout: 1000 })).ok(); } catch { return false; }
       }, { timeout: 25_000 }).toBe(true);
-      const login = await request.post(`${childApi}/auth/login`, { data: { email: account.email, password } });
-      expect(login.ok()).toBe(true);
       const overviewResponse = await request.get(`${childApi}/me/referral`);
       expect(overviewResponse.ok()).toBe(true);
       const overview = await overviewResponse.json();
@@ -171,9 +170,13 @@ test('new text, HTML and share entries honor the public Web origin @smoke', asyn
       samples.push({ configured: variant.configured ?? 'CLIENT_ORIGIN first item', expected: variant.expected,
         textAndHtmlMatch: true, sharingChannels: overview.links.map((link: { channel: string }) => link.channel) });
     } finally {
-      child.kill('SIGTERM');
-      await Promise.race([new Promise(resolve => child.once('exit', resolve)), new Promise(resolve => setTimeout(resolve, 3000))]);
-      if (child.exitCode === null) child.kill('SIGKILL');
+      if (child) {
+        child.kill('SIGTERM');
+        let deadline;
+        try { await Promise.race([new Promise(resolve => child.once('exit', resolve)), new Promise(resolve => { deadline = setTimeout(resolve, 3000); })]); }
+        finally { clearTimeout(deadline); }
+        if (child.exitCode === null) child.kill('SIGKILL');
+      }
     }
   }
   expect((await request.get(`${api}/auth/me`)).ok()).toBe(true);

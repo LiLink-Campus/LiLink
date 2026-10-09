@@ -28,6 +28,8 @@ npm run lint:shared
 npm run lint:web
 npm exec --workspace api -- eslint '{src,apps,libs,test}/**/*.ts'
 npm exec --workspace api -- nest build
+# Generate compatible static images once; each Web prebuild verifies the copied inputs and outputs.
+npm run images:generate
 # The Replay SDK captures native timers in an iframe and conflicts with browser fake clocks.
 # Keep its real compiled integration in a separate Web build, with the same API dist.
 node scripts/e2e/run.mjs --ci &
