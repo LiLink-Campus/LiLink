@@ -165,7 +165,7 @@ test('asset caching preserves content digests and excludes mutable or private re
 });
 
 // Real routed pages replace the old Node test's hand-written HTML and CSS loader.
-test('team avatars keep their distinct blend and crop across CSS breakpoints @webkit', async ({ page }) => {
+test('team avatars keep their circular crop across CSS breakpoints @webkit', async ({ page }) => {
   for (const slug of ['yoryon', 'member-02']) {
     await visit(page, `/about/team/${slug}`);
     const avatar = page.locator('main header img');
@@ -177,10 +177,7 @@ test('team avatars keep their distinct blend and crop across CSS breakpoints @we
         return { blend: style.mixBlendMode, radius: style.borderRadius,
           fit: style.objectFit, background: style.backgroundColor };
       });
-      if (slug === 'yoryon') expect(actual).toEqual({
-        blend: 'multiply', radius: '0px', fit: 'contain', background: 'rgba(0, 0, 0, 0)',
-      });
-      else expect(actual).toMatchObject({ blend: 'normal', radius: '50%', fit: 'cover' });
+      expect(actual).toMatchObject({ blend: 'normal', radius: '50%', fit: 'cover' });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
   }
