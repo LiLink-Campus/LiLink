@@ -27,12 +27,9 @@
 
 .socials { justify-content: flex-start; column-gap: 40px; }
 
-.introQuote { margin: 4px 0 36px; padding-left: 20px; border-left: 2px solid #ded5cd; }
-.introQuote p { margin-bottom: 0; font-family: inherit; font-size: 16px; line-height: 1.85; color: var(--color-text-secondary); }
 .introText p { margin-bottom: 24px; }
 .freedom { display: inline-block; margin-top: 8px; font-weight: 600; color: var(--color-brand-ink); }
 .introText .writingNote { margin-top: 32px; margin-bottom: 0; color: var(--color-text-muted); font-size: 14px; }
-@media (max-width: 640px) { .introQuote { padding-left: 16px; margin-bottom: 28px; } }
 
 .bio .writingNote {
   font-family: inherit;
