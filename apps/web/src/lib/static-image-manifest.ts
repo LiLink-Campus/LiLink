@@ -180,22 +180,22 @@ export const staticImageManifest = {
       }
     ]
   },
-  "/images/about/member-01.486b9b138019.webp": {
+  "/images/about/yoryon.f1f0a575ff59.webp": {
     "width": 336,
     "height": 336,
     "variants": [
       {
-        "src": "/images/responsive/member-01-112.d74d2ce6b13f.webp",
+        "src": "/images/responsive/yoryon-112.07459128ffb5.webp",
         "width": 112,
         "height": 112
       },
       {
-        "src": "/images/responsive/member-01-224.f79d64247cb3.webp",
+        "src": "/images/responsive/yoryon-224.4a57b811191e.webp",
         "width": 224,
         "height": 224
       },
       {
-        "src": "/images/responsive/member-01-336.486b9b138019.webp",
+        "src": "/images/responsive/yoryon-336.f1f0a575ff59.webp",
         "width": 336,
         "height": 336
       }

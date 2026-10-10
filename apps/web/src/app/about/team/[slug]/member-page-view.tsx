@@ -8,8 +8,8 @@ export function MemberPageView({ slug }: { slug: "yoryon" | "member-02" | "devil
   return <main className={styles.page}>
     <Link prefetch={false} className={styles.back} href="/about#team-title">← 返回团队</Link>
     <header className={styles.header}>
-      {founder ? <StaticImage className={styles.avatar} src="/images/about/member-01.486b9b138019.webp" alt="釉蓝yoryon 的黑色轨道箭头头像" width={112} height={112} /> : <StaticImage className={`${styles.avatar} ${styles.photo}`} src={devil ? "/images/about/devillord6321.016e14db36ed.webp" : "/images/about/member-02.b6fbc6031cdb.webp"} alt={devil ? "Devillord6321 的猫咪头像" : "蟹牛堡 的头像"} width={112} height={112} />}
-      <div><h1>{founder ? "釉蓝yoryon" : devil ? "Devillord6321" : "蟹牛堡"}</h1><p>{founder ? "创始人 & 产品负责人" : devil ? "增长 & 运营" : "增长 & 运营负责人"}</p></div>
+      {founder ? <StaticImage className={`${styles.avatar} ${styles.photo}`} src="/images/about/yoryon.f1f0a575ff59.webp" alt="釉蓝yoryon 的蓝色插画头像" width={112} height={112} /> : <StaticImage className={`${styles.avatar} ${styles.photo}`} src={devil ? "/images/about/devillord6321.016e14db36ed.webp" : "/images/about/member-02.b6fbc6031cdb.webp"} alt={devil ? "Devillord6321 的猫咪头像" : "蟹牛堡 的头像"} width={112} height={112} />}
+      <div><h1>{founder ? "釉蓝yoryon" : devil ? "Devillord6321" : "蟹牛堡"}</h1><p>{founder ? "创始人 & 产品负责人" : "增长 & 运营负责人"}</p></div>
     </header>
     {founder && (                <div className={`${styles.socials} ${styles.founderSocials}`} aria-label="釉蓝yoryon 的社交媒体">
                   <a href="https://yoryon.com" target="_blank" rel="noopener noreferrer">个人主页 ↗</a>
@@ -26,13 +26,8 @@ export function MemberPageView({ slug }: { slug: "yoryon" | "member-02" | "devil
     {devil && <div className={styles.socials}><a href="https://github.com/Devillord6321" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div>}
     <section className={styles.bio}>
       {devil ? <div className={styles.introText}><p>Double Fine用了半辈子探索人们眼中的天空会是什么颜色，佢嘚没有找到答案，但是创造了震撼人心的作品</p></div> : founder ? <>
-        <blockquote className={styles.introQuote}>
-          <p>我曾以为，最远的旅程是从家到学校，从学校到社会，从社会到远方。后来才明白，最远的旅程，是从自己到自己。</p>
-        </blockquote>
         <div className={styles.introText}>
-          <p>原本写了很多，要么感觉太装了，要么感觉太糖了。</p>
-          <p>索性全部删掉，不写了。</p>
-          <p>有合作、投诉、建议等问题，可以加我的工作微信。</p>
+          <p>有合作、投诉、建议等问题，可以加工作微信。</p>
           <p className={styles.writingNote}>抖音和小红书偶尔更新一些日记、碎碎念和无病呻吟。<br />个人主页、公众号写点正常的技术博客。</p>
         </div>
       </> : <div className={styles.introText}>

@@ -18,7 +18,7 @@ const sources = [
   ['images/campus-clean-romance.fdd0f4cc2596.webp', [384, 640, 750, 1080]],
   ['images/campus-couple-anime.74b2881afd58.webp', [384, 640, 750, 1080]],
   ['images/one-to-one-minimal.6c30b4067e80.webp', [384, 640, 750, 828, 1080, 1200]],
-  ['images/about/member-01.486b9b138019.webp', [112, 224]],
+  ['images/about/yoryon.f1f0a575ff59.webp', [112, 224]],
   ['images/about/member-02.b6fbc6031cdb.webp', [112, 224]],
   ['images/about/devillord6321.016e14db36ed.webp', [112, 224]],
   ['images/match-letter-handwritten.8440550c4fe2.webp', [384, 640, 750, 828, 1080]],
