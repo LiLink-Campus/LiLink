@@ -31,6 +31,10 @@ const USER_ACTIVITY_UPDATE_THROTTLE_MS = 60 * 60 * 1000;
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   private readonly logger = new Logger(JwtAuthGuard.name);
+  private readonly pendingUserLoads = new Map<
+    string,
+    Promise<ActiveAuthenticatedUser>
+  >();
 
   constructor(
     private readonly jwtService: JwtService,
@@ -75,7 +79,7 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Authentication token is invalid.');
     }
 
-    const user = await this.findActiveUser(payload.sub, payload.sessionVersion);
+    const user = await this.loadActiveUser(payload.sub, payload.sessionVersion);
     request.user = {
       sub: user.sub,
       email: user.email,
@@ -90,6 +94,19 @@ export class JwtAuthGuard implements CanActivate {
     });
 
     return true;
+  }
+
+  private loadActiveUser(userId: string, sessionVersion: number) {
+    // Share only pending reads within one session version, never settled results.
+    const key = `${userId}:${sessionVersion}`;
+    const existing = this.pendingUserLoads.get(key);
+    if (existing) return existing;
+
+    const pending = this.findActiveUser(userId, sessionVersion).finally(() => {
+      this.pendingUserLoads.delete(key);
+    });
+    this.pendingUserLoads.set(key, pending);
+    return pending;
   }
 
   private async findActiveUser(

@@ -18,24 +18,10 @@ import {
   newPassword,
   resetCode,
   sessionApp,
+  assertDisposableSessionDatabase,
 } from './fixtures/auth-session';
 
-const database = new URL(env.DATABASE_URL);
-const disposableRun = /^\/lilink_vip_test_[a-f0-9]+$/.test(database.pathname);
-const disposableCi =
-  process.env.CI === 'true' &&
-  database.port === '55432' &&
-  database.pathname === '/lilink_vip_test_ci';
-if (
-  database.protocol !== 'postgresql:' ||
-  database.hostname !== '127.0.0.1' ||
-  !database.port ||
-  database.port === '5432' ||
-  (!disposableRun && !disposableCi) ||
-  !process.env.E2E_OUTPUT
-) {
-  throw new Error('Session acceptance requires the disposable API E2E runner.');
-}
+assertDisposableSessionDatabase();
 const tag = `session-${randomUUID()}`;
 const assertions: string[] = [];
 const cookie = (response: request.Response) =>
@@ -287,10 +273,12 @@ describe('User session revocation (HTTP + PostgreSQL)', () => {
     }
   });
 
-  it('does not reuse a delayed pre-reset account read for new old/new-token requests', async () => {
+  it('shares the accepted old-version window and keeps the replacement session independent', async () => {
     const captured = barrier();
     const resume = barrier();
     const freshRead = barrier();
+    const oldJoined = barrier();
+    let verifications = 0;
     let pause = true;
     const delayed = prisma.$extends({
       query: {
@@ -309,7 +297,12 @@ describe('User session revocation (HTTP + PostgreSQL)', () => {
         },
       },
     });
-    const delayedApp = await sessionApp(delayed as unknown as PrismaClient);
+    const delayedApp = await sessionApp(
+      delayed as unknown as PrismaClient,
+      () => {
+        if (++verifications === 2) oldJoined.release();
+      },
+    );
     const inflight = http(delayedApp)
       .get('/v1/auth/me')
       .set('Cookie', oldCookie)
@@ -321,21 +314,25 @@ describe('User session revocation (HTTP + PostgreSQL)', () => {
       const reset = await http(app).post('/v1/auth/reset-password').send(input);
       expect(reset.status).toBe(201);
       const stale = http(delayedApp)
-        .get('/v1/auth/me')
+        .put('/v1/me/locale')
         .set('Cookie', oldCookie)
+        .send({ locale: 'en-US' })
         .then((r) => r);
+      pending.push(stale);
+      await within(oldJoined.promise);
       const fresh = http(delayedApp)
         .get('/v1/auth/me')
         .set('Cookie', cookie(reset))
         .then((r) => r);
-      pending.push(stale, fresh);
+      pending.push(fresh);
       await within(freshRead.promise);
-      resume.release();
-      expect((await stale).status).toBe(401);
       expect((await fresh).status).toBe(200);
+      resume.release();
+      expect((await stale).status).toBe(200);
       expect((await inflight).status).toBe(200);
+      await readWrite(oldCookie, 401, delayedApp);
       assertions.push(
-        'delayed pre-reset read may finish; post-reset old/new cookies independently return 401/200',
+        'old-version read/write requests share a pending pre-reset read; new session succeeds independently; settled old session returns 401',
       );
     } finally {
       resume.release();

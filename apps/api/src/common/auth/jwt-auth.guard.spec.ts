@@ -254,67 +254,6 @@ describe('JwtAuthGuard', () => {
     warnSpy.mockRestore();
   });
 
-  it('loads current user state separately for every request', async () => {
-    const recentActiveAt = new Date();
-    const jwtService = {
-      verifyAsync: jest.fn().mockResolvedValue({
-        sub: 'user-1',
-        sessionVersion: 0,
-        email: 'token@example.com',
-      }),
-    };
-    const prisma = {
-      user: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'user-1',
-          sessionVersion: 0,
-          email: 'active@example.com',
-          displayName: 'Active User',
-          status: 'ACTIVE',
-          lastActiveAt: recentActiveAt,
-        }),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-      },
-    };
-    const guard = new JwtAuthGuard(jwtService as never, prisma as never);
-    const createContext = () => {
-      const request: {
-        cookies: Record<string, string>;
-        headers: Record<string, string>;
-        user?: { sub: string; email: string; displayName: string | null };
-      } = {
-        cookies: { lilink_token: 'token' },
-        headers: {},
-      };
-
-      return {
-        request,
-        context: {
-          switchToHttp: () => ({
-            getRequest: () => request,
-          }),
-        },
-      };
-    };
-    const first = createContext();
-    const second = createContext();
-
-    await expect(
-      Promise.all([
-        guard.canActivate(first.context as never),
-        guard.canActivate(second.context as never),
-      ]),
-    ).resolves.toEqual([true, true]);
-
-    const third = createContext();
-    await expect(guard.canActivate(third.context as never)).resolves.toBe(true);
-
-    expect(prisma.user.findUnique).toHaveBeenCalledTimes(3);
-    expect(prisma.user.updateMany).not.toHaveBeenCalled();
-    expect(first.request.user).toEqual(second.request.user);
-    expect(third.request.user).toEqual(first.request.user);
-  });
-
   it('rejects users suspended after a previous active request', async () => {
     const recentActiveAt = new Date();
     const jwtService = {

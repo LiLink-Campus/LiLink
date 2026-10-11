@@ -1,6 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtVerifyOptions } from '@nestjs/jwt';
 import cookieParser from 'cookie-parser';
 import { createHmac, randomUUID } from 'crypto';
 import { PrismaClient } from '../../src/common/prisma/client';
@@ -22,6 +22,43 @@ import { env } from '../../src/config/env';
 export const jwt = new JwtService({ secret: env.JWT_SECRET });
 export const oldPassword = 'SyntheticSession123!';
 export const newPassword = 'ReplacementSession456!';
+
+export function assertDisposableSessionDatabase() {
+  const database = new URL(env.DATABASE_URL);
+  const disposableRun = /^\/lilink_vip_test_[a-f0-9]+$/.test(database.pathname);
+  const disposableCi =
+    process.env.CI === 'true' &&
+    database.port === '55432' &&
+    database.pathname === '/lilink_vip_test_ci';
+  if (
+    database.protocol !== 'postgresql:' ||
+    database.hostname !== '127.0.0.1' ||
+    !database.port ||
+    database.port === '5432' ||
+    (!disposableRun && !disposableCi) ||
+    !process.env.E2E_OUTPUT
+  ) {
+    throw new Error(
+      'Session acceptance requires the disposable API E2E runner.',
+    );
+  }
+}
+
+class ObservedJwtService extends JwtService {
+  constructor(private readonly verified: () => void) {
+    super({ secret: env.JWT_SECRET });
+  }
+
+  override async verifyAsync<T extends object = Record<string, unknown>>(
+    token: string,
+    options?: JwtVerifyOptions,
+  ): Promise<T> {
+    const result = await super.verifyAsync<T>(token, options);
+    // Observe admission after the Guard resumes from token verification.
+    setImmediate(this.verified);
+    return result;
+  }
+}
 
 export function barrier() {
   let release!: () => void;
@@ -70,11 +107,15 @@ export async function resetCode(prisma: PrismaClient, email: string) {
 
 export async function sessionApp(
   prisma: PrismaClient,
+  onVerified?: () => void,
 ): Promise<INestApplication> {
   const module = await Test.createTestingModule({
     controllers: [AuthController, AccountController],
     providers: [
-      { provide: JwtService, useValue: jwt },
+      {
+        provide: JwtService,
+        useValue: onVerified ? new ObservedJwtService(onVerified) : jwt,
+      },
       { provide: PrismaService, useValue: prisma },
       JwtAuthGuard,
       {
