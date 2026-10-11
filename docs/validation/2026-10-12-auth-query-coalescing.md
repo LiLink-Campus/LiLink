@@ -9,7 +9,7 @@ lang: zh
 
 ## 范围与前提
 
-实现[在途身份查询合并决策](../decisions/2026-10-12-auth-query-coalescing.md)，恢复同用户、同版本的进行中身份读取共享。仅 API Guard 有生产实现变动，没有迁移、DNS、数据库调度、登录密码验证或管理员 Guard 变更。用户接受的重置后旧状态共享窗口进入现行[账户契约](../reference/account.md#普通用户会话撤销)。
+实现[在途身份查询合并决策](../decisions/2026-10-12-auth-query-coalescing.md)，恢复同一 Guard 实例内、同用户、同版本的进行中身份读取共享。仅 API Guard 有生产实现变动，没有迁移、DNS、数据库调度、登录密码验证或管理员 Guard 变更。用户接受的重置后旧状态共享窗口进入现行[账户契约](../reference/account.md#普通用户会话撤销)。
 
 本机环境：macOS arm64、Node 24.20.0、npm 11.19.0、Docker 29.5.2、PostgreSQL 17、Mailpit。runner 自动创建 disposable loopback 服务、临时密钥和合成账号并在退出时清理。身份 SQL 观测只计数，不记录 SQL 参数、密码、Cookie、邮箱或完整响应；认证浏览器用例关闭 trace/video/screenshot。
 
