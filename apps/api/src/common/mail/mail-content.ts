@@ -1,3 +1,4 @@
+import { renderMatchEmail } from './match-email-template';
 import { OutboundEmailMessageCategory } from '../prisma/client';
 import { publicWebOrigin } from '../public-web-url';
 import {
@@ -144,7 +145,7 @@ export class MailContent {
         recipientEmail: party.email,
         otherParty,
         otherPartyDisplayName: name,
-        leadingSentence: `本轮匹配结果已公布，你与 ${name} 匹配成功。可以直接通过以下方式联系对方，也可以登录 LiLink 查看这封来信。`,
+        leadingSentence: `本轮匹配结果已公布，你与 ${name} 匹配成功。`,
       });
     });
   }
@@ -158,12 +159,7 @@ export class MailContent {
   }) {
     const subject = `LiLink 已为你引荐 ${input.otherPartyDisplayName}`;
     const siteUrl = publicWebOrigin();
-    const otherContact = input.otherParty.publicContact ?? {
-      type: 'EMAIL' as const,
-      label: '邮箱',
-      value: input.otherParty.email,
-    };
-    const otherContactText = `${otherContact.label} ${otherContact.value}`;
+    const matchUrl = new URL('/dashboard/match', siteUrl).href;
     const otherSchool = input.otherParty.schoolName ?? '未填写';
     const otherIntro = input.otherParty.introLine ?? '暂无';
     const otherGender = input.otherParty.gender?.trim() || null;
@@ -187,36 +183,25 @@ export class MailContent {
 
     const text = [
       input.leadingSentence,
-      '',
-      `对方联系方式：${otherContactText}`,
       `对方学校：${otherSchool}`,
       `对方一句话介绍：${otherIntro}`,
       ...infoLines,
-      '',
+      '请点击下方链接，登录 LiLink 查看这封来信和对方联系方式。',
+      matchUrl,
       '此邮件由 LiLink 系统自动发送，请勿直接回复。',
       '',
       '— LiLink 团队',
       siteUrl,
     ].join('\n');
 
-    const infoHtml = infoLines
-      .map((line) => `<p class="note">${escapeHtml(line)}</p>`)
-      .join('');
-
-    const html = renderHtmlDocument({
-      title: subject,
-      body: [
-        '<p class="brand">LiLink</p>',
-        `<h1>${escapeHtml(subject)}</h1>`,
-        `<p>${escapeHtml(input.leadingSentence)}</p>`,
-        `<p class="note">对方联系方式：<strong>${escapeHtml(otherContactText)}</strong></p>`,
-        `<p class="note">对方学校：${escapeHtml(otherSchool)}</p>`,
-        `<p class="note">对方一句话介绍：${escapeHtml(otherIntro)}</p>`,
-        infoHtml,
-        '<p class="footer">此邮件由 LiLink 系统自动发送，请勿直接回复。</p>',
-        '<hr>',
-        `<p class="footer">— LiLink 团队 · <a href="${escapeHtml(siteUrl)}">${escapeHtml(siteUrl.replace(/^https?:\/\//, ''))}</a></p>`,
-      ].join(''),
+    const html = renderMatchEmail({
+      subject,
+      name: input.otherPartyDisplayName,
+      school: otherSchool,
+      introduction: otherIntro,
+      infoLines,
+      matchUrl,
+      siteUrl,
     });
 
     return {

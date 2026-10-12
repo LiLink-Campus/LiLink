@@ -81,7 +81,7 @@ describe('Mail content', () => {
     expect(recipientEmail.html).toContain('对方本周意向：都可以');
   });
 
-  it('renders the other party selected public contact in introduction email', () => {
+  it('links to the match page without disclosing the other party contact', () => {
     const service = createMailService();
 
     const [requesterEmail, recipientEmail] = service.buildMatchRevealEmails({
@@ -112,23 +112,25 @@ describe('Mail content', () => {
       },
     } as never);
 
-    expect(requesterEmail.text).toContain('对方联系方式：手机号 +14155552671');
+    expect(requesterEmail.text).toContain('/dashboard/match');
+    expect(requesterEmail.text).not.toContain('+14155552671');
+    expect(requesterEmail.text).not.toContain('recipient@example.com');
     expect(requesterEmail.text).toContain('对方性别：男');
     expect(requesterEmail.text).toContain('对方期望对象性别：女、非二元');
     expect(requesterEmail.text).toContain('对方本周意向：认识朋友');
-    expect(requesterEmail.html).toContain(
-      '对方联系方式：<strong>手机号 +14155552671</strong>',
-    );
+    expect(requesterEmail.html).toContain('/dashboard/match"');
+    expect(requesterEmail.html).not.toContain('+14155552671');
     expect(requesterEmail.html).toContain('对方性别：男');
     expect(requesterEmail.html).toContain('对方期望对象性别：女、非二元');
     expect(requesterEmail.html).toContain('对方本周意向：认识朋友');
-    expect(recipientEmail.text).toContain('对方联系方式：微信号 wx_user_1');
+    expect(recipientEmail.text).toContain('/dashboard/match');
+    expect(recipientEmail.text).not.toContain('wx_user_1');
+    expect(recipientEmail.text).not.toContain('requester@example.com');
     expect(recipientEmail.text).toContain('对方性别：女');
     expect(recipientEmail.text).toContain('对方期望对象性别：男');
     expect(recipientEmail.text).toContain('对方本周意向：都可以');
-    expect(recipientEmail.html).toContain(
-      '对方联系方式：<strong>微信号 wx_user_1</strong>',
-    );
+    expect(recipientEmail.html).toContain('/dashboard/match"');
+    expect(recipientEmail.html).not.toContain('wx_user_1');
     expect(recipientEmail.html).toContain('对方性别：女');
     expect(recipientEmail.html).toContain('对方期望对象性别：男');
     expect(recipientEmail.html).toContain('对方本周意向：都可以');
