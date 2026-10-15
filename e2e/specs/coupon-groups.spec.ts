@@ -44,7 +44,7 @@ test('text coupons use a group once with direct scan redemption @webkit @mobile'
   await visit(page, '/dashboard/coupons');
   await expect(page.getByText(/同组任选一张/)).toHaveCount(0);
   await expect(page.getByText('满减任选', { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/本店满减优惠每人限选一张/)).toBeVisible();
+  await expect(page.getByRole('region', { name: '可用优惠券', exact: true }).getByRole('article', { name: templates[0].title, exact: true }).getByText(/本店满减优惠每人限选一张/)).toBeVisible();
   const overview = await (await context.request.get(`${api}/me/coupons/overview`)).json();
   for (const item of overview.available.items) expect(item).not.toHaveProperty('redemptionGroupName');
   await page.screenshot({ path: info.outputPath('available-group.png'), fullPage: true });
