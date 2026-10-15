@@ -4,11 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
-import {
-  MerchantPromotionBlock,
-  MerchantUserRole,
-  validateMerchantPromotionBlocks,
-} from '@lilink/shared';
+import { MerchantUserRole } from '@lilink/shared';
 import { Prisma } from '../../common/prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
@@ -32,8 +28,6 @@ interface MerchantRecord {
   id: string;
   name: string;
   contactInfo: string | null;
-  promotionBlocks: Prisma.JsonValue | null;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,11 +60,6 @@ export class MerchantService {
     });
   }
 
-  /**
-   * Patch a merchant. Only supplied fields change; promotionBlocks are
-   * structurally validated (type / https URL / length / count) before storage.
-   * campaignId / merchantId of templates are never touched here.
-   */
   async updateMerchant(
     id: string,
     input: UpdateMerchantDto,
@@ -85,21 +74,6 @@ export class MerchantService {
     if (input.contactInfo !== undefined) {
       data.contactInfo = input.contactInfo.trim() || null;
     }
-    if (input.isActive !== undefined) {
-      data.isActive = input.isActive;
-    }
-    if (input.promotionBlocks !== undefined) {
-      let blocks: MerchantPromotionBlock[];
-      try {
-        blocks = validateMerchantPromotionBlocks(input.promotionBlocks);
-      } catch (error) {
-        throw new BadRequestException(
-          error instanceof Error ? error.message : 'Invalid promotion blocks.',
-        );
-      }
-      data.promotionBlocks = blocks;
-    }
-
     if (Object.keys(data).length === 0) {
       throw new BadRequestException('No updatable fields supplied.');
     }
@@ -138,8 +112,6 @@ export class MerchantService {
     if (search) {
       where.name = { contains: search, mode: 'insensitive' };
     }
-    if (query.status === 'active') where.isActive = true;
-    else if (query.status === 'inactive') where.isActive = false;
 
     const [merchants, total] = await Promise.all([
       this.prisma.merchant.findMany({
@@ -154,9 +126,32 @@ export class MerchantService {
       this.prisma.merchant.count({ where }),
     ]);
 
+    const accountCounts = merchants.length
+      ? await this.prisma.merchantUser.groupBy({
+          by: ['merchantId', 'isActive'],
+          where: {
+            merchantId: { in: merchants.map((merchant) => merchant.id) },
+          },
+          _count: { _all: true },
+        })
+      : [];
+    const summaries = new Map<
+      string,
+      { userCount: number; activeUserCount: number }
+    >();
+    for (const count of accountCounts) {
+      const summary = summaries.get(count.merchantId) ?? {
+        userCount: 0,
+        activeUserCount: 0,
+      };
+      summary.userCount += count._count._all;
+      if (count.isActive) summary.activeUserCount += count._count._all;
+      summaries.set(count.merchantId, summary);
+    }
     return {
       items: merchants.map((merchant) => ({
         ...this.toMerchantView(merchant),
+        ...(summaries.get(merchant.id) ?? { userCount: 0, activeUserCount: 0 }),
         templateCount: merchant._count.templates,
         redemptionCount: merchant._count.redemptions,
       })),
@@ -191,7 +186,7 @@ export class MerchantService {
             email,
             passwordHash,
             displayName: input.displayName?.trim() || null,
-            role: input.role as MerchantUserRole,
+            role: (input.role ?? 'STAFF') as MerchantUserRole,
           },
         });
         await tx.auditLog.create({
@@ -313,9 +308,6 @@ export class MerchantService {
       id: merchant.id,
       name: merchant.name,
       contactInfo: merchant.contactInfo,
-      promotionBlocks: (merchant.promotionBlocks ??
-        []) as unknown as MerchantPromotionBlock[],
-      isActive: merchant.isActive,
       createdAt: merchant.createdAt,
       updatedAt: merchant.updatedAt,
     };

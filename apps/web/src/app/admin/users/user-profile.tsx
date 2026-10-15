@@ -57,39 +57,6 @@ export function UserProfile({ model }: { model: AdminUsersModel }) {
                         />
                       </td>
                     </tr>
-                    <tr>
-                      <td className={cx(adminStyles, "admin-table-label")}>年级</td>
-                      <td>
-                        <input
-                          value={editForm.schoolYear}
-                          onChange={(e) => setEditForm({ ...editForm, schoolYear: e.target.value })}
-                          className={cx(adminStyles, "admin-full-control")}
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className={cx(adminStyles, "admin-table-label")}>项目 / 专业</td>
-                      <td>
-                        <input
-                          value={editForm.programName}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, programName: e.target.value })
-                          }
-                          className={cx(adminStyles, "admin-full-control")}
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className={cx(adminStyles, "admin-table-label")}>简介</td>
-                      <td>
-                        <textarea
-                          value={editForm.bio}
-                          rows={3}
-                          onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                          className={cx(adminStyles, "admin-full-control")}
-                        />
-                      </td>
-                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -121,24 +88,8 @@ export function UserProfile({ model }: { model: AdminUsersModel }) {
                       <td>{displayUser.displayName ?? "—"}</td>
                     </tr>
                     <tr>
-                      <td style={{ fontWeight: 600 }}>真实姓名</td>
-                      <td>{displayUser.profile?.fullName ?? "—"}</td>
-                    </tr>
-                    <tr>
                       <td style={{ fontWeight: 600 }}>一句话介绍</td>
                       <td>{displayUser.profile?.headline ?? "—"}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 600 }}>年级</td>
-                      <td>{displayUser.profile?.schoolYear ?? "—"}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 600 }}>项目 / 专业</td>
-                      <td>{displayUser.profile?.programName ?? "—"}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 600 }}>简介</td>
-                      <td>{displayUser.profile?.bio ?? "—"}</td>
                     </tr>
                   </tbody>
                 </table>

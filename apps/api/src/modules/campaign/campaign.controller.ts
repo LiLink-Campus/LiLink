@@ -19,11 +19,15 @@ import {
   UpdateCouponTemplateDto,
 } from './dto';
 import { CampaignService } from './campaign.service';
+import { CouponTemplateService } from './coupon-template.service';
 
 @Controller('admin')
 @UseGuards(AdminGuard)
 export class CampaignAdminController {
-  constructor(private readonly campaignService: CampaignService) {}
+  constructor(
+    private readonly campaignService: CampaignService,
+    private readonly templates: CouponTemplateService,
+  ) {}
 
   @Get('campaigns')
   listCampaigns(@Query() query: ListCampaignsQueryDto) {
@@ -54,7 +58,7 @@ export class CampaignAdminController {
 
   @Get('campaigns/:id/templates')
   listTemplates(@Param('id') id: string) {
-    return this.campaignService.listTemplates(id);
+    return this.templates.listTemplates(id);
   }
 
   @Post('campaigns/:id/templates')
@@ -63,7 +67,7 @@ export class CampaignAdminController {
     @Param('id') id: string,
     @Body() body: CreateCouponTemplateDto,
   ) {
-    return this.campaignService.createTemplate(id, body, request.admin!.id);
+    return this.templates.createTemplate(id, body, request.admin!.id);
   }
 
   @Patch('coupon-templates/:id')
@@ -72,6 +76,6 @@ export class CampaignAdminController {
     @Param('id') id: string,
     @Body() body: UpdateCouponTemplateDto,
   ) {
-    return this.campaignService.updateTemplate(id, body, request.admin!.id);
+    return this.templates.updateTemplate(id, body, request.admin!.id);
   }
 }

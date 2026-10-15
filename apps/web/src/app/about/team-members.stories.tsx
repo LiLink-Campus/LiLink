@@ -14,7 +14,9 @@ export const Summary: Story = {
   tags: ["test"],
   play: async ({ canvasElement }) => {
     const links = within(canvasElement).getAllByRole("link", { name: "查看介绍 ↗" });
-    await expect(links[0]).toHaveAttribute("href", "/about/team/yoryon");
+    await expect(links[0]).toHaveAttribute("href", "https://yoryon.com");
+    await expect(links[0]).toHaveAttribute("target", "_blank");
+    await expect(links[0]).toHaveAttribute("rel", "noopener noreferrer");
     await expect(links[1]).toHaveAttribute("href", "/about/team/member-02");
   },
 };

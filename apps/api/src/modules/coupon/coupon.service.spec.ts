@@ -23,10 +23,8 @@ function couponRow(overrides: Record<string, unknown> = {}) {
     expiresAt: null,
     template: {
       title: '满50减10',
-      description: null,
-      benefitType: 'FULL_REDUCTION',
-      faceValue: 1000,
-      rule: null,
+      benefitText: '满50减10',
+      redemptionGroup: null,
       merchant: { id: 'm1', name: 'Cafe' },
     },
     redemption: null,
@@ -51,9 +49,7 @@ describe('CouponService.getMyCoupons', () => {
         status: 'ISSUED',
         merchantName: 'Cafe',
         title: '满50减10',
-        benefitType: 'FULL_REDUCTION',
         benefitText: '满50减10',
-        faceValue: 1000,
         redeemedAt: null,
       }),
     );

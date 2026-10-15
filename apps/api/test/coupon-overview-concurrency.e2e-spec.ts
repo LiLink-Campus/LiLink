@@ -57,8 +57,7 @@ describe('Coupon overview consistency (isolated PostgreSQL)', () => {
     const template = await prisma.couponTemplate.create({
       data: {
         title: tag,
-        faceValue: 100,
-        benefitType: 'CUSTOM',
+        benefitText: 'Synthetic coupon terms',
         campaign: { create: { name: tag, slug: tag, status: 'ENDED' } },
         merchant: { create: { name: tag } },
       },

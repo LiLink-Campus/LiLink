@@ -80,11 +80,22 @@ export function useCouponsData(initial: CouponOverview | null, initialError: str
     setLoading(false);
     setLoadingMore({ available: false, history: false });
     // A successful status read is authoritative; move the card immediately.
-    setData(current => current ? {
-      available: { ...current.available, items: current.available.items.filter(item => item.id !== coupon.id) },
-      history: { ...current.history, items: [{ ...coupon, status: status.status, redeemedAt: status.redeemedAt ?? coupon.redeemedAt }, ...current.history.items.filter(item => item.id !== coupon.id)] },
-    } : current);
-  }, []);
+    setData(current => {
+      if (!current) return current;
+      const moved = current.available.items.filter(item => item.id === coupon.id);
+      const ids = new Set(moved.map(item => item.id));
+      return {
+        available: { ...current.available, items: current.available.items.filter(item => !ids.has(item.id)) },
+        history: { ...current.history, items: [
+          ...moved.map(item => ({ ...item, status: status.status, voidReason: status.voidReason, redeemedAt: status.redeemedAt ?? item.redeemedAt })),
+          ...current.history.items.filter(item => !ids.has(item.id)),
+        ] },
+      };
+    });
+    // A void member does not identify the redeemed member. Reload both pages
+    // instead of inferring sibling states from this coupon's status.
+    if (coupon.redemptionGroupId) void refresh();
+  }, [refresh]);
 
   useEffect(() => {
     if (!initial && !initialError) void refresh();

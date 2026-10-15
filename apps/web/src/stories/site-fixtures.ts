@@ -2,7 +2,7 @@ import type { LandingPayload } from "@/lib/landing-payload";
 import type { DevlogFeed } from "@/lib/devlog-feed-utils";
 import type { EligibleSchoolsPayload } from "@/lib/eligible-schools";
 import type { ContactPreferencesPayload, Question } from "@lilink/shared";
-import type { MyCoupon, PrepareRedeemOk, MerchantSessionUser } from "@/lib/api";
+import type { MyCoupon, RedeemResponse, MerchantSessionUser } from "@/lib/api";
 import { matchStoryUser } from "@/app/dashboard/match/match.fixtures";
 
 export const now = "2030-04-08T08:00:00.000Z";
@@ -93,9 +93,7 @@ export const coupon: MyCoupon = {
   code: "AB23CD",
   merchantName: "青禾咖啡（合成商家）",
   title: "春日双人咖啡券",
-  benefitType: "DISCOUNT",
-  benefitText: "满 50 元减 10 元",
-  faceValue: 1000,
+  benefitText: "满 50 元减 10 元\n限堂食，店员现场确认。",
   issuedAt: "2030-04-01T08:00:00Z",
   expiresAt: "2030-05-01T08:00:00Z",
   redeemedAt: null,
@@ -108,16 +106,9 @@ export const merchant: MerchantSessionUser = {
   merchantId: "merchant-story-1",
   merchantName: coupon.merchantName,
 };
-export const prepare: PrepareRedeemOk = {
-  result: "OK",
-  coupon: {
-    title: coupon.title,
-    benefitText: coupon.benefitText,
-    faceValue: 1000,
-    userDisplayName: "林和",
-  },
-  needAmount: true,
-  redeemTicket: "storybook-ticket-only",
+export const redeemed: RedeemResponse = {
+  result: "SUCCESS",
+  coupon: { title: coupon.title, benefitText: coupon.benefitText, userDisplayName: "林和" },
 };
 export const savedProfile = {
   versionId: "questionnaire-story-v1",

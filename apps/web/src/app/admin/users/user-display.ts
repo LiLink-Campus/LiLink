@@ -3,25 +3,6 @@ import commonStyles from "../admin-common.module.css";
 import type { AdminUser } from "../types";
 export const adminStyles = [commonStyles];
 
-export const HARD_MATCH_LABELS: Record<string, string> = {
-  [HARD_MATCH_KEYS.birthDate]: "出生年月日",
-  [HARD_MATCH_KEYS.partnerAgeMin]: "希望对方年龄下限",
-  [HARD_MATCH_KEYS.partnerAgeMax]: "希望对方年龄上限",
-  [HARD_MATCH_KEYS.gender]: "你的性别",
-  [HARD_MATCH_KEYS.partnerGenders]: "希望对方的性别",
-  [HARD_MATCH_KEYS.looks]: "颜值自评",
-  [HARD_MATCH_KEYS.partnerLooks]: "希望对方的颜值",
-  [HARD_MATCH_KEYS.heightCm]: "身高（厘米）",
-  [HARD_MATCH_KEYS.partnerHeightMin]: "希望对方身高下限",
-  [HARD_MATCH_KEYS.partnerHeightMax]: "希望对方身高上限",
-  [HARD_MATCH_KEYS.oneLinerIntro]: "一句话介绍",
-  [HARD_MATCH_KEYS.school]: "你的学校",
-  [HARD_MATCH_KEYS.excludedPartnerSchools]: "不希望对方的学校",
-  [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: "学校内排除的性别",
-};
-
-export const HARD_MATCH_KEY_SET = new Set(Object.keys(HARD_MATCH_LABELS));
-
 export const USER_STATUS_LABELS: Record<"ALL" | AdminUser["status"], string> = {
   ALL: "全部",
   ACTIVE: "正常",
@@ -45,7 +26,7 @@ export const ADMIN_SCHOOL_LOOKUP_PAGE_SIZE = 50;
 
 export const ADMIN_USERS_PAGE_SIZE = 6;
 
-export type DetailTab = "profile" | "questionnaire" | "cycles";
+export type DetailTab = "profile" | "self" | "partner" | "values" | "cycles";
 
 export function formatAnswer(
   key: string,
@@ -98,9 +79,6 @@ export type EditForm = {
   displayName: string;
   email: string;
   headline: string;
-  schoolYear: string;
-  programName: string;
-  bio: string;
 };
 
 export function buildEditForm(user: AdminUser): EditForm {
@@ -108,9 +86,6 @@ export function buildEditForm(user: AdminUser): EditForm {
     displayName: user.displayName ?? "",
     email: user.email,
     headline: user.profile?.headline ?? "",
-    schoolYear: user.profile?.schoolYear ?? "",
-    programName: user.profile?.programName ?? "",
-    bio: user.profile?.bio ?? "",
   };
 }
 

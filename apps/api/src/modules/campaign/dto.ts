@@ -1,18 +1,18 @@
 import { Type } from 'class-transformer';
 import {
+  ValidateIf,
   IsBoolean,
   IsIn,
   IsInt,
   IsISO8601,
   IsNotEmpty,
-  IsObject,
   IsOptional,
   IsString,
   Max,
   MaxLength,
   Min,
 } from 'class-validator';
-import { CAMPAIGN_STATUSES, COUPON_BENEFIT_TYPES } from '@lilink/shared';
+import { CAMPAIGN_STATUSES } from '@lilink/shared';
 import {
   ADMIN_ID_MAX_LENGTH,
   ADMIN_LIST_PAGE_MAX,
@@ -21,14 +21,12 @@ import {
   CAMPAIGN_DESCRIPTION_MAX_LENGTH,
   CAMPAIGN_NAME_MAX_LENGTH,
   CAMPAIGN_SLUG_MAX_LENGTH,
-  COUPON_FACE_VALUE_MAX,
   COUPON_TEMPLATE_DESCRIPTION_MAX_LENGTH,
   COUPON_TEMPLATE_TITLE_MAX_LENGTH,
   COUPON_VALID_DAYS_MAX,
 } from '../../common/validation/input-limits';
 
 const CAMPAIGN_STATUS_VALUES = [...CAMPAIGN_STATUSES];
-const COUPON_BENEFIT_TYPE_VALUES = [...COUPON_BENEFIT_TYPES];
 
 export class CreateCampaignDto {
   @IsString()
@@ -115,18 +113,15 @@ export class CreateCouponTemplateDto {
   @MaxLength(COUPON_TEMPLATE_TITLE_MAX_LENGTH)
   title!: string;
 
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(COUPON_TEMPLATE_DESCRIPTION_MAX_LENGTH)
+  benefitText!: string;
+
   @IsOptional()
   @IsString()
-  @MaxLength(COUPON_TEMPLATE_DESCRIPTION_MAX_LENGTH)
-  description?: string;
-
-  @IsIn(COUPON_BENEFIT_TYPE_VALUES)
-  benefitType!: string;
-
-  @IsInt()
-  @Min(0)
-  @Max(COUPON_FACE_VALUE_MAX)
-  faceValue!: number;
+  @MaxLength(80)
+  redemptionGroupName?: string;
 
   @IsOptional()
   @IsInt()
@@ -137,53 +132,37 @@ export class CreateCouponTemplateDto {
   @IsOptional()
   @IsISO8601()
   validUntil?: string;
-
-  // §A tiered rule (version + tiers[]). Loosely typed here; the service calls
-  // validateCouponRule(rule, benefitType) which enforces the ladder shape and
-  // benefitType consistency. Required for FULL_REDUCTION / DISCOUNT / GIFT;
-  // omitted for CUSTOM.
-  @IsOptional()
-  @IsObject()
-  rule?: Record<string, unknown>;
 }
 
 export class UpdateCouponTemplateDto {
-  @IsOptional()
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsString()
   @IsNotEmpty()
   @MaxLength(COUPON_TEMPLATE_TITLE_MAX_LENGTH)
   title?: string;
 
-  @IsOptional()
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsString()
+  @IsNotEmpty()
   @MaxLength(COUPON_TEMPLATE_DESCRIPTION_MAX_LENGTH)
-  description?: string;
+  benefitText?: string;
 
-  @IsOptional()
-  @IsIn(COUPON_BENEFIT_TYPE_VALUES)
-  benefitType?: string;
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
+  @IsString()
+  @MaxLength(80)
+  redemptionGroupName?: string;
 
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(COUPON_FACE_VALUE_MAX)
-  faceValue?: number;
-
-  @IsOptional()
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsInt()
   @Min(1)
   @Max(COUPON_VALID_DAYS_MAX)
   validDays?: number;
 
-  @IsOptional()
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsISO8601()
   validUntil?: string;
 
-  @IsOptional()
+  @ValidateIf((_object: unknown, value: unknown) => value !== undefined)
   @IsBoolean()
   isActive?: boolean;
-
-  @IsOptional()
-  @IsObject()
-  rule?: Record<string, unknown>;
 }

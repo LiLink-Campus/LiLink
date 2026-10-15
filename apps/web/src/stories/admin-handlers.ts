@@ -42,12 +42,16 @@ export const adminHandlers = [
   json("/admin/schools", page([f.adminSchool])),
   json("/admin/users", page([f.adminUser])),
   json("/admin/users/:id", f.adminUser),
-  json("/admin/users/:id/questionnaire", { submittedAt: now, answers: { weekend: "outside" } }),
+  json("/admin/users/:id/questionnaire", {
+    submittedAt: now,
+    fields: [
+      { key: "weekend", label: "周末你更喜欢怎样度过？", section: "values", emptyLabel: "未填写", options: [{ value: "outside", label: "出门走走" }] },
+      ...[{key: "hard_birth_date", label: "出生日期"}, {key:"hard_gender", label:"性别"}, {key:"hard_height_cm",label:"身高"}, {key:"hard_weight_kg",label:"体重"}, {key:"smoking_status", label:"吸烟情况"}, {key:"drinking_frequency", label:"饮酒频率"}, {key:"exercise_frequency", label:"锻炼频率"}].map(field => ({...field, section:"self",emptyLabel:"未填写"})),
+      ...[{key:"hard_partner_smoking_status",label:"希望对方吸烟情况"}, {key:"hard_partner_drinking_frequency",label:"希望对方饮酒频率"}, {key:"hard_partner_weight_min",label:"希望对方体重下限"}, {key:"hard_partner_weight_max",label:"希望对方体重上限"}].map(field => ({...field,section:"partner",emptyLabel:"不限"})),
+    ],
+    answers: { weekend: "outside", hard_birth_date: "2002-04-06", hard_gender: "女", hard_looks: 6, hard_height_cm: 165, hard_weight_kg: 52, hard_one_liner_intro: "喜欢散步与阅读", hard_partner_genders: ["男"], hard_partner_age_min: 21, hard_partner_age_max: 27, hard_partner_weight_min: null, hard_partner_weight_max: null, hard_partner_smoking_status: ["不吸烟"], hard_partner_drinking_frequency: [], hard_partner_exercise_frequency: [], hard_partner_languages: [], retired_question: "历史字段不应显示", smoking_status: "不吸烟", drinking_frequency: "偶尔社交饮酒", exercise_frequency: "每周 3–4 次" },
+  }),
   json("/admin/users/:id/participations", page([{ cycleId: f.cycle.id, status: "OPTED_IN" }])),
-  json("/admin/weekly-cycle-settings", { enabled: false, deadlineHours: 2 }),
-  http.put(`${api}/admin/weekly-cycle-settings`, async ({ request }) =>
-    HttpResponse.json({ ...(await request.json() as object), createdCycle: null })
-  ),
   json("/admin/cycles", page([f.cycle])),
   json("/admin/cycles/:id", f.cycleDetail),
   json(
@@ -156,7 +160,6 @@ export const adminHandlers = [
         merchantName: f.adminMerchant.name,
         day: "2030-04-08",
         count: 4,
-        faceValueTotal: 4000,
       },
     ])
   ),

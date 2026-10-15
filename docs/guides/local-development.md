@@ -11,7 +11,7 @@ lang: zh
 
 1. `npm ci` 安装锁定依赖。
 2. `npm run hooks:install` 安装 hooks，`npm run hooks:audit` 检查安装结果。
-3. 若 `apps/api/.env` 不存在，按 [API 配置模板](../../apps/api/.env.example) 创建本地配置；保留已有配置，使用开发库和合成数据。将 `JWT_SECRET`、`ADMIN_JWT_SECRET`、`MERCHANT_JWT_SECRET`、`CRON_SECRET`、`REDEEM_TICKET_SECRET` 的占位值替换为独立的本地随机值。
+3. 若 `apps/api/.env` 不存在，按 [API 配置模板](../../apps/api/.env.example) 创建本地配置；保留已有配置，使用开发库和合成数据。将 `JWT_SECRET`、`ADMIN_JWT_SECRET`、`MERCHANT_JWT_SECRET`、`CRON_SECRET` 的占位值替换为独立的本地随机值。
 4. `npm run infra:local:mail` 启动本地 PostgreSQL 与 Mailpit。
 5. 核对本地数据库目标后执行 `npm run db:migrate`、`npm run db:seed-defaults`。
 6. 需要本地管理员时在 `apps/api` 下运行 `node scripts/bootstrap-admin.mjs`，按脚本要求设置本地 bootstrap 值。

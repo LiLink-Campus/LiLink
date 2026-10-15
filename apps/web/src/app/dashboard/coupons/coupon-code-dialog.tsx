@@ -5,7 +5,6 @@ import { generateTotpToken, formatRedeemCode, COUPON_TOTP } from "@lilink/shared
 import { getCouponRedeemSecret, getCouponStatus, isApiRequestError, type MyCoupon, type CouponRedeemSecret, type CouponStatusResponse } from "@/lib/api";
 import { getClientWebOrigin } from "@/lib/api-base-url";
 import { dcx } from "../_lib/dashboard-class-names";
-import { RedeemedView } from "./coupon-redeemed-view";
 const QrCode = dynamic(() => import("@/components/qr-code").then(m => m.QrCode), { ssr: false });
 
 type DialogState =
@@ -13,8 +12,8 @@ type DialogState =
   | { phase: "error"; message: string }
   | { phase: "not-redeemable" }
   | { phase: "active"; secret: CouponRedeemSecret; token: string; secs: number }
-  | { phase: "redeemed"; status: CouponStatusResponse }
-  | { phase: "expired-or-void"; reason: "EXPIRED" | "VOID" };
+  | { phase: "redeemed" }
+  | { phase: "expired-or-void"; reason: "EXPIRED" | "VOID"; groupUsed?: boolean };
 
 export function CouponCodeDialog({ coupon, onClose, onStatus }: {
   coupon: MyCoupon;
@@ -66,8 +65,8 @@ export function CouponCodeDialog({ coupon, onClose, onStatus }: {
         if (result.status !== "ISSUED") {
           terminal = true;
           pause();
-          if (result.status === "REDEEMED") setState({ phase: "redeemed", status: result });
-          else setState({ phase: "expired-or-void", reason: result.status });
+          if (result.status === "REDEEMED") setState({ phase: "redeemed" });
+          else setState({ phase: "expired-or-void", reason: result.status, groupUsed: result.voidReason === "GROUP_USED" });
           onStatus(coupon, result);
         }
       } catch (error) {
@@ -161,21 +160,20 @@ export function CouponCodeDialog({ coupon, onClose, onStatus }: {
             </div>
           ) : state.phase === "not-redeemable" ? (
             <p className={dcx("coupons-dialog-hint")}>
-              该券暂不支持扫码核销，请向店员报出券码。
+              该券当前不可用，请关闭并刷新优惠券列表。
             </p>
           ) : state.phase === "redeemed" ? (
-            <RedeemedView
-              applied={state.status.applied}
-              merchantPromotion={state.status.merchantPromotion}
-              onClose={onClose}
-            />
+            <div role="status">
+              <p className={dcx("coupons-dialog-hint")}>优惠券已核销。</p>
+              <button className={dcx("ui-button ui-button--primary coupons-dialog-close")} onClick={onClose} type="button">完成</button>
+            </div>
           ) : state.phase === "expired-or-void" ? (
             <div className={dcx("coupons-redeemed-success")}>
               <span className={dcx("coupons-redeemed-icon")} aria-hidden="true">
                 {state.reason === "EXPIRED" ? "⏰" : "🚫"}
               </span>
               <p className={dcx("coupons-redeemed-title")}>
-                {state.reason === "EXPIRED" ? "优惠券已过期" : "优惠券已作废"}
+                {state.reason === "EXPIRED" ? "优惠券已过期" : state.groupUsed ? "已使用同组其他优惠" : "优惠券已作废"}
               </p>
               <p className={dcx("coupons-dialog-hint")}>该优惠券无法再使用，请关闭。</p>
               <button

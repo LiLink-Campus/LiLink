@@ -30,7 +30,7 @@ Web 使用 App Router，公开页面、用户 dashboard、运营 admin 和 merch
 | Auth、Account、Questionnaire、School | 邮箱验证与会话、账户资料、问卷版本与答案、注册学校归属 |
 | Cycles、DashboardSnapshot | 本轮报名、准备与揭晓、匹配求解、面向页面的结果视图 |
 | Referral、Campaign、Coupon、PromotionDashboard | 邀请归因、活动资格、领券和用户推广汇总 |
-| Merchant、MerchantSession、Redemption | 商家及员工、独立会话、动态码预检和核销事务 |
+| Merchant、MerchantSession、Redemption | 商家及员工、独立会话、动态码校验和核销事务 |
 | Vip、MatchLeads | 激活码权益与人工服务登记 |
 | Admin、AdminSession、AdminAnalytics | 运营身份、管理写入、业务统计与审计 |
 | Mail、RetiredProductEvents | 邮件 outbox 投递与重试、退役事件保留期清理 |
@@ -46,7 +46,7 @@ Web 使用 App Router，公开页面、用户 dashboard、运营 admin 和 merch
 | 轮次与结果 | MatchCycle、CycleParticipation、Match、MatchParticipant、UserCycleDashboardSnapshot | 每用户每轮一份报名、最多一个匹配；结果与页面视图分开存储 |
 | 安全与审计 | Report、Block、AuditLog、SystemSetting | 举报关联匹配；Block 有方向，但匹配排除检查任一方向 |
 | 邮件 | OutboundEmail | dedupeKey 唯一；持久化队列与真实邮件到达是不同状态 |
-| 优惠与核销 | Campaign、CouponTemplate、CampaignActivation、Coupon、CouponReadState、Merchant、MerchantUser、Redemption、ReferralEvent | 活动资格、券、商家授权与核销记录各自维护生命周期 |
+| 优惠与核销 | Campaign、CouponTemplate、CampaignActivation、Coupon、CouponReadState、CouponRedemptionGroup、CouponGroupRedemption、Merchant、MerchantUser、Redemption、ReferralEvent | 活动资格、券、商家授权、互斥组与核销记录各自维护生命周期 |
 | 增值服务 | VipActivation、MatchLead | 激活码 hash 唯一；人工服务登记关联用户，登记不代表支付成功 |
 
 `CycleParticipation(cycleId,userId)` 和 `MatchParticipant(cycleId,userId)` 的唯一约束分别防止重复报名和同轮重复配对。每个 Match 恰好两位参与者、双方资格、历史配对排除由服务层保障，不能只靠 schema 推断；历史配对排除也不是全局 pair 唯一索引。
@@ -70,10 +70,10 @@ API 新生成的邮件页脚与个人邀请链接使用可选 `PUBLIC_WEB_URL`�
 | `/v1/me/*`、`/v1/referral/events` | 普通用户会话；身份来自 guard，数据读取必须限定本人或已授权匹配 |
 | `/v1/referral/click` | 公开邀请点击归因，受输入校验、去重与限流约束 |
 | `/v1/admin-session/*`、`/v1/admin/*` | 独立运营登录与退出；管理接口与 `/admin-session/me` 要求有效运营账号 |
-| `/v1/merchant/auth/*`、`/v1/merchant/redeem*` | 商家登录与退出公开；`/merchant/auth/me` 及核销接口要求商家员工与商家均有效，范围来自该员工所属 merchantId |
+| `/v1/merchant/auth/*`、`/v1/merchant/redeem` | 商家登录与退出公开；`/merchant/auth/me` 及核销接口要求商家员工有效，范围来自该员工所属 merchantId |
 | `/v1/internal/cycles/*` | `x-cron-secret` 受控调用；不是普通用户或运营 JWT 入口 |
 
-[JwtAuthGuard](../../apps/api/src/common/auth/jwt-auth.guard.ts) 在受保护请求中读取用户状态，拒绝非 ACTIVE 或已注销账号；仅合并并发中的同用户读取，不持久缓存活跃状态。[AdminGuard](../../apps/api/src/common/auth/admin.guard.ts) 校验 AdminOperator.isActive；[MerchantGuard](../../apps/api/src/common/auth/merchant.guard.ts) 同时校验员工与商家，客户端不能通过自报 merchantId 扩展核销范围。
+[JwtAuthGuard](../../apps/api/src/common/auth/jwt-auth.guard.ts) 在受保护请求中读取用户状态，拒绝非 ACTIVE 或已注销账号；仅合并并发中的同用户读取，不持久缓存活跃状态。[AdminGuard](../../apps/api/src/common/auth/admin.guard.ts) 校验 AdminOperator.isActive；[MerchantGuard](../../apps/api/src/common/auth/merchant.guard.ts) 校验核销员工的 isActive，客户端不能通过自报 merchantId 扩展核销范围。
 
 [API 入口](../../apps/api/src/main.ts) 启用 Helmet、Cookie 解析及白名单 DTO 校验，拒绝额外字段。CORS 只给配置允许的浏览器 origin 返回凭据许可，无 Origin 的服务端请求仍可进入认证流程；CORS 不能替代权限检查。默认限流、公开读取和认证敏感入口的专用限流由 guard 与 controller 定义。Swagger `/docs` 只在非生产环境启用。
 

@@ -1,193 +1,81 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  ApiRequestError,
-  prepareRedeem,
-  type PrepareRedeemOk,
-  type PrepareRedeemResponse,
-  type RedeemResponse,
-} from "@/lib/api";
-import { formatYuan } from "@/lib/format";
-import { RedeemConfirm } from "../../merchant/_components/RedeemConfirm";
+import { ApiRequestError, redeemCoupon, type RedeemResponse } from "@/lib/api";
+import { RedeemResult } from "../../merchant/_components/redeem-result";
 import "../../merchant/merchant.css";
 
-type PageState =
+type State =
   | { phase: "loading" }
-  | { phase: "no-totp" }
-  | { phase: "prepare-error"; message: string }
-  | { phase: "prepare-fail"; result: Exclude<PrepareRedeemResponse["result"], "OK"> }
-  | { phase: "ready"; prepare: PrepareRedeemOk }
-  | { phase: "done"; redeemResult: RedeemResponse };
-
-const PREPARE_FAIL_MESSAGES: Record<
-  Exclude<PrepareRedeemResponse["result"], "OK">,
-  string
-> = {
-  EXPIRED_CODE: "二维码已过期，请让用户刷新后重试。",
-  ALREADY_USED: "该券已使用。",
-  INVALID: "无效的核销码。",
-};
-
-/** Success view shown after scan-confirm redemption (spec §9.2). */
-function ScanSuccessView({ redeemResult }: { redeemResult: RedeemResponse }) {
-  const applied = redeemResult.applied;
-  return (
-    <div className="mc-redeem-body">
-      <div className="mc-result is-success">
-        <span className="mc-result-label">✓ 核销成功</span>
-        {applied && (
-          <div className="mc-coupon">
-            {redeemResult.coupon && (
-              <p className="mc-coupon-title">{redeemResult.coupon.title}</p>
-            )}
-            {applied.gift ? (
-              <p className="mc-coupon-apply">赠品：{applied.gift}</p>
-            ) : applied.discountAmount > 0 ? (
-              <p className="mc-coupon-apply">
-                应减 {formatYuan(applied.discountAmount)} 元
-              </p>
-            ) : null}
-            {applied.orderAmount != null && (
-              <p className="mc-coupon-order">
-                消费 {formatYuan(applied.orderAmount)} 元
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Scan confirm page — reached when a merchant scans a user's QR code.
- *
- * URL structure: /r/<code>#t=<totp>
- * The TOTP lives in the hash fragment so it is never sent to the server in
- * the initial page request. On load we extract it from location.hash, call
- * prepareRedeem, then render RedeemConfirm.
- *
- * If the merchant is not logged in (401) we redirect to
- * /merchant/login?next=/r/<code>. After login the page shows "请重新出示"
- * because the hash fragment is dropped on redirect — this is expected and
- * handled by the no-totp state below.
- */
-export default function ScanConfirmPage() {
+  | { phase: "missing" }
+  | { phase: "error"; message: string }
+  | { phase: "done"; response: RedeemResponse };
+export default function ScanRedeemPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
-  const [state, setState] = useState<PageState>({ phase: "loading" });
-
+  const [state, setState] = useState<State>({ phase: "loading" });
+  const [retry, setRetry] = useState(0);
+  const request = useRef<{ key: string; promise: Promise<RedeemResponse> } | null>(null);
   useEffect(() => {
-    const code = params.code ?? "";
-
-    // Extract totp from hash fragment (#t=<token>).
-    const hash = window.location.hash; // e.g. "#t=123456"
-    const totp = hash.startsWith("#t=") ? hash.slice(3) : null;
-
+    const totp = new URLSearchParams(window.location.hash.slice(1)).get("t");
     if (!totp) {
-      setState({ phase: "no-totp" });
+      setState({ phase: "missing" });
       return;
     }
-
     let active = true;
-
-    prepareRedeem({ code, totp })
-      .then((res) => {
-        if (!active) return;
-        if (res.result === "OK") {
-          setState({ phase: "ready", prepare: res });
-        } else {
-          setState({ phase: "prepare-fail", result: res.result });
-        }
+    setState({ phase: "loading" });
+    const key = `${params.code}:${totp}:${retry}`;
+    // Reuse the mutation during Strict Mode's effect replay, without sharing it
+    // between mounted pages or keeping authentication tokens in storage.
+    if (request.current?.key !== key)
+      request.current = { key, promise: redeemCoupon({ code: params.code, totp }) };
+    request.current.promise
+      .then((response) => {
+        if (active) setState({ phase: "done", response });
       })
-      .catch((err: unknown) => {
+      .catch((e: unknown) => {
         if (!active) return;
-        if (err instanceof ApiRequestError && err.status === 401) {
-          // Not logged in; redirect to merchant login.
-          router.push(
-            "/merchant/login?next=" + encodeURIComponent("/r/" + code),
-          );
+        if (e instanceof ApiRequestError && e.status === 401) {
+          router.replace(`/merchant/login?next=${encodeURIComponent(`/r/${params.code}`)}`);
           return;
         }
         setState({
-          phase: "prepare-error",
-          message:
-            err instanceof Error ? err.message : "请求失败，请重试。",
+          phase: "error",
+          message: e instanceof Error ? e.message : "请求失败，请重试。",
         });
       });
-
     return () => {
       active = false;
     };
-  }, [params.code, router]);
-
-  if (state.phase === "loading") {
-    return (
-      <div className="mc-shell">
-        <p className="mc-loading">加载中……</p>
-      </div>
-    );
-  }
-
-  if (state.phase === "no-totp") {
-    return (
-      <div className="mc-shell">
-        <div className="mc-redeem-body">
-          <div className="mc-result is-warning">
-            <span className="mc-result-label">请重新出示二维码</span>
-            <p className="mc-result-hint">
-              请让用户重新出示二维码并再次扫码。
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (state.phase === "prepare-error") {
-    return (
-      <div className="mc-shell">
-        <div className="mc-redeem-body">
-          <div className="mc-result is-error">
-            <span className="mc-result-label">核销失败</span>
-            <p className="mc-result-hint">{state.message}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (state.phase === "prepare-fail") {
-    return (
-      <div className="mc-shell">
-        <div className="mc-redeem-body">
-          <div className="mc-result is-warning">
-            <span className="mc-result-label">
-              {PREPARE_FAIL_MESSAGES[state.result]}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (state.phase === "done") {
-    return (
-      <div className="mc-shell">
-        <ScanSuccessView redeemResult={state.redeemResult} />
-      </div>
-    );
-  }
-
-  // phase === "ready"
+  }, [params.code, router, retry]);
   return (
-    <div className="mc-shell">
-      <RedeemConfirm
-        prepare={state.prepare}
-        onSuccess={(r) => setState({ phase: "done", redeemResult: r })}
-      />
-    </div>
+    <main className="mc-shell">
+      {state.phase === "loading" ? (
+        <p className="mc-loading" role="status">
+          核销中……
+        </p>
+      ) : state.phase === "done" ? (
+        <RedeemResult response={state.response} />
+      ) : (
+        <div className="mc-redeem-body">
+          <div className="mc-result is-warning">
+            <p className="mc-result-label">
+              {state.phase === "missing" ? "请重新出示二维码" : "核销请求失败"}
+            </p>
+            <p>
+              {state.phase === "missing" ? "请让用户重新出示二维码并再次扫码。" : state.message}
+            </p>
+            {state.phase === "error" && (
+              <button
+                className="ui-button ui-button--primary"
+                onClick={() => setRetry((v) => v + 1)}
+              >
+                重试核销
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </main>
   );
 }

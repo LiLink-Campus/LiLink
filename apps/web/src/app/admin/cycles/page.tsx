@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminDetailDialog } from "../admin-detail-dialog";
 import CycleStatistics from "./cycle-statistics";
-import { WeeklyCycleSettings } from "./weekly-cycle-settings";
 import styles from "./cycles.module.css";
 import { fetchApi } from "../../../lib/api";
 import {
@@ -472,7 +471,6 @@ export default function AdminCyclesPage() {
         </p>
       )}
 
-      <WeeklyCycleSettings onSaved={() => { void refresh(); refreshSelectedCycleDataViews(); }} />
 
       <AdminDetailDialog open={!!deleteTarget} onClose={() => { if (!pending) setDeleteTarget(null); }} title="删除草稿轮次" headerLabel="轮次管理">
         <h2>删除草稿轮次</h2>

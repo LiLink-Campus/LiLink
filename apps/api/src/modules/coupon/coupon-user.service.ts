@@ -2,9 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   COUPON_TOTP,
   CouponStatus,
-  MerchantPromotionBlock,
   effectiveCouponStatus,
-  validateMerchantPromotionBlocks,
 } from '@lilink/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -20,12 +18,7 @@ export interface RedeemSecretResponse {
 export interface CouponStatusResponse {
   status: CouponStatus;
   redeemedAt?: string;
-  applied?: {
-    orderAmount: number | null;
-    discountAmount: number;
-    gift: string | null;
-  };
-  merchantPromotion?: MerchantPromotionBlock[];
+  voidReason?: string | null;
 }
 
 @Injectable()
@@ -73,7 +66,7 @@ export class CouponUserService {
 
   /**
    * Lightweight poll endpoint: returns the effective coupon status plus
-   * redemption details (applied discount, gift, merchant promotion blocks)
+   * redemption time
    * when the coupon has been REDEEMED. Returns 404 if the coupon does not
    * belong to the caller.
    */
@@ -86,17 +79,8 @@ export class CouponUserService {
       select: {
         status: true,
         expiresAt: true,
-        redemption: {
-          select: {
-            orderAmount: true,
-            actualDiscountAmount: true,
-            giftLabel: true,
-            redeemedAt: true,
-            merchant: {
-              select: { promotionBlocks: true },
-            },
-          },
-        },
+        voidReason: true,
+        redemption: { select: { redeemedAt: true } },
       },
     });
 
@@ -107,24 +91,12 @@ export class CouponUserService {
       new Date(),
     );
 
-    if (effective !== 'REDEEMED') {
-      return { status: effective };
-    }
-
-    const r = coupon.redemption!;
-    const blocks = validateMerchantPromotionBlocks(
-      r.merchant?.promotionBlocks ?? null,
-    );
-
     return {
-      status: 'REDEEMED',
-      redeemedAt: r.redeemedAt.toISOString(),
-      applied: {
-        orderAmount: r.orderAmount ?? null,
-        discountAmount: r.actualDiscountAmount ?? 0,
-        gift: r.giftLabel ?? null,
-      },
-      merchantPromotion: blocks,
+      status: effective,
+      voidReason: coupon.voidReason,
+      ...(coupon.redemption
+        ? { redeemedAt: coupon.redemption.redeemedAt.toISOString() }
+        : {}),
     };
   }
 }

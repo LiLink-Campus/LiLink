@@ -51,20 +51,14 @@ export function CouponCard({
           ) : null}
         </div>
         {showBenefit ? (
-          <ul className={dcx("coupons-card-benefit-list")}>
-            {coupon.benefitText.split(" ｜ ").map((tier, index) => (
-              <li key={index} className={dcx("coupons-card-benefit-tier")}>
-                {tier}
-              </li>
-            ))}
-          </ul>
+          <p className={dcx("coupons-card-benefit")}>{coupon.benefitText}</p>
         ) : null}
       </div>
 
       <div className={dcx("coupons-card-actions")}>
         <span className={dcx(`coupons-badge${archived ? " is-muted" : ""}`)}>
           {archived
-            ? (STATUS_LABELS[coupon.status] ?? coupon.status)
+            ? (coupon.voidReason === "GROUP_USED" ? "已使用同组其他优惠" : STATUS_LABELS[coupon.status] ?? coupon.status)
             : "可用"}
         </span>
         {!archived ? (

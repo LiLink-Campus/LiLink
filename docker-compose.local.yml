@@ -70,7 +70,6 @@ services:
       ADMIN_BOOTSTRAP_PASSWORD: replace-with-a-local-admin-password
       ADMIN_BOOTSTRAP_NAME: LiLink Admin
       CRON_SECRET: local-cron-secret-replace-dev
-      REDEEM_TICKET_SECRET: local-redeem-ticket-secret-dev
       SENTRY_DSN: ""
       SENTRY_SEND_DEFAULT_PII: "false"
 

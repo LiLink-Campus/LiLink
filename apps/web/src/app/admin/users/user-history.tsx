@@ -1,12 +1,11 @@
 import { cx } from "../admin-class-names";
-import { adminStyles, HARD_MATCH_LABELS, formatAnswer } from "./user-display";
+import { adminStyles } from "./user-display";
 import type { AdminUsersModel } from "./use-admin-users";
 
 export function UserHistory({ model }: { model: AdminUsersModel }) {
   const {
     questionnaireLoading,
     participationsLoading,
-    schoolNameById,
     displayUser,
     effectiveDetailTab,
     answerGroups,
@@ -16,72 +15,56 @@ export function UserHistory({ model }: { model: AdminUsersModel }) {
   return (
     <>
       {" "}
-      {effectiveDetailTab === "questionnaire" && (
-        <div style={{ animation: "fadeIn 0.2s ease" }}>
-          {answerGroups ? (
-            <div className={cx(adminStyles, "admin-page-stack")}>
-              {/* Hard-match answers */}
-              {answerGroups.hardMatch.length > 0 && (
-                <>
-                  <h3 style={{ margin: 0 }}>硬性条件</h3>
-                  <div className={cx(adminStyles, "admin-table-wrap")}>
-                    <table className={cx(adminStyles, "admin-table")}>
-                      <thead>
-                        <tr>
-                          <th>项目</th>
-                          <th>回答</th>
+      {(["self", "partner", "values"] as const).some((tab) => tab === effectiveDetailTab) && (
+        <section
+          aria-label={
+            { self: "关于你", partner: "希望遇见谁", values: "价值观" }[
+              effectiveDetailTab as "self" | "partner" | "values"
+            ]
+          }
+        >
+          <h3>
+            {
+              { self: "关于你", partner: "希望遇见谁", values: "价值观" }[
+                effectiveDetailTab as "self" | "partner" | "values"
+              ]
+            }
+          </h3>
+          {questionnaireLoading ? (
+            <p role="status">正在加载资料…</p>
+          ) : answerGroups ? (
+            answerGroups[effectiveDetailTab as "self" | "partner" | "values"].length ? (
+              <div className={cx(adminStyles, "admin-table-wrap")}>
+                <table className={cx(adminStyles, "admin-table")}>
+                  <thead>
+                    <tr>
+                      <th scope="col">项目</th>
+                      <th scope="col">回答</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {answerGroups[effectiveDetailTab as "self" | "partner" | "values"].map(
+                      (row) => (
+                        <tr key={row.key}>
+                          <td>{row.label}</td>
+                          <td>{row.answer}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {answerGroups.hardMatch.map(([key, value]) => (
-                          <tr key={key}>
-                            <td style={{ fontWeight: 500, whiteSpace: "nowrap" }}>
-                              {HARD_MATCH_LABELS[key] ?? key}
-                            </td>
-                            <td>{formatAnswer(key, value, schoolNameById)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-
-              {/* Dynamic questionnaire answers */}
-              {answerGroups.questionnaire.length > 0 && (
-                <>
-                  <h3 style={{ margin: 0 }}>价值观问卷</h3>
-                  <div className={cx(adminStyles, "admin-table-wrap")}>
-                    <table className={cx(adminStyles, "admin-table")}>
-                      <thead>
-                        <tr>
-                          <th>题目 Key</th>
-                          <th>回答</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {answerGroups.questionnaire.map(([key, value]) => (
-                          <tr key={key}>
-                            <td style={{ fontWeight: 500 }}>{key}</td>
-                            <td>{formatAnswer(key, value, schoolNameById)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : questionnaireLoading ? (
-            <div className={cx(adminStyles, "admin-empty-state")}>正在加载问卷详情…</div>
-          ) : !displayUser.questionnaireResponse?.submittedAt ? (
-            <div className={cx(adminStyles, "admin-empty-state")}>该用户还没有提交问卷。</div>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p>暂无当前资料回答。</p>
+            )
           ) : (
-            <div className={cx(adminStyles, "admin-empty-state")}>
-              问卷答案暂时无法显示，请稍后重试。
-            </div>
+            <p>
+              {displayUser.questionnaireResponse?.submittedAt
+                ? "资料暂时无法显示，请稍后重试。"
+                : "该用户还没有提交问卷。"}
+            </p>
           )}
-        </div>
+        </section>
       )}
       {/* ── Tab: Cycles ─── */}
       {effectiveDetailTab === "cycles" && (

@@ -5,13 +5,10 @@ import { AdminIcon, type AdminIconName } from "./admin-icon";
 import { useCallback, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";
 import { formatChinaStandardDateTime } from "../../lib/china-standard-time";
-import { cx } from "./admin-class-names";
 import { useAdmin } from "./admin-context";
 import styles from "./admin-overview.module.css";
-import commonStyles from "./admin-common.module.css";
 import type { AdminDashboardData } from "./types";
 
-const adminStyles = [commonStyles];
 const adminNumberFormatter = new Intl.NumberFormat("zh-CN");
 
 function formatDateTime(value: string) {
@@ -27,11 +24,6 @@ export default function AdminOverviewPage({
   const [data, setData] = useState<AdminDashboardData | null>(initialDashboard);
   const [loading, setLoading] = useState(() => !initialDashboard);
   const [error, setError] = useState<string | null>(null);
-
-  const [seedPending, setSeedPending] = useState(false);
-  const [seedMsg, setSeedMsg] = useState<string | null>(null);
-  const [deletePending, setDeletePending] = useState(false);
-  const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -53,47 +45,6 @@ export default function AdminOverviewPage({
     }
     void refresh();
   }, [authenticated, initialDashboard, refresh]);
-
-  async function runSeed() {
-    setSeedPending(true);
-    setSeedMsg(null);
-    setDeleteMsg(null);
-    try {
-      const result = await fetchApi<{
-        createdCount: number;
-        cycleName: string;
-        password: string;
-      }>("/admin/seed-test-users", { method: "POST" });
-      setSeedMsg(
-        `已创建 ${result.createdCount} 个测试用户，已加入轮次「${result.cycleName}」。本次密码（仅显示一次）：${result.password}`
-      );
-      void refresh();
-    } catch (e) {
-      setSeedMsg(e instanceof Error ? e.message : "生成失败");
-    } finally {
-      setSeedPending(false);
-    }
-  }
-
-  async function runDelete() {
-    if (!confirm("确定删除所有标记为「测试用户」的账号？\n此操作不可撤回。")) {
-      return;
-    }
-    setDeletePending(true);
-    setDeleteMsg(null);
-    setSeedMsg(null);
-    try {
-      const result = await fetchApi<{ deletedCount: number }>("/admin/users/test-users", {
-        method: "DELETE",
-      });
-      setDeleteMsg(`已删除 ${result.deletedCount} 个测试用户。`);
-      void refresh();
-    } catch (e) {
-      setDeleteMsg(e instanceof Error ? e.message : "删除失败");
-    } finally {
-      setDeletePending(false);
-    }
-  }
 
   const currentCycle =
     data?.recentCycles.find((cycle) => cycle.status === "OPEN") ??
@@ -229,20 +180,6 @@ export default function AdminOverviewPage({
                   <Link href="/admin/cycles">查看轮次 →</Link>
                 </div>
               )}
-              {data.recentCycles.length > 0 && (
-                <details className={styles.recent}>
-                  <summary>最近轮次</summary>
-                  <ul>
-                    {data.recentCycles.slice(0, 4).map((cycle) => (
-                      <li key={cycle.id}>
-                        <span>{cycle.codename}</span>
-                        <span>{labels[cycle.status]}</span>
-                        <small>{formatDateTime(cycle.revealAt)}</small>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
             </section>
             <section className={styles.panel} aria-labelledby="overview-todo-title">
               <div className={styles.panelHead}>
@@ -324,74 +261,6 @@ export default function AdminOverviewPage({
           </section>
         </>
       )}
-      <details className={styles.utilities}>
-        <summary>
-          <AdminIcon name="settings" width="16" height="16" />
-          测试工具<span>模拟账号与匹配流程</span>
-        </summary>
-        <div className={cx(adminStyles, "ops-utility-card")}>
-          <h3>测试数据管理</h3>
-          <p
-            style={{
-              fontSize: "0.84rem",
-              color: "var(--color-text-secondary)",
-              margin: "0 0 0.75rem",
-              lineHeight: 1.5,
-            }}
-          >
-            用于验证注册后的问卷和匹配流程：生成 30
-            个模拟账号，自动填好问卷并加入可用轮次。账号均标记为「测试用户」，可统一删除。密码仅在成功提示中显示一次，请自行妥善保存。
-          </p>
-          <div className="auth-actions" style={{ gap: "0.6rem", flexWrap: "wrap" }}>
-            <button
-              className="ui-button ui-button--primary"
-              type="button"
-              disabled={seedPending || deletePending}
-              onClick={() => void runSeed()}
-              style={{ minHeight: "2.1rem", padding: "0 1rem" }}
-            >
-              {seedPending ? "生成中…" : "生成测试用户"}
-            </button>
-            <button
-              className="ui-button ui-button--secondary"
-              type="button"
-              disabled={deletePending || seedPending}
-              onClick={() => void runDelete()}
-              style={{
-                minHeight: "2.1rem",
-                padding: "0 1rem",
-                color: "var(--color-danger, #c0392b)",
-              }}
-            >
-              {deletePending ? "删除中…" : "删除全部测试用户"}
-            </button>
-          </div>
-          {seedMsg && (
-            <p
-              style={{
-                marginTop: "0.75rem",
-                fontSize: "0.85rem",
-                color: seedMsg.startsWith("已创建") ? "var(--color-accent)" : "var(--color-danger)",
-              }}
-            >
-              {seedMsg}
-            </p>
-          )}
-          {deleteMsg && (
-            <p
-              style={{
-                marginTop: "0.75rem",
-                fontSize: "0.85rem",
-                color: deleteMsg.startsWith("已删除")
-                  ? "var(--color-accent)"
-                  : "var(--color-danger)",
-              }}
-            >
-              {deleteMsg}
-            </p>
-          )}
-        </div>
-      </details>
     </div>
   );
 }

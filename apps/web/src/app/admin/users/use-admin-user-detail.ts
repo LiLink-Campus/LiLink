@@ -1,3 +1,4 @@
+import { buildProfileAnswerGroups } from "./user-questionnaire-display";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import type {
@@ -8,7 +9,7 @@ import type {
   AdminUserQuestionnaire,
   PaginatedResult,
 } from "../types";
-import { HARD_MATCH_KEY_SET, ADMIN_SCHOOL_LOOKUP_PAGE_SIZE, DetailTab } from "./user-display";
+import { ADMIN_SCHOOL_LOOKUP_PAGE_SIZE, DetailTab } from "./user-display";
 
 export function useAdminUserDetail(
   selectedUserId: string | null,
@@ -120,34 +121,25 @@ export function useAdminUserDetail(
     }
   }
 
-  const questionnaireAnswerCount = useMemo(() => {
-    if (activeUserDetail) {
-      return activeUserDetail.questionnaireAnswerCount;
-    }
+  const answerGroups = useMemo(
+    () => (questionnaireData ? buildProfileAnswerGroups(questionnaireData, schoolNameById) : null),
+    [questionnaireData, schoolNameById]
+  );
 
-    return null;
-  }, [activeUserDetail]);
-
-  const answerGroups = useMemo(() => {
-    if (effectiveDetailTab !== "questionnaire") return null;
-    const answers = questionnaireData?.answers;
-    if (!answers || typeof answers !== "object") return null;
-
-    const entries = Object.entries(answers as Record<string, unknown>);
-    const hardMatch = entries.filter(([k]) => HARD_MATCH_KEY_SET.has(k));
-    const questionnaire = entries.filter(([k]) => !HARD_MATCH_KEY_SET.has(k));
-    return { hardMatch, questionnaire, total: entries.length };
-  }, [effectiveDetailTab, questionnaireData]);
+  const showQuestionnaire = ["self", "partner", "values"].includes(detailTab);
 
   useEffect(() => {
-    if (detailTab !== "questionnaire" || !selectedUserId) {
+    if (!showQuestionnaire || !selectedUserId) {
       return;
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     setQuestionnaireLoading(true);
 
-    void fetchApi<AdminUserQuestionnaire>(`/admin/users/${selectedUserId}/questionnaire`)
+    void fetchApi<AdminUserQuestionnaire>(`/admin/users/${selectedUserId}/questionnaire`, {
+      signal: controller.signal,
+    })
       .then((payload) => {
         if (!cancelled) {
           setQuestionnaireData(payload);
@@ -166,8 +158,9 @@ export function useAdminUserDetail(
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [detailTab, selectedUserId, setActionError]);
+  }, [showQuestionnaire, selectedUserId, setActionError]);
 
   useEffect(() => {
     if (detailTab !== "cycles" || !selectedUserId) {
@@ -218,7 +211,6 @@ export function useAdminUserDetail(
     schoolNameById,
     displayUser,
     effectiveDetailTab,
-    questionnaireAnswerCount,
     answerGroups,
     participationsData,
     reloadUserDetail,

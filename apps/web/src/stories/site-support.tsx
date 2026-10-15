@@ -5,7 +5,7 @@ import { expect, waitFor, within } from "storybook/test";
 import { PublicChrome } from "@/app/public-chrome";
 import { AppShell } from "@/app/dashboard/_components/AppShell";
 import AdminLayoutShell from "@/app/admin/admin-layout-shell";
-import { now, schools, contacts, coupon, merchant, prepare } from "./site-fixtures";
+import { now, schools, contacts, coupon, merchant, redeemed } from "./site-fixtures";
 import { matchStoryUser, matchDashboardFixtures } from "@/app/dashboard/match/match.fixtures";
 import { referralFixtures } from "@/app/dashboard/referrals/referrals.fixtures";
 
@@ -83,14 +83,7 @@ export const siteHandlers = [
     return HttpResponse.json({ email: matchStoryUser.email, ...payload, revision: payload.revision + 1 });
   }),
   json("/merchant/auth/me", { ok: true, merchantUser: merchant }),
-  http.post(`${api}/merchant/redeem/prepare`, () => HttpResponse.json(prepare)),
-  http.post(`${api}/merchant/redeem`, () =>
-    HttpResponse.json({
-      result: "SUCCESS",
-      coupon: prepare.coupon,
-      applied: { orderAmount: 6000, discountAmount: 1000, gift: null },
-    })
-  ),
+  http.post(`${api}/merchant/redeem`, () => HttpResponse.json(redeemed)),
 ];
 export function visible(text: string | RegExp) {
   return async ({ canvasElement }: { canvasElement: HTMLElement }) => {

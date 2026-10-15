@@ -48,9 +48,7 @@ export const CAMPAIGN_NAME_MAX_LENGTH = 80;
 export const CAMPAIGN_SLUG_MAX_LENGTH = 64;
 export const CAMPAIGN_DESCRIPTION_MAX_LENGTH = 500;
 export const COUPON_TEMPLATE_TITLE_MAX_LENGTH = 80;
-export const COUPON_TEMPLATE_DESCRIPTION_MAX_LENGTH = 500;
-// faceValue is a nominal amount in cents; cap at 1,000,000.00 (¥1M) to bound input.
-export const COUPON_FACE_VALUE_MAX = 100_000_000;
+export const COUPON_TEMPLATE_DESCRIPTION_MAX_LENGTH = 4096;
 export const COUPON_VALID_DAYS_MAX = 3_650;
 export const MERCHANT_USER_PASSWORD_MIN = 8;
 export const MERCHANT_USER_PASSWORD_MAX = 200;
@@ -58,9 +56,3 @@ export const MERCHANT_USER_DISPLAY_NAME_MAX = 80;
 // Redemption short code: 10 (personal) / 6 (coupon); accept a bit
 // of slack for trimming/casing on input.
 export const REDEEM_CODE_MAX_LENGTH = 16;
-// Order amount entered at redemption (cents, §B). Bounded like faceValue.
-export const REDEEM_ORDER_AMOUNT_MAX = 100_000_000;
-// Redeem ticket is a short-lived JWT bound to {couponId, merchantId}; bound the
-// accepted length generously to reject oversized input without truncating valid
-// tokens.
-export const REDEEM_TICKET_MAX_LENGTH = 512;

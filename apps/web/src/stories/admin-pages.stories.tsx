@@ -32,9 +32,9 @@ export const OverviewPage: Story = {
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
     await expect(c.getByRole("heading", { name: "运营概览" })).toBeVisible();
-    await expect(c.getByRole("button", { name: "生成测试用户", hidden: true })).not.toBeVisible();
-    await userEvent.click(c.getByText("测试工具"));
-    await expect(c.getByRole("button", { name: "生成测试用户" })).toBeVisible();
+    await expect(c.queryByText("测试工具")).not.toBeInTheDocument();
+    await expect(c.queryByText("最近轮次", { exact: true })).not.toBeInTheDocument();
+    await expect(c.queryByRole("button", { name: "生成测试用户" })).not.toBeInTheDocument();
     await expect(c.queryByText("容量限制")).not.toBeInTheDocument();
     await expect(c.queryByRole("spinbutton", { name: "最大注册人数" })).not.toBeInTheDocument();
   },
@@ -326,7 +326,7 @@ export const MerchantAccounts: Story = {
   ...MerchantsPage,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await userEvent.click(await c.findByRole("button", { name: "管理核销账号" }));
+    await userEvent.click(await c.findByRole("button", { name: /^青禾咖啡$/ }));
     await expect(await c.findByText("clerk@example.test")).toBeVisible();
   },
 };
@@ -548,32 +548,6 @@ export const NewLifestyleQuestion: Story = {
   },
 };
 
-export const CyclesAutomation: Story = {
-  tags: ["test"],
-  ...CyclesPage,
-  play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
-    await userEvent.click(await c.findByRole("checkbox", { name: "启用自动续轮" }));
-    await expect(c.getByRole("combobox", { name: "报名截止" })).toHaveValue("2");
-    await userEvent.click(c.getByRole("button", { name: "保存自动轮次设置" }));
-    await expect(await within(c.getByRole("region", { name: "每周自动续轮" })).findByRole("status")).toHaveTextContent("自动续轮已开启");
-  },
-};
-export const CyclesAutomationError: Story = {
-  tags: ["test"],
-  ...CyclesPage,
-  parameters: { ...route("/admin/cycles"), msw: { handlers: { admin: [
-    http.put(`${api}/admin/weekly-cycle-settings`, () => HttpResponse.json({ message: "自动轮次设置保存失败。" }, { status: 503 })),
-    ...adminHandlers,
-  ] } } },
-  play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
-    await userEvent.click(await c.findByRole("checkbox", { name: "启用自动续轮" }));
-    await userEvent.click(c.getByRole("button", { name: "保存自动轮次设置" }));
-    await expect(await c.findByRole("alert")).toHaveTextContent("自动轮次设置保存失败");
-    await expect(c.getByRole("button", { name: "保存自动轮次设置" })).toBeEnabled();
-  },
-};
 export const CyclesDeleteDraft: Story = {
   tags: ["test"],
   ...CyclesPage,

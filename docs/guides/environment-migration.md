@@ -23,7 +23,7 @@ lang: zh
 | 处理 | 核对内容 |
 | --- | --- |
 | 保持对外契约或明确变更 | Web/API origin、`/v1` 路径、CORS、cookie 名称/作用域、HTTPS、邮件发件域及用户可见链接 |
-| 新目标重新签发 | 数据库连接与 role、主机/CI 部署权限、SMTP 凭据、监控上传 token、`JWT_SECRET`、`ADMIN_JWT_SECRET`、`MERCHANT_JWT_SECRET`、`CRON_SECRET`、`REDEEM_TICKET_SECRET` 和维护绕过密钥 |
+| 新目标重新签发 | 数据库连接与 role、主机/CI 部署权限、SMTP 凭据、监控上传 token、`JWT_SECRET`、`ADMIN_JWT_SECRET`、`MERCHANT_JWT_SECRET`、`CRON_SECRET` 和维护绕过密钥 |
 | 由新服务产生并核验 | 数据库 endpoint、监控 DSN、项目/部署标识、邮件发件身份；它们不是随机生成的密钥，也不沿用旧个人项目 |
 | 保留业务数据 | 用户/商户/管理员密码 hash、历史业务标识、关系与 migration 历史；另行审查旧操作者是否继续有权访问 |
 

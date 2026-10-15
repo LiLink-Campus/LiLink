@@ -18,6 +18,7 @@ type MockTx = {
     findUnique: jest.Mock;
   };
   merchantUser: {
+    groupBy: jest.Mock;
     create: jest.Mock;
     findMany: jest.Mock;
     update: jest.Mock;
@@ -35,6 +36,7 @@ function makeTxPrisma() {
       findUnique: jest.fn(),
     },
     merchantUser: {
+      groupBy: jest.fn().mockResolvedValue([]),
       create: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
@@ -53,8 +55,6 @@ function merchantRow(overrides: Record<string, unknown> = {}) {
     id: 'm1',
     name: 'Cafe',
     contactInfo: null,
-    promotionBlocks: null,
-    isActive: true,
     createdAt: new Date('2026-05-01T00:00:00.000Z'),
     updatedAt: new Date('2026-05-01T00:00:00.000Z'),
     ...overrides,
@@ -105,75 +105,28 @@ describe('MerchantService', () => {
     it('patches only supplied fields and audits the field names', async () => {
       const { prisma, tx } = makeTxPrisma();
       tx.merchant.update.mockResolvedValue(
-        merchantRow({ contactInfo: 'wx:cafe', isActive: false }),
+        merchantRow({ contactInfo: 'wx:cafe' }),
       );
       const service = new MerchantService(prisma as never);
 
       const result = await service.updateMerchant(
         'm1',
-        { contactInfo: ' wx:cafe ', isActive: false },
+        { contactInfo: ' wx:cafe ' },
         'admin-1',
       );
 
       expect(tx.merchant.update).toHaveBeenCalledWith({
         where: { id: 'm1' },
-        data: { contactInfo: 'wx:cafe', isActive: false },
+        data: { contactInfo: 'wx:cafe' },
       });
       expect(tx.auditLog.create).toHaveBeenCalledWith({
         data: {
           adminActorId: 'admin-1',
           action: 'merchant.updated',
-          metadata: { merchantId: 'm1', fields: ['contactInfo', 'isActive'] },
+          metadata: { merchantId: 'm1', fields: ['contactInfo'] },
         },
       });
-      expect(result.isActive).toBe(false);
-    });
-
-    it('validates and normalizes promotion blocks before storage', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.merchant.update.mockImplementation(
-        ({ data }: { data: { promotionBlocks: unknown } }) =>
-          Promise.resolve(
-            merchantRow({ promotionBlocks: data.promotionBlocks }),
-          ),
-      );
-      const service = new MerchantService(prisma as never);
-
-      const result = await service.updateMerchant(
-        'm1',
-        {
-          promotionBlocks: [
-            { type: 'TEXT', text: ' 关注公众号 ' },
-            {
-              type: 'QRCODE',
-              imageUrl: 'https://cdn.example.com/qr.png',
-              caption: ' 扫码 ',
-            },
-          ],
-        },
-        'admin-1',
-      );
-
-      expect(result.promotionBlocks).toEqual([
-        { type: 'TEXT', text: '关注公众号' },
-        {
-          type: 'QRCODE',
-          imageUrl: 'https://cdn.example.com/qr.png',
-          caption: '扫码',
-        },
-      ]);
-    });
-
-    it('rejects a non-https image url in promotion blocks', async () => {
-      const { prisma } = makeTxPrisma();
-      const service = new MerchantService(prisma as never);
-      await expect(
-        service.updateMerchant(
-          'm1',
-          { promotionBlocks: [{ type: 'IMAGE', imageUrl: 'http://x/y.png' }] },
-          'admin-1',
-        ),
-      ).rejects.toThrow(/https/);
+      expect(result.contactInfo).toBe('wx:cafe');
     });
 
     it('rejects when no updatable fields are supplied', async () => {
@@ -191,13 +144,13 @@ describe('MerchantService', () => {
       );
       const service = new MerchantService(prisma as never);
       await expect(
-        service.updateMerchant('mX', { isActive: true }, 'admin-1'),
+        service.updateMerchant('mX', { name: 'Cafe' }, 'admin-1'),
       ).rejects.toThrow('Merchant not found.');
     });
   });
 
   describe('listMerchants', () => {
-    it('paginates, filters active, and returns template/redemption counts', async () => {
+    it('paginates and returns template/redemption counts', async () => {
       const { prisma, tx } = makeTxPrisma();
       tx.merchant.findMany.mockResolvedValue([
         { ...merchantRow(), _count: { templates: 3, redemptions: 7 } },
@@ -206,13 +159,12 @@ describe('MerchantService', () => {
       const service = new MerchantService(prisma as never);
 
       const result = await service.listMerchants({
-        status: 'active',
         pageSize: 10,
       });
 
       expect(tx.merchant.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { isActive: true },
+          where: {},
           take: 10,
           include: {
             _count: { select: { templates: true, redemptions: true } },

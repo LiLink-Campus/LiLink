@@ -1,7 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize,
-  IsArray,
   IsBoolean,
   IsEmail,
   IsIn,
@@ -13,10 +11,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import {
-  MERCHANT_PROMOTION_MAX_BLOCKS,
-  MERCHANT_USER_ROLES,
-} from '@lilink/shared';
+import { MERCHANT_USER_ROLES } from '@lilink/shared';
 import {
   ADMIN_LIST_PAGE_MAX,
   ADMIN_LIST_PAGE_SIZE_MAX,
@@ -54,18 +49,6 @@ export class UpdateMerchantDto {
   @IsString()
   @MaxLength(MERCHANT_CONTACT_MAX_LENGTH)
   contactInfo?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
-
-  // Block structure (type / https URL / length) is validated in the service via
-  // validateMerchantPromotionBlocks; the discriminated union is hard to express
-  // with class-validator decorators here.
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(MERCHANT_PROMOTION_MAX_BLOCKS)
-  promotionBlocks?: unknown[];
 }
 
 export class ListMerchantsQueryDto {
@@ -87,10 +70,6 @@ export class ListMerchantsQueryDto {
   @IsString()
   @MaxLength(ADMIN_SEARCH_MAX_LENGTH)
   search?: string;
-
-  @IsOptional()
-  @IsIn(['active', 'inactive'])
-  status?: 'active' | 'inactive';
 }
 
 export class CreateMerchantUserDto {
@@ -108,8 +87,9 @@ export class CreateMerchantUserDto {
   @MaxLength(MERCHANT_USER_DISPLAY_NAME_MAX)
   displayName?: string;
 
+  @IsOptional()
   @IsIn(MERCHANT_USER_ROLE_VALUES)
-  role!: string;
+  role?: string;
 }
 
 export class UpdateMerchantUserDto {

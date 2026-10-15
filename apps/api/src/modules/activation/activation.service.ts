@@ -119,7 +119,6 @@ export class ActivationService {
         where: {
           campaignId,
           isActive: true,
-          merchant: { isActive: true },
           OR: [{ validUntil: null }, { validUntil: { gt: now } }],
         },
         select: { id: true, validDays: true, validUntil: true },

@@ -56,12 +56,12 @@ test('admin user management preserves visible and persisted results @smoke', asy
   expect((await context.request.get(`${api}/me/dashboard`)).status()).toBe(401);
   await dialog.getByRole('button', { name: '恢复账号', exact: true }).click();
   await expect(dialog.getByRole('status')).toHaveText('账号已恢复，可正常登录。');
-  await dialog.getByRole('button', { name: /^问卷回答/ }).click();
-  await expect(dialog.getByRole('heading', { name: '硬性条件', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: '关于你', exact: true }).click();
+  await expect(dialog.getByRole('heading', { name: '关于你', exact: true })).toBeVisible();
 
   await dialog.getByRole('button', { name: /^轮次参与/ }).click();
   await expect(dialog.getByText('暂无轮次参与记录。', { exact: true })).toBeVisible();
-  await dialog.getByRole('button', { name: '基本资料', exact: true }).click();
+  await dialog.getByRole('button', { name: '账号信息', exact: true }).click();
 
   await dialog.getByRole('button', { name: '关闭用户详情', exact: true }).click();
   await page.reload({ waitUntil: 'domcontentloaded' });

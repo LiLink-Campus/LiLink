@@ -10,17 +10,6 @@ const THROTTLER_TTL_DEFAULT = 'THROTTLER:TTLdefault';
 
 // Both redemption routes must carry a tight throttle cap (§12.7).
 describe('RedemptionController throttle metadata', () => {
-  it('prepare carries limit=30 / ttl=60000 on the default bucket', () => {
-    // Access the method descriptor directly to avoid the unbound-method lint rule.
-    const fn = Object.getOwnPropertyDescriptor(
-      RedemptionController.prototype,
-      'prepare',
-    )?.value as object;
-
-    expect(Reflect.getMetadata(THROTTLER_LIMIT_DEFAULT, fn)).toBe(30);
-    expect(Reflect.getMetadata(THROTTLER_TTL_DEFAULT, fn)).toBe(60_000);
-  });
-
   it('redeem carries limit=30 / ttl=60000 on the default bucket', () => {
     // Access the method descriptor directly to avoid the unbound-method lint rule.
     const fn = Object.getOwnPropertyDescriptor(

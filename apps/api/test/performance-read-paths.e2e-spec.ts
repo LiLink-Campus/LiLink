@@ -66,8 +66,7 @@ describe('Bounded performance read paths (PostgreSQL)', () => {
           couponTemplates: {
             create: {
               title: tag,
-              benefitType: 'CUSTOM',
-              faceValue: 100,
+              benefitText: 'Synthetic coupon terms',
               merchant: { create: { name: tag } },
             },
           },

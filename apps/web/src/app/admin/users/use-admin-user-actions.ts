@@ -66,11 +66,6 @@ export function useAdminUserActions(
       if (editForm.email !== selectedUser.email) payload.email = editForm.email;
       if (editForm.headline !== (selectedUser.profile?.headline ?? ""))
         payload.headline = editForm.headline || null;
-      if (editForm.schoolYear !== (selectedUser.profile?.schoolYear ?? ""))
-        payload.schoolYear = editForm.schoolYear || null;
-      if (editForm.programName !== (selectedUser.profile?.programName ?? ""))
-        payload.programName = editForm.programName || null;
-      if (editForm.bio !== (selectedUser.profile?.bio ?? "")) payload.bio = editForm.bio || null;
 
       if (Object.keys(payload).length === 0) {
         setEditing(false);
@@ -206,14 +201,16 @@ export function useAdminUserActions(
   }
   useEffect(() => {
     selection.current += 1;
-    setPending(current => current === "delete-test" ? current : null);
+    setPending((current) => (current === "delete-test" ? current : null));
     setEditing(false);
     setEditForm(null);
     setEditingReferralLimit(false);
     setReferralLimitDraft("");
     setActionError(null);
     setActionMessage(null);
-    return () => { selection.current += 1; };
+    return () => {
+      selection.current += 1;
+    };
   }, [selectedUserId, setActionError, setActionMessage]);
   return {
     pending,

@@ -176,61 +176,62 @@ model SchoolDomain {
 }
 
 model User {
-  matchLead MatchLead?
-  id                         String                       @id @default(cuid())
-  email                      String                       @unique
+  matchLead                  MatchLead?
+  id                         String                         @id @default(cuid())
+  email                      String                         @unique
   deactivatedAt              DateTime?
   deactivatedEmail           String?
   passwordHash               String
-  sessionVersion             Int                          @default(0)
-  status                     UserStatus                   @default(PENDING)
+  sessionVersion             Int                            @default(0)
+  status                     UserStatus                     @default(PENDING)
   schoolId                   String?
-  school                     School?                      @relation(fields: [schoolId], references: [id])
+  school                     School?                        @relation(fields: [schoolId], references: [id])
   displayName                String?
-  preferredContactChannel    ContactChannelType           @default(EMAIL)
-  contactPreferencesRevision Int                          @default(0)
-  preferredLocale            String                       @default("zh-CN")
-  meetupExpirationWeeks      Int                          @default(2)
-  isTest                     Boolean                      @default(false)
+  preferredContactChannel    ContactChannelType             @default(EMAIL)
+  contactPreferencesRevision Int                            @default(0)
+  preferredLocale            String                         @default("zh-CN")
+  meetupExpirationWeeks      Int                            @default(2)
+  isTest                     Boolean                        @default(false)
   acceptedTermsAt            DateTime?
   lastLoginAt                DateTime?
   lastActiveAt               DateTime?
-  createdAt                  DateTime                     @default(now())
-  updatedAt                  DateTime                     @updatedAt
+  createdAt                  DateTime                       @default(now())
+  updatedAt                  DateTime                       @updatedAt
   profile                    UserProfile?
   questionnaireResponse      QuestionnaireResponse?
   questionnaireArchives      QuestionnaireResponseArchive[]
   participations             CycleParticipation[]
-  reportsFiled               Report[]                     @relation("Reporter")
-  reportsReceived            Report[]                     @relation("ReportedUser")
-  blocksInitiated            Block[]                      @relation("Blocker")
-  blocksReceived             Block[]                      @relation("BlockedUser")
+  reportsFiled               Report[]                       @relation("Reporter")
+  reportsReceived            Report[]                       @relation("ReportedUser")
+  blocksInitiated            Block[]                        @relation("Blocker")
+  blocksReceived             Block[]                        @relation("BlockedUser")
   matchParticipants          MatchParticipant[]
-  matchFeedbackAuthored      MatchFeedback[]              @relation("FeedbackAuthor")
-  matchFeedbackReceived      MatchFeedback[]              @relation("FeedbackSubject")
-  meetupFeedbackAuthored     MeetupFeedback[]             @relation("MeetupFeedbackAuthor")
-  meetupFeedbackReceived     MeetupFeedback[]             @relation("MeetupFeedbackSubject")
-  meetupSessionsStarted      MeetupSession[]              @relation("MeetupSessionStartedBy")
-  meetupSessionsCanceled     MeetupSession[]              @relation("MeetupSessionCanceledBy")
-  meetupSessionsFinalConfirm MeetupSession[]              @relation("MeetupSessionFinalConfirmUser")
-  meetupParticipants         MeetupParticipant[]          @relation("MeetupParticipantUser")
-  meetupMessages             MeetupMessage[]              @relation("MeetupMessageActor")
-  meetupProposals            MeetupProposal[]             @relation("MeetupProposalActor")
-  auditLogs                  AuditLog[]                   @relation("Actor")
+  matchFeedbackAuthored      MatchFeedback[]                @relation("FeedbackAuthor")
+  matchFeedbackReceived      MatchFeedback[]                @relation("FeedbackSubject")
+  meetupFeedbackAuthored     MeetupFeedback[]               @relation("MeetupFeedbackAuthor")
+  meetupFeedbackReceived     MeetupFeedback[]               @relation("MeetupFeedbackSubject")
+  meetupSessionsStarted      MeetupSession[]                @relation("MeetupSessionStartedBy")
+  meetupSessionsCanceled     MeetupSession[]                @relation("MeetupSessionCanceledBy")
+  meetupSessionsFinalConfirm MeetupSession[]                @relation("MeetupSessionFinalConfirmUser")
+  meetupParticipants         MeetupParticipant[]            @relation("MeetupParticipantUser")
+  meetupMessages             MeetupMessage[]                @relation("MeetupMessageActor")
+  meetupProposals            MeetupProposal[]               @relation("MeetupProposalActor")
+  auditLogs                  AuditLog[]                     @relation("Actor")
   dashboardSnapshots         UserCycleDashboardSnapshot[]
   contactMethods             UserContactMethod[]
-  referralCode               String?                      @unique
+  referralCode               String?                        @unique
   referredByUserId           String?
-  referredBy                 User?                        @relation("UserReferral", fields: [referredByUserId], references: [id], onDelete: SetNull)
-  referrals                  User[]                       @relation("UserReferral")
+  referredBy                 User?                          @relation("UserReferral", fields: [referredByUserId], references: [id], onDelete: SetNull)
+  referrals                  User[]                         @relation("UserReferral")
   referralChannel            ReferralChannel?
   referralCampaignId         String?
-  referralCampaign           Campaign?                    @relation("UserReferralCampaign", fields: [referralCampaignId], references: [id], onDelete: Restrict)
-  nonEduReferralLimit        Int                          @default(3)
-  nonEduReferralUses         Int                          @default(0)
+  referralCampaign           Campaign?                      @relation("UserReferralCampaign", fields: [referralCampaignId], references: [id], onDelete: Restrict)
+  nonEduReferralLimit        Int                            @default(3)
+  nonEduReferralUses         Int                            @default(0)
   firstOptedInAt             DateTime?
   campaignActivations        CampaignActivation[]
   coupons                    Coupon[]
+  couponGroupRedemptions     CouponGroupRedemption[]
   couponReadStates           CouponReadState[]
   productEvents              ProductEvent[]
   vipActivations             VipActivation[]
@@ -309,15 +310,15 @@ model UserProfile {
 }
 
 model QuestionnaireVersion {
-  id          String                  @id @default(cuid())
+  id          String                         @id @default(cuid())
   title       String
   description String?
-  isCurrent   Boolean                 @default(false)
+  isCurrent   Boolean                        @default(false)
   questions   Question[]
   responses   QuestionnaireResponse[]
   archives    QuestionnaireResponseArchive[]
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
+  createdAt   DateTime                       @default(now())
+  updatedAt   DateTime                       @updatedAt
 
   @@index([isCurrent])
 }
@@ -544,29 +545,29 @@ model SystemSetting {
 
 // Transactional, coalesced invalidations for the two public Web snapshots.
 model PublicCacheInvalidation {
-  scope                String    @id
-  revision             BigInt    @default(1)
-  acknowledgedRevision BigInt    @default(0)
-  claimedRevision      BigInt    @default(0)
-  lastClaimedAt         DateTime?
-  urgent               Boolean   @default(false)
-  dueAt                DateTime  @default(now())
-  attempts             Int       @default(0)
-  lastAttemptAt        DateTime?
-  lastDeliveredAt      DateTime?
-  deliveredHash        String?
-  verifiedHash         String?
+  scope                         String    @id
+  revision                      BigInt    @default(1)
+  acknowledgedRevision          BigInt    @default(0)
+  claimedRevision               BigInt    @default(0)
+  lastClaimedAt                 DateTime?
+  urgent                        Boolean   @default(false)
+  dueAt                         DateTime  @default(now())
+  attempts                      Int       @default(0)
+  lastAttemptAt                 DateTime?
+  lastDeliveredAt               DateTime?
+  deliveredHash                 String?
+  verifiedHash                  String?
   verificationCompletedRevision BigInt?
-  verificationOutcome String?
-  lastVerificationAt   DateTime?
-  verificationTargetHash String?
-  verificationFailures Int       @default(0)
-  verificationLeaseUntil DateTime?
-  verificationLeaseToken String?
-  leaseUntil           DateTime?
-  leaseToken           String?
-  exhaustedAt          DateTime?
-  updatedAt            DateTime  @default(now())
+  verificationOutcome           String?
+  lastVerificationAt            DateTime?
+  verificationTargetHash        String?
+  verificationFailures          Int       @default(0)
+  verificationLeaseUntil        DateTime?
+  verificationLeaseToken        String?
+  leaseUntil                    DateTime?
+  leaseToken                    String?
+  exhaustedAt                   DateTime?
+  updatedAt                     DateTime  @default(now())
 }
 
 enum OutboundEmailMessageCategory {
@@ -775,13 +776,6 @@ enum CampaignStatus {
   ENDED
 }
 
-enum CouponBenefitType {
-  FULL_REDUCTION
-  DISCOUNT
-  GIFT
-  CUSTOM
-}
-
 enum CouponStatus {
   ISSUED
   REDEEMED
@@ -817,41 +811,42 @@ enum MerchantUserRole {
 }
 
 model Campaign {
-  id              String               @id @default(cuid())
-  name            String
-  slug            String               @unique
-  status          CampaignStatus       @default(DRAFT)
-  isDefault       Boolean              @default(false)
-  startsAt        DateTime?
-  endsAt          DateTime?
-  description     String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  couponTemplates CouponTemplate[]
-  referredUsers   User[]               @relation("UserReferralCampaign")
-  activations     CampaignActivation[]
+  id               String                  @id @default(cuid())
+  name             String
+  slug             String                  @unique
+  status           CampaignStatus          @default(DRAFT)
+  isDefault        Boolean                 @default(false)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  description      String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  redemptionGroups CouponRedemptionGroup[]
+  couponTemplates  CouponTemplate[]
+  referredUsers    User[]                  @relation("UserReferralCampaign")
+  activations      CampaignActivation[]
 
   @@index([status, startsAt])
 }
 
 model CouponTemplate {
-  id          String            @id @default(cuid())
-  campaignId  String
-  campaign    Campaign          @relation(fields: [campaignId], references: [id], onDelete: Restrict)
-  merchantId  String
-  merchant    Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  title       String
-  description String?
-  benefitType CouponBenefitType
-  rule        Json?
-  faceValue   Int
-  validDays   Int?
-  validUntil  DateTime?
-  isActive    Boolean           @default(true)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  coupons     Coupon[]
+  id                String                 @id @default(cuid())
+  campaignId        String
+  campaign          Campaign               @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  merchantId        String
+  merchant          Merchant               @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  title             String
+  benefitText       String
+  redemptionGroupId String?
+  redemptionGroup   CouponRedemptionGroup? @relation(fields: [campaignId, merchantId, redemptionGroupId], references: [campaignId, merchantId, id], onDelete: Restrict)
+  validDays         Int?
+  validUntil        DateTime?
+  isActive          Boolean                @default(true)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  coupons           Coupon[]
 
+  @@index([redemptionGroupId])
   @@index([campaignId, isActive])
   @@index([merchantId])
 }
@@ -871,19 +866,21 @@ model CampaignActivation {
 }
 
 model Coupon {
-  id         String         @id @default(cuid())
-  templateId String
-  template   CouponTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
-  userId     String
-  user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  code       String         @unique
-  status     CouponStatus   @default(ISSUED)
-  issuedAt   DateTime       @default(now())
-  expiresAt  DateTime?
-  totpSecret String?
-  redemption Redemption?
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  id              String                 @id @default(cuid())
+  templateId      String
+  template        CouponTemplate         @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  userId          String
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  code            String                 @unique
+  voidReason      String?
+  groupRedemption CouponGroupRedemption?
+  status          CouponStatus           @default(ISSUED)
+  issuedAt        DateTime               @default(now())
+  expiresAt       DateTime?
+  totpSecret      String?
+  redemption      Redemption?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   @@unique([userId, templateId])
   @@index([userId, status])
@@ -906,18 +903,15 @@ model CouponReadState {
 }
 
 model Merchant {
-  id              String           @id @default(cuid())
-  name            String
-  contactInfo     String?
-  promotionBlocks Json?
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  users           MerchantUser[]
-  templates       CouponTemplate[]
-  redemptions     Redemption[]
-
-  @@index([isActive])
+  id               String                  @id @default(cuid())
+  name             String
+  contactInfo      String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  users            MerchantUser[]
+  redemptionGroups CouponRedemptionGroup[]
+  templates        CouponTemplate[]
+  redemptions      Redemption[]
 }
 
 model MerchantUser {
@@ -946,7 +940,7 @@ model Redemption {
   merchantUserId       String?
   merchantUser         MerchantUser? @relation(fields: [merchantUserId], references: [id], onDelete: SetNull)
   userId               String
-  faceValueSnapshot    Int
+  faceValueSnapshot    Int?
   orderAmount          Int?
   actualDiscountAmount Int?
   giftLabel            String?
@@ -1030,16 +1024,42 @@ model ProductEventOutbox {
 }
 
 model MatchLead {
-  id String @id @default(cuid())
-  phone String? @unique
-  userId String? @unique
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-  realName String?
-  school String?
-  major String?
-  contact String?
+  id        String    @id @default(cuid())
+  phone     String?   @unique
+  userId    String?   @unique
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  realName  String?
+  school    String?
+  major     String?
+  contact   String?
   consentAt DateTime?
-  contacted Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  contacted Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model CouponRedemptionGroup {
+  id          String                  @id @default(cuid())
+  campaignId  String
+  campaign    Campaign                @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  merchantId  String
+  merchant    Merchant                @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  name        String
+  templates   CouponTemplate[]
+  redemptions CouponGroupRedemption[]
+
+  @@unique([campaignId, merchantId, name])
+  @@unique([campaignId, merchantId, id])
+}
+
+model CouponGroupRedemption {
+  userId    String
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  groupId   String
+  group     CouponRedemptionGroup @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  couponId  String                @unique
+  coupon    Coupon                @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  createdAt DateTime              @default(now())
+
+  @@id([userId, groupId])
 }

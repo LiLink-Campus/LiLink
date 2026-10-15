@@ -15,6 +15,7 @@ lang: zh
 
 ## 目录
 
+- [工作区审阅与文字券验收（2026-10-16）](2026-10-16-workspace-review.md)。
 - [Issue #159：固定回归与隔离负载演练](2026-10-09-test-simplification.md)。
 - [资料页、用户中心 VIP 读取与问卷阅读器验收](2026-10-06-vip-reader-refresh.md)。
 - [Vercel CDN 请求与缓存规则专项验收](2026-10-06-cdn-usage.md)。

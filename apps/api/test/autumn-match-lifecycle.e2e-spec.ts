@@ -697,7 +697,12 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
           dedupeKey: { startsWith: `match-reveal:${match.id}:` },
         },
       });
-      expect(email.text).toContain(frozen.introducedContactValue);
+      for (const value of [oldValue, newValue]) {
+        expect(email.text).not.toContain(value);
+        expect(email.html).not.toContain(value);
+      }
+      expect(email.text).toContain('/dashboard/match');
+      expect(email.html).toContain('/dashboard/match');
       expect(email.text).not.toContain(left.email);
       expect(email.html).not.toContain(left.email);
       const card = await prisma.userCycleDashboardSnapshot.findUniqueOrThrow({
@@ -990,8 +995,7 @@ describe('Autumn match and account lifecycle (PostgreSQL)', () => {
         campaignId: campaign.id,
         merchantId: merchant.id,
         title: tag,
-        benefitType: 'CUSTOM',
-        faceValue: 10,
+        benefitText: 'Synthetic coupon terms',
       },
     });
     const activation = await prisma.campaignActivation.create({

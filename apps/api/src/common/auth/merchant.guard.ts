@@ -23,7 +23,7 @@ export interface MerchantAuthenticatedRequest {
 /**
  * Authenticates a merchant staff/owner session from the merchant cookie. The
  * token is signed with MERCHANT_JWT_SECRET (separate from user/admin secrets).
- * Both the merchant user and its merchant must be active.
+ * The merchant user must be active.
  */
 @Injectable()
 export class MerchantGuard implements CanActivate {
@@ -63,15 +63,10 @@ export class MerchantGuard implements CanActivate {
         role: true,
         displayName: true,
         isActive: true,
-        merchant: { select: { isActive: true } },
       },
     });
 
-    if (
-      !merchantUser ||
-      !merchantUser.isActive ||
-      !merchantUser.merchant.isActive
-    ) {
+    if (!merchantUser?.isActive) {
       throw new UnauthorizedException('Merchant session is invalid.');
     }
 

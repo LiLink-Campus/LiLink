@@ -26,7 +26,7 @@ export function testEnvironment({ dbPort, smtpPort, mailPort, apiPort, webPort, 
     E2E_API_URL: `http://127.0.0.1:${apiPort}/v1`,
     E2E_MAIL_URL: `http://127.0.0.1:${mailPort}`,
   });
-  for (const key of ['PUBLIC_CACHE_REVALIDATION_SECRET', 'JWT_SECRET', 'ADMIN_JWT_SECRET', 'MERCHANT_JWT_SECRET', 'CRON_SECRET', 'REDEEM_TICKET_SECRET']) {
+  for (const key of ['PUBLIC_CACHE_REVALIDATION_SECRET', 'JWT_SECRET', 'ADMIN_JWT_SECRET', 'MERCHANT_JWT_SECRET', 'CRON_SECRET']) {
     env[key] = randomBytes(32).toString('hex');
   }
   assertTestDatabase(env.DATABASE_URL);

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { CampaignService } from '../src/modules/campaign/campaign.service';
+import { CouponTemplateService } from '../src/modules/campaign/coupon-template.service';
 import { ReferralService } from '../src/modules/referral/referral.service';
 import { ActivationService } from '../src/modules/activation/activation.service';
 import { CouponService } from '../src/modules/coupon/coupon.service';
@@ -11,6 +12,7 @@ let tag: string;
 describe('Independent acquisition and global merchant activities (PostgreSQL)', () => {
   let prisma: PrismaClient;
   let campaigns: CampaignService;
+  let templates: CouponTemplateService;
   let referral: ReferralService;
   let coupons: CouponService;
   let growth: PromotionDashboardService;
@@ -33,6 +35,7 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
     await prisma.$connect();
     const client = prisma as PrismaService;
     campaigns = new CampaignService(client);
+    templates = new CouponTemplateService(client);
     referral = new ReferralService(client);
     coupons = new CouponService(client, new ActivationService(client));
     growth = new PromotionDashboardService(client);
@@ -126,13 +129,12 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
       await campaigns.createCampaign({ name: `${tag} Activity B` }, admin)
     ).id;
     for (const id of [draftA, draftB])
-      await campaigns.createTemplate(
+      await templates.createTemplate(
         id,
         {
           merchantId: merchant,
           title: 'Coffee',
-          benefitType: 'CUSTOM',
-          faceValue: 1000,
+          benefitText: 'Synthetic coffee offer',
           validDays: 30,
         },
         admin,
@@ -200,13 +202,12 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
       campaigns.updateCampaign(draftA, { status: 'ACTIVE' }, admin),
     ).rejects.toThrow('优惠券');
     for (const id of [draftA, draftB])
-      await campaigns.createTemplate(
+      await templates.createTemplate(
         id,
         {
           merchantId: merchant,
           title: 'Coffee',
-          benefitType: 'CUSTOM',
-          faceValue: 1000,
+          benefitText: 'Synthetic coffee offer',
           validDays: 30,
         },
         admin,
@@ -249,9 +250,21 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
     const template = await prisma.couponTemplate.findFirstOrThrow({
       where: { campaignId: active },
     });
+    await templates.updateTemplate(template.id, { isActive: false }, admin);
+    expect(
+      (
+        await prisma.couponTemplate.findUniqueOrThrow({
+          where: { id: template.id },
+        })
+      ).isActive,
+    ).toBe(false);
     await expect(
-      campaigns.updateTemplate(template.id, { isActive: false }, admin),
-    ).rejects.toThrow('草稿');
+      templates.updateTemplate(
+        template.id,
+        { benefitText: 'Changed terms' },
+        admin,
+      ),
+    ).rejects.toThrow('只能启用或停用');
   });
 
   it('new activity grants again without rewriting acquisition or historical coupons', async () => {
@@ -309,13 +322,12 @@ describe('Independent acquisition and global merchant activities (PostgreSQL)', 
           admin,
         );
         legacyIds.push(campaign.id);
-        await campaigns.createTemplate(
+        await templates.createTemplate(
           campaign.id,
           {
             merchantId: merchant,
             title: `${name} reward`,
-            benefitType: 'CUSTOM',
-            faceValue: 1000,
+            benefitText: 'Synthetic coffee offer',
             validDays: 30,
           },
           admin,

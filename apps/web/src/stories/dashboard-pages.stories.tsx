@@ -214,6 +214,29 @@ const Coupons: Story = {
     />
   ),
 };
+export const CouponChoices: Story = {
+  tags: ["test"],
+  parameters: route("/dashboard/coupons"),
+  render: () => <CouponsClient initialUser={user} initialOverview={{
+    available: { items: [50,100,200].map((min, index) => ({ ...coupon, id: `choice-${index}`, title: `满${min}减${[5,15,40][index]}`, benefitText: `消费满${min}元减${[5,15,40][index]}元，店员现场确认。本店满减优惠每人限选一张。`, redemptionGroupId: "group-choices" })), nextCursor: null },
+    history: { items: [], nextCursor: null },
+  }} />,
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).queryByText(/同组任选一张/)).not.toBeInTheDocument();
+    await expect(within(canvasElement).getAllByText(/本店满减优惠每人限选一张/)).toHaveLength(3);
+  },
+};
+export const CouponGroupUsed: Story = {
+  tags: ["test"],
+  parameters: route("/dashboard/coupons"),
+  render: () => <CouponsClient initialUser={user} initialOverview={{
+    available: { items: [], nextCursor: null },
+    history: { items: [50,100,200].map((min, index) => ({ ...coupon, id: `used-choice-${index}`, title: `满${min}减${[5,15,40][index]}`, status: index === 1 ? "REDEEMED" as const : "VOID" as const, voidReason: index === 1 ? null : "GROUP_USED", redeemedAt: index === 1 ? now : null })), nextCursor: null },
+  }} />,
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getAllByText("已使用同组其他优惠", { exact: true })).toHaveLength(2);
+  },
+};
 export const CouponCode: Story = {
   tags: ["test"],
   ...Coupons,

@@ -1,33 +1,25 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
 import commonStyles from "../admin-common.module.css";
 import cardStyles from "../admin-card.module.css";
-import { AdminRefreshButton, MERCHANT_ROLE_LABELS } from "../merchant-admin-ui";
 import merchantStyles from "../merchant-admin.module.css";
 import { useAdminCollection } from "../use-admin-collection";
 import { useAdminSearch } from "../use-admin-search";
-import type { AdminMerchant, AdminMerchantUser } from "../types";
+import type { AdminMerchant } from "../types";
 
 import { AdminDetailDialog } from "../admin-detail-dialog";
+import { MerchantDetailPanel } from "./merchant-detail-panel";
+import styles from "./merchants.module.css";
 import growthStyles from "../growth.module.css";
 
 const adminStyles = [commonStyles, cardStyles, merchantStyles];
 
-type StatusFilter = "" | "active" | "inactive";
-
-const STATUS_TABS: { value: StatusFilter; label: string }[] = [
-  { value: "", label: "全部" },
-  { value: "active", label: "启用中" },
-  { value: "inactive", label: "已停用" },
-];
-
 export default function AdminMerchantsPage() {
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("");
   const [name, setName] = useState("");
   const [contactInfo, setContactInfo] = useState("");
   const [pending, setPending] = useState<string | null>(null);
@@ -47,7 +39,6 @@ export default function AdminMerchantsPage() {
     page,
     pageSize: 20,
     search: submittedSearch.trim(),
-    status: statusFilter || undefined,
   });
 
   const merchants = useMemo(() => data?.items ?? [], [data]);
@@ -67,7 +58,6 @@ export default function AdminMerchantsPage() {
         }),
       });
       setCreating(false);
-      setStatusFilter("");
       clearSearch();
       setName("");
       setContactInfo("");
@@ -75,22 +65,6 @@ export default function AdminMerchantsPage() {
       await refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "创建失败。");
-    } finally {
-      setPending(null);
-    }
-  }
-
-  async function toggleActive(merchant: AdminMerchant) {
-    setPending(`toggle-${merchant.id}`);
-    setError(null);
-    try {
-      await fetchApi(`/admin/merchants/${merchant.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive: !merchant.isActive }),
-      });
-      await refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "操作失败。");
     } finally {
       setPending(null);
     }
@@ -107,9 +81,7 @@ export default function AdminMerchantsPage() {
       <div className={cx(adminStyles, "qb-header")}>
         <div>
           <h1>合作商家</h1>
-          <p className={cx(adminStyles, "qb-header-desc")}>
-            先添加商家并配置核销账号，再到「商户活动」设置优惠券。停用商家会阻止其账号登录与核销。
-          </p>
+          <p className={cx(adminStyles, "qb-header-desc")}>管理入驻商家与核销账号。</p>
         </div>
         <div className={growthStyles.toolbar}>
           <button
@@ -121,7 +93,9 @@ export default function AdminMerchantsPage() {
           >
             新增商家
           </button>
-          <AdminRefreshButton onClick={() => void refresh()} />
+          <button type="button" className={styles.textAction} onClick={() => void refresh()}>
+            刷新
+          </button>
         </div>
       </div>
 
@@ -179,19 +153,32 @@ export default function AdminMerchantsPage() {
         </p>
       )}
 
-      <section className={cx(adminStyles, "ic-list-panel mp-list-panel")}>
-        <div className={cx(adminStyles, "mp-list-toolbar")}>
-          <form className={cx(adminStyles, "ic-search-bar")} onSubmit={handleSearchSubmit}>
+      <section>
+        <div className={styles.searchToolbar}>
+          <form className={styles.search} onSubmit={handleSearchSubmit} role="search">
+            <button type="submit" aria-label="搜索">
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                aria-hidden="true"
+              >
+                <circle cx="10.5" cy="10.5" r="7" />
+                <path d="m16 16 5 5" />
+              </svg>
+            </button>
             <input
               value={draftSearch}
               onChange={(event) => setDraftSearch(event.target.value)}
-              placeholder="搜索商家名称…"
+              placeholder="搜索商家名称"
               aria-label="搜索商家名称"
             />
             {draftSearch && (
               <button
                 type="button"
-                className={cx(adminStyles, "ic-search-clear")}
                 aria-label="清除搜索"
                 onClick={() => {
                   clearSearch();
@@ -201,52 +188,13 @@ export default function AdminMerchantsPage() {
                 ×
               </button>
             )}
-            <button
-              className={cx(adminStyles, "ui-button ui-button--primary ic-search-submit")}
-              type="submit"
-            >
-              搜索
-            </button>
           </form>
-
-          <div
-            className={cx(adminStyles, "ic-status-tabs")}
-            role="tablist"
-            aria-label="商家状态筛选"
-          >
-            {STATUS_TABS.map((tab) => (
-              <button
-                key={tab.value || "all"}
-                type="button"
-                role="tab"
-                aria-selected={statusFilter === tab.value}
-                className={cx(
-                  adminStyles,
-                  "ic-status-tab",
-                  statusFilter === tab.value && "is-active"
-                )}
-                onClick={() => {
-                  setStatusFilter(tab.value);
-                  setPage(1);
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <p className={styles.total}>共 {data?.total ?? 0} 个商家</p>
         </div>
-
-        <div className={cx(adminStyles, "ic-list-meta")}>
-          <p className={cx(adminStyles, "qb-header-desc")} style={{ margin: 0 }}>
-            共 {data?.total ?? 0} 个商家
-            {submittedSearch.trim() ? ` · 搜索「${submittedSearch.trim()}」` : ""}
-          </p>
-        </div>
-
-        <div className={cx(adminStyles, "qb-list")} style={{ marginTop: "0.85rem" }}>
+        <div className={styles.list}>
           {!loading && merchants.length === 0 && (
             <div className={cx(adminStyles, "admin-empty-state ic-list-empty")}>
-              {submittedSearch.trim() || statusFilter
+              {submittedSearch.trim()
                 ? "没有匹配的商家，试试调整搜索或筛选条件。"
                 : "还没有商家，在上方新增第一个。"}
             </div>
@@ -254,69 +202,49 @@ export default function AdminMerchantsPage() {
           {merchants.map((merchant) => {
             const expanded = selectedId === merchant.id;
             return (
-              <div
-                key={merchant.id}
-                className={cx(adminStyles, "qb-card", expanded && "mp-card-expanded")}
-              >
-                <div className={cx(adminStyles, "qb-card-header")}>
-                  <div className={cx(adminStyles, "qb-card-title")}>
+              <article key={merchant.id} aria-label={merchant.name} className={styles.card}>
+                <button
+                  type="button"
+                  className={styles.merchantHeader}
+                  aria-label={merchant.name}
+                  aria-expanded={expanded}
+                  aria-controls={`merchant-accounts-${merchant.id}`}
+                  onClick={() =>
+                    setSelectedId((current) => (current === merchant.id ? null : merchant.id))
+                  }
+                >
+                  <span className={styles.merchantInfo}>
                     <strong>{merchant.name}</strong>
-                    {merchant.contactInfo && (
-                      <span className={cx(adminStyles, "qb-card-meta")}>
-                        {merchant.contactInfo}
-                      </span>
-                    )}
-                    <div className={cx(adminStyles, "mp-inline-stats")}>
-                      <span className={cx(adminStyles, "mp-inline-stat")}>
-                        优惠券 <strong>{merchant.templateCount}</strong>
-                      </span>
-                      <span className={cx(adminStyles, "mp-inline-stat")}>
-                        核销 <strong>{merchant.redemptionCount}</strong>
-                      </span>
-                    </div>
-                  </div>
-                  <span
-                    className={cx(
-                      adminStyles,
-                      "qb-badge",
-                      merchant.isActive ? "is-active" : "is-off"
-                    )}
-                  >
-                    {merchant.isActive ? "启用中" : "已停用"}
+                    {merchant.contactInfo && <span>{merchant.contactInfo}</span>}
                   </span>
-                  <div className={cx(adminStyles, "mp-card-actions")}>
-                    <button
-                      type="button"
-                      className="ui-button ui-button--secondary"
-                      onClick={() =>
-                        setSelectedId((current) => (current === merchant.id ? null : merchant.id))
-                      }
-                    >
-                      {expanded ? "收起详情" : "管理核销账号"}
-                    </button>
-                    <button
-                      type="button"
-                      className={
-                        merchant.isActive
-                          ? "ui-button ui-button--secondary"
-                          : "ui-button ui-button--primary"
-                      }
-                      disabled={pending === `toggle-${merchant.id}`}
-                      onClick={() => void toggleActive(merchant)}
-                    >
-                      {pending === `toggle-${merchant.id}`
-                        ? "处理中…"
-                        : merchant.isActive
-                          ? "停用"
-                          : "启用"}
-                    </button>
-                  </div>
-                </div>
+                  <span className={styles.summary}>
+                    {merchant.userCount === undefined
+                      ? "核销账号"
+                      : merchant.userCount === 0
+                        ? "暂无核销账号"
+                        : `${merchant.userCount} 个账号 · ${merchant.activeUserCount === merchant.userCount ? "全部启用" : merchant.activeUserCount === 0 ? "已停用" : `${merchant.activeUserCount} 个启用`}`}
+                  </span>
+                  <svg
+                    className={styles.chevron}
+                    data-expanded={expanded}
+                    viewBox="0 0 24 24"
+                    width="20"
+                    height="20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    aria-hidden="true"
+                  >
+                    <path d="m9 5 7 7-7 7" />
+                  </svg>
+                </button>
 
                 {expanded && (
-                  <MerchantDetailPanel merchant={merchant} onChanged={() => void refresh()} />
+                  <div id={`merchant-accounts-${merchant.id}`}>
+                    <MerchantDetailPanel merchant={merchant} onChanged={() => void refresh()} />
+                  </div>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>
@@ -332,228 +260,6 @@ export default function AdminMerchantsPage() {
           />
         )}
       </section>
-    </div>
-  );
-}
-
-function MerchantDetailPanel({
-  merchant,
-  onChanged,
-}: {
-  merchant: AdminMerchant;
-  onChanged: () => void;
-}) {
-  const [users, setUsers] = useState<AdminMerchantUser[] | null>(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [role, setRole] = useState("STAFF");
-  const [promotionJson, setPromotionJson] = useState(
-    JSON.stringify(merchant.promotionBlocks ?? [], null, 2)
-  );
-  const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadUsers = useCallback(async () => {
-    try {
-      const result = await fetchApi<{ items: AdminMerchantUser[] }>(
-        `/admin/merchants/${merchant.id}/users`
-      );
-      setUsers(result.items);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "加载账号失败。");
-    }
-  }, [merchant.id]);
-
-  useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
-
-  useEffect(() => {
-    setPromotionJson(JSON.stringify(merchant.promotionBlocks ?? [], null, 2));
-  }, [merchant.promotionBlocks]);
-
-  async function createUser(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPending("user");
-    setError(null);
-    try {
-      await fetchApi(`/admin/merchants/${merchant.id}/users`, {
-        method: "POST",
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          displayName: displayName.trim() || undefined,
-          role,
-        }),
-      });
-      setEmail("");
-      setPassword("");
-      setDisplayName("");
-      await loadUsers();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "创建账号失败。");
-    } finally {
-      setPending(null);
-    }
-  }
-
-  async function toggleUser(user: AdminMerchantUser) {
-    setPending(`user-${user.id}`);
-    setError(null);
-    try {
-      await fetchApi(`/admin/merchant-users/${user.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ isActive: !user.isActive }),
-      });
-      await loadUsers();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "操作失败。");
-    } finally {
-      setPending(null);
-    }
-  }
-
-  async function savePromotion() {
-    setPending("promotion");
-    setError(null);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(promotionJson);
-    } catch {
-      setError("推广位 JSON 格式不正确。");
-      setPending(null);
-      return;
-    }
-    try {
-      await fetchApi(`/admin/merchants/${merchant.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ promotionBlocks: parsed }),
-      });
-      onChanged();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "保存推广位失败。");
-    } finally {
-      setPending(null);
-    }
-  }
-
-  return (
-    <div className={cx(adminStyles, "qb-subpanel")}>
-      {error && <p className="ui-form-message ui-form-message--error">{error}</p>}
-
-      <h4>登录账号</h4>
-      {users === null ? (
-        <p className={cx(adminStyles, "qb-header-desc")}>加载账号中…</p>
-      ) : users.length === 0 ? (
-        <p className={cx(adminStyles, "qb-header-desc")}>
-          暂无账号，在下方为商家创建第一个核销账号。
-        </p>
-      ) : (
-        <div className={cx(adminStyles, "mp-subpanel-list")}>
-          {users.map((user) => (
-            <div key={user.id} className={cx(adminStyles, "mp-subpanel-row")}>
-              <div className={cx(adminStyles, "mp-subpanel-row-main")}>
-                <span className={cx(adminStyles, "mp-subpanel-row-title")}>{user.email}</span>
-                <span className={cx(adminStyles, "mp-subpanel-row-meta")}>
-                  {user.displayName ? `${user.displayName} · ` : ""}
-                  {MERCHANT_ROLE_LABELS[user.role] ?? user.role}
-                  {user.lastLoginAt
-                    ? ` · 最近登录 ${new Date(user.lastLoginAt).toLocaleDateString("zh-CN")}`
-                    : ""}
-                </span>
-              </div>
-              <div className={cx(adminStyles, "mp-card-actions")}>
-                <span
-                  className={cx(adminStyles, "qb-badge", user.isActive ? "is-active" : "is-off")}
-                >
-                  {user.isActive ? "启用" : "停用"}
-                </span>
-                <button
-                  type="button"
-                  className="ui-button ui-button--secondary"
-                  disabled={pending === `user-${user.id}`}
-                  onClick={() => void toggleUser(user)}
-                >
-                  {user.isActive ? "停用" : "启用"}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <h4 style={{ marginTop: "0.25rem" }}>新增账号</h4>
-      <form className={cx(adminStyles, "mp-form-grid")} onSubmit={createUser}>
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="账号邮箱"
-          aria-label="账号邮箱"
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="初始密码（≥8 位）"
-          aria-label="初始密码"
-        />
-        <input
-          value={displayName}
-          onChange={(event) => setDisplayName(event.target.value)}
-          placeholder="显示名（可选）"
-          aria-label="显示名"
-        />
-        <select
-          value={role}
-          aria-label="账号角色"
-          onChange={(event) => setRole(event.target.value)}
-        >
-          <option value="STAFF">店员</option>
-          <option value="OWNER">店主</option>
-        </select>
-        <button
-          className="ui-button ui-button--primary"
-          type="submit"
-          disabled={pending === "user" || !email.trim() || password.length < 8}
-        >
-          {pending === "user" ? "创建中…" : "新增账号"}
-        </button>
-      </form>
-
-      <details style={{ marginTop: "1.5rem" }}>
-        <summary>核销后展示内容（高级设置）</summary>
-        <p>仅影响商家的核销成功页，不影响邀请推广。</p>
-        <p className={cx(adminStyles, "qb-header-desc")} style={{ marginTop: 0 }}>
-          JSON 数组。文本块{" "}
-          <code
-            className={cx(adminStyles, "mp-slug")}
-          >{`{"type":"TEXT","text":"关注公众号"}`}</code>
-          ，二维码{" "}
-          <code
-            className={cx(adminStyles, "mp-slug")}
-          >{`{"type":"QRCODE","imageUrl":"https://…","caption":"扫码"}`}</code>
-          ；图片 URL 必须 https。
-        </p>
-        <textarea
-          className={cx(adminStyles, "mp-json-editor")}
-          value={promotionJson}
-          onChange={(event) => setPromotionJson(event.target.value)}
-          rows={6}
-          aria-label="推广位 JSON"
-        />
-        <div className={cx(adminStyles, "mp-card-actions")} style={{ marginTop: "0.5rem" }}>
-          <button
-            className="ui-button ui-button--primary"
-            type="button"
-            disabled={pending === "promotion"}
-            onClick={() => void savePromotion()}
-          >
-            {pending === "promotion" ? "保存中…" : "保存推广位"}
-          </button>
-        </div>
-      </details>
     </div>
   );
 }

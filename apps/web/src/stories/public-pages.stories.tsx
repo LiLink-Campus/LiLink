@@ -169,9 +169,12 @@ export const FounderDetail: Story = {
   parameters: route("/about/team/yoryon"),
   render: () => <MemberPageView slug="yoryon" />,
   play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
+    const c = within(within(canvasElement).getByRole("main"));
     await waitFor(() => expect(c.getByRole("heading", { name: "釉蓝yoryon" })).toBeVisible());
     await expect(c.getByRole("link", { name: "← 返回团队" })).toHaveAttribute("href", "/about#team-title");
+    await expect(c.getByRole("link", { name: "个人主页 ↗" })).toHaveAttribute("href", "https://yoryon.com");
+    await expect(c.getAllByRole("link")).toHaveLength(2);
+    await expect(c.queryByText(/有合作、投诉|工作微信号|公众号|无病呻吟/)).not.toBeInTheDocument();
   },
 };
 export const MemberDetail: Story = {

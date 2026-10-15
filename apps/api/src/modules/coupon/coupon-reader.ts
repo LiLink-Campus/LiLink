@@ -1,18 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
-import {
-  type CouponRule,
-  effectiveCouponStatus,
-  renderBenefitText,
-} from '@lilink/shared';
+import { effectiveCouponStatus } from '@lilink/shared';
 import { Prisma } from '../../common/prisma/client';
 
 export const couponDetails = {
   template: {
     select: {
       title: true,
-      benefitType: true,
-      faceValue: true,
-      rule: true,
+      benefitText: true,
+      redemptionGroupId: true,
       merchant: { select: { name: true } },
     },
   },
@@ -39,14 +34,9 @@ export function couponView(coupon: Coupon, now: Date) {
     code: coupon.code,
     merchantName: coupon.template.merchant.name,
     title: coupon.template.title,
-    benefitType: coupon.template.benefitType,
-    benefitText: renderBenefitText({
-      benefitType: coupon.template.benefitType,
-      title: coupon.template.title,
-      faceValue: coupon.template.faceValue,
-      rule: coupon.template.rule as CouponRule | null,
-    }),
-    faceValue: coupon.template.faceValue,
+    benefitText: coupon.template.benefitText,
+    redemptionGroupId: coupon.template.redemptionGroupId,
+    voidReason: coupon.voidReason,
     issuedAt: coupon.issuedAt.toISOString(),
     expiresAt: coupon.expiresAt?.toISOString() ?? null,
     redeemedAt: coupon.redemption?.redeemedAt.toISOString() ?? null,

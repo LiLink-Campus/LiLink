@@ -1,12 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, within, waitFor } from "storybook/test";
 import { http, HttpResponse } from "msw";
 import Login from "@/app/merchant/login/page";
 import Redeem from "@/app/merchant/redeem/page";
 import Scan from "@/app/r/[code]/page";
-import { RedeemConfirm } from "@/app/merchant/_components/RedeemConfirm";
 import { api, failure, route, visible, siteHandlers, publicShell } from "./site-support";
-import { prepare } from "./site-fixtures";
 const meta = {
   tags: ["!test"],
   id: "site-merchant",
@@ -33,7 +31,7 @@ async function enterCode(canvasElement: HTMLElement) {
     await c.findByPlaceholderText("输入核销码（格式：券码-验证码）"),
     "AB23CD-123456"
   );
-  await userEvent.click(c.getByRole("button", { name: /查询|下一步|核验/ }));
+  await userEvent.click(c.getByRole("button", { name: "核销" }));
 }
 
 export const ManualSuccess: Story = {
@@ -43,9 +41,7 @@ export const ManualSuccess: Story = {
     const c = within(canvasElement);
     await expect(await c.findByText(/店员小禾|青禾咖啡/)).toBeVisible();
     await enterCode(canvasElement);
-    await userEvent.type(await c.findByPlaceholderText("消费金额（元）"), "60");
-    await userEvent.click(c.getByRole("button", { name: "确认核销" }));
-    await expect(await c.findByText("✓ 核销成功")).toBeVisible();
+    await expect(await c.findByText("核销成功")).toBeVisible();
   },
 };
 export const InvalidCode: Story = {
@@ -56,7 +52,7 @@ export const InvalidCode: Story = {
     msw: {
       handlers: {
         site: [
-          http.post(`${api}/merchant/redeem/prepare`, () =>
+          http.post(`${api}/merchant/redeem`, () =>
             HttpResponse.json({ result: "EXPIRED_CODE" })
           ),
           ...siteHandlers,
@@ -84,29 +80,12 @@ export const ScanMissingToken: Story = {
   render: () => <Scan />,
   play: visible("请重新出示二维码"),
 };
-export const ConfirmGift: Story = {
-  tags: ["test"],
-  render: () => (
-    <RedeemConfirm
-      prepare={{
-        ...prepare,
-        needAmount: false,
-        coupon: { ...prepare.coupon, title: "双人甜品赠送券", benefitText: "赠送甜品一份" },
-      }}
-    />
-  ),
-  play: visible("双人甜品赠送券"),
-};
 export const RedeemError: Story = {
-  tags: ["test"],
-  parameters: {
-    msw: { handlers: { site: [failure("/merchant/redeem", "post"), ...siteHandlers] } },
-  },
-  render: () => <RedeemConfirm prepare={{ ...prepare, needAmount: false }} />,
+  tags: ["test"], ...ManualEntry,
+  parameters: { ...route("/merchant/redeem"), msw: { handlers: { site: [failure("/merchant/redeem", "post"), ...siteHandlers] } } },
   play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
-    await userEvent.click(c.getByRole("button", { name: "确认核销" }));
-    await expect(await c.findByText(/模拟服务暂时不可用/)).toHaveTextContent("模拟服务暂时不可用");
+    await enterCode(canvasElement);
+    await expect(await within(canvasElement).findByText(/模拟服务暂时不可用/)).toBeVisible();
   },
 };
 
@@ -120,8 +99,6 @@ export const ScanSuccess: Story = {
   },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await userEvent.type(await c.findByPlaceholderText("消费金额（元）"), "60");
-    await userEvent.click(c.getByRole("button", { name: "确认核销" }));
-    await expect(await c.findByText(/核销成功/)).toBeVisible();
+    await waitFor(() => expect(c.getByText("核销成功", { exact: true })).toBeVisible());
   },
 };

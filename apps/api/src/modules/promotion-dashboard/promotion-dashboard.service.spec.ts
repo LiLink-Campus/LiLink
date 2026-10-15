@@ -317,7 +317,7 @@ describe('PromotionDashboardService', () => {
   });
 
   describe('getRedemptions', () => {
-    it('groups by merchant + Shanghai day with faceValueTotal', async () => {
+    it('groups by merchant + Shanghai day', async () => {
       const prisma = makePrisma();
       prisma.redemption.findMany.mockResolvedValue([
         {
@@ -343,7 +343,6 @@ describe('PromotionDashboardService', () => {
         merchantName: 'Cafe',
         day: '2026-06-01',
         count: 2,
-        faceValueTotal: 1500,
       });
     });
   });

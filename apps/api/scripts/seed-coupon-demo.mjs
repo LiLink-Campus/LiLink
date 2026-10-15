@@ -16,42 +16,9 @@ const SAFE_DATABASE_TARGET_MARKER_PATTERN =
 const CAMPAIGN_SLUG = 'local-coupon-preview';
 const COUPON_CODE_GENERATION_MAX_ATTEMPTS = 12;
 
-const SOCIAL_RULE = {
-  version: 1,
-  tiers: [
-    { minSpend: 3000, benefit: { type: 'AMOUNT_OFF', amountOff: 500 } },
-    { minSpend: 5000, benefit: { type: 'AMOUNT_OFF', amountOff: 1200 } },
-    { minSpend: 10000, benefit: { type: 'AMOUNT_OFF', amountOff: 3000 } },
-  ],
-};
-
-const VIBES_RULE = {
-  version: 1,
-  tiers: [
-    { minSpend: 5000, benefit: { type: 'GIFT', description: '一杯气泡饮料' } },
-    {
-      minSpend: 10000,
-      benefit: { type: 'GIFT', description: '一杯软饮料/半份小食拼盘' },
-    },
-    { minSpend: 20000, benefit: { type: 'GIFT', description: '两杯任意饮料' } },
-  ],
-};
-
 const DEMO_TEMPLATES = [
-  {
-    merchantName: 'Social',
-    title: 'Social优惠券',
-    benefitType: 'FULL_REDUCTION',
-    faceValue: 3000,
-    rule: SOCIAL_RULE,
-  },
-  {
-    merchantName: 'Vibes',
-    title: 'Vibes优惠券',
-    benefitType: 'GIFT',
-    faceValue: 0,
-    rule: VIBES_RULE,
-  },
+  ...[[30,5], [50,12], [100,30]].map(([min,off]) => ({ merchantName: 'Social（测试商家）', title: `满${min}减${off}`, benefitText: `消费满${min}元减${off}元，由店员现场确认。`, groupName: '满减任选' })),
+  ...[[50,'一杯气泡饮料'], [100,'一杯软饮料'], [200,'两杯任意饮料']].map(([min,gift]) => ({ merchantName: 'Vibes（测试商家）', title: `满${min}赠饮品`, benefitText: `消费满${min}元赠送${gift}，由店员现场确认。`, groupName: '赠品任选' })),
 ];
 
 let prisma;
@@ -227,7 +194,7 @@ async function upsertMerchant(name) {
   if (existing) return existing;
 
   return prisma.merchant.create({
-    data: { name, isActive: true },
+    data: { name },
     select: { id: true, name: true },
   });
 }
@@ -260,13 +227,16 @@ async function upsertTemplate(campaignId, merchantId, template) {
     select: { id: true, title: true },
   });
 
+  const group = await prisma.couponRedemptionGroup.upsert({
+    where: { campaignId_merchantId_name: { campaignId, merchantId, name: template.groupName } },
+    create: { campaignId, merchantId, name: template.groupName }, update: {},
+  });
   if (existing) {
     await prisma.couponTemplate.update({
       where: { id: existing.id },
       data: {
-        benefitType: template.benefitType,
-        faceValue: template.faceValue,
-        rule: template.rule,
+        benefitText: template.benefitText,
+        redemptionGroupId: group.id,
         isActive: true,
       },
     });
@@ -278,9 +248,8 @@ async function upsertTemplate(campaignId, merchantId, template) {
       campaignId,
       merchantId,
       title: template.title,
-      benefitType: template.benefitType,
-      faceValue: template.faceValue,
-      rule: template.rule,
+      benefitText: template.benefitText,
+      redemptionGroupId: group.id,
       isActive: true,
     },
     select: { id: true, title: true },

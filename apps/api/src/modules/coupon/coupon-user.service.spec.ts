@@ -28,7 +28,6 @@ function issuedCoupon(overrides: Record<string, unknown> = {}) {
       merchantId: 'm1',
       merchant: {
         id: 'm1',
-        promotionBlocks: null,
       },
     },
     ...overrides,
@@ -51,7 +50,6 @@ function redeemedCoupon(overrides: Record<string, unknown> = {}) {
       merchantId: 'm1',
       merchant: {
         id: 'm1',
-        promotionBlocks: [{ type: 'TEXT', text: 'Follow our WeChat!' }],
       },
     },
     template: {
@@ -59,7 +57,6 @@ function redeemedCoupon(overrides: Record<string, unknown> = {}) {
       merchantId: 'm1',
       merchant: {
         id: 'm1',
-        promotionBlocks: [{ type: 'TEXT', text: 'Follow our WeChat!' }],
       },
     },
     ...overrides,
@@ -203,7 +200,7 @@ describe('CouponUserService.getCouponStatus', () => {
     expect(result.status).toBe('EXPIRED');
   });
 
-  it('returns REDEEMED status with applied and merchantPromotion', async () => {
+  it('returns REDEEMED status without computed amounts', async () => {
     const prisma = makePrisma();
     prisma.coupon.findUnique.mockResolvedValue(redeemedCoupon());
     const service = new CouponUserService(prisma as never);
@@ -212,17 +209,11 @@ describe('CouponUserService.getCouponStatus', () => {
 
     expect(result.status).toBe('REDEEMED');
     expect(result.redeemedAt).toBe('2026-05-10T12:00:00.000Z');
-    expect(result.applied).toEqual({
-      orderAmount: 5000,
-      discountAmount: 1000,
-      gift: null,
-    });
-    expect(result.merchantPromotion).toEqual([
-      { type: 'TEXT', text: 'Follow our WeChat!' },
-    ]);
+    expect(result).not.toHaveProperty('applied');
+    expect(result).not.toHaveProperty('merchantPromotion');
   });
 
-  it('includes giftLabel in applied.gift when set', async () => {
+  it('preserves old gift data without returning computed benefits', async () => {
     const prisma = makePrisma();
     prisma.coupon.findUnique.mockResolvedValue(
       redeemedCoupon({
@@ -234,7 +225,6 @@ describe('CouponUserService.getCouponStatus', () => {
           merchantId: 'm1',
           merchant: {
             id: 'm1',
-            promotionBlocks: null,
           },
         },
       }),
@@ -243,28 +233,7 @@ describe('CouponUserService.getCouponStatus', () => {
 
     const result = await service.getCouponStatus('u1', 'co1');
 
-    expect(result.applied?.gift).toBe('Free drink');
-  });
-
-  it('returns empty merchantPromotion array when merchant blocks are null', async () => {
-    const prisma = makePrisma();
-    prisma.coupon.findUnique.mockResolvedValue(
-      redeemedCoupon({
-        redemption: {
-          orderAmount: 3000,
-          actualDiscountAmount: 0,
-          giftLabel: null,
-          redeemedAt: new Date('2026-05-10T12:00:00.000Z'),
-          merchantId: 'm1',
-          merchant: { id: 'm1', promotionBlocks: null },
-        },
-      }),
-    );
-    const service = new CouponUserService(prisma as never);
-
-    const result = await service.getCouponStatus('u1', 'co1');
-
-    expect(result.merchantPromotion).toEqual([]);
+    expect(result).not.toHaveProperty('applied');
   });
 
   it('throws NotFoundException when the coupon does not belong to the caller', async () => {

@@ -1199,6 +1199,9 @@ describe('AdminService', () => {
           },
         }),
       },
+      questionnaireVersion: {
+        findFirst: jest.fn().mockResolvedValue({ questions: [] }),
+      },
       school: {
         findMany: jest
           .fn()
@@ -1206,13 +1209,15 @@ describe('AdminService', () => {
       },
     } as never);
 
-    await expect(service.getUserQuestionnaire('user-1')).resolves.toEqual({
-      submittedAt: new Date('2026-04-15T12:00:00.000Z'),
-      answers: {
-        [HARD_MATCH_KEYS.school]: 'school-cuc',
-        [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-bupt'],
+    await expect(service.getUserQuestionnaire('user-1')).resolves.toMatchObject(
+      {
+        submittedAt: new Date('2026-04-15T12:00:00.000Z'),
+        answers: {
+          [HARD_MATCH_KEYS.school]: 'school-cuc',
+          [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-bupt'],
+        },
       },
-    });
+    );
   });
 
   it('syncs questionnaire school answers when an admin reassigns the user school', async () => {
@@ -1454,6 +1459,9 @@ describe('AdminService', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
       redemption: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      couponGroupRedemption: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       coupon: {

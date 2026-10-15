@@ -1,4 +1,5 @@
 import type { BrowserContext } from '@playwright/test';
+import { COUPON_CODE_LENGTH, generateHumanCode, generateTotpSecret, generateTotpToken } from '@lilink/shared';
 import { test, expect, api, password, visit, completeProfile } from '../support/fixtures';
 
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
@@ -65,6 +66,17 @@ test('bulk test-user removal leaves ordinary users intact and admin routes rejec
   const admin = await db.adminOperator.create({ data: { email: `cleanup-${account.email}`, passwordHash: source.passwordHash } });
   expect((await context.request.post(`${api}/admin-session/login`, { data: { email: admin.email, password } })).ok()).toBe(true);
   const synthetic = await db.user.create({ data: { email: `cleanup-test-${account.email}`, passwordHash: source.passwordHash, isTest: true, status: 'ACTIVE' } });
+  // Cleanup must handle the new Restrict relations while preserving ordinary holders.
+  const merchant = await db.merchant.create({ data: { name: '合成验收商家' } });
+  const operator = await db.merchantUser.create({ data: { email: `merchant-${account.email}`, passwordHash: source.passwordHash, merchantId: merchant.id, role: 'OWNER' } });
+  const campaign = await db.campaign.create({ data: { name: '合成清理活动', slug: `cleanup-${account.id}` } });
+  const group = await db.couponRedemptionGroup.create({ data: { campaignId: campaign.id, merchantId: merchant.id, name: '合成清理组' } });
+  const template = await db.couponTemplate.create({ data: { campaignId: campaign.id, merchantId: merchant.id, redemptionGroupId: group.id, title: '清理验收券', benefitText: '合成优惠' } });
+  const issue = (userId: string) => db.coupon.create({ data: { userId, templateId: template.id, code: generateHumanCode({ length: COUPON_CODE_LENGTH }), totpSecret: generateTotpSecret() } });
+  const testCoupon = await issue(synthetic.id);
+  const ordinaryCoupon = await issue(account.id);
+  expect((await context.request.post(`${api}/merchant/auth/login`, { data: { email: operator.email, password } })).ok()).toBe(true);
+  expect((await (await context.request.post(`${api}/merchant/redeem`, { data: { code: testCoupon.code, totp: generateTotpToken(testCoupon.totpSecret) } })).json()).result).toBe('SUCCESS');
   await visit(page, '/admin/users');
   await page.getByRole('combobox', { name: '账号类型', exact: true }).selectOption('test');
   await expect(page.getByText(synthetic.email, { exact: true })).toBeVisible();
@@ -73,6 +85,10 @@ test('bulk test-user removal leaves ordinary users intact and admin routes rejec
   await expect(page.getByText('没有找到匹配的用户。', { exact: true })).toBeVisible();
   expect(await db.user.count({ where: { id: synthetic.id } })).toBe(0);
   expect(await db.user.count({ where: { id: account.id } })).toBe(1);
+  expect(await db.couponGroupRedemption.count({ where: { userId: synthetic.id } })).toBe(0);
+  expect(await db.redemption.count({ where: { userId: synthetic.id } })).toBe(0);
+  expect((await db.coupon.findUniqueOrThrow({ where: { id: ordinaryCoupon.id } })).status).toBe('ISSUED');
+  expect(await db.couponRedemptionGroup.count({ where: { id: group.id } })).toBe(1);
   const ordinary = await browser.newContext();
   try {
     for (const authenticated of [false, true]) {
@@ -81,8 +97,6 @@ test('bulk test-user removal leaves ordinary users intact and admin routes rejec
         expect((await ordinary.request.get(`${api}${route}`)).status()).toBe(401);
       }
     }
-    const merchant = await db.merchant.create({ data: { name: '合成验收商家' } });
-    const operator = await db.merchantUser.create({ data: { email: `merchant-${account.email}`, passwordHash: source.passwordHash, merchantId: merchant.id, role: 'OWNER' } });
     await ordinary.clearCookies();
     expect((await ordinary.request.post(`${api}/merchant/auth/login`, { data: { email: operator.email, password } })).ok()).toBe(true);
     for (const route of ['/admin/users', '/admin/reports', '/admin/questionnaire', '/admin/cycles']) {
@@ -91,7 +105,7 @@ test('bulk test-user removal leaves ordinary users intact and admin routes rejec
   } finally { await ordinary.close(); }
   expect(await db.auditLog.count({ where: { adminActorId: admin.id, action: 'users.test_deleted' } })).toBe(1);
   await info.attach('admin-test-data-contract', { contentType: 'application/json', body: JSON.stringify({
-    assertions: { syntheticRemoved: true, ordinaryPreserved: true, unauthenticatedUserAndMerchantDenied: true, auditWritten: true },
+    assertions: { syntheticRemoved: true, ordinaryPreserved: true, groupedRedemptionRemoved: true, ordinaryCouponAndGroupPreserved: true, unauthenticatedUserAndMerchantDenied: true, auditWritten: true },
   }) });
 });
 
@@ -138,39 +152,24 @@ async function loginAdmin(context: BrowserContext, db: any, accountId: string) {
   expect(response.ok(), await response.text()).toBeTruthy();
 }
 
-test('@smoke admin enables weekly cycles, sees the new cycle, and pauses durably', async ({ page, context, db, account }, info) => {
+test('cycle management keeps automation server-side @smoke @webkit @mobile', async ({ page, context, db, account }, info) => {
   await loginAdmin(context, db, account.id);
-  const prior = await db.matchCycle.findMany({ select: { id: true, status: true } });
-  const priorSetting = await db.systemSetting.findUnique({ where: { key: 'weekly-cycle-schedule' } });
-  let createdId: string | undefined;
-  try {
-    await db.matchCycle.updateMany({ data: { status: 'DRAFT' } });
-    await db.systemSetting.deleteMany({ where: { key: 'weekly-cycle-schedule' } });
-    await visit(page, '/admin/cycles');
-    await page.getByRole('checkbox', { name: '启用自动续轮' }).check();
-    await page.getByRole('button', { name: '保存自动轮次设置' }).click();
-    await expect(page.getByRole('region', { name: '每周自动续轮' }).getByRole('status')).toContainText('已创建并开放报名');
-    const created = await db.matchCycle.findFirstOrThrow({ where: { status: 'OPEN' } });
-    createdId = created.id;
-    expect(created.codename).toMatch(/^第\d+周$/);
-    expect(created.revealAt.getUTCDay()).toBe(2);
-    expect(created.revealAt.getUTCHours()).toBe(13);
-    expect(created.revealAt.getTime() - created.participationDeadline.getTime()).toBe(2 * 3600000);
-    await page.reload();
-    await expect(page.getByRole('checkbox', { name: '启用自动续轮' })).toBeChecked();
-    await expect(page.getByRole('button', { name: new RegExp(created.codename) })).toBeVisible();
-    await page.getByRole('checkbox', { name: '启用自动续轮' }).uncheck();
-    await page.getByRole('button', { name: '保存自动轮次设置' }).click();
-    await expect(page.getByRole('region', { name: '每周自动续轮' }).getByRole('status')).toContainText('自动续轮已暂停');
-    await page.reload();
-    await expect(page.getByRole('checkbox', { name: '启用自动续轮' })).not.toBeChecked();
-    expect((await db.matchCycle.findUniqueOrThrow({ where: { id: created.id } })).status).toBe('OPEN');
-  } finally {
-    if (createdId) await db.matchCycle.delete({ where: { id: createdId } });
-    for (const cycle of prior) await db.matchCycle.update({ where: { id: cycle.id }, data: { status: cycle.status } });
-    await db.systemSetting.deleteMany({ where: { key: 'weekly-cycle-schedule' } });
-    if (priorSetting) await db.systemSetting.create({ data: priorSetting });
-  }
+  const before = await db.systemSetting.findUnique({ where: { key: 'weekly-cycle-schedule' } });
+  const settingsRequests: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('/weekly-cycle-settings')) settingsRequests.push(request.method());
+  });
+  await visit(page, '/admin/cycles');
+  await expect(page.getByRole('heading', { name: '轮次管理', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新建轮次', exact: true })).toBeVisible();
+  await expect(page.getByText('每周自动续轮', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: '启用自动续轮' })).toHaveCount(0);
+  await page.getByRole('button', { name: '刷新', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '轮次管理', exact: true })).toBeVisible();
+  expect(settingsRequests).toEqual([]);
+  expect(await db.systemSetting.findUnique({ where: { key: 'weekly-cycle-schedule' } })).toEqual(before);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('cycles-server-default.png'), fullPage: true });
 });
 
 test('@smoke admin cancels then deletes an empty draft with final list and audit proof', async ({ page, context, db, account }, info) => {

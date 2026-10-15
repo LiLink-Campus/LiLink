@@ -74,7 +74,6 @@ interface PromotionRedemptionRow {
   merchantName: string;
   day: string;
   count: number;
-  faceValueTotal: number;
 }
 
 export interface PromotionLeaderboardResponse {
@@ -520,7 +519,6 @@ export class PromotionDashboardService {
         merchantId: true,
         merchant: { select: { name: true } },
         redeemedAt: true,
-        faceValueSnapshot: true,
       },
     });
 
@@ -535,10 +533,8 @@ export class PromotionDashboardService {
           merchantName: redemption.merchant.name,
           day,
           count: 0,
-          faceValueTotal: 0,
         } satisfies PromotionRedemptionRow);
       row.count += 1;
-      row.faceValueTotal += redemption.faceValueSnapshot;
       rows.set(key, row);
     }
 

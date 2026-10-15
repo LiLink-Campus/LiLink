@@ -34,25 +34,24 @@ export type AdminCouponTemplate = {
   campaignId: string;
   merchantId: string;
   title: string;
-  description: string | null;
-  benefitType: string;
-  faceValue: number;
+  benefitText: string;
+  redemptionGroupId: string | null;
+  redemptionGroup: { name: string } | null;
   validDays: number | null;
   validUntil: string | null;
-  rule: unknown;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  merchant?: { id: string; name: string; isActive: boolean };
+  merchant?: { id: string; name: string };
   couponCount?: number;
 };
 
 export type AdminMerchant = {
+  userCount?: number;
+  activeUserCount?: number;
   id: string;
   name: string;
   contactInfo: string | null;
-  promotionBlocks: unknown[];
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
   templateCount: number;
@@ -93,7 +92,6 @@ export type PromotionRedemptionRow = {
   merchantName: string;
   day: string;
   count: number;
-  faceValueTotal: number;
 };
 
 export type AdminCycle = {
@@ -153,6 +151,7 @@ export type AdminUserDetail = AdminUser & {
 };
 
 export type AdminUserQuestionnaire = {
+  fields: { key: string; label: string; section: "self" | "partner" | "values"; options?: unknown; emptyLabel: string }[];
   submittedAt: string | null;
   answers: Record<string, unknown>;
 } | null;

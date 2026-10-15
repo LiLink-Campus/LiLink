@@ -21,9 +21,9 @@ initialize({
     const url = new URL(request.url);
     // Keep API mocking strict while allowing the application's own assets.
     const localAsset =
-      url.pathname.startsWith("/@id/virtual:next") ||
+      url.pathname.startsWith("/@id/") ||
       (url.pathname.startsWith("/@fs/") && url.pathname.endsWith(".json") && url.searchParams.has("import")) ||
-      (url.pathname.startsWith("/src/") && url.pathname.endsWith(".css")) ||
+      (url.pathname.startsWith("/src/") && /\.(?:[cm]?[jt]sx?|css)$/.test(url.pathname)) ||
       /^\/(images|icons|fonts)\//.test(url.pathname);
     if (request.method === "GET" && url.origin === window.location.origin && localAsset) return;
     // A component may catch MSW's rejection; the story must still fail.

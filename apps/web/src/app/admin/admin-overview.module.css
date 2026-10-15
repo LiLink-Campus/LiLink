@@ -177,31 +177,10 @@
 .empty p {
   margin: 8px 0 18px;
 }
-.recent {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-border);
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-.recent summary,
-.utilities summary {
-  cursor: pointer;
-}
-.recent ul,
 .reports {
   list-style: none;
   padding: 0;
   margin: 12px 0 0;
-}
-.recent li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  padding: 8px 0;
-}
-.recent li small {
-  color: var(--color-text-muted);
 }
 .reports li + li {
   border-top: 1px solid var(--color-border);
@@ -321,40 +300,6 @@
   flex-shrink: 0;
   color: var(--color-text-muted);
 }
-.utilities {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
-}
-.utilities summary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  list-style: none;
-  padding: 16px 20px;
-  font-size: 12px;
-  font-weight: 500;
-}
-.utilities summary::-webkit-details-marker {
-  display: none;
-}
-.utilities summary::after {
-  content: "+";
-  margin-left: auto;
-  color: var(--color-text-muted);
-  font-size: 16px;
-}
-.utilities[open] summary::after {
-  content: "−";
-}
-.utilities summary span {
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--color-text-muted);
-}
-.utilities > div {
-  margin: 0 20px 20px;
-}
 @media (max-width: 1100px) {
   .metrics {
     gap: 12px;
@@ -428,14 +373,5 @@
   }
   .cycleFacts dd {
     font-size: 12px;
-  }
-  .utilities summary {
-    padding: 14px 16px;
-  }
-  .utilities summary span {
-    display: none;
-  }
-  .utilities > div {
-    margin: 0 16px 16px;
   }
 }

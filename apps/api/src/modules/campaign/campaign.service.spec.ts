@@ -15,6 +15,7 @@ type MockTx = {
     count: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    updateMany: jest.Mock;
     findMany: jest.Mock;
     findUnique: jest.Mock;
   };
@@ -38,6 +39,7 @@ function makeTxPrisma() {
       count: jest.fn().mockResolvedValue(1),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findMany: jest.fn(),
       findUnique: jest
         .fn()
@@ -65,27 +67,6 @@ function campaignRow(overrides: Record<string, unknown> = {}) {
     description: null,
     createdAt: new Date('2026-05-01T00:00:00.000Z'),
     updatedAt: new Date('2026-05-01T00:00:00.000Z'),
-    ...overrides,
-  };
-}
-
-function templateRow(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 't1',
-    campaignId: 'c1',
-    merchantId: 'm1',
-    title: '满50减10',
-    description: null,
-    benefitType: 'FULL_REDUCTION',
-    faceValue: 1000,
-    validDays: 30,
-    validUntil: null,
-    rule: null,
-    isActive: true,
-    createdAt: new Date('2026-05-01T00:00:00.000Z'),
-    updatedAt: new Date('2026-05-01T00:00:00.000Z'),
-    merchant: { id: 'm1', name: 'Cafe', isActive: true },
-    _count: { coupons: 0 },
     ...overrides,
   };
 }
@@ -226,273 +207,6 @@ describe('CampaignService', () => {
     });
   });
 
-  describe('createTemplate', () => {
-    it('rejects when the merchant is not found', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
-      tx.merchant.findUnique.mockResolvedValue(null);
-      const service = new CampaignService(prisma as never);
-      await expect(
-        service.createTemplate(
-          'c1',
-          {
-            merchantId: 'mX',
-            title: 't',
-            benefitType: 'CUSTOM',
-            faceValue: 1000,
-          },
-          'admin-1',
-        ),
-      ).rejects.toThrow('Merchant not found.');
-    });
-
-    it('rejects an inactive merchant', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
-      tx.merchant.findUnique.mockResolvedValue({ id: 'm1', isActive: false });
-      const service = new CampaignService(prisma as never);
-      await expect(
-        service.createTemplate(
-          'c1',
-          { merchantId: 'm1', title: 't', benefitType: 'CUSTOM', faceValue: 0 },
-          'admin-1',
-        ),
-      ).rejects.toThrow('Merchant is inactive.');
-    });
-
-    it('rejects validDays + validUntil supplied together', async () => {
-      const { prisma } = makeTxPrisma();
-      const service = new CampaignService(prisma as never);
-      await expect(
-        service.createTemplate(
-          'c1',
-          {
-            merchantId: 'm1',
-            title: 't',
-            benefitType: 'DISCOUNT',
-            faceValue: 500,
-            validDays: 30,
-            validUntil: '2026-12-31T00:00:00.000Z',
-          },
-          'admin-1',
-        ),
-      ).rejects.toThrow(/at most one/);
-    });
-
-    it('creates a template (validDays branch) with merchant snapshot + audit', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
-      tx.merchant.findUnique.mockResolvedValue({ id: 'm1', isActive: true });
-      tx.couponTemplate.create.mockResolvedValue(templateRow());
-      const service = new CampaignService(prisma as never);
-
-      const result = await service.createTemplate(
-        'c1',
-        {
-          merchantId: 'm1',
-          title: ' 满50减10 ',
-          benefitType: 'FULL_REDUCTION',
-          faceValue: 1000,
-          validDays: 30,
-          rule: {
-            version: 1,
-            tiers: [
-              {
-                minSpend: 5000,
-                benefit: { type: 'AMOUNT_OFF', amountOff: 1000 },
-              },
-            ],
-          },
-        },
-        'admin-1',
-      );
-
-      expect(tx.couponTemplate.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            campaignId: 'c1',
-            merchantId: 'm1',
-            title: '满50减10',
-            faceValue: 1000,
-            validDays: 30,
-            validUntil: null,
-            rule: {
-              version: 1,
-              tiers: [
-                {
-                  minSpend: 5000,
-                  benefit: { type: 'AMOUNT_OFF', amountOff: 1000 },
-                },
-              ],
-            },
-          }) as object,
-        }),
-      );
-      expect(result.couponCount).toBe(0);
-      expect(result.merchant).toEqual({
-        id: 'm1',
-        name: 'Cafe',
-        isActive: true,
-      });
-      expect(tx.auditLog.create).toHaveBeenCalled();
-    });
-
-    it('stores a validated tiered rule (Social 满减阶梯)', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
-      tx.merchant.findUnique.mockResolvedValue({ id: 'm1', isActive: true });
-      tx.couponTemplate.create.mockResolvedValue(templateRow());
-      const service = new CampaignService(prisma as never);
-
-      const rule = {
-        version: 1,
-        tiers: [
-          { minSpend: 3000, benefit: { type: 'AMOUNT_OFF', amountOff: 500 } },
-          { minSpend: 5000, benefit: { type: 'AMOUNT_OFF', amountOff: 1200 } },
-          { minSpend: 10000, benefit: { type: 'AMOUNT_OFF', amountOff: 3000 } },
-        ],
-      };
-      await service.createTemplate(
-        'c1',
-        {
-          merchantId: 'm1',
-          title: 'Social',
-          benefitType: 'FULL_REDUCTION',
-          faceValue: 3000,
-          rule,
-        },
-        'admin-1',
-      );
-
-      expect(tx.couponTemplate.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ rule }) as object,
-        }),
-      );
-    });
-
-    it('rejects a typed coupon with no rule', async () => {
-      const { prisma } = makeTxPrisma();
-      const service = new CampaignService(prisma as never);
-      await expect(
-        service.createTemplate(
-          'c1',
-          {
-            merchantId: 'm1',
-            title: 't',
-            benefitType: 'FULL_REDUCTION',
-            faceValue: 1000,
-          },
-          'admin-1',
-        ),
-      ).rejects.toThrow(/rule/);
-    });
-
-    it('rejects a benefit kind that mismatches benefitType', async () => {
-      const { prisma } = makeTxPrisma();
-      const service = new CampaignService(prisma as never);
-      await expect(
-        service.createTemplate(
-          'c1',
-          {
-            merchantId: 'm1',
-            title: 't',
-            benefitType: 'GIFT',
-            faceValue: 0,
-            rule: {
-              version: 1,
-              tiers: [
-                {
-                  minSpend: 5000,
-                  benefit: { type: 'AMOUNT_OFF', amountOff: 500 },
-                },
-              ],
-            },
-          },
-          'admin-1',
-        ),
-      ).rejects.toThrow(/benefit type must be GIFT/);
-    });
-  });
-
-  describe('updateTemplate', () => {
-    it('revalidates the rule against the current benefitType when the rule changes', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.couponTemplate.findUnique.mockResolvedValue({
-        benefitType: 'FULL_REDUCTION',
-        rule: null,
-      });
-      const service = new CampaignService(prisma as never);
-      await expect(
-        service.updateTemplate(
-          't1',
-          {
-            rule: {
-              version: 1,
-              tiers: [
-                { minSpend: 5000, benefit: { type: 'GIFT', description: 'x' } },
-              ],
-            },
-          },
-          'admin-1',
-        ),
-      ).rejects.toThrow(/benefit type must be AMOUNT_OFF/);
-    });
-
-    it('maps a template P2025 to NotFound', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.couponTemplate.update.mockRejectedValue(
-        Object.assign(new Error('nf'), { code: 'P2025' }),
-      );
-      const service = new CampaignService(prisma as never);
-      await expect(
-        service.updateTemplate('tX', { isActive: false }, 'admin-1'),
-      ).rejects.toThrow('Coupon template not found.');
-    });
-
-    it('clears validUntil when switching to validDays (cross-PATCH mutual exclusion)', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.couponTemplate.update.mockResolvedValue(
-        templateRow({ validDays: 60, validUntil: null }),
-      );
-      const service = new CampaignService(prisma as never);
-
-      await service.updateTemplate('t1', { validDays: 60 }, 'admin-1');
-
-      expect(tx.couponTemplate.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            validDays: 60,
-            validUntil: null,
-          }) as object,
-        }),
-      );
-    });
-
-    it('clears validDays when switching to validUntil', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.couponTemplate.update.mockResolvedValue(
-        templateRow({ validDays: null, validUntil: new Date('2026-12-31') }),
-      );
-      const service = new CampaignService(prisma as never);
-
-      await service.updateTemplate(
-        't1',
-        { validUntil: '2026-12-31T00:00:00.000Z' },
-        'admin-1',
-      );
-
-      expect(tx.couponTemplate.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            validDays: null,
-            validUntil: expect.any(Date) as Date,
-          }) as object,
-        }),
-      );
-    });
-  });
-
   describe('list', () => {
     it('lists campaigns with template/activation counts', async () => {
       const { prisma, tx } = makeTxPrisma();
@@ -509,27 +223,6 @@ describe('CampaignService', () => {
       );
       expect(result.items[0].templateCount).toBe(2);
       expect(result.items[0].activationCount).toBe(5);
-    });
-
-    it('lists templates of a campaign', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue({ id: 'c1', status: 'DRAFT' });
-      tx.couponTemplate.findMany.mockResolvedValue([templateRow()]);
-      const service = new CampaignService(prisma as never);
-
-      const result = await service.listTemplates('c1');
-
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0].id).toBe('t1');
-    });
-
-    it('throws NotFound listing templates of a missing campaign', async () => {
-      const { prisma, tx } = makeTxPrisma();
-      tx.campaign.findUnique.mockResolvedValue(null);
-      const service = new CampaignService(prisma as never);
-      await expect(service.listTemplates('cX')).rejects.toThrow(
-        'Campaign not found.',
-      );
     });
   });
 });

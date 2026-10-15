@@ -307,9 +307,9 @@ for (const failure of ['not-found', 'invalid-image'] as const) {
     await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete)).toBe(true);
     expect(await image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(0);
 
-    await page.getByRole('main').getByRole('link', { name: '查看介绍 ↗', exact: true }).first().click();
-    await expect(page).toHaveURL(/\/about\/team\/yoryon$/);
-    await expect(page.getByRole('heading', { name: '釉蓝yoryon', exact: true })).toBeVisible();
+    await page.getByRole('main').getByRole('link', { name: '查看介绍 ↗', exact: true }).nth(1).click();
+    await expect(page).toHaveURL(/\/about\/team\/member-02$/);
+    await expect(page.getByRole('heading', { name: '蟹牛堡', exact: true })).toBeVisible();
     // Failed responses need not share the successful image cache across crops.
     expect(failedRequests.length).toBeGreaterThanOrEqual(1);
     expect(failedRequests.length).toBeLessThanOrEqual(3);

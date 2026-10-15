@@ -5,7 +5,7 @@ test('coupon overview is bounded and historical pagination has no duplicates', a
   const campaign = await db.campaign.create({ data: { name: 'Synthetic history', slug: `history-${account.id}` } });
   const merchant = await db.merchant.create({ data: { name: 'Synthetic merchant' } });
   for (let i = 0; i < 24; i++) {
-    const template = await db.couponTemplate.create({ data: { campaignId: campaign.id, merchantId: merchant.id, title: `历史券 ${i}`, benefitType: 'CUSTOM', faceValue: 500 } });
+    const template = await db.couponTemplate.create({ data: { campaignId: campaign.id, merchantId: merchant.id, title: `历史券 ${i}`, benefitText: "合成优惠，由店员现场确认。" } });
     await db.coupon.create({ data: { userId: account.id, templateId: template.id, code: `${account.id}-${i}`, status: i === 23 ? 'ISSUED' : 'EXPIRED', issuedAt: new Date('2026-01-01T00:00:00Z') } });
   }
   const first = await (await context.request.get(`${api}/me/coupons/overview`)).json();
@@ -28,7 +28,7 @@ test('coupon dialog serializes polling and ignores an old coupon response after 
   const merchant = await db.merchant.create({ data: { name: 'Synthetic polling merchant' } });
   const coupons = [];
   for (let index = 0; index < 2; index++) {
-    const template = await db.couponTemplate.create({ data: { campaignId: campaign.id, merchantId: merchant.id, title: `轮询券 ${index}`, benefitType: 'CUSTOM', faceValue: 500 } });
+    const template = await db.couponTemplate.create({ data: { campaignId: campaign.id, merchantId: merchant.id, title: `轮询券 ${index}`, benefitText: "合成优惠，由店员现场确认。" } });
     coupons.push(await db.coupon.create({ data: { userId: account.id, templateId: template.id, code: `${account.id}-poll-${index}`, status: 'ISSUED' } }));
   }
   await page.route('**/redeem-secret', route => route.fulfill({ json: { code: 'ABCD2345', secret: 'JBSWY3DPEHPK3PXP', period: 60, digits: 6 } }));
@@ -78,7 +78,7 @@ for (const entry of [{ status: 401, action: 'refresh' }, { status: 403, action: 
     const merchant = await db.merchant.create({ data: { name: 'Private fixture merchant' } });
     for (let index = 0; index < 22; index++) {
       const template = await db.couponTemplate.create({ data: {
-        campaignId: campaign.id, merchantId: merchant.id, title: `私有验收券 ${index}`, benefitType: 'CUSTOM', faceValue: 100,
+        campaignId: campaign.id, merchantId: merchant.id, title: `私有验收券 ${index}`, benefitText: "合成优惠，由店员现场确认。",
       } });
       await db.coupon.create({ data: {
         userId: account.id, templateId: template.id, code: `${account.id}-${index}`,

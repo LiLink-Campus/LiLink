@@ -26,7 +26,7 @@ const activeUser = {
   passwordHash: 'stored-hash',
   isActive: true,
   merchantId: 'm1',
-  merchant: { isActive: true, name: 'Cafe' },
+  merchant: { name: 'Cafe' },
 };
 
 describe('MerchantSessionService', () => {
@@ -87,20 +87,6 @@ describe('MerchantSessionService', () => {
       );
     });
 
-    it('rejects when the merchant is inactive', async () => {
-      const prisma = makePrisma();
-      prisma.merchantUser.findUnique.mockResolvedValue({
-        ...activeUser,
-        merchant: { isActive: false, name: 'Cafe' },
-      });
-      verifyMock.mockResolvedValue(true);
-      const service = new MerchantSessionService(jwt as never, prisma as never);
-
-      await expect(service.login('shop@x.com', 'pw')).rejects.toThrow(
-        /invalid/,
-      );
-    });
-
     it('rejects a wrong password and does not update lastLoginAt', async () => {
       const prisma = makePrisma();
       prisma.merchantUser.findUnique.mockResolvedValue(activeUser);
@@ -124,7 +110,7 @@ describe('MerchantSessionService', () => {
         role: 'STAFF',
         isActive: true,
         merchantId: 'm1',
-        merchant: { isActive: true, name: 'Cafe' },
+        merchant: { name: 'Cafe' },
       });
       const service = new MerchantSessionService(jwt as never, prisma as never);
 
@@ -138,7 +124,7 @@ describe('MerchantSessionService', () => {
       const prisma = makePrisma();
       prisma.merchantUser.findUnique.mockResolvedValue({
         isActive: false,
-        merchant: { isActive: true, name: 'Cafe' },
+        merchant: { name: 'Cafe' },
       });
       const service = new MerchantSessionService(jwt as never, prisma as never);
 

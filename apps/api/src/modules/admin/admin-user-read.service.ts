@@ -1,3 +1,4 @@
+import { adminProfileFields } from './admin-profile-fields';
 import { adminUserListSelect } from './admin-read-projections';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../common/prisma/client';
@@ -168,7 +169,7 @@ export class AdminUserReadService {
   }
 
   async getUserQuestionnaire(userId: string) {
-    const [user, schools] = await Promise.all([
+    const [user, schools, currentVersion] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -185,6 +186,16 @@ export class AdminUserReadService {
         select: { id: true },
         orderBy: { name: 'asc' },
       }),
+      this.prisma.questionnaireVersion.findFirst({
+        where: { isCurrent: true },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          questions: {
+            orderBy: { order: 'asc' },
+            select: { key: true, prompt: true, options: true },
+          },
+        },
+      }),
     ]);
 
     if (!user) {
@@ -196,6 +207,7 @@ export class AdminUserReadService {
     }
 
     return {
+      fields: adminProfileFields(currentVersion?.questions ?? []),
       submittedAt: user.questionnaireResponse.submittedAt,
       answers: syncQuestionnaireSchoolAnswers(
         user.questionnaireResponse.answers as Record<string, unknown>,

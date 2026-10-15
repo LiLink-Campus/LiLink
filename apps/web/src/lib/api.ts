@@ -4,7 +4,6 @@ import { parsePrivateApiBody } from "@lilink/shared";
 import type {
   HardMatchSchoolGenderExclusion,
   MatchEstimateResult,
-  MerchantPromotionBlock,
   RedemptionResult,
   DashboardUser,
   CouponAgendaReadState,
@@ -225,9 +224,9 @@ export type MyCoupon = {
   code: string;
   merchantName: string;
   title: string;
-  benefitType: string;
   benefitText: string;
-  faceValue: number;
+  redemptionGroupId?: string | null;
+  voidReason?: string | null;
   issuedAt: string;
   expiresAt: string | null;
   redeemedAt: string | null;
@@ -269,12 +268,7 @@ export function getCouponRedeemSecret(couponId: string, signal?: AbortSignal) {
 export type CouponStatusResponse = {
   status: MyCouponStatus;
   redeemedAt?: string;
-  applied?: {
-    orderAmount: number | null;
-    discountAmount: number;
-    gift: string | null;
-  };
-  merchantPromotion?: MerchantPromotionBlock[];
+  voidReason?: string | null;
 };
 
 export function getCouponStatus(couponId: string, signal?: AbortSignal) {
@@ -309,55 +303,15 @@ export function fetchMerchantMe() {
   );
 }
 
-/** Coupon snapshot returned by both prepare and redeem endpoints. */
-type RedeemCouponInfo = {
+export type RedeemCouponInfo = {
   title: string;
   benefitText: string;
-  faceValue: number;
   userDisplayName: string | null;
 };
-
-/** Prepare succeeded: coupon info available, ticket issued. */
-export type PrepareRedeemOk = {
-  result: "OK";
-  coupon: RedeemCouponInfo;
-  needAmount: boolean;
-  redeemTicket: string;
-};
-
-/** Prepare failed with a specific reason. */
-type PrepareRedeemFail = {
-  result: "INVALID" | "ALREADY_USED" | "EXPIRED_CODE";
-};
-
-/** Response from POST /merchant/redeem/prepare */
-export type PrepareRedeemResponse = PrepareRedeemOk | PrepareRedeemFail;
-
-/** Response from POST /merchant/redeem (ticket-based, no merchantPromotion). */
 export type RedeemResponse = {
   result: RedemptionResult;
   coupon: RedeemCouponInfo | null;
-  // The benefit resolved at redemption (SUCCESS only).
-  applied: {
-    orderAmount: number | null;
-    discountAmount: number;
-    gift: string | null;
-  } | null;
 };
-
-export function prepareRedeem(payload: { code: string; totp: string }) {
-  return fetchApi<PrepareRedeemResponse>("/merchant/redeem/prepare", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function redeemCoupon(payload: {
-  redeemTicket: string;
-  orderAmount?: number;
-}) {
-  return fetchApi<RedeemResponse>("/merchant/redeem", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+export function redeemCoupon(payload: { code: string; totp: string }) {
+  return fetchApi<RedeemResponse>("/merchant/redeem", { method: "POST", body: JSON.stringify(payload) });
 }

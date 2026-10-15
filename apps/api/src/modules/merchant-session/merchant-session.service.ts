@@ -30,13 +30,11 @@ export class MerchantSessionService {
         passwordHash: true,
         isActive: true,
         merchantId: true,
-        merchant: { select: { isActive: true, name: true } },
+        merchant: { select: { name: true } },
       },
     });
 
-    const usable =
-      merchantUser?.isActive === true &&
-      merchantUser.merchant.isActive === true;
+    const usable = merchantUser?.isActive === true;
     const hashForVerification = usable
       ? merchantUser.passwordHash
       : MERCHANT_LOGIN_TIMING_DUMMY_PASSWORD_HASH;
@@ -90,11 +88,11 @@ export class MerchantSessionService {
         role: true,
         isActive: true,
         merchantId: true,
-        merchant: { select: { isActive: true, name: true } },
+        merchant: { select: { name: true } },
       },
     });
 
-    if (!merchantUser?.isActive || !merchantUser.merchant.isActive) {
+    if (!merchantUser?.isActive) {
       throw new UnauthorizedException('Merchant session is invalid.');
     }
 
