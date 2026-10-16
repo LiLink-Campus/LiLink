@@ -150,6 +150,41 @@ export class MailContent {
     });
   }
 
+  buildUnmatchedEmail(input: {
+    cycleId: string;
+    userId: string;
+    email: string;
+  }) {
+    const subject = 'LiLink｜别气馁，让相遇继续';
+    const siteUrl = publicWebOrigin();
+    const matchUrl = new URL('/dashboard/match', siteUrl).href;
+    return {
+      dedupeKey: `match-unmatched:${input.cycleId}:${input.userId}`,
+      recipientEmail: input.email,
+      subject,
+      html: renderMatchEmail({
+        subject,
+        siteUrl,
+        matchUrl,
+        unmatched: true,
+        name: '',
+        school: '',
+        introduction: '',
+        infoLines: [],
+      }),
+      text: [
+        '本轮暂时没有遇到合适的伙伴。',
+        '别气馁，下一次也许就能遇见！',
+        '点击下方链接，登录 LiLink 参与下周匹配，让相遇继续。',
+        matchUrl,
+        '此邮件由 LiLink 系统自动发送，请勿直接回复。',
+        '— LiLink 团队',
+        siteUrl,
+      ].join('\n'),
+      messageCategory: OutboundEmailMessageCategory.TRANSACTIONAL,
+    };
+  }
+
   private buildIntroductionEmail(input: {
     dedupeKey: string;
     recipientEmail: string;

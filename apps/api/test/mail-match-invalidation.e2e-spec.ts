@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createCycleServices } from './fixtures/cycles';
 const sendMail = jest.fn();
 jest.mock('nodemailer', () => ({
@@ -8,6 +10,7 @@ jest.mock('nodemailer', () => ({
 import { randomUUID } from 'crypto';
 import { DashboardSnapshotService } from '../src/common/dashboard/dashboard-snapshot.service';
 import { MailService } from '../src/common/mail/mail.service';
+import { queueUnmatchedEmails } from '../src/common/mail/queue-unmatched';
 import { queueMatchRevealEmails } from '../src/common/mail/queue-match-reveal';
 import { createPrismaClient, PrismaClient } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
@@ -67,6 +70,17 @@ describe('Match email invalidation (PostgreSQL)', () => {
       where: {
         OR: [
           { dedupeKey: { startsWith: tag } },
+          {
+            dedupeKey: { startsWith: `match-unmatched:` },
+            recipientEmail: {
+              in: (
+                await prisma.user.findMany({
+                  where: { id: { in: userIds } },
+                  select: { email: true },
+                })
+              ).map((u) => u.email),
+            },
+          },
           ...matchIds.flatMap((id) => [
             { dedupeKey: { startsWith: `match-reveal:${id}:` } },
             { dedupeKey: { startsWith: `match-introduction:${id}:` } },
@@ -157,6 +171,113 @@ describe('Match email invalidation (PostgreSQL)', () => {
       details: 'Synthetic report',
     });
   }
+
+  it('notifies an unmatched participant once even when the cycle has no pairs', async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: `${tag}@example.invalid`,
+        passwordHash: 'unused',
+        status: 'ACTIVE',
+      },
+    });
+    userIds.push(user.id);
+    const cycle = await prisma.matchCycle.create({
+      data: {
+        codename: `${tag}-unmatched`,
+        status: 'REVEAL_READY',
+        participationDeadline: new Date(0),
+        revealAt: new Date(0),
+        participations: {
+          create: { userId: user.id, status: 'OPTED_IN', intent: 'BOTH' },
+        },
+      },
+    });
+    const reveal = createCycleServices(
+      prisma as PrismaService,
+      new DashboardSnapshotService(prisma as PrismaService),
+      mail,
+    ).reveal;
+    await reveal.revealPreparedCycle({ cycleId: cycle.id });
+    const key = `match-unmatched:${cycle.id}:${user.id}`;
+    await mail.deliverQueuedEmailNow(key);
+    await reveal.revealPreparedCycle({ cycleId: cycle.id });
+    const rows = await prisma.outboundEmail.findMany({
+      where: { dedupeKey: key },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe('SENT');
+    expect(rows[0].text).toContain('别气馁');
+    expect(rows[0].html).toContain('参与下周匹配 →');
+    expect(rows[0].html).toContain('/dashboard/match');
+    expect(rows[0].html).toContain('LiLink 飞鸟衔信 Logo');
+    expect(rows[0].html).not.toContain('匹配成功');
+    const output = join(
+      process.env.E2E_OUTPUT ?? join(process.cwd(), '../../artifacts'),
+      'unmatched-email',
+    );
+    mkdirSync(output, { recursive: true });
+    writeFileSync(join(output, 'preview.html'), rows[0].html);
+    writeFileSync(
+      join(output, 'assertions.json'),
+      JSON.stringify(
+        {
+          status: 'PASS',
+          scenario: 'zero pairs, repeat reveal, outbox delivery',
+          transport: 'mock SMTP',
+          assertions: 7,
+          command:
+            'npm run test:e2e --workspace api -- --testPathPatterns=mail-match-invalidation',
+          prerequisites:
+            'Node 24, npm 11, Docker; runner creates disposable PostgreSQL and synthetic users',
+        },
+        null,
+        2,
+      ),
+    );
+  });
+
+  it.each(['reset', 'suspended', 'deactivated', 'opted-out'] as const)(
+    'cancels an unmatched reminder invalidated before dispatch: %s',
+    async (state) => {
+      const f = await fixture();
+      await prisma.match.delete({ where: { id: f.match.id } });
+      const keys = await prisma.$transaction((tx) =>
+        queueUnmatchedEmails(tx, f.cycle.id, mail),
+      );
+      expect(keys).toHaveLength(2);
+      if (state === 'reset') await reset(f.cycle.id);
+      else if (state === 'suspended')
+        await prisma.user.update({
+          where: { id: f.users[0].id },
+          data: { status: 'SUSPENDED' },
+        });
+      else if (state === 'deactivated')
+        await prisma.user.update({
+          where: { id: f.users[0].id },
+          data: { deactivatedAt: new Date() },
+        });
+      else
+        await prisma.cycleParticipation.update({
+          where: {
+            cycleId_userId: { cycleId: f.cycle.id, userId: f.users[0].id },
+          },
+          data: { status: 'OPTED_OUT' },
+        });
+      const key = `match-unmatched:${f.cycle.id}:${f.users[0].id}`;
+      await mail.deliverQueuedEmailNow(key);
+      await expectCancelled([key]);
+      expect(sendMail).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not queue unmatched reminders for paired participants', async () => {
+    const f = await fixture();
+    expect(
+      await prisma.$transaction((tx) =>
+        queueUnmatchedEmails(tx, f.cycle.id, mail),
+      ),
+    ).toEqual([]);
+  });
 
   it('delivers valid current and legacy introductions', async () => {
     const f = await fixture();

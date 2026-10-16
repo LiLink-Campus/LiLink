@@ -8,6 +8,7 @@ import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snaps
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { queueMatchRevealEmails } from '../../common/mail/queue-match-reveal';
+import { queueUnmatchedEmails } from '../../common/mail/queue-unmatched';
 import { cancelMatchEmails } from '../../common/mail/match-mail';
 import { PublicService } from '../public/public.service';
 import { CycleRevealResult } from './cycle-processing';
@@ -116,6 +117,10 @@ export class CycleRevealService {
           );
         }
 
+        emailDedupeKeys.push(
+          ...(await queueUnmatchedEmails(tx, cycle.id, this.mailService)),
+        );
+
         await tx.auditLog.create({
           data: {
             adminActorId: options.adminActorId,
@@ -207,6 +212,17 @@ export class CycleRevealService {
         matches.map(({ id }) => id),
         'Match reset before delivery.',
       );
+      await tx.outboundEmail.updateMany({
+        where: {
+          dedupeKey: { startsWith: `match-unmatched:${cycleId}:` },
+          status: { in: ['PENDING', 'FAILED', 'PROCESSING'] },
+        },
+        data: {
+          status: 'EXHAUSTED',
+          nextAttemptAt: null,
+          errorMessage: 'Cycle reset before delivery.',
+        },
+      });
       await tx.match.deleteMany({
         where: { cycleId },
       });

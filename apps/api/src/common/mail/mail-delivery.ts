@@ -44,6 +44,11 @@ export class MailDelivery {
     let result: DeliveryResult = 'not-eligible';
     const email = await this.prisma.$transaction(
       async (tx) => {
+        const unmatched = /^match-unmatched:([^:]+):([^:]+)$/.exec(
+          snapshot.dedupeKey,
+        );
+        if (unmatched)
+          await tx.$queryRaw`SELECT "id" FROM "MatchCycle" WHERE "id" = ${unmatched[1]} FOR UPDATE`;
         const matchId = matchIdFromEmailKey(snapshot.dedupeKey);
         // Preserve Match -> outbox lock ordering used by report/reset cancellation.
         if (matchId)
@@ -75,6 +80,26 @@ export class MailDelivery {
           current.attempts >= current.maxAttempts
             ? 'Email delivery attempt budget exhausted.'
             : null;
+        if (
+          unmatched &&
+          !(await tx.cycleParticipation.findFirst({
+            where: {
+              cycleId: unmatched[1],
+              userId: unmatched[2],
+              status: 'OPTED_IN',
+              intent: { not: null },
+              cycle: { status: 'REVEALED' },
+              user: {
+                email: current.recipientEmail,
+                status: 'ACTIVE',
+                deactivatedAt: null,
+                matchParticipants: { none: { cycleId: unmatched[1] } },
+              },
+            },
+            select: { id: true },
+          }))
+        )
+          reason = 'Unmatched result unavailable before delivery.';
         if (current.dedupeKey.startsWith('meetup-reminder:'))
           reason = 'Meetup workflow retired before delivery.';
         if (
