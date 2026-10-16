@@ -190,6 +190,7 @@ describe('public cycle cache invalidation', () => {
         const result = await callback({
           matchCycle: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
           match: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+          cycleParticipation: { findMany: jest.fn().mockResolvedValue([]) },
           auditLog: { create: jest.fn() },
         });
         expect(invalidate).not.toHaveBeenCalled();
@@ -219,6 +220,7 @@ describe('public cycle cache invalidation', () => {
         const result = await callback({
           $queryRaw: jest.fn().mockResolvedValue([]),
           match: { deleteMany: jest.fn() },
+          outboundEmail: { updateMany: jest.fn() },
           userCycleDashboardSnapshot: { deleteMany: jest.fn() },
           matchCycle: { update: jest.fn() },
         });
