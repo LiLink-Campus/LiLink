@@ -72,7 +72,7 @@ function pairKeys(pairs: CandidatePair[]) {
 
 describe('matching priorities', () => {
   it.each([0, 1, 2, 3, 10])(
-    'applies unmatched priority before VIP starting at two misses (streak %i)',
+    'prioritizes VIP regardless of unmatched streak (streak %i)',
     (streak) => {
       const input = fixture(
         [participant('a'), participant('b'), participant('vip', true)],
@@ -81,9 +81,7 @@ describe('matching priorities', () => {
       input.unmatchedStreaks.set('b', streak);
       input.participants[0].answers = input.participants[2].answers;
       const result = new MatchingEngine().calculate(input);
-      expect(pairKeys(result.selectedPairs)).toEqual([
-        streak >= 2 ? 'a::b' : 'a::vip',
-      ]);
+      expect(pairKeys(result.selectedPairs)).toEqual(['a::vip']);
     },
   );
 
@@ -206,10 +204,10 @@ describe('matching priorities', () => {
           );
         }, 0);
         return [
+          matched.filter((person) => person.vipActive).length,
           matched.filter(
             (person) => input.unmatchedStreaks.get(person.id)! >= 2,
           ).length,
-          matched.filter((person) => person.vipActive).length,
           matched.length,
           pairs.reduce((sum, pair) => sum + pair.rawScore, bonuses),
         ];

@@ -264,16 +264,20 @@ describe('matching priority through reveal and dashboard (PostgreSQL)', () => {
     },
   );
 
-  it('prioritizes the third opt-in over VIP, then clears that priority after success', async () => {
+  it('prioritizes VIP over repeated misses, then retains free-user priority', async () => {
     const priority = await user('unmatched', 'free', 'b');
     const vip = await user('competing-vip', 'active');
     const mate = await user('first-mate');
     const nextMate = await user('next-mate');
     await block(priority, vip);
-    await cycle([priority], true);
-    await cycle([priority], true);
-    await reveal(await cycle([priority, vip, mate]), [[priority, mate]]);
-    await reveal(await cycle([priority, vip, nextMate]), [[vip, nextMate]]);
+    await cycle([priority, mate], true);
+    await cycle([priority, mate], true);
+    await reveal(await cycle([priority, vip, mate]), [[vip, mate]]);
+    const free = await user('competing-free');
+    await block(priority, free);
+    await reveal(await cycle([priority, free, nextMate]), [
+      [priority, nextMate],
+    ]);
   });
 
   it('preserves all VIP matches while maximizing remaining free-user matches', async () => {

@@ -461,10 +461,10 @@ export class MatchingEngine {
     const matchedUser = maxCompatibilityTotal + 1;
     const maxMatchedUserTotal = maxPairCount * 2 * matchedUser;
     // Each tier outweighs every lower-tier contribution across the pool.
-    const vipUser = maxMatchedUserTotal + maxCompatibilityTotal + 1;
-    const maxVipUserTotal = maxPairCount * 2 * vipUser;
-    const priorityUser =
-      maxVipUserTotal + maxMatchedUserTotal + maxCompatibilityTotal + 1;
+    const priorityUser = maxMatchedUserTotal + maxCompatibilityTotal + 1;
+    const maxPriorityUserTotal = maxPairCount * 2 * priorityUser;
+    const vipUser =
+      maxPriorityUserTotal + maxMatchedUserTotal + maxCompatibilityTotal + 1;
 
     return {
       priorityUser,
