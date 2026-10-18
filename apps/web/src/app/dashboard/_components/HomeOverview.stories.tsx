@@ -69,12 +69,12 @@ export const CarouselControlsAndSwipe: Story = {
     const carousel = canvas.getByRole("complementary", { name: "活动轮播" });
     const controls = within(carousel);
     const first = controls.getByRole("button", { name: "切换到LiLink 1v1 · 专人服务" });
-    const second = controls.getByRole("button", { name: "切换到商家合作 · 筹备中" });
+    const second = controls.getByRole("button", { name: "切换到LiLink · 见面好去处" });
     await expect(first).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(second);
     await expect(second).toHaveAttribute("aria-pressed", "true");
     await expect(document.getElementById(first.getAttribute("aria-controls")!)).toHaveAttribute("inert");
-    await expect(controls.getByRole("button", { name: "查看活动说明 ↗" })).toBeVisible();
+    await expect(controls.getByRole("link", { name: "看看商家优惠 ↗" })).toBeVisible();
     await userEvent.click(first);
     const swipe = async (endX: number, endY: number, cancel = false) => {
       const start = new Touch({ identifier: 1, target: carousel, clientX: 300, clientY: 200 });
@@ -113,7 +113,7 @@ export const CarouselAutoplay: Story = {
   play: async ({ canvas, userEvent }) => {
     const carousel = canvas.getByRole("complementary", { name: "活动轮播" });
     const first = within(carousel).getByRole("button", { name: "切换到LiLink 1v1 · 专人服务" });
-    const second = within(carousel).getByRole("button", { name: "切换到商家合作 · 筹备中" });
+    const second = within(carousel).getByRole("button", { name: "切换到LiLink · 见面好去处" });
     await advanceIntervals(4999);
     await expect(first).toHaveAttribute("aria-pressed", "true");
     await advanceIntervals(1);
@@ -130,24 +130,15 @@ export const CarouselAutoplay: Story = {
 export const CarouselFocusAndDialogPause: Story = {
   tags: ["test"],
   beforeEach: controlIntervals,
-  name: "轮播 / 焦点与活动弹窗暂停",
+  name: "轮播 / 焦点暂停与商家入口",
   play: async ({ canvas, userEvent }) => {
     const carousel = canvas.getByRole("complementary", { name: "活动轮播" });
-    const second = within(carousel).getByRole("button", { name: "切换到商家合作 · 筹备中" });
+    const second = within(carousel).getByRole("button", { name: "切换到LiLink · 见面好去处" });
     await userEvent.click(second);
     await userEvent.unhover(carousel);
     await advanceIntervals(5500);
     await expect(second).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(within(carousel).getByRole("button", { name: "查看活动说明 ↗" }));
-    await userEvent.unhover(carousel);
-    await expect(canvas.getByRole("dialog", { name: "商家合作活动" })).toBeVisible();
-    await expect(
-      canvas.getByText("商家合作活动正在筹备，开放后会公布活动时间、优惠内容和参与方式。")
-    ).toBeVisible();
-    await advanceIntervals(5500);
-    await expect(second).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(canvas.getByRole("button", { name: "知道了" }));
-    await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+    await expect(within(carousel).getByRole("link", { name: "看看商家优惠 ↗" })).toHaveAttribute("href", "/meetups");
   },
 };
 
@@ -162,7 +153,7 @@ export const CarouselParentPause: Story = {
     await expect(first).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(canvas.getByRole("button", { name: "恢复轮播" }));
     await advanceIntervals(5000);
-    await waitFor(() => expect(canvas.getByRole("button", { name: "切换到商家合作 · 筹备中" })).toHaveAttribute("aria-pressed", "true"));
+    await waitFor(() => expect(canvas.getByRole("button", { name: "切换到LiLink · 见面好去处" })).toHaveAttribute("aria-pressed", "true"));
     await userEvent.click(canvas.getByRole("button", { name: "卸载轮播" }));
     await expect(canvas.queryByRole("complementary", { name: "活动轮播" })).not.toBeInTheDocument();
     if (intervalClock) await expect(intervalClock.getTimerCount()).toBe(0);

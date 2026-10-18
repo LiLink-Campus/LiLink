@@ -1,0 +1,106 @@
+.page { width: 100%; min-width: 0; box-sizing: border-box; max-width: 1200px; margin: 0 auto; padding: 0 32px 32px; color: #382924; background: #faf8f4; --wine: #89364f; --muted: #796b62; }
+.scene { background-image: url('/images/meetups/scene-atlas.png'); background-size: 200% 300%; background-repeat: no-repeat; }
+.cafe { background-position: 0 0; }
+.burger { background-position: 100% 0; }
+.seafood { background-position: 0 50%; }
+.craft { background-position: 100% 50%; }
+.games { background-position: 0 100%; }
+.friends { background-position: 100% 100%; }
+.hero { position: relative; min-height: 340px; isolation: isolate; display: flex; align-items: center; margin-bottom: 20px; }
+.heroPhoto { overflow: hidden; container-type: size; position: absolute; right: -32px; top: 0; bottom: 0; width: 56%; z-index: -1; mask-image: linear-gradient(to right, transparent, #000 40%); }
+.heroCopy { padding: 40px 0; }
+.hero h1 { font-family: var(--font-display), serif; font-size: clamp(35px, 5.5vw, 62px); line-height: 1.3; font-weight: 600; letter-spacing: -.035em; color: #48272c; margin: 0 0 24px; }
+.hero p { font-size: 18px; line-height: 1.7; margin: 0 0 24px; }
+.hint { display: inline-flex; gap: 8px; align-items: center; border-radius: 12px; background: #e7eadb; padding: 8px 16px; color: #4b5930; text-decoration: none; font-size: 16px; }
+.hint span { font-size: 22px; line-height: 1; }
+.offers { scroll-margin-top: 20px; }
+.grid { display: grid; gap: 22px; }
+.card { min-height: 245px; display: grid; grid-template-columns: 36% minmax(0, 1fr); gap: 26px; padding: 0; border-radius: 10px; overflow: hidden; background: #faf8f4; border: 1px solid #ded4cb; }
+.photo { height: 100%; container-type: size; position: relative; min-height: 0; overflow: hidden; border-radius: 8px; }
+.photo .scene, .heroPhoto .scene { position: absolute; left: 50%; top: 50%; width: max(100cqw, 100cqh); height: max(100cqw, 100cqh); transform: translate(-50%, -50%); }
+.imageNote { position: absolute; bottom: 12px; left: 12px; color: #fff; background: rgb(30 22 15 / 65%); border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+.cardCopy { padding: 23px 22px 18px 0; min-width: 0; }
+.merchant { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.merchant h2 { margin: 0; font-family: var(--font-display), serif; font-size: 35px; line-height: 1.3; font-weight: 600; }
+.merchant h2 span { font-size: 23px; white-space: nowrap; }
+.showButton, .primary { border: 0; background: var(--wine); color: #fffaf5; border-radius: 8px; font: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.showButton { flex-shrink: 0; gap: 7px; padding: 9px 18px; min-height: 40px; font-size: 14px; white-space: nowrap; }
+.tagline { margin: 0 0 18px; color: var(--muted); font-size: 17px; line-height: 1.7; }
+.rules { list-style: none; padding: 0; margin: 0; color: var(--wine); display: grid; gap: 8px; font-size: 18px; line-height: 1.65; font-weight: 550; }
+.rules li { padding: 11px 16px; background: #f3e9e3; border-radius: 11px; }
+.gameRules li:last-child { background: #e9ecdc; color: #354526; font-weight: 700; }
+.details { margin-top: 14px; color: #958478; font-size: 11px; line-height: 1.8; }
+.details summary { cursor: pointer; }
+.details p { margin: 6px 0; }
+.contactSection { position: relative; isolation: isolate; overflow: hidden; border: 1px solid #ded4cb; border-radius: 10px; background: #f3e9e3; margin-top: 24px; min-height: 280px; padding: 35px 30px; }
+.friendsArt { position: absolute; right: -10px; bottom: -24px; height: 300px; width: 300px; z-index: -1; mask-image: linear-gradient(to right, transparent, #000 30%); }
+.contactCopy { max-width: 76%; }
+.contactCopy h2 { margin: 0 0 14px; font-family: var(--font-display), serif; font-size: 33px; font-weight: 600; line-height: 1.4; }
+.contactCopy h2 span { display: inline-block; color: #a44345; font-family: serif; transform: rotate(-20deg); }
+.contactCopy p { margin: 0 0 24px; line-height: 1.8; font-size: 17px; }
+.primary { gap: 12px; padding: 14px 34px; min-height: 52px; font-size: 21px; }
+.contactCopy small { display: block; color: #9d8176; font-size: 12px; margin-top: 12px; padding-left: 35px; }
+.footer { text-align: center; color: #b3a79b; padding: 24px 0 34px; font-size: 12px; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.dialog { position: fixed; inset: 0; margin: auto; box-sizing: border-box; width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; padding: 38px 28px 28px; border: 1px solid #e3d7cc; border-radius: 20px; background: #fffdf9; color: #352d29; }
+.dialog::backdrop { background: rgb(45 35 30 / 45%); }
+.close { position: absolute; top: 8px; right: 10px; width: 40px; height: 40px; border: 0; background: transparent; font-size: 26px; color: #796a60; cursor: pointer; }
+.eyebrow { font-size: 11px; letter-spacing: .1em; color: #856455; }
+.dialog h2 { font-family: serif; font-weight: 500; font-size: 27px; margin: 16px 0; }
+.dialog p { font-size: 14px; line-height: 1.8; color: #7e6f65; }
+.displayRules { padding-left: 22px; font-size: 19px; line-height: 1.8; }
+.displayRules li + li { margin-top: 16px; }
+.previewNotice { padding: 16px; background: #f2ece4; border-radius: 10px; color: #7f6758; font-size: 12px; line-height: 1.8; }
+.previewNotice p { margin-bottom: 0; font-size: 12px; }
+.dialogContact { width: 100%; border: 0; border-top: 1px solid #e6ddd4; padding: 16px 0 0; margin-top: 20px; background: transparent; color: #843c4c; font: inherit; font-size: 14px; cursor: pointer; text-align: left; }
+.qr { text-align: center; margin: 22px 0; }
+.qr img { width: 200px; height: 200px; max-width: 100%; object-fit: contain; border-radius: 8px; }
+.qrHelp { text-align: center; }
+.page :is(a, button, summary):focus-visible { outline: 2px solid #85384c; outline-offset: 4px; }
+@media (max-width: 700px) {
+  .page { padding: 0 20px 32px; }
+  .hero { min-height: 360px; margin-bottom: 22px; align-items: flex-start; }
+  .heroPhoto { top: auto; height: 220px; right: -20px; width: 70%; mask-image: linear-gradient(to right, transparent, #000 35%); }
+  .heroCopy { padding: 28px 0; width: 100%; position: relative; z-index: 1; }
+  .hero h1 { font-size: 38px; margin: 12px 0; }
+  .hero p { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .hint { font-size: 13px; padding: 7px 11px; }
+  .grid { gap: 14px; }
+  .card { min-height: 230px; grid-template-columns: 38% minmax(0, 1fr); gap: 14px; border-radius: 10px; }
+  .photo { border-radius: 8px; }
+  .cardCopy { padding: 14px 12px 12px 0; }
+  .merchant { flex-wrap: wrap; gap: 8px; }
+  .merchant h2 { font-size: clamp(22px, 4.8vw, 31px); }
+  .merchant h2 span { font-size: 18px; }
+  .showButton { padding: 6px 12px; min-height: 34px; font-size: 12px; }
+  .tagline { font-size: 12px; line-height: 1.6; margin-bottom: 10px; }
+  .rules { font-size: 13px; gap: 6px; line-height: 1.7; }
+  .rules li { padding: 8px 10px; border-radius: 8px; }
+  .imageNote { font-size: 9px; bottom: 8px; left: 6px; }
+  .details { font-size: 10px; margin-top: 10px; }
+  .contactSection { min-height: 225px; margin-top: 16px; padding: 24px 18px; border-radius: 10px; }
+  .contactCopy { max-width: 90%; }
+  .contactCopy h2 { font-size: clamp(23px, 4.7vw, 30px); margin-bottom: 10px; }
+  .contactCopy p { font-size: 12px; margin-bottom: 24px; }
+  .primary { font-size: 16px; padding: 11px 23px; min-height: 45px; }
+  .primary svg { width: 21px; }
+  .contactCopy small { font-size: 10px; padding-left: 8px; }
+  .friendsArt { width: 200px; height: 200px; right: -36px; bottom: -15px; opacity: .9; }
+  .footer { font-size: 10px; padding: 22px 0; }
+}
+@media (max-width: 420px) {
+  .merchant { display: block; }
+  .merchant h2 { margin-bottom: 8px; }
+  .showButton { margin-bottom: 4px; }
+  .contactCopy { max-width: 100%; }
+  .friendsArt { opacity: .3; }
+}
+
+.page :where(h1, h2, h3) { font-family: var(--font-display), serif; font-weight: 600; }
+.hero .hint { background: #f3e9e3; border: 1px solid #ded4cb; color: var(--wine); font-size: 13px; border-radius: 7px; }
+@media (max-width: 420px) { .card { grid-template-columns: 1fr; gap: 0; } .photo { height: 180px; } .cardCopy { padding: 20px; } .merchant { display: flex; flex-wrap: wrap; } .merchant h2 { margin: 0; font-size: 27px; } .tagline { font-size: 14px; margin: 10px 0 14px; } .rules { font-size: 14px; } }
+@media (max-width: 700px) {
+  .hero { min-height: 450px; }
+  .heroCopy { text-align: center; }
+  .heroPhoto { right: -20px; left: -20px; width: auto; height: 230px; mask-image: linear-gradient(to bottom, transparent, #000 40%); }
+}

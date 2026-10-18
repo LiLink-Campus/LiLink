@@ -20,10 +20,10 @@ const activities = [
   },
   {
     id: "partner",
-    label: "商家合作 · 筹备中",
+    label: "LiLink · 见面好去处",
     title: "下一次见面，多一个去处",
-    description: "校园周边的相遇好去处，正在准备中。",
-    action: "查看活动说明 ↗",
+    description: "吃饭、手作或游戏，给见面一个理由。",
+    action: "看看商家优惠 ↗",
     image: "/images/campus-couple-anime.74b2881afd58.webp",
   },
 ] as const;
@@ -68,7 +68,7 @@ export function HomeOverview({
     ? agenda.items.find((item) => item.id.startsWith("MATCH"))
     : undefined;
   const hasResult = Boolean(matchItem);
-  const [modal, setModal] = useState<"guide" | "partner" | "cancel" | null>(null);
+  const [modal, setModal] = useState<"guide" | "cancel" | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const activityCount = activities.length;
   useEffect(() => {
@@ -288,7 +288,7 @@ export function HomeOverview({
                   <span>{activity.label}</span>
                   <h2>{activity.title}</h2>
                   <p>{activity.description}</p>
-                  {activity.id === "service" ? <Link className={styles.activityLink} href="/one-to-one">{activity.action}</Link> : <button type="button" onClick={() => setModal(activity.id)}>{activity.action}</button>}
+                  <Link className={styles.activityLink} href={activity.id === "service" ? "/one-to-one" : "/meetups"}>{activity.action}</Link>
                 </div>
               </div>
             ))}
@@ -418,15 +418,6 @@ export function HomeOverview({
           </div>
         )}
 
-        {modal === "partner" && (
-          <>
-            <h2 id="home-dialog-title">商家合作活动</h2>
-            <p>商家合作活动正在筹备，开放后会公布活动时间、优惠内容和参与方式。</p>
-            <button type="button" className={styles.primary} onClick={() => setModal(null)}>
-              知道了
-            </button>
-          </>
-        )}
         {modal === "cancel" && (
           <>
             <h2 id="home-dialog-title">取消本轮报名？</h2>
