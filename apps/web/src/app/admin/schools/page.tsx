@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { InteractiveFields } from "@/components/interactive-fields";
 import { fetchApi } from "../../../lib/api";
 import { cx } from "../admin-class-names";
 import { AdminPagination } from "../admin-pagination";
@@ -254,6 +255,7 @@ export default function AdminSchoolsPage() {
       </div>
 
       {/* Search */}
+      <InteractiveFields>
       <form
         className={cx(adminStyles, "ic-search-bar sch-search-bar")}
         onSubmit={handleSearchSubmit}
@@ -284,6 +286,7 @@ export default function AdminSchoolsPage() {
           搜索
         </button>
       </form>
+      </InteractiveFields>
 
       {mergeSource && (
         <div

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Route } from '@playwright/test';
 import { HARD_MATCH_KEYS, NO_SCHOOL_ID } from '@lilink/shared';
 import { test, expect, api, password, visit, mailCode } from '../support/fixtures';
 
@@ -214,9 +215,42 @@ test('school edit merge and delete preserve user identity and questionnaire owne
     await clicking;
     return message;
   }
-  await visit(page, '/admin/schools');
-  await page.getByRole('textbox', { name: '搜索学校', exact: true }).fill(tag);
-  await page.getByRole('button', { name: '搜索', exact: true }).click();
+  // SSR must not accept a search before React can retain the entered value.
+  let releaseScripts!: () => void;
+  const scriptsReady = new Promise<void>(resolve => { releaseScripts = resolve; });
+  const holdScripts = async (route: Route) => {
+    await scriptsReady;
+    await route.continue();
+  };
+  await page.route('**/_next/static/**/*.js', holdScripts);
+  const search = page.getByRole('textbox', { name: '搜索学校', exact: true });
+  const submitSearch = page.getByRole('button', { name: '搜索', exact: true });
+  try {
+    await page.goto('/admin/schools', { waitUntil: 'commit' });
+    await expect(search).toBeVisible();
+    await expect(search).toBeDisabled();
+    await expect(submitSearch).toBeDisabled();
+    releaseScripts();
+    await expect(search).toBeEditable();
+    await search.fill(tag);
+    await expect(page.getByRole('button', { name: '清除搜索', exact: true })).toBeVisible();
+    await expect(search).toHaveValue(tag);
+    const searched = page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return response.request().method() === 'GET' && url.pathname.endsWith('/admin/schools') && url.searchParams.get('search') === tag;
+    });
+    await submitSearch.click();
+    const response = await searched;
+    expect(response.ok()).toBe(true);
+    const result = await response.json();
+    expect(result.total).toBe(2);
+    expect(result.items.map((school: { id: string }) => school.id).sort()).toEqual([source.id, target.id].sort());
+    await expect(search).toHaveValue(tag);
+    await info.attach('school-search-hydration-contract', { contentType: 'application/json', body: JSON.stringify({ project: info.project.name, syntheticOnly: true, assertions: { inputAndSubmitDisabledBeforeHydration: true, searchEditableAfterHydration: true, inputRecordedAndRetained: true, submittedSearchMatchesInput: true, onlyTwoMatchingSchoolsReturned: true } }) });
+  } finally {
+    releaseScripts();
+    await page.unrouteAll({ behavior: 'wait' });
+  }
   await expect(page.getByTitle('编辑', { exact: true })).toHaveCount(2);
   await page.getByTitle('编辑', { exact: true }).first().click();
   await page.getByLabel('学校名称', { exact: true }).fill(`${sourceName} 未提交`);
