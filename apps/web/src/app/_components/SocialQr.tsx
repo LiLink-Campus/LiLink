@@ -1,5 +1,5 @@
 export const socialChannels = [
-  { name: "微信", image: "/images/social/wechat-qr.cfdb4f0b6fdb.webp", preview: "/images/social/wechat-qr-preview.79de890c6c9a.webp" },
+  { name: "微信", image: "/images/social/wechat-qr.da64687cf97e.webp", preview: "/images/social/wechat-qr-preview.4b68fac69582.webp" },
   { name: "小红书", image: "/images/social/xiaohongshu-qr.0c97c44cc33e.webp", preview: "/images/social/xiaohongshu-qr-preview.2b77d88a4a43.webp" },
 ] as const;
 

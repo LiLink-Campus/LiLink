@@ -168,7 +168,7 @@ export const legacyImageRedirects = [
   },
   {
     "source": "/images/social/wechat-qr.png",
-    "destination": "/images/social/wechat-qr.cfdb4f0b6fdb.webp",
+    "destination": "/images/social/wechat-qr.da64687cf97e.webp",
     "permanent": true
   },
   {
