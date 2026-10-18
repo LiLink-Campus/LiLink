@@ -18,7 +18,7 @@ import { AdminQuestionnaireRevisionService } from './admin-questionnaire-revisio
 
 @Module({
   // PublicModule is imported so AdminSchoolService can invalidate the public
-  // eligible-schools cache when a school's registrationEligible flag changes.
+  // eligible-schools cache when configured schools change.
   // QuestionnaireModule is imported so AdminQuestionnaireService can invalidate the public
   // current-questionnaire cache when an admin publishes a questionnaire revision.
   imports: [CyclesModule, PublicModule, QuestionnaireModule],

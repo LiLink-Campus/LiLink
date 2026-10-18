@@ -279,6 +279,18 @@ export default { ...config, schema: ${JSON.stringify(path.join(apiRoot, 'prisma/
           user.status === 'ACTIVE',
       ),
     ).toBe(true);
+    const education = (
+      await db.query<Record<string, unknown>>(
+        'SELECT "educationVerifiedAt","educationVerificationMethod" FROM "User"',
+      )
+    ).rows;
+    expect(
+      education.every(
+        (user) =>
+          user.educationVerifiedAt instanceof Date &&
+          user.educationVerificationMethod === 'LEGACY',
+      ),
+    ).toBe(true);
     const responses = (
       await db.query<Record<string, unknown>>(
         'SELECT "userId",answers,"draftAnswers","submittedAt" FROM "QuestionnaireResponse" ORDER BY "userId"',

@@ -8,6 +8,7 @@ import {
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { isRecordNotFoundError } from '../../common/prisma/errors';
+import { lockSchoolCatalog } from '../../common/schools/school-catalog';
 import { syncQuestionnaireSchoolAnswers } from '../questionnaire/questionnaire-school-sync';
 import { AdminAuditService } from './admin-audit.service';
 import {
@@ -95,16 +96,8 @@ export class AdminUserWriteService {
     if (input.schoolId !== undefined)
       updateData.schoolId = input.schoolId || null;
 
-    if (input.email !== undefined) {
-      const normalizedEmail = input.email.trim().toLowerCase();
-      const existingUser = await this.prisma.user.findUnique({
-        where: { email: normalizedEmail },
-      });
-      if (existingUser && existingUser.id !== userId) {
-        throw new BadRequestException(
-          'This email is already in use by another user.',
-        );
-      }
+    const normalizedEmail = input.email?.trim().toLowerCase();
+    if (normalizedEmail !== undefined) {
       updateData.email = normalizedEmail;
     }
 
@@ -126,6 +119,27 @@ export class AdminUserWriteService {
     }
 
     const updatedUser = await this.prisma.$transaction(async (tx) => {
+      if (input.schoolId !== undefined) await lockSchoolCatalog(tx, 'read');
+      if (normalizedEmail !== undefined) {
+        // Match education upgrades: lock the account before the shared mailbox.
+        await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR NO KEY UPDATE`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${normalizedEmail}, 0))`;
+        const existingUser = await tx.user.findFirst({
+          where: {
+            id: { not: userId },
+            OR: [
+              { email: normalizedEmail },
+              { educationEmail: normalizedEmail },
+            ],
+          },
+          select: { id: true },
+        });
+        if (existingUser) {
+          throw new BadRequestException(
+            'This email is already in use by another user.',
+          );
+        }
+      }
       const nextUser = await tx.user
         .update({
           where: { id: userId, deactivatedAt: null },

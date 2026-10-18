@@ -60,6 +60,7 @@ export const readState = {
   href: "/dashboard/coupons",
 };
 export const siteHandlers = [
+  json("/me/education", { verified: false, verifiedAt: null, method: null, schoolId: null, schoolName: null }),
   json("/me/vip", { active: false, activatedAt: null, expiresAt: null, durationDays: 30, priceYuan: "29.90", advancedFiltersAvailable: true }),
   schoolHandler,
   json("/me/dashboard", matchDashboardFixtures.waitingNoResult),

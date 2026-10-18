@@ -65,7 +65,7 @@ test('school registration delivers mail and creates a usable account @smoke', as
 
 // Failure boundary: a directly opened personal registration page must not
 // accept input before handlers can retain it; the ready form must register.
-test('personal registration waits for handlers and creates a usable account @smoke', async ({ page, account, db }, info) => {
+test('personal registration waits for handlers and creates a usable account @smoke @mobile @webkit', async ({ page, account, db }, info) => {
   const email = `${randomUUID()}@personal.example.test`;
   const referralCode = randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase();
   const school = await db.school.findUniqueOrThrow({ where: { slug: 'e2e-school' } });
@@ -83,16 +83,12 @@ test('personal registration waits for handlers and creates a usable account @smo
   });
   try {
     await page.goto('/register/personal', { waitUntil: 'commit' });
-    for (const label of ['邀请码', '普通邮箱', '验证码']) {
+    for (const label of ['普通邮箱', '验证码']) {
       await expect(page.getByLabel(label, { exact: true })).toBeDisabled();
     }
     await expect(page.getByRole('button', { name: '发送验证码', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: '下一步', exact: true })).toBeDisabled();
     releaseScripts();
-    const invitedCode = page.getByRole('textbox', { name: /^邀请码/ });
-    await expect(invitedCode).toBeEnabled();
-    await expect(invitedCode).toHaveValue(referralCode);
-    await expect(invitedCode).toHaveAttribute('readonly', '');
     await page.getByLabel('普通邮箱', { exact: true }).fill(email);
     await page.getByRole('button', { name: '发送验证码', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: '验证码已发送' })).toBeVisible();

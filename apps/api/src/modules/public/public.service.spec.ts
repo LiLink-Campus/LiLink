@@ -191,12 +191,9 @@ describe('PublicService', () => {
       ]);
       expect(payload.generatedAt).toBeInstanceOf(Date);
 
-      // Only registration-eligible schools that have at least one domain are
-      // returned, so the public list never shows an entry users cannot actually
-      // use to register.
+      // Configured schools with a domain are available without an opt-in flag.
       const findManyArgs = findMany.mock.calls[0][0];
       expect(findManyArgs.where).toEqual({
-        registrationEligible: true,
         domains: { some: {} },
       });
     });

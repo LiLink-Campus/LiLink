@@ -70,6 +70,13 @@
   gap: 0.25rem;
 }
 
+.sch-card-actions button.sch-card-merge-btn {
+  width: auto;
+  min-width: max-content;
+  padding-inline: 0.75rem;
+  white-space: nowrap;
+}
+
 .sch-card-action-btn {
   display: inline-flex;
   align-items: center;
@@ -118,11 +125,15 @@
   margin-top: 0.4rem;
 }
 
-.sch-domain-chip {
+.sch-card-domains .sch-domain-chip {
+  min-width: 0;
+  max-width: 100%;
   min-height: auto;
   padding: 0.22rem 0.55rem;
   font-size: 0.72rem;
   line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .sch-card-empty-domains {

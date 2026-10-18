@@ -20,7 +20,6 @@ function emptySchoolForm() {
     slug: "",
     description: "",
     domains: "",
-    registrationEligible: true,
   };
 }
 
@@ -68,7 +67,6 @@ export default function AdminSchoolsPage() {
       slug: school.slug,
       description: school.description ?? "",
       domains: school.domains.map((d) => d.domain).join(", "),
-      registrationEligible: school.registrationEligible,
     });
     setError(null);
   }
@@ -104,7 +102,6 @@ export default function AdminSchoolsPage() {
           body: JSON.stringify({
             name: form.name,
             description: form.description,
-            registrationEligible: form.registrationEligible,
             domains: normalizeDomains(form.domains),
           }),
         });
@@ -143,7 +140,7 @@ export default function AdminSchoolsPage() {
   }
 
   async function deleteSchool(school: AdminSchool) {
-    if (!confirm(`确定删除学校「${school.name}」吗？此操作不可撤回。`)) return;
+    if (!confirm(`确定删除学校「${school.name}」吗？删除后该校不能再新增教育认证，已有教育身份保留。此操作不可撤回。`)) return;
     setPending(`delete-${school.id}`);
     setError(null);
 
@@ -208,27 +205,6 @@ export default function AdminSchoolsPage() {
             onChange={(e) => setForm((f) => ({ ...f, domains: e.target.value }))}
             placeholder="school.edu, students.school.edu"
           />
-        </label>
-
-        <label className={cx(adminStyles, "qb-field qb-field-full")}>
-          <span>
-            <input
-              type="checkbox"
-              checked={form.registrationEligible}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  registrationEligible: e.target.checked,
-                }))
-              }
-            />{" "}
-            允许该校邮箱直接注册（作为学校邮箱：免邀请码、默认 3 个非教育邮箱推荐名额）
-          </span>
-          <p className={cx(adminStyles, "qb-hint")}>
-            关闭后该校将同时：① 从公开学校列表中隐藏；② 从注册页「手动选择学校」下拉中移除；③
-            其邮箱不再被视为学校邮箱，需改走「普通邮箱 +
-            有效邀请码」注册流程。三项联动，请谨慎切换。
-          </p>
         </label>
 
         <div className={cx(adminStyles, "qb-editor-actions")}>
@@ -400,7 +376,7 @@ export default function AdminSchoolsPage() {
                           type="button"
                           className={cx(
                             adminStyles,
-                            "ui-button ui-button--secondary sch-card-action-btn"
+                            "ui-button ui-button--secondary sch-card-action-btn sch-card-merge-btn"
                           )}
                           title={`合并「${mergeSource.name}」到此学校`}
                           disabled={pending === "merge"}

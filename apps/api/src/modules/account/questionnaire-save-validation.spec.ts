@@ -83,40 +83,4 @@ describe('AccountQuestionnaireService', () => {
     expect(userUpdate).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();
   });
-  it('rejects questionnaire saves when the current user has no recognized school', async () => {
-    const validateAnswers = jest.fn();
-    const upsert = jest.fn();
-    const service = new AccountQuestionnaireService(
-      {
-        user: {
-          findUniqueOrThrow: jest.fn().mockResolvedValue({
-            id: 'user-1',
-            school: null,
-          }),
-        },
-        questionnaireResponse: {
-          upsert,
-        },
-      } as never,
-      {
-        getCurrentVersion: jest.fn().mockResolvedValue({
-          id: 'version-1',
-          questions: [],
-          schools: [],
-        }),
-        validateAnswers,
-      } as never,
-      createDashboardSnapshotServiceMock() as never,
-    );
-
-    await expect(
-      service.saveQuestionnaire('user-1', {
-        versionId: 'version-1',
-        answers: {},
-        hardMatchForm: {},
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(validateAnswers).not.toHaveBeenCalled();
-    expect(upsert).not.toHaveBeenCalled();
-  });
 });

@@ -1263,6 +1263,7 @@ describe('AdminService', () => {
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         Promise.resolve(
           callback({
+            $executeRaw: jest.fn(),
             user: {
               update: userUpdate,
             },
@@ -1335,12 +1336,14 @@ describe('AdminService', () => {
       );
       const user = {
         findUnique: jest.fn(() => Promise.resolve({ ...row })),
+        findFirst: jest.fn().mockResolvedValue(null),
         update,
       };
+      const tx = { user, $queryRaw: jest.fn(), $executeRaw: jest.fn() };
       const prisma = {
         user,
-        $transaction: (callback: (tx: { user: typeof user }) => unknown) =>
-          callback({ user }),
+        $transaction: (callback: (transaction: typeof tx) => unknown) =>
+          callback(tx),
       };
       const audit = { write: jest.fn() };
       const service = new AdminUserWriteService(

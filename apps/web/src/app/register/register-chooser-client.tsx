@@ -32,7 +32,7 @@ export default function RegisterChooserClient() {
       <div className={styles.choices}>
         <Link prefetch={false} href={schoolHref} className={styles.choice}>
           <span className={styles.choiceHeading}>
-            <strong>学校邮箱</strong><span className={styles.badge}>免邀请码</span>
+            <strong>学校邮箱</strong><span className={styles.badge}>教育认证</span>
             <span className={styles.arrow} aria-hidden="true">→</span>
           </span>
           <p>使用合作高校邮箱，自动识别学校。</p>
@@ -40,10 +40,10 @@ export default function RegisterChooserClient() {
 
         <Link prefetch={false} href={personalHref} className={styles.choice}>
           <span className={styles.choiceHeading}>
-            <strong>普通邮箱</strong><span className={styles.badgeMuted}>需邀请码</span>
+            <strong>普通邮箱</strong><span className={styles.badgeMuted}>开放注册</span>
             <span className={styles.arrow} aria-hidden="true">→</span>
           </span>
-          <p>支持 QQ、163、Gmail 等，凭同学邀请码注册。</p>
+          <p>支持 QQ、163、Gmail 等，注册后可认证教育身份。</p>
         </Link>
       </div>
 

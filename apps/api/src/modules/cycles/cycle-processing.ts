@@ -21,6 +21,7 @@ export const CYCLE_PROCESSING_INCLUDE = {
         select: {
           id: true,
           displayName: true,
+          educationVerifiedAt: true,
           vipActivations: { select: { expiresAt: true, revokedAt: true } },
           questionnaireResponse: {
             select: {

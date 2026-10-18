@@ -98,7 +98,7 @@ export function useAdminUserActions(
     if (!trimmedDraft || !Number.isInteger(nextLimit) || nextLimit < 0 || nextLimit > 100000) {
       // Guard the empty/blank case explicitly: Number("") === 0 would otherwise
       // silently revoke the user's quota instead of being rejected as no input.
-      setActionError("普通邮箱邀请码额度上限必须是 0 到 100000 之间的整数。");
+      setActionError("教育认证邀请额度上限必须是 0 到 100000 之间的整数。");
       return;
     }
 
@@ -116,12 +116,12 @@ export function useAdminUserActions(
       if (selection.current !== owner) return;
       setEditingReferralLimit(false);
       setReferralLimitDraft("");
-      setActionMessage("普通邮箱邀请码额度已更新。");
+      setActionMessage("教育认证邀请额度已更新。");
       await reloadUserDetail();
     } catch (caughtError) {
       if (selection.current !== owner) return;
       setActionError(
-        caughtError instanceof Error ? caughtError.message : "普通邮箱邀请码额度更新失败。"
+        caughtError instanceof Error ? caughtError.message : "教育认证邀请额度更新失败。"
       );
     } finally {
       if (selection.current === owner) setPending(null);

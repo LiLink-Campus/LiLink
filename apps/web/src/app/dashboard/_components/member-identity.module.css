@@ -1,0 +1,14 @@
+.badges { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.vipBadge, .educationBadge { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 4px 9px; border: 1px solid #dbd2c9; border-radius: 999px; font-size: 12px; line-height: 1.5; font-weight: 600; }
+.vipBadge svg, .educationBadge svg { width: 17px; height: 17px; flex-shrink: 0; }
+.educationBadge { color: #62554d; background: #f4eee7; }
+.educationBadge[data-verified="true"] { color: #39674e; background: #edf4ee; border-color: #bed2c4; }
+.vipBadge { position: relative; overflow: hidden; border-color: #c39b55; background: linear-gradient(115deg, #f2d493, #fff1c9 48%, #e9c37e); color: #654318; font-weight: 700; letter-spacing: .06em; box-shadow: 0 2px 9px #b2863526; }
+.vipBadge::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 25%, #ffffffb3 50%, transparent 75%); transform: translateX(-130%); animation: vip-shine 5s ease-in-out infinite; pointer-events: none; }
+.sparkle { font-size: 12px; animation: vip-twinkle 3s ease-in-out infinite; }
+@keyframes vip-shine { 0%, 65% { transform: translateX(-130%); } 90%, 100% { transform: translateX(130%); } }
+@keyframes vip-twinkle { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .vipBadge::after, .sparkle { animation: none; } }
+.notice, .unknown { margin: 0; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.notice { max-width: 100%; padding: 10px 12px; border: 1px solid #e5d3b6; border-radius: 10px; color: #785324; background: #fbf5e8; }
+.unknown { color: var(--color-text-muted); }

@@ -27,3 +27,4 @@ export * from "./questionnaire-progress";
 
 export * from "./private-page-contracts";
 export * from "./private-page-parsers";
+export * from "./education";

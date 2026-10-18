@@ -1,4 +1,4 @@
-import { HARD_MATCH_KEYS } from "@lilink/shared";
+import { HARD_MATCH_KEYS, NO_SCHOOL_ID } from "@lilink/shared";
 import commonStyles from "../admin-common.module.css";
 import type { AdminUser } from "../types";
 export const adminStyles = [commonStyles];
@@ -34,7 +34,7 @@ export function formatAnswer(
   schoolNameById: Record<string, string>
 ): string {
   if (key === HARD_MATCH_KEYS.school && typeof value === "string") {
-    return schoolNameById[value] ?? value;
+    return value === NO_SCHOOL_ID ? "未填写学校" : schoolNameById[value] ?? value;
   }
 
   if (key === HARD_MATCH_KEYS.excludedPartnerSchools && Array.isArray(value)) {

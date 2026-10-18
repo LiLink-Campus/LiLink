@@ -186,9 +186,9 @@ export function VipClient({ initialStatus }: { initialStatus: VipStatus | null }
       <h2 id="vip-faq-title" className={`${faqStyles.title} ${styles.faqTitle}`}>常见问题</h2>
       <div className={faqStyles.list}>
         <details className={`${faqStyles.item} ${styles.faqItem}`}>
-          <summary>VIP 与普通用户有什么区别？</summary>
+          <summary>VIP 与非 VIP 用户有什么区别？</summary>
           <div className={`${faqStyles.answer} ${styles.faqAnswer}`}>
-            <div className={styles.tableWrap}><table><caption className={styles.srOnly}>普通用户与 VIP 权益对比</caption><thead><tr><th scope="col">权益</th><th scope="col">普通用户</th><th scope="col">VIP</th></tr></thead><tbody>{benefits.map(item => <tr key={item.label}><th scope="row">{item.label}</th><td><span aria-hidden="true">{item.free ? "✓" : "—"}</span><span className={styles.srOnly}>{item.free ? "支持" : "不支持"}</span></td><td><span aria-hidden="true">✓</span><span className={styles.srOnly}>支持</span></td></tr>)}</tbody></table></div>
+            <div className={styles.tableWrap}><table><caption className={styles.srOnly}>非 VIP 用户与 VIP 权益对比</caption><thead><tr><th scope="col">权益</th><th scope="col">非 VIP 用户</th><th scope="col">VIP</th></tr></thead><tbody>{benefits.map(item => <tr key={item.label}><th scope="row">{item.label}</th><td><span aria-hidden="true">{item.free ? "✓" : "—"}</span><span className={styles.srOnly}>{item.free ? "支持" : "不支持"}</span></td><td><span aria-hidden="true">✓</span><span className={styles.srOnly}>支持</span></td></tr>)}</tbody></table></div>
           </div>
         </details>
         <details className={`${faqStyles.item} ${styles.faqItem}`}>

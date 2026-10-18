@@ -146,8 +146,8 @@ export const Comparison: Story = {
   args: { initialStatus: empty },
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await userEvent.click(c.getByText('VIP 与普通用户有什么区别？', { exact: true }));
-    const table = within(c.getByRole('table', { name: '普通用户与 VIP 权益对比' }));
+    await userEvent.click(c.getByText('VIP 与非 VIP 用户有什么区别？', { exact: true }));
+    const table = within(c.getByRole('table', { name: '非 VIP 用户与 VIP 权益对比' }));
     await expect(table.getAllByRole('row')).toHaveLength(11);
     for (const name of ['优先匹配', '学校筛选', '身高筛选', '体重筛选', '颜值筛选', '锻炼频率筛选']) {
       const row = within(table.getByRole('row', { name: new RegExp(name) }));
@@ -161,12 +161,12 @@ export const Comparison: Story = {
     }
     await expect(c.getByRole('link', { name: '购买激活码' })).toHaveAttribute('href', 'https://catfk.com/item/ry2djy');
     await userEvent.click(c.getByText('会员到期后会怎样？', { exact: true }));
-    await expect(c.getByRole('table', { name: '普通用户与 VIP 权益对比' })).toBeVisible();
+    await expect(c.getByRole('table', { name: '非 VIP 用户与 VIP 权益对比' })).toBeVisible();
     await expect(c.queryByText('更具体地表达偏好，不保证匹配成功。')).not.toBeInTheDocument();
     await expect(c.getByText(/会员到期后，优先匹配与高级筛选将停止生效/)).toBeVisible();
     await userEvent.click(c.getByText('会员到期后会怎样？', { exact: true }));
     await expect(c.getByText(/会员到期后，优先匹配与高级筛选将停止生效/)).not.toBeVisible();
-    await expect(c.getByRole('table', { name: '普通用户与 VIP 权益对比' })).toBeVisible();
+    await expect(c.getByRole('table', { name: '非 VIP 用户与 VIP 权益对比' })).toBeVisible();
   },
 };
 

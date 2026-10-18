@@ -11,3 +11,8 @@ export function useDashboardSessionSeed(initialUser: AuthMePayload) {
     setUser(initialUser);
   }, [initialUser, setUser]);
 }
+
+export function DashboardSessionSeed({ initialUser }: { initialUser: AuthMePayload }) {
+  useDashboardSessionSeed(initialUser);
+  return null;
+}

@@ -190,6 +190,8 @@ export class CyclePreparationService {
                   position: position + 1,
                   profileSnapshot: {
                     source: 'matching-preparation',
+                    vipActive: participant.vipActive,
+                    educationVerified: participant.educationVerified === true,
                     versionId: participant.questionnaireVersionId,
                     introLine: participant.hardMatchAnswers.oneLinerIntro,
                     gender: participant.hardMatchAnswers.gender,

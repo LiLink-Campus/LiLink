@@ -39,7 +39,7 @@ export class AuthController {
   @Post('request-code')
   @Throttle(createPublicAuthThrottle('requestCode'))
   requestCode(@Body() body: RequestCodeDto) {
-    return this.authService.requestCode(body.email, body.referralCode);
+    return this.authService.requestCode(body.email);
   }
 
   @Post('register')

@@ -1,3 +1,4 @@
+import { NO_SCHOOL_ID } from '@lilink/shared';
 import {
   effectiveMatchingAnswers,
   HARD_MATCH_KEYS,
@@ -162,7 +163,7 @@ export class AccountParticipationService {
       currentQuestionnaire.questions,
       {
         ...(isRecord(response.answers) ? response.answers : {}),
-        [HARD_MATCH_KEYS.school]: schoolId ?? '',
+        [HARD_MATCH_KEYS.school]: schoolId ?? NO_SCHOOL_ID,
       },
       currentQuestionnaire.schools.map((school) => school.id),
     );
@@ -172,7 +173,7 @@ export class AccountParticipationService {
       effectiveMatchingAnswers(
         {
           ...((response.answers ?? {}) as Record<string, unknown>),
-          [HARD_MATCH_KEYS.school]: schoolId ?? '',
+          [HARD_MATCH_KEYS.school]: schoolId ?? NO_SCHOOL_ID,
         },
         vipActive,
       ),

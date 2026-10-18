@@ -50,7 +50,17 @@ function questionnaireAutosaveShouldRetry(error: unknown) {
 
 function questionnaireAutosaveFailureMessage(error: unknown, retryDelayMs: number | null) {
   if (isApiRequestError(error) && error.status >= 400 && error.status < 500) {
-    return "当前页面数据已失效或填写内容未通过校验，请刷新页面后重试。";
+    if (error.status === 401) return "登录状态已失效，请重新登录后保存。当前修改尚未保存。";
+    if (error.status === 429) return "保存过于频繁，请稍后重试。当前修改尚未保存。";
+    const details = error.message.split("；").map(message => {
+      const minimum = message.match(/^displayName must be longer than or equal to (\d+) characters$/);
+      if (minimum) return `昵称至少需要 ${minimum[1]} 个字符，请到「关于你 → 昵称」修改。`;
+      const maximum = message.match(/^displayName must be shorter than or equal to (\d+) characters$/);
+      if (maximum) return `昵称不能超过 ${maximum[1]} 个字符，请到「关于你 → 昵称」修改。`;
+      if (message.startsWith("displayName ")) return "昵称格式不正确，请到「关于你 → 昵称」检查。";
+      return /[\u3400-\u9fff]/.test(message) ? message : "填写内容未通过校验，请检查各题填写要求。";
+    });
+    return `${[...new Set(details)].join("；")}当前整份问卷的修改尚未保存。`;
   }
 
   return retryDelayMs == null

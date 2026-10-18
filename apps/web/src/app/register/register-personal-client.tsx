@@ -17,7 +17,6 @@ import flowStyles from "./register-flow.module.css";
 import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
-  REGISTER_REFERRAL_CODE_MAX_LENGTH,
   RESEND_COOLDOWN_SECONDS,
   VERIFICATION_CODE_LENGTH,
   type CodeResponse,
@@ -53,11 +52,8 @@ export default function RegisterPersonalClient() {
   const [chooserHref, setChooserHref] = useState("/register");
   const {
     referralCode,
-    setReferralCode,
     referralChannel,
     campaignSlug,
-    attributionLocked,
-    clearReferralAttribution,
   } = useReferralAttribution();
 
   const eligibleSchools = useMemo(
@@ -91,12 +87,6 @@ export default function RegisterPersonalClient() {
       setError("请先填写有效邮箱。"); return;
     }
 
-    const trimmedReferralCode = referralCode.trim();
-    if (!trimmedReferralCode) {
-      setError("请先填写有效邀请码。");
-      return;
-    }
-
     setPending(true);
 
     try {
@@ -104,7 +94,7 @@ export default function RegisterPersonalClient() {
         method: "POST",
         body: JSON.stringify({
           email,
-          referralCode: trimmedReferralCode,
+          referralCode: referralCode.trim() || undefined,
         }),
       });
 
@@ -127,15 +117,6 @@ export default function RegisterPersonalClient() {
     } finally {
       setPending(false);
     }
-  }
-
-  function useDifferentReferralCode() {
-    clearReferralAttribution();
-    setCode("");
-    setCodeSent(false);
-    setDevCode(undefined);
-    setResendCooldown(0);
-    setError(null);
   }
 
   function continueRegistration(event: FormEvent<HTMLFormElement>) {
@@ -168,16 +149,8 @@ export default function RegisterPersonalClient() {
     const trimmedReferralCode = referralCode.trim();
     const trimmedManualSchoolId = manualSchoolId.trim();
 
-    if (!trimmedReferralCode) {
-      setError("请填写有效邀请码。");
-      return;
-    }
-
-    if (
-      schoolsPending ||
-      !eligibleSchools.some((school) => school.id === trimmedManualSchoolId)
-    ) {
-      setError("请选择你的学校。");
+    if (trimmedManualSchoolId && !eligibleSchools.some(school => school.id === trimmedManualSchoolId)) {
+      setError("请选择有效学校或暂不填写。");
       return;
     }
 
@@ -191,8 +164,8 @@ export default function RegisterPersonalClient() {
           code,
           password,
           acceptedTerms,
-          referralCode: trimmedReferralCode,
-          manualSchoolId: trimmedManualSchoolId,
+          referralCode: trimmedReferralCode || undefined,
+          manualSchoolId: trimmedManualSchoolId || undefined,
           channel: referralChannel || undefined,
           campaignSlug: campaignSlug || undefined,
         }),
@@ -225,7 +198,7 @@ export default function RegisterPersonalClient() {
       description={
         step === 1
           ? null
-          : "选择学校并设置密码，昵称可在登录后填写。"
+          : "设置密码即可加入，学校与昵称可在登录后完善。"
       }
       loginHref={loginHref}
       backHref={step === 1 ? chooserHref : undefined}
@@ -233,34 +206,6 @@ export default function RegisterPersonalClient() {
       <InteractiveFields>
         {step === 1 ? (
           <form className={authStyles.stack} onSubmit={continueRegistration}>
-            <Field
-              label="邀请码"
-              hint={
-                attributionLocked
-                  ? "已通过邀请链接带入。若该邀请码不可用，可以更换。"
-                  : undefined
-              }
-            >
-              <Input
-                required
-                readOnly={attributionLocked}
-                value={referralCode}
-                maxLength={REGISTER_REFERRAL_CODE_MAX_LENGTH}
-                onChange={(event) => setReferralCode(event.target.value)}
-                placeholder={attributionLocked ? undefined : "同学分享的 10 位邀请码"}
-              />
-            </Field>
-            {attributionLocked ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                elevation="flat"
-                type="button"
-                onClick={useDifferentReferralCode}
-              >
-                更换邀请码
-              </Button>
-            ) : null}
             <Field
               label="普通邮箱"
             >
@@ -312,17 +257,16 @@ export default function RegisterPersonalClient() {
           <form className={authStyles.stack} onSubmit={register}>
             <Field
               label="学校"
-              hint="请选择你当前就读或所属的学校。学校选定后无法自行更改，请务必准确选择。"
+              hint="可暂不填写。选择学校不代表通过教育认证，登录后可通过邀请码或教育邮箱认证。"
             >
               <Select
                 className={flowStyles.schoolSelect}
-                required
                 value={eligibleSchools.some((school) => school.id === manualSchoolId) ? manualSchoolId : ""}
                 disabled={schoolsPending || eligibleSchools.length === 0}
                 onChange={(event) => setManualSchoolId(event.target.value)}
               >
                 <option value="">
-                  {schoolsPending ? "学校列表加载中..." : "请选择学校"}
+                  {schoolsPending ? "学校列表加载中..." : "非在校／暂不填写"}
                 </option>
                 {eligibleSchools.map((school) => (
                   <option key={school.id} value={school.id}>

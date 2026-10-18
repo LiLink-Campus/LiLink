@@ -15,7 +15,7 @@ describe('Public lifetime questionnaire statistics (PostgreSQL)', () => {
     await prisma.$disconnect();
   });
 
-  it('uses submitted archives once per user, prefers new submissions, and lists empty eligible schools', async () => {
+  it('uses submitted archives once per user, prefers new submissions, and lists configured schools regardless of the legacy flag', async () => {
     const rollback = new Error('rollback public statistics fixtures');
     await expect(
       prisma.$transaction(
@@ -35,9 +35,9 @@ describe('Public lifetime questionnaire statistics (PostgreSQL)', () => {
           const emptySchool = await tx.school.create({
             data: { name: 'Statistics empty school', slug: randomUUID() },
           });
-          const hiddenSchool = await tx.school.create({
+          const legacyFlagSchool = await tx.school.create({
             data: {
-              name: 'Statistics hidden school',
+              name: 'Statistics legacy flag school',
               slug: randomUUID(),
               registrationEligible: false,
             },
@@ -153,9 +153,11 @@ describe('Public lifetime questionnaire statistics (PostgreSQL)', () => {
             name: emptySchool.name,
             count: 0,
           });
-          expect(
-            stats.schools.some((entry) => entry.id === hiddenSchool.id),
-          ).toBe(false);
+          expect(stats.schools).toContainEqual({
+            id: legacyFlagSchool.id,
+            name: legacyFlagSchool.name,
+            count: 0,
+          });
           const active = await tx.questionnaireResponse.findUniqueOrThrow({
             where: { userId: historical.id },
           });

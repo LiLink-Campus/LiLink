@@ -1,10 +1,10 @@
-import { test, expect, api, password, visit, completeProfile } from '../support/fixtures';
+import { test, expect, api, password, visit, completeProfile, mailCode } from '../support/fixtures';
 
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
 // Refactor baseline: list/selection boundaries, persisted edits, failed saves,
 // status changes, tab reads, and late responses from a closed detail dialog.
-test('admin user management preserves visible and persisted results @smoke', async ({ page, db, account, context, signedIn }, info) => {
+test('admin user management preserves visible and persisted results @smoke @mobile @webkit', async ({ page, db, account, context, signedIn }, info) => {
   void signedIn;
   await completeProfile(context, db);
   const source = await db.user.findUniqueOrThrow({ where: { id: account.id } });
@@ -46,9 +46,11 @@ test('admin user management preserves visible and persisted results @smoke', asy
   await expect(dialog.getByText('合成运营编辑验收', { exact: true })).toBeVisible();
   expect((await db.userProfile.findUniqueOrThrow({ where: { userId: account.id } })).headline).toBe('合成运营编辑验收');
   await dialog.getByRole('button', { name: '调整额度', exact: true }).click();
-  await dialog.getByLabel('普通邮箱邀请码额度上限', { exact: true }).fill('7');
+  await dialog.getByLabel('教育认证邀请额度上限', { exact: true }).fill('7');
   await dialog.getByRole('button', { name: '保存额度', exact: true }).click();
-  await expect(dialog.getByRole('status')).toHaveText('普通邮箱邀请码额度已更新。');
+  await expect(dialog.getByRole('status')).toHaveText('教育认证邀请额度已更新。');
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('admin-education-quota.png'), fullPage: true });
   expect((await db.user.findUniqueOrThrow({ where: { id: account.id } })).nonEduReferralLimit).toBe(7);
   await dialog.getByRole('button', { name: '停用账号', exact: true }).click();
   await expect(dialog.getByRole('status')).toHaveText('账号已停用。');
@@ -74,6 +76,76 @@ test('admin user management preserves visible and persisted results @smoke', asy
     project: info.project.name, assertions: { failedSaveRetainsDraft: true, savedProfileReloads: true,
       referralLimitPersists: true, suspensionRejectsUserRequest: true, restoreAndTabsWork: true, auditEvents: 4 },
   }) });
+});
+
+// Failure boundaries: another account's education mailbox is unavailable for
+// login edits; the owner may reuse it; an edit waiting on a row lock must recheck
+// a claim committed by a concurrent education upgrade before saving.
+test('admin email edits preserve education mailbox ownership @mobile @webkit', async ({ page, db, account, context, browser }, info) => {
+  const source = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  const admin = await db.adminOperator.create({ data: { email: `mailbox-admin-${account.email}`, passwordHash: source.passwordHash } });
+  expect((await context.request.post(`${api}/admin-session/login`, { data: { email: admin.email, password } })).ok()).toBe(true);
+  const claimantContext = await browser.newContext();
+  try {
+    const claimant = await db.user.create({ data: { email: `owner-${account.id}@personal.example.test`, passwordHash: source.passwordHash, status: 'ACTIVE' } });
+    expect((await claimantContext.request.post(`${api}/auth/login`, { data: { email: claimant.email, password } })).ok()).toBe(true);
+    const claimedEmail = `claimed-${account.id}@school.example.test`;
+    expect((await claimantContext.request.post(`${api}/me/education/email/request-code`, { data: { email: claimedEmail } })).ok()).toBe(true);
+    expect((await claimantContext.request.post(`${api}/me/education/email/verify`, { data: { email: claimedEmail, code: await mailCode(page, claimedEmail) } })).ok()).toBe(true);
+
+    await visit(page, '/admin/users');
+    await page.getByPlaceholder('邮箱、昵称、姓名或学校').fill(account.email);
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
+    await page.getByRole('button', { name: `查看 自动化同学 ${account.email}`, exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '用户详情', exact: true });
+    await dialog.getByRole('button', { name: '编辑资料', exact: true }).click();
+    const emailInput = dialog.getByRole('row').filter({ has: page.getByText('邮箱', { exact: true }) }).getByRole('textbox');
+    await emailInput.fill(claimedEmail);
+    await dialog.getByRole('button', { name: '保存修改', exact: true }).click();
+    await expect(dialog.getByRole('alert')).toContainText('email is already in use');
+    await expect(emailInput).toHaveValue(claimedEmail);
+    expect((await db.user.findUniqueOrThrow({ where: { id: account.id } })).email).toBe(account.email);
+    await page.screenshot({ path: info.outputPath('education-mailbox-conflict.png'), fullPage: true });
+    const selfUpdate = await context.request.patch(`${api}/admin/users/${claimant.id}`, { data: { email: claimedEmail } });
+    expect(selfUpdate.ok(), await selfUpdate.text()).toBe(true);
+    expect((await db.user.findUniqueOrThrow({ where: { id: claimant.id } })).educationEmail).toBe(claimedEmail);
+
+    const concurrent = await db.user.create({ data: { email: `race-owner-${account.id}@personal.example.test`, passwordHash: source.passwordHash, status: 'ACTIVE' } });
+    expect((await claimantContext.request.post(`${api}/auth/login`, { data: { email: concurrent.email, password } })).ok()).toBe(true);
+    const raceEmail = `race-claimed-${account.id}@school.example.test`;
+    expect((await claimantContext.request.post(`${api}/me/education/email/request-code`, { data: { email: raceEmail } })).ok()).toBe(true);
+    const code = await mailCode(page, raceEmail);
+    let release!: () => void;
+    let ready!: (pid: number) => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const locked = new Promise<number>(resolve => { ready = resolve; });
+    const blocking = db.$transaction(async (tx: any) => {
+      const [backend] = await tx.$queryRaw`SELECT pg_backend_pid() AS pid`;
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${account.id} FOR NO KEY UPDATE`;
+      ready(backend.pid);
+      await gate;
+    }, { timeout: 20_000 });
+    let updating: ReturnType<typeof context.request.patch> | undefined;
+    try {
+      const pid = await locked;
+      updating = context.request.patch(`${api}/admin/users/${account.id}`, { data: { email: raceEmail } });
+      await expect.poll(async () => {
+        const [waiting] = await db.$queryRaw`SELECT count(*)::int AS count FROM pg_stat_activity WHERE ${pid} = ANY(pg_blocking_pids(pid))`;
+        return waiting.count;
+      }).toBeGreaterThan(0);
+      const verified = await claimantContext.request.post(`${api}/me/education/email/verify`, { data: { email: raceEmail, code } });
+      expect(verified.ok(), await verified.text()).toBe(true);
+      release();
+      await blocking;
+      expect((await updating).status()).toBe(400);
+      expect((await db.user.findUniqueOrThrow({ where: { id: account.id } })).email).toBe(account.email);
+      expect((await db.user.findUniqueOrThrow({ where: { id: concurrent.id } })).educationEmail).toBe(raceEmail);
+    } finally {
+      release();
+      await Promise.allSettled([blocking, ...(updating ? [updating] : [])]);
+    }
+    await info.attach('education-mailbox-ownership', { contentType: 'application/json', body: JSON.stringify({ assertions: { visibleConflictRetainsDraft: true, ownerMayReuseMailbox: true, concurrentClaimRejectsStaleEdit: true, originalLoginPreserved: true } }) });
+  } finally { await claimantContext.close(); }
 });
 
 test('admin selection ignores a late detail response and filters reset pagination @smoke', async ({ page, db, account, context }, info) => {

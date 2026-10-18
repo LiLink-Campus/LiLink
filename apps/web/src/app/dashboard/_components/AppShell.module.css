@@ -151,6 +151,8 @@
   color: var(--color-brand-ink);
 }
 
+.avatarMenu .subdued { color: var(--color-text-muted); }
+
 .avatarMenu .danger {
   color: var(--color-accent);
 }

@@ -40,6 +40,8 @@
 .card[data-result='NOT_PARTICIPATED'] .result { color: #85786f; background: #eeeae5; }
 .card[data-result='UNMATCHED'] .result { color: #876d54; background: #f2ece4; }
 .person { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.personName { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.person > div { min-width: 0; }
 .person h4 { margin: 0 0 4px; color: #89354f; font: 500 29px/1.4 'Kaiti SC', 'STKaiti', serif; }
 .person p { margin: 0; color: #8b7b70; font-size: 12px; line-height: 1.6; }
 .person .score { flex-shrink: 0; text-align: right; }

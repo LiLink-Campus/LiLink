@@ -123,10 +123,11 @@ export const AccountMenu: Story = {
 export const DeactivateDialog: Story = {
   tags: ["test"],
   parameters: route("/dashboard/me"),
-  render: () => <UserCenter initialUser={matchStoryUser} initialStatus={null} />,
+  render: () => <AppShell><UserCenter initialUser={matchStoryUser} initialStatus={null} /></AppShell>,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await userEvent.click(c.getByRole("button", { name: "注销账号" }));
+    await userEvent.click(c.getByRole("button", { name: /账号菜单/ }));
+    await userEvent.click(c.getByRole("menuitem", { name: "注销账号" }));
     await expect(c.getByRole("dialog", { name: "注销账号" })).toBeVisible();
     await expect(c.getByRole("button", { name: "确认注销账号" })).toBeDisabled();
   },

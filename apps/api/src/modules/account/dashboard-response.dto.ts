@@ -32,6 +32,12 @@ export class DashboardMatchParticipantResponseDto implements DashboardMatchParti
   @ApiProperty()
   userId!: string;
 
+  @ApiPropertyOptional()
+  vipActive?: boolean;
+
+  @ApiPropertyOptional()
+  educationVerified?: boolean;
+
   @ApiProperty({ nullable: true })
   displayName!: string | null;
 

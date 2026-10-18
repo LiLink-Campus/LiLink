@@ -58,8 +58,8 @@ export function findMatchingSchool(
 }
 
 // The registration-eligible school set is the single source of truth served by
-// GET /public/schools (schools flagged registrationEligible in the admin school
-// center). The web no longer hardcodes the partner list, so adding a school +
+// GET /public/schools (every school configured in the admin school center).
+// The web no longer hardcodes the partner list, so adding a school +
 // domains in the backend makes its email range count as a school email
 // automatically.
 export async function fetchEligibleSchools(

@@ -159,7 +159,8 @@ export function ProfileClient({
       autosave.hasSaved,
       autosave.hasDraft,
       autosave.hasUnsavedChanges,
-      incompleteTargets.length > 0
+      incompleteTargets.length > 0,
+      autosave.error ?? undefined
     ),
     contactSaveStatus
   );

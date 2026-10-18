@@ -1,5 +1,6 @@
 "use client";
 
+import { MemberIdentity, MemberEducationNotice } from "../_components/MemberIdentity";
 import { StaticImage } from "@/components/StaticImage";
 import { ParticipationStrip } from "./participation-strip";
 import Link from "next/link";
@@ -125,7 +126,8 @@ export function MatchClientView({
     hero = (
       <>
         <article className={styles.letter}>
-          <div className={styles.nameRow}><h2>{counterpartName}</h2><span className={styles.englishNote} aria-hidden="true">A letter<br/>to you</span></div>
+          <div className={styles.nameRow}><div className={styles.nameAndBadges}><h2>{counterpartName}</h2><MemberIdentity vipActive={counterpart.vipActive} educationVerified={counterpart.educationVerified} /></div><span className={styles.englishNote} aria-hidden="true">A letter<br/>to you</span></div>
+          <MemberEducationNotice educationVerified={counterpart.educationVerified} />
           <div className={styles.introduction}><p className={styles.salutation}>嗨！我是{counterpartName}。</p><p>{counterpart.introLine || "很高兴在这里认识你。"}</p></div>
           <div className={styles.facts}>
             <div><UserCircleIcon/><span>{counterpart.gender || "性别未填写"}</span></div>

@@ -1,8 +1,10 @@
 import { generateDynamicSentryMetadata } from "../../../lib/sentry-request-metadata";
 
+import { redirect } from "next/navigation";
 import { ensureDashboardSession } from "../_lib/bootstrap";
-import { fetchUserApiServer } from "../../../lib/server-api";
-import type { MyReferralOverview } from "../../../lib/api";
+import { fetchUserApiServer, ServerApiError } from "../../../lib/server-api";
+import type { AuthMePayload, MyReferralOverview } from "../../../lib/api";
+import { DashboardSessionSeed } from "../_components/DashboardSessionSeed";
 import { ReferralsClient } from "./referrals-client";
 
 export const generateMetadata = generateDynamicSentryMetadata;
@@ -10,17 +12,19 @@ export const generateMetadata = generateDynamicSentryMetadata;
 export default async function DashboardReferralsPage() {
   await ensureDashboardSession();
 
-  // Fetch on the server so the page renders with data instead of a client
-  // fetch-on-mount round-trip. On failure we fall back to null and let the
-  // client fetch + surface its own inline error.
-  let initialReferral: MyReferralOverview | null = null;
-  try {
-    initialReferral = await fetchUserApiServer<MyReferralOverview>(
-      "/me/referral",
-    );
-  } catch {
-    initialReferral = null;
+  const [user, referral] = await Promise.allSettled([
+    fetchUserApiServer<AuthMePayload>("/auth/me"),
+    fetchUserApiServer<MyReferralOverview>("/me/referral"),
+  ]);
+  for (const result of [user, referral]) {
+    if (result.status === "rejected" && result.reason instanceof ServerApiError && result.reason.status === 401) {
+      redirect("/login");
+    }
   }
+  if (user.status === "rejected") throw user.reason;
 
-  return <ReferralsClient initialReferral={initialReferral} />;
+  return <>
+    <DashboardSessionSeed initialUser={user.value} />
+    <ReferralsClient initialReferral={referral.status === "fulfilled" ? referral.value : null} />
+  </>;
 }

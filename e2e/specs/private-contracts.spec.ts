@@ -15,7 +15,7 @@ async function contractRule(context: import('@playwright/test').BrowserContext, 
 for (const entry of [
   { endpoint: 'home', route: '/dashboard', text: '自动化同学' },
   { endpoint: 'profile', route: '/dashboard/profile', text: '我的资料' },
-  { endpoint: 'center', route: '/dashboard/me', text: '账号安全' },
+  { endpoint: 'center', route: '/dashboard/me', text: '教育认证' },
 ]) {
   test(`SSR ${entry.endpoint} rejects actual upstream invalid JSON and recovers`, async ({ page, context, db, signedIn }, info) => {
     void signedIn;

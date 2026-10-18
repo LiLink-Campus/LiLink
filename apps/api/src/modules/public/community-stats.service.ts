@@ -70,7 +70,6 @@ export class CommunityStatsService {
     `);
     const genders = emptyGenderBuckets();
     const eligibleSchools = await prisma.school.findMany({
-      where: { registrationEligible: true },
       select: { id: true, name: true },
     });
     const schools = new Map<string | null, CommunityStats['schools'][number]>(

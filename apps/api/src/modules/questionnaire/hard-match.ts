@@ -1,3 +1,4 @@
+import { NO_SCHOOL_ID } from '@lilink/shared';
 import { BadRequestException } from '@nestjs/common';
 import {
   LIFESTYLE_QUESTIONS,
@@ -877,7 +878,7 @@ function normalizeHardMatchValues(
     school: normalizeSingleChoice(
       rawAnswers[HARD_MATCH_KEYS.school],
       HARD_MATCH_KEYS.school,
-      allowedSchoolIds,
+      [...allowedSchoolIds, NO_SCHOOL_ID],
     ),
     excludedPartnerSchools: excludedPartnerPreferences.excludedPartnerSchools,
     excludedPartnerSchoolGenders:

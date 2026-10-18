@@ -1,5 +1,15 @@
-import { HARD_MATCH_KEYS } from '@lilink/shared';
+import { HARD_MATCH_KEYS, NO_SCHOOL_ID } from '@lilink/shared';
 import { AdminSchoolService } from './admin-school.service';
+
+function createSchoolPrisma(create: jest.Mock) {
+  const tx = { school: { create }, $executeRaw: jest.fn() };
+  return {
+    ...tx,
+    $transaction: jest.fn((callback: (transaction: typeof tx) => unknown) =>
+      callback(tx),
+    ),
+  };
+}
 
 describe('AdminSchoolService', () => {
   it('normalizes domains when creating a school', async () => {
@@ -14,11 +24,7 @@ describe('AdminSchoolService', () => {
     const schoolResolverService = {
       invalidateResolutionCache: jest.fn(),
     };
-    const prisma = {
-      school: {
-        create,
-      },
-    };
+    const prisma = createSchoolPrisma(create);
     const service = new AdminSchoolService(
       prisma as never,
       auditService as never,
@@ -31,6 +37,7 @@ describe('AdminSchoolService', () => {
         name: 'Example School',
         slug: 'example-school',
         description: 'Example',
+        registrationEligible: true,
         domains: ['Example.edu ', ' sub.example.edu'],
       },
       'admin-1',
@@ -41,6 +48,7 @@ describe('AdminSchoolService', () => {
         name: 'Example School',
         slug: 'example-school',
         description: 'Example',
+        registrationEligible: true,
         domains: {
           create: [{ domain: 'example.edu' }],
         },
@@ -62,11 +70,11 @@ describe('AdminSchoolService', () => {
     ).toHaveBeenCalledTimes(1);
   });
 
-  it('persists registrationEligible and records it in the audit log', async () => {
+  it('keeps configured schools eligible even for legacy opt-out payloads', async () => {
     const create = jest.fn().mockResolvedValue({
       id: 'school-1',
       slug: 'example-school',
-      registrationEligible: false,
+      registrationEligible: true,
       domains: [],
     });
     const auditService = {
@@ -76,7 +84,7 @@ describe('AdminSchoolService', () => {
       invalidateResolutionCache: jest.fn(),
     };
     const service = new AdminSchoolService(
-      { school: { create } } as never,
+      createSchoolPrisma(create) as never,
       auditService as never,
       undefined,
       schoolResolverService as never,
@@ -95,7 +103,7 @@ describe('AdminSchoolService', () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          registrationEligible: false,
+          registrationEligible: true,
         }) as object,
       }) as object,
     );
@@ -105,7 +113,7 @@ describe('AdminSchoolService', () => {
       {
         schoolId: 'school-1',
         slug: 'example-school',
-        registrationEligible: false,
+        registrationEligible: true,
       },
     );
   });
@@ -124,7 +132,7 @@ describe('AdminSchoolService', () => {
       invalidateCurrentQuestionnaireCache: jest.fn(),
     };
     const service = new AdminSchoolService(
-      { school: { create } } as never,
+      createSchoolPrisma(create) as never,
       auditService as never,
       undefined,
       schoolResolverService as never,
@@ -201,8 +209,12 @@ describe('AdminSchoolService', () => {
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         Promise.resolve(
           callback({
+            $executeRaw: jest.fn(),
             schoolDomain: { deleteMany },
-            school: { update },
+            school: {
+              update,
+              findUnique: jest.fn().mockResolvedValue({ id: 'school-1' }),
+            },
           }),
         ),
       ),
@@ -219,6 +231,7 @@ describe('AdminSchoolService', () => {
       {
         name: 'Example School',
         description: 'Updated',
+        registrationEligible: true,
         domains: ['Example.edu', 'Example.edu', ' sub.example.edu '],
       },
       'admin-1',
@@ -233,6 +246,7 @@ describe('AdminSchoolService', () => {
       data: {
         name: 'Example School',
         description: 'Updated',
+        registrationEligible: true,
         domains: {
           create: [{ domain: 'example.edu' }],
         },
@@ -310,7 +324,20 @@ describe('AdminSchoolService', () => {
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         Promise.resolve(
           callback({
+            $executeRaw: jest.fn(),
             school: {
+              findUnique: jest
+                .fn()
+                .mockResolvedValueOnce({
+                  id: 'school-source',
+                  name: 'Source School',
+                  domains: [{ id: 'domain-1', domain: 'source.edu' }],
+                  _count: { users: 2 },
+                })
+                .mockResolvedValueOnce({
+                  id: 'school-target',
+                  name: 'Target School',
+                }),
               findMany: jest
                 .fn()
                 .mockResolvedValue([
@@ -320,6 +347,7 @@ describe('AdminSchoolService', () => {
               delete: jest.fn().mockResolvedValue(undefined),
             },
             user: {
+              findMany: jest.fn().mockResolvedValue([]),
               updateMany: jest.fn().mockResolvedValue({ count: 2 }),
             },
             schoolDomain: {
@@ -436,7 +464,7 @@ describe('AdminSchoolService', () => {
             },
           },
           user: {
-            schoolId: 'school-source',
+            schoolId: null,
           },
         },
       ]),
@@ -452,12 +480,21 @@ describe('AdminSchoolService', () => {
       $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
         Promise.resolve(
           callback({
+            $executeRaw: jest.fn(),
             school: {
+              findUnique: jest.fn().mockResolvedValue({
+                id: 'school-source',
+                slug: 'source-school',
+              }),
               findMany: jest.fn().mockResolvedValue([{ id: 'school-third' }]),
               delete: jest.fn().mockResolvedValue(undefined),
             },
             schoolDomain: {
               deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+            },
+            user: {
+              findMany: jest.fn().mockResolvedValue([]),
+              updateMany: jest.fn().mockResolvedValue({ count: 1 }),
             },
             questionnaireResponse,
             // Prefilter selecting candidate responses that reference the school.
@@ -485,6 +522,7 @@ describe('AdminSchoolService', () => {
       where: { id: 'response-1' },
       data: {
         answers: {
+          [HARD_MATCH_KEYS.school]: NO_SCHOOL_ID,
           [HARD_MATCH_KEYS.excludedPartnerSchools]: ['school-third'],
           [HARD_MATCH_KEYS.excludedPartnerSchoolGenders]: [],
         },

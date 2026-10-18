@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import {
   generateHumanCode,
@@ -18,7 +18,7 @@ import { publicWebOrigin } from '../../common/public-web-url';
 type ReferralReadClient = Pick<PrismaClient, 'user'>;
 
 const PERSONAL_CODE_MAX_ATTEMPTS = 8;
-const DEFAULT_NON_EDU_REFERRAL_LIMIT = 3;
+const DEFAULT_NON_EDU_REFERRAL_LIMIT = 0;
 const LOCAL_DEV_REFERRAL_CODE = 'LILINKDEV1';
 
 /**
@@ -43,13 +43,6 @@ export interface RegistrationAttribution {
   // Legacy column: new registrations no longer bind a merchant activity.
   referralCampaignId: string | null;
   isDevMockReferral?: boolean;
-}
-
-export interface RegistrationAttributionOptions {
-  // When set (non-school registration), a missing or unusable referral code is a
-  // hard error. When unset (school registration), an invalid optional code is
-  // silently ignored and registration proceeds without an attribution.
-  requireReferralCode?: boolean;
 }
 
 export interface MyReferralOverview {
@@ -135,18 +128,11 @@ export class ReferralService {
   async resolveRegistrationAttribution(
     input: RegistrationSourceInput,
     client: ReferralReadClient = this.prisma,
-    options: RegistrationAttributionOptions = {},
   ): Promise<RegistrationAttribution> {
     let referredByUserId: string | null = null;
     let referralChannel: ReferralChannel | null = null;
     const referralCampaignId = null;
     const code = input.referralCode?.trim().toUpperCase() ?? '';
-
-    if (!code && options.requireReferralCode) {
-      throw new BadRequestException(
-        'Referral code is required for non-school email registration.',
-      );
-    }
 
     if (code) {
       if (isLocalDevMockReferralCode(code)) {
@@ -165,22 +151,7 @@ export class ReferralService {
         select: { id: true, status: true },
       });
 
-      // For non-school registration the referrer must be an ACTIVE account
-      // (mirrors the request-code gate): a SUSPENDED/PENDING referrer's code is
-      // treated as invalid so it cannot grant non-edu access or consume quota.
-      // School (optional-code) registration still records attribution regardless
-      // of referrer status, preserving the prior behavior.
-      const referrerIsUsable =
-        referrer &&
-        (!options.requireReferralCode || referrer.status === 'ACTIVE');
-
-      if (!referrerIsUsable) {
-        // School registration silently ignores an unusable code (no attribution,
-        // still succeeds); non-school registration hard-fails.
-        if (options.requireReferralCode) {
-          throw new BadRequestException('Referral code is invalid.');
-        }
-      } else {
+      if (referrer) {
         referredByUserId = referrer.id;
         referralChannel = readReferralChannel(input.channel);
       }
@@ -245,15 +216,9 @@ export class ReferralService {
         select: {
           id: true,
           status: true,
-          nonEduReferralLimit: true,
-          nonEduReferralUses: true,
         },
       });
-      if (
-        !referrer ||
-        referrer.status !== 'ACTIVE' ||
-        referrer.nonEduReferralUses >= referrer.nonEduReferralLimit
-      ) {
+      if (!referrer || referrer.status !== 'ACTIVE') {
         return { result: 'INVALID' };
       }
       referrerUserId = referrer.id;

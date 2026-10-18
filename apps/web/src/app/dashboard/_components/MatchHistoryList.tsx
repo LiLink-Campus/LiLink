@@ -1,5 +1,6 @@
 "use client";
 
+import { MemberIdentity, MemberEducationNotice } from "./MemberIdentity";
 import { HistoryDetails } from "./HistoryDetails";
 import { dcx } from "../_lib/dashboard-class-names";
 import styles from "../match/history/match-history.module.css";
@@ -84,8 +85,9 @@ export function MatchHistoryList({
                     : null;
                   return (
                     <>
-                      {counterpart?.displayName && <div className={styles.person}>{desktopCards && <span className={styles.historyAvatar} aria-hidden="true">{Array.from(counterpart.displayName)[0]}</span>}<div><h4>{counterpart.displayName}</h4><p>{counterpart.schoolName}</p></div><span className={styles.score}>匹配度 <strong>{Math.round(hm.score)}%</strong></span></div>}
-                      <HistoryDetails modal={desktopCards} title={counterpart?.displayName ? `${item.codename} · ${counterpart.displayName}` : item.codename}>
+                      {counterpart?.displayName && <div className={styles.person}>{desktopCards && <span className={styles.historyAvatar} aria-hidden="true">{Array.from(counterpart.displayName)[0]}</span>}<div><div className={styles.personName}><h4>{counterpart.displayName}</h4><MemberIdentity vipActive={counterpart.vipActive} educationVerified={counterpart.educationVerified} /></div><p>{counterpart.schoolName}</p></div><span className={styles.score}>匹配度 <strong>{Math.round(hm.score)}%</strong></span></div>}
+                      <HistoryDetails modal={desktopCards} title={counterpart?.displayName ? `${item.codename} · ${counterpart.displayName}` : item.codename} identity={counterpart && <MemberIdentity vipActive={counterpart.vipActive} educationVerified={counterpart.educationVerified} />}>
+                      {counterpart && <MemberEducationNotice educationVerified={counterpart.educationVerified} />}
                       {counterpart?.introLine ? (
                         <p className={styles.intro}>
                           对方介绍：{counterpart.introLine}

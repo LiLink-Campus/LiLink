@@ -46,6 +46,9 @@ export type ContactPreferencesPayload = {
 export type DashboardPublicContact = { type: ContactChannelType; label: string; value: string };
 export type DashboardMatchParticipant = {
   userId: string;
+  // Omitted only in historical rounds prepared before identity recording.
+  vipActive?: boolean;
+  educationVerified?: boolean;
   displayName: string | null;
   introLine: string | null;
   email: string | null;

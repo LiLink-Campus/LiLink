@@ -9,6 +9,7 @@ import {
 } from '../src/common/prisma/client';
 import { PrismaService } from '../src/common/prisma/prisma.service';
 import { AccountDashboardService } from '../src/modules/account/account-dashboard.service';
+import { CycleMatchingService } from '../src/modules/cycles/cycle-matching.service';
 import { CyclesService } from '../src/modules/cycles/cycles.service';
 import { buildHardMatchAnswerRecordFromFormInput } from '../src/modules/questionnaire/hard-match';
 
@@ -19,6 +20,7 @@ describe('matching priority through reveal and dashboard (PostgreSQL)', () => {
   const cycleIds: string[] = [];
   let db: PrismaClient;
   let cycles: CyclesService;
+  let matching: CycleMatchingService;
   let account: AccountDashboardService;
   let originalCurrent: string[] = [];
   let hardAnswers: Record<string, Prisma.InputJsonValue>;
@@ -101,7 +103,7 @@ describe('matching priority through reveal and dashboard (PostgreSQL)', () => {
     const snapshots = new DashboardSnapshotService(prisma);
     const mail = new MailService(prisma);
     jest.spyOn(mail, 'flushQueuedEmails').mockResolvedValue(undefined);
-    cycles = createCycleServices(prisma, snapshots, mail).cycles;
+    ({ cycles, matching } = createCycleServices(prisma, snapshots, mail));
     account = new AccountDashboardService(prisma, snapshots);
   });
 
@@ -121,7 +123,7 @@ describe('matching priority through reveal and dashboard (PostgreSQL)', () => {
       });
       await db.matchCycle.deleteMany({ where: { id: { in: cycleIds } } });
       await db.vipActivation.deleteMany({ where: { batch: tag } });
-      await db.user.deleteMany({ where: { schoolId: tag } });
+      await db.user.deleteMany({ where: { id: { startsWith: tag } } });
       await db.questionnaireVersion.deleteMany({ where: { id: tag } });
       await db.questionnaireVersion.updateMany({
         where: { id: { in: originalCurrent } },
@@ -303,4 +305,146 @@ describe('matching priority through reveal and dashboard (PostgreSQL)', () => {
     await cycle([vip], true);
     await reveal(await cycle([vip, mate]), []);
   });
+
+  it('prioritizes education over ordinary users without overriding repeated misses or VIP', async () => {
+    const ordinary = await user('education-ordinary');
+    const education = await user('education-verified', 'free', 'b');
+    const mate = await user('education-mate');
+    await db.user.update({
+      where: { id: education },
+      data: {
+        educationVerifiedAt: new Date(),
+        educationVerificationMethod: 'INVITE',
+      },
+    });
+    await block(ordinary, education);
+    await reveal(await cycle([ordinary, education, mate]), [[education, mate]]);
+    const priorityMate = await user('education-priority-mate');
+    await cycle([ordinary], true);
+    await reveal(await cycle([ordinary, education, priorityMate]), [
+      [ordinary, priorityMate],
+    ]);
+    const vip = await user('education-vip', 'active', 'b');
+    const vipMate = await user('education-vip-mate');
+    await block(vip, education);
+    await reveal(await cycle([vip, education, vipMate]), [[vip, vipMate]]);
+  });
+
+  it('keeps ordinary users without a school eligible and freezes identity for each round', async () => {
+    const ordinary = await user('no-school');
+    const education = await user('frozen-education', 'active');
+    await db.user.update({ where: { id: ordinary }, data: { schoolId: null } });
+    await db.user.update({
+      where: { id: education },
+      data: {
+        educationVerifiedAt: new Date(),
+        educationVerificationMethod: 'SCHOOL_EMAIL',
+      },
+    });
+    const id = await cycle([ordinary, education]);
+    const preview = await matching.previewCycle(id);
+    expect(preview.suggestedPairs).toHaveLength(1);
+    await reveal(id, [[ordinary, education]]);
+    let dashboard = await account.getDashboard(ordinary);
+    expect(
+      dashboard.latestMatch?.participants.find((p) => p.userId === education),
+    ).toMatchObject({ vipActive: true, educationVerified: true });
+    expect(
+      dashboard.latestMatch?.participants.find((p) => p.userId === ordinary),
+    ).toMatchObject({ vipActive: false, educationVerified: false });
+    await db.vipActivation.updateMany({
+      where: { userId: education },
+      data: { revokedAt: new Date() },
+    });
+    await db.user.update({
+      where: { id: ordinary },
+      data: {
+        educationVerifiedAt: new Date(),
+        educationVerificationMethod: 'INVITE',
+      },
+    });
+    await new DashboardSnapshotService(
+      db as unknown as PrismaService,
+    ).syncMatchSnapshots(dashboard.latestMatch!.id);
+    dashboard = await account.getDashboard(ordinary);
+    expect(
+      dashboard.latestMatch?.participants.find((p) => p.userId === education)
+        ?.vipActive,
+    ).toBe(true);
+    expect(
+      dashboard.latestMatch?.participants.find((p) => p.userId === ordinary)
+        ?.educationVerified,
+    ).toBe(false);
+  });
+
+  it('prepares and reveals a 2000-person pool while preserving education priority', async () => {
+    const ordinary = await user('large-ordinary');
+    const education = await user('large-education', 'free', 'b');
+    const mate = await user('large-mate');
+    await db.user.update({
+      where: { id: education },
+      data: {
+        educationVerifiedAt: new Date(),
+        educationVerificationMethod: 'INVITE',
+      },
+    });
+    await block(ordinary, education);
+    const padding = Array.from({ length: 1997 }, (_, index) => ({
+      id: `${tag}-large-padding-${index}`,
+      email: `${tag}-large-padding-${index}@example.test`,
+      passwordHash: 'unused-test-hash',
+      status: 'ACTIVE' as const,
+      schoolId: tag,
+    }));
+    await db.user.createMany({ data: padding });
+    await db.questionnaireResponse.createMany({
+      data: padding.map(({ id }) => ({
+        userId: id,
+        versionId: tag,
+        submittedAt: new Date(),
+        // Padding profiles are eligible but cannot match each other or the trio.
+        answers: {
+          ...hardAnswers,
+          interest: 'a',
+          hard_gender: '男',
+          hard_partner_genders: ['女'],
+        },
+      })),
+    });
+    const id = await cycle([
+      ordinary,
+      education,
+      mate,
+      ...padding.map((p) => p.id),
+    ]);
+    const preview = await matching.previewCycle(id);
+    expect(preview.unmatchedUserIds).toHaveLength(1998);
+    expect(preview.suggestedPairs).toHaveLength(1);
+    expect(
+      preview.suggestedPairs
+        .flatMap((p) => [p.leftUserId, p.rightUserId])
+        .sort(),
+    ).toEqual([education, mate].sort());
+    // The public preview DTO must remain JSON serializable despite exact weights.
+    expect(() => JSON.stringify(preview)).not.toThrow();
+    await expect(cycles.runRevealCycle({ cycleId: id })).resolves.toMatchObject(
+      {
+        state: 'REVEALED',
+        createdMatches: 1,
+      },
+    );
+    const dashboard = await account.getDashboard(mate);
+    expect(
+      dashboard.latestMatch?.participants.map((p) => p.userId).sort(),
+    ).toEqual([education, mate].sort());
+    expect(
+      dashboard.latestMatch?.participants.find((p) => p.userId === education),
+    ).toMatchObject({ educationVerified: true });
+    expect(
+      (await account.getDashboard(ordinary)).lastRevealedRound,
+    ).toMatchObject({
+      cycleId: id,
+      matched: false,
+    });
+  }, 60_000);
 });

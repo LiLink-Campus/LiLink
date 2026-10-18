@@ -357,6 +357,8 @@ export const SchoolEditor: Story = {
     const c = within(canvasElement);
     await userEvent.click(await c.findByTitle("编辑"));
     await expect(await c.findByDisplayValue("qinghe")).toBeVisible();
+    await expect(c.queryByRole("checkbox")).toBeNull();
+    await expect(c.queryByText(/关闭后该校将/)).toBeNull();
   },
 };
 

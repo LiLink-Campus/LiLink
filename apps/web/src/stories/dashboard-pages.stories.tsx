@@ -486,6 +486,7 @@ export const ProfileLifestyle: Story = {
 const centerStatus = { active: false, activatedAt: null, expiresAt: null, durationDays: 30, priceYuan: "29.9", advancedFiltersAvailable: true };
 export const UserCenterFree: Story = {
   tags: ["test"],
+  decorators: [(Story) => <PwaInstallProvider><Story /></PwaInstallProvider>],
   parameters: { ...route("/dashboard/me") },
   render: () => <CenterBootstrap initialData={{ user, vip: centerStatus }} />,
   play: async ({ canvasElement }) => {
@@ -522,7 +523,7 @@ export const UserCenterMenu: Story = {
     const c = within(canvasElement);
     await userEvent.click(c.getByRole("button", { name: /账号菜单/ }));
     const menu = within(c.getByRole("menu"));
-    await expect(menu.getAllByRole("menuitem")).toHaveLength(2);
+    await expect(menu.getAllByRole("menuitem")).toHaveLength(4);
     await expect(menu.getByRole("menuitem", { name: "返回首页" })).toBeVisible();
     await expect(menu.getByRole("menuitem", { name: "退出登录" })).toBeVisible();
   },
@@ -532,7 +533,8 @@ export const UserCenterDeleteDialog: Story = {
   ...UserCenterFree,
   play: async ({ canvasElement }) => {
     const c = within(canvasElement);
-    await userEvent.click(c.getByRole("button", { name: "注销账号" }));
+    await userEvent.click(c.getByRole("button", { name: /账号菜单/ }));
+    await userEvent.click(c.getByRole("menuitem", { name: "注销账号" }));
     const dialog = within(c.getByRole("dialog"));
     await expect(dialog.getByRole("button", { name: "确认注销账号" })).toBeDisabled();
     await userEvent.click(dialog.getByRole("button", { name: "暂不注销，返回" }));

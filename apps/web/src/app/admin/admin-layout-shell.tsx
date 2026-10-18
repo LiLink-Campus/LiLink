@@ -95,7 +95,10 @@ function AdminGate({ children }: { children: React.ReactNode }) {
                 const nextPath = new URLSearchParams(window.location.search).get("next");
                 const safeNext = sanitizeSameOriginRelativePath(nextPath, window.location.origin);
                 const redirectPath = safeNext && safeNext.startsWith("/admin/") ? safeNext : "/admin";
-                router.replace(redirectPath);
+                // Avoid a redundant navigation racing with the now-visible menu.
+                if (window.location.pathname + window.location.search !== redirectPath) {
+                  router.replace(redirectPath);
+                }
               }}
             >
               <label>

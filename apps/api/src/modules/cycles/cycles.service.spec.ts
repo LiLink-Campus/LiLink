@@ -1,5 +1,5 @@
 import { createCycleServices } from '../../../test/fixtures/cycles';
-import { MatchingEngine } from './matching.engine';
+import { MatchingScore } from './matching-score';
 import { BadRequestException } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { QuestionType } from '../../common/prisma/client';
@@ -258,26 +258,24 @@ function createCyclesService(
 }
 
 function bindRawScorePairForTest() {
-  const engine = new MatchingEngine();
-  const harness = engine as unknown as Pick<
+  const scoring = new MatchingScore();
+  const harness = scoring as unknown as Pick<
     CyclesServiceTestHarness,
     'calculatePairRawScore' | 'normalizeMatchScore'
   >;
-  const calculatePairRawScore = harness.calculatePairRawScore.bind(engine);
-  const normalizeMatchScore = harness.normalizeMatchScore.bind(engine);
-
   return (
     ...args: Parameters<CyclesServiceTestHarness['calculatePairRawScore']>
   ) => {
-    const scored = calculatePairRawScore(...args);
-    if (!scored) {
-      return null;
-    }
-
-    return {
-      rawScore: scored.rawScore,
-      score: normalizeMatchScore(scored.rawScore, scored.scoreBounds),
-    };
+    const scored = harness.calculatePairRawScore(...args);
+    return scored
+      ? {
+          rawScore: scored.rawScore,
+          score: harness.normalizeMatchScore(
+            scored.rawScore,
+            scored.scoreBounds,
+          ),
+        }
+      : null;
   };
 }
 
@@ -1802,7 +1800,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -1883,7 +1881,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -1967,7 +1965,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2051,7 +2049,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2106,7 +2104,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2167,7 +2165,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2220,7 +2218,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2364,7 +2362,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2446,7 +2444,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;
@@ -2517,7 +2515,7 @@ describe('CyclesService', () => {
         'calculatePairs'
       >
     ).calculatePairs.bind(service.matching);
-    const scorePairHarness = MatchingEngine.prototype as unknown as Pick<
+    const scorePairHarness = MatchingScore.prototype as unknown as Pick<
       CyclesServiceTestHarness,
       'calculatePairRawScore'
     >;

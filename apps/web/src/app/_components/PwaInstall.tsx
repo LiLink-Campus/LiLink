@@ -134,10 +134,10 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
   </InstallContext.Provider>;
 }
 
-export function PwaInstallEntry() {
+export function PwaInstallEntry({ className = "" }: { className?: string }) {
   const { installed, install, busy, ready } = useContext(InstallContext);
   if (installed) return null;
-  return <button className={styles.entry} onClick={install} disabled={busy} aria-busy={busy}>
+  return <button className={`${styles.entry} ${className}`} onClick={install} disabled={busy} aria-busy={busy}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="4" y="2" width="12" height="20" rx="2"/><path d="M9 18h2m9-11v8m-4-4h8"/></svg>
     <span><strong>{busy ? "正在打开安装窗口…" : "添加到桌面"}</strong><small>{ready ? "已准备好，点击即可安装" : "下次打开 LiLink，更方便"}</small></span><span aria-hidden="true">›</span>
   </button>;

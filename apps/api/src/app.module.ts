@@ -1,5 +1,6 @@
 import { MatchLeadsModule } from './modules/match-leads/match-leads.module';
 import { VipModule } from './modules/vip/vip.module';
+import { EducationModule } from './modules/education/education.module';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
@@ -41,6 +42,7 @@ import {
   ],
   imports: [
     VipModule,
+    EducationModule,
     MatchLeadsModule,
     SentryModule.forRoot(),
     ConfigModule.forRoot({

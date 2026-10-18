@@ -43,11 +43,15 @@ export class AccountDeletionService {
             deactivatedAt: now,
             deactivatedEmail: user.email,
             email: `deactivated-${userId}@accounts.invalid`,
+            educationEmail: null,
             status: 'SUSPENDED',
           },
         });
         await tx.emailCode.updateMany({
-          where: { email: user.email, consumedAt: null },
+          where: {
+            OR: [{ email: user.email }, { purpose: `education:${userId}` }],
+            consumedAt: null,
+          },
           data: { consumedAt: now },
         });
         await tx.outboundEmail.updateMany({

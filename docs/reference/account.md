@@ -12,7 +12,13 @@ canonical: true
 
 注册负责建立可登录账号；昵称和匹配资料由用户登录后维护。验证码、资格和字段由 [AuthService](../../apps/api/src/modules/auth/auth.service.ts) 与 [Auth DTO](../../apps/api/src/modules/auth/dto.ts) 定义。静态学校展示和缓存不替代服务端资格校验。
 
-学校邮箱通道要求后缀对应 `SchoolDomain` 且学校允许注册；其他邮箱须提供可用个人推荐码并手动选择允许注册的学校。发送验证码前检查推荐人 ACTIVE 和剩余额度，注册事务中按 `nonEduReferralUses < nonEduReferralLimit` 条件递增已用次数，消耗剩余额度，避免并发超额；非学校邮箱新账号的非教育邮箱邀请额度默认为 0。验证码有效 10 分钟，按邮箱、用途和邮件去重键保存 HMAC 摘要并条件消费；密码保存 Argon2 哈希。邮箱或邀请码资格不等同于接入学校学籍核验。
+所有邮箱都可以获取验证码并注册，普通邮箱无需邀请码且可不填写学校。学校邮箱后缀匹配学校中心当前配置的 `SchoolDomain` 时，验证并注册成功即成为教育用户；普通邮箱自行选择学校仍是普通用户。注册时可选的邀请来源只记录归因，不消耗教育认证名额。
+
+用户中心提供独立的教育认证。`GET /me/education` 返回认证状态；`POST /me/education/invite` 使用 `referralCode` 与 `schoolId`，要求推荐人为有效教育用户并有剩余额度；事务原子扣减 `nonEduReferralUses < nonEduReferralLimit`，重复认证不重复消耗。`POST /me/education/email/request-code` 和 `POST /me/education/email/verify` 验证教育邮箱，保留原来的登录邮箱与账号。验证码用途绑定本人，教育邮箱不能被其他账号占用。学校邮箱认证至少具有 3 个教育邀请名额；新普通账号和邀请码认证账号额度默认为 0。邀请码、教育邮箱持有权与平台教育身份均不等同于学校学籍核验。
+
+学校中心不再提供教育认证开关：添加学校及有效邮箱域名后即允许教育邮箱认证与邀请码学校选择，旧 `registrationEligible` 值不参与资格判断。为兼容持久化数据及既有管理 API，该列与可选请求字段暂时保留；新增与更新统一写为 true，请求传 false 也不能关闭认证。删除学校及域名后，公开列表、注册识别和认证学校选择同步移除，已发但未消费的验证码不能完成新增教育认证，邀请码也不能选择已删除学校。已有用户的 `educationVerifiedAt` 和教育身份保留；学校关联按原删除规则置空，邮箱仍可作为普通邮箱注册。
+
+已有未注销账号通过迁移保留为 LEGACY 教育身份。认证状态独立于学校归属和 VIP；设计、并发、隐私与回滚依据见[教育身份决策](../decisions/2026-10-19-education-verification.md)。验证码有效 10 分钟，按邮箱、用途和邮件去重键保存 HMAC 摘要并条件消费；密码保存 Argon2 哈希。
 
 当前注册源码不执行旧 `max_registrations` 全局容量门槛。个人推荐人与渠道在注册时记录，当前 [ReferralService](../../apps/api/src/modules/referral/referral.service.ts) 不把新注册账号绑定商家活动；活动发券使用独立资格判断，见 [优惠券参考](coupons.md)。
 
@@ -43,7 +49,7 @@ canonical: true
 | `currentCycle` | `id`、`codename`；`revealAt`、`participationDeadline` 日期；`status` 为 DRAFT/OPEN/PREPARING/REVEAL_READY/REVEALED；`participationStatus` 为 OPTED_IN/OPTED_OUT；`intent` 为 FRIEND/DATE/BOTH 或 null |
 | `lastRevealedRound` | `cycleId`、`codename`；`revealAt` 日期；`participationStatus`；`matched` 布尔 |
 | `match` | `id` 字符串；`score` 数值；`introducedAt` 日期或 null；`reportStatus` 为 OPEN/RESOLVED/DISMISSED 或 null；`participants` 数组 |
-| participant | `userId`；displayName/introLine/email/schoolName/gender 均字符串或 null；`contact` 对象或 null；`partnerGenders` 字符串数组；`weeklyIntent` 为 FRIEND/DATE/BOTH 或 null |
+| participant | `userId`；新轮次含 `vipActive`、`educationVerified` 布尔，旧记录可缺失；displayName/introLine/email/schoolName/gender 均字符串或 null；`contact` 对象或 null；`partnerGenders` 字符串数组；`weeklyIntent` 为 FRIEND/DATE/BOTH 或 null |
 | public contact / contact method | 公开联系方式含 `type`（EMAIL/WECHAT/QQ/PHONE）、`label`、`value`；编辑 methods 仅含 `type`（WECHAT/QQ/PHONE）、`value` |
 | history item | `cycleId`、`codename`、`revealAt`、`participationStatus`；`result` 为 MATCHED/UNMATCHED/NOT_PARTICIPATED；`visibility` 为 VISIBLE/LIMITED/NOT_APPLICABLE；`limitedReason` 为 REPORTED/BLOCKED/ACCOUNT_DEACTIVATED 或 null；`match` 对象或 null |
 | coupon agenda | `target`、`version` 字符串；availableCount/unreadAvailableCount 非负整数；`read` 布尔；`readAt` 日期或 null；`href` 固定 `/dashboard/coupons` |
@@ -71,9 +77,15 @@ canonical: true
 
 题目支持 SCALE、SINGLE_SELECT 和 MULTI_SELECT、权重、必填及选项数量约束。后台修改题目通过 [AdminQuestionnaireService](../../apps/api/src/modules/admin/admin-questionnaire.service.ts) 创建新 revision 并切换当前版本；用户答案保留其版本与关注状态。当前学校从账号关系注入硬条件，不以旧答案里的学校值替代。学校合并与删除还需通过 [AdminSchoolService](../../apps/api/src/modules/admin/admin-school.service.ts) 同步引用、问卷与缓存，不能只改一张表。
 
-[AccountParticipationService](../../apps/api/src/modules/account/account-participation.service.ts) 在 OPEN 且截止前允许修改本轮状态，报名要求 ACTIVE 账号、明确的 FRIEND/DATE/BOTH 意向，以及当前问卷版本的完整已提交答案。服务端还校验当前学校、必填硬条件和一句话介绍；存在未处理的 `draftAnswers` 时不能报名，须完成或丢弃草稿。取消报名不要求重新通过问卷门槛。匹配资格及优先级见 [匹配参考](matching.md)。
+[AccountParticipationService](../../apps/api/src/modules/account/account-participation.service.ts) 在 OPEN 且截止前允许修改本轮状态，报名要求 ACTIVE 账号、明确的 FRIEND/DATE/BOTH 意向，以及当前问卷版本的完整已提交答案。服务端还校验学校归属（可为空）、必填硬条件和一句话介绍；存在未处理的 `draftAnswers` 时不能报名，须完成或丢弃草稿。取消报名不要求重新通过问卷门槛。匹配资格及优先级见 [匹配参考](matching.md)。
 
 [资料 reader](../../apps/web/src/app/dashboard/profile/use-profile-reader.ts) 保留完整题目 DOM，按稳定的题目集合和当前选择同步显示，仅在属性值变化时写入 `data-reader-hidden`。普通输入和保存状态变化不重写全题目显示属性；题目集合、VIP 权益或选择改变仍在布局 effect 内同步。导航、自动下一题、目录、未完成定位与输入保存保持；快速导航或题目集合变化取消过时动画，正常及减少动画偏好分别验收。
+
+## 用户中心与教育认证入口
+
+用户中心保持账号信息与 VIP 卡片的响应式位置，下方统一面板依次呈现教育认证、我的权益、账号设置和注销入口。桌面权益与设置并列，移动端顺序排列；邀请、优惠券、添加到桌面、修改密码与注销账号共用 80px 最小行高及相同纵向留白，单行文案不压缩行高。已安装应用时隐藏添加到桌面入口。
+
+教育认证只展示“去认证”入口，通过模态弹窗选择邀请码或教育邮箱，再填写对应表单。认证期间禁止关闭或切换方式，失败留在表单中反馈并允许重试；空闲时支持关闭、Escape 和点击遮罩。关闭后焦点返回入口，认证成功同步顶部教育身份并关闭弹窗。认证状态加载失败仍提供重试。
 
 ## 注销与历史
 
@@ -85,7 +97,7 @@ canonical: true
 
 [揭晓邮件编排](../../apps/api/src/common/mail/queue-match-reveal.ts) 在轮次揭晓事务内复核双方账号、参与资格与任意方向的拉黑。符合条件时将 `introducedAt` 写为揭晓时刻，冻结各自首选联系渠道与值，并创建去重的双方结果邮件；首选非邮箱渠道缺值时回退账号邮箱。网页读取被冻结的渠道，微信等渠道不会额外公开邮箱。旧 `contactRequestedAt` 字段保留在 schema，不构成当前的双向请求门槛。
 
-准备阶段的 `profileSnapshot` 冻结介绍、性别与性别偏好。Dashboard snapshot 则是可重建的用户视图：昵称或学校可随受控更新重新同步，举报、拉黑或对方注销会限制可见性并隐藏参与者敏感字段，不能把整个 Dashboard payload 当成永久不变的原稿。
+准备阶段的 `profileSnapshot` 冻结介绍、性别、性别偏好、有效 VIP 与教育认证状态。用户中心、结果和历史在名字旁分别展示 VIP 与教育身份标志：VIP 仅在有效时显示；教育身份为“教育用户”或“非教育用户”，不合并成一个标志。用户中心的教育身份与认证卡片共用一次读取，认证成功立即更新名字旁的标志，卡片不重复显示。结果中的非教育用户显示风险提示，与 VIP 状态无关。旧轮次没有身份记录时明确显示未记录。Dashboard snapshot 则是可重建的用户视图：昵称或学校可随受控更新重新同步，举报、拉黑或对方注销会限制可见性并隐藏参与者敏感字段，不能把整个 Dashboard payload 当成永久不变的原稿。
 
 [MatchReportService](../../apps/api/src/modules/account/match-report.service.ts) 仅允许本人举报已揭晓匹配，事务中锁定匹配并再次检查重复 OPEN 举报。举报写入一条举报人到对方的 Block、取消相关未完成邮件并同步双方快照；任何一方向的 Block 都会排除后续候选。后台核查通过管理员权限处理，账号状态使用 PENDING/ACTIVE/SUSPENDED，不使用旧 BANNED 名称。
 

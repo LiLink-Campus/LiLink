@@ -6,27 +6,20 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { isDeepStrictEqual } from 'node:util';
 import { Prisma } from '../../common/prisma/client';
 import { DashboardSnapshotService } from '../../common/dashboard/dashboard-snapshot.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import {
-  syncExcludedPartnerSchoolPreferences,
-  syncQuestionnaireSchoolAnswers,
-} from '../questionnaire/questionnaire-school-sync';
+import { syncSchoolQuestionnaireResponses } from './school-questionnaire-sync';
 import { CreateSchoolDto, ListSchoolsQueryDto, UpdateSchoolDto } from './dto';
 import { AdminAuditService } from './admin-audit.service';
 import { SchoolResolverService } from '../../common/schools/school-resolver.service';
+import { lockSchoolCatalog } from '../../common/schools/school-catalog';
 import { PublicService } from '../public/public.service';
 import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import {
   buildPageResult,
   normalizeAdminListPagination,
 } from '../../common/pagination';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 type DashboardSnapshotPort = Pick<
   DashboardSnapshotService,
@@ -97,8 +90,7 @@ export class AdminSchoolService {
       questionnaireService ?? defaultCurrentQuestionnaireCachePort;
   }
 
-  // Invalidate every cache that derives from school rows / the registrationEligible
-  // flag, so an admin change is reflected immediately by the resolver
+  // Invalidate school-derived caches so changes are reflected by the resolver
   // (school-email detection), the public list + manual-school dropdown, and the
   // current-questionnaire snapshot (its payload embeds the full school list).
   private invalidateSchoolCaches() {
@@ -169,19 +161,22 @@ export class AdminSchoolService {
   async create(input: CreateSchoolDto, adminActorId: string) {
     const normalizedDomains = this.normalizeDomains(input.domains);
 
-    const school = await this.prisma.school.create({
-      data: {
-        name: input.name,
-        slug: input.slug,
-        description: input.description,
-        registrationEligible: input.registrationEligible,
-        domains: {
-          create: normalizedDomains.map((domain) => ({ domain })),
+    const school = await this.prisma.$transaction(async (tx) => {
+      await lockSchoolCatalog(tx, 'write');
+      return tx.school.create({
+        data: {
+          name: input.name,
+          slug: input.slug,
+          description: input.description,
+          registrationEligible: true,
+          domains: {
+            create: normalizedDomains.map((domain) => ({ domain })),
+          },
         },
-      },
-      include: {
-        domains: true,
-      },
+        include: {
+          domains: true,
+        },
+      });
     });
 
     this.invalidateSchoolCaches();
@@ -195,17 +190,12 @@ export class AdminSchoolService {
   }
 
   async update(schoolId: string, input: UpdateSchoolDto, adminActorId: string) {
-    const school = await this.prisma.school.findUnique({
-      where: { id: schoolId },
-    });
-
-    if (!school) {
-      throw new NotFoundException('School not found.');
-    }
-
     const normalizedDomains = this.normalizeDomains(input.domains);
 
     const updatedSchool = await this.prisma.$transaction(async (tx) => {
+      await lockSchoolCatalog(tx, 'write');
+      if (!(await tx.school.findUnique({ where: { id: schoolId } })))
+        throw new NotFoundException('School not found.');
       await tx.schoolDomain.deleteMany({
         where: { schoolId },
       });
@@ -219,7 +209,7 @@ export class AdminSchoolService {
         data: {
           name: input.name,
           description: input.description,
-          registrationEligible: input.registrationEligible,
+          registrationEligible: true,
           domains: {
             create: normalizedDomains.map((domain) => ({ domain })),
           },
@@ -249,48 +239,50 @@ export class AdminSchoolService {
       throw new BadRequestException('Cannot merge a school into itself.');
     }
 
-    const [source, target] = await Promise.all([
-      this.prisma.school.findUnique({
-        where: { id: sourceSchoolId },
-        include: { domains: true, _count: { select: { users: true } } },
-      }),
-      this.prisma.school.findUnique({
-        where: { id: targetSchoolId },
-      }),
-    ]);
+    const { source, target, affectedUserIds } = await this.prisma.$transaction(
+      async (tx) => {
+        await lockSchoolCatalog(tx, 'write');
+        const [source, target] = await Promise.all([
+          tx.school.findUnique({
+            where: { id: sourceSchoolId },
+            include: { domains: true, _count: { select: { users: true } } },
+          }),
+          tx.school.findUnique({ where: { id: targetSchoolId } }),
+        ]);
+        if (!source) throw new NotFoundException('Source school not found.');
+        if (!target) throw new NotFoundException('Target school not found.');
+        const affectedUserIds = await this.loadSchoolUserIds(
+          sourceSchoolId,
+          tx,
+        );
+        const remainingSchools = await tx.school.findMany({
+          where: { id: { not: sourceSchoolId } },
+          select: { id: true },
+          orderBy: { name: 'asc' },
+        });
 
-    if (!source) throw new NotFoundException('Source school not found.');
-    if (!target) throw new NotFoundException('Target school not found.');
+        await tx.user.updateMany({
+          where: { schoolId: sourceSchoolId },
+          data: { schoolId: targetSchoolId },
+        });
 
-    const affectedUserIds = await this.loadSchoolUserIds(sourceSchoolId);
+        await syncSchoolQuestionnaireResponses(tx, {
+          allowedSchoolIds: remainingSchools.map((school) => school.id),
+          rewrittenSchoolIds: {
+            [sourceSchoolId]: targetSchoolId,
+          },
+          affectedUserIds,
+        });
 
-    await this.prisma.$transaction(async (tx) => {
-      const remainingSchools = await tx.school.findMany({
-        where: { id: { not: sourceSchoolId } },
-        select: { id: true },
-        orderBy: { name: 'asc' },
-      });
+        await tx.schoolDomain.updateMany({
+          where: { schoolId: sourceSchoolId },
+          data: { schoolId: targetSchoolId },
+        });
 
-      await tx.user.updateMany({
-        where: { schoolId: sourceSchoolId },
-        data: { schoolId: targetSchoolId },
-      });
-
-      await this.syncQuestionnaireResponses(tx, {
-        allowedSchoolIds: remainingSchools.map((school) => school.id),
-        rewrittenSchoolIds: {
-          [sourceSchoolId]: targetSchoolId,
-        },
-        affectedUserIds,
-      });
-
-      await tx.schoolDomain.updateMany({
-        where: { schoolId: sourceSchoolId },
-        data: { schoolId: targetSchoolId },
-      });
-
-      await tx.school.delete({ where: { id: sourceSchoolId } });
-    });
+        await tx.school.delete({ where: { id: sourceSchoolId } });
+        return { source, target, affectedUserIds };
+      },
+    );
 
     this.invalidateSchoolCaches();
     await this.adminAuditService.write(adminActorId, 'school.merged', {
@@ -308,34 +300,36 @@ export class AdminSchoolService {
   }
 
   async delete(schoolId: string, adminActorId: string) {
-    const school = await this.prisma.school.findUnique({
-      where: { id: schoolId },
-    });
+    const { school, affectedUserIds } = await this.prisma.$transaction(
+      async (tx) => {
+        await lockSchoolCatalog(tx, 'write');
+        const school = await tx.school.findUnique({ where: { id: schoolId } });
+        if (!school) throw new NotFoundException('School not found.');
+        const affectedUserIds = await this.loadSchoolUserIds(schoolId, tx);
+        // Keep account -> questionnaire lock order used by profile saves.
+        await tx.user.updateMany({
+          where: { schoolId },
+          data: { schoolId: null },
+        });
+        const remainingSchools = await tx.school.findMany({
+          where: { id: { not: schoolId } },
+          select: { id: true },
+          orderBy: { name: 'asc' },
+        });
 
-    if (!school) {
-      throw new NotFoundException('School not found.');
-    }
+        await syncSchoolQuestionnaireResponses(tx, {
+          allowedSchoolIds: remainingSchools.map((item) => item.id),
+          rewrittenSchoolIds: {
+            [schoolId]: null,
+          },
+          affectedUserIds,
+        });
 
-    const affectedUserIds = await this.loadSchoolUserIds(schoolId);
-
-    await this.prisma.$transaction(async (tx) => {
-      const remainingSchools = await tx.school.findMany({
-        where: { id: { not: schoolId } },
-        select: { id: true },
-        orderBy: { name: 'asc' },
-      });
-
-      await this.syncQuestionnaireResponses(tx, {
-        allowedSchoolIds: remainingSchools.map((item) => item.id),
-        rewrittenSchoolIds: {
-          [schoolId]: null,
-        },
-        affectedUserIds,
-      });
-
-      await tx.schoolDomain.deleteMany({ where: { schoolId } });
-      await tx.school.delete({ where: { id: schoolId } });
-    });
+        await tx.schoolDomain.deleteMany({ where: { schoolId } });
+        await tx.school.delete({ where: { id: schoolId } });
+        return { school, affectedUserIds };
+      },
+    );
 
     this.invalidateSchoolCaches();
     await this.adminAuditService.write(adminActorId, 'school.deleted', {
@@ -362,184 +356,12 @@ export class AdminSchoolService {
     return [...new Set(normalizedDomains)];
   }
 
-  private async syncQuestionnaireResponses(
-    tx: Prisma.TransactionClient,
-    options: {
-      allowedSchoolIds: readonly string[];
-      rewrittenSchoolIds?: Readonly<Record<string, string | null>>;
-      affectedUserIds?: readonly string[];
-    },
-  ) {
-    const responseIds = await this.findResponsesReferencingSchools(
-      tx,
-      Object.keys(options.rewrittenSchoolIds ?? {}),
-      options.affectedUserIds ?? [],
-    );
-
-    if (responseIds.length === 0) {
-      return;
-    }
-
-    const responses = await tx.questionnaireResponse.findMany({
-      where: { id: { in: responseIds } },
-      select: {
-        id: true,
-        answers: true,
-        draftAnswers: true,
-        user: {
-          select: {
-            schoolId: true,
-          },
-        },
-      },
-    });
-
-    for (const response of responses) {
-      const rawAnswers = response.answers as Record<string, unknown>;
-      const syncedAnswers = syncQuestionnaireSchoolAnswers(rawAnswers, {
-        currentSchoolId: response.user.schoolId ?? null,
-        allowedSchoolIds: options.allowedSchoolIds,
-        rewrittenSchoolIds: options.rewrittenSchoolIds,
-      });
-      const syncedDraftAnswers = this.syncQuestionnaireDraftAnswers(
-        response.draftAnswers,
-        options,
-      );
-
-      if (
-        isDeepStrictEqual(rawAnswers, syncedAnswers) &&
-        isDeepStrictEqual(response.draftAnswers, syncedDraftAnswers)
-      ) {
-        continue;
-      }
-
-      const data: Record<string, Prisma.InputJsonValue> = {};
-      if (!isDeepStrictEqual(rawAnswers, syncedAnswers)) {
-        data.answers = syncedAnswers;
-      }
-      if (!isDeepStrictEqual(response.draftAnswers, syncedDraftAnswers)) {
-        data.draftAnswers = syncedDraftAnswers as Prisma.InputJsonValue;
-      }
-
-      await tx.questionnaireResponse.update({
-        where: { id: response.id },
-        data,
-      });
-    }
-  }
-
-  /**
-   * A response can only change if its answers/draftAnswers reference one of the
-   * affected school ids — either as the user's own `hard_school` value or inside
-   * the partner-school exclusion lists. School ids are opaque cuids, so a
-   * substring match over the serialized JSON is a strict superset of the rows
-   * the rewrite below can touch (the per-row recompute still decides the actual
-   * change), letting Postgres filter instead of streaming every response into
-   * the app. `affectedUserIds` is unioned in because a moved user's own
-   * `hard_school` is rewritten to their new school even when the old value is
-   * absent from the JSON. Falls back to a full scan if no rewrite mapping is
-   * supplied.
-   */
-  private async findResponsesReferencingSchools(
-    tx: Prisma.TransactionClient,
-    schoolIds: readonly string[],
-    affectedUserIds: readonly string[],
+  private async loadSchoolUserIds(
+    schoolId: string,
+    store: Pick<Prisma.TransactionClient, 'user'> = this.prisma,
   ): Promise<string[]> {
-    if (schoolIds.length === 0) {
-      const all = await tx.questionnaireResponse.findMany({
-        select: { id: true },
-      });
-      return all.map((response) => response.id);
-    }
-
-    const conditions = [...new Set(schoolIds)].map(
-      (schoolId) => Prisma.sql`(
-        strpos("answers"::text, ${schoolId}) > 0
-        OR strpos(COALESCE("draftAnswers"::text, ''), ${schoolId}) > 0
-      )`,
-    );
-
-    const uniqueUserIds = [...new Set(affectedUserIds)];
-    if (uniqueUserIds.length > 0) {
-      conditions.push(Prisma.sql`"userId" IN (${Prisma.join(uniqueUserIds)})`);
-    }
-
-    const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      SELECT "id"
-      FROM "QuestionnaireResponse"
-      WHERE ${Prisma.join(conditions, ' OR ')}
-    `);
-
-    return rows.map((row) => row.id);
-  }
-
-  private syncQuestionnaireDraftAnswers(
-    rawDraftAnswers: Prisma.JsonValue | null,
-    options: {
-      allowedSchoolIds: readonly string[];
-      rewrittenSchoolIds?: Readonly<Record<string, string | null>>;
-    },
-  ) {
-    if (
-      !isRecord(rawDraftAnswers) ||
-      !isRecord(rawDraftAnswers.hardMatchForm)
-    ) {
-      return rawDraftAnswers;
-    }
-
-    const hardMatchForm = rawDraftAnswers.hardMatchForm;
-    const hasExcludedPartnerSchools = Object.prototype.hasOwnProperty.call(
-      hardMatchForm,
-      'excludedPartnerSchools',
-    );
-    const hasExcludedPartnerSchoolGenders =
-      Object.prototype.hasOwnProperty.call(
-        hardMatchForm,
-        'excludedPartnerSchoolGenders',
-      );
-    const syncedExcludedPartnerPreferences =
-      syncExcludedPartnerSchoolPreferences(
-        {
-          excludedPartnerSchools: hardMatchForm.excludedPartnerSchools,
-          excludedPartnerSchoolGenders:
-            hardMatchForm.excludedPartnerSchoolGenders,
-        },
-        options,
-      );
-    const syncedHardMatchForm: Record<string, Prisma.InputJsonValue> = {
-      ...(hardMatchForm as Record<string, Prisma.InputJsonValue>),
-    };
-
-    if (
-      syncedExcludedPartnerPreferences.excludedPartnerSchools.length > 0 ||
-      hasExcludedPartnerSchools
-    ) {
-      syncedHardMatchForm.excludedPartnerSchools =
-        syncedExcludedPartnerPreferences.excludedPartnerSchools;
-    } else {
-      delete syncedHardMatchForm.excludedPartnerSchools;
-    }
-
-    if (
-      syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders.length >
-        0 ||
-      hasExcludedPartnerSchoolGenders
-    ) {
-      syncedHardMatchForm.excludedPartnerSchoolGenders =
-        syncedExcludedPartnerPreferences.excludedPartnerSchoolGenders;
-    } else {
-      delete syncedHardMatchForm.excludedPartnerSchoolGenders;
-    }
-
-    return {
-      ...(rawDraftAnswers as Record<string, Prisma.InputJsonValue>),
-      hardMatchForm: syncedHardMatchForm,
-    };
-  }
-
-  private async loadSchoolUserIds(schoolId: string): Promise<string[]> {
     const userStore = (
-      this.prisma as PrismaService & {
+      store as Pick<Prisma.TransactionClient, 'user'> & {
         user?: {
           findMany: (args: {
             where: { schoolId: string };

@@ -36,15 +36,34 @@ function createVerificationCodeDigest(input: {
 type RegisterTransaction = {
   $queryRaw: jest.Mock;
   $executeRaw: jest.Mock;
+  schoolDomain: { findMany: jest.Mock };
   emailCode: {
     findFirst: jest.Mock;
     updateMany: jest.Mock;
   };
   user: {
+    findUnique: jest.Mock;
     count: jest.Mock;
     create: jest.Mock;
   };
 };
+
+function registrationSchoolDomains() {
+  return {
+    findMany: jest.fn().mockResolvedValue([
+      {
+        domain: 'example.com',
+        schoolId: 'school-1',
+        school: {
+          name: 'Example School',
+          slug: 'bupt-qmul-hainan',
+          description: null,
+          registrationEligible: true,
+        },
+      },
+    ]),
+  };
+}
 
 type VerificationCodeTransaction = {
   emailCode: {
@@ -245,88 +264,7 @@ describe('AuthService', () => {
     });
   });
 
-  it('requires manual school selection for non-school email registration', async () => {
-    const deliveryDedupeKey = 'verification-code:test';
-    const findFirst = jest.fn().mockResolvedValue({
-      id: 'code-1',
-      codeHash: createVerificationCodeDigest({
-        email: 'user@invalid.example',
-        purpose: 'register',
-        deliveryDedupeKey,
-        code: '123456',
-      }),
-      deliveryDedupeKey,
-    });
-    const updateMany = jest.fn();
-    const tx = {
-      $executeRaw: jest.fn(),
-      emailCode: {
-        findFirst,
-        updateMany,
-      },
-
-      user: {
-        count: jest.fn().mockResolvedValue(0),
-      },
-    };
-    const authService = new AuthService(
-      {
-        $transaction: jest.fn(
-          async (callback: (transaction: typeof tx) => Promise<unknown>) =>
-            callback(tx),
-        ),
-        emailCode: {
-          findFirst,
-        },
-
-        user: {
-          count: jest.fn().mockResolvedValue(0),
-        },
-      } as never,
-      {} as never,
-      {
-        resolveByEmail: jest.fn().mockResolvedValue(null),
-      } as never,
-      {} as never,
-    );
-
-    await expect(
-      authService.register({
-        email: 'user@invalid.example',
-        code: '123456',
-        password: 'Password123',
-        acceptedTerms: true,
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(findFirst).toHaveBeenCalledTimes(1);
-    expect(updateMany).not.toHaveBeenCalled();
-  });
-
-  it('rejects requestCode for non-school email without a valid referral code', async () => {
-    const transaction = jest.fn();
-    const buildVerificationCodeEmail = jest.fn();
-    const deliverQueuedEmailNow = jest.fn();
-    const authService = new AuthService(
-      { $transaction: transaction } as never,
-      {
-        buildVerificationCodeEmail,
-        deliverQueuedEmailNow,
-      } as never,
-      {
-        resolveByEmail: jest.fn().mockResolvedValue(null),
-      } as never,
-      {} as never,
-    );
-
-    await expect(
-      authService.requestCode('user@invalid.example'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(transaction).not.toHaveBeenCalled();
-    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
-    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
-  });
-
-  it('allows requestCode for non-school email with an available referral code', async () => {
+  it('sends non-school verification without consulting invitation eligibility', async () => {
     const create = jest.fn().mockResolvedValue({
       id: 'code-1',
       email: 'user@invalid.example',
@@ -380,89 +318,16 @@ describe('AuthService', () => {
     );
 
     await expect(
-      authService.requestCode('user@invalid.example', 'validcode1'),
+      authService.requestCode('user@invalid.example'),
     ).resolves.toMatchObject({
       email: 'user@invalid.example',
       school: null,
-      registrationMode: 'NON_EDU_REFERRAL_REQUIRED',
+      registrationMode: 'ORDINARY_EMAIL',
     });
-    expect(prisma.user.findUnique).toHaveBeenCalledWith({
-      where: { referralCode: 'VALIDCODE1' },
-      select: {
-        status: true,
-        nonEduReferralLimit: true,
-        nonEduReferralUses: true,
-      },
-    });
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
     expect(buildVerificationCodeEmail).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledTimes(1);
     expect(outboundCreate).toHaveBeenCalledTimes(1);
-  });
-
-  it('rejects requestCode for non-school email when the referrer is suspended', async () => {
-    const transaction = jest.fn();
-    const buildVerificationCodeEmail = jest.fn();
-    const deliverQueuedEmailNow = jest.fn();
-    const findUnique = jest.fn().mockResolvedValue({
-      status: 'SUSPENDED',
-      nonEduReferralLimit: 3,
-      nonEduReferralUses: 0,
-    });
-    const authService = new AuthService(
-      { $transaction: transaction, user: { findUnique } } as never,
-      {
-        buildVerificationCodeEmail,
-        deliverQueuedEmailNow,
-      } as never,
-      {
-        resolveByEmail: jest.fn().mockResolvedValue(null),
-      } as never,
-      {} as never,
-    );
-
-    await expect(
-      authService.requestCode('user@invalid.example', 'validcode1'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(transaction).not.toHaveBeenCalled();
-    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
-    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
-  });
-
-  it('rejects requestCode for non-school email when the referrer quota is exhausted', async () => {
-    const transaction = jest.fn();
-    const buildVerificationCodeEmail = jest.fn();
-    const deliverQueuedEmailNow = jest.fn();
-    const findUnique = jest.fn().mockResolvedValue({
-      status: 'ACTIVE',
-      nonEduReferralLimit: 3,
-      nonEduReferralUses: 3,
-    });
-    const authService = new AuthService(
-      { $transaction: transaction, user: { findUnique } } as never,
-      {
-        buildVerificationCodeEmail,
-        deliverQueuedEmailNow,
-      } as never,
-      {
-        resolveByEmail: jest.fn().mockResolvedValue(null),
-      } as never,
-      {} as never,
-    );
-
-    await expect(
-      authService.requestCode('user@invalid.example', 'validcode1'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(findUnique).toHaveBeenCalledWith({
-      where: { referralCode: 'VALIDCODE1' },
-      select: {
-        status: true,
-        nonEduReferralLimit: true,
-        nonEduReferralUses: true,
-      },
-    });
-    expect(transaction).not.toHaveBeenCalled();
-    expect(buildVerificationCodeEmail).not.toHaveBeenCalled();
-    expect(deliverQueuedEmailNow).not.toHaveBeenCalled();
   });
 
   it('queues a verification email and kicks off async delivery', async () => {
@@ -890,12 +755,14 @@ describe('AuthService', () => {
     const tx: RegisterTransaction = {
       $queryRaw: jest.fn(),
       $executeRaw: jest.fn(),
+      schoolDomain: registrationSchoolDomains(),
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
       },
 
       user: {
+        findUnique: jest.fn().mockResolvedValue(null),
         count: jest.fn().mockResolvedValue(0),
         create: userCreate,
       },
@@ -960,12 +827,14 @@ describe('AuthService', () => {
     const tx: RegisterTransaction = {
       $queryRaw: jest.fn(),
       $executeRaw: jest.fn(),
+      schoolDomain: registrationSchoolDomains(),
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
       },
 
       user: {
+        findUnique: jest.fn().mockResolvedValue(null),
         count: jest.fn().mockResolvedValue(0),
         create: userCreate,
       },
@@ -1042,12 +911,14 @@ describe('AuthService', () => {
     const tx: RegisterTransaction = {
       $queryRaw: jest.fn(),
       $executeRaw: jest.fn(),
+      schoolDomain: registrationSchoolDomains(),
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
       },
 
       user: {
+        findUnique: jest.fn().mockResolvedValue(null),
         count: jest.fn().mockResolvedValue(0),
         create: userCreate,
       },
@@ -1128,12 +999,17 @@ describe('AuthService', () => {
     const tx: RegisterTransaction = {
       $queryRaw: jest.fn(),
       $executeRaw: jest.fn(),
+      schoolDomain: registrationSchoolDomains(),
       emailCode: {
         findFirst: emailCodeFindFirst,
         updateMany: emailCodeUpdateMany,
       },
 
-      user: { count: jest.fn().mockResolvedValue(0), create: userCreate },
+      user: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: userCreate,
+      },
     };
     const transaction = jest.fn(
       async (callback: (t: RegisterTransaction) => Promise<unknown>) =>
@@ -1218,9 +1094,6 @@ describe('AuthService', () => {
         campaignSlug: 'spring',
       },
       expect.anything(),
-      {
-        requireReferralCode: false,
-      },
     );
     expect(userCreate).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -194,6 +194,7 @@ export function buildMatchPayload(input: {
 
           return {
             userId: participant.userId,
+            ...readParticipantIdentity(participant.profileSnapshot),
             displayName: participant.user.displayName,
             ...readParticipantProfile(participant),
             email: contact?.type === 'EMAIL' ? contact.value : null,
@@ -230,6 +231,18 @@ export function readParticipantProfile(
     partnerGenders: readHardPartnerGenders(
       participant.user.questionnaireResponse?.answers,
     ),
+  };
+}
+
+function readParticipantIdentity(snapshot: unknown) {
+  if (!isRecord(snapshot)) return {};
+  return {
+    ...(typeof snapshot.vipActive === 'boolean'
+      ? { vipActive: snapshot.vipActive }
+      : {}),
+    ...(typeof snapshot.educationVerified === 'boolean'
+      ? { educationVerified: snapshot.educationVerified }
+      : {}),
   };
 }
 
@@ -313,6 +326,7 @@ export function readDashboardMatchPayload(
           if (!isRecord(participant)) return participant;
           return {
             userId: participant.userId,
+            ...readParticipantIdentity(participant),
             displayName: participant.displayName,
             introLine: participant.introLine,
             email: participant.email,

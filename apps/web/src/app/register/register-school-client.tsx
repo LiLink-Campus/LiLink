@@ -3,8 +3,7 @@
 import { InteractiveFields } from "@/components/interactive-fields";
 
 import { sanitizeSameOriginRelativePath } from "@lilink/shared";
-import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { ActionGroup } from "@/components/semantic";
 import {
   Button,
@@ -18,6 +17,7 @@ import {
   findMatchingSchool,
 } from "../../lib/eligible-schools";
 import { SchoolEmailSupport } from "./school-email-support";
+import { SchoolEmailNotice } from "./school-email-notice";
 import authStyles from "../auth.module.css";
 import flowStyles from "./register-flow.module.css";
 import {
@@ -51,6 +51,8 @@ export default function RegisterSchoolClient() {
   } = useRegistrationSchools();
   const [devCode, setDevCode] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
+  const [schoolNoticeOpen, setSchoolNoticeOpen] = useState(false);
+  const codeTrigger = useRef<HTMLButtonElement | null>(null);
   const [pending, setPending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [canRevealDevCode, setCanRevealDevCode] = useState(false);
@@ -69,7 +71,6 @@ export default function RegisterSchoolClient() {
     () => schoolsPayload?.schools ?? [],
     [schoolsPayload],
   );
-  const schoolsListReady = eligibleSchools.length > 0;
   const matchedSchool = useMemo(
     () => findMatchingSchool(eligibleSchools, email),
     [eligibleSchools, email],
@@ -94,8 +95,9 @@ export default function RegisterSchoolClient() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  async function requestCode(event: { preventDefault: () => void }) {
+  async function requestCode(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
+    codeTrigger.current = event.currentTarget;
     setError(null);
 
     if (resendCooldown > 0) return;
@@ -103,8 +105,8 @@ export default function RegisterSchoolClient() {
       setError("请先填写有效邮箱。"); return;
     }
 
-    if (schoolsListReady && emailDomainHint && !matchedSchool) {
-      setError("该邮箱后缀不在合作学校白名单内。请改用普通邮箱注册。");
+    if (schoolsPayload && emailDomainHint && !matchedSchool) {
+      setSchoolNoticeOpen(true);
       return;
     }
 
@@ -117,10 +119,10 @@ export default function RegisterSchoolClient() {
       });
 
       if (
-        result.registrationMode === "NON_EDU_REFERRAL_REQUIRED" ||
+        result.registrationMode === "ORDINARY_EMAIL" ||
         !result.school
       ) {
-        setError("该邮箱无法按学校邮箱注册。请改用普通邮箱注册。");
+        setSchoolNoticeOpen(true);
         return;
       }
 
@@ -247,6 +249,7 @@ export default function RegisterSchoolClient() {
             pending={schoolsPending}
             error={schoolsError}
             onRefresh={() => void loadEligibleSchools()}
+            personalHref={personalHref}
           />
           {schoolsError ? (
             <SchoolListRetry
@@ -256,13 +259,6 @@ export default function RegisterSchoolClient() {
             />
           ) : null}
           {error ? <FormMessage>{error}</FormMessage> : null}
-          {error && emailDomainHint && !matchedSchool && schoolsListReady ? (
-            <p className={authStyles.inlineSwitchHint}>
-              不是学校邮箱？
-              {" "}
-              <Link prefetch={false} href={personalHref}>改用普通邮箱注册</Link>
-            </p>
-          ) : null}
           <div className={flowStyles.codeRow}>
           <Field label="验证码">
             <Input
@@ -359,6 +355,7 @@ export default function RegisterSchoolClient() {
         </form>
       )}
       </InteractiveFields>
+      <SchoolEmailNotice open={schoolNoticeOpen} onClose={() => setSchoolNoticeOpen(false)} personalHref={personalHref} returnFocusRef={codeTrigger} />
     </RegisterShell>
   );
 }

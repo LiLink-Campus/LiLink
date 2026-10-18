@@ -26,7 +26,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 async function verification(canvasElement: HTMLElement, label: string) {
   const c = within(canvasElement);
-  if (label === "普通邮箱") await userEvent.type(c.getByLabelText("邀请码"), "3E4V87GBP2");
   await userEvent.type(
     c.getByLabelText(label),
     label === "学校邮箱" ? "student@qinghe.example.edu" : "student@example.test"

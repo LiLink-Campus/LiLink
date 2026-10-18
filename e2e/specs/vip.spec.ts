@@ -122,7 +122,7 @@ test('VIP page keeps details collapsed and activation centered @smoke @webkit', 
   await visit(page, '/dashboard/me');
   await page.getByRole('link', { name: '查看权益与激活' }).click();
   await expect(page).toHaveURL(/\/dashboard\/vip$/);
-  await expect(page.getByRole('table', { name: '普通用户与 VIP 权益对比' })).not.toBeVisible();
+  await expect(page.getByRole('table', { name: '非 VIP 用户与 VIP 权益对比' })).not.toBeVisible();
   for (const width of [320, 880]) {
     await page.setViewportSize({ width, height: 898 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -139,10 +139,10 @@ test('VIP page keeps details collapsed and activation centered @smoke @webkit', 
     await expect(trigger).toBeFocused();
 
   }
-  await page.getByText('VIP 与普通用户有什么区别？', { exact: true }).click();
-  await expect(page.getByRole('table', { name: '普通用户与 VIP 权益对比' })).toBeVisible();
+  await page.getByText('VIP 与非 VIP 用户有什么区别？', { exact: true }).click();
+  await expect(page.getByRole('table', { name: '非 VIP 用户与 VIP 权益对比' })).toBeVisible();
   await page.getByText('会员到期后会怎样？', { exact: true }).click();
-  await expect(page.getByRole('table', { name: '普通用户与 VIP 权益对比' })).toBeVisible();
+  await expect(page.getByRole('table', { name: '非 VIP 用户与 VIP 权益对比' })).toBeVisible();
   await expect(page.getByText(/会员到期后，优先匹配与高级筛选将停止生效/)).toBeVisible();
   await page.getByText('重复激活如何计算？', { exact: true }).press('Enter');
   await expect(page.getByText(/每张新激活码增加 30 天；有效期内激活/)).toBeVisible();
@@ -151,7 +151,7 @@ test('VIP page keeps details collapsed and activation centered @smoke @webkit', 
   await expect(faq.locator('details[open]')).toHaveCount(3);
   await page.getByText('重复激活如何计算？', { exact: true }).press('Enter');
   await expect(faq.locator('details[open]')).toHaveCount(2);
-  await expect(page.getByRole('table', { name: '普通用户与 VIP 权益对比' })).toBeVisible();
+  await expect(page.getByRole('table', { name: '非 VIP 用户与 VIP 权益对比' })).toBeVisible();
   await expect(page.getByText(/会员到期后，优先匹配与高级筛选将停止生效/)).toBeVisible();
 
 });

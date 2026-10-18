@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolveSchoolDomain } from './school-catalog';
 
 type SchoolResolution = {
   schoolId: string;
@@ -83,47 +84,7 @@ export class SchoolResolverService {
     emailDomain: string,
     cacheEpoch: number,
   ) {
-    const candidateDomains = emailDomain
-      .split('.')
-      .map((_, index, parts) => parts.slice(index).join('.'))
-      // Drop the bare single-label TLD candidate (e.g. "cn", "edu", "com"): a
-      // trusted school-email domain must be at least two labels, so a bare-TLD
-      // SchoolDomain row can never be queried or matched and an entire TLD is
-      // never trusted. Specific org domains like "bupt.cn" still resolve.
-      .filter((candidate) => candidate.includes('.'));
-
-    const domains = await this.prisma.schoolDomain.findMany({
-      where: {
-        domain: {
-          in: candidateDomains,
-        },
-      },
-      include: {
-        school: true,
-      },
-    });
-
-    const match = domains
-      .sort((left, right) => right.domain.length - left.domain.length)
-      .find(
-        (item) =>
-          // Defense in depth: a bare single-label TLD is never trusted, even if a
-          // row for it somehow exists, so "evil.cn" can never match a "cn" row.
-          item.domain.includes('.') &&
-          (emailDomain === item.domain ||
-            emailDomain.endsWith(`.${item.domain}`)),
-      );
-
-    const resolution = match
-      ? {
-          schoolId: match.schoolId,
-          matchedDomain: match.domain,
-          schoolName: match.school.name,
-          schoolSlug: match.school.slug,
-          schoolDescription: match.school.description,
-          registrationEligible: match.school.registrationEligible,
-        }
-      : null;
+    const resolution = await resolveSchoolDomain(this.prisma, emailDomain);
 
     if (cacheEpoch === this.cacheEpoch) {
       this.resolutionCache.set(emailDomain, {

@@ -185,6 +185,9 @@ model User {
   sessionVersion             Int                            @default(0)
   status                     UserStatus                     @default(PENDING)
   schoolId                   String?
+  educationVerifiedAt        DateTime?
+  educationVerificationMethod String?
+  educationEmail             String?                        @unique
   school                     School?                        @relation(fields: [schoolId], references: [id])
   displayName                String?
   preferredContactChannel    ContactChannelType             @default(EMAIL)
@@ -226,7 +229,7 @@ model User {
   referralChannel            ReferralChannel?
   referralCampaignId         String?
   referralCampaign           Campaign?                      @relation("UserReferralCampaign", fields: [referralCampaignId], references: [id], onDelete: Restrict)
-  nonEduReferralLimit        Int                            @default(3)
+  nonEduReferralLimit        Int                            @default(0)
   nonEduReferralUses         Int                            @default(0)
   firstOptedInAt             DateTime?
   campaignActivations        CampaignActivation[]

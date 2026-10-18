@@ -132,7 +132,7 @@ export function UserDetail({ model }: { model: AdminUsersModel }) {
           <div className={cx(adminStyles, "admin-review-box")}>
             <div className={cx(adminStyles, "admin-section-header admin-section-header-tight")}>
               <div>
-                <h3>普通邮箱邀请码额度</h3>
+                <h3>教育认证邀请额度</h3>
                 <p>{formatNonEduReferralQuota(displayUser)}</p>
               </div>
               {!editingReferralLimit ? (
@@ -148,7 +148,7 @@ export function UserDetail({ model }: { model: AdminUsersModel }) {
             {editingReferralLimit ? (
               <form className={cx(adminStyles, "admin-form-grid")} onSubmit={saveReferralLimit}>
                 <label>
-                  <span>普通邮箱邀请码额度上限</span>
+                  <span>教育认证邀请额度上限</span>
                   <input
                     className={cx(adminStyles, "admin-full-control")}
                     type="number"

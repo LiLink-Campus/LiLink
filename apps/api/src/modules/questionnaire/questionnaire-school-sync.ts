@@ -1,3 +1,4 @@
+import { NO_SCHOOL_ID } from '@lilink/shared';
 import type { Prisma } from '../../common/prisma/client';
 import {
   HARD_MATCH_KEYS,
@@ -92,6 +93,8 @@ export function syncQuestionnaireSchoolAnswers(
     allowedSchoolIds.has(options.currentSchoolId)
   ) {
     nextAnswers[HARD_MATCH_KEYS.school] = options.currentSchoolId;
+  } else if (options.currentSchoolId == null) {
+    nextAnswers[HARD_MATCH_KEYS.school] = NO_SCHOOL_ID;
   } else {
     delete nextAnswers[HARD_MATCH_KEYS.school];
   }

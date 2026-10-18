@@ -31,6 +31,7 @@ export class CycleMatchingService {
                 select: {
                   id: true,
                   displayName: true,
+                  educationVerifiedAt: true,
                   vipActivations: {
                     select: { expiresAt: true, revokedAt: true },
                   },

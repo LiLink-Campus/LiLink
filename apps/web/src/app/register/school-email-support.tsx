@@ -12,12 +12,14 @@ export function SchoolEmailSupport({
   pending,
   error,
   onRefresh,
+  personalHref,
 }: {
   email: string;
   payload: EligibleSchoolsPayload | null;
   pending: boolean;
   error: string | null;
   onRefresh: () => void;
+  personalHref: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const headingId = useId();
@@ -52,7 +54,7 @@ export function SchoolEmailSupport({
             ✓ {match.school.name}
           </p>
         ) : completeEmail && payload ? (
-          <p role="status">暂不支持此邮箱后缀</p>
+          <p>不是学校邮箱？<Link prefetch={false} href={personalHref}>改用普通邮箱注册</Link></p>
         ) : null}
         <button className={styles.open} type="button" onClick={openSchools}>
           查看支持的学校 <span aria-hidden="true">›</span>

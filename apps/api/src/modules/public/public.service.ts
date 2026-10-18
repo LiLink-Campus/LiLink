@@ -250,11 +250,8 @@ export class PublicService {
 
   private async loadEligibleSchools(cacheEpoch: number, prisma = this.prisma) {
     const schools = await prisma.school.findMany({
-      // Only schools flagged eligible in the admin school center are offered for
-      // self-registration; this is the single source of truth shared by the
-      // registration recognition and manual-school dropdown.
+      // Every configured school with a mailbox domain supports education verification.
       where: {
-        registrationEligible: true,
         domains: { some: {} },
       },
       select: {

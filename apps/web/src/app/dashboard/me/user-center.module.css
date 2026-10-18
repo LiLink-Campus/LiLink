@@ -4,16 +4,9 @@
 .identity { display: flex; gap: 20px; align-items: center; min-width: 0; }
 .identity > div { min-width: 0; }
 .nameRow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
-.vipBadge { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 4px 9px; border: 1px solid #c39b55; border-radius: 999px; background: linear-gradient(115deg, #f2d493, #fff1c9 48%, #e9c37e); color: #654318; font-size: 12px; line-height: 1.5; font-weight: 700; letter-spacing: .06em; box-shadow: 0 2px 9px #b2863526; }
-.vipBadge svg { width: 17px; height: 17px; }
-.vipBadge::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 25%, #ffffffb3 50%, transparent 75%); transform: translateX(-130%); animation: vip-shine 5s ease-in-out infinite; pointer-events: none; }
-.sparkle { font-size: 12px; animation: vip-twinkle 3s ease-in-out infinite; }
 .identityActive .avatar { outline: 2px solid #d2ad68; outline-offset: 4px; background: linear-gradient(140deg, #963f58, #742c41); }
 .vip.vipActive { border-color: #c8a36b; }
 .vipActive .vipHeading > span { background: #f5dfb0; color: #684219; }
-@keyframes vip-shine { 0%, 65% { transform: translateX(-130%); } 90%, 100% { transform: translateX(130%); } }
-@keyframes vip-twinkle { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .vipBadge::after, .sparkle { animation: none; } }
 .avatar { width: 72px; height: 72px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: #dc796c; color: white; font-family: var(--font-display); font-size: 32px; }
 .identity h2 { font-family: var(--font-display); font-size: 24px; overflow-wrap: anywhere; }
 .identity p { color: var(--color-text-muted); font-size: 15px; margin-top: 5px; overflow-wrap: anywhere; }
@@ -43,25 +36,22 @@
   .vipHeading h2 { gap: 8px; font-size: 21px; }
   .vipHeading h2 svg { width: 26px; height: 26px; }
 }
-.page .sectionTitle { font-family: var(--font-display); font-size: 25px; font-weight: 500; margin-bottom: 16px; }
-.benefits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.benefits a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 18px; color: var(--color-text); text-decoration: none; }
-.benefits svg { width: 30px; height: 30px; flex-shrink: 0; color: var(--color-brand); }
-.benefits strong { font-size: 16px; font-weight: 500; }
-.benefits span { display: block; color: var(--color-text-muted); font-size: 13px; margin-top: 6px; }
-.security { padding: 0 18px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 18px; }
-.security > a, .security > button { width: 100%; display: flex; align-items: center; gap: 16px; min-height: 72px; background: transparent; border: 0; color: var(--color-text); font: inherit; text-decoration: none; text-align: left; padding: 16px 0; cursor: pointer; }
-.security > button { border-top: 1px solid var(--color-border); color: var(--color-text-muted); }
-.security svg, .delete > span:first-child { width: 24px; height: 24px; flex-shrink: 0; }
-.security > a > span:last-child, .delete > span:last-child { margin-left: auto; font-size: 25px; color: var(--color-text-muted); }
-.page a:focus-visible, .page button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 4px; }
-@media (max-width: 380px) { .benefits a { gap: 8px; padding: 12px 10px; } .benefits svg { width: 23px; height: 23px; } .benefits strong { font-size: 14px; } .benefits span { font-size: 12px; } }
-
-.entryGroup { display: grid; gap: 12px; }
+.details { --center-card-height: 128px; display: grid; gap: 24px; min-width: 0; }
+.page .sectionTitle { margin-bottom: 12px; color: var(--color-text-muted); font-family: var(--font-body); font-size: 14px; font-weight: 500; }
+.benefits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.benefits a { box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 24px auto; align-content: space-between; align-items: start; gap: 6px; height: 93px; padding: 14px 18px; border: 1px solid var(--color-border); border-radius: 18px; background: #fff; color: var(--color-brand); text-decoration: none; }
+.benefits a:hover { border-color: #dfc1cb; }
+.benefits svg { width: 24px; height: 24px; }
+.benefits strong { grid-column: 1 / -1; grid-row: 2; color: var(--color-text); font-size: 17px; font-weight: 500; }
+.benefits a > span { grid-column: 2; grid-row: 1; color: var(--color-text-muted); font-size: 18px; }
+.details .installRow { width: 100%; min-height: 92px; padding: 20px 24px; border: 1px solid var(--color-border); border-radius: 18px; background: var(--color-surface); }
+.page a:focus-visible, .page button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 3px; }
+@media (max-width: 600px) { .details { --center-card-height: 144px; } }
+@media (max-width: 380px) { .details { --center-card-height: 160px; } .benefits { gap: 12px; } .benefits a { padding: 14px 16px; } .benefits strong { font-size: 16px; } }
 
 .desktopOnly { display: none; }
 @media (min-width: 880px) {
-  .page { max-width: none; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); grid-template-areas: "heading heading" "identity vip" "security benefits"; gap: 24px; align-items: start; }
+  .page { max-width: none; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); grid-template-areas: "heading heading" "identity vip" "details details"; gap: 24px; align-items: start; }
   .heading { grid-area: heading; }
   .heading h1 { font-size: 40px; }
   .page .heading p { margin-top: 8px; color: var(--color-text-muted); font-size: 15px; }
@@ -76,10 +66,5 @@
   .vipFeatures > div { gap: 12px; }
   .vipFeatures > div + div { padding-left: 24px; }
   .decoration { width: 220px; height: 160px; }
-  .benefitsSection { grid-area: benefits; }
-  .benefits a { min-height: 90px; padding: 20px; border-radius: 14px; }
-  .securitySection { grid-area: security; padding: 24px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); }
-  .page .securitySection .sectionTitle { font-size: 23px; margin-bottom: 4px; }
-  .security { border: 0; border-radius: 0; padding: 0; }
-  .security > a, .security > button { min-height: 62px; }
+  .details { grid-area: details; }
 }

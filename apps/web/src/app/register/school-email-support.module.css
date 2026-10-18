@@ -1,8 +1,10 @@
-.support { margin-top: -12px; }
+/* Reuse the form's 20px row gap instead of adding a separate helper row. */
+.support { margin-block: -20px; }
 .summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
-.summary p { margin: 0; font-size: 12px; line-height: 1.7; color: var(--color-text-secondary); }
+.summary p { margin: 0; font-size: 12px; line-height: 20px; color: var(--color-text-secondary); }
+.summary a { color: var(--color-brand); text-decoration: underline; text-underline-offset: 3px; }
 .summary .matched { color: #667258; }
-.open { margin-left: auto; border: 0; padding: 2px 0; background: none; color: var(--color-brand); font: inherit; font-size: 12px; cursor: pointer; }
+.open { margin-left: auto; border: 0; padding: 0; background: none; color: var(--color-brand); font: inherit; font-size: 12px; line-height: 20px; cursor: pointer; }
 .open span { margin-left: 4px; }
 .dialog { overflow: hidden; position: fixed; inset: 0; margin: auto; overscroll-behavior: contain; padding: 0; width: min(460px, calc(100vw - 32px)); max-height: min(75dvh, 680px); border: 1px solid #e7ded6; border-radius: 24px; background: #fffdfb; color: var(--color-text); box-shadow: 0 20px 80px #30231b30; }
 .dialog::backdrop { background: #30231b59; backdrop-filter: blur(3px); }

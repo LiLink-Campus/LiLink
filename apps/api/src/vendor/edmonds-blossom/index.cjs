@@ -1,4 +1,5 @@
 /*Converted to JS from Python by Matt Krick. Original: http://jorisvr.nl/maximummatching.html*/
+var weightDomain = require('./weights.cjs');
 
 module.exports = function (edges, maxCardinality) {
   if (edges.length === 0) {
@@ -13,6 +14,9 @@ var Edmonds = function (edges, maxCardinality) {
   this.edges = edges;
   this.maxCardinality = maxCardinality;
   this.nEdge = edges.length;
+  var domain = weightDomain(edges);
+  this.zero = domain.zero;
+  this.two = domain.two;
   this.init();
 };
 
@@ -43,7 +47,7 @@ Edmonds.prototype.maxWeightMatching = function () {
           if (this.inBlossom[v] === this.inBlossom[w]) continue;
           if (!this.allowEdge[k]) {
             var kSlack = this.slack(k);
-            if (kSlack <= 0) {
+            if (kSlack <= this.zero) {
               this.allowEdge[k] = true;
             }
           }
@@ -99,7 +103,7 @@ Edmonds.prototype.maxWeightMatching = function () {
         if (this.blossomParent[b] === -1 && this.label[b] === 1 && this.bestEdge[b] !== -1) {
           kSlack = this.slack(this.bestEdge[b]);
           ////console.assert((kSlack % 2) == 0);
-          d = kSlack / 2;
+          d = kSlack / this.two;
           if (deltaType === -1 || d < delta) {
             delta = d;
             deltaType = 3;
@@ -117,7 +121,8 @@ Edmonds.prototype.maxWeightMatching = function () {
       if (deltaType === -1) {
         //console.assert(this.maxCardinality);
         deltaType = 1;
-        delta = Math.max(0, getMin(this.dualVar, 0, this.nVertex - 1));
+        delta = getMin(this.dualVar, 0, this.nVertex - 1);
+        if (delta < this.zero) delta = this.zero;
       }
       for (v = 0; v < this.nVertex; v++) {
         var curLabel = this.label[this.inBlossom[v]];
@@ -164,7 +169,7 @@ Edmonds.prototype.maxWeightMatching = function () {
     }
     if (!augmented) break;
     for (b = this.nVertex; b < this.nVertex * 2; b++) {
-      if (this.blossomParent[b] === -1 && this.blossomBase[b] >= 0 && this.label[b] === 1 && this.dualVar[b] === 0) {
+      if (this.blossomParent[b] === -1 && this.blossomBase[b] >= 0 && this.label[b] === 1 && this.dualVar[b] === this.zero) {
         this.expandBlossom(b, true);
       }
     }
@@ -184,7 +189,7 @@ Edmonds.prototype.slack = function (k) {
   var i = this.edges[k][0];
   var j = this.edges[k][1];
   var wt = this.edges[k][2];
-  return this.dualVar[i] + this.dualVar[j] - 2 * wt;
+  return this.dualVar[i] + this.dualVar[j] - this.two * wt;
 };
 
 Edmonds.prototype.blossomLeaves = function (b) {
@@ -298,7 +303,7 @@ Edmonds.prototype.addBlossom = function (base, k) {
   //console.assert(this.label[bb] === 1);
   this.label[b] = 1;
   this.labelEnd[b] = this.labelEnd[bb];
-  this.dualVar[b] = 0;
+  this.dualVar[b] = this.zero;
   var leaves = this.blossomLeaves(b);
   for (var ii = 0; ii < leaves.length; ii++) {
     v = leaves[ii];
@@ -370,7 +375,7 @@ Edmonds.prototype.expandBlossom = function (b, endStage) {
     this.blossomParent[s] = -1;
     if (s < this.nVertex) {
       this.inBlossom[s] = s;
-    } else if (endStage && this.dualVar[s] === 0) {
+    } else if (endStage && this.dualVar[s] === this.zero) {
       this.expandBlossom(s, endStage);
     } else {
       var leaves = this.blossomLeaves(s);
@@ -552,7 +557,7 @@ Edmonds.prototype.blossomBaseInit = function () {
 };
 Edmonds.prototype.dualVarInit = function () {
   var mw = filledArray(this.nVertex, this.maxWeight);
-  var zeros = filledArray(this.nVertex, 0);
+  var zeros = filledArray(this.nVertex, this.zero);
   this.dualVar = mw.concat(zeros);
 };
 Edmonds.prototype.unusedBlossomsInit = function () {
@@ -599,7 +604,7 @@ Edmonds.prototype.nVertexInit = function () {
   this.nVertex = nVertex;
 };
 Edmonds.prototype.maxWeightInit = function () {
-  var maxWeight = 0;
+  var maxWeight = this.zero;
   for (var k = 0; k < this.nEdge; k++) {
     var weight = this.edges[k][2];
     if (weight > maxWeight) {
@@ -623,8 +628,8 @@ function initArrArr(len) {
 }
 
 function getMin(arr, start, end) {
-  var min = Infinity;
-  for (var i = start; i <= end; i++) {
+  var min = arr[start];
+  for (var i = start + 1; i <= end; i++) {
     if (arr[i] < min) {
       min = arr[i];
     }

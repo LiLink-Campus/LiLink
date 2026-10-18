@@ -1,3 +1,4 @@
+import { NO_SCHOOL_ID } from '@lilink/shared';
 import { validateQuestionnaireAnswers } from '../questionnaire/questionnaire.service';
 import {
   effectiveMatchingAnswers,
@@ -33,6 +34,7 @@ export class CycleMatchingInputService {
       user: {
         id: string;
         displayName: string | null;
+        educationVerifiedAt?: Date | null;
         school?: { id: string } | null;
         vipActivations?: Array<{
           expiresAt: Date | null;
@@ -73,7 +75,7 @@ export class CycleMatchingInputService {
             string,
             unknown
           >),
-          [HARD_MATCH_KEYS.school]: user.school?.id ?? '',
+          [HARD_MATCH_KEYS.school]: user.school?.id ?? NO_SCHOOL_ID,
         };
         try {
           validateQuestionnaireAnswers(
@@ -99,6 +101,7 @@ export class CycleMatchingInputService {
           displayName: user.displayName,
           questionnaireVersionId: user.questionnaireResponse.versionId ?? null,
           vipActive,
+          educationVerified: user.educationVerifiedAt != null,
           hardMatchAnswers,
           answers,
           intent: entry.intent,

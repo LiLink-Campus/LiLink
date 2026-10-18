@@ -1,3 +1,4 @@
+import { NO_SCHOOL_ID } from '@lilink/shared';
 import { PublicService } from '../public/public.service';
 import {
   currentHardMatchConfirmSignature,
@@ -68,12 +69,6 @@ export class AccountQuestionnaireService {
       );
     }
 
-    if (!user.school?.id) {
-      throw new BadRequestException(
-        'A recognized school is required before saving the questionnaire.',
-      );
-    }
-
     assertKnownQuestionnaireKeys(questionnaire.questions, input.answers);
 
     const allowedSchoolIds = questionnaire.schools.map((school) => school.id);
@@ -108,7 +103,7 @@ export class AccountQuestionnaireService {
 
       const hardMatchAnswers = buildHardMatchAnswerRecordFromFormInput(
         input.hardMatchForm,
-        user.school.id,
+        user.school?.id ?? NO_SCHOOL_ID,
         allowedSchoolIds,
       );
       const normalizedAnswers = this.questionnaireService.validateAnswers(

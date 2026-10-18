@@ -130,9 +130,9 @@ export function ReferralsClient({
     canInviteNonEdu && nonEduQuota.remaining <= 0;
 
   const inviteHint = !canInviteNonEdu
-    ? "分享链接邀请学校邮箱同学注册。"
+    ? "分享链接可邀请所有邮箱注册；你的邀请码暂无教育认证名额。"
     : nonEduQuotaExhausted
-      ? "普通邮箱名额已用完，分享链接仍可邀请学校邮箱同学。"
+      ? "教育认证名额已用完，分享链接仍可邀请朋友注册。"
       : null;
 
   return (
@@ -162,7 +162,7 @@ export function ReferralsClient({
             </span>
           ) : (
             <span className={dcx("referrals-status-badge is-locked")}>
-              仅可邀请学校邮箱
+              暂无教育认证名额
             </span>
           )}
         </div>
@@ -194,7 +194,7 @@ export function ReferralsClient({
         {canInviteNonEdu ? (
           <div className={dcx("referrals-quota")}>
             <div className={dcx("referrals-quota-head")}>
-              <span>普通邮箱邀请名额</span>
+              <span>教育认证邀请名额</span>
               <span>
                 {nonEduQuota.uses} / {nonEduQuota.limit}
               </span>
@@ -205,7 +205,7 @@ export function ReferralsClient({
               aria-valuenow={nonEduQuota.uses}
               aria-valuemin={0}
               aria-valuemax={nonEduQuota.limit}
-              aria-label="普通邮箱邀请名额使用情况"
+              aria-label="教育认证邀请名额使用情况"
             >
               <span
                 className={dcx("referrals-quota-fill")}

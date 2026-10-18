@@ -218,7 +218,6 @@ export const PersonalSchoolRefresh: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.type(canvas.getByLabelText("邀请码"), "SYNTHETIC1");
     await userEvent.type(canvas.getByLabelText("普通邮箱"), "student@example.test");
     await userEvent.click(canvas.getByRole("button", { name: "发送验证码" }));
     await expect(await canvas.findByText(/验证码已发送/)).toBeVisible();

@@ -1,3 +1,4 @@
+import { NO_SCHOOL_ID } from '@lilink/shared';
 import {
   effectiveMatchingAnswers,
   estimateMatchBand,
@@ -173,7 +174,7 @@ export class MatchEstimateService {
         continue;
       }
 
-      const schoolId = user.school?.id ?? '';
+      const schoolId = user.school?.id ?? NO_SCHOOL_ID;
       const hardMatchAnswers = parseHardMatchAnswers(
         effectiveMatchingAnswers(
           {

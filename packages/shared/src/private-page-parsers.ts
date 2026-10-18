@@ -72,6 +72,8 @@ export function isDashboardMatch(value: unknown): value is DashboardMatch {
       (participant) =>
         isObject(participant) &&
         isString(participant.userId) &&
+        (participant.vipActive === undefined || typeof participant.vipActive === "boolean") &&
+        (participant.educationVerified === undefined || typeof participant.educationVerified === "boolean") &&
         fields(participant, ["displayName", "introLine", "email", "schoolName", "gender"], (item) =>
           nullable(item, isString)
         ) &&

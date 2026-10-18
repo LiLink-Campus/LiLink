@@ -67,6 +67,8 @@ const AUTH_THROTTLE_ROUTE_SIGNATURES = new Set([
   'POST:/v1/auth/request-password-reset-code',
   'POST:/v1/auth/reset-password',
   'POST:/v1/auth/login',
+  'POST:/v1/me/education/email/request-code',
+  'POST:/v1/me/education/email/verify',
 ]);
 
 /**
