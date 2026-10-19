@@ -27,7 +27,7 @@ Storybook 的非静态资源未匹配请求会在原生生命周期检查中使�
 
 [运行器](../../scripts/e2e/run.mjs) 生成随机 run-id、loopback 端口和业务密钥，只允许当次 PostgreSQL 测试命名空间。Prisma 在迁移前检查最终生效目标，测试环境不加载本地 `.env`，裸 API `test:e2e` 也委托隔离运行器。禁止连接开发、已有用户或生产数据库。
 
-API 集成与浏览器使用同一临时 PostgreSQL/Mailpit 服务、不同数据库。第二次 migration 是避免全局轮次、问卷和破坏性测试污染的必要准备；历史升级使用独立旧 schema。浏览器只 seed 一次，真实 API 在 Web 生产构建前就绪，Next 的编译 origin 与实际服务一致。contract proxy 与 devlog fixture 在主实例固定启用；Sentry Replay SDK 的 iframe 原生计时器与浏览器 fake clock 有实测干扰，因此三条 SDK 接线使用独立 Web 编译和隔离数据库，仍由同一固定入口运行并复用 API dist。第三次 migration 是该独立环境准备；两次 Web build 明确承担不同编译条件。所有 fixture/collector 仅绑定 loopback，不是演练公网代理。
+API 集成与浏览器使用同一临时 PostgreSQL/Mailpit 服务、不同数据库。第二次 migration 是避免全局轮次、问卷和破坏性测试污染的必要准备；历史升级使用独立旧 schema。浏览器只 seed 一次，真实 API 在 Web 生产构建前就绪，Next 的编译 origin 与实际服务一致。contract proxy 与 devlog fixture 在主实例固定启用；Sentry Replay SDK 的 iframe 原生计时器与浏览器 fake clock 有实测干扰，因此 SDK 接线使用独立 Web 编译和隔离数据库，仍由同一固定入口运行并复用 API dist。第三次 migration 是该独立环境准备；两次 Web build 明确承担不同编译条件。所有 fixture/collector 仅绑定 loopback，不是演练公网代理。
 
 Chromium 执行固定主集合；`@mobile` 指定 mobile WebKit 的真实移动边界，`@webkit` 指定桌面 WebKit 的 details/像素差异。不再将全部场景乘以四项目。模拟引擎不代表已测试安装版 Safari 或真实 iOS。
 

@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { APIRequestContext } from '@playwright/test';
 import { normalizePublicHomeSnapshot } from '@lilink/shared';
@@ -11,6 +11,7 @@ import { test, expect, api, password } from '../support/fixtures';
 // Startup notifications and SWR must finish before comparing random trace headers;
 // two identical stale bodies do not prove the current business snapshot is cached.
 // Only the disposable runner's loopback collector enables these sampled flows.
+// An optional Replay download must never delay the core error past a full navigation.
 
 type Event = {
   type: string; traceId?: string; parentSpanId?: string; op?: string;
@@ -25,6 +26,47 @@ async function events(request: APIRequestContext): Promise<Event[]> {
   const response = await request.get(`${process.env.E2E_SENTRY_URL}/events`);
   expect(response.ok()).toBeTruthy();
   return response.json();
+}
+
+for (const failure of ['stalled', 'failed'] as const) {
+  test(`core errors survive a full navigation with ${failure} Replay downloads @sentry`, async ({ page, request }, info) => {
+    const chunksRoot = path.join(process.env.E2E_WORKSPACE!, 'apps/web/.next/static/chunks');
+    const replayChunks = new Set<string>();
+    for (const entry of await readdir(chunksRoot, { recursive: true })) {
+      if (!entry.endsWith('.js')) continue;
+      const source = await readFile(path.join(chunksRoot, entry), 'utf8');
+      if (source.includes('startBuffering') && source.includes('replay_event')) replayChunks.add(entry.replaceAll(path.sep, '/'));
+    }
+    expect(replayChunks.size).toBeGreaterThan(0);
+    let release!: () => void;
+    const hold = new Promise<void>(resolve => { release = resolve; });
+    const blocked: string[] = [];
+    await page.route('**/_next/static/chunks/**', async route => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (!replayChunks.has(pathname.split('/_next/static/chunks/')[1])) return route.continue();
+      blocked.push(pathname);
+      if (failure === 'stalled') await hold;
+      await route.abort();
+    });
+    try {
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      const beforeError = (await events(request)).length;
+      await page.evaluate(() => {
+        setTimeout(() => { throw new Error('LiLink synthetic Sentry cache trace probe'); }, 0);
+        setTimeout(() => location.assign('/about'), 250);
+      });
+      await page.waitForURL('**/about');
+      await expect.poll(() => blocked.length).toBeGreaterThan(0);
+      const coreErrors = async () => (await events(request)).slice(beforeError).filter(event => event.syntheticError);
+      await expect.poll(async () => (await coreErrors()).length, { timeout: 10_000 }).toBe(1);
+      // Also catch a delayed second send after the original optional-load deadline.
+      await page.waitForTimeout(1750);
+      expect(await coreErrors()).toHaveLength(1);
+      await info.attach('core-error-survives-navigation', { body: JSON.stringify({ failure,
+        fullNavigationAfterMilliseconds: 250, blocked, coreErrors: 1 }, null, 2), contentType: 'application/json' });
+    } finally { release(); }
+  });
 }
 
 test('cached HTML omits trace metadata and separate visits create separate traces @sentry', async ({ page, request, db, account }, info) => {

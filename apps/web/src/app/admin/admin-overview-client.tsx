@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink as Link } from "../../components/IntentLink";
 import { AdminIcon, type AdminIconName } from "./admin-icon";
 import { useCallback, useEffect, useState } from "react";
 import { fetchApi } from "../../lib/api";

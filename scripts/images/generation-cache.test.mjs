@@ -15,6 +15,7 @@ test('static generation reuses only complete content-verified output', async () 
     'apps/web/src/lib/static-image-manifest.ts', 'apps/web/src/app/home-preview.generated.module.css',
     'apps/web/src/app/about/about-preview.generated.module.css', 'apps/web/src/app/schools/school-atlases.generated.ts',
     'apps/web/src/app/schools/school-atlas-positions.module.css',
+    'apps/web/src/app/one-to-one/preview.generated.module.css',
   ];
   let calls = 0;
   const generate = async () => { calls++; for (const file of outputs) await write(file, 'generated output'); };

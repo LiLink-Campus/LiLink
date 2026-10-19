@@ -1,6 +1,7 @@
 "use client";
 import { PwaInstallEntry } from "../../_components/PwaInstall";
 import Link from "next/link";
+import { IntentLink } from "../../../components/IntentLink";
 import { useState } from "react";
 import { useAuthSession } from "../../auth-session";
 import { useDashboardSessionSeed } from "../_components/DashboardSessionSeed";
@@ -34,7 +35,7 @@ export function UserCenter({ initialStatus, initialUser, vipBootstrap = initialU
     <header className={styles.heading}><h1>用户中心</h1><p className={styles.desktopOnly}>管理你的账号与权益。</p></header>
     <section className={`${styles.identity} ${active ? styles.identityActive : ""}`} aria-label="账号信息">
       <span className={styles.avatar} aria-hidden="true">{Array.from(name)[0]?.toUpperCase()}</span>
-      <div><div className={styles.nameRow}><h2>{name}</h2><MemberIdentity label="用户身份" vipActive={Boolean(active)} educationVerified={education.status?.verified} /></div><p>{account.email}</p><Link className={styles.desktopOnly} href="/dashboard/profile">编辑匹配资料 →</Link></div>
+      <div><div className={styles.nameRow}><h2>{name}</h2><MemberIdentity label="用户身份" vipActive={Boolean(active)} educationVerified={education.status?.verified} /></div><p>{account.email}</p><IntentLink className={styles.desktopOnly} href="/dashboard/profile">编辑匹配资料 →</IntentLink></div>
     </section>
     <section className={`${styles.vip} ${active ? styles.vipActive : ""}`} aria-labelledby="center-vip-title">
       <VipOrbits className={styles.decoration} />
@@ -44,7 +45,7 @@ export function UserCenter({ initialStatus, initialUser, vipBootstrap = initialU
         <div><FiltersIcon /><div><h3>高级筛选</h3><p>更贴近你的期待</p></div></div>
       </div>
       {active && status?.expiresAt && <p className={styles.expiry}>有效期至 {new Date(status.expiresAt).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" })}</p>}
-      <Link className={styles.vipLink} href="/dashboard/vip">查看权益与激活 <span aria-hidden="true">→</span></Link>
+      <IntentLink className={styles.vipLink} href="/dashboard/vip">查看权益与激活 <span aria-hidden="true">→</span></IntentLink>
     </section>
     <div className={styles.details}>
     <EducationCard key={account.id} status={education.status} error={education.error} onRetry={education.retry} onVerified={education.accept} />

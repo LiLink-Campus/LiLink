@@ -5,8 +5,8 @@ import sharp from 'sharp';
 
 // Contract: keep all 28 names, aspect ratios, alpha, and display bounds; no runtime optimizer.
 // Failure boundary: a second-row mark can be LCP; its sheet must not carry later rows.
-// Four groups preserve rows; the first two rows have dedicated sheets at unchanged DPR/quality.
-// Groups share native lazy-loaded images. Failed images retain alt and school headings.
+// The first five marks share one small sheet; later rows retain two deferred groups.
+// Viewport-gated images share sheets. Failed images retain alt and school headings.
 const args = process.argv.slice(2);
 if (args.length !== 0 && (args.length !== 2 || args[0] !== '--report' || !args[1])) {
   throw new Error('Usage: node scripts/images/school-atlases.mjs [--report <path>]');
@@ -24,7 +24,7 @@ const reversedIds = ['qmul', 'glasgow', 'reading', 'aberdeen', 'bcu'];
 if (entries.length !== 28 || new Set(entries.map((entry) => entry.id)).size !== 28) {
   throw new Error('Expected 28 distinct partner logos; review the atlas grouping when partners change.');
 }
-const boundaries = ['cuc', 'uestc', 'tju'].map((id) => entries.findIndex((entry) => entry.id === id));
+const boundaries = ['uestc', 'tju'].map((id) => entries.findIndex((entry) => entry.id === id));
 if (boundaries.some((boundary, index) => boundary < 1 || (index > 0 && boundary <= boundaries[index - 1]))) {
   throw new Error('School atlas cooperation-row boundaries are missing or out of order.');
 }

@@ -5,12 +5,16 @@ import { fetchApi, isApiRequestError } from "../../lib/api";
 import { useAdmin } from "./admin-context";
 
 type ReadState<T> = { key: string; data: T | null; loading: boolean; error: string | null };
+export type AdminReadSeed<T> = { data: T | null; error: string | null };
 
 // Retain only the current query's successful value, scoped to this mounted admin.
-export function useAdminRead<T>(path: string, revision = 0) {
+export function useAdminRead<T>(path: string, revision = 0, initial?: AdminReadSeed<T>) {
   const { authenticated, admin, refreshAuth } = useAdmin();
   const key = authenticated && admin ? `${admin.id}:${path}` : "";
-  const [state, setState] = useState<ReadState<T>>({ key: "", data: null, loading: true, error: null });
+  const [state, setState] = useState<ReadState<T>>(() => initial && key
+    ? { key, ...initial, loading: false }
+    : { key: "", data: null, loading: true, error: null });
+  const seededKey = useRef(initial && key ? key : null);
   const activeKey = useRef(key);
   const activeRequest = useRef<AbortController | null>(null);
   const refresh = useCallback(async () => {
@@ -38,7 +42,12 @@ export function useAdminRead<T>(path: string, revision = 0) {
   }, [key, path, refreshAuth]);
   useEffect(() => {
     activeKey.current = key;
-    void refresh();
+    // Consume this request's seed only for its original identity/query. Returning
+    // to a query after filtering, a new admin, or a revision requires a fresh read.
+    if (seededKey.current !== key || revision !== 0) {
+      seededKey.current = null;
+      void refresh();
+    }
     return () => {
       activeKey.current = "";
       activeRequest.current?.abort();

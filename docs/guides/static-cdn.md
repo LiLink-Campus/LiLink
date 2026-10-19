@@ -12,8 +12,8 @@ lang: zh
 ## 当前资源路径
 
 - JS、CSS 和 Next 管理的字体使用同源 `/_next/static/`，不配置外部 assetPrefix。
-- 固定插画与团队头像使用同源 `public/images/responsive/`。`StaticImage` 通过原生 `srcset`/`sizes` 选择构建时生成的 WebP，保留首屏预加载、图片就绪门控、布局尺寸与下方图片懒加载，不经过 `/_next/image`。
-- 学校 logo 使用同源 `public/images/school-atlases/` 的分组图集和 1x/2x/3x 变体。每个学校保留原有文字与图片可访问名称，CSS 裁切只显示对应 logo。浏览到一组中的首个 logo 时会加载整组图片；减少请求不等于部分浏览时减少字节，需同时验收首屏与完整浏览。
+- 固定插画与团队头像使用同源 `public/images/responsive/`。`StaticImage` 通过原生 `srcset`/`sizes` 选择构建时生成的 WebP，保留首屏预加载、布局尺寸与下方图片懒加载，不经过 `/_next/image`。一对一页文字与按钮直接随 HTML 显示；构建期低清预览只写入页面 CSS，图片解码只控制插画内部的淡入，结束后移除预览。坏图保留占位与预览，不隐藏正文。
+- 学校 logo 使用同源 `public/images/school-atlases/` 的三组图集和 1x/2x/3x 变体；前两行五个标志共用小组，随 HTML 直接请求，不等待脚本，其余保留两个延后组。每个学校保留原有文字与图片可访问名称，CSS 裁切只显示对应 logo。交叉观察器依据裁切后的标志进入视口挂载后续响应式图片，避免浏览器原生懒加载阈值提前请求屏外大图集；不支持观察器时加载全部，禁用脚本时使用原生懒加载后备。浏览到一组中的首个 logo 时仍会加载整组图片；减少请求不等于部分浏览时减少字节，需同时验收首屏与完整浏览。
 - CSS 背景图、二维码预览与可下载原图直接使用同源带 hash 地址。二维码原图保留无损像素；不经 PostCSS 外部地址改写或资源 URL wrapper。
 - 品牌、联系 SVG、安装图标和公共字体通过 `shell-assets.generated.ts` 使用同源带 hash 地址，保留原未版本化资源。页面 HTML 与接口缓存不使用静态资源的长期缓存策略。
 - PWA 注册同源 `/sw.js`；离线文档和两枚带 hash SVG 图标从同源预缓存，下载有界，安装失败保留旧 worker，升级只删除自身旧缓存。

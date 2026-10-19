@@ -1,0 +1,34 @@
+.frame.frame {
+  background-image: var(--artwork-preview);
+  background-size: cover;
+  background-position: right bottom;
+}
+
+.frame img {
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+}
+
+.frame[data-artwork-ready="true"] img {
+  opacity: 1;
+}
+
+.frame.frame[data-artwork-ready="true"] {
+  animation: clear-preview 0s 180ms forwards;
+}
+
+@keyframes clear-preview {
+  to {
+    background-image: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame img {
+    transition: none;
+  }
+
+  .frame.frame[data-artwork-ready="true"] {
+    animation-delay: 0s;
+  }
+}

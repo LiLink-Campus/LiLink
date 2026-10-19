@@ -49,6 +49,7 @@ test(`representative school logos blend white backing and retain visible detail 
     const image = page.locator(`img[data-school-id="${logo.id}"]`);
     await image.evaluate(element => element.parentElement!.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
     await expect(image).toBeVisible();
+    await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).currentSrc.includes('/images/school-atlases/'))).toBe(true);
     await image.evaluate(async element => await (element as HTMLImageElement).decode());
     const area = await image.evaluate(element => {
       const crop = element.parentElement!.getBoundingClientRect();

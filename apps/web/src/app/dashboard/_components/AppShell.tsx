@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink as Link } from "../../../components/IntentLink";
 import { usePathname, useRouter } from "next/navigation";
 import {
   type ReactNode,
@@ -178,7 +178,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   role="menu"
                 >
                   <Link href="/" role="menuitem" onClick={closeMenu}><HomeIcon />返回首页</Link>
-                  <Link href="/forgot-password" role="menuitem" onClick={closeMenu} prefetch={false}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg>修改密码</Link>
+                  <Link href="/forgot-password" role="menuitem" onClick={closeMenu}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/></svg>修改密码</Link>
                   <button type="button" role="menuitem" className={styles.subdued} onClick={() => { closeMenu(); setDeletionOpen(true); }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>注销账号</button>
                   <button
                     type="button"

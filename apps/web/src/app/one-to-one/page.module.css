@@ -1,4 +1,6 @@
 .page { --wine: #89364f; --muted: #796b62; max-width: 1200px; margin: 0 auto; padding: 0 32px 48px; color: #382924; background: #faf8f4; }
+/* Public chrome's entrance animation must not delay server-rendered copy. */
+.page.page { animation: none; }
 .page :where(h1,h2,h3) { font-family: var(--font-display), serif; font-weight: 600; }
 .topline { display: flex; justify-content: space-between; padding: 22px 0; color: var(--wine); font-size: 13px; border-bottom: 1px solid #e7ded5; }
 .topline a { color: var(--muted); }

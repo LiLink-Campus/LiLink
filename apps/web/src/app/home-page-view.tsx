@@ -1,7 +1,7 @@
 import { homeArtwork } from "./home-artwork";
 import type { ReactNode } from "react";
 import { ButtonLink } from "@/components/ui";
-import Link from "next/link";
+import { IntentLink as Link } from "../components/IntentLink";
 import { StaticImage } from "@/components/StaticImage";
 import {
   CampusLineart,
@@ -81,7 +81,7 @@ export function HomePageView({ snapshotSections, joinMessage }: {
           <div className={styles.heroActions}>
             <ButtonLink prefetch={false} href="/dashboard">开始匹配 →</ButtonLink>
             {/* Warm the main secondary route so its artwork does not block the click. */}
-            <Link prefetch href="/about" className={styles.heroSecondary}>
+            <Link href="/about" className={styles.heroSecondary}>
               了解更多
             </Link>
           </div>

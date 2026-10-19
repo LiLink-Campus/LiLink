@@ -15,6 +15,7 @@ lang: zh
 
 ## 目录
 
+- [首屏调度优化与独立审阅验收（2026-10-19）](2026-10-19-loading-optimization.md)。
 - [工作区审阅与发布前验收（2026-10-19）](2026-10-19-workspace-review-release.md)。
 - [学校存在即允许教育认证验收（2026-10-19）](2026-10-19-school-membership.md)。
 

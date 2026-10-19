@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { IntentLink as Link } from "../../../components/IntentLink";
 import type { ReactNode } from "react";
 import { cx } from "@/lib/cx";
 import styles from "./MatchStateHero.module.css";

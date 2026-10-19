@@ -1,32 +1,32 @@
 .bupt {
   --logo-ratio: 1;
-  --atlas-width: 510.526316%;
+  --atlas-width: 1021.052632%;
   --atlas-left: -2.631579%;
   --atlas-top: -2.631579%;
 }
 .qmul {
   --logo-ratio: 5.53398058;
-  --atlas-width: 204.210526%;
+  --atlas-width: 408.421053%;
   --atlas-left: -103.157895%;
   --atlas-top: -5.825243%;
 }
 .cuc {
   --logo-ratio: 1;
-  --atlas-width: 765.789474%;
-  --atlas-left: -2.631579%;
+  --atlas-width: 1021.052632%;
+  --atlas-left: -513.157895%;
   --atlas-top: -2.631579%;
 }
 .coventry {
   --logo-ratio: 3.5625;
-  --atlas-width: 306.315789%;
-  --atlas-left: -103.157895%;
+  --atlas-width: 408.421053%;
+  --atlas-left: -307.368421%;
   --atlas-top: -3.75%;
 }
 .abertay {
   --logo-ratio: 3.1147541;
-  --atlas-width: 306.315789%;
-  --atlas-left: -205.263158%;
-  --atlas-top: -3.278689%;
+  --atlas-width: 408.421053%;
+  --atlas-left: -1.052632%;
+  --atlas-top: -140.983607%;
 }
 .uestc {
   --logo-ratio: 1.00440529;

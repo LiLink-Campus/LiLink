@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import { initializeInstallCapture } from "./lib/pwa-install-state";
+import { loadReplayForError, scheduleReplay } from "./lib/deferred-replay";
 
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -19,8 +20,7 @@ Sentry.init({
   dsn: sentryDsn || undefined,
   enabled: sentryEnabled,
 
-  // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  // Replay is installed after load/idle, or on the first captured error.
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: sentryTracesSampleRate,
@@ -44,8 +44,11 @@ Sentry.init({
       return null;
     }
 
+    if (event.exception) loadReplayForError();
     return event;
   },
 });
+
+scheduleReplay();
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

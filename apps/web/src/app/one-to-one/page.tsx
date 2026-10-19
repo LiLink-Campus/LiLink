@@ -1,7 +1,8 @@
-import { ImageReadyPage } from "../_components/ImageReadyPage";
+import { ArtworkFrame } from "./artwork-frame";
+import previewStyles from "./preview.generated.module.css";
 import type { Metadata } from "next";
 import { StaticImage } from "@/components/StaticImage";
-import Link from "next/link";
+import { IntentLink as Link } from "../../components/IntentLink";
 import styles from "./page.module.css";
 import { Registration } from "./Registration";
 import faqStyles from "../faq/faq.module.css";
@@ -20,7 +21,7 @@ const steps = [
 ];
 
 export default function OneToOnePage() {
-  return <ImageReadyPage className={styles.page}>
+  return <main className={styles.page}>
     <div className={styles.topline}><Link href="/dashboard">← 返回</Link></div>
     <section className={styles.hero} aria-labelledby="activity-title">
       <div className={styles.heroCopy}>
@@ -33,7 +34,7 @@ export default function OneToOnePage() {
       <div className={`${styles.heroCta} ${styles.contactCard}`}>
         <Registration />
       </div>
-      <div className={styles.heroArt}><StaticImage data-page-image className={styles.heroImage} src="/images/one-to-one-minimal.6c30b4067e80.webp" alt="两位同学坐在长椅上轻松交流的简约插画" width={1672} height={941} priority sizes="(max-width: 700px) 600px, 1100px" /></div>
+      <ArtworkFrame className={`${styles.heroArt} ${previewStyles.preview}`}><StaticImage data-page-image className={styles.heroImage} src="/images/one-to-one-minimal.6c30b4067e80.webp" alt="两位同学坐在长椅上轻松交流的简约插画" width={1672} height={941} priority sizes="(max-width: 700px) 600px, 1100px" /></ArtworkFrame>
     </section>
 
     <section className={styles.plans} aria-label="服务方案">
@@ -70,5 +71,5 @@ export default function OneToOnePage() {
         </div>
       </div>
     </section>
-  </ImageReadyPage>;
+  </main>;
 }

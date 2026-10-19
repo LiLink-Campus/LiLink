@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink as Link } from "../components/IntentLink";
 import { usePathname } from "next/navigation";
 import { useRef } from "react";
 import { ButtonLink } from "@/components/ui";
@@ -48,7 +48,7 @@ export function SiteNav() {
       </summary>
       <nav id="public-site-nav" className={styles.nav} aria-label="主导航">
         {PUBLIC_NAV_ITEMS.map((item) => (
-          <Link prefetch={false}
+          <Link
             key={item.href}
             href={item.href}
             onClick={closeMenu}

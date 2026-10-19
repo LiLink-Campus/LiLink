@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { useAdminRead } from "./use-admin-read";
+import { useAdminRead, type AdminReadSeed } from "./use-admin-read";
 import type { PaginatedResult } from "./types";
 
 type QueryValue = string | number | undefined;
 
-export function useAdminCollection<T>(path: string, params: Record<string, QueryValue>) {
+export function useAdminCollection<T>(path: string, params: Record<string, QueryValue>, initial?: AdminReadSeed<PaginatedResult<T>>) {
   const queryString = useMemo(() => {
     const searchParams = new URLSearchParams();
 
@@ -22,5 +22,5 @@ export function useAdminCollection<T>(path: string, params: Record<string, Query
     return serialized ? `${path}?${serialized}` : path;
   }, [params, path]);
 
-  return useAdminRead<PaginatedResult<T>>(queryString);
+  return useAdminRead<PaginatedResult<T>>(queryString, 0, initial);
 }

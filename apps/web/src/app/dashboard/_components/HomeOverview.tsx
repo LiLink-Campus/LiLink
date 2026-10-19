@@ -1,7 +1,7 @@
 "use client";
 
 import { PwaInstallCard } from "../../_components/PwaInstall";
-import Link from "next/link";
+import { IntentLink as Link } from "../../../components/IntentLink";
 import { RevealCountdown } from "./RevealCountdown";
 import { StaticImage } from "@/components/StaticImage";
 import { useEffect, useId, useRef, useState } from "react";
