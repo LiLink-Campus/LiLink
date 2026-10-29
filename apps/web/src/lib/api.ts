@@ -102,6 +102,7 @@ export async function fetchApi<T>(
   init?: RequestInit,
   sameOriginPath?: "/api/questionnaire",
 ): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
   const headers = new Headers(init?.headers);
 
   if (init?.body != null && !headers.has("Content-Type")) {
@@ -114,7 +115,8 @@ export async function fetchApi<T>(
       signal,
       headers,
       credentials: "include",
-      cache: init?.cache ?? "no-store",
+      // Chromium also bypasses preflight caching for no-store; retain it on reads.
+      cache: init?.cache ?? (method === "GET" || method === "HEAD" ? "no-store" : "default"),
     });
     const text = await response.text();
     if (!response.ok) {
@@ -122,7 +124,7 @@ export async function fetchApi<T>(
     }
     return parsePrivateApiBody(path, text) as T;
   };
-  return (init?.method ?? "GET").toUpperCase() === "GET"
+  return method === "GET"
     ? withReadDeadline(init?.signal, read)
     : read(init?.signal);
 }
