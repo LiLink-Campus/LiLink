@@ -19,6 +19,33 @@ const test = baseTest.extend({
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 const privatePaths = ['/me/dashboard', '/me/bootstrap', '/me/contact-preferences', ...['home', 'profile', 'center'].map(page => `/me/page-bootstrap/${page}`)];
 
+test('CORS preflight caches permission only for an allowed origin', async ({ request }, info) => {
+  const origin = process.env.E2E_WEB_URL!;
+  const samples = [];
+  for (const candidate of [origin, 'https://untrusted.example.test']) {
+    const response = await request.fetch(`${api}/auth/login`, {
+      method: 'OPTIONS',
+      headers: { Origin: candidate, 'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type' },
+    });
+    const headers = response.headers();
+    samples.push({ allowed: candidate === origin, status: response.status(),
+      origin: headers['access-control-allow-origin'] ?? null,
+      credentials: headers['access-control-allow-credentials'] ?? null,
+      maxAge: headers['access-control-max-age'] ?? null,
+      methods: headers['access-control-allow-methods'] ?? null,
+      headers: headers['access-control-allow-headers'] ?? null,
+      vary: headers.vary ?? null });
+  }
+  await info.attach('cors-preflight', { body: JSON.stringify(samples, null, 2), contentType: 'application/json' });
+  expect(samples[0]).toMatchObject({ status: 204, origin, credentials: 'true', maxAge: '600' });
+  expect(samples[0].methods?.split(',')).toContain('POST');
+  expect(samples[0].headers).toBe('content-type');
+  expect(samples[0].vary?.split(',').map(value => value.trim())).toContain('Origin');
+  expect(samples[1]).toMatchObject({ origin: null, credentials: null, maxAge: null });
+  expect((await request.get(`${api}/auth/me`)).status()).toBe(401);
+});
+
 test('private JSON retains fields, ISO dates, null and distinct account ownership', async ({ request, playwright, db, account, signedIn }, info) => {
   void signedIn;
   const user = await db.user.findUniqueOrThrow({ where: { id: account.id } });

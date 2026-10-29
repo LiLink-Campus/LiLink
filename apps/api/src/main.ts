@@ -27,6 +27,7 @@ async function bootstrap() {
         callback(null, false);
       },
       credentials: true,
+      maxAge: 600,
     },
   });
 
